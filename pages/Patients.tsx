@@ -246,11 +246,29 @@ export const Patients: React.FC = () => {
 
   const handleSavePatient = async (data: Partial<Patient>, files: { file: File; label: string }[], photoFile?: File | null) => {
     try {
+      const COUNTRY_DDI: Record<string, string> = {
+        BR:'55',PT:'351',US:'1',CA:'1',AR:'54',CL:'56',CO:'57',MX:'52',
+        UY:'598',PY:'595',PE:'51',BO:'591',GB:'44',DE:'49',ES:'34',FR:'33',
+        IT:'39',CH:'41',NL:'31',BE:'32',IE:'353',IL:'972',AE:'971',AU:'61',
+        JP:'81',CN:'86',
+      };
+      const prefixPhone = (raw: string | null | undefined, country: string | undefined) => {
+        if (!raw) return null;
+        const c = country || 'BR';
+        if (c === 'BR' || c === 'OTHER' || !COUNTRY_DDI[c]) return raw;
+        const digits = raw.replace(/\D/g, '');
+        if (!digits) return null;
+        return `+${COUNTRY_DDI[c]}${digits}`;
+      };
+      const phoneCountry = data.phone_country || 'BR';
+      const phone2Country = data.phone2_country || 'BR';
       const payload = {
         name: data.full_name,
         email: data.email || null,
-        phone: data.whatsapp || data.phone || null,
-        phone2: data.phone2 || null,
+        phone: prefixPhone(data.whatsapp || data.phone || null, phoneCountry),
+        phone2: prefixPhone(data.phone2 || null, phone2Country),
+        phone_country: phoneCountry,
+        phone2_country: phone2Country,
         birth_date: data.birth_date || null,
         cpf: data.cpf_cnpj || data.cpf || null,
         rg: data.rg || null,

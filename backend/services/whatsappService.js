@@ -8,9 +8,15 @@ function jidToPhone(jid) {
 }
 
 function normalizePhoneDigits(phone) {
-  let clean = String(phone || '').replace(/\D/g, '');
+  const raw = String(phone || '').trim();
+  const isInternational = raw.startsWith('+');
+  let clean = raw.replace(/\D/g, '');
 
-  // Já tem código do país
+  // Número internacional explícito (salvo com + no banco): usa os dígitos como estão
+  if (isInternational && clean.length >= 7) {
+    return clean;
+  }
+  // Já tem código BR
   if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
     return clean;
   }
