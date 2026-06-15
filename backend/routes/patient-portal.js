@@ -674,20 +674,54 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
     // Mapeia o dia da semana para a chave usada no schedule salvo pelo Perfil
     // (array de { dayKey, active, start, end, breaks })
     const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    // Calcula dia da semana sem problemas de timezone
+    const DAY_KEYS_PT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    // Calcula dia da semana sem problemas de timezone (usa meia-dia UTC para não cruzar fronteira)
     const [yyyy, mm, dd] = date.split('-').map(Number);
-    const dayIndex = new Date(yyyy, mm - 1, dd).getDay();
+    const dayIndex = new Date(Date.UTC(yyyy, mm - 1, dd, 12, 0, 0)).getUTCDay();
     const dayKey = DAY_KEYS[dayIndex];
+    const dayKeyPt = DAY_KEYS_PT[dayIndex];
+
+    // Localiza a config do dia aceitando vários formatos de schedule salvos
+    // (array com dayKey em inglês, dayKey em pt, índice numérico, ou objeto indexado).
+    const findDayConfig = () => {
+      if (Array.isArray(schedule)) {
+        return schedule.find(d => d && (
+          d.dayKey === dayKey || d.dayKey === dayKeyPt ||
+          d.day === dayKey || d.day === dayKeyPt ||
+          d.dayKey === dayIndex || d.day === dayIndex ||
+          d.weekday === dayIndex
+        )) || null;
+      }
+      if (schedule && typeof schedule === 'object') {
+        // Objeto indexado: { monday: {...} } ou { seg: [...] }
+        return schedule[dayKey] || schedule[dayKeyPt] || schedule[String(dayIndex)] || null;
+      }
+      return null;
+    };
+    const dayConfig = findDayConfig();
+
+    // Debug: ?debug=1 retorna o que o backend enxerga (sem dados sensíveis)
+    if (req.query.debug === '1') {
+      return res.json({
+        date, dayIndex, dayKey, dayKeyPt,
+        schedule_type: Array.isArray(schedule) ? 'array' : typeof schedule,
+        schedule_raw: schedule,
+        closed_dates_raw: closedDates,
+        dayConfig,
+        duration_minutes: users[0].duration_minutes,
+      });
+    }
 
     // Dia bloqueado (feriado/férias) → sem horários
-    const isClosed = Array.isArray(closedDates) && closedDates.some(c => c && c.date === date);
+    const isClosed = Array.isArray(closedDates) && closedDates.some(c => c && (c.date === date || c === date));
     if (isClosed) return res.json({ slots: [], date, day_key: dayKey });
 
-    const dayConfig = Array.isArray(schedule)
-      ? schedule.find(d => d && d.dayKey === dayKey)
-      : null;
+    // Normaliza a config do dia (suporta { active, start, end, breaks } e variações)
+    const active = dayConfig && (dayConfig.active !== false) && (dayConfig.enabled !== false);
+    const start = dayConfig && (dayConfig.start || dayConfig.startTime || dayConfig.from);
+    const end = dayConfig && (dayConfig.end || dayConfig.endTime || dayConfig.to);
 
-    if (!dayConfig || !dayConfig.active || !dayConfig.start || !dayConfig.end)
+    if (!dayConfig || !active || !start || !end)
       return res.json({ slots: [], date, day_key: dayKey });
 
     const toMin = (hhmm) => {
@@ -801,7 +835,7 @@ router.post('/appointments', portalAuth, async (req, res) => {
     const { patient_id, tenant_id } = req.portalSession;
     const {
       professional_id, date, time, modality, notes,
-      recurrence_freq, recurrence_count,
+      recurrence_freq, recurrence_count, skip_comanda,
     } = req.body;
     if (!professional_id || !date || !time)
       return res.status(400).json({ error: 'Profissional, data e horário são obrigatórios.' });
@@ -865,20 +899,23 @@ router.post('/appointments', portalAuth, async (req, res) => {
       ? `Pacote de ${sessionsTotal} sessões — ${patientName}`
       : `Consulta — ${patientName}`;
     let comandaId = null;
-    try {
-      const firstStr = brtDateTimeStr(occurrences[0].yyyy, occurrences[0].mm, occurrences[0].dd, occurrences[0].h, occurrences[0].min);
-      const [comandaIns] = await db.query(
-        `INSERT INTO comandas
-         (tenant_id, patient_id, professional_id, description, total, total_net, discount,
-          sessions_total, sessions_used, status, start_date, duration_minutes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', ?, ?, NOW(), NOW())`,
-        [tenant_id, patient_id, professional_id, description, sessionsTotal, firstStr, duration]
-      );
-      comandaId = comandaIns.insertId;
-    } catch (e) {
-      // Se a tabela comandas não tiver alguma coluna, segue sem comanda (não bloqueia o agendamento)
-      console.error('[portal] falha ao criar comanda automática:', e.message);
-      comandaId = null;
+    // No reagendamento (skip_comanda) não criamos comanda nova — evita comandas órfãs.
+    if (!skip_comanda) {
+      try {
+        const firstStr = brtDateTimeStr(occurrences[0].yyyy, occurrences[0].mm, occurrences[0].dd, occurrences[0].h, occurrences[0].min);
+        const [comandaIns] = await db.query(
+          `INSERT INTO comandas
+           (tenant_id, patient_id, professional_id, description, total, total_net, discount,
+            sessions_total, sessions_used, status, start_date, duration_minutes, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', ?, ?, NOW(), NOW())`,
+          [tenant_id, patient_id, professional_id, description, sessionsTotal, firstStr, duration]
+        );
+        comandaId = comandaIns.insertId;
+      } catch (e) {
+        // Se a tabela comandas não tiver alguma coluna, segue sem comanda (não bloqueia o agendamento)
+        console.error('[portal] falha ao criar comanda automática:', e.message);
+        comandaId = null;
+      }
     }
 
     const recurrenceRule = freq

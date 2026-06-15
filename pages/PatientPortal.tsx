@@ -691,6 +691,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           time: schedForm.time,
           modality: schedForm.modality,
           notes: schedForm.notes,
+          skip_comanda: true,
         }),
       });
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao reagendar.", "error"); return; }
