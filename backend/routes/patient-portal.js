@@ -681,19 +681,33 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
       return res.status(400).json({ error: 'Parâmetro date obrigatório (YYYY-MM-DD).' });
 
-    // Busca schedule + dias bloqueados do profissional
-    const [users] = await db.query(
-      `SELECT id, name, schedule, closed_dates, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
-      [profId, tenant_id]
-    );
-    if (!users[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
-
     const parseJson = (val) => {
       if (!val) return null;
       try { return typeof val === 'string' ? JSON.parse(val) : val; } catch { return null; }
     };
+
+    // Busca schedule do profissional. closed_dates e duration_minutes são opcionais:
+    // buscamos numa query tolerante para não quebrar se a coluna não existir em prod.
+    const [users] = await db.query(
+      `SELECT id, name, schedule FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [profId, tenant_id]
+    );
+    if (!users[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
+
+    let closedDates = null;
+    let durationMinutes = null;
+    try {
+      const [extra] = await db.query(
+        `SELECT closed_dates, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+        [profId, tenant_id]
+      );
+      closedDates = parseJson(extra[0]?.closed_dates);
+      durationMinutes = extra[0]?.duration_minutes ?? null;
+    } catch (e) {
+      console.error('[portal slots] colunas opcionais ausentes:', e.message);
+    }
+
     const schedule = parseJson(users[0].schedule);
-    const closedDates = parseJson(users[0].closed_dates);
 
     // Mapeia o dia da semana para a chave usada no schedule salvo pelo Perfil
     // (array de { dayKey, active, start, end, breaks })
@@ -732,7 +746,7 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
         schedule_raw: schedule,
         closed_dates_raw: closedDates,
         dayConfig,
-        duration_minutes: users[0].duration_minutes,
+        duration_minutes: durationMinutes,
       });
     }
 
@@ -761,7 +775,7 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
       ? dayConfig.breaks.filter(b => b && b.start && b.end).map(b => ({ start: toMin(b.start), end: toMin(b.end) }))
       : [];
 
-    const duration = users[0].duration_minutes || 50;
+    const duration = durationMinutes || 50;
     const STEP = 60; // horários de 1 em 1 hora
 
     // Gera os horários base do dia (início → fim), pulando intervalos
@@ -806,7 +820,10 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
 
     res.json({ slots, date, day_key: dayKey, duration });
   } catch (e) {
-    console.error(e);
+    console.error('[portal slots]', e?.message || e);
+    // Com ?debug=1 retorna a mensagem real do erro para diagnóstico rápido
+    if (req.query.debug === '1')
+      return res.status(500).json({ error: 'Erro interno.', detail: e?.message || String(e) });
     res.status(500).json({ error: 'Erro interno.' });
   }
 });
