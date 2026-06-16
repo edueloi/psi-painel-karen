@@ -1921,73 +1921,36 @@ export const Agenda: React.FC = () => {
           size="2xl"
           mobileStyle="bottom-sheet"
           footer={
-            <div className="flex flex-col-reverse sm:flex-row w-full sm:justify-between sm:items-center gap-2">
-              {/* Mobile: confirmar em cima, descartar abaixo — Desktop: excluir esquerda, ações direita */}
-              <div className="flex sm:hidden flex-col gap-2">
-                <Button
-                  size="md"
-                  loading={isSaving}
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  iconLeft={<CheckCircle2 size={15} />}
-                  fullWidth
-                  className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white h-12 rounded-2xl text-sm"
+            <div className="flex w-full justify-between items-center gap-2">
+              {formData.id ? (
+                <Button variant="danger" size="sm" iconLeft={<Trash2 size={13}/>}
+                  onClick={() => {
+                    if (formData.id || selectedApt?.id) setSelectedDeleteIds([formData.id || (selectedApt?.id as any)]);
+                    setIsDeleteModalOpen(true);
+                  }}
+                />
+              ) : <div />}
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={closeAppointmentModal} className="text-zinc-500">Descartar</Button>
+                <Button size="sm" loading={isSaving} onClick={handleSave} disabled={isSaving}
+                  iconLeft={<CheckCircle2 size={14} />}
+                  className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white"
                 >
                   {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
                 </Button>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={closeAppointmentModal} fullWidth className="text-zinc-500">
-                    Descartar
-                  </Button>
-                  {formData.id && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      iconLeft={<Trash2 size={13}/>}
-                      onClick={() => {
-                        if (formData.id || selectedApt?.id) setSelectedDeleteIds([formData.id || (selectedApt?.id as any)]);
-                        setIsDeleteModalOpen(true);
-                      }}
-                      className="shrink-0"
-                    >
-                      Excluir
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Desktop layout */}
-              <div className="hidden sm:flex w-full justify-between items-center gap-3">
-                {formData.id ? (
-                  <Button variant="danger" size="sm" iconLeft={<Trash2 size={14}/>}
-                    onClick={() => {
-                      if (formData.id || selectedApt?.id) setSelectedDeleteIds([formData.id || (selectedApt?.id as any)]);
-                      setIsDeleteModalOpen(true);
-                    }}
-                  />
-                ) : <div />}
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={closeAppointmentModal}>Descartar</Button>
-                  <Button size="sm" loading={isSaving} onClick={handleSave} disabled={isSaving}
-                    iconLeft={<CheckCircle2 size={14} />}
-                    className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white"
-                  >
-                    {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
-                  </Button>
-                </div>
               </div>
             </div>
           }
       >
-          <div className="space-y-4 sm:space-y-6 py-0 sm:py-1">
+          <div className="space-y-3 py-0">
 
               {/* TYPE SELECTOR — segmented no mobile, cards no desktop */}
               {/* Mobile: pill segmented control */}
-              <div className="flex sm:hidden bg-zinc-100 p-1 rounded-2xl gap-0.5">
+              <div className="flex sm:hidden bg-zinc-100 p-0.5 rounded-xl gap-0.5">
                 {[
-                  { id: 'consulta', label: 'Consulta',  icon: <Briefcase size={15}/>, activeBg: 'bg-indigo-600 text-white shadow', activeText: 'text-white' },
-                  { id: 'pessoal',  label: 'Evento',    icon: <UserIcon  size={15}/>, activeBg: 'bg-amber-500  text-white shadow', activeText: 'text-white' },
-                  { id: 'bloqueio', label: 'Bloqueio',  icon: <Ban       size={15}/>, activeBg: 'bg-zinc-600   text-white shadow', activeText: 'text-white' },
+                  { id: 'consulta', label: 'Consulta',  icon: <Briefcase size={13}/>, activeBg: 'bg-indigo-600 text-white shadow-sm' },
+                  { id: 'pessoal',  label: 'Evento',    icon: <UserIcon  size={13}/>, activeBg: 'bg-amber-500  text-white shadow-sm' },
+                  { id: 'bloqueio', label: 'Bloqueio',  icon: <Ban       size={13}/>, activeBg: 'bg-zinc-600   text-white shadow-sm' },
                 ].map(t => {
                   const active = formData.type === t.id;
                   return (
@@ -1995,8 +1958,8 @@ export const Agenda: React.FC = () => {
                       key={t.id}
                       type="button"
                       onClick={() => setFormData({...formData, type: t.id})}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all ${
-                        active ? t.activeBg : 'text-zinc-500 hover:text-zinc-700'
+                      className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-[9px] text-[10px] font-semibold transition-all ${
+                        active ? t.activeBg : 'text-zinc-400 hover:text-zinc-600'
                       }`}
                     >
                       {t.icon}
@@ -2006,12 +1969,12 @@ export const Agenda: React.FC = () => {
                 })}
               </div>
 
-              {/* Desktop: cards completos */}
-              <div className="hidden sm:grid grid-cols-3 gap-3">
+              {/* Desktop: cards compactos */}
+              <div className="hidden sm:grid grid-cols-3 gap-2">
                    {[
-                       { id: 'consulta',  label: 'Consulta',       icon: <Briefcase size={20}/>, desc: 'Sessão clínica',       activeClass: 'border-indigo-500 bg-indigo-50', iconClass: 'bg-indigo-500 text-white', radioClass: 'border-indigo-600 bg-indigo-600', textClass: 'text-indigo-900' },
-                       { id: 'pessoal',   label: 'Evento Pessoal', icon: <UserIcon size={20}/>,  desc: 'Compromisso pessoal',  activeClass: 'border-amber-500  bg-amber-50',  iconClass: 'bg-amber-500  text-white', radioClass: 'border-amber-600  bg-amber-600',  textClass: 'text-amber-900'  },
-                       { id: 'bloqueio',  label: 'Bloqueio',        icon: <Ban size={20}/>,       desc: 'Horário indisponível', activeClass: 'border-zinc-400   bg-zinc-100',  iconClass: 'bg-zinc-500   text-white', radioClass: 'border-zinc-500   bg-zinc-500',   textClass: 'text-zinc-800'   },
+                       { id: 'consulta',  label: 'Consulta',       icon: <Briefcase size={16}/>, desc: 'Sessão clínica',       activeClass: 'border-indigo-400 bg-indigo-50/70', iconClass: 'bg-indigo-500 text-white', radioClass: 'border-indigo-600 bg-indigo-600', textClass: 'text-indigo-800' },
+                       { id: 'pessoal',   label: 'Evento Pessoal', icon: <UserIcon size={16}/>,  desc: 'Compromisso pessoal',  activeClass: 'border-amber-400  bg-amber-50/70',  iconClass: 'bg-amber-500  text-white', radioClass: 'border-amber-500  bg-amber-500',  textClass: 'text-amber-800'  },
+                       { id: 'bloqueio',  label: 'Bloqueio',        icon: <Ban size={16}/>,       desc: 'Horário indisponível', activeClass: 'border-zinc-400   bg-zinc-100/80',  iconClass: 'bg-zinc-500   text-white', radioClass: 'border-zinc-500   bg-zinc-500',   textClass: 'text-zinc-700'   },
                    ].map(t => {
                        const active = formData.type === t.id;
                        return (
@@ -2019,31 +1982,31 @@ export const Agenda: React.FC = () => {
                           key={t.id}
                           type="button"
                           onClick={() => setFormData({...formData, type: t.id})}
-                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left shadow-sm ${
-                            active ? t.activeClass : 'border-zinc-100 bg-white hover:border-zinc-200 hover:bg-zinc-50'
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                            active ? t.activeClass + ' shadow-sm' : 'border-zinc-200/80 bg-white hover:border-zinc-300 hover:bg-zinc-50'
                           }`}
                         >
-                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${active ? t.iconClass : 'bg-zinc-100 text-zinc-400'}`}>
+                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all ${active ? t.iconClass : 'bg-zinc-100 text-zinc-400'}`}>
                             {t.icon}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className={`text-[11px] font-black uppercase tracking-wider leading-tight ${active ? t.textClass : 'text-zinc-700'}`}>{t.label}</div>
-                            <div className="text-[10px] text-zinc-400 font-medium mt-0.5">{t.desc}</div>
+                            <div className={`text-[11px] font-bold leading-tight ${active ? t.textClass : 'text-zinc-600'}`}>{t.label}</div>
+                            <div className="text-[10px] text-zinc-400 mt-0.5">{t.desc}</div>
                           </div>
-                          <div className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? t.radioClass : 'border-zinc-200'}`}>
-                            {active && <Check size={9} className="text-white" strokeWidth={4} />}
+                          <div className={`ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? t.radioClass : 'border-zinc-200'}`}>
+                            {active && <Check size={7} className="text-white" strokeWidth={4} />}
                           </div>
                         </button>
                        );
                    })}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* LEFT COLUMN: IDENTIFICATION */}
-                  <div className="bg-zinc-50 sm:bg-zinc-50 border border-zinc-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
-                      <div className="flex items-center gap-2.5">
-                          <div className="w-1 h-5 bg-indigo-500 rounded-full"></div>
-                          <h4 className="text-xs font-black text-zinc-700 uppercase tracking-[0.15em]">Identificação</h4>
+                  <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-3.5">
+                      <div className="flex items-center gap-2">
+                          <div className="w-0.5 h-4 bg-indigo-500 rounded-full"></div>
+                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Identificação</h4>
                       </div>
 
                       {formData.type === 'consulta' ? (
@@ -2306,29 +2269,29 @@ export const Agenda: React.FC = () => {
                       )}
 
                       {formData.type === 'consulta' && (
-                          <div className="space-y-4">
-                            <div className="space-y-4">
-                                <div className="space-y-1.5 flex-1">
-                                    <label className="text-[11px] font-black text-zinc-400 uppercase tracking-[0.15em] ml-1">Modalidade</label>
-                                    <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200 w-full sm:w-2/3">
+                          <div className="space-y-3">
+                            <div className="space-y-3">
+                                <div className="space-y-1 flex-1">
+                                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider ml-0.5">Modalidade</label>
+                                    <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 w-full sm:w-2/3">
                                         <button
                                           type="button"
                                           onClick={() => setFormData({...formData, modality: 'presencial'})}
-                                          className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                          className={`flex-1 py-1.5 rounded-md text-[10px] font-semibold transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
                                         >
                                           Presencial
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => setFormData({...formData, modality: 'online'})}
-                                          className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                          className={`flex-1 py-1.5 rounded-md text-[10px] font-semibold transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
                                         >
                                           Online
                                         </button>
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5 flex-1">
+                                <div className="space-y-1 flex-1">
                                     <Combobox
                                       label="Status do Atendimento"
                                       placeholder="Definir status..."
@@ -2359,27 +2322,27 @@ export const Agenda: React.FC = () => {
                             {preferences.agenda.showLivroCaixa !== false && !(formData.comanda_id && patientComandas.find(c => String(c.id) === String(formData.comanda_id))?.sync_to_livrocaixa) && (
                               <div
                                 onClick={() => setFormData({...formData, sync_to_livrocaixa: !formData.sync_to_livrocaixa})}
-                                className={`mt-2 p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
-                                    formData.sync_to_livrocaixa 
-                                        ? 'bg-emerald-50/50 border-emerald-200' 
-                                        : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                                className={`px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
+                                    formData.sync_to_livrocaixa
+                                        ? 'bg-emerald-50/60 border-emerald-200'
+                                        : 'bg-zinc-50 border-zinc-200/80 hover:border-zinc-300'
                                 }`}
                               >
-                                  <div className="flex items-center gap-3">
-                                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                                          formData.sync_to_livrocaixa ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-200 text-slate-500'
+                                  <div className="flex items-center gap-2.5">
+                                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                                          formData.sync_to_livrocaixa ? 'bg-emerald-500 text-white' : 'bg-zinc-200 text-zinc-400'
                                       }`}>
-                                          <BookOpen size={18} />
+                                          <BookOpen size={14} />
                                       </div>
                                       <div>
-                                          <p className={`text-[11px] font-black uppercase tracking-widest ${formData.sync_to_livrocaixa ? 'text-emerald-700' : 'text-slate-600'}`}>Lançar no Livro Caixa</p>
-                                          <p className="text-[10px] text-slate-400 font-medium">Sincronizar este valor com o financeiro</p>
+                                          <p className={`text-[11px] font-semibold ${formData.sync_to_livrocaixa ? 'text-emerald-700' : 'text-slate-600'}`}>Lançar no Livro Caixa</p>
+                                          <p className="text-[10px] text-slate-400">Sincronizar com o financeiro</p>
                                       </div>
                                   </div>
-                                  <div 
-                                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 transition-colors duration-200 ease-in-out ${formData.sync_to_livrocaixa ? 'bg-emerald-500 border-emerald-500' : 'bg-slate-300 border-slate-300'}`}
+                                  <div
+                                    className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${formData.sync_to_livrocaixa ? 'bg-emerald-500' : 'bg-slate-200'}`}
                                   >
-                                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-[2px] ${formData.sync_to_livrocaixa ? 'translate-x-[22px]' : 'translate-x-[2px]'}`} />
+                                      <span className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow mt-[3px] transition duration-200 ${formData.sync_to_livrocaixa ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                                   </div>
                               </div>
                             )}
@@ -2388,22 +2351,22 @@ export const Agenda: React.FC = () => {
                   </div>
 
                   {/* RIGHT COLUMN: TIME & RECURRENCE */}
-                  <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
-                      <div className="flex items-center gap-2.5">
-                          <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
-                          <h4 className="text-xs font-black text-zinc-700 uppercase tracking-[0.15em]">Horário e Repetição</h4>
+                  <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-3.5">
+                      <div className="flex items-center gap-2">
+                          <div className="w-0.5 h-4 bg-emerald-500 rounded-full"></div>
+                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Horário e Repetição</h4>
                       </div>
 
                       {formData.id ? (
                         /* ── MODO EDIÇÃO: data/hora readonly — só muda via botão dedicado ── */
-                        <div className="flex items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white rounded-lg text-indigo-500 border border-slate-100 shadow-sm shrink-0">
-                              <Clock size={16}/>
+                        <div className="flex items-center justify-between gap-3 bg-zinc-50 px-3 py-2.5 rounded-xl border border-zinc-200">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-white rounded-lg text-indigo-500 border border-zinc-100 shrink-0">
+                              <Clock size={14}/>
                             </div>
                             <div>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-0.5">Data e Horário</p>
-                              <p className="text-sm font-black text-slate-800 tabular-nums">
+                              <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider leading-none mb-0.5">Data e Horário</p>
+                              <p className="text-sm font-semibold text-slate-700 tabular-nums">
                                 {new Date(formData.appointment_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                                 {' · '}
                                 {formData.appointment_date.slice(11, 16)}
@@ -2419,58 +2382,56 @@ export const Agenda: React.FC = () => {
                               });
                               setIsRescheduleModalOpen(true);
                             }}
-                            className="shrink-0 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm"
+                            className="shrink-0 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-lg transition-all"
                           >
                             Alterar
                           </button>
                         </div>
                       ) : (
                         /* ── MODO CRIAÇÃO: campos editáveis normalmente ── */
-                        <div className="space-y-4">
-                          <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="space-y-3">
+                          <div className="flex gap-3">
                             <div className="flex-1 min-w-0">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Data</label>
+                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider ml-0.5 mb-1 block">Data</label>
                                 <DatePicker
                                   value={formData.appointment_date.slice(0, 10)}
                                   onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
                                 />
                             </div>
-                            <div className="w-full sm:w-1/2">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Hora</label>
-                                <div className="relative group">
-                                  <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                            <div className="w-2/5">
+                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider ml-0.5 mb-1 block">Hora</label>
+                                <div className="relative">
+                                  <Clock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
                                   <input
                                     type="time"
                                     value={formData.appointment_date.slice(11, 16)}
                                     onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
-                                    className="h-11 w-full rounded-2xl border border-slate-200 pl-9 pr-3 text-sm font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-slate-50/30 hover:bg-white"
+                                    className="h-10 w-full rounded-xl border border-slate-200 pl-8 pr-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all bg-white"
                                   />
                                 </div>
                             </div>
                           </div>
-                          
+
                           <div className="w-full">
                               <Input
-                                  label="Duração do Atendimento (Minutos)"
+                                  label="Duração (min)"
                                   type="number"
-                                  placeholder="Ex: 50"
+                                  placeholder="50"
                                   value={formData.duration_minutes}
                                   onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
-                                  className="!h-11 !rounded-2xl"
+                                  className="!h-10 !rounded-xl"
                               />
                           </div>
                         </div>
                       )}
 
                       {/* END TIME PREVIEW */}
-                      <div className="flex items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 shadow-sm transition-all hover:bg-slate-100/50">
-                          <div className="flex items-center gap-3">
-                              <div className="p-2 bg-white rounded-lg text-indigo-500 border border-slate-100 shadow-sm shrink-0">
-                                  <Clock size={16}/>
-                              </div>
+                      <div className="flex items-center justify-between gap-2 bg-indigo-50/50 px-3 py-2.5 rounded-xl border border-indigo-100/80">
+                          <div className="flex items-center gap-2">
+                              <Clock size={13} className="text-indigo-400 shrink-0"/>
                               <div>
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none mb-1">Término Previsto</p>
-                                  <p className="text-sm font-black text-indigo-700 tabular-nums">
+                                  <p className="text-[9px] font-semibold text-indigo-400 uppercase tracking-wider leading-none mb-0.5">Término previsto</p>
+                                  <p className="text-sm font-semibold text-indigo-700 tabular-nums">
                                       {(() => {
                                           try {
                                               const start = new Date(formData.appointment_date);
@@ -2491,7 +2452,7 @@ export const Agenda: React.FC = () => {
                                     setIsEndTimeModalOpen(true);
                                 } catch { setTempEndTime(''); }
                             }}
-                            className="shrink-0 px-3 py-1.5 bg-white hover:bg-slate-50 text-indigo-600 border border-indigo-200 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-xs"
+                            className="shrink-0 px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] font-semibold rounded-lg transition-all"
                           >
                             Alterar
                           </button>
@@ -2515,41 +2476,36 @@ export const Agenda: React.FC = () => {
                           const selComanda = formData.comanda_id ? patientComandas.find((c: any) => String(c.id) === String(formData.comanda_id)) : null;
                           const needsRecurrence = !formData.id && selComanda && (selComanda.package_id || Number(selComanda.sessions_total) > 1) && !formData.recurrence_rule && !formData.recurrence_explicitly_none;
                           return (
-                          <div className={`p-4 rounded-xl border space-y-3 transition-colors ${needsRecurrence ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200/60'}`}>
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                  <div className="flex items-center gap-2.5">
-                                      <div className={`p-1.5 bg-white rounded-lg shadow-sm border text-indigo-500 shrink-0 ${needsRecurrence ? 'border-amber-300' : 'border-slate-200'}`}>
-                                          <Repeat size={14} />
-                                      </div>
+                          <div className={`px-3 py-2.5 rounded-xl border transition-colors ${needsRecurrence ? 'bg-amber-50 border-amber-300' : 'bg-zinc-50 border-zinc-200/80'}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                      <Repeat size={13} className={needsRecurrence ? 'text-amber-500' : 'text-indigo-400'} />
                                       <div>
-                                          <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider leading-none mb-1">Repetição Fixa</p>
-                                          <p className="text-[10px] font-medium text-slate-400">Marque sessões recorrentes</p>
+                                          <p className="text-[10px] font-semibold text-slate-600 leading-none">Repetição Fixa</p>
+                                          <p className="text-[9px] text-slate-400 mt-0.5">Sessões recorrentes</p>
                                       </div>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => setIsRecurrenceModalOpen(true)}
-                                    className={`flex items-center justify-center gap-1.5 w-full sm:w-auto px-3 py-2 sm:px-2.5 sm:py-1.5 bg-white border rounded-xl sm:rounded-lg font-bold uppercase text-[10px] hover:bg-slate-100 transition-all shadow-sm group/btn ${needsRecurrence ? 'border-amber-400 text-amber-700' : 'border-slate-200 text-indigo-600'}`}
+                                    className={`flex items-center gap-1 px-2.5 py-1.5 bg-white border rounded-lg text-[10px] font-semibold hover:bg-slate-50 transition-all group/btn ${needsRecurrence ? 'border-amber-400 text-amber-700' : 'border-zinc-200 text-indigo-600'}`}
                                   >
                                     {formData.recurrence_rule ? (
                                         <>
                                             {recurrenceOptions.find(o => o.freq === formData.recurrence_freq && o.interval === formData.recurrence_interval)?.label || 'Personalizado'}
-                                            <div className="w-1 h-3 bg-indigo-200 rounded-full mx-1"></div>
+                                            {(formData.recurrence_count || formData.recurrence_end_date) && <span className="text-zinc-300 mx-0.5">·</span>}
                                             {formData.recurrence_count ? `${formData.recurrence_count}x` : formData.recurrence_end_date ? 'Até data' : ''}
                                         </>
                                     ) : 'Não Repete'}
-                                    <ChevronRight size={10} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                                    <ChevronRight size={9} className="group-hover/btn:translate-x-0.5 transition-transform" />
                                   </button>
                               </div>
                               {needsRecurrence && (
-                                  <div className="flex items-start gap-2 pt-1 border-t border-amber-200">
-                                      <AlertCircle size={13} className="text-amber-500 mt-0.5 shrink-0" />
-                                      <div className="flex-1">
-                                          <p className="text-[11px] font-bold text-amber-700 leading-snug">Repetição necessária</p>
-                                          <p className="text-[10px] text-amber-600 leading-relaxed mt-0.5">
-                                              Esta comanda é de pacote ({selComanda.sessions_total} sessões). Configure a repetição ou confirme "Não Repete" para criar só esta sessão.
-                                          </p>
-                                      </div>
+                                  <div className="flex items-start gap-1.5 pt-2 mt-2 border-t border-amber-200">
+                                      <AlertCircle size={12} className="text-amber-500 mt-0.5 shrink-0" />
+                                      <p className="text-[10px] text-amber-600 leading-relaxed">
+                                          Pacote de {selComanda.sessions_total} sessões — configure a repetição ou confirme "Não Repete".
+                                      </p>
                                   </div>
                               )}
                           </div>
@@ -2559,17 +2515,17 @@ export const Agenda: React.FC = () => {
               </div>
 
               {formData.type === 'consulta' && formData.modality === 'online' && (
-                  <div className="bg-indigo-950 p-4 rounded-2xl text-white flex items-center gap-4 relative overflow-hidden">
-                      <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-indigo-300 border border-white/10 shrink-0">
-                          <Video size={20}/>
+                  <div className="bg-indigo-950 px-4 py-3 rounded-xl text-white flex items-center gap-3 relative overflow-hidden">
+                      <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-indigo-300 border border-white/10 shrink-0">
+                          <Video size={15}/>
                       </div>
                       <div className="flex-1 min-w-0">
-                          <label className="text-[9px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1 block">Link da Sala Virtual</label>
+                          <label className="text-[9px] font-semibold text-indigo-300 uppercase tracking-wider mb-1 block">Link da Sala Virtual</label>
                           <input
                             placeholder="Google Meet, Zoom ou sala interna..."
                             value={formData.meeting_url || ''}
                             onChange={e => setFormData({...formData, meeting_url: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-medium text-white placeholder:text-white/30 outline-none focus:bg-white/10 focus:border-indigo-400 transition-all"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-white/30 outline-none focus:bg-white/10 focus:border-indigo-400 transition-all"
                           />
                       </div>
                   </div>
@@ -2592,28 +2548,28 @@ export const Agenda: React.FC = () => {
                   : 'border-slate-200';
                 
                 return (
-                  <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4">
-                      <div className="flex items-center gap-2.5">
-                          <div className={`w-1 h-5 ${notesColor} rounded-full`}></div>
-                          <h4 className={`text-xs font-black uppercase tracking-[0.15em] ${needsReason ? 'text-rose-600' : 'text-zinc-700'}`}>
+                  <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                          <div className={`w-0.5 h-4 ${notesColor} rounded-full`}></div>
+                          <h4 className={`text-[10px] font-bold uppercase tracking-[0.12em] ${needsReason ? 'text-rose-600' : 'text-zinc-500'}`}>
                             {notesLabel}{needsReason && <span className="text-rose-500 ml-1">*</span>}
                           </h4>
                       </div>
                       <Textarea
                         label=""
                         placeholder={isAbsence
-                          ? 'Descreva detalhadamente o motivo da ausência do paciente...'
+                          ? 'Descreva o motivo da ausência do paciente...'
                           : isCancelled
-                          ? 'Por que o atendimento foi removido ou cancelado?'
-                          : 'Adicione detalhes sobre o atendimento, queixas iniciais ou avisos importantes que serão replicados no prontuário...'}
+                          ? 'Por que o atendimento foi cancelado?'
+                          : 'Detalhes sobre o atendimento, queixas ou observações importantes...'}
                         value={formData.notes || ''}
                         onChange={e => setFormData({...formData, notes: e.target.value})}
-                        className={`min-h-[120px] !rounded-[24px] shadow-sm !bg-slate-50/30 !p-5 focus:!bg-white transition-all text-sm leading-relaxed ${borderClass}`}
+                        className={`min-h-[90px] !rounded-xl !bg-zinc-50/50 !p-3.5 focus:!bg-white transition-all text-sm leading-relaxed ${borderClass}`}
                       />
                       {needsReason && notesEmpty && (
-                        <div className="flex items-center gap-2 px-2 py-2 bg-rose-50 rounded-xl border border-rose-100 animate-fadeIn">
-                          <AlertCircle size={14} className="text-rose-500 shrink-0" />
-                          <p className="text-[10px] font-black text-rose-600 uppercase tracking-wide">Campo obrigatório para registro de {isAbsence ? 'falta' : 'cancelamento'}</p>
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-rose-50 rounded-lg border border-rose-100 animate-fadeIn">
+                          <AlertCircle size={12} className="text-rose-500 shrink-0" />
+                          <p className="text-[10px] font-semibold text-rose-600">Campo obrigatório para {isAbsence ? 'falta' : 'cancelamento'}</p>
                         </div>
                       )}
                   </div>
@@ -2621,16 +2577,16 @@ export const Agenda: React.FC = () => {
               })()}
 
               {formData.id && formData.status !== 'no-show' && formData.status !== 'cancelled' && (
-                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 flex flex-col gap-2">
-                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2">
-                      <AlertCircle size={12} className="text-amber-500" /> Motivo da Alteração / Reagendamento
+                <div className="bg-amber-50/70 px-4 pt-3 pb-3.5 rounded-xl border border-amber-200 flex flex-col gap-2">
+                    <p className="text-[10px] font-semibold text-amber-700 flex items-center gap-1.5">
+                      <AlertCircle size={11} className="text-amber-500" /> Motivo da alteração (opcional)
                     </p>
                     <Textarea
                         label=""
-                        placeholder="Por que este atendimento foi alterado? (Opcional)"
+                        placeholder="Por que este atendimento foi alterado?"
                         value={formData.reschedule_reason || ''}
                         onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
-                        className="!bg-white !border-amber-200 min-h-[60px] text-amber-800 placeholder:text-amber-300"
+                        className="!bg-white !border-amber-200 min-h-[56px] text-amber-800 placeholder:text-amber-300 !rounded-xl !text-sm"
                     />
                 </div>
               )}
