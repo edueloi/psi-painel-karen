@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Appointment, Service, Patient, User, AppointmentType } from '../types';
 import {
@@ -183,6 +183,24 @@ export const Agenda: React.FC = () => {
     return `${year}-${month}-${day}`;
   };
   const stickyStats = preferences.agenda.stickyStats ?? true;
+  const stickyNavRef = useRef<HTMLDivElement>(null);
+  const [stickyNavOffset, setStickyNavOffset] = useState(0);
+
+  useEffect(() => {
+    if (!stickyStats || !stickyNavRef.current) { setStickyNavOffset(0); return; }
+    const measure = () => {
+      const el = stickyNavRef.current;
+      if (!el) return;
+      // top of sticky (topbar height) + element height = where calendar header should sit
+      const topStyle = getComputedStyle(el).top;
+      const topPx = parseFloat(topStyle) || 0;
+      setStickyNavOffset(topPx + el.offsetHeight);
+    };
+    measure();
+    const obs = new ResizeObserver(measure);
+    obs.observe(stickyNavRef.current);
+    return () => obs.disconnect();
+  }, [stickyStats]);
 
   // ── Edit scope modal (which sessions to apply changes to) ──
   const [isScopeModalOpen, setIsScopeModalOpen] = useState(false);
@@ -1599,7 +1617,7 @@ export const Agenda: React.FC = () => {
       </div>
 
       {/* FILTERS & NAVIGATION BAR — sticky apenas aqui */}
-      <div className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-md shadow-slate-200/60' : ''}>
+      <div ref={stickyNavRef} className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-md shadow-slate-200/60' : ''}>
       <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-zinc-200 shadow-sm flex flex-wrap gap-2 items-center justify-between">
 
           {/* Navegação + label de data */}
@@ -1800,6 +1818,7 @@ export const Agenda: React.FC = () => {
                 onViewChange={(v) => setView(v as any)}
                 currentDate={currentDate}
                 onCurrentDateChange={setCurrentDate}
+                stickyHeaderTop={stickyStats ? stickyNavOffset : 0}
                 events={filteredAppointments.map(a => {
                     // Tenta encontrar serviço ou pacote
                     let serviceName = '';
@@ -4043,454 +4062,429 @@ export const Agenda: React.FC = () => {
       </Modal>
 
       {/* COMANDA MANAGER MODAL */}
-      {/* COMANDA MANAGER MODAL */}
       <Modal
         isOpen={isComandaManagerOpen}
         onClose={() => { setIsComandaManagerOpen(false); setComandaManagerSourceId(null); }}
-        title="Gestão de Histórico e Pagamentos"
+        title="Comanda"
         maxWidth="max-w-5xl"
       >
         {(() => {
           const cmnd = patientComandas.find(c => String(c.id) === String(comandaManagerSourceId ?? selectedApt?.comanda_id));
-          
+
           if (!cmnd) {
             return (
-              <div className="py-20 text-center space-y-4">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
-                  <DollarSign size={24} className="text-slate-300" />
+              <div className="py-16 text-center space-y-3">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-slate-100">
+                  <DollarSign size={22} className="text-slate-300" />
                 </div>
-                <div>
-                  <p className="text-slate-600 font-bold">Comanda não encontrada</p>
-                  <p className="text-slate-400 text-xs">Este atendimento pode não estar vinculado a um registro financeiro.</p>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => setIsComandaManagerOpen(false)}>Fechar Janela</Button>
+                <p className="text-slate-600 font-bold">Comanda não encontrada</p>
+                <p className="text-slate-400 text-xs">Este atendimento pode não estar vinculado a um registro financeiro.</p>
+                <Button size="sm" variant="outline" onClick={() => setIsComandaManagerOpen(false)}>Fechar</Button>
               </div>
             );
           }
 
-          // Pega os agendamentos desta comanda diretamente do state (cmnd.appointments pode estar vazio)
           const cmndAppointments = appointments
             .filter(a => a.comanda_id && String(a.comanda_id) === String(cmnd.id))
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
+          const usedCount = cmndAppointments.filter((a: any) =>
+            ['completed','confirmed','no_show','no-show','cancelled'].includes(a.status)
+          ).length;
+          const totalSessions = cmnd.sessions_total || 1;
+          const progress = Math.min(100, (usedCount / totalSessions) * 100);
+          const cmndTotal = getComandaTotal(cmnd);
+          const cmndPaid = getComandaPaid(cmnd);
+          const cmndPending = cmndTotal - cmndPaid;
+
+          const grossTotal = (cmnd.items || []).reduce((s: number, it: any) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
+          const discountVal = Number(cmnd.discount_value || 0);
+          const discountAmt = cmnd.discount_type === 'percentage' ? (grossTotal * discountVal) / 100 : discountVal;
+          const ratio = grossTotal > 0 ? (grossTotal - discountAmt) / grossTotal : 1;
+
+          const patientId = selectedApt?.patient_id || cmnd.patient_id;
+          const patientFromList = patients.find((p: any) => String(p.id) === String(patientId));
+          const patientName = selectedApt?.patient_name || patientFromList?.full_name || (patientFromList as any)?.name || 'Paciente';
+
+          const statusOptions = [
+            { value: 'scheduled', label: 'Agendado' },
+            { value: 'confirmed', label: 'Confirmado' },
+            { value: 'completed', label: 'Realizado' },
+            { value: 'no_show', label: 'Faltou' },
+            { value: 'cancelled', label: 'Cancelado' },
+          ];
+
           return (
-            <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-[1.6fr_0.9fr]">
-              {(() => {
-                const usedSessionsArr = cmndAppointments.filter((a: any) => {
-                  // Slot reservado = sessão consumida: concluído, confirmado, faltou e cancelado contam
-                  return a.status === 'completed' || a.status === 'confirmed'
-                    || a.status === 'no_show' || a.status === 'no-show'
-                    || a.status === 'cancelled';
-                });
-                const calculatedUsed = usedSessionsArr.length;
-                const totalSessions = cmnd.sessions_total || 1;
-                const progress = Math.min(100, (calculatedUsed / totalSessions) * 100);
-
-                return (
-                  <>
-              <div className="space-y-5">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const patientId = selectedApt?.patient_id || cmnd.patient_id;
-                      const patientFromList = patients.find((p: any) => String(p.id) === String(patientId));
-                      const patientName = selectedApt?.patient_name || patientFromList?.full_name || (patientFromList as any)?.name || 'Paciente';
-                      return (
-                        <>
-                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100 font-bold text-primary-700">
-                            {String(patientName).charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-800">{patientName}</p>
-                            <p className="text-xs text-slate-400">#{cmnd.id}</p>
-                          </div>
-                        </>
-                      );
-                    })()}
+            <div className="flex flex-col gap-4 pt-1">
+              {/* Header do paciente + resumo financeiro */}
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+                {/* Paciente */}
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 font-black text-primary-700 text-sm">
+                    {String(patientName).charAt(0).toUpperCase()}
                   </div>
-
-                  <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-800 truncate">{patientName}</p>
+                    <p className="text-xs text-slate-400">Comanda #{cmnd.id}</p>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
                     <button
                       onClick={handleGenerateReceipt}
-                      className={iconButtonClass}
-                      title="Recibo"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all"
+                      title="Gerar recibo"
                     >
-                      <FileText size={16} />
+                      <FileText size={14} />
                     </button>
-
                     <button
                       onClick={() => {
                         setIsComandaManagerOpen(false);
                         setEditingComanda({
-                           ...cmnd,
-                           patientId: String(cmnd.patient_id),
-                           professionalId: String(cmnd.professional_id),
-                           items: cmnd.items?.map((it: any) => ({ ...it, serviceId: it.service_id })),
-                           syncToLivrocaixa: cmnd.sync_to_livrocaixa ? true : false,
+                          ...cmnd,
+                          patientId: String(cmnd.patient_id),
+                          professionalId: String(cmnd.professional_id),
+                          items: cmnd.items?.map((it: any) => ({ ...it, serviceId: it.service_id })),
+                          syncToLivrocaixa: cmnd.sync_to_livrocaixa ? true : false,
                         });
                         setModalTab(cmnd.package_id ? 'pacote' : 'avulsa');
                         setIsNewComandaModalOpen(true);
                       }}
-                      className={iconButtonClass}
-                      title="Editar"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all"
+                      title="Editar comanda"
                     >
-                      <Edit3 size={16} />
+                      <Edit3 size={14} />
                     </button>
                   </div>
                 </div>
 
-                <div className="inline-flex rounded-xl bg-slate-100 p-1">
-                  {(['atendimentos', 'pagamentos', 'pacote'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setManagerTab(tab)}
-                      className={`rounded-lg px-4 py-2 text-sm font-medium capitalize ${
-                        managerTab === tab
-                          ? 'bg-white text-primary-600 shadow-sm'
-                          : 'text-slate-500'
-                      }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
+                {/* Resumo financeiro compacto */}
+                <div className="flex items-stretch gap-2">
+                  <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 px-4 py-3 text-white min-w-[120px] shadow-lg shadow-indigo-200/60">
+                    <p className="text-[10px] uppercase tracking-widest text-indigo-200 mb-0.5">Total</p>
+                    <p className="text-xl font-black leading-tight">{formatCurrency(cmndTotal)}</p>
+                  </div>
+                  <div className="flex flex-col gap-1.5 justify-center rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                      <span className="text-slate-500">Recebido</span>
+                      <span className="ml-auto font-bold text-slate-700">{formatCurrency(cmndPaid)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cx('w-2 h-2 rounded-full shrink-0', cmndPending > 0 ? 'bg-amber-400' : 'bg-slate-200')} />
+                      <span className="text-slate-500">Pendente</span>
+                      <span className={cx('ml-auto font-bold', cmndPending > 0 ? 'text-amber-600' : 'text-slate-400')}>{formatCurrency(cmndPending)}</span>
+                    </div>
+                    {totalSessions > 0 && (
+                      <div className="flex items-center gap-2 border-t border-slate-100 pt-1.5 mt-0.5">
+                        <span className="w-2 h-2 rounded-full bg-indigo-300 shrink-0" />
+                        <span className="text-slate-500">Sessões</span>
+                        <span className="ml-auto font-bold text-slate-700">{usedCount}/{totalSessions}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+              </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              {/* Barra de progresso de sessões */}
+              {totalSessions > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Progresso das sessões</span>
+                    <span className="font-bold text-slate-600">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className={cx('h-full rounded-full transition-all duration-500', progress >= 100 ? 'bg-rose-500' : progress >= 75 ? 'bg-amber-400' : 'bg-indigo-500')}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Tabs + conteúdo principal */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
+                <div className="flex flex-col gap-3">
+                  {/* Tabs */}
+                  <div className="flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
+                    {([
+                      { key: 'atendimentos', label: 'Atendimentos', icon: CalendarDays },
+                      { key: 'pagamentos', label: 'Pagamentos', icon: DollarSign },
+                      { key: 'pacote', label: 'Pacote', icon: Package },
+                    ] as const).map(({ key, label, icon: TabIcon }) => (
+                      <button
+                        key={key}
+                        onClick={() => setManagerTab(key)}
+                        className={cx(
+                          'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                          managerTab === key
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        )}
+                      >
+                        <TabIcon size={13} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Atendimentos */}
                   {managerTab === 'atendimentos' && (
-                    <div className="space-y-3">
-                      {cmndAppointments.map((appointment) => {
+                    <div className="space-y-2">
+                      {cmndAppointments.map((appointment, idx) => {
                         const aptStart = new Date(appointment.start);
-                        const statusLabels: Record<string, string> = {
-                          scheduled: 'Agendado', confirmed: 'Confirmado',
-                          completed: 'Realizado', cancelled: 'Cancelado',
-                          'no-show': 'Faltou', no_show: 'Faltou',
-                        };
-                        const statusColors: Record<string, string> = {
-                          scheduled: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-                          confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                          completed: 'bg-green-50 text-green-700 border-green-200',
-                          cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
-                          'no-show': 'bg-amber-50 text-amber-700 border-amber-200',
-                          no_show: 'bg-amber-50 text-amber-700 border-amber-200',
-                        };
                         const isEditing = editingAptId === appointment.id;
 
                         const handleStartEdit = () => {
-                           setEditAptValues({
-                             date: aptStart.toISOString().split('T')[0],
-                             time: aptStart.toTimeString().slice(0, 5)
-                           });
-                           setEditingAptId(appointment.id);
+                          setEditAptValues({
+                            date: aptStart.toISOString().split('T')[0],
+                            time: aptStart.toTimeString().slice(0, 5),
+                          });
+                          setEditingAptId(appointment.id);
                         };
 
-                        const handleSaveAptEdit = async (index: number) => {
-                           const newStart = new Date(`${editAptValues.date}T${editAptValues.time}:00`);
-                           
-                           // Validação Chronológica
-                           if (index > 0) {
-                              const prev = new Date(cmndAppointments[index-1].start);
-                              if (newStart <= prev) {
-                                pushToast('error', `Data inválida. Deve ser após ${prev.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
-                                return;
-                              }
-                           }
-                           if (index < cmndAppointments.length - 1) {
-                              const next = new Date(cmndAppointments[index+1].start);
-                              if (newStart >= next) {
-                                pushToast('error', `Data inválida. O próximo é em ${next.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
-                                return;
-                              }
-                           }
+                        const handleSaveAptEdit = async () => {
+                          const newStart = new Date(`${editAptValues.date}T${editAptValues.time}:00`);
+                          if (idx > 0) {
+                            const prev = new Date(cmndAppointments[idx - 1].start);
+                            if (newStart <= prev) {
+                              pushToast('error', `Deve ser após ${prev.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
+                              return;
+                            }
+                          }
+                          if (idx < cmndAppointments.length - 1) {
+                            const next = new Date(cmndAppointments[idx + 1].start);
+                            if (newStart >= next) {
+                              pushToast('error', `O próximo é em ${next.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
+                              return;
+                            }
+                          }
+                          try {
+                            await api.put(`/appointments/${appointment.id}`, {
+                              ...appointment,
+                              start_time: newStart.toISOString(),
+                              professional_id: appointment.professional_id || (appointment as any).psychologist_id,
+                              duration_minutes: appointment.duration_minutes || 50,
+                            });
+                            pushToast('success', 'Atendimento atualizado!');
+                            setEditingAptId(null);
+                            fetchData();
+                          } catch (e: any) {
+                            pushToast('error', e.message || 'Erro ao atualizar');
+                          }
+                        };
 
-                           try {
-                              await api.put(`/appointments/${appointment.id}`, { 
-                                ...appointment, 
-                                start_time: newStart.toISOString(),
-                                // Garantir que ids estão corretos para o backend
-                                professional_id: appointment.professional_id || (appointment as any).psychologist_id,
-                                duration_minutes: appointment.duration_minutes || 50
-                              });
-                              pushToast('success', 'Atendimento atualizado!');
-                              setEditingAptId(null);
-                              fetchData();
-                           } catch (e: any) {
-                              pushToast('error', e.message || 'Erro ao atualizar');
-                           }
+                        const statusKey = (appointment.status || 'scheduled').replace('-', '_');
+                        const statusDot: Record<string, string> = {
+                          scheduled: 'bg-indigo-400', confirmed: 'bg-emerald-400',
+                          completed: 'bg-green-500', cancelled: 'bg-rose-400',
+                          no_show: 'bg-amber-400',
                         };
 
                         return (
                           <div
                             key={appointment.id}
-                            className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 hover:bg-slate-50 transition-colors"
+                            className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2.5 hover:border-slate-200 hover:shadow-sm transition-all"
                           >
-                            <div className="flex items-center gap-3 flex-1">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 shrink-0">
-                                <CalendarDays size={16} />
-                              </div>
-                              
-                              {isEditing ? (
-                                <div className="flex items-center gap-2 flex-1 animate-fadeIn">
-                                  <div className="w-[125px]">
-                                    <DatePicker
-                                      value={editAptValues.date}
-                                      onChange={(val) => setEditAptValues(prev => ({ ...prev, date: val ?? '' }))}
-                                      className="!h-8 !border-slate-200 !rounded-lg text-[11px] font-black"
-                                    />
-                                  </div>
-                                  <div className="relative group">
-                                    <Clock size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
-                                    <input
-                                      type="time"
-                                      value={editAptValues.time}
-                                      onChange={e => setEditAptValues(prev => ({ ...prev, time: e.target.value }))}
-                                      className="h-8 w-[95px] rounded-lg border border-slate-200 pl-8 pr-2 text-[11px] font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-white"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-1 ml-auto">
-                                    <button
-                                      onClick={() => handleSaveAptEdit(cmndAppointments.indexOf(appointment))}
-                                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-100 transition-all transform active:scale-90"
-                                      title="Salvar alteração"
-                                    >
-                                      <Check size={14} />
-                                    </button>
-                                    <button
-                                      onClick={() => setEditingAptId(null)}
-                                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all transform active:scale-90"
-                                      title="Descartar"
-                                    >
-                                      <X size={14} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div>
-                                  <p className="text-sm font-bold text-slate-800">
-                                    {aptStart.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
-                                  </p>
-                                  <p className="text-xs text-slate-400">
-                                    {aptStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                    {appointment.recurrence_index ? ` · Sessão ${appointment.recurrence_index}/${cmnd.sessions_total || appointment.recurrence_count || '?'}` : ''}
-                                  </p>
-                                </div>
-                              )}
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
+                              <CalendarDays size={14} />
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              {!isEditing && (
-                                <button 
+                            {isEditing ? (
+                              <div className="flex items-center gap-2 flex-1 flex-wrap">
+                                <div className="w-[118px]">
+                                  <DatePicker
+                                    value={editAptValues.date}
+                                    onChange={(val) => setEditAptValues(prev => ({ ...prev, date: val ?? '' }))}
+                                    className="!h-7 !border-slate-200 !rounded-lg text-[11px] font-black"
+                                  />
+                                </div>
+                                <div className="relative">
+                                  <Clock size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                  <input
+                                    type="time"
+                                    value={editAptValues.time}
+                                    onChange={e => setEditAptValues(prev => ({ ...prev, time: e.target.value }))}
+                                    className="h-7 w-[86px] rounded-lg border border-slate-200 pl-7 pr-2 text-[11px] font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 bg-white"
+                                  />
+                                </div>
+                                <div className="flex gap-1 ml-auto">
+                                  <button onClick={handleSaveAptEdit} className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all">
+                                    <Check size={12} />
+                                  </button>
+                                  <button onClick={() => setEditingAptId(null)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-200 transition-all">
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-800">
+                                  {aptStart.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                  {aptStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  {appointment.recurrence_index ? ` · Sessão ${appointment.recurrence_index}/${cmnd.sessions_total || '?'}` : ''}
+                                </p>
+                              </div>
+                            )}
+
+                            {!isEditing && (
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
                                   onClick={handleStartEdit}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all mr-1"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
                                   title="Editar data/hora"
                                 >
-                                  <Edit3 size={13} />
+                                  <Edit3 size={12} />
                                 </button>
-                              )}
-
-                              <select
-                                value={appointment.status || 'scheduled'}
-                                onChange={(e) => handleUpdateAppointmentStatus(appointment.id, e.target.value)}
-                                className={`text-[11px] font-bold rounded-lg border px-2 py-1 outline-none cursor-pointer ${statusColors[appointment.status || 'scheduled'] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
-                                style={{ height: '30px' }}
-                              >
-                                <option value="scheduled">Agendado</option>
-                                <option value="confirmed">Confirmado</option>
-                                <option value="completed">Realizado</option>
-                                <option value="no_show">Faltou</option>
-                                <option value="cancelled">Cancelado</option>
-                              </select>
-                            </div>
+                                <div className="w-[130px]">
+                                  <Combobox
+                                    options={statusOptions}
+                                    value={statusKey === 'no-show' ? 'no_show' : (appointment.status || 'scheduled')}
+                                    onChange={(val) => handleUpdateAppointmentStatus(appointment.id, Array.isArray(val) ? val[0] : val)}
+                                    placeholder="Status"
+                                    className="!h-7 !text-[11px]"
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
 
                       {cmndAppointments.length === 0 && (
-                        <div className="py-10 text-center text-sm text-slate-400">
+                        <div className="py-10 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-2xl">
                           Nenhum atendimento vinculado.
                         </div>
                       )}
                     </div>
                   )}
 
+                  {/* Pagamentos */}
                   {managerTab === 'pagamentos' && (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {cmnd.payments?.map((payment: any) => (
                         <div
                           key={payment.id}
-                          className="group flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"
+                          className="group flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-2.5 hover:border-emerald-200 transition-all"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-emerald-600">
-                              <Check size={18} />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-slate-800">
-                                {formatCurrency(Number(payment.amount || 0))}
-                              </p>
-                              <p className="text-xs text-slate-400">
-                                {payment.payment_date ? formatDate(payment.payment_date) : '—'} •{' '}
-                                {payment.payment_method}
-                                {payment.receipt_code ? ` • #${payment.receipt_code}` : ''}
-                              </p>
-                            </div>
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white border border-emerald-100 text-emerald-500">
+                            <Check size={14} />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400 group-hover:hidden">Recebido</span>
-                            <div className="hidden group-hover:flex items-center gap-1">
-                              <button
-                                onClick={() => {
-                                  setNewPayment({
-                                    id: String(payment.id),
-                                    value: formatCurrencyInput(Number(payment.amount || 0)),
-                                    date: payment.payment_date ? payment.payment_date.slice(0, 10) : getLocalDateISO(),
-                                    method: payment.payment_method || 'Pix',
-                                    receiptCode: payment.receipt_code || '',
-                                    comandaId: String(cmnd.id),
-                                  });
-                                  setIsAddPaymentModalOpen(true);
-                                }}
-                                className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
-                                title="Editar pagamento"
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (window.confirm('Tem certeza que deseja excluir este pagamento?')) {
-                                    handleDeletePayment(payment.id, cmnd.id);
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200"
-                                title="Excluir pagamento"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800">{formatCurrency(Number(payment.amount || 0))}</p>
+                            <p className="text-[11px] text-slate-400 truncate">
+                              {payment.payment_date ? formatDate(payment.payment_date) : '—'} · {payment.payment_method}
+                              {payment.receipt_code ? ` · #${payment.receipt_code}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <button
+                              onClick={() => {
+                                setNewPayment({
+                                  id: String(payment.id),
+                                  value: formatCurrencyInput(Number(payment.amount || 0)),
+                                  date: payment.payment_date ? payment.payment_date.slice(0, 10) : getLocalDateISO(),
+                                  method: payment.payment_method || 'Pix',
+                                  receiptCode: payment.receipt_code || '',
+                                  comandaId: String(cmnd.id),
+                                });
+                                setIsAddPaymentModalOpen(true);
+                              }}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all"
+                              title="Editar"
+                            >
+                              <Edit3 size={12} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Excluir este pagamento?')) handleDeletePayment(payment.id, cmnd.id);
+                              }}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all"
+                              title="Excluir"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
                         </div>
                       ))}
-
                       {(!cmnd.payments || cmnd.payments.length === 0) && (
-                        <div className="py-10 text-center text-sm text-slate-400">
+                        <div className="py-10 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-2xl">
                           Nenhum pagamento registrado.
                         </div>
                       )}
                     </div>
                   )}
 
+                  {/* Pacote */}
                   {managerTab === 'pacote' && (
-                    <div className="flex flex-col items-center justify-center py-8">
-                      <div className={cx(
-                        "mb-2 text-4xl font-bold",
-                        calculatedUsed > totalSessions
-                          ? "text-red-600"
-                          : "text-primary-600"
-                      )}>
-                        {calculatedUsed} / {totalSessions}
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-5 flex flex-col items-center gap-4">
+                      <div className="flex items-end gap-1.5">
+                        <span className={cx('text-5xl font-black leading-none', usedCount > totalSessions ? 'text-rose-600' : 'text-indigo-600')}>
+                          {usedCount}
+                        </span>
+                        <span className="text-lg text-slate-400 font-medium mb-1">/ {totalSessions}</span>
                       </div>
-                      <div className="mb-4 text-sm text-slate-500">
-                        Atendimentos consumidos
-                      </div>
-                      <div className="h-3 w-full max-w-md overflow-hidden rounded-full bg-slate-200">
+                      <p className="text-xs text-slate-500">sessões utilizadas</p>
+                      <div className="w-full max-w-xs h-2 rounded-full bg-slate-200 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-primary-600"
-                          style={{
-                            width: `${progress}%`,
-                          }}
+                          className={cx('h-full rounded-full transition-all duration-500', progress >= 100 ? 'bg-rose-500' : progress >= 75 ? 'bg-amber-400' : 'bg-indigo-500')}
+                          style={{ width: `${progress}%` }}
                         />
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
 
-              <div className="space-y-5">
-                <div className="rounded-2xl bg-primary-600 p-5 text-white shadow-lg shadow-primary-200">
-                  <p className="mb-1 text-xs uppercase tracking-wider text-primary-100">
-                    Valor total
-                  </p>
-                  <p className="mb-4 text-3xl font-bold">
-                    {formatCurrency(getComandaTotal(cmnd))}
-                  </p>
-
-                  <div className="space-y-2 border-t border-primary-400 pt-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Recebido</span>
-                      <strong>{formatCurrency(getComandaPaid(cmnd))}</strong>
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2 text-sm">
-                      <span>Pendente</span>
-                      <strong>{formatCurrency(getComandaTotal(cmnd) - getComandaPaid(cmnd))}</strong>
-                    </div>
-                  </div>
-
-                  <Button
+                {/* Painel lateral: itens + novo pagamento */}
+                <div className="flex flex-col gap-3">
+                  <button
                     onClick={() => {
-                       setNewPayment({
-                          value: formatCurrencyInput(getComandaTotal(cmnd) - getComandaPaid(cmnd)) || '0,00',
-                          date: new Date().toISOString().slice(0, 10),
-                          method: 'Pix',
-                          receiptCode: cmnd.receipt_code || '',
-                          comandaId: String(cmnd.id)
-                       });
-                       setIsAddPaymentModalOpen(true);
+                      setNewPayment({
+                        value: formatCurrencyInput(cmndPending) || '0,00',
+                        date: new Date().toISOString().slice(0, 10),
+                        method: 'Pix',
+                        receiptCode: cmnd.receipt_code || '',
+                        comandaId: String(cmnd.id),
+                      });
+                      setIsAddPaymentModalOpen(true);
                     }}
-                    variant="primary"
-                    fullWidth
-                    className="mt-4 !bg-white !text-slate-800 hover:!bg-slate-50 font-semibold"
-                    size="lg"
+                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2.5 transition-colors shadow-md shadow-indigo-200/60"
                   >
+                    <Plus size={15} />
                     Novo pagamento
-                  </Button>
-                </div>
+                  </button>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <h4 className="mb-4 text-sm font-semibold text-slate-700">Itens cobrados</h4>
-                  <div className="space-y-3">
-                    {(() => {
-                      const grossTotal = (cmnd.items || []).reduce((s: number, it: any) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
-                      const discountVal = Number(cmnd.discount_value || 0);
-                      const discountAmt = cmnd.discount_type === 'percentage'
-                        ? (grossTotal * discountVal) / 100
-                        : discountVal;
-                      const ratio = grossTotal > 0 ? (grossTotal - discountAmt) / grossTotal : 1;
+                  <div className="rounded-xl border border-slate-100 bg-white p-4 space-y-2.5">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Itens cobrados</p>
+                    {(cmnd.items || []).map((item: any, index: number) => {
+                      const lineGross = Number(item.qty || 0) * Number(item.price || 0);
+                      const lineNet = lineGross * ratio;
                       return (
-                        <>
-                          {(cmnd.items || []).map((item: any, index: number) => {
-                            const lineGross = Number(item.qty || 0) * Number(item.price || 0);
-                            const lineNet = lineGross * ratio;
-                            return (
-                              <div key={item.id || index} className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="font-medium text-slate-800">{item.name}</p>
-                                  <p className="text-xs text-slate-400">
-                                    {item.qty} × {formatCurrency(item.price)}
-                                  </p>
-                                </div>
-                                <strong className="text-sm text-slate-700">
-                                  {formatCurrency(lineNet)}
-                                </strong>
-                              </div>
-                            );
-                          })}
-                          {discountAmt > 0 && (
-                            <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-sm text-emerald-600">
-                              <span>Desconto{cmnd.discount_type === 'percentage' ? ` (${discountVal}%)` : ''}</span>
-                              <strong>− {formatCurrency(discountAmt)}</strong>
-                            </div>
-                          )}
-                          {(!cmnd.items || cmnd.items.length === 0) && (
-                            <p className="text-sm text-slate-400">Nenhum item registrado.</p>
-                          )}
-                        </>
+                        <div key={item.id || index} className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
+                            <p className="text-[11px] text-slate-400">{item.qty} × {formatCurrency(item.price)}</p>
+                          </div>
+                          <span className="text-xs font-bold text-slate-700 shrink-0">{formatCurrency(lineNet)}</span>
+                        </div>
                       );
-                    })()}
+                    })}
+                    {discountAmt > 0 && (
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-emerald-600">
+                        <span>Desconto{cmnd.discount_type === 'percentage' ? ` (${discountVal}%)` : ''}</span>
+                        <span className="font-bold">− {formatCurrency(discountAmt)}</span>
+                      </div>
+                    )}
+                    {(!cmnd.items || cmnd.items.length === 0) && (
+                      <p className="text-xs text-slate-400">Nenhum item registrado.</p>
+                    )}
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                      <span className="text-xs font-bold text-slate-500">Total</span>
+                      <span className="text-sm font-black text-slate-800">{formatCurrency(cmndTotal)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-              </>
-                );
-              })()}
             </div>
           );
         })()}
