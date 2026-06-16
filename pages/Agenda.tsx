@@ -2994,24 +2994,18 @@ export const Agenda: React.FC = () => {
       <Modal
         isOpen={isNewComandaModalOpen}
         onClose={() => setIsNewComandaModalOpen(false)}
-        title={editingComanda?.id ? 'Editando Comanda' : 'Criando Comanda'}
-        maxWidth="max-w-3xl"
+        title={editingComanda?.id ? 'Editando Comanda' : 'Nova Comanda'}
+        size="2xl"
         footer={(
           <div className="flex w-full items-center justify-between">
-            <Button
-              onClick={() => setIsNewComandaModalOpen(false)}
-              variant="outline"
-              size="sm"
-            >
-              FECHAR
+            <Button onClick={() => setIsNewComandaModalOpen(false)} variant="ghost" size="sm" className="text-zinc-500">
+              Cancelar
             </Button>
-
-            <Button
-              onClick={handleCreateComanda}
-              variant="primary"
-              isLoading={isSaving}
+            <Button onClick={handleCreateComanda} size="sm" loading={isSaving}
+              className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white"
+              iconLeft={<CheckCircle2 size={14} />}
             >
-              {editingComanda?.id ? 'SALVAR' : 'CRIAR'}
+              {editingComanda?.id ? 'Salvar alterações' : 'Criar comanda'}
             </Button>
           </div>
         )}
@@ -3024,489 +3018,324 @@ export const Agenda: React.FC = () => {
             isLocked = lockedMonths.includes(editingComanda.startDate.slice(0, 7)) || lockedMonths.includes(monthKey);
           }
 
+          const fieldLabel = "text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block";
+          const fieldInput = "w-full h-10 rounded-xl border border-zinc-200 bg-white px-3.5 text-sm font-medium text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none";
+
           return (
-          <div className="space-y-6 pt-2 pb-6 px-1">
+          <div className="space-y-4">
+            {/* Alerta mês fechado */}
             {isLocked && editingComanda.syncToLivrocaixa && (
-              <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-3xl text-rose-700 animate-pulse">
-                <AlertCircle size={24} className="shrink-0" />
-                <div className="flex-1">
-                  <p className="font-black text-xs uppercase tracking-wider mb-0.5">Livro Caixa Fechado</p>
-                  <p className="text-xs font-semibold leading-relaxed">Este período está bloqueado para novas movimentações. Mude o status do mês para "ABERTO" no Livro Caixa para realizar alterações ou desative a sincronização.</p>
+              <div className="flex items-start gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-0.5">Livro Caixa Fechado</p>
+                  <p className="text-xs leading-relaxed text-rose-600">Este período está bloqueado. Abra o mês no Livro Caixa ou desative a sincronização.</p>
                 </div>
               </div>
             )}
-            {/* TYPE SELECTOR (CARDS) */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <TypeButton
-                active={modalTab === 'avulsa'}
-                label="Comanda Avulsa"
-                description="Serviço único formatado"
-                icon={<FileText size={20} />}
-                onClick={() => {
-                  setModalTab('avulsa');
-                  setEditingComanda({
-                    ...editingComanda,
-                    packageId: '',
-                    items: editingComanda.items || [],
-                    sessions_total: Number(editingComanda.sessions_total || 1),
-                  });
-                }}
-              />
 
-              <TypeButton
-                active={modalTab === 'pacote'}
-                label="Protocolo de Pacote"
-                description="Controle múltiplo de sessões"
-                icon={<Package size={20} />}
-                onClick={() => {
-                  setModalTab('pacote');
-                  setEditingComanda({
-                    ...editingComanda,
-                    sessions_total:
-                      Number(editingComanda.sessions_total || 0) > 1
-                        ? Number(editingComanda.sessions_total || 0)
-                        : 4,
-                    items:
-                      editingComanda.items && editingComanda.items.length > 0
-                        ? editingComanda.items
-                        : [{ name: '', serviceId: '', qty: 1, price: 0 }],
-                  });
-                }}
-              />
+            {/* TYPE SELECTOR */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'avulsa', label: 'Comanda Avulsa', desc: 'Serviço único', icon: <FileText size={15}/>,
+                  activeClass: 'border-indigo-400 bg-indigo-50/60', iconClass: 'bg-indigo-500 text-white', textClass: 'text-indigo-800' },
+                { id: 'pacote', label: 'Protocolo de Pacote', desc: 'Múltiplas sessões', icon: <Package size={15}/>,
+                  activeClass: 'border-violet-400 bg-violet-50/60', iconClass: 'bg-violet-500 text-white', textClass: 'text-violet-800' },
+              ].map(t => {
+                const active = modalTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      if (t.id === 'avulsa') {
+                        setModalTab('avulsa');
+                        setEditingComanda({ ...editingComanda, packageId: '', items: editingComanda.items || [], sessions_total: Number(editingComanda.sessions_total || 1) });
+                      } else {
+                        setModalTab('pacote');
+                        setEditingComanda({ ...editingComanda, sessions_total: Number(editingComanda.sessions_total || 0) > 1 ? Number(editingComanda.sessions_total || 0) : 4, items: editingComanda.items && editingComanda.items.length > 0 ? editingComanda.items : [{ name: '', serviceId: '', qty: 1, price: 0 }] });
+                      }
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left ${active ? t.activeClass + ' shadow-sm' : 'border-zinc-200/80 bg-white hover:border-zinc-300'}`}
+                  >
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all ${active ? t.iconClass : 'bg-zinc-100 text-zinc-400'}`}>
+                      {t.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`text-[11px] font-semibold leading-tight ${active ? t.textClass : 'text-zinc-600'}`}>{t.label}</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">{t.desc}</div>
+                    </div>
+                    <div className={`ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? (t.id === 'avulsa' ? 'border-indigo-600 bg-indigo-600' : 'border-violet-600 bg-violet-600') : 'border-zinc-200'}`}>
+                      {active && <Check size={7} className="text-white" strokeWidth={4} />}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* VINCULAR AO LIVRO CAIXA */}
+            {/* LIVRO CAIXA */}
             {editingComanda.id && editingComanda.syncToLivrocaixa ? (
-              <div className="flex items-center gap-4 p-5 bg-emerald-50 text-emerald-700 rounded-3xl border border-emerald-100/50 shadow-inner">
-                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-200">
-                    <CheckCircle2 size={24} />
-                 </div>
-                 <div>
-                    <p className="font-black text-[13px] uppercase tracking-widest">Vinculado ao Livro Caixa</p>
-                    <p className="text-xs font-medium opacity-80 mt-0.5">Esta comanda já reflete no saldo financeiro</p>
-                 </div>
+              <div className="flex items-center gap-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-white shrink-0">
+                  <CheckCircle2 size={14} />
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-emerald-800">Vinculado ao Livro Caixa</p>
+                  <p className="text-[10px] text-emerald-600">Esta comanda já reflete no saldo financeiro</p>
+                </div>
               </div>
             ) : (
-            <div
-              className={`group flex items-center justify-between rounded-3xl border-2 px-6 py-5 transition-all cursor-pointer ${
-                editingComanda.syncToLivrocaixa
-                  ? 'border-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-100/50 shadow-md shadow-emerald-100/40'
-                  : 'border-slate-100 bg-slate-50 hover:bg-slate-100 hover:border-slate-200'
-              }`}
-              onClick={() =>
-                setEditingComanda({
-                  ...editingComanda,
-                  syncToLivrocaixa: !editingComanda.syncToLivrocaixa,
-                })
-              }
-            >
-              <div className="flex items-center gap-4">
-                <div className={`flex w-12 h-12 rounded-2xl items-center justify-center shrink-0 transition-colors ${
-                  editingComanda.syncToLivrocaixa ? 'bg-emerald-500 text-white' : 'bg-white block border border-slate-200 text-slate-400'
-                }`}>
-                  <BookOpen size={22} />
-                </div>
-                <div className="flex flex-col">
-                  <span className={`text-[13px] font-black tracking-wide uppercase ${editingComanda.syncToLivrocaixa ? 'text-emerald-900' : 'text-slate-700'}`}>
-                    Sincronizar no Livro Caixa
-                  </span>
-                  <span className={`text-sm mt-0.5 font-medium ${editingComanda.syncToLivrocaixa ? 'text-emerald-700/80' : 'text-slate-500'}`}>
-                    {editingComanda.syncToLivrocaixa
-                      ? 'Ativo - O saldo será espelhado no financeiro instantaneamente'
-                      : 'Inativo - Criar comanda de forma isolada'}
-                  </span>
-                </div>
-              </div>
               <div
-                className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ease-in-out cursor-pointer ${
-                  editingComanda.syncToLivrocaixa
-                    ? 'border-emerald-500 bg-emerald-500'
-                    : 'border-slate-300 bg-slate-200'
+                onClick={() => setEditingComanda({ ...editingComanda, syncToLivrocaixa: !editingComanda.syncToLivrocaixa })}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all ${
+                  editingComanda.syncToLivrocaixa ? 'border-emerald-300 bg-emerald-50/70' : 'border-zinc-200/80 bg-zinc-50 hover:border-zinc-300'
                 }`}
               >
-                <span
-                  aria-hidden="true"
-                  className={`pointer-events-none inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                    editingComanda.syncToLivrocaixa ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
+                <div className="flex items-center gap-2.5">
+                  <div className={`flex h-7 w-7 rounded-lg items-center justify-center shrink-0 transition-colors ${editingComanda.syncToLivrocaixa ? 'bg-emerald-500 text-white' : 'bg-zinc-200 text-zinc-400'}`}>
+                    <BookOpen size={14} />
+                  </div>
+                  <div>
+                    <p className={`text-[11px] font-semibold ${editingComanda.syncToLivrocaixa ? 'text-emerald-800' : 'text-slate-600'}`}>Sincronizar no Livro Caixa</p>
+                    <p className="text-[10px] text-slate-400">{editingComanda.syncToLivrocaixa ? 'Ativo — saldo espelhado no financeiro' : 'Inativo — comanda isolada'}</p>
+                  </div>
+                </div>
+                <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${editingComanda.syncToLivrocaixa ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                  <span className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow mt-[3px] transition duration-200 ${editingComanda.syncToLivrocaixa ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                </div>
               </div>
-            </div>
             )}
 
             {/* DADOS DA COMANDA */}
-            <div className="bg-slate-50/50 border border-slate-100 rounded-[28px] p-6 shadow-sm">
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
-                <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                Detalhes do Lançamento
-              </h3>
+            <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-0.5 h-4 bg-indigo-500 rounded-full" />
+                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Detalhes do Lançamento</h3>
+              </div>
 
             {modalTab === 'avulsa' ? (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Input
-                  label="Descrição"
-                  value={editingComanda.description || ''}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Ex: Sessão de Terapia Analítica..."
-                  wrapperClassName="md:col-span-2"
-                />
-
-                <Combobox
-                  label="Paciente"
-                  options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
-                  value={editingComanda.patientId || ''}
-                  onChange={(id, label) => {
-                    setEditingComanda({
-                      ...editingComanda,
-                      patientId: String(id),
-                      patientSearch: label || '',
-                    });
-                  }}
-                  placeholder="Buscar pelo nome..."
-                />
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
-                  <DatePicker
-                    value={editingComanda.startDate || ''}
-                    onChange={(val) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        startDate: val ?? undefined,
-                      })
-                    }
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className={fieldLabel}>Descrição</label>
+                  <input
+                    className={fieldInput}
+                    value={editingComanda.description || ''}
+                    onChange={(e) => setEditingComanda({ ...editingComanda, description: e.target.value })}
+                    placeholder="Ex: Sessão de Terapia Analítica..."
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Valor Total (R$)</label>
+                <div>
+                  <Combobox
+                    label="Paciente"
+                    options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
+                    value={editingComanda.patientId || ''}
+                    onChange={(id, label) => setEditingComanda({ ...editingComanda, patientId: String(id), patientSearch: label || '' })}
+                    placeholder="Buscar pelo nome..."
+                  />
+                </div>
+
+                <div>
+                  <label className={fieldLabel}>Data Base</label>
+                  <DatePicker
+                    value={editingComanda.startDate || ''}
+                    onChange={(val) => setEditingComanda({ ...editingComanda, startDate: val ?? undefined })}
+                  />
+                </div>
+
+                <div>
+                  <label className={fieldLabel}>Valor Total (R$)</label>
                   <input
                     type="text"
                     value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
-                    onChange={(e) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        totalValue: parseMonetaryValue(e.target.value),
-                      })
-                    }
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                    onChange={(e) => setEditingComanda({ ...editingComanda, totalValue: parseMonetaryValue(e.target.value) })}
+                    className={fieldInput}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
-                    <input
-                      type="number"
-                      min={1}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={fieldLabel}>Total Sessões</label>
+                    <input type="number" min={1}
                       value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditingComanda({
-                          ...editingComanda,
-                          sessions_total: val === '' ? ('' as any) : Number(val),
-                        });
-                      }}
-                       onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                      onChange={(e) => { const val = e.target.value; setEditingComanda({ ...editingComanda, sessions_total: val === '' ? ('' as any) : Number(val) }); }}
+                      onKeyDown={(e) => { if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') e.preventDefault(); }}
+                      className={fieldInput}
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
-                    <input
-                      type="number"
-                      min={0}
+                  <div>
+                    <label className={fieldLabel}>Realizadas</label>
+                    <input type="number" min={0}
                       value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditingComanda({
-                          ...editingComanda,
-                          sessions_used: val === '' ? ('' as any) : Number(val),
-                        });
-                      }}
-                       onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+                      onChange={(e) => { const val = e.target.value; setEditingComanda({ ...editingComanda, sessions_used: val === '' ? ('' as any) : Number(val) }); }}
+                      onKeyDown={(e) => { if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') e.preventDefault(); }}
+                      className={fieldInput}
                     />
                   </div>
                 </div>
 
-                <Combobox
-                  label="Profissional"
-                  options={professionals.map((p: any) => ({ id: String(p.id), label: p.full_name || p.name }))}
-                  value={editingComanda.professionalId || ''}
-                  onChange={(id) => setEditingComanda({ ...editingComanda, professionalId: String(id) })}
-                  placeholder="Buscar profissional..."
-                  className="md:col-span-2"
-                />
+                <div className="sm:col-span-2">
+                  <Combobox
+                    label="Profissional"
+                    options={professionals.map((p: any) => ({ id: String(p.id), label: p.full_name || p.name }))}
+                    value={editingComanda.professionalId || ''}
+                    onChange={(id) => setEditingComanda({ ...editingComanda, professionalId: String(id) })}
+                    placeholder="Buscar profissional..."
+                  />
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Combobox
-                  label="Pacote Base (Opcional)"
-                  options={packages.map((pkg) => ({ id: String(pkg.id), label: pkg.name }))}
-                  value={editingComanda.packageId || ''}
-                  onChange={(id) => handleSelectPackage(String(id))}
-                  placeholder="Selecione ou busque um pacote..."
-                  className="md:col-span-2"
-                />
-
-                <Combobox
-                  label="Paciente"
-                  options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
-                  value={editingComanda.patientId || ''}
-                  onChange={(id, label) => {
-                    setEditingComanda({
-                      ...editingComanda,
-                      patientId: String(id),
-                      patientSearch: label || '',
-                    });
-                  }}
-                  placeholder="Buscar pelo nome..."
-                />
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
-                  <DatePicker
-                    value={editingComanda.startDate || ''}
-                    onChange={(val) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        startDate: val ?? undefined,
-                      })
-                    }
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <Combobox
+                    label="Pacote Base (Opcional)"
+                    options={packages.map((pkg) => ({ id: String(pkg.id), label: pkg.name }))}
+                    value={editingComanda.packageId || ''}
+                    onChange={(id) => handleSelectPackage(String(id))}
+                    placeholder="Selecione ou busque um pacote..."
                   />
                 </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEditingComanda({
-                            ...editingComanda,
-                            sessions_total: val === '' ? ('' as any) : Number(val),
-                          });
-                        }}
-                         onKeyDown={(e) => {
-                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                            e.preventDefault();
-                          }
-                        }}
-                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEditingComanda({
-                            ...editingComanda,
-                            sessions_used: val === '' ? ('' as any) : Number(val),
-                          });
-                        }}
-                        onKeyDown={(e) => {
-                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                            e.preventDefault();
-                          }
-                        }}
-                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-                      />
-                    </div>
+                <div>
+                  <Combobox
+                    label="Paciente"
+                    options={patients.filter((p: any) => p.status === 'ativo' || p.status === 'active').map((p: any) => ({ id: p.id, label: p.full_name || p.name }))}
+                    value={editingComanda.patientId || ''}
+                    onChange={(id, label) => setEditingComanda({ ...editingComanda, patientId: String(id), patientSearch: label || '' })}
+                    placeholder="Buscar pelo nome..."
+                  />
+                </div>
+
+                <div>
+                  <label className={fieldLabel}>Data Base</label>
+                  <DatePicker
+                    value={editingComanda.startDate || ''}
+                    onChange={(val) => setEditingComanda({ ...editingComanda, startDate: val ?? undefined })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={fieldLabel}>Total Sessões</label>
+                    <input type="number" min={1}
+                      value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
+                      onChange={(e) => { const val = e.target.value; setEditingComanda({ ...editingComanda, sessions_total: val === '' ? ('' as any) : Number(val) }); }}
+                      onKeyDown={(e) => { if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') e.preventDefault(); }}
+                      className={fieldInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={fieldLabel}>Realizadas</label>
+                    <input type="number" min={0}
+                      value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
+                      onChange={(e) => { const val = e.target.value; setEditingComanda({ ...editingComanda, sessions_used: val === '' ? ('' as any) : Number(val) }); }}
+                      onKeyDown={(e) => { if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') e.preventDefault(); }}
+                      className={fieldInput}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Combobox
+                    label="Profissional"
+                    options={professionals.map((p: any) => ({ id: String(p.id), label: p.full_name || p.name }))}
+                    value={editingComanda.professionalId || ''}
+                    onChange={(id) => setEditingComanda({ ...editingComanda, professionalId: String(id) })}
+                    placeholder="Buscar profissional..."
+                  />
+                </div>
+
+                <div className="sm:col-span-2 pt-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-0.5 h-4 bg-emerald-500 rounded-full" />
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Serviços do Pacote</span>
                   </div>
 
-                <Combobox
-                  label="Profissional"
-                  options={professionals.map((p: any) => ({ id: String(p.id), label: p.full_name || p.name }))}
-                  value={editingComanda.professionalId || ''}
-                  onChange={(id) => setEditingComanda({ ...editingComanda, professionalId: String(id) })}
-                  placeholder="Buscar profissional..."
-                />
-
-                <div className="pt-2 md:col-span-2">
-                  <div className="mb-4 flex items-center gap-2">
-                    <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                    <span className="text-sm font-black uppercase tracking-widest text-slate-800">
-                      Serviços do Pacote
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                    <div className="hidden md:grid grid-cols-12 gap-3 text-[11px] font-bold text-slate-400 tracking-wider">
-                      <div className="col-span-6 uppercase">Serviço</div>
-                      <div className="col-span-2 uppercase">Qtd</div>
-                      <div className="col-span-3 uppercase">Preço</div>
+                  <div className="space-y-2 bg-zinc-50 border border-zinc-200/80 rounded-xl p-3">
+                    <div className="hidden sm:grid grid-cols-12 gap-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-1">
+                      <div className="col-span-6">Serviço</div>
+                      <div className="col-span-2">Qtd</div>
+                      <div className="col-span-3">Preço</div>
                       <div className="col-span-1" />
                     </div>
 
                     {(editingComanda.items || []).map((item, index) => (
-                      <div key={index} className="grid grid-cols-1 md:grid-cols-12 items-end gap-3 p-3 md:p-0 bg-slate-50 md:bg-transparent rounded-xl border md:border-0 border-slate-200">
-                        <div className="md:col-span-6">
-                          <label className="md:hidden block text-[11px] font-bold text-slate-400 tracking-wider mb-1">SERVIÇO</label>
-                          <Select
-                            label=""
-                            value={item.serviceId || ''}
-                            onChange={(e) =>
-                              updatePackageItem(
-                                index,
-                                { serviceId: e.target.value },
-                                true
-                              )
-                            }
-                            size="sm"
-                            wrapperClassName="!mb-0"
-                          >
+                      <div key={index} className="grid grid-cols-1 sm:grid-cols-12 items-end gap-2 p-2 sm:p-0 bg-white sm:bg-transparent rounded-lg border sm:border-0 border-zinc-200">
+                        <div className="sm:col-span-6">
+                          <label className="sm:hidden block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Serviço</label>
+                          <Select label="" value={item.serviceId || ''} onChange={(e) => updatePackageItem(index, { serviceId: e.target.value }, true)} size="sm" wrapperClassName="!mb-0">
                             <option value="">Selecione</option>
                             {services.map((service) => (
-                              <option key={service.id} value={String(service.id)}>
-                                {service.name}
-                              </option>
+                              <option key={service.id} value={String(service.id)}>{service.name}</option>
                             ))}
                           </Select>
                         </div>
-
                         <div className="col-span-2">
-                          <input
-                            type="number"
-                            min={1}
-                            value={item.qty || 1}
-                            onChange={(e) =>
-                              updatePackageItem(index, {
-                                qty: Math.max(1, Number(e.target.value || 1)),
-                              })
-                            }
+                          <input type="number" min={1} value={item.qty || 1}
+                            onChange={(e) => updatePackageItem(index, { qty: Math.max(1, Number(e.target.value || 1)) })}
                             className={lineInputClass}
                           />
                         </div>
-
                         <div className="col-span-3">
-                          <input
-                            type="text"
-                            value={formatCurrencyInput(Number(item.price || 0))}
-                            onChange={(e) =>
-                                updatePackageItem(index, {
-                                  price: parseMonetaryValue(e.target.value),
-                                })
-                            }
+                          <input type="text" value={formatCurrencyInput(Number(item.price || 0))}
+                            onChange={(e) => updatePackageItem(index, { price: parseMonetaryValue(e.target.value) })}
                             className={lineInputClass}
                           />
                         </div>
-
                         <div className="col-span-1 flex justify-end">
-                          <Button
-                            variant="softDanger"
-                            size="sm"
-                            iconOnly
-                            onClick={() => removePackageItem(index)}
-                            title="Remover item"
-                          >
-                            <Trash2 size={14} />
+                          <Button variant="softDanger" size="sm" iconOnly onClick={() => removePackageItem(index)} title="Remover item">
+                            <Trash2 size={13} />
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={addPackageItem}
-                    className="mt-4 w-full rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 py-3.5 text-sm font-bold tracking-wide text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 flex items-center justify-center gap-2"
+                  <button type="button" onClick={addPackageItem}
+                    className="mt-2 w-full rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 py-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-300 flex items-center justify-center gap-1.5"
                   >
-                    + Adicionar Serviço
+                    <Plus size={12} /> Adicionar Serviço
                   </button>
                 </div>
               </div>
             )}
+            </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-200/60 flex flex-col items-end">
-              <div className="w-full max-w-[340px] bg-slate-100/50 rounded-3xl p-5 border border-slate-100 shadow-inner">
-                <div className="flex items-center justify-between text-[13px] font-semibold text-slate-500 mb-3">
-                  <span>Valor Original:</span>
-                  <strong className="text-slate-700">
-                    {formatCurrency(modalGrossTotal)}
-                  </strong>
-                </div>
-
-                <div className="grid grid-cols-[1fr_auto_96px] items-center gap-3 mb-4">
-                  <span className="text-[13px] font-semibold text-slate-500">Descontos:</span>
-
-                  <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingComanda({
-                          ...editingComanda,
-                          discount_type: 'percentage',
-                        })
-                      }
-                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
-                        editingComanda.discount_type === 'percentage'
-                          ? 'bg-indigo-500 text-white'
-                          : 'text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingComanda({
-                          ...editingComanda,
-                          discount_type: 'fixed',
-                        })
-                      }
-                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors border-l border-slate-100 ${
-                        editingComanda.discount_type === 'fixed'
-                          ? 'bg-indigo-500 text-white'
-                          : 'text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      R$
-                    </button>
+            {/* TOTAIS */}
+            <div className="bg-zinc-50 border border-zinc-200/80 rounded-xl p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Valor original</span>
+                    <span className="text-sm font-semibold text-slate-600">{formatCurrency(modalGrossTotal)}</span>
                   </div>
-
-                  <input
-                    value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
-                    onChange={(e) =>
-                        setEditingComanda({
-                          ...editingComanda,
-                          discount_value: parseMonetaryValue(e.target.value),
-                        })
-                    }
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-right shadow-sm"
-                  />
+                  <div className="w-px h-8 bg-zinc-200" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Desconto</span>
+                    <div className="inline-flex overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                      <button type="button"
+                        onClick={() => setEditingComanda({ ...editingComanda, discount_type: 'percentage' })}
+                        className={`px-2.5 py-1 text-[10px] font-bold transition-colors ${editingComanda.discount_type === 'percentage' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-zinc-50'}`}
+                      >%</button>
+                      <button type="button"
+                        onClick={() => setEditingComanda({ ...editingComanda, discount_type: 'fixed' })}
+                        className={`px-2.5 py-1 text-[10px] font-bold border-l border-zinc-100 transition-colors ${editingComanda.discount_type === 'fixed' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-zinc-50'}`}
+                      >R$</button>
+                    </div>
+                    <input
+                      value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
+                      onChange={(e) => setEditingComanda({ ...editingComanda, discount_value: parseMonetaryValue(e.target.value) })}
+                      className="h-8 w-24 rounded-lg border border-zinc-200 bg-white px-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all text-right"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100 mt-2">
-                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Total a Pagar</span>
-                  <strong className="text-[22px] font-black text-indigo-600">
-                    {formatCurrency(modalNetTotal)}
-                  </strong>
+                <div className="flex items-center justify-between sm:justify-end gap-3 bg-white border border-zinc-200 rounded-xl px-4 py-2.5 sm:min-w-[180px]">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total a pagar</span>
+                  <strong className="text-xl font-bold text-indigo-600">{formatCurrency(modalNetTotal)}</strong>
                 </div>
               </div>
             </div>
-
-            </div> {/* fechar dados da comanda */}
 
           </div>
           );
