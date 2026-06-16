@@ -213,6 +213,7 @@ export const Agenda: React.FC = () => {
   const [detailQuickStatus, setDetailQuickStatus] = useState<string | null>(null);
   const [detailQuickNotes, setDetailQuickNotes] = useState('');
   const [isComandaManagerOpen, setIsComandaManagerOpen] = useState(false);
+  const [comandaManagerSourceId, setComandaManagerSourceId] = useState<string | null>(null);
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [managerTab, setManagerTab] = useState<'atendimentos' | 'pagamentos' | 'pacote'>('atendimentos');
@@ -1564,29 +1565,35 @@ export const Agenda: React.FC = () => {
       <div className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md py-3 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
 
         {/* STATS BAR */}
-        <StatGrid cols={3}>
-          <StatCard
-            title="Sessões hoje"
-            value={stats.todayCount}
-            icon={CalendarRange}
-            color="info"
-            delay={0}
-          />
-          <StatCard
-            title="Confirmados"
-            value={stats.confirmedCount}
-            icon={UserCheck}
-            color="success"
-            delay={0.05}
-          />
-          <StatCard
-            title="Online hoje"
-            value={stats.onlineCount}
-            icon={Video}
-            color="warning"
-            delay={0.1}
-          />
-        </StatGrid>
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-1 sm:gap-0 divide-x divide-zinc-100">
+          <div className="flex items-center gap-2.5 px-0 sm:px-5 flex-1 min-w-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 shrink-0">
+              <CalendarRange size={13} className="text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">Sessões hoje</p>
+              <p className="text-lg font-black text-zinc-900 leading-tight">{stats.todayCount}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 px-0 sm:px-5 flex-1 min-w-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-100 shrink-0">
+              <UserCheck size={13} className="text-emerald-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">Confirmados</p>
+              <p className="text-lg font-black text-zinc-900 leading-tight">{stats.confirmedCount}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 px-0 sm:px-5 flex-1 min-w-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-50 border border-yellow-100 shrink-0">
+              <Video size={13} className="text-yellow-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">Online hoje</p>
+              <p className="text-lg font-black text-zinc-900 leading-tight">{stats.onlineCount}</p>
+            </div>
+          </div>
+        </div>
 
       {/* FILTERS & NAVIGATION BAR */}
       <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-zinc-200 shadow-sm flex flex-wrap gap-2 items-center justify-between">
@@ -2017,21 +2024,61 @@ export const Agenda: React.FC = () => {
                                                 <p className="text-sm font-black text-slate-800">
                                                     {patientComandas.find(c => c.id === formData.comanda_id)?.description || 'Carregando...'}
                                                 </p>
-                                                {patientComandas.find(c => c.id === formData.comanda_id)?.sync_to_livrocaixa ? (
-                                                  <div className="flex items-center gap-1.5 mt-1">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-wide">Vinculada ao Livro Caixa</p>
-                                                  </div>
-                                                ) : null}
+                                                {(() => {
+                                                  const cc = patientComandas.find(c => c.id === formData.comanda_id);
+                                                  if (!cc) return null;
+                                                  return (
+                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                      <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">
+                                                        {cc.sessions_used ?? 0}/{cc.sessions_total ?? '?'} sessões
+                                                      </span>
+                                                      {(cc.total_value || cc.totalValue) ? (
+                                                        <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-100 px-2 py-0.5 rounded-full">
+                                                          {formatCurrency(cc.total_value || cc.totalValue || 0)}
+                                                        </span>
+                                                      ) : null}
+                                                      {cc.sync_to_livrocaixa ? (
+                                                        <div className="flex items-center gap-1">
+                                                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                                          <p className="text-[10px] text-emerald-600 font-black uppercase tracking-wide">Livro Caixa</p>
+                                                        </div>
+                                                      ) : null}
+                                                    </div>
+                                                  );
+                                                })()}
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({...formData, comanda_id: ''})}
-                                            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-400 hover:text-rose-600 hover:border-rose-100 uppercase tracking-widest transition-all opacity-0 group-hover:opacity-100 shadow-sm"
-                                        >
-                                            Trocar
-                                        </button>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                  try {
+                                                    const res = await api.get<any[]>('/finance/comandas');
+                                                    const all = Array.isArray(res) ? res : [];
+                                                    const fresh = all.find(c => String(c.id) === String(formData.comanda_id));
+                                                    if (fresh) {
+                                                      setPatientComandas(prev => {
+                                                        const filtered = prev.filter(c => String(c.id) !== String(formData.comanda_id));
+                                                        return [...filtered, fresh];
+                                                      });
+                                                    }
+                                                  } catch { /* usa dados existentes */ }
+                                                  setComandaManagerSourceId(String(formData.comanda_id));
+                                                  setIsComandaManagerOpen(true);
+                                                }}
+                                                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm"
+                                            >
+                                                Ver detalhes
+                                                <ChevronRight size={12} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({...formData, comanda_id: ''})}
+                                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-400 hover:text-rose-600 hover:border-rose-100 uppercase tracking-widest transition-all shadow-sm"
+                                            >
+                                                Trocar
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
@@ -3943,12 +3990,12 @@ export const Agenda: React.FC = () => {
       {/* COMANDA MANAGER MODAL */}
       <Modal
         isOpen={isComandaManagerOpen}
-        onClose={() => setIsComandaManagerOpen(false)}
+        onClose={() => { setIsComandaManagerOpen(false); setComandaManagerSourceId(null); }}
         title="Gestão de Histórico e Pagamentos"
         maxWidth="max-w-5xl"
       >
         {(() => {
-          const cmnd = patientComandas.find(c => String(c.id) === String(selectedApt?.comanda_id));
+          const cmnd = patientComandas.find(c => String(c.id) === String(comandaManagerSourceId ?? selectedApt?.comanda_id));
           
           if (!cmnd) {
             return (
@@ -3988,15 +4035,22 @@ export const Agenda: React.FC = () => {
               <div className="space-y-5">
                 <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100 font-bold text-primary-700">
-                      {String(selectedApt?.patient_name || 'P').charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        {selectedApt?.patient_name}
-                      </p>
-                      <p className="text-xs text-slate-400">#{cmnd.id}</p>
-                    </div>
+                    {(() => {
+                      const patientId = selectedApt?.patient_id || cmnd.patient_id;
+                      const patientFromList = patients.find((p: any) => String(p.id) === String(patientId));
+                      const patientName = selectedApt?.patient_name || patientFromList?.full_name || (patientFromList as any)?.name || 'Paciente';
+                      return (
+                        <>
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100 font-bold text-primary-700">
+                            {String(patientName).charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">{patientName}</p>
+                            <p className="text-xs text-slate-400">#{cmnd.id}</p>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex gap-2">
