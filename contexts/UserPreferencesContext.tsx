@@ -18,6 +18,15 @@ export interface UserPreferences {
   agenda: {
     viewMode: 'day' | 'week' | 'month';
     stickyStats: boolean;
+    // Configurações do modal de agendamento
+    showServicesField: boolean;       // exibe campo Serviço/Pacote
+    showProfessionalField: boolean;   // exibe campo Profissional
+    defaultProfessionalId: string;    // ID do profissional padrão
+    defaultProfessionalName: string;  // nome para exibição
+    defaultRecurrence: string;        // '' = Não repete, ou valor de recorrência
+    showLivroCaixa: boolean;          // exibe toggle Livro Caixa
+    // Quais views o usuário quer ver no seletor (mínimo 1)
+    enabledViews: ('day' | 'week' | 'month')[];
   };
   caseStudies: {
     viewMode: 'grid' | 'list';
@@ -91,6 +100,13 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   agenda: {
     viewMode: 'week',
     stickyStats: false,
+    showServicesField: true,
+    showProfessionalField: true,
+    defaultProfessionalId: '',
+    defaultProfessionalName: '',
+    defaultRecurrence: '',
+    showLivroCaixa: true,
+    enabledViews: ['day', 'week', 'month'],
   },
   caseStudies: {
     viewMode: 'grid',

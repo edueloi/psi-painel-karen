@@ -10,7 +10,7 @@ import {
     Edit3, Download, Upload, FileDown, FileUp,
     Activity,
     AlignLeft, MessageSquare, Send, Stethoscope, Tag, Pin, PinOff,
-    BookOpen,
+    BookOpen, Settings, SlidersHorizontal, Eye, EyeOff, UserCog, RefreshCw,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -206,6 +206,9 @@ export const Agenda: React.FC = () => {
     window.addEventListener('resize', measure);
     return () => { cancelAnimationFrame(raf); obs.disconnect(); window.removeEventListener('resize', measure); };
   }, [stickyStats]);
+
+  // ── Agenda settings modal ──
+  const [isAgendaSettingsOpen, setIsAgendaSettingsOpen] = useState(false);
 
   // ── Edit scope modal (which sessions to apply changes to) ──
   const [isScopeModalOpen, setIsScopeModalOpen] = useState(false);
@@ -1163,6 +1166,7 @@ export const Agenda: React.FC = () => {
 
   const openNewModal = (date?: Date) => {
     const initialDate = date || new Date();
+    const agendaPrefs = preferences.agenda;
     setSelectedApt(null);
     setPatientComandas([]);
     setFormData({
@@ -1173,11 +1177,14 @@ export const Agenda: React.FC = () => {
         title: '',
         service_id: '',
         patient_id: '',
-        psychologist_id: '',
+        psychologist_id: agendaPrefs.defaultProfessionalId || '',
+        professional_name_text: agendaPrefs.defaultProfessionalName || '',
         notes: '',
         status: 'scheduled',
         meeting_url: '',
         recurrence_enabled: false,
+        recurrence_rule: agendaPrefs.defaultRecurrence || null,
+        recurrence_explicitly_none: !agendaPrefs.defaultRecurrence,
         reschedule_reason: '',
         comanda_id: '',
         sync_to_livrocaixa: false
@@ -1641,12 +1648,18 @@ export const Agenda: React.FC = () => {
 
           {/* Controles: view switcher + filtros */}
           <div className="flex flex-wrap items-center gap-2">
-              {/* View switcher */}
-              <div className="flex bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
-                  <button onClick={() => setView('day')} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === 'day' ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>Dia</button>
-                  <button onClick={() => setView('week')} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === 'week' ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>Semana</button>
-                  <button onClick={() => setView('month')} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>Mês</button>
-              </div>
+              {/* View switcher — só mostra views habilitadas nas preferências */}
+              {(() => {
+                const enabledViews = preferences.agenda.enabledViews ?? ['day','week','month'];
+                const viewLabels: Record<string, string> = { day: 'Dia', week: 'Semana', month: 'Mês' };
+                return enabledViews.length > 1 ? (
+                  <div className="flex bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
+                    {enabledViews.map(v => (
+                      <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === v ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>{viewLabels[v]}</button>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
 
               {/* Filtros */}
               <select className="bg-white border border-zinc-200 rounded-xl px-3 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[80px] max-w-[120px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
@@ -1666,6 +1679,16 @@ export const Agenda: React.FC = () => {
                 title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
               >
                 {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
+              </IconButton>
+
+              {/* Botão configurações da agenda */}
+              <IconButton
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAgendaSettingsOpen(true)}
+                title="Configurações da agenda"
+              >
+                <Settings size={13} />
               </IconButton>
           </div>
       </div>{/* end nav bar */}
@@ -2231,7 +2254,7 @@ export const Agenda: React.FC = () => {
                           )}
 
                           <div className="space-y-2 pt-2">
-                          <div className="space-y-2 pt-2">
+                          {preferences.agenda.showServicesField !== false && (<div className="space-y-2 pt-2">
                                <Combobox
                                  label="Serviço ou Pacote"
                                  placeholder="Pesquisar serviço ou pacote..."
@@ -2268,7 +2291,7 @@ export const Agenda: React.FC = () => {
                                    setFormData({...formData, service_id: val, duration_minutes: duration});
                                  }}
                                />
-                          </div>
+                          </div>)}
                           </div>
                         </>
                       ) : (
@@ -2333,8 +2356,8 @@ export const Agenda: React.FC = () => {
                               </div>
                             )}
 
-                            {!(formData.comanda_id && patientComandas.find(c => String(c.id) === String(formData.comanda_id))?.sync_to_livrocaixa) && (
-                              <div 
+                            {preferences.agenda.showLivroCaixa !== false && !(formData.comanda_id && patientComandas.find(c => String(c.id) === String(formData.comanda_id))?.sync_to_livrocaixa) && (
+                              <div
                                 onClick={() => setFormData({...formData, sync_to_livrocaixa: !formData.sync_to_livrocaixa})}
                                 className={`mt-2 p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
                                     formData.sync_to_livrocaixa 
@@ -2474,6 +2497,7 @@ export const Agenda: React.FC = () => {
                           </button>
                       </div>
 
+                      {preferences.agenda.showProfessionalField !== false && (
                       <div className="grid grid-cols-1 gap-4">
                           <Combobox
                             label="Profissional Responsável"
@@ -2485,6 +2509,7 @@ export const Agenda: React.FC = () => {
                             onChange={(val) => setFormData({...formData, psychologist_id: val, professional_id: val})}
                           />
                       </div>
+                      )}
 
                       {(() => {
                           const selComanda = formData.comanda_id ? patientComandas.find((c: any) => String(c.id) === String(formData.comanda_id)) : null;
@@ -4570,6 +4595,189 @@ export const Agenda: React.FC = () => {
           />
         </div>
       </Modal>
+
+      {/* ─── AGENDA SETTINGS MODAL ─── */}
+      <Modal
+        isOpen={isAgendaSettingsOpen}
+        onClose={() => setIsAgendaSettingsOpen(false)}
+        title="Configurações da Agenda"
+        maxWidth="max-w-lg"
+      >
+        {(() => {
+          const ap = preferences.agenda;
+          const enabledViews: ('day'|'week'|'month')[] = ap.enabledViews ?? ['day','week','month'];
+          const allViews: { key: 'day'|'week'|'month'; label: string }[] = [
+            { key: 'day',   label: 'Dia' },
+            { key: 'week',  label: 'Semana' },
+            { key: 'month', label: 'Mês' },
+          ];
+
+          const toggleView = (v: 'day'|'week'|'month') => {
+            const current = enabledViews;
+            const next = current.includes(v)
+              ? current.filter(x => x !== v)
+              : [...current, v];
+            if (next.length === 0) return; // mínimo 1
+            updatePreference('agenda', { enabledViews: next });
+          };
+
+          return (
+            <div className="space-y-5 pt-1 pb-2">
+
+              {/* ── VISUALIZAÇÃO ── */}
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-4 bg-indigo-500 rounded-full" />
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-600">Visualização</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
+                  <p className="text-[11px] text-slate-500 font-semibold">Modos de visualização disponíveis <span className="text-slate-400">(mínimo 1)</span></p>
+                  <div className="flex gap-2">
+                    {allViews.map(({ key, label }) => {
+                      const active = enabledViews.includes(key);
+                      const isLast = enabledViews.length === 1 && active;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => !isLast && toggleView(key)}
+                          disabled={isLast}
+                          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all border ${
+                            active
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
+                              : 'bg-white text-slate-400 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'
+                          } ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+
+              {/* ── CAMPOS DO MODAL DE AGENDAMENTO ── */}
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-600">Campos no Novo Agendamento</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                  {/* Serviços/Pacotes */}
+                  <div className="flex items-center justify-between px-4 py-3 bg-white">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${ap.showServicesField !== false ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-400'}`}>
+                        <Package size={14} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">Serviço ou Pacote</p>
+                        <p className="text-[10px] text-slate-400">Mostrar campo de serviço/pacote</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => updatePreference('agenda', { showServicesField: !(ap.showServicesField !== false) })}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${ap.showServicesField !== false ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-200 border-slate-200'}`}
+                    >
+                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 mt-[1px] ${ap.showServicesField !== false ? 'translate-x-[17px]' : 'translate-x-[1px]'}`} />
+                    </button>
+                  </div>
+
+                  {/* Profissional */}
+                  <div className="flex items-center justify-between px-4 py-3 bg-white">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${ap.showProfessionalField !== false ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-400'}`}>
+                        <UserCheck size={14} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">Campo Profissional</p>
+                        <p className="text-[10px] text-slate-400">Mostrar seletor de profissional</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => updatePreference('agenda', { showProfessionalField: !(ap.showProfessionalField !== false) })}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${ap.showProfessionalField !== false ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-200 border-slate-200'}`}
+                    >
+                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 mt-[1px] ${ap.showProfessionalField !== false ? 'translate-x-[17px]' : 'translate-x-[1px]'}`} />
+                    </button>
+                  </div>
+
+                  {/* Livro Caixa */}
+                  <div className="flex items-center justify-between px-4 py-3 bg-white">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${ap.showLivroCaixa !== false ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
+                        <BookOpen size={14} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">Lançar no Livro Caixa</p>
+                        <p className="text-[10px] text-slate-400">Mostrar toggle de sincronização financeira</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => updatePreference('agenda', { showLivroCaixa: !(ap.showLivroCaixa !== false) })}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${ap.showLivroCaixa !== false ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-200 border-slate-200'}`}
+                    >
+                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 mt-[1px] ${ap.showLivroCaixa !== false ? 'translate-x-[17px]' : 'translate-x-[1px]'}`} />
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* ── DEFAULTS ── */}
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-4 bg-amber-400 rounded-full" />
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-600">Valores Padrão</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden divide-y divide-slate-100">
+                  {/* Profissional padrão */}
+                  <div className="px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <UserCog size={13} className="text-slate-400" />
+                      <p className="text-xs font-bold text-slate-600">Profissional padrão</p>
+                      <p className="text-[10px] text-slate-400 ml-auto">Pré-selecionar ao abrir</p>
+                    </div>
+                    <Combobox
+                      options={[{ id: '', label: 'Nenhum (não pré-selecionar)' }, ...professionals.map(p => ({ id: String(p.id), label: p.name }))]}
+                      value={ap.defaultProfessionalId || ''}
+                      onChange={(val) => {
+                        const id = Array.isArray(val) ? val[0] : val;
+                        const name = professionals.find(p => String(p.id) === id)?.name || '';
+                        updatePreference('agenda', { defaultProfessionalId: id, defaultProfessionalName: name });
+                      }}
+                      placeholder="Selecionar profissional..."
+                    />
+                  </div>
+
+                  {/* Repetição padrão */}
+                  <div className="px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw size={13} className="text-slate-400" />
+                      <p className="text-xs font-bold text-slate-600">Repetição padrão</p>
+                      <p className="text-[10px] text-slate-400 ml-auto">Selecionado ao abrir</p>
+                    </div>
+                    <Combobox
+                      options={[
+                        { id: '', label: 'Não Repete' },
+                        ...recurrenceOptions.filter(o => o.freq).map(o => ({ id: `${o.freq}|${o.interval}|${o.count}`, label: o.label })),
+                      ]}
+                      value={ap.defaultRecurrence || ''}
+                      onChange={(val) => {
+                        const v = Array.isArray(val) ? val[0] : val;
+                        updatePreference('agenda', { defaultRecurrence: v });
+                      }}
+                      placeholder="Não Repete"
+                    />
+                  </div>
+                </div>
+              </section>
+
+            </div>
+          );
+        })()}
+      </Modal>
+
     </PageWrapper>
   );
 };
