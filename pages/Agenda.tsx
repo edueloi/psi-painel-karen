@@ -186,20 +186,25 @@ export const Agenda: React.FC = () => {
   const stickyNavRef = useRef<HTMLDivElement>(null);
   const [stickyNavOffset, setStickyNavOffset] = useState(0);
 
+  const getTopbarHeight = () => {
+    if (typeof window === 'undefined') return 56;
+    if (window.innerWidth >= 768) return 72;
+    if (window.innerWidth >= 640) return 64;
+    return 56;
+  };
+
   useEffect(() => {
-    if (!stickyStats || !stickyNavRef.current) { setStickyNavOffset(0); return; }
     const measure = () => {
-      const el = stickyNavRef.current;
-      if (!el) return;
-      // top of sticky (topbar height) + element height = where calendar header should sit
-      const topStyle = getComputedStyle(el).top;
-      const topPx = parseFloat(topStyle) || 0;
-      setStickyNavOffset(topPx + el.offsetHeight);
+      if (!stickyStats || !stickyNavRef.current) { setStickyNavOffset(0); return; }
+      setStickyNavOffset(getTopbarHeight() + stickyNavRef.current.offsetHeight);
     };
+    // Mede imediatamente e após o próximo frame (para capturar após layout)
     measure();
+    const raf = requestAnimationFrame(measure);
     const obs = new ResizeObserver(measure);
-    obs.observe(stickyNavRef.current);
-    return () => obs.disconnect();
+    if (stickyNavRef.current) obs.observe(stickyNavRef.current);
+    window.addEventListener('resize', measure);
+    return () => { cancelAnimationFrame(raf); obs.disconnect(); window.removeEventListener('resize', measure); };
   }, [stickyStats]);
 
   // ── Edit scope modal (which sessions to apply changes to) ──

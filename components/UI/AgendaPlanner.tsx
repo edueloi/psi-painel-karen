@@ -1255,44 +1255,86 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
         const below = tooltipData.y + 8;
         const useAbove = above > 0;
         const top = useAbove ? above : below;
+        const arrowStyle: React.CSSProperties = {
+          position: 'absolute',
+          width: 12, height: 12,
+          background: 'rgba(15,23,42,0.97)',
+          transform: 'rotate(45deg)',
+          left: '50%',
+          marginLeft: -6,
+          ...(useAbove
+            ? { bottom: -6, borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }
+            : { top: -6, borderLeft: '1px solid rgba(255,255,255,0.1)', borderTop: '1px solid rgba(255,255,255,0.1)' }),
+        };
         return (
           <div
-            className="pointer-events-none fixed z-[9999] transition-all duration-150"
-            style={{ left, top, width: TOOLTIP_W }}
+            style={{
+              position: 'fixed',
+              zIndex: 9999,
+              left,
+              top,
+              width: TOOLTIP_W,
+              pointerEvents: 'none',
+            }}
           >
-            <div className="relative bg-slate-900/96 backdrop-blur-xl text-white rounded-2xl px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)] space-y-2 border border-white/10 ring-1 ring-white/5">
+            <div style={{
+              position: 'relative',
+              background: 'rgba(15,23,42,0.97)',
+              backdropFilter: 'blur(16px)',
+              color: '#fff',
+              borderRadius: 16,
+              padding: '12px 16px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}>
               {/* Seta */}
-              {useAbove ? (
-                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900/96 rotate-45 border-b border-r border-white/10" />
-              ) : (
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900/96 rotate-45 border-t border-l border-white/10" />
-              )}
-              <p className="text-[8px] uppercase tracking-[0.2em] font-black text-slate-400">
+              <div style={arrowStyle} />
+
+              {/* Dia */}
+              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 900, color: 'rgba(148,163,184,1)', margin: 0 }}>
                 {ev.startDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}
               </p>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: tooltipAccent }} />
-                <p className="text-[13px] font-black tabular-nums tracking-tight" style={{ color: tooltipAccent }}>
+
+              {/* Horário */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: tooltipAccent, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 900, color: tooltipAccent, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>
                   {ev.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  <span className="text-white/40 mx-1">→</span>
+                  <span style={{ color: 'rgba(255,255,255,0.3)', margin: '0 4px' }}>→</span>
                   {ev.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <span className="text-[9px] text-slate-500 font-bold ml-auto">{durationMin}min</span>
+                </span>
+                <span style={{ fontSize: 9, color: 'rgba(100,116,139,1)', fontWeight: 700, marginLeft: 'auto' }}>{durationMin}min</span>
               </div>
-              <p className="font-black text-[13px] text-white leading-tight truncate">{ev.title}</p>
-              {ev.serviceName && <p className="text-[10px] text-slate-400 font-semibold truncate">{ev.serviceName}</p>}
+
+              {/* Nome */}
+              <p style={{ fontSize: 13, fontWeight: 900, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</p>
+
+              {/* Serviço */}
+              {ev.serviceName && (
+                <p style={{ fontSize: 10, color: 'rgba(148,163,184,1)', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.serviceName}</p>
+              )}
+
+              {/* Sessão */}
               {ev.recurrenceIndex !== undefined && ev.recurrenceCount !== undefined && (
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase" style={{ backgroundColor: `${tooltipAccent}22`, color: tooltipAccent }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 9, fontWeight: 900, textTransform: 'uppercase', backgroundColor: `${tooltipAccent}25`, color: tooltipAccent }}>
                   Sessão {ev.recurrenceIndex}/{ev.recurrenceCount}
                 </div>
               )}
-              <div className="flex items-center gap-2 pt-1.5 border-t border-white/10">
+
+              {/* Footer */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 2 }}>
                 <div className={cx('w-1.5 h-1.5 rounded-full shrink-0', tooltipStatusMeta.dot)} />
-                <span className="text-slate-300 text-[9px] font-bold">{tooltipStatusMeta.label}</span>
+                <span style={{ fontSize: 9, color: 'rgba(203,213,225,1)', fontWeight: 700 }}>{tooltipStatusMeta.label}</span>
                 {(isOnline || isPresencial) && (
-                  <span className={cx('text-[8px] font-black uppercase ml-auto px-1.5 py-0.5 rounded-full',
-                    isOnline ? 'text-cyan-300 bg-cyan-500/15' : 'text-slate-400 bg-slate-500/15'
-                  )}>
+                  <span style={{
+                    fontSize: 8, fontWeight: 900, textTransform: 'uppercase', marginLeft: 'auto',
+                    padding: '2px 6px', borderRadius: 999,
+                    color: isOnline ? 'rgba(103,232,249,1)' : 'rgba(148,163,184,1)',
+                    background: isOnline ? 'rgba(6,182,212,0.15)' : 'rgba(100,116,139,0.15)',
+                  }}>
                     {isOnline ? '● Online' : '● Presencial'}
                   </span>
                 )}
