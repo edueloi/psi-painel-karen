@@ -1645,7 +1645,6 @@ export const Agenda: React.FC = () => {
                 {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
               </IconButton>
           </div>
-      </div>
       </div>{/* end nav bar */}
       </div>{/* end sticky wrapper */}
 
