@@ -205,6 +205,8 @@ export const Profile: React.FC = () => {
 
   const [schedule, setSchedule] = useState<ScheduleDay[]>(() => cloneSchedule(DEFAULT_SCHEDULE));
   const [closedDates, setClosedDates] = useState<ClosedDate[]>([]);
+  const [customDateInput, setCustomDateInput] = useState('');
+  const [customLabelInput, setCustomLabelInput] = useState('');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -917,6 +919,49 @@ Gere o seguinte JSON:
                             </button>
                           );
                         })}
+                      </div>
+                    </div>
+
+                    {/* Adicionar data específica manualmente */}
+                    <div className="mt-4 border-t border-slate-100 pt-4">
+                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Adicionar data específica</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={customDateInput}
+                          min={new Date().toISOString().slice(0, 10)}
+                          onChange={e => setCustomDateInput(e.target.value)}
+                          className="flex-shrink-0 w-36 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition-all"
+                        />
+                        <input
+                          type="text"
+                          value={customLabelInput}
+                          onChange={e => setCustomLabelInput(e.target.value)}
+                          placeholder="Motivo (Férias, Congresso...)"
+                          className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:border-indigo-300 focus:bg-white transition-all"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && customDateInput) {
+                              addClosedDatePreset({ date: customDateInput, label: customLabelInput || 'Folga' });
+                              setCustomDateInput('');
+                              setCustomLabelInput('');
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={!customDateInput}
+                          onClick={() => {
+                            if (!customDateInput) return;
+                            addClosedDatePreset({ date: customDateInput, label: customLabelInput || 'Folga' });
+                            setCustomDateInput('');
+                            setCustomLabelInput('');
+                          }}
+                          className={!customDateInput
+                            ? 'shrink-0 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-300 cursor-not-allowed'
+                            : 'shrink-0 rounded-xl border border-indigo-200 bg-indigo-600 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-indigo-700 transition-all active:scale-95'}
+                        >
+                          + Bloquear
+                        </button>
                       </div>
                     </div>
                   </div>

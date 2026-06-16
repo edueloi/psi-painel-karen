@@ -1565,32 +1565,32 @@ export const Agenda: React.FC = () => {
       <div className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md py-3 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
 
         {/* STATS BAR */}
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-1 sm:gap-0 divide-x divide-zinc-100">
-          <div className="flex items-center gap-2.5 px-0 sm:px-5 flex-1 min-w-0">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 shrink-0">
-              <CalendarRange size={13} className="text-blue-600" />
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 shrink-0">
+              <CalendarRange size={14} className="text-blue-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">Sessões hoje</p>
-              <p className="text-lg font-black text-zinc-900 leading-tight">{stats.todayCount}</p>
+              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Sessões hoje</p>
+              <p className="text-xl font-black text-zinc-900 leading-none">{stats.todayCount}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 px-0 sm:px-5 flex-1 min-w-0">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-100 shrink-0">
-              <UserCheck size={13} className="text-emerald-600" />
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 shrink-0">
+              <UserCheck size={14} className="text-emerald-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">Confirmados</p>
-              <p className="text-lg font-black text-zinc-900 leading-tight">{stats.confirmedCount}</p>
+              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Confirmados</p>
+              <p className="text-xl font-black text-zinc-900 leading-none">{stats.confirmedCount}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 px-0 sm:px-5 flex-1 min-w-0">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-50 border border-yellow-100 shrink-0">
-              <Video size={13} className="text-yellow-600" />
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-yellow-50 border border-yellow-100 shrink-0">
+              <Video size={14} className="text-yellow-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">Online hoje</p>
-              <p className="text-lg font-black text-zinc-900 leading-tight">{stats.onlineCount}</p>
+              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Online hoje</p>
+              <p className="text-xl font-black text-zinc-900 leading-none">{stats.onlineCount}</p>
             </div>
           </div>
         </div>
@@ -2014,109 +2014,130 @@ export const Agenda: React.FC = () => {
                           {formData.patient_id && !isNaN(parseInt(formData.patient_id)) && (
                             <div className="animate-fadeIn">
                                 {formData.comanda_id ? (
-                                    <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 flex items-center justify-between group shadow-sm transition-all hover:bg-indigo-50">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-indigo-500 shadow-sm border border-indigo-200">
-                                                <DollarSign size={20} />
+                                    /* ── Comanda selecionada ── */
+                                    (() => {
+                                      const cc = patientComandas.find(c => c.id === formData.comanda_id);
+                                      const totalVal = cc?.total_value || cc?.totalValue || 0;
+                                      const paidVal = cc?.paid_value || cc?.paidValue || 0;
+                                      const pending = totalVal - paidVal;
+                                      const sessUsed = cc?.sessions_used ?? 0;
+                                      const sessTot = cc?.sessions_total ?? 0;
+                                      const pct = sessTot > 0 ? Math.round((sessUsed / sessTot) * 100) : 0;
+                                      return (
+                                        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                                          {/* Topo colorido */}
+                                          <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 px-4 py-3 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <DollarSign size={13} className="text-indigo-200" />
+                                              <span className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Comanda vinculada</span>
                                             </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1.5">Comanda Vinculada</p>
-                                                <p className="text-sm font-black text-slate-800">
-                                                    {patientComandas.find(c => c.id === formData.comanda_id)?.description || 'Carregando...'}
-                                                </p>
-                                                {(() => {
-                                                  const cc = patientComandas.find(c => c.id === formData.comanda_id);
-                                                  if (!cc) return null;
-                                                  return (
-                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                      <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">
-                                                        {cc.sessions_used ?? 0}/{cc.sessions_total ?? '?'} sessões
-                                                      </span>
-                                                      {(cc.total_value || cc.totalValue) ? (
-                                                        <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-100 px-2 py-0.5 rounded-full">
-                                                          {formatCurrency(cc.total_value || cc.totalValue || 0)}
-                                                        </span>
-                                                      ) : null}
-                                                      {cc.sync_to_livrocaixa ? (
-                                                        <div className="flex items-center gap-1">
-                                                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                                          <p className="text-[10px] text-emerald-600 font-black uppercase tracking-wide">Livro Caixa</p>
-                                                        </div>
-                                                      ) : null}
-                                                    </div>
-                                                  );
-                                                })()}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                            <button
+                                            <div className="flex items-center gap-1.5">
+                                              <button
                                                 type="button"
                                                 onClick={async () => {
                                                   try {
                                                     const res = await api.get<any[]>('/finance/comandas');
                                                     const all = Array.isArray(res) ? res : [];
                                                     const fresh = all.find(c => String(c.id) === String(formData.comanda_id));
-                                                    if (fresh) {
-                                                      setPatientComandas(prev => {
-                                                        const filtered = prev.filter(c => String(c.id) !== String(formData.comanda_id));
-                                                        return [...filtered, fresh];
-                                                      });
-                                                    }
+                                                    if (fresh) setPatientComandas(prev => [...prev.filter(c => String(c.id) !== String(formData.comanda_id)), fresh]);
                                                   } catch { /* usa dados existentes */ }
                                                   setComandaManagerSourceId(String(formData.comanda_id));
                                                   setIsComandaManagerOpen(true);
                                                 }}
-                                                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm"
-                                            >
-                                                Ver detalhes
-                                                <ChevronRight size={12} />
-                                            </button>
-                                            <button
+                                                className="flex items-center gap-1 px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[9px] font-black text-white uppercase tracking-widest transition-all"
+                                              >
+                                                Detalhes <ChevronRight size={10} />
+                                              </button>
+                                              <button
                                                 type="button"
                                                 onClick={() => setFormData({...formData, comanda_id: ''})}
-                                                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-black text-slate-400 hover:text-rose-600 hover:border-rose-100 uppercase tracking-widest transition-all shadow-sm"
-                                            >
+                                                className="flex items-center gap-1 px-2.5 py-1 bg-white/10 hover:bg-rose-500/80 rounded-lg text-[9px] font-black text-white/70 hover:text-white uppercase tracking-widest transition-all"
+                                              >
                                                 Trocar
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {patientComandas.length > 0 ? (
-                                            <div className="bg-white border-2 border-dashed border-slate-200 p-5 rounded-3xl transition-all hover:border-indigo-300 group/link">
-                                                <div className="flex items-center gap-2 mb-4">
-                                                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Comandas abertas detectadas</p>
+                                              </button>
+                                            </div>
+                                          </div>
+                                          {/* Corpo */}
+                                          <div className="px-4 py-3">
+                                            <p className="text-sm font-black text-slate-800 mb-2">{cc?.description || 'Carregando...'}</p>
+                                            <div className="flex items-center justify-between gap-3 mb-2.5">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                                                  {sessUsed}/{sessTot} sessões
+                                                </span>
+                                                {cc?.sync_to_livrocaixa && (
+                                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                                                    <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                                    Livro Caixa
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {totalVal > 0 && (
+                                                <div className="flex items-center gap-2 text-[10px] font-bold">
+                                                  <span className="text-slate-400">{formatCurrency(paidVal)} <span className="text-slate-300">pago</span></span>
+                                                  {pending > 0 && <span className="text-rose-500">{formatCurrency(pending)} <span className="text-rose-300">pend.</span></span>}
                                                 </div>
-                                                <div className="grid grid-cols-1 gap-2.5 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
-                                                    {patientComandas.map(c => (
+                                              )}
+                                            </div>
+                                            {sessTot > 0 && (
+                                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })()
+                                ) : (
+                                    <div className="space-y-2">
+                                        {patientComandas.length > 0 ? (
+                                            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                                                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                                                  <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Comandas abertas</span>
+                                                  </div>
+                                                  <span className="text-[9px] font-black text-slate-300 uppercase">{patientComandas.length} encontrada{patientComandas.length > 1 ? 's' : ''}</span>
+                                                </div>
+                                                <div className="divide-y divide-slate-50 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                                    {patientComandas.map(c => {
+                                                      const tot = c.sessions_total ?? 0;
+                                                      const used = c.sessions_used ?? 0;
+                                                      const pct = tot > 0 ? Math.round((used / tot) * 100) : 0;
+                                                      return (
                                                         <button
                                                             key={c.id}
                                                             type="button"
                                                             onClick={() => handleSelectComanda(c)}
-                                                            className="w-full flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-white border border-slate-100 hover:border-indigo-200 rounded-2xl transition-all group shadow-xs active:scale-[0.98]"
+                                                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left group"
                                                         >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-100 text-slate-400 group-hover:text-indigo-500 group-hover:border-indigo-100 transition-colors shadow-sm">
-                                                                    <DollarSign size={14} />
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-500 shrink-0 group-hover:bg-indigo-100 transition-colors">
+                                                                <DollarSign size={13} />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                              <p className="text-xs font-black text-slate-700 group-hover:text-indigo-700 truncate transition-colors">{c.description}</p>
+                                                              <div className="flex items-center gap-2 mt-0.5">
+                                                                <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                                  <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${pct}%` }} />
                                                                 </div>
-                                                                <span className="text-xs font-black text-slate-700 uppercase tracking-wide group-hover:text-indigo-700 transition-colors">{c.description}</span>
+                                                                <span className="text-[9px] font-bold text-slate-400">{used}/{tot} sessões</span>
+                                                              </div>
                                                             </div>
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100/50 px-2 py-0.5 rounded-full">{c.sessions_used}/{c.sessions_total} sessões</span>
-                                                                <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
-                                                            </div>
+                                                            <ChevronRight size={13} className="text-slate-300 group-hover:text-indigo-400 shrink-0 transition-colors" />
                                                         </button>
-                                                    ))}
+                                                      );
+                                                    })}
                                                 </div>
-                                                <button
+                                                <div className="px-3 py-2.5 border-t border-slate-100">
+                                                  <button
                                                     type="button"
                                                     onClick={openNewComandaModal}
-                                                    className="w-full mt-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-indigo-600 hover:bg-slate-50 hover:border-indigo-200 transition-all uppercase tracking-[0.2em] shadow-sm flex items-center justify-center gap-2"
-                                                >
-                                                    <Plus size={14} />
-                                                    CRIAR NOVA COMANDA
-                                                </button>
+                                                    className="w-full py-2 rounded-xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-all uppercase tracking-widest flex items-center justify-center gap-1.5"
+                                                  >
+                                                    <Plus size={12} />
+                                                    Nova comanda
+                                                  </button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="flex justify-start">
@@ -2520,94 +2541,84 @@ export const Agenda: React.FC = () => {
       {/* DELETE CONFIRM */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-           <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full text-center shadow-2xl border border-white/20 transform animate-bounceIn overflow-hidden flex flex-col max-h-[90vh]">
-              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-lg shadow-rose-500/10 shrink-0">
-                <Trash2 size={32} />
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col max-h-[80vh] animate-bounceIn">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center border border-rose-100 shrink-0">
+                <Trash2 size={16} />
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-2 tracking-tight shrink-0">Remover Atendimento?</h3>
-              
-              {selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 ? (
-                <div className="flex flex-col flex-1 overflow-hidden">
-                  <p className="text-[12px] font-bold text-slate-400 mb-4 leading-relaxed shrink-0">
-                    Este agendamento está vinculado a uma comanda com outros atendimentos.
-                    Selecione quais deseja remover:
-                  </p>
-                  
-                  <div className="flex-1 overflow-y-auto px-1 py-1 space-y-2 mb-6 custom-scrollbar">
-                    {appointments
-                      .filter(a => a.comanda_id === selectedApt.comanda_id)
-                      .sort((a,b) => a.start.getTime() - b.start.getTime())
-                      .map(apt => (
-                      <label key={apt.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-all">
-                        <input
-                          type="checkbox"
-                          checked={selectedDeleteIds.includes(apt.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedDeleteIds([...selectedDeleteIds, apt.id]);
-                            else setSelectedDeleteIds(selectedDeleteIds.filter(id => id !== apt.id));
-                          }}
-                          className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500"
-                        />
-                        <div className="flex-1 text-left">
-                          <p className="text-[11px] font-black text-slate-700 uppercase">{apt.patient_name || apt.title}</p>
-                          <p className="text-[9px] font-bold text-slate-400">
-                             {apt.start.toLocaleDateString()} às {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        {apt.id === selectedApt.id && (
-                          <span className="text-[8px] font-black bg-slate-100 px-1.5 py-0.5 rounded text-slate-400 uppercase">Atual</span>
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-[12px] font-bold text-slate-400 mb-8 leading-relaxed">
-                  Deseja remover este compromisso permanentemente? Esta ação não pode ser desfeita.
+              <div>
+                <p className="text-sm font-black text-slate-800 leading-none">Remover Atendimento?</p>
+                {!(selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1) && (
+                  <p className="text-[10px] font-bold text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
+                )}
+              </div>
+            </div>
+
+            {selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 ? (
+              <>
+                <p className="text-[10px] font-bold text-slate-400 mb-3 leading-relaxed">
+                  Vinculado a uma comanda com outros atendimentos. Selecione quais remover:
                 </p>
-              )}
+                <div className="flex-1 overflow-y-auto space-y-1 mb-4 custom-scrollbar">
+                  {appointments
+                    .filter(a => a.comanda_id === selectedApt.comanda_id)
+                    .sort((a,b) => a.start.getTime() - b.start.getTime())
+                    .map(apt => (
+                    <label key={apt.id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${selectedDeleteIds.includes(apt.id) ? 'border-rose-200 bg-rose-50' : 'border-slate-100 hover:bg-slate-50'}`}>
+                      <input
+                        type="checkbox"
+                        checked={selectedDeleteIds.includes(apt.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedDeleteIds([...selectedDeleteIds, apt.id]);
+                          else setSelectedDeleteIds(selectedDeleteIds.filter(id => id !== apt.id));
+                        }}
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-500 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-black text-slate-700 truncate">{apt.patient_name || apt.title}</p>
+                        <p className="text-[9px] font-bold text-slate-400">
+                          {apt.start.toLocaleDateString('pt-BR')} às {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      {apt.id === selectedApt.id && (
+                        <span className="text-[8px] font-black bg-slate-100 px-1.5 py-0.5 rounded-md text-slate-400 uppercase shrink-0">atual</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-[11px] font-bold text-slate-400 mb-4 leading-relaxed">
+                Deseja remover este compromisso permanentemente?
+              </p>
+            )}
 
-              <div className="flex flex-col gap-3 shrink-0">
-                 <button 
-                   disabled={selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 && selectedDeleteIds.length === 0}
-                   className="w-full py-4 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-rose-200 transition-all flex items-center justify-center gap-2"
-                   onClick={async () => {
-                    const idsToDel = (selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1) 
-                      ? selectedDeleteIds 
-                      : [formData.id || selectedApt?.id];
-                    
-                    if (idsToDel.length === 0) {
-                        const singleId = formData.id || selectedApt?.id;
-                        if (!singleId) return;
-                        idsToDel.push(singleId);
-                    }
-
-                    try {
-                        const results = await Promise.allSettled(idsToDel.map(id => api.delete(`/appointments/${id}`)));
-                        const failures = results.filter(r => r.status === 'rejected' && !(r.reason?.message?.includes('não encontrado') || r.reason?.message?.includes('not found')));
-                        if (failures.length > 0) {
-                            pushToast('error', 'Erro ao remover agendamento(s).');
-                        } else {
-                            pushToast('success', idsToDel.length > 1 ? `${idsToDel.length} agendamentos removidos.` : 'Agendamento removido.');
-                        }
-                        fetchData();
-                        closeAppointmentModal();
-                        setIsDeleteModalOpen(false);
-                        setIsDetailModalOpen(false);
-                        setSelectedDeleteIds([]);
-                    } catch (err) {
-                        console.error(err);
-                        pushToast('error', 'Erro ao remover agendamento(s).');
-                        fetchData();
-                    }
-                 }}>
-                    {selectedDeleteIds.length > 1 ? `Excluir ${selectedDeleteIds.length} Atendimentos` : 'Confirmar Exclusão'}
-                 </button>
-                 <button onClick={() => { setIsDeleteModalOpen(false); setSelectedDeleteIds([]); }} className="w-full py-4 text-slate-400 hover:text-slate-600 text-[10px] font-black uppercase tracking-[0.2em] transition-colors">
-                    Cancelar
-                 </button>
-              </div>
-           </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => { setIsDeleteModalOpen(false); setSelectedDeleteIds([]); }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-400 hover:text-slate-600 hover:bg-slate-50 uppercase tracking-widest transition-all">
+                Cancelar
+              </button>
+              <button
+                disabled={selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 && selectedDeleteIds.length === 0}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm shadow-rose-200 transition-all"
+                onClick={async () => {
+                  const idsToDel = (selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1)
+                    ? selectedDeleteIds
+                    : [formData.id || selectedApt?.id];
+                  if (idsToDel.length === 0) { const s = formData.id || selectedApt?.id; if (!s) return; idsToDel.push(s); }
+                  try {
+                    const results = await Promise.allSettled(idsToDel.map(id => api.delete(`/appointments/${id}`)));
+                    const failures = results.filter(r => r.status === 'rejected' && !(r.reason?.message?.includes('não encontrado') || r.reason?.message?.includes('not found')));
+                    if (failures.length > 0) pushToast('error', 'Erro ao remover agendamento(s).');
+                    else pushToast('success', idsToDel.length > 1 ? `${idsToDel.length} agendamentos removidos.` : 'Agendamento removido.');
+                    fetchData(); closeAppointmentModal(); setIsDeleteModalOpen(false); setIsDetailModalOpen(false); setSelectedDeleteIds([]);
+                  } catch (err) { console.error(err); pushToast('error', 'Erro ao remover agendamento(s).'); fetchData(); }
+                }}>
+                {selectedDeleteIds.length > 1 ? `Excluir ${selectedDeleteIds.length}` : 'Excluir'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {/* RECURRENCE SELECTION MODAL */}
