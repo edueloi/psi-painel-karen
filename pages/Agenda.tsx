@@ -182,7 +182,7 @@ export const Agenda: React.FC = () => {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
-  const stickyStats = preferences.agenda.stickyStats ?? false;
+  const stickyStats = preferences.agenda.stickyStats ?? true;
 
   // ── Edit scope modal (which sessions to apply changes to) ──
   const [isScopeModalOpen, setIsScopeModalOpen] = useState(false);
@@ -1239,7 +1239,13 @@ export const Agenda: React.FC = () => {
 
       fetchData();
       closeAppointmentModal();
-      pushToast('success', extraIds.length > 0 ? `${extraIds.length + 1} agendamentos atualizados!` : 'Agenda atualizada com sucesso.');
+
+      // Notifica se a repetição foi limitada pelo saldo da comanda
+      if (response?.comanda_limited) {
+        pushToast('warning', `Repetição limitada pela comanda: ${response.created_count} de ${response.requested_count} sessão(ões) criada(s). Comanda atingiu o limite de sessões.`);
+      } else {
+        pushToast('success', extraIds.length > 0 ? `${extraIds.length + 1} agendamentos atualizados!` : 'Agenda atualizada com sucesso.');
+      }
     } catch (e: any) {
       if (e?.message?.includes('não encontrado') || e?.message?.includes('not found') || e?.message?.includes('404')) {
         pushToast('error', 'Agendamento não encontrado. A lista será atualizada.');
@@ -2826,92 +2832,112 @@ export const Agenda: React.FC = () => {
             </div>
         )}
       >
-          <div className="space-y-6 py-4">
-              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-4">
-                <Select
-                  label="Frequência de repetição"
-                  value={tempRecurrence.freq}
-                  onChange={e => setTempRecurrence({...tempRecurrence, freq: e.target.value})}
-                  className="bg-white"
-                >
-                    <option value="DAILY">Diariamente</option>
-                    <option value="WEEKLY">Semanalmente</option>
-                    <option value="MONTHLY">Mensalmente</option>
-                    <option value="YEARLY">Anualmente</option>
-                </Select>
+          <div className="space-y-4 py-2">
+            {/* Frequência */}
+            <Combobox
+              label="Frequência de repetição"
+              options={[
+                { id: 'DAILY',   label: 'Diariamente' },
+                { id: 'WEEKLY',  label: 'Semanalmente' },
+                { id: 'TWICE_WEEKLY', label: '2x por semana' },
+                { id: 'THREE_WEEKLY', label: '3x por semana' },
+                { id: 'MONTHLY', label: 'Mensalmente' },
+                { id: 'YEARLY',  label: 'Anualmente' },
+              ]}
+              value={tempRecurrence.freq}
+              onChange={(val) => setTempRecurrence({...tempRecurrence, freq: String(val)})}
+              placeholder="Selecione a frequência..."
+            />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">A cada</label>
+            {/* A cada N unidades */}
+            {(tempRecurrence.freq === 'DAILY' || tempRecurrence.freq === 'WEEKLY' || tempRecurrence.freq === 'MONTHLY' || tempRecurrence.freq === 'YEARLY') && (
+              <div className="flex items-end gap-3">
+                <div className="flex flex-col gap-1.5 w-24">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">A cada</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-center"
+                    value={tempRecurrence.interval || 1}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setTempRecurrence({...tempRecurrence, interval: val ? parseInt(val) : 1});
+                    }}
+                  />
+                </div>
+                <div className="h-10 flex items-center px-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-black text-slate-400 uppercase tracking-wide flex-1">
+                  {tempRecurrence.freq === 'DAILY' ? 'Dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'Semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'Mês(es)' : 'Ano(s)'}
+                </div>
+              </div>
+            )}
+
+            {/* Terminar em */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Repeat size={11} /> Terminar em
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Por vezes */}
+                <button
+                  type="button"
+                  onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}
+                  className={`p-3 rounded-xl border-2 transition-all text-left ${tempRecurrence.endType === 'count' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                >
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${tempRecurrence.endType === 'count' ? 'text-indigo-500' : 'text-slate-400'}`}>Por vezes</p>
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
-                      className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                      value={tempRecurrence.interval || ''}
+                      className={`w-12 h-8 rounded-lg border text-center font-black text-slate-700 outline-none text-sm transition-all ${tempRecurrence.endType === 'count' ? 'border-indigo-300 bg-white focus:ring-2 focus:ring-indigo-100' : 'border-slate-200 bg-slate-50'}`}
+                      value={tempRecurrence.endType === 'count' ? (tempRecurrence.endValue || '') : ''}
+                      onClick={e => { e.stopPropagation(); setTempRecurrence({...tempRecurrence, endType: 'count'}); }}
                       onChange={e => {
                         const val = e.target.value.replace(/\D/g, '');
-                        setTempRecurrence({...tempRecurrence, interval: val ? parseInt(val) : 1});
+                        setTempRecurrence({...tempRecurrence, endValue: val ? parseInt(val) : '' as any, endType: 'count'});
                       }}
                     />
+                    <span className="text-[10px] font-bold text-slate-400">sessões</span>
                   </div>
-                  <div className="flex flex-col gap-1.5 w-full">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Unidade</label>
-                      <div className="flex items-center h-10 px-4 bg-slate-100/50 border border-slate-200/40 rounded-xl text-xs font-bold text-slate-400 uppercase tracking-tight">
-                          {tempRecurrence.freq === 'DAILY' ? 'Dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'Semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'Mês(es)' : 'Ano(s)'}
-                      </div>
-                  </div>
-                </div>
-              </div>
+                </button>
 
-              <div className="space-y-3 px-1">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                    <Repeat size={12} /> Terminar em
-                  </label>
-                  <div className="flex gap-4">
-                      <button
-                          type="button"
-                          onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}
-                          className={`flex-1 group py-4 px-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${tempRecurrence.endType === 'count' ? 'border-indigo-600 bg-indigo-50/50 ring-4 ring-indigo-500/10' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}
-                      >
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${tempRecurrence.endType === 'count' ? 'text-indigo-600' : 'text-slate-400'}`}>Por vezes</span>
-                          <div className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm transition-all ${tempRecurrence.endType === 'count' ? 'border-indigo-200' : 'border-slate-100 group-hover:border-slate-200'}`}>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                className="w-8 bg-transparent text-center font-black text-slate-700 outline-none text-sm"
-                                value={tempRecurrence.endType === 'count' ? (tempRecurrence.endValue || '') : ''}
-                                onChange={e => {
-                                  const val = e.target.value.replace(/\D/g, '');
-                                  setTempRecurrence({
-                                    ...tempRecurrence, 
-                                    endValue: val ? parseInt(val) : '' as any, 
-                                    endType: 'count'
-                                  });
-                                }}
-                                disabled={tempRecurrence.endType !== 'count'}
-                            />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">vezes</span>
-                          </div>
-                      </button>
-
-                      <button
-                          type="button"
-                          onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}
-                          className={`flex-1 group py-4 px-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${tempRecurrence.endType === 'until' ? 'border-indigo-600 bg-indigo-50/50 ring-4 ring-indigo-500/10' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}
-                      >
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${tempRecurrence.endType === 'until' ? 'text-indigo-600' : 'text-slate-400'}`}>Por Data</span>
-                          <div className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border shadow-sm transition-all ${tempRecurrence.endType === 'until' ? 'border-indigo-200' : 'border-slate-100 group-hover:border-slate-200'}`}>
-                            <CalendarIcon size={12} className={tempRecurrence.endType === 'until' ? 'text-indigo-500' : 'text-slate-300'} />
-                            <DatePicker 
-                              value={tempRecurrence.endType === 'until' ? String(tempRecurrence.endValue) : ''}
-                              onChange={(val) => val && setTempRecurrence({...tempRecurrence, endValue: val, endType: 'until'})}
-                              disabled={tempRecurrence.endType !== 'until'}
-                              className="bg-transparent text-[11px] font-black outline-none text-slate-700 uppercase"
-                            />
-                          </div>
-                      </button>
+                {/* Por data */}
+                <button
+                  type="button"
+                  onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}
+                  className={`p-3 rounded-xl border-2 transition-all text-left ${tempRecurrence.endType === 'until' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                >
+                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${tempRecurrence.endType === 'until' ? 'text-indigo-500' : 'text-slate-400'}`}>Por data</p>
+                  <div className="flex items-center gap-1.5">
+                    <CalendarIcon size={12} className={tempRecurrence.endType === 'until' ? 'text-indigo-400' : 'text-slate-300'} />
+                    <DatePicker
+                      value={tempRecurrence.endType === 'until' ? String(tempRecurrence.endValue || '') : ''}
+                      onChange={(val) => val && setTempRecurrence({...tempRecurrence, endValue: val, endType: 'until'})}
+                      className="text-xs font-black text-slate-700 bg-transparent outline-none"
+                    />
                   </div>
+                </button>
               </div>
+            </div>
+
+            {/* Preview */}
+            {tempRecurrence.freq && (tempRecurrence.endValue || tempRecurrence.endType === 'count') && (
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
+                <Repeat size={12} className="text-indigo-400 shrink-0" />
+                <p className="text-[11px] font-bold text-indigo-700">
+                  {['DAILY','WEEKLY','TWICE_WEEKLY','THREE_WEEKLY','MONTHLY','YEARLY'].includes(tempRecurrence.freq) && (() => {
+                    const freqLabel: Record<string,string> = { DAILY: 'dia', WEEKLY: 'semana', TWICE_WEEKLY: '2x/semana', THREE_WEEKLY: '3x/semana', MONTHLY: 'mês', YEARLY: 'ano' };
+                    const intv = tempRecurrence.interval > 1 ? ` a cada ${tempRecurrence.interval} ` : ' ';
+                    if (tempRecurrence.endType === 'count' && tempRecurrence.endValue) {
+                      return `Repetir${intv}${freqLabel[tempRecurrence.freq]} · ${tempRecurrence.endValue} sessão(ões) no total`;
+                    }
+                    if (tempRecurrence.endType === 'until' && tempRecurrence.endValue) {
+                      return `Repetir${intv}${freqLabel[tempRecurrence.freq]} · até ${new Date(String(tempRecurrence.endValue)).toLocaleDateString('pt-BR')}`;
+                    }
+                    return null;
+                  })()}
+                </p>
+              </div>
+            )}
           </div>
       </Modal>
 
@@ -3168,40 +3194,25 @@ export const Agenda: React.FC = () => {
                   </div>
                 </div>
 
-                <Select
+                <Combobox
                   label="Profissional"
+                  options={professionals.map((p: any) => ({ id: String(p.id), label: p.full_name || p.name }))}
                   value={editingComanda.professionalId || ''}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      professionalId: e.target.value,
-                    })
-                  }
-                  wrapperClassName="md:col-span-2"
-                >
-                  <option value="">Selecione um profissional</option>
-                  {professionals.map((p: any) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.full_name || p.name}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => setEditingComanda({ ...editingComanda, professionalId: String(id) })}
+                  placeholder="Buscar profissional..."
+                  className="md:col-span-2"
+                />
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Select
+                <Combobox
                   label="Pacote Base (Opcional)"
+                  options={packages.map((pkg) => ({ id: String(pkg.id), label: pkg.name }))}
                   value={editingComanda.packageId || ''}
-                  onChange={(e) => handleSelectPackage(e.target.value)}
-                  wrapperClassName="md:col-span-2"
-                >
-                  <option value="">Selecione uma definição de pacote</option>
-                  {packages.map((pkg) => (
-                    <option key={pkg.id} value={String(pkg.id)}>
-                      {pkg.name}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => handleSelectPackage(String(id))}
+                  placeholder="Selecione ou busque um pacote..."
+                  className="md:col-span-2"
+                />
 
                 <Combobox
                   label="Paciente"
@@ -3275,23 +3286,13 @@ export const Agenda: React.FC = () => {
                     </div>
                   </div>
 
-                <Select
+                <Combobox
                   label="Profissional"
+                  options={professionals.map((p: any) => ({ id: String(p.id), label: p.full_name || p.name }))}
                   value={editingComanda.professionalId || ''}
-                  onChange={(e) =>
-                    setEditingComanda({
-                      ...editingComanda,
-                      professionalId: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Selecione um profissional</option>
-                  {professionals.map((p: any) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.full_name || p.name}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => setEditingComanda({ ...editingComanda, professionalId: String(id) })}
+                  placeholder="Buscar profissional..."
+                />
 
                 <div className="pt-2 md:col-span-2">
                   <div className="mb-4 flex items-center gap-2">

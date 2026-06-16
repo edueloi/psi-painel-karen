@@ -459,16 +459,29 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
       : (until ? 365 : (freq ? 12 : 1));
 
     // Se há comanda vinculada, limita o count ao saldo restante de sessões
+    // sessions_used é recalculado a partir dos agendamentos reais (pode estar defasado no banco)
+    const requestedCount = count;
+    let comandaLimited = false;
     if (comanda_id && freq) {
       const [cmdRows] = await db.query(
-        'SELECT sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
+        'SELECT sessions_total FROM comandas WHERE id = ? AND tenant_id = ?',
         [comanda_id, req.user.tenant_id]
       );
       if (cmdRows.length > 0) {
-        const { sessions_total, sessions_used } = cmdRows[0];
-        const remaining = Math.max(0, (sessions_total || 0) - (sessions_used || 0));
-        if (remaining > 0 && count > remaining) {
+        const sessions_total = cmdRows[0].sessions_total || 0;
+        // Recalcula sessions_used a partir dos agendamentos reais (confirmed/completed/no_show)
+        const [aptRows] = await db.query(
+          `SELECT COUNT(*) as used FROM appointments
+           WHERE comanda_id = ? AND tenant_id = ?
+             AND status IN ('confirmed', 'completed', 'no_show', 'no-show', 'scheduled')
+             AND status NOT IN ('cancelled')`,
+          [comanda_id, req.user.tenant_id]
+        );
+        const sessions_used = aptRows[0]?.used || 0;
+        const remaining = Math.max(0, sessions_total - sessions_used);
+        if (sessions_total > 0 && count > remaining) {
           count = remaining;
+          comandaLimited = true;
         }
       }
     }
@@ -823,7 +836,13 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
     );
 
     // Adiciona o comanda_id no retorno para o frontend redirecionar se necessário
-    const resultData = { ...created[0], comanda_id: comandaId };
+    const resultData = {
+      ...created[0],
+      comanda_id: comandaId,
+      created_count: createdIds.length,
+      requested_count: requestedCount,
+      comanda_limited: comandaLimited,
+    };
     res.status(201).json(resultData);
 
     // Dispara email + alerta de novo agendamento em background (não bloqueia a resposta)

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -92,6 +92,7 @@ export interface AgendaPlannerProps {
   workSchedule?: WorkScheduleDay[];
   skippedHours?: number[];
   closedDates?: { date: string; label: string }[];
+  stickyHeaderTop?: number;
 }
 
 type NormalizedEvent = AgendaPlannerEvent & {
@@ -358,7 +359,11 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
   workSchedule,
   skippedHours = [],
   closedDates = [],
+  stickyHeaderTop = 0,
 }) => {
+  const headerDaysRef = useRef<HTMLDivElement>(null);
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+
   const [hoveredSlot, setHoveredSlot] = useState<{
     dayIndex: number;
     top: number;
@@ -649,8 +654,77 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
           showTasksPanel ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px]' : 'grid-cols-1'
         )}
       >
-        <div className="overflow-hidden rounded-xl sm:rounded-[24px] border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-auto custom-scrollbar">
+        <div className="rounded-xl sm:rounded-[24px] border border-slate-200 bg-white shadow-sm" style={{ overflow: 'clip' }}>
+          {/* Cabeçalho dos dias — sticky fora do scroll horizontal */}
+          <div
+            className="sticky z-20 flex border-b border-slate-200 bg-white"
+            style={{ height: HEADER_HEIGHT, top: stickyHeaderTop }}
+          >
+            {/* Placeholder alinhado com a coluna de tempo */}
+            <div className="shrink-0 border-r border-slate-200 bg-white" style={{ width: TIME_COL_WIDTH }} />
+            {/* Dias — scroll sincronizado com o grid */}
+            <div className="overflow-hidden flex-1">
+              <div ref={headerDaysRef} className="flex" style={{ willChange: 'transform' }}>
+                {visibleDays.map((day) => {
+                  const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                  const dayIso = [
+                    day.getFullYear(),
+                    String(day.getMonth() + 1).padStart(2, '0'),
+                    String(day.getDate()).padStart(2, '0'),
+                  ].join('-');
+                  const closedEntry = closedDates.find(c => c.date === dayIso);
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={cx(
+                        'flex min-w-[100px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-1',
+                        closedEntry
+                          ? 'bg-rose-50'
+                          : isSameDay(day, new Date())
+                          ? 'bg-indigo-50'
+                          : isWeekend
+                          ? 'bg-slate-100'
+                          : 'bg-white'
+                      )}
+                    >
+                      <span className={cx(
+                        'text-[9px] font-bold uppercase tracking-[0.18em]',
+                        closedEntry ? 'text-rose-400' : isWeekend ? 'text-slate-400' : 'text-slate-400'
+                      )}>
+                        {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')}
+                      </span>
+                      <span className={cx(
+                        'text-[15px] font-bold tracking-tight',
+                        closedEntry
+                          ? 'text-rose-500'
+                          : isSameDay(day, new Date())
+                          ? 'text-indigo-600'
+                          : isWeekend ? 'text-slate-400' : 'text-slate-800'
+                      )}>
+                        {day.getDate()}
+                      </span>
+                      {closedEntry && (
+                        <span className="mt-1 rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-rose-500 leading-tight max-w-full truncate">
+                          {closedEntry.label || 'Fechado'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Grid de horas — scroll horizontal independente, sincronizado com header */}
+          <div
+            ref={gridScrollRef}
+            className="overflow-auto custom-scrollbar"
+            onScroll={() => {
+              if (headerDaysRef.current && gridScrollRef.current) {
+                headerDaysRef.current.style.transform = `translateX(-${gridScrollRef.current.scrollLeft}px)`;
+              }
+            }}
+          >
             <div className="min-w-[560px]">
               <div className="flex">
                 {/* Coluna do horário */}
@@ -658,10 +732,6 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                   className="sticky left-0 z-30 shrink-0 border-r border-slate-200 bg-white"
                   style={{ width: TIME_COL_WIDTH }}
                 >
-                  <div
-                    className="sticky top-0 z-40 border-b border-slate-200 bg-white"
-                    style={{ height: HEADER_HEIGHT }}
-                  />
                   {hours.map((hour) => {
                     const isSkipped = skippedHours.includes(hour);
                     return isSkipped ? (
@@ -686,62 +756,6 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 
                 {/* Área dos dias */}
                 <div className="flex-1">
-                  <div
-                    className="sticky top-0 z-20 flex border-b border-slate-200 bg-white"
-                    style={{ height: HEADER_HEIGHT }}
-                  >
-                    {visibleDays.map((day) => {
-                      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-                      const dayIso = [
-                        day.getFullYear(),
-                        String(day.getMonth() + 1).padStart(2, '0'),
-                        String(day.getDate()).padStart(2, '0'),
-                      ].join('-');
-                      const closedEntry = closedDates.find(c => c.date === dayIso);
-                      return (
-                      <div
-                        key={day.toISOString()}
-                        className={cx(
-                          'flex min-w-[100px] flex-1 flex-col items-center justify-center border-r border-slate-200 px-1',
-                          closedEntry
-                            ? 'bg-rose-50'
-                            : isSameDay(day, new Date())
-                            ? 'bg-indigo-50'
-                            : isWeekend
-                            ? 'bg-slate-100'
-                            : 'bg-white'
-                        )}
-                      >
-                        <span className={cx(
-                          'text-[9px] font-bold uppercase tracking-[0.18em]',
-                          closedEntry ? 'text-rose-400' : isWeekend ? 'text-slate-400' : 'text-slate-400'
-                        )}>
-                          {day
-                            .toLocaleDateString(locale, { weekday: 'short' })
-                            .replace('.', '')}
-                        </span>
-                        <span
-                          className={cx(
-                            'text-[15px] font-bold tracking-tight',
-                            closedEntry
-                              ? 'text-rose-500'
-                              : isSameDay(day, new Date())
-                              ? 'text-indigo-600'
-                              : isWeekend ? 'text-slate-400' : 'text-slate-800'
-                          )}
-                        >
-                          {day.getDate()}
-                        </span>
-                        {closedEntry && (
-                          <span className="mt-1 rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-rose-500 leading-tight max-w-full truncate">
-                            {closedEntry.label || 'Fechado'}
-                          </span>
-                        )}
-                      </div>
-                      );
-                    })}
-                  </div>
-
                   <div className="relative flex" style={{ height: gridHeight }}>
                     {/* linhas principais */}
                     <div className="pointer-events-none absolute inset-0 flex flex-col">
