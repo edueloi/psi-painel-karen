@@ -2099,15 +2099,61 @@ export const Agenda: React.FC = () => {
                                                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                                                   <div className="flex items-center gap-2">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Comandas abertas</span>
+                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Comandas</span>
                                                   </div>
-                                                  <span className="text-[9px] font-black text-slate-300 uppercase">{patientComandas.length} encontrada{patientComandas.length > 1 ? 's' : ''}</span>
+                                                  <div className="flex items-center gap-1.5">
+                                                    {(() => {
+                                                      const disp = patientComandas.filter(c => (c.sessions_total ?? 0) === 0 || (c.sessions_used ?? 0) < (c.sessions_total ?? 0)).length;
+                                                      const esg = patientComandas.length - disp;
+                                                      return (
+                                                        <>
+                                                          {disp > 0 && <span className="text-[9px] font-black text-indigo-500 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-full">{disp} disponível{disp > 1 ? 'is' : ''}</span>}
+                                                          {esg > 0 && <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{esg} esgotada{esg > 1 ? 's' : ''}</span>}
+                                                        </>
+                                                      );
+                                                    })()}
+                                                  </div>
                                                 </div>
-                                                <div className="divide-y divide-slate-50 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                                <div className="divide-y divide-slate-50 max-h-[240px] overflow-y-auto custom-scrollbar">
                                                     {patientComandas.map(c => {
                                                       const tot = c.sessions_total ?? 0;
                                                       const used = c.sessions_used ?? 0;
                                                       const pct = tot > 0 ? Math.round((used / tot) * 100) : 0;
+                                                      const esgotada = tot > 0 && used >= tot;
+                                                      if (esgotada) {
+                                                        return (
+                                                          <div key={c.id} className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50/60 opacity-70">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 border border-slate-200 text-slate-400 shrink-0">
+                                                              <DollarSign size={13} />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                              <p className="text-xs font-black text-slate-500 truncate">{c.description}</p>
+                                                              <div className="flex items-center gap-2 mt-0.5">
+                                                                <div className="w-16 h-1 bg-slate-200 rounded-full overflow-hidden">
+                                                                  <div className="h-full bg-slate-400 rounded-full w-full" />
+                                                                </div>
+                                                                <span className="text-[9px] font-bold text-slate-400">{used}/{tot} · esgotada</span>
+                                                              </div>
+                                                            </div>
+                                                            <button
+                                                              type="button"
+                                                              onClick={async () => {
+                                                                try {
+                                                                  const res = await api.get<any[]>('/finance/comandas');
+                                                                  const all = Array.isArray(res) ? res : [];
+                                                                  const fresh = all.find(x => String(x.id) === String(c.id));
+                                                                  if (fresh) setPatientComandas(prev => [...prev.filter(x => String(x.id) !== String(c.id)), fresh]);
+                                                                } catch { /* usa dados existentes */ }
+                                                                setComandaManagerSourceId(String(c.id));
+                                                                setIsComandaManagerOpen(true);
+                                                              }}
+                                                              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[9px] font-black text-slate-400 uppercase tracking-widest transition-all"
+                                                            >
+                                                              Ver <ChevronRight size={10} />
+                                                            </button>
+                                                          </div>
+                                                        );
+                                                      }
                                                       return (
                                                         <button
                                                             key={c.id}
