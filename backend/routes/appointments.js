@@ -458,6 +458,21 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
       ? parsedCount
       : (until ? 365 : (freq ? 12 : 1));
 
+    // Se há comanda vinculada, limita o count ao saldo restante de sessões
+    if (comanda_id && freq) {
+      const [cmdRows] = await db.query(
+        'SELECT sessions_total, sessions_used FROM comandas WHERE id = ? AND tenant_id = ?',
+        [comanda_id, req.user.tenant_id]
+      );
+      if (cmdRows.length > 0) {
+        const { sessions_total, sessions_used } = cmdRows[0];
+        const remaining = Math.max(0, (sessions_total || 0) - (sessions_used || 0));
+        if (remaining > 0 && count > remaining) {
+          count = remaining;
+        }
+      }
+    }
+
     // Agendamentos só são criados via Agenda.
     // A repetição respeita exatamente o count/until definido — nunca cria duplicatas.
     // Antes de inserir cada ocorrência, verifica se já existe um agendamento para o mesmo
