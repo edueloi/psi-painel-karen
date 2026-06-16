@@ -1880,7 +1880,7 @@ export const Agenda: React.FC = () => {
                 showTasksPanel={false}
                 hideHeader
                 hideStats
-                hourHeight={125}
+                hourHeight={72}
                 startHour={startHour}
                 endHour={endHour}
                 skippedHours={skippedHours}
