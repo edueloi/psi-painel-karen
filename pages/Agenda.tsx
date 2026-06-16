@@ -1567,41 +1567,39 @@ export const Agenda: React.FC = () => {
         }
       />
 
-      {/* STATS + FILTERS — wrapper sticky opcional */}
-      <div className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 space-y-3 bg-slate-50/95 backdrop-blur-md py-3 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-3'}>
-
-        {/* STATS BAR */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 shrink-0">
-              <CalendarRange size={14} className="text-blue-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Sessões hoje</p>
-              <p className="text-xl font-black text-zinc-900 leading-none">{stats.todayCount}</p>
-            </div>
+      {/* STATS BAR — sempre visível, não faz parte do sticky */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 shrink-0">
+            <CalendarRange size={14} className="text-blue-600" />
           </div>
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 shrink-0">
-              <UserCheck size={14} className="text-emerald-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Confirmados</p>
-              <p className="text-xl font-black text-zinc-900 leading-none">{stats.confirmedCount}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-yellow-50 border border-yellow-100 shrink-0">
-              <Video size={14} className="text-yellow-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Online hoje</p>
-              <p className="text-xl font-black text-zinc-900 leading-none">{stats.onlineCount}</p>
-            </div>
+          <div className="min-w-0">
+            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Sessões hoje</p>
+            <p className="text-xl font-black text-zinc-900 leading-none">{stats.todayCount}</p>
           </div>
         </div>
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 shrink-0">
+            <UserCheck size={14} className="text-emerald-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Confirmados</p>
+            <p className="text-xl font-black text-zinc-900 leading-none">{stats.confirmedCount}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-yellow-50 border border-yellow-100 shrink-0">
+            <Video size={14} className="text-yellow-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Online hoje</p>
+            <p className="text-xl font-black text-zinc-900 leading-none">{stats.onlineCount}</p>
+          </div>
+        </div>
+      </div>
 
-      {/* FILTERS & NAVIGATION BAR */}
+      {/* FILTERS & NAVIGATION BAR — sticky apenas aqui */}
+      <div className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-md shadow-slate-200/60' : ''}>
       <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-zinc-200 shadow-sm flex flex-wrap gap-2 items-center justify-between">
 
           {/* Navegação + label de data */}
@@ -1648,6 +1646,7 @@ export const Agenda: React.FC = () => {
               </IconButton>
           </div>
       </div>
+      </div>{/* end nav bar */}
       </div>{/* end sticky wrapper */}
 
       {/* CALENDAR CONTENT */}
