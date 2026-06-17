@@ -16,9 +16,21 @@ async function isBotConnected(tenantId) {
     const status = resp.data?.status || 'disconnected';
     _botStatusCache.set(tenantId, { status, ts: Date.now() });
     return status === 'connected';
-  } catch {
-    // Bot offline ou sem resposta — usa status do banco como fallback
-    return false;
+  } catch (err) {
+    // Bot timeout ou erro de conexão — tenta usar status do banco como fallback
+    try {
+      const [[row]] = await db.query(
+        'SELECT whatsapp_status FROM tenants WHERE id = ? LIMIT 1',
+        [tenantId]
+      );
+      const dbStatus = row?.whatsapp_status === 'connected';
+      // Cache o status do banco por 30s para não sobrecarregar
+      _botStatusCache.set(tenantId, { status: dbStatus ? 'connected' : 'disconnected', ts: Date.now() });
+      return dbStatus;
+    } catch {
+      // Se falhar tudo, assume desconectado
+      return false;
+    }
   }
 }
 
