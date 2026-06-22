@@ -148,20 +148,20 @@ async function checkAppointmentReminders() {
        LEFT JOIN tenants t ON t.id = a.tenant_id
        WHERE a.status IN ('scheduled','confirmed','rescheduled')
          AND (
-           -- lembrete 1h: próximas 2h
-           (a.whatsapp_reminder_1h_sent = 0 AND a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(NOW(), INTERVAL 2 HOUR))
+           -- lembrete 1h: próximas 2h (start_time em UTC, comparar com UTC_TIMESTAMP)
+           (a.whatsapp_reminder_1h_sent = 0 AND a.start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR))
            OR
-           -- lembrete 24h: qualquer horário do dia seguinte (amanhã)
-           (a.whatsapp_reminder_24h_sent = 0 AND DATE(CONVERT_TZ(a.start_time, '+00:00', '-03:00')) = DATE(CONVERT_TZ(DATE_ADD(NOW(), INTERVAL 1 DAY), '+00:00', '-03:00')))
+           -- lembrete 24h: qualquer horário do dia seguinte (amanhã) em SP
+           (a.whatsapp_reminder_24h_sent = 0 AND DATE(CONVERT_TZ(a.start_time, '+00:00', '-03:00')) = DATE(CONVERT_TZ(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '+00:00', '-03:00')))
            OR
            -- lembrete profissional: próximas 2h
-           (a.whatsapp_reminder_professional_sent = 0 AND a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(NOW(), INTERVAL 2 HOUR))
+           (a.whatsapp_reminder_professional_sent = 0 AND a.start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR))
            OR
            -- eventos pessoais 1h
-           (COALESCE(a.whatsapp_reminder_personal_1h_sent, 0) = 0 AND a.start_time >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(NOW(), INTERVAL 2 HOUR))
+           (COALESCE(a.whatsapp_reminder_personal_1h_sent, 0) = 0 AND a.start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR))
            OR
            -- eventos pessoais 24h
-           (COALESCE(a.whatsapp_reminder_personal_24h_sent, 0) = 0 AND DATE(CONVERT_TZ(a.start_time, '+00:00', '-03:00')) = DATE(CONVERT_TZ(DATE_ADD(NOW(), INTERVAL 1 DAY), '+00:00', '-03:00')))
+           (COALESCE(a.whatsapp_reminder_personal_24h_sent, 0) = 0 AND DATE(CONVERT_TZ(a.start_time, '+00:00', '-03:00')) = DATE(CONVERT_TZ(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '+00:00', '-03:00')))
          )
     `);
 
