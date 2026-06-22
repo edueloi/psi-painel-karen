@@ -583,6 +583,44 @@ export const LivroCaixa: React.FC = () => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
+  // ── Carnê-Leão export ─────────────────────────────────────────────────────────
+  const [showCarneleaoModal, setShowCarneleaoModal] = useState(false);
+  const [carneleaoMode, setCarneleaoMode] = useState<'month' | 'year'>('month');
+  const [carneleaoMonth, setCarneleaoMonth] = useState(new Date().getMonth() + 1);
+  const [carneleaoYear, setCarneleaoYear] = useState(new Date().getFullYear());
+  const [isExportingCarneleao, setIsExportingCarneleao] = useState(false);
+
+  const handleExportCarneleao = async () => {
+    setIsExportingCarneleao(true);
+    try {
+      const token = localStorage.getItem('psi_token');
+      const params = new URLSearchParams({ year: String(carneleaoYear) });
+      if (carneleaoMode === 'month') params.set('month', String(carneleaoMonth));
+      const url = `${API_BASE_URL}/finance/export/carneleao?${params.toString()}&token=${token}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+        pushToast('error', 'Exportação falhou', err.error || 'Nenhum recebimento encontrado.');
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+?)"/);
+      const filename = match ? match[1] : 'carneleao.csv';
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setShowCarneleaoModal(false);
+      pushToast('success', 'Carnê-Leão exportado', `Arquivo ${filename} baixado com sucesso.`);
+    } catch {
+      pushToast('error', 'Erro', 'Não foi possível gerar o arquivo.');
+    } finally {
+      setIsExportingCarneleao(false);
+    }
+  };
+
   // ── Import ────────────────────────────────────────────────────────────────────
   const [importTab, setImportTab]   = useState<'csv' | 'paste'>('csv');
   const [pasteText, setPasteText]   = useState('');
@@ -1823,6 +1861,24 @@ export const LivroCaixa: React.FC = () => {
                         {item.label}
                       </button>
                     ))}
+                    <div className="border-t border-slate-100" />
+                    <button
+                      onClick={() => {
+                        if (selectedMonth) {
+                          setCarneleaoMode('month');
+                          setCarneleaoMonth(selectedMonth.month);
+                          setCarneleaoYear(selectedMonth.year);
+                        } else {
+                          setCarneleaoMode('year');
+                          setCarneleaoYear(selectedYear);
+                        }
+                        setShowExportMenu(false);
+                        setShowCarneleaoModal(true);
+                      }}
+                      className="w-full text-left px-4 py-3 text-[11px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-colors flex items-center gap-2 text-emerald-700"
+                    >
+                      <Receipt size={13} /> Carnê-Leão (gov.br)
+                    </button>
                   </div>
                 )}
               </div>
@@ -3282,6 +3338,98 @@ export const LivroCaixa: React.FC = () => {
           </div>
         )}
       </ActionDrawer>
+
+      {/* ── Modal Carnê-Leão ──────────────────────────────────────────────────── */}
+      <Modal
+        isOpen={showCarneleaoModal}
+        onClose={() => setShowCarneleaoModal(false)}
+        title="Exportar para Carnê-Leão"
+        subtitle="Gera o CSV no formato da Receita Federal para importar no Carnê-Leão Web (gov.br)"
+        size="sm"
+        footer={
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setShowCarneleaoModal(false)}>Cancelar</Button>
+            <Button
+              variant="success"
+              iconLeft={isExportingCarneleao ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              loading={isExportingCarneleao}
+              onClick={handleExportCarneleao}
+            >
+              Baixar CSV
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          {/* Info */}
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex gap-3">
+            <Receipt size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-emerald-800 mb-1">O que é isso?</p>
+              <p className="text-xs text-emerald-700 leading-relaxed">
+                Profissionais autônomos (pessoa física) precisam declarar mensalmente os recebimentos de pacientes no <strong>Carnê-Leão Web</strong> do gov.br. Este arquivo CSV já vem no formato exato que o sistema da Receita Federal aceita — é só importar.
+              </p>
+            </div>
+          </div>
+
+          {/* Período */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Período</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setCarneleaoMode('month')}
+                className={`rounded-2xl border py-2.5 text-sm font-bold transition-all ${carneleaoMode === 'month' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+              >
+                Mês específico
+              </button>
+              <button
+                onClick={() => setCarneleaoMode('year')}
+                className={`rounded-2xl border py-2.5 text-sm font-bold transition-all ${carneleaoMode === 'year' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+              >
+                Ano completo
+              </button>
+            </div>
+          </div>
+
+          <div className={`grid gap-3 ${carneleaoMode === 'month' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {carneleaoMode === 'month' && (
+              <div>
+                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Mês</label>
+                <select
+                  value={carneleaoMonth}
+                  onChange={e => setCarneleaoMonth(Number(e.target.value))}
+                  className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
+                >
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={i} value={i + 1}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ano</label>
+              <select
+                value={carneleaoYear}
+                onChange={e => setCarneleaoYear(Number(e.target.value))}
+                className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
+              >
+                {[new Date().getFullYear() - 1, new Date().getFullYear()].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Formato */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1.5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Formato do arquivo</p>
+            <p className="font-mono text-[11px] text-slate-600 leading-relaxed break-all">
+              CPF/CNPJ do Pagador ; Nome ; Valor ; Data ; Descrição ; Natureza (0561)
+            </p>
+            <p className="text-[11px] text-slate-400">Natureza 0561 = Serviços de saúde · Compatível com Carnê-Leão Web</p>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

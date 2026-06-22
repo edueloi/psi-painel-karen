@@ -2088,6 +2088,83 @@ router.get('/analytics/performance', async (req, res) => {
   }
 });
 
+// ── Exportação Carnê-Leão / Receita Saúde (CSV para gov.br) ─────────────────
+// Formato compatível com o Carnê-Leão Web da Receita Federal
+// Colunas: CPF/CNPJ do pagador, nome do pagador, valor, data, natureza (0561)
+router.get('/export/carneleao', authMiddleware, async (req, res) => {
+  await withFinanceSchema();
+  try {
+    const { month, year } = req.query;
+    const tenantId = req.user.tenant_id;
+
+    let dateFilter = '';
+    const params = [tenantId];
+
+    if (month && year) {
+      const m = String(month).padStart(2, '0');
+      dateFilter = `AND DATE_FORMAT(t.date, '%Y-%m') = ?`;
+      params.push(`${year}-${m}`);
+    } else if (year) {
+      dateFilter = `AND YEAR(t.date) = ?`;
+      params.push(year);
+    }
+
+    const [rows] = await db.query(
+      `SELECT
+         t.date,
+         t.amount,
+         COALESCE(t.payer_name, t.beneficiary_name, t.patient_name) AS nome_pagador,
+         COALESCE(t.payer_cpf, t.beneficiary_cpf)                   AS cpf_pagador,
+         t.description,
+         t.payment_method,
+         t.category
+       FROM financial_transactions t
+       WHERE t.tenant_id = ?
+         AND t.type = 'income'
+         AND t.status IN ('paid', 'confirmed')
+         ${dateFilter}
+       ORDER BY t.date ASC`,
+      params
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Nenhum recebimento encontrado para o período selecionado.' });
+    }
+
+    // Monta CSV no formato Carnê-Leão Web (Receita Federal)
+    // Natureza 0561 = Serviços de saúde (psicólogos, médicos, etc.)
+    const lines = [
+      'CPF/CNPJ do Pagador;Nome do Pagador;Valor Recebido;Data do Recebimento;Descrição;Natureza do Rendimento'
+    ];
+
+    for (const row of rows) {
+      const cpf = (row.cpf_pagador || '').replace(/\D/g, '');
+      const nome = (row.nome_pagador || 'Não informado').replace(/;/g, ',').replace(/"/g, '""');
+      const valor = parseFloat(row.amount).toFixed(2).replace('.', ',');
+      const data = row.date ? String(row.date).slice(0, 10).split('-').reverse().join('/') : '';
+      const descricao = (row.description || row.category || 'Serviço de Psicologia').replace(/;/g, ',').replace(/"/g, '""');
+      const natureza = '0561'; // Serviços de saúde
+
+      lines.push(`${cpf};${nome};${valor};${data};"${descricao}";${natureza}`);
+    }
+
+    const csv = lines.join('\r\n');
+    const filename = month && year
+      ? `carneleao_${String(month).padStart(2,'0')}_${year}.csv`
+      : year
+      ? `carneleao_${year}.csv`
+      : 'carneleao.csv';
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    // BOM UTF-8 para Excel/LibreOffice abrirem com acentos corretamente
+    res.send('﻿' + csv);
+  } catch (err) {
+    console.error('Erro ao exportar Carnê-Leão:', err);
+    res.status(500).json({ error: 'Erro ao gerar exportação.' });
+  }
+});
+
 // Inicializar migrações do banco de dados para este módulo
 ensureFinanceColumns();
 ensureSchema();
