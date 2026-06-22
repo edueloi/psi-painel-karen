@@ -10,6 +10,9 @@ import {
   AudioTrack,
   ConnectionStateToast,
   useRoomContext,
+  TrackToggle,
+  ParticipantTile,
+  useChat,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Track, LocalParticipant, RemoteParticipant } from "livekit-client";
@@ -551,6 +554,73 @@ const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ room
   );
 };
 
+// ── Chat via LiveKit data channel ─────────────────────────────────────────────
+const LiveKitChatPanel: React.FC<{ participantName: string; onClose: () => void }> = ({ participantName, onClose }) => {
+  const { chatMessages, send, isSending } = useChat();
+  const [newMessage, setNewMessage] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+
+  const handleSend = () => {
+    const text = newMessage.trim();
+    if (!text || isSending) return;
+    setNewMessage("");
+    send(text);
+  };
+
+  const fmtTime = (ts: number) => {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <MessageSquare size={16} color="#6366f1" /> Chat
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+        {chatMessages.length === 0 && (
+          <p style={{ textAlign: "center", fontSize: 12, color: "#334155", marginTop: 20 }}>Nenhuma mensagem ainda</p>
+        )}
+        {chatMessages.map((msg, i) => {
+          const isMe = msg.from?.identity === participantName;
+          return (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+              {!isMe && <span style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>{msg.from?.name || msg.from?.identity}</span>}
+              <div style={{ maxWidth: "85%", padding: "8px 12px", borderRadius: isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px", background: isMe ? "#4f46e5" : "rgba(255,255,255,0.08)", color: "#e2e8f0", fontSize: 13, lineHeight: 1.5 }}>
+                {msg.message}
+              </div>
+              <span style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>{fmtTime(msg.timestamp)}</span>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 8 }}>
+        <input
+          type="text" value={newMessage}
+          onChange={e => setNewMessage(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSend()}
+          placeholder="Mensagem..."
+          style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 12px", color: "#fff", fontSize: 13, outline: "none" }}
+        />
+        <button onClick={handleSend} disabled={!newMessage.trim() || isSending}
+          style={{ padding: 8, borderRadius: 10, background: newMessage.trim() ? "#4f46e5" : "rgba(255,255,255,0.05)", border: "none", cursor: newMessage.trim() ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+          <Send size={15} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ── Sala principal ────────────────────────────────────────────────────────────
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: () => void; roomCode: string;
@@ -559,10 +629,8 @@ const RoomInner: React.FC<{
   const remoteParticipants = useRemoteParticipants();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | null>(null);
-  const [screenOn, setScreenOn] = useState(false);
   const [showMiniature, setShowMiniature] = useState(true);
 
-  // Usa o estado real do LiveKit em vez de estado local
   const micOn = isMicrophoneEnabled;
   const camOn = isCameraEnabled;
 
@@ -571,19 +639,13 @@ const RoomInner: React.FC<{
     return () => clearInterval(interval);
   }, []);
 
-  const toggleMic = () => { localParticipant.setMicrophoneEnabled(!micOn); };
-  const toggleCam = () => { localParticipant.setCameraEnabled(!camOn); };
-  const toggleScreen = async () => { try { await localParticipant.setScreenShareEnabled(!screenOn); setScreenOn(v => !v); } catch {} };
   const togglePanel = (panel: "chat" | "invite") => setSidePanel(prev => prev === panel ? null : panel);
 
+  // Tracks deduplicados
   const allTracks = useTracks(
-    [
-      { source: Track.Source.Camera, withPlaceholder: true },
-      { source: Track.Source.ScreenShare, withPlaceholder: false },
-    ],
+    [{ source: Track.Source.Camera, withPlaceholder: true }],
     { onlySubscribed: false }
   );
-  // Deduplica: pega só o primeiro track por identity+source
   const seenTracks = new Set<string>();
   const dedupedTracks = allTracks.filter(t => {
     const key = `${t.participant.identity}-${t.source}`;
@@ -600,22 +662,16 @@ const RoomInner: React.FC<{
     style: React.CSSProperties
   ) => {
     const track = getTrack(participant.identity);
-    // Para local: publication.isEnabled. Para remoto: publication.isSubscribed && isEnabled
     const pub = track?.publication;
-    const isCamOn = isLocal
-      ? (pub?.isEnabled ?? false)
-      : (pub?.isSubscribed && pub?.isEnabled) ?? false;
+    const isCamOn = isLocal ? (pub?.isEnabled ?? false) : ((pub as any)?.isSubscribed && pub?.isEnabled) ?? false;
     const initials = (participant.name || participant.identity)?.charAt(0).toUpperCase();
     return (
       <div style={{ position: "relative", overflow: "hidden", background: "#1a1d2e", ...style }}>
         {isCamOn && track
-          ? <VideoTrack trackRef={track} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ? <VideoTrack trackRef={track as any} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           : <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <div style={{ width: 64, height: 64, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#fff" }}>{initials}</div>
-              {!pub?.isSubscribed && !isLocal
-                ? <span style={{ fontSize: 12, color: "#475569" }}>Conectando câmera...</span>
-                : <span style={{ fontSize: 12, color: "#475569" }}>Câmera desligada</span>
-              }
+              <span style={{ fontSize: 12, color: "#475569" }}>{!isLocal && !(pub as any)?.isSubscribed ? "Conectando..." : "Câmera desligada"}</span>
             </div>
         }
         <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff" }}>
@@ -630,34 +686,32 @@ const RoomInner: React.FC<{
     );
   };
 
-  // Vídeo principal: remoto se existir, senão local
   const mainParticipant = remoteParticipants.length > 0 ? remoteParticipants[0] : localParticipant;
   const mainIsLocal = mainParticipant.identity === localParticipant.identity;
-  // PiP só aparece quando há participante remoto (mostra o local no cantinho)
   const showPip = remoteParticipants.length > 0 && !mainIsLocal;
 
-  const btnStyle = (active: boolean, danger = false): React.CSSProperties => ({
+  // Estilo base dos botões de controle
+  const btn = (on: boolean): React.CSSProperties => ({
+    width: 48, height: 48, borderRadius: "50%", border: on ? "none" : "1px solid rgba(239,68,68,0.5)",
+    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
+    background: on ? "rgba(255,255,255,0.12)" : "rgba(239,68,68,0.15)",
+    color: on ? "#e2e8f0" : "#f87171", flexShrink: 0,
+  });
+  const btnActive = (active: boolean): React.CSSProperties => ({
     width: 48, height: 48, borderRadius: "50%", border: "none", cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
-    background: danger ? "#dc2626" : active ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.12)",
-    color: danger ? "#fff" : active ? "#a5b4fc" : "#e2e8f0",
-    flexShrink: 0,
-  });
-
-  const btnOffStyle = (): React.CSSProperties => ({
-    width: 48, height: 48, borderRadius: "50%", border: "1px solid rgba(239,68,68,0.5)", cursor: "pointer",
-    display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
-    background: "rgba(239,68,68,0.15)", color: "#f87171", flexShrink: 0,
+    background: active ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.12)",
+    color: active ? "#a5b4fc" : "#e2e8f0", flexShrink: 0,
   });
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0d0f14", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-      {/* Vídeo principal — ocupa tudo menos o header e footer */}
+      {/* Área de vídeo */}
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
         {renderVideo(mainParticipant, mainIsLocal, { width: "100%", height: "100%", borderRadius: 0 })}
 
-        {/* Header flutuante sobre o vídeo */}
+        {/* Header flutuante */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 24, objectFit: "contain" }} />
@@ -672,12 +726,10 @@ const RoomInner: React.FC<{
           </div>
         </div>
 
-        {/* PiP — miniatura local flutuante no canto */}
+        {/* PiP miniatura local */}
         {showPip && showMiniature && (
-          <div
-            onClick={() => setShowMiniature(false)}
-            style={{ position: "absolute", bottom: 16, right: 16, width: 100, height: 140, borderRadius: 12, overflow: "hidden", border: "2px solid rgba(99,102,241,0.6)", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}
-          >
+          <div onClick={() => setShowMiniature(false)}
+            style={{ position: "absolute", bottom: 16, right: 16, width: 100, height: 140, borderRadius: 12, overflow: "hidden", border: "2px solid rgba(99,102,241,0.6)", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
             {renderVideo(localParticipant, true, { width: "100%", height: "100%", borderRadius: 0 })}
           </div>
         )}
@@ -687,44 +739,44 @@ const RoomInner: React.FC<{
           </button>
         )}
 
-        {/* Painel lateral — sobrepõe em mobile, lateral em desktop */}
+        {/* Painel lateral */}
         {sidePanel && (
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
-              ? <ChatPanel roomId={roomId} participantName={participantName} isHost={isHost} onClose={() => setSidePanel(null)} />
+              ? <LiveKitChatPanel participantName={participantName} onClose={() => setSidePanel(null)} />
               : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
             }
           </div>
         )}
       </div>
 
-      {/* Barra de controles fixa na base */}
+      {/* Barra de controles */}
       <div style={{ flexShrink: 0, background: "rgba(13,15,20,0.97)", backdropFilter: "blur(12px)", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 16px", paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
 
-          {/* Mic */}
-          <button onClick={toggleMic} style={micOn ? btnStyle(false) : btnOffStyle()}>
+          {/* Mic — TrackToggle nativo do LiveKit */}
+          <TrackToggle source={Track.Source.Microphone} style={btn(micOn)} showIcon={false}>
             {micOn ? <Mic size={20} /> : <MicOff size={20} />}
-          </button>
+          </TrackToggle>
 
-          {/* Câmera */}
-          <button onClick={toggleCam} style={camOn ? btnStyle(false) : btnOffStyle()}>
+          {/* Câmera — TrackToggle nativo */}
+          <TrackToggle source={Track.Source.Camera} style={btn(camOn)} showIcon={false}>
             {camOn ? <Video size={20} /> : <VideoOff size={20} />}
-          </button>
+          </TrackToggle>
 
-          {/* Compartilhar tela — esconde em mobile */}
-          <button onClick={toggleScreen} style={btnStyle(screenOn)} className="hide-mobile">
-            {screenOn ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
-          </button>
+          {/* Compartilhar tela — TrackToggle nativo, esconde em mobile */}
+          <TrackToggle source={Track.Source.ScreenShare} style={btnActive(false)} showIcon={false} className="hide-mobile">
+            <ScreenShare size={20} />
+          </TrackToggle>
 
           {/* Chat */}
-          <button onClick={() => togglePanel("chat")} style={btnStyle(sidePanel === "chat")}>
+          <button onClick={() => togglePanel("chat")} style={btnActive(sidePanel === "chat")}>
             <MessageSquare size={20} />
           </button>
 
           {/* Convidar (só host) */}
           {isHost && (
-            <button onClick={() => togglePanel("invite")} style={btnStyle(sidePanel === "invite")}>
+            <button onClick={() => togglePanel("invite")} style={btnActive(sidePanel === "invite")}>
               <UserPlus size={20} />
             </button>
           )}
@@ -743,6 +795,7 @@ const RoomInner: React.FC<{
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
         @media(max-width:480px){ .hide-mobile{ display:none !important } }
+        .lk-button { all: unset !important; }
       `}</style>
     </div>
   );
