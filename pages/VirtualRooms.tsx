@@ -22,6 +22,8 @@ import {
   Trash2,
   Video,
   X,
+  Zap,
+  Radio,
 } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
 import { api } from '../services/api';
@@ -113,7 +115,6 @@ export const VirtualRooms: React.FC = () => {
   const [isCreatingInstant, setIsCreatingInstant] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<VirtualRoom | null>(null);
 
-  // Transcrições tab
   const [activeTab, setActiveTab] = useState<'rooms' | 'transcricoes'>('rooms');
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -123,14 +124,12 @@ export const VirtualRooms: React.FC = () => {
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
-  // Filtros do histórico
   const [sessionSearch, setSessionSearch] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterHasRecording, setFilterHasRecording] = useState<boolean | null>(null);
   const [filterHasTranscript, setFilterHasTranscript] = useState<boolean | null>(null);
 
-  // Gemini API keys management
   const geminiKeys: string[] = preferences.gemini?.apiKeys?.length
     ? preferences.gemini.apiKeys
     : preferences.gemini?.apiKey ? [preferences.gemini.apiKey] : [];
@@ -246,7 +245,6 @@ export const VirtualRooms: React.FC = () => {
   const [deletingRecording, setDeletingRecording] = useState<number | null>(null);
   const [deletingTranscript, setDeletingTranscript] = useState<string | null>(null);
 
-  // Confirm modal state
   type ConfirmAction = { type: 'recording'; rec: RecordingEntry; session: SessionSummary } | { type: 'transcript'; session: SessionSummary } | null;
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
@@ -316,7 +314,6 @@ export const VirtualRooms: React.FC = () => {
     }
   };
 
-  // Filtro aplicado sobre sessions
   const filteredSessions = sessions.filter((s) => {
     if (sessionSearch.trim()) {
       const q = sessionSearch.trim().toLowerCase();
@@ -370,14 +367,12 @@ export const VirtualRooms: React.FC = () => {
     }
     setTranscribingRecording(rec.id);
     try {
-      // Baixa o arquivo de áudio como blob
       const audioUrl = resolveRecordingUrl(rec.file_url);
       const resp = await fetch(audioUrl);
       if (!resp.ok) throw new Error('Falha ao baixar áudio');
       const blob = await resp.blob();
       const mimeType = normalizeGeminiAudioMimeType(blob.type);
 
-      // Converte para base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve((reader.result as string).split(',')[1]);
@@ -385,7 +380,6 @@ export const VirtualRooms: React.FC = () => {
         reader.readAsDataURL(blob);
       });
 
-      // Tenta cada chave + cada modelo em sequência (fallback automático em caso de 429)
       const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-2.5-pro'];
       let transcribed = '';
       outer: for (const key of geminiKeys) {
@@ -404,7 +398,6 @@ export const VirtualRooms: React.FC = () => {
             const t = response.text?.trim() || '';
             if (t) { transcribed = t; break outer; }
           } catch (err: any) {
-            // Se não for 429/quota, não tenta próximo modelo
             const is429 = err?.message?.includes('429') || err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED');
             if (!is429) break;
           }
@@ -416,7 +409,6 @@ export const VirtualRooms: React.FC = () => {
         return;
       }
 
-      // Salva a transcrição no banco via POST /transcripts
       await api.post(`/virtual-rooms/${session.room_id}/transcripts`, {
         speaker_name: 'Transcrição do Áudio',
         speaker_role: 'system',
@@ -424,7 +416,6 @@ export const VirtualRooms: React.FC = () => {
         text: transcribed,
       });
 
-      // Recarrega transcrições da sessão
       const updated = await api.get<TranscriptLine[]>(
         `/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript`
       );
@@ -599,94 +590,343 @@ export const VirtualRooms: React.FC = () => {
   };
 
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
-      <PageHeader
-        icon={<Video />}
-        title={t('rooms.title')}
-        subtitle={t('rooms.subtitle')}
-        showBackButton
-        onBackClick={() => navigate('/')}
-        containerClassName="mb-0"
-        actions={
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              onClick={handleInstantMeeting}
-              loading={isCreatingInstant}
-              iconLeft={<Play size={18} fill="currentColor" />}
-              className="px-6 shadow-lg shadow-indigo-600/20"
-            >
-              Sala Instantânea
-            </Button>
-            <Button
-              onClick={() => openCreateModal()}
-              variant="soft"
-              iconLeft={<Plus size={16} />}
-              className="px-6"
-            >
-              Agendar Sala
-            </Button>
-          </div>
-        }
-      />
+    <PageWrapper className="pb-10">
+      {/* Hero header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/5 blur-3xl" />
+          <div className="absolute -bottom-10 -left-10 h-56 w-56 rounded-full bg-violet-400/10 blur-2xl" />
+        </div>
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('rooms.stats.active')}</div>
-            <div className="mt-2 text-2xl font-bold text-slate-800">{roomStats.total}</div>
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80 backdrop-blur transition hover:bg-white/20"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <Video size={20} className="text-white/80" />
+                <h1 className="text-xl font-bold text-white sm:text-2xl">Atendimento Online</h1>
+              </div>
+              <p className="mt-0.5 text-sm text-indigo-200">Salas seguras com criptografia ponta-a-ponta</p>
+            </div>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('rooms.stats.upcoming')}</div>
-            <div className="mt-2 text-2xl font-bold text-slate-800">{roomStats.upcoming}</div>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('rooms.stats.persistent')}</div>
-            <div className="mt-2 text-2xl font-bold text-slate-800">{roomStats.persistent}</div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
+            <button
+              onClick={handleInstantMeeting}
+              disabled={isCreatingInstant}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-indigo-700 shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-50 disabled:opacity-70"
+            >
+              {isCreatingInstant
+                ? <Loader2 size={16} className="animate-spin" />
+                : <Zap size={16} className="fill-current" />}
+              Sala Instantânea
+            </button>
+            <button
+              onClick={() => openCreateModal()}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20"
+            >
+              <Plus size={16} /> Agendar Sala
+            </button>
           </div>
         </div>
 
-        {/* Tab navigation */}
-        <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 w-fit">
+        {/* Stats chips */}
+        <div className="relative mt-6 flex flex-wrap gap-3">
+          <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 backdrop-blur">
+            <Radio size={14} className="text-emerald-300" />
+            <span className="text-sm font-bold text-white">{roomStats.total}</span>
+            <span className="text-xs text-indigo-200">salas ativas</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 backdrop-blur">
+            <Calendar size={14} className="text-sky-300" />
+            <span className="text-sm font-bold text-white">{roomStats.upcoming}</span>
+            <span className="text-xs text-indigo-200">agendadas</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 backdrop-blur">
+            <ShieldCheck size={14} className="text-violet-300" />
+            <span className="text-sm font-bold text-white">{roomStats.persistent}</span>
+            <span className="text-xs text-indigo-200">permanentes</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 sm:px-6 lg:px-8">
+        {/* Tab switcher */}
+        <div className="-mt-4 mb-6 flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-md w-fit">
           <button
             onClick={() => setActiveTab('rooms')}
             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
               activeTab === 'rooms'
-                ? 'bg-white text-indigo-700 shadow-sm'
+                ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <Video size={15} /> Salas
+            <Video size={14} /> Salas
           </button>
           <button
             onClick={() => setActiveTab('transcricoes')}
             className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
               activeTab === 'transcricoes'
-                ? 'bg-white text-indigo-700 shadow-sm'
+                ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <FileText size={15} /> Transcrições
+            <FileText size={14} /> Transcrições
           </button>
         </div>
 
-        {activeTab === 'transcricoes' && (
-          <div className="space-y-4">
+        {/* ── SALAS TAB ── */}
+        {activeTab === 'rooms' && (
+          <div className="space-y-6">
+            {/* Entrar com código */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <h2 className="mb-1 flex items-center gap-2 text-base font-bold text-slate-800">
+                <LinkIcon size={16} className="text-indigo-500" /> Entrar com Código
+              </h2>
+              <p className="mb-4 text-sm text-slate-400">Cole o código da sala para entrar direto</p>
+              <form onSubmit={handleJoinByCode} className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 placeholder-slate-400 transition focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-400/20"
+                    placeholder="Ex: abc-123-xyz"
+                    value={meetingCode}
+                    onChange={(e) => setMeetingCode(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!meetingCode}
+                  className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-sm font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-700 disabled:opacity-40"
+                >
+                  Acessar Sala <ArrowRight size={15} />
+                </button>
+              </form>
+            </div>
 
-          {/* Gemini API Keys config */}
-          <div className="rounded-3xl bg-gradient-to-br from-violet-100 via-white to-indigo-100 p-px shadow-sm">
-            <div className="rounded-[22px] border border-slate-100 bg-white px-6 py-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Mic size={18} className="text-violet-600" />
-                <h3 className="font-bold text-slate-800 text-base">Chaves Gemini para Transcrição</h3>
-                <span className="ml-auto text-[11px] text-slate-400">Fallback automático — usa a próxima se uma falhar</span>
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              {/* Salas permanentes */}
+              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <History size={16} className="text-indigo-500" />
+                    <h2 className="font-bold text-slate-700">Minhas Salas</h2>
+                    {persistentRooms.length > 0 && (
+                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-600">
+                        {persistentRooms.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        className="h-8 w-44 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-600 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                        placeholder="Buscar sala..."
+                        value={roomSearch}
+                        onChange={(e) => setRoomSearch(e.target.value)}
+                      />
+                    </div>
+                    <span className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Permanentes
+                    </span>
+                  </div>
+                </div>
+
+                <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+                  {isLoading ? (
+                    <div className="flex justify-center py-12">
+                      <Loader2 className="animate-spin text-slate-300" />
+                    </div>
+                  ) : persistentRooms.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-14 text-slate-400">
+                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                        <Video size={24} className="opacity-30" />
+                      </div>
+                      <p className="text-sm font-medium">Nenhuma sala permanente</p>
+                      <p className="mt-1 text-xs text-slate-300">Crie uma sala para atender quando quiser</p>
+                    </div>
+                  ) : (
+                    persistentRooms.map((room) => (
+                      <div key={room.id} className="group flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                          <Video size={15} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-800">{room.title || 'Sem título'}</p>
+                          <div className="mt-0.5 flex items-center gap-1.5">
+                            <span className="rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] text-indigo-600">
+                              {room.code}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {new Date(room.created_at).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleCopyLink(room)}
+                            title="Copiar link"
+                            className={`rounded-xl border p-2 transition ${
+                              copiedId === room.id
+                                ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
+                                : 'border-slate-200 text-slate-400 hover:border-indigo-200 hover:text-indigo-600'
+                            }`}
+                          >
+                            {copiedId === room.id ? <Check size={15} /> : <Copy size={15} />}
+                          </button>
+                          <button
+                            onClick={() => openWhatsAppShare(room)}
+                            title="WhatsApp"
+                            className="rounded-xl bg-emerald-500 p-2 text-white shadow-sm transition hover:bg-emerald-600"
+                          >
+                            <Send size={15} />
+                          </button>
+                          <button
+                            onClick={() => window.open(`/sala/${room.code}`, '_blank')}
+                            title="Entrar na sala"
+                            className="rounded-xl bg-indigo-600 p-2 text-white shadow-sm transition hover:bg-indigo-700"
+                          >
+                            <Play size={15} />
+                          </button>
+                          <button
+                            onClick={() => setRoomToDelete(room)}
+                            title="Excluir"
+                            className="rounded-xl border border-slate-200 p-2 text-slate-300 transition hover:border-red-200 hover:text-red-500"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
-              {/* Key list */}
+              {/* Próximas sessões agendadas */}
+              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={16} className="text-indigo-500" />
+                    <h2 className="font-bold text-slate-700">Próximos Atendimentos</h2>
+                    {upcomingRooms.length > 0 && (
+                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-600">
+                        {upcomingRooms.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1">
+                    <ShieldCheck size={12} className="text-emerald-600" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Hiper Seguro</span>
+                  </div>
+                </div>
+
+                <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+                  {isLoading ? (
+                    <div className="flex justify-center py-12">
+                      <Loader2 className="animate-spin text-slate-300" size={28} />
+                    </div>
+                  ) : upcomingRooms.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-14 text-slate-400">
+                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                        <Calendar size={24} className="opacity-30" />
+                      </div>
+                      <p className="text-sm font-medium">Sem consultas agendadas</p>
+                      <button
+                        onClick={() => openCreateModal()}
+                        className="mt-3 flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700"
+                      >
+                        <Plus size={13} /> Agendar agora
+                      </button>
+                    </div>
+                  ) : (
+                    upcomingRooms.map((room) => {
+                      const start = room.scheduled_start ? new Date(room.scheduled_start) : null;
+                      const end = room.scheduled_end ? new Date(room.scheduled_end) : null;
+                      const dayNum = start ? start.getDate() : '--';
+                      const monthStr = start ? start.toLocaleString('pt-BR', { month: 'short' }).replace('.', '') : '--';
+                      const timeStr = start ? start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                      const endTimeStr = end ? end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+                      return (
+                        <div key={room.id} className="group flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-50 sm:flex-row sm:items-center">
+                          {/* Date badge */}
+                          <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 shadow-sm">
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-indigo-500">{monthStr}</span>
+                            <span className="text-2xl font-black leading-tight text-indigo-800">{dayNum}</span>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex items-center gap-1.5">
+                              <Clock size={12} className="text-slate-400" />
+                              <span className="text-xs font-bold text-slate-500">
+                                {timeStr}{endTimeStr ? ` – ${endTimeStr}` : ''}
+                              </span>
+                            </div>
+                            <p className="truncate text-sm font-bold text-slate-800">{room.title || 'Sessão sem título'}</p>
+                            {room.description && (
+                              <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">{room.description}</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleCopyLink(room)}
+                              title="Copiar link"
+                              className={`rounded-xl border p-2 transition ${
+                                copiedId === room.id
+                                  ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
+                                  : 'border-slate-200 text-slate-400 hover:border-indigo-200 hover:text-indigo-600'
+                              }`}
+                            >
+                              {copiedId === room.id ? <Check size={15} /> : <Copy size={15} />}
+                            </button>
+                            <button
+                              onClick={() => openWhatsAppShare(room)}
+                              className="rounded-xl bg-emerald-500 p-2 text-white shadow-sm transition hover:bg-emerald-600"
+                              title="WhatsApp"
+                            >
+                              <Send size={15} />
+                            </button>
+                            <button
+                              onClick={() => window.open(`/sala/${room.code}`, '_blank')}
+                              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700"
+                            >
+                              <Play size={13} fill="currentColor" /> Entrar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TRANSCRIÇÕES TAB ── */}
+        {activeTab === 'transcricoes' && (
+          <div className="space-y-5">
+            {/* Gemini keys */}
+            <div className="rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50 p-5 sm:p-6">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md">
+                  <Mic size={15} />
+                </div>
+                <h3 className="font-bold text-slate-800">Chaves Gemini para Transcrição</h3>
+                <span className="ml-auto text-[11px] text-slate-400">Fallback automático entre chaves</span>
+              </div>
+
               {geminiKeys.length > 0 ? (
-                <div className="space-y-2 mb-4">
+                <div className="mb-4 space-y-2">
                   {geminiKeys.map((key, idx) => (
-                    <div key={idx} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                      <span className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${idx === 0 ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                    <div key={idx} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${idx === 0 ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                         {idx + 1}
                       </span>
                       <span className="flex-1 font-mono text-xs text-slate-600 truncate">
@@ -696,21 +936,20 @@ export const VirtualRooms: React.FC = () => {
                         <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Principal</span>
                       )}
                       {idx > 0 && (
-                        <button onClick={() => moveKeyUp(idx)} title="Mover para cima" className="shrink-0 rounded-lg border border-slate-200 p-1 text-slate-400 hover:text-indigo-600 transition-colors">
+                        <button onClick={() => moveKeyUp(idx)} className="shrink-0 rounded-lg border border-slate-200 p-1 text-slate-400 hover:text-indigo-600 transition">
                           <ChevronDown size={12} className="rotate-180" />
                         </button>
                       )}
-                      <button onClick={() => removeGeminiKey(key)} title="Remover" className="shrink-0 rounded-lg border border-red-100 p-1 text-red-400 hover:bg-red-50 transition-colors">
+                      <button onClick={() => removeGeminiKey(key)} className="shrink-0 rounded-lg border border-red-100 p-1 text-red-400 hover:bg-red-50 transition">
                         <X size={12} />
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mb-4 text-sm text-slate-400">Nenhuma chave configurada. Adicione ao menos uma para ativar a transcrição com Gemini.</p>
+                <p className="mb-4 text-sm text-slate-500">Nenhuma chave configurada. Adicione ao menos uma para transcrever com Gemini.</p>
               )}
 
-              {/* Add new key */}
               <div className="flex gap-2">
                 <input
                   type="password"
@@ -718,94 +957,83 @@ export const VirtualRooms: React.FC = () => {
                   onChange={e => setNewKeyInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addGeminiKey()}
                   placeholder="AIza... — cole sua chave do Google AI Studio"
-                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-mono focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20"
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono placeholder-slate-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
                 />
                 <button
                   onClick={addGeminiKey}
                   disabled={!newKeyInput.trim()}
-                  className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                  className="flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-700 disabled:opacity-40"
                 >
                   {keySaved ? <><Check size={14} /> Salvo!</> : <><Plus size={14} /> Adicionar</>}
                 </button>
               </div>
               <p className="mt-2 text-[11px] text-slate-400">
-                Obtenha chaves gratuitas em <span className="font-mono text-violet-600">aistudio.google.com/apikey</span>
+                Chaves gratuitas em <span className="font-mono text-violet-600">aistudio.google.com/apikey</span>
               </p>
             </div>
-          </div>
 
-          {/* Histórico */}
-          <div className="rounded-3xl bg-gradient-to-br from-indigo-200 via-white to-slate-200 p-px shadow-lg">
-            <div className="rounded-[22px] border border-slate-100 bg-white">
-              {/* Header */}
-              <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4 space-y-3">
+            {/* Histórico */}
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 text-lg font-bold text-slate-800">
-                    <FileText size={20} className="text-indigo-600" /> Histórico de Transcrições
+                  <h3 className="flex items-center gap-2 font-bold text-slate-800">
+                    <FileText size={17} className="text-indigo-500" /> Histórico de Sessões
                   </h3>
                   <button
                     onClick={fetchSessions}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 transition hover:text-indigo-600"
                   >
                     Atualizar
                   </button>
                 </div>
 
-                {/* Filtros */}
                 <div className="flex flex-wrap gap-2">
-                  {/* Busca */}
-                  <div className="relative flex-1 min-w-[160px]">
+                  <div className="relative min-w-[150px] flex-1">
                     <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
                       value={sessionSearch}
                       onChange={e => setSessionSearch(e.target.value)}
                       placeholder="Buscar sala ou sessão..."
-                      className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                      className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                     />
                   </div>
-                  {/* Data início */}
                   <input
                     type="date"
                     value={filterDateFrom}
                     onChange={e => setFilterDateFrom(e.target.value)}
                     title="De"
-                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                   />
-                  {/* Data fim */}
                   <input
                     type="date"
                     value={filterDateTo}
                     onChange={e => setFilterDateTo(e.target.value)}
                     title="Até"
-                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
+                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                   />
-                  {/* Filtro áudio */}
                   <button
                     onClick={() => setFilterHasRecording(v => v === true ? null : true)}
-                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-colors ${filterHasRecording === true ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:text-emerald-600'}`}
+                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${filterHasRecording === true ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:text-emerald-600'}`}
                   >
                     Com áudio
                   </button>
-                  {/* Filtro transcrição */}
                   <button
                     onClick={() => setFilterHasTranscript(v => v === true ? null : true)}
-                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-colors ${filterHasTranscript === true ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:text-indigo-600'}`}
+                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${filterHasTranscript === true ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:text-indigo-600'}`}
                   >
                     Com transcrição
                   </button>
-                  {/* Limpar filtros */}
                   {hasActiveFilters && (
                     <button
                       onClick={clearFilters}
-                      className="rounded-xl border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-100 transition-colors flex items-center gap-1"
+                      className="flex items-center gap-1 rounded-xl border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-500 transition hover:bg-red-100"
                     >
                       <X size={11} /> Limpar
                     </button>
                   )}
                 </div>
 
-                {/* Contagem */}
                 {!sessionsLoading && sessions.length > 0 && (
                   <p className="text-[11px] text-slate-400">
                     {filteredSessions.length} de {sessions.length} sessão{sessions.length !== 1 ? 'ões' : ''}
@@ -819,7 +1047,9 @@ export const VirtualRooms: React.FC = () => {
                 </div>
               ) : filteredSessions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                  <FileText size={40} className="mb-4 opacity-20" />
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                    <FileText size={28} className="opacity-30" />
+                  </div>
                   <p className="font-medium">{sessions.length === 0 ? 'Nenhuma sessão registrada ainda.' : 'Nenhuma sessão encontrada.'}</p>
                   <p className="mt-1 text-sm">{sessions.length === 0 ? 'As transcrições aparecem aqui após encerrar uma sessão.' : 'Tente ajustar os filtros.'}</p>
                   {hasActiveFilters && (
@@ -835,16 +1065,16 @@ export const VirtualRooms: React.FC = () => {
                     const isLoadingThis = loadingDetail === session.session_key;
                     return (
                       <div key={session.session_key}>
-                        <div className="w-full flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50">
                           <button
                             onClick={() => toggleSession(session)}
-                            className="flex-1 flex items-center gap-4 min-w-0 text-left"
+                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
                           >
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                              <Mic size={18} />
+                              <Mic size={16} />
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate font-bold text-slate-800 text-sm">
+                              <p className="truncate text-sm font-bold text-slate-800">
                                 {session.room_title || `Sala #${session.room_id}`}
                                 {session.room_code && (
                                   <span className="ml-2 font-mono text-[10px] text-slate-400">{session.room_code}</span>
@@ -858,46 +1088,41 @@ export const VirtualRooms: React.FC = () => {
                               </p>
                             </div>
                           </button>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600">
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="hidden rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-600 sm:inline">
                               {session.transcript_count} linhas
                             </span>
                             {session.recording_count > 0 && (
-                              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600">
+                              <span className="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600 sm:inline">
                                 {session.recording_count} áudio{session.recording_count > 1 ? 's' : ''}
                               </span>
                             )}
-                            {/* Deletar sessão */}
                             <button
                               onClick={() => deleteSession(session)}
-                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 hover:border-red-200 hover:text-red-500 transition-colors"
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 transition hover:border-red-200 hover:text-red-500"
                               title="Deletar sessão"
                             >
                               <Trash2 size={13} />
                             </button>
                             <button onClick={() => toggleSession(session)} className="p-1">
-                              <ChevronDown
-                                size={16}
-                                className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                              />
+                              <ChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                             </button>
                           </div>
                         </div>
 
                         {isOpen && (
-                          <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4 space-y-4">
+                          <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4 space-y-4">
                             {isLoadingThis ? (
                               <div className="flex justify-center py-6">
                                 <Loader2 className="animate-spin text-slate-300" size={24} />
                               </div>
                             ) : (
                               <>
-                                {/* Actions row */}
                                 <div className="flex flex-wrap gap-2">
                                   {(transcripts?.length ?? 0) > 0 && (
                                     <button
                                       onClick={() => downloadTranscript(session)}
-                                      className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"
+                                      className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"
                                     >
                                       <Download size={13} /> Baixar .txt
                                     </button>
@@ -910,29 +1135,28 @@ export const VirtualRooms: React.FC = () => {
                                         if (recs?.length) transcribeRecording(recs[0], session);
                                       }}
                                       disabled={deletingTranscript === session.session_key || transcribingRecording !== null}
-                                      className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                                      className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
                                     >
                                       <Mic size={13} /> Refazer Transcrição
                                     </button>
                                   )}
                                 </div>
 
-                                {/* Recordings */}
                                 {(recordings?.length ?? 0) > 0 && (
                                   <div className="space-y-2">
                                     <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Gravações de Áudio</p>
                                     {recordings!.map((rec) => (
-                                      <div key={rec.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                                      <div key={rec.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
                                         <div className="flex items-center justify-between gap-2">
-                                          <span className="text-xs font-bold text-slate-700 truncate">{rec.file_name}</span>
-                                          <div className="flex items-center gap-2 shrink-0">
+                                          <span className="truncate text-xs font-bold text-slate-700">{rec.file_name}</span>
+                                          <div className="flex shrink-0 items-center gap-2">
                                             {rec.duration_seconds != null && (
                                               <span className="text-[11px] text-slate-400">{formatDuration(rec.duration_seconds)}</span>
                                             )}
                                             <a
                                               href={resolveRecordingUrl(rec.file_url)}
                                               download={rec.file_name}
-                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:text-indigo-600"
                                               title="Baixar áudio"
                                             >
                                               <Download size={13} />
@@ -940,7 +1164,7 @@ export const VirtualRooms: React.FC = () => {
                                             <button
                                               onClick={() => deleteRecording(rec, session)}
                                               disabled={deletingRecording === rec.id}
-                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 hover:border-red-200 hover:text-red-500 disabled:opacity-50 transition-colors"
+                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
                                               title="Deletar gravação"
                                             >
                                               {deletingRecording === rec.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
@@ -953,16 +1177,15 @@ export const VirtualRooms: React.FC = () => {
                                           className="w-full h-8"
                                           src={resolveRecordingUrl(rec.file_url)}
                                         />
-                                        {/* Botão transcrever com Gemini */}
                                         <button
                                           onClick={() => transcribeRecording(rec, session)}
                                           disabled={transcribingRecording === rec.id}
-                                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                           {transcribingRecording === rec.id ? (
                                             <><Loader2 size={13} className="animate-spin" /> Transcrevendo com Gemini...</>
                                           ) : (
-                                            <><Mic size={13} /> Transcrever Áudio com Gemini</>
+                                            <><Mic size={13} /> Transcrever com Gemini</>
                                           )}
                                         </button>
                                       </div>
@@ -970,7 +1193,6 @@ export const VirtualRooms: React.FC = () => {
                                   </div>
                                 )}
 
-                                {/* Transcript */}
                                 {(transcripts?.length ?? 0) > 0 ? (
                                   <div className="space-y-2">
                                     <div className="flex items-center justify-between">
@@ -978,14 +1200,13 @@ export const VirtualRooms: React.FC = () => {
                                       <button
                                         onClick={() => deleteTranscript(session)}
                                         disabled={deletingTranscript === session.session_key}
-                                        className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-400 hover:border-red-200 hover:text-red-500 disabled:opacity-50 transition-colors"
-                                        title="Deletar transcrição"
+                                        className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-400 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
                                       >
                                         {deletingTranscript === session.session_key ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                                         Deletar
                                       </button>
                                     </div>
-                                    <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                                    <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3">
                                       {transcripts!.map((line) => (
                                         <div key={line.id} className="flex gap-2">
                                           <span
@@ -997,13 +1218,13 @@ export const VirtualRooms: React.FC = () => {
                                           >
                                             {line.speaker_name}
                                           </span>
-                                          <p className="text-xs text-slate-700 leading-relaxed">{line.text}</p>
+                                          <p className="text-xs leading-relaxed text-slate-700">{line.text}</p>
                                         </div>
                                       ))}
                                     </div>
                                   </div>
                                 ) : (
-                                  <p className="text-center text-sm text-slate-400 py-4">Sem transcrição registrada para esta sessão.</p>
+                                  <p className="py-4 text-center text-sm text-slate-400">Sem transcrição registrada para esta sessão.</p>
                                 )}
                               </>
                             )}
@@ -1016,206 +1237,7 @@ export const VirtualRooms: React.FC = () => {
               )}
             </div>
           </div>
-
-          </div>
         )}
-
-        {activeTab === 'rooms' && <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="space-y-6">
-            <div className="rounded-3xl bg-gradient-to-br from-indigo-200 via-white to-slate-200 p-px shadow-lg">
-              <div className="rounded-[22px] border border-slate-100 bg-white p-6 sm:p-8">
-                <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-800">
-                  <LinkIcon size={20} className="text-indigo-600" /> {t('rooms.enterCode')}
-                </h3>
-                <form onSubmit={handleJoinByCode} className="flex flex-col gap-3 sm:flex-row">
-                  <Input
-                    iconLeft={<Search size={16} />}
-                    placeholder={t('rooms.placeholderCode')}
-                    value={meetingCode}
-                    onChange={(e) => setMeetingCode(e.target.value)}
-                    wrapperClassName="flex-1"
-                  />
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    disabled={!meetingCode}
-                    iconRight={<ArrowRight size={16} />}
-                  >
-                    {t('rooms.join')}
-                  </Button>
-                </form>
-              </div>
-            </div>
-
-            <div className="rounded-3xl bg-gradient-to-br from-slate-200 via-white to-indigo-200 p-px shadow-lg">
-              <div className="overflow-hidden rounded-[22px] border border-slate-100 bg-white">
-                <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 p-5 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="flex items-center gap-2 font-bold text-slate-700">
-                    <History size={18} className="text-indigo-500" /> {t('rooms.history')}
-                  </h3>
-                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      iconLeft={<Search size={14} />}
-                      value={roomSearch}
-                      onChange={(e) => setRoomSearch(e.target.value)}
-                      placeholder={t('rooms.search')}
-                      size="sm"
-                      wrapperClassName="w-full sm:w-56"
-                    />
-                    <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                      {t('rooms.persistent')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="max-h-[400px] divide-y divide-slate-100 overflow-y-auto">
-                  {isLoading ? (
-                    <div className="flex justify-center p-10">
-                      <Loader2 className="animate-spin text-slate-300" />
-                    </div>
-                  ) : persistentRooms.length === 0 ? (
-                    <div className="p-10 text-center text-sm text-slate-400">{t('rooms.noPersistent')}</div>
-                  ) : (
-                    persistentRooms.map((room) => (
-                      <div key={room.id} className="group flex items-center justify-between gap-4 p-5 transition-colors hover:bg-slate-50">
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1 flex items-center gap-2">
-                            <h4 className="truncate text-sm font-bold text-slate-800">{room.title || t('rooms.unnamed')}</h4>
-                            <div className="flex items-center gap-1 rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] text-indigo-600">
-                              {room.code}
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-400">{t('rooms.createdAt')}: {new Date(room.created_at).toLocaleDateString()}</p>
-                        </div>
-                        <div className="ml-4 flex items-center gap-2">
-                          <button
-                            onClick={() => handleCopyLink(room)}
-                            className={`rounded-xl border p-2.5 transition-all ${
-                              copiedId === room.id
-                                ? 'border-emerald-500 bg-emerald-50 text-emerald-600'
-                                : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-100 hover:text-indigo-600'
-                            }`}
-                            title={t('rooms.copyLink')}
-                          >
-                            {copiedId === room.id ? <Check size={18} /> : <Copy size={18} />}
-                          </button>
-                          <button
-                            onClick={() => openWhatsAppShare(room)}
-                            className="rounded-xl bg-emerald-600 p-2.5 text-white shadow-md transition-all hover:bg-emerald-700"
-                            title="Compartilhar no WhatsApp"
-                          >
-                            <Send size={18} />
-                          </button>
-                          <button
-                            onClick={() => window.open(`/sala/${room.code}`, '_blank')}
-                            className="rounded-xl bg-indigo-600 p-2.5 text-white shadow-md transition-all hover:bg-indigo-700"
-                            title={t('rooms.join')}
-                          >
-                            <Play size={18} />
-                          </button>
-                          <button
-                            onClick={() => setRoomToDelete(room)}
-                            className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-300 transition-all hover:border-red-100 hover:text-red-500"
-                            title={t('common.delete')}
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-gradient-to-br from-indigo-200 via-white to-slate-200 p-px shadow-lg">
-            <div className="flex h-full min-h-[500px] flex-col rounded-[22px] border border-slate-100 bg-white">
-              <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="flex items-center gap-2 text-xl font-bold text-slate-800">
-                  <Calendar size={22} className="text-indigo-600" /> {t('rooms.upcoming')}
-                </h3>
-                <div className="flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-emerald-700">
-                  <ShieldCheck size={14} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">{t('rooms.secureBadge')}</span>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/30 p-5">
-                {isLoading ? (
-                  <div className="flex h-full items-center justify-center py-20 text-slate-300">
-                    <Loader2 className="animate-spin" size={32} />
-                  </div>
-                ) : upcomingRooms.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center py-10 text-slate-400">
-                    <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-slate-100 bg-white shadow-sm">
-                      <Video size={40} className="text-indigo-900 opacity-10" />
-                    </div>
-                    <p className="font-medium">{t('rooms.noUpcoming')}</p>
-                  </div>
-                ) : (
-                  upcomingRooms.map((room) => (
-                    <div
-                      key={room.id}
-                      className="group relative flex flex-col gap-5 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:border-indigo-300 hover:shadow-lg sm:flex-row sm:items-center"
-                    >
-                      <div className="absolute bottom-0 left-0 top-0 w-1.5 bg-indigo-600 opacity-0 transition-opacity group-hover:opacity-100" />
-
-                      <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 shadow-sm transition-transform group-hover:scale-105">
-                        <span className="text-[10px] font-bold uppercase tracking-tighter text-indigo-600">
-                          {room.scheduled_start ? new Date(room.scheduled_start).toLocaleString('default', { month: 'short' }) : '-'}
-                        </span>
-                        <span className="text-2xl font-bold leading-none text-indigo-900">
-                          {room.scheduled_start ? new Date(room.scheduled_start).getDate() : '-'}
-                        </span>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-2 flex items-center gap-2">
-                          <Clock size={14} className="text-indigo-400" />
-                          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                            {room.scheduled_start ? new Date(room.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                            {room.scheduled_end ? ` - ${new Date(room.scheduled_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
-                          </span>
-                        </div>
-                        <h4 className="mb-1 truncate text-base font-bold text-slate-800">{room.title || t('rooms.defaultTitle')}</h4>
-                        <p className="line-clamp-1 text-sm text-slate-400">{room.description || t('rooms.noDesc')}</p>
-                      </div>
-
-                      <div className="mt-2 flex w-full gap-2 border-t border-slate-50 pt-4 sm:mt-0 sm:w-auto sm:border-t-0 sm:pt-0">
-                        <button
-                          className={`rounded-xl border p-3 transition-all ${
-                            copiedId === room.id
-                              ? 'border-emerald-500 bg-emerald-50 text-emerald-600'
-                              : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-200 hover:text-indigo-600'
-                          }`}
-                          title={t('rooms.copyLink')}
-                          onClick={() => handleCopyLink(room)}
-                        >
-                          {copiedId === room.id ? <Check size={20} /> : <Copy size={20} />}
-                        </button>
-                        <button
-                          onClick={() => openWhatsAppShare(room)}
-                          className="rounded-xl bg-emerald-600 p-3 text-white shadow-md transition-all hover:bg-emerald-700"
-                          title="Compartilhar no WhatsApp"
-                        >
-                          <Send size={20} />
-                        </button>
-                        <button
-                          onClick={() => window.open(`/sala/${room.code}`, '_blank')}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-indigo-700 sm:flex-none"
-                        >
-                          <Play size={16} fill="currentColor" /> {t('rooms.startNow')}
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>}
-
       </div>
 
       <Modal
@@ -1252,7 +1274,7 @@ export const VirtualRooms: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Data início</label>
+              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Data início</label>
               <DatePicker
                 value={createForm.scheduled_start ? createForm.scheduled_start.slice(0, 10) : null}
                 onChange={(val) => setCreateForm((prev) => {
@@ -1262,9 +1284,9 @@ export const VirtualRooms: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Horário início</label>
+              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Horário início</label>
               <div className="relative">
-                <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none z-10" />
+                <Clock size={14} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-indigo-400" />
                 <input
                   type="time"
                   value={createForm.scheduled_start ? createForm.scheduled_start.slice(11, 16) : ''}
@@ -1272,7 +1294,7 @@ export const VirtualRooms: React.FC = () => {
                     const date = prev.scheduled_start?.slice(0, 10) || new Date().toISOString().slice(0, 10);
                     return { ...prev, scheduled_start: `${date}T${e.target.value}` };
                   })}
-                  className="h-11 w-full rounded-2xl border border-slate-200 pl-9 pr-3 text-sm font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-slate-50/30 hover:bg-white"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50/30 pl-9 pr-3 text-sm font-black text-slate-700 outline-none transition-all hover:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                 />
               </div>
             </div>
@@ -1280,7 +1302,7 @@ export const VirtualRooms: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Data fim</label>
+              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Data fim</label>
               <DatePicker
                 value={createForm.scheduled_end ? createForm.scheduled_end.slice(0, 10) : null}
                 onChange={(val) => setCreateForm((prev) => {
@@ -1290,9 +1312,9 @@ export const VirtualRooms: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Horário fim</label>
+              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Horário fim</label>
               <div className="relative">
-                <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none z-10" />
+                <Clock size={14} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-indigo-400" />
                 <input
                   type="time"
                   value={createForm.scheduled_end ? createForm.scheduled_end.slice(11, 16) : ''}
@@ -1300,7 +1322,7 @@ export const VirtualRooms: React.FC = () => {
                     const date = prev.scheduled_end?.slice(0, 10) || new Date().toISOString().slice(0, 10);
                     return { ...prev, scheduled_end: `${date}T${e.target.value}` };
                   })}
-                  className="h-11 w-full rounded-2xl border border-slate-200 pl-9 pr-3 text-sm font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all bg-slate-50/30 hover:bg-white"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50/30 pl-9 pr-3 text-sm font-black text-slate-700 outline-none transition-all hover:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                 />
               </div>
             </div>
@@ -1342,7 +1364,7 @@ export const VirtualRooms: React.FC = () => {
             />
 
             <div>
-              <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-1.5 block">Expira em</label>
+              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Expira em</label>
               <DatePicker
                 value={createForm.expiration_date ? createForm.expiration_date.slice(0, 10) : null}
                 onChange={(val) => setCreateForm((prev) => ({ ...prev, expiration_date: val || '' }))}
@@ -1364,7 +1386,7 @@ export const VirtualRooms: React.FC = () => {
           {createdRoom && (
             <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
               <div>
-                <div className="font-semibold text-emerald-700">Sala criada</div>
+                <div className="font-semibold text-emerald-700">Sala criada!</div>
                 <div className="break-all text-xs text-emerald-700">
                   {`${window.location.origin}/sala/${createdRoom.code}`}
                 </div>

@@ -3262,7 +3262,7 @@ export const LivroCaixa: React.FC = () => {
                 <button
                   onClick={() => {
                     setSelectedTxForDetails(null);
-                    navigate('/finance/comandas', { state: { openComandaId: String(selectedTxForDetails.comanda_id) } });
+                    navigate('/comandas', { state: { openComandaId: String(selectedTxForDetails.comanda_id) } });
                   }}
                   className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100 font-black text-[10px] uppercase tracking-widest transition-all"
                 >
