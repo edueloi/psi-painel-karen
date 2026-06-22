@@ -178,35 +178,181 @@ const Lobby: React.FC<{
     </button>
   );
 
+  /* ── Lobby do profissional: layout tela cheia com câmera em destaque ── */
+  if (!isGuest) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#070910", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, sans-serif", overflow: "hidden" }}>
+
+        {/* Barra superior */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 28px", position: "relative", zIndex: 10, flexShrink: 0 }}>
+          <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 32, objectFit: "contain", opacity: 0.9 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 99, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e" }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Sala pronta</span>
+          </div>
+        </div>
+
+        {/* Corpo principal */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 28px 28px", gap: 28, minHeight: 0 }} className="host-lobby-body">
+
+          {/* ── Câmera grande ── */}
+          <div style={{ flex: "0 0 auto", width: "min(520px, 55vw)", aspectRatio: "16/10", borderRadius: 20, overflow: "hidden", background: "#0d0f18", position: "relative", boxShadow: "0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }} className="host-cam-wrap">
+            <video ref={videoRef} autoPlay muted playsInline
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: camOn ? "block" : "none" }} />
+            {!camOn && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+                <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 800, color: "#fff", boxShadow: "0 12px 32px rgba(99,102,241,0.4)" }}>
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>Câmera desligada</span>
+              </div>
+            )}
+            {/* Gradiente inferior */}
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)", pointerEvents: "none" }} />
+            {/* Badge nome */}
+            <div style={{ position: "absolute", bottom: 52, left: 16, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(10px)", borderRadius: 8, padding: "4px 12px", fontSize: 13, fontWeight: 700, color: "#e2e8f0", letterSpacing: "-.1px" }}>
+              {displayName}
+            </div>
+            {/* Controles mic/cam */}
+            <div style={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 12 }}>
+              <button onClick={togglePreviewMic} title={micOn ? "Desligar microfone" : "Ligar microfone"}
+                style={{ width: 46, height: 46, borderRadius: "50%", border: micOn ? "none" : "1.5px solid rgba(239,68,68,0.6)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: micOn ? "rgba(255,255,255,0.15)" : "rgba(220,38,38,0.85)", backdropFilter: "blur(12px)", color: "#fff", transition: "all .15s", flexShrink: 0 }}>
+                {micOn ? <Mic size={18} /> : <MicOff size={18} />}
+              </button>
+              <button onClick={togglePreviewCam} title={camOn ? "Desligar câmera" : "Ligar câmera"}
+                style={{ width: 46, height: 46, borderRadius: "50%", border: camOn ? "none" : "1.5px solid rgba(239,68,68,0.6)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: camOn ? "rgba(255,255,255,0.15)" : "rgba(220,38,38,0.85)", backdropFilter: "blur(12px)", color: "#fff", transition: "all .15s", flexShrink: 0 }}>
+                {camOn ? <Video size={18} /> : <VideoOff size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Painel direito ── */}
+          <div style={{ flex: "0 0 auto", width: "min(340px, 38vw)", display: "flex", flexDirection: "column", gap: 6 }} className="host-panel">
+
+            {/* Título */}
+            <div style={{ marginBottom: 10 }}>
+              <h1 style={{ fontSize: 26, fontWeight: 900, color: "#f1f5f9", margin: 0, letterSpacing: "-.5px", lineHeight: 1.2 }}>
+                Sua sala<br />virtual
+              </h1>
+              <p style={{ fontSize: 13, color: "#334155", marginTop: 6, margin: "6px 0 0" }}>Pronto para iniciar a sessão?</p>
+            </div>
+
+            {/* Tabs de seção */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+              {sectionBtn("link", "Convidar", <LinkIcon size={11} />)}
+              {sectionBtn("devices", "Dispositivos", <Settings size={11} />)}
+              {sectionBtn("recording", "Gravação", <Circle size={11} />)}
+            </div>
+
+            {/* Seção: Link */}
+            {activeSection === "link" && (
+              <div style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.18)", borderRadius: 16, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".06em", margin: 0 }}>Link do paciente</p>
+                <div style={{ background: "rgba(0,0,0,0.35)", borderRadius: 9, padding: "9px 12px", fontSize: 11, color: "#4b5563", fontFamily: "monospace", wordBreak: "break-all", lineHeight: 1.6, userSelect: "all" }}>
+                  {guestUrl}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={copyLink} style={{ flex: 1, height: 40, borderRadius: 10, background: copied ? "rgba(34,197,94,0.14)" : "rgba(255,255,255,0.06)", border: `1px solid ${copied ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.1)"}`, color: copied ? "#86efac" : "#94a3b8", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all .15s" }}>
+                    {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar</>}
+                  </button>
+                  <button onClick={sendWhatsApp} style={{ flex: 1, height: 40, borderRadius: 10, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", color: "#86efac", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#86efac"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Seção: Dispositivos */}
+            {activeSection === "devices" && (
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".06em", margin: 0 }}>Dispositivos</p>
+                {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={11} />} />}
+                {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={11} />} />}
+                {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={11} />} />}
+              </div>
+            )}
+
+            {/* Seção: Gravação */}
+            {activeSection === "recording" && (
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".06em", margin: 0 }}>Gravação da sessão</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1", margin: 0 }}>Gravar automaticamente</p>
+                      <p style={{ fontSize: 11, color: "#334155", margin: "2px 0 0" }}>Inicia ao entrar na sala</p>
+                    </div>
+                    <Toggle on={preferences.sessions?.autoRecord ?? false} onChange={v => updatePreference('sessions', { autoRecord: v })} />
+                  </div>
+                  <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1", margin: 0 }}>Transcrever ao encerrar</p>
+                      <p style={{ fontSize: 11, color: "#334155", margin: "2px 0 0" }}>Gera transcrição automática</p>
+                    </div>
+                    <Toggle on={preferences.sessions?.autoTranscribe ?? false} onChange={v => updatePreference('sessions', { autoTranscribe: v })} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, color: "#f87171", fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+
+            {/* Botão iniciar */}
+            <button onClick={onJoin} disabled={!canJoin}
+              style={{ marginTop: 8, width: "100%", height: 54, borderRadius: 14, fontWeight: 900, fontSize: 16, color: "#fff", background: canJoin ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(99,102,241,0.2)", border: "none", cursor: canJoin ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: canJoin ? "0 8px 28px rgba(99,102,241,0.5)" : "none", transition: "all .2s", letterSpacing: "-.2px" }}>
+              {joining ? <><Spinner /> Conectando...</> : <><Video size={18} /> Iniciar sessão</>}
+            </button>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 2 }}>
+              <Shield size={11} color="#1e3a4c" />
+              <span style={{ fontSize: 11, color: "#1e3a4c" }}>Conexão segura e criptografada</span>
+            </div>
+          </div>
+        </div>
+
+        <style>{`
+          @media(max-width:768px){
+            .host-lobby-body { flex-direction: column !important; padding: 0 16px 20px !important; gap: 16px !important; }
+            .host-cam-wrap { width: 100% !important; aspect-ratio: 4/3 !important; }
+            .host-panel { width: 100% !important; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  /* ── Lobby do paciente (guest): layout card compacto ── */
   return (
     <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "12px 16px 24px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
       <div style={{ marginBottom: 16 }} className="lobby-logo">
-        <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 26, objectFit: "contain", opacity: 0.6 }} />
+        <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 28, objectFit: "contain", opacity: 0.7 }} />
       </div>
 
-      {/* ── Layout desktop: grid 2 colunas. Mobile guest: coluna única compacta ── */}
-      <div style={{ width: "100%", maxWidth: isGuest ? 760 : 860, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, background: "#12151e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 22, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.75)" }} className={isGuest ? "lobby-grid lobby-guest" : "lobby-grid"}>
+      <div style={{ width: "100%", maxWidth: 760, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, background: "#12151e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 22, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.75)" }} className="lobby-grid lobby-guest">
 
-        {/* ── Coluna esquerda — câmera ── */}
+        {/* ── Câmera ── */}
         <div style={{ position: "relative", background: "#0a0c12", minHeight: 320, display: "flex", flexDirection: "column" }} className="lobby-cam-col">
           <video ref={videoRef} autoPlay muted playsInline
             style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn ? "block" : "none", minHeight: 320 }} className="lobby-cam-video" />
           {!camOn && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#0a0c12" }}>
-              <div style={{ width: 72, height: 72, borderRadius: "50%", background: isGuest ? "linear-gradient(135deg,#0284c7,#0369a1)" : "linear-gradient(135deg,#6366f1,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, color: "#fff", boxShadow: "0 8px 24px rgba(99,102,241,0.35)" }}>
+              <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#0284c7,#0369a1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, color: "#fff", boxShadow: "0 8px 24px rgba(2,132,199,0.35)" }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
               <span style={{ fontSize: 12, color: "#334155" }}>Câmera desligada</span>
             </div>
           )}
-          {/* Gradiente inferior */}
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)", pointerEvents: "none" }} />
-          {/* Nome badge */}
           <div style={{ position: "absolute", bottom: 50, left: 12, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", borderRadius: 7, padding: "3px 10px", fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>
             {displayName}
           </div>
-          {/* Botões mic/cam */}
           <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 10 }}>
             <button onClick={togglePreviewMic} title={micOn ? "Desligar microfone" : "Ligar microfone"}
               style={{ width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: micOn ? "rgba(255,255,255,0.18)" : "rgba(220,38,38,0.9)", backdropFilter: "blur(8px)", color: "#fff", transition: "all .15s" }}>
@@ -219,13 +365,10 @@ const Lobby: React.FC<{
           </div>
         </div>
 
-        {/* ── Coluna direita ── */}
+        {/* ── Formulário guest ── */}
         <div style={{ display: "flex", flexDirection: "column", overflowY: "auto", maxHeight: "90vh" }}>
-
-          {/* Header da coluna */}
           <div style={{ padding: "22px 22px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            {/* Card profissional para guest */}
-            {isGuest && (roomInfo.host_name || roomInfo.company_name) && (
+            {(roomInfo.host_name || roomInfo.company_name) && (
               <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 16, padding: "10px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)" }}>
                 {roomInfo.avatar_url
                   ? <img src={roomInfo.avatar_url} alt="" style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
@@ -241,71 +384,24 @@ const Lobby: React.FC<{
                 </div>
               </div>
             )}
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", margin: 0, letterSpacing: "-.3px" }}>
-              {isGuest ? "Entrar na consulta" : "Sua sala virtual"}
-            </h1>
-            <p style={{ fontSize: 12, color: "#475569", marginTop: 4, margin: "4px 0 0" }}>
-              {isGuest ? "Informe seu nome para aguardar aprovação" : "Configure e inicie a sessão"}
-            </p>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", margin: 0, letterSpacing: "-.3px" }}>Entrar na consulta</h1>
+            <p style={{ fontSize: 12, color: "#475569", margin: "4px 0 0" }}>Informe seu nome para aguardar aprovação</p>
           </div>
 
-          {/* Corpo scrollável */}
           <div style={{ flex: 1, padding: "16px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Seu nome completo</label>
+              <input type="text" value={guestName}
+                onChange={e => setGuestName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && canJoin && onJoin()}
+                placeholder="Ex: Ana Lima" autoFocus
+                style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "11px 14px", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                onFocus={e => (e.target.style.borderColor = "#6366f1")}
+                onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+              />
+            </div>
 
-            {/* Nome — guest */}
-            {isGuest && (
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Seu nome completo</label>
-                <input type="text" value={guestName}
-                  onChange={e => setGuestName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && canJoin && onJoin()}
-                  placeholder="Ex: Ana Lima" autoFocus
-                  style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "11px 14px", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                  onFocus={e => (e.target.style.borderColor = "#6366f1")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-                />
-              </div>
-            )}
-
-            {/* Botões de seção — só host */}
-            {!isGuest && (
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                {sectionBtn("link", "Link do paciente", <LinkIcon size={12} />)}
-                {sectionBtn("devices", "Dispositivos", <Settings size={12} />)}
-                {sectionBtn("recording", "Gravação", <Circle size={12} />)}
-              </div>
-            )}
-
-            {/* Seção: Link do paciente */}
-            {(!isGuest && activeSection === "link") && (
-              <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 14, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "9px 12px", fontSize: 11, color: "#64748b", fontFamily: "monospace", wordBreak: "break-all", lineHeight: 1.6 }}>
-                  {guestUrl}
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={copyLink} style={{ flex: 1, height: 38, borderRadius: 9, background: copied ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.07)", border: `1px solid ${copied ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.09)"}`, color: copied ? "#86efac" : "#94a3b8", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all .15s" }}>
-                    {copied ? <><Check size={13} /> Copiado!</> : <><Copy size={13} /> Copiar link</>}
-                  </button>
-                  <button onClick={sendWhatsApp} style={{ flex: 1, height: 38, borderRadius: 9, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.22)", color: "#86efac", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#86efac"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    WhatsApp
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Seção: Dispositivos — host sempre via secção, guest com toggle escondido no mobile */}
-            {(!isGuest && activeSection === "devices") && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".05em", margin: 0 }}>Dispositivos</p>
-                {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={11} />} />}
-                {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={11} />} />}
-                {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={11} />} />}
-              </div>
-            )}
-
-            {/* Dispositivos para guest — toggle expansível, escondido por padrão no mobile */}
-            {isGuest && (videoDevices.length > 0 || audioDevices.length > 0 || audioOutDevices.length > 0) && (
+            {(videoDevices.length > 0 || audioDevices.length > 0 || audioOutDevices.length > 0) && (
               <div>
                 <button onClick={() => setGuestDevicesOpen(v => !v)}
                   style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "#475569", fontSize: 12, fontWeight: 600, padding: "4px 0" }}>
@@ -323,34 +419,6 @@ const Lobby: React.FC<{
               </div>
             )}
 
-            {/* Seção: Gravação */}
-            {(!isGuest && activeSection === "recording") && (
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".05em", margin: 0 }}>Gravação & Transcrição</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", margin: 0 }}>Gravar sessão automaticamente</p>
-                      <p style={{ fontSize: 11, color: "#475569", margin: "2px 0 0" }}>Inicia gravação ao entrar na sala</p>
-                    </div>
-                    <Toggle on={preferences.sessions?.autoRecord ?? false} onChange={v => updatePreference('sessions', { autoRecord: v })} />
-                  </div>
-                  <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", margin: 0 }}>Transcrever com Whisper</p>
-                      <p style={{ fontSize: 11, color: "#475569", margin: "2px 0 0" }}>Transcreve automaticamente ao encerrar (OpenAI)</p>
-                    </div>
-                    <Toggle on={preferences.sessions?.autoTranscribe ?? false} onChange={v => updatePreference('sessions', { autoTranscribe: v })} />
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "flex-start", padding: "8px 10px", background: "rgba(251,191,36,0.06)", borderRadius: 8, border: "1px solid rgba(251,191,36,0.15)" }}>
-                  <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
-                  <p style={{ fontSize: 11, color: "#92400e", margin: 0, lineHeight: 1.5 }}>Obtenha o consentimento do paciente antes de gravar. Os arquivos ficam armazenados com segurança.</p>
-                </div>
-              </div>
-            )}
-
             {error && (
               <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, color: "#f87171", fontSize: 13 }}>
                 {error}
@@ -358,11 +426,10 @@ const Lobby: React.FC<{
             )}
           </div>
 
-          {/* Rodapé fixo com botão */}
           <div style={{ padding: "16px 22px 20px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <button onClick={onJoin} disabled={!canJoin}
-              style={{ width: "100%", height: 50, borderRadius: 13, fontWeight: 800, fontSize: 15, color: "#fff", background: canJoin ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(99,102,241,0.25)", border: "none", cursor: canJoin ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 9, boxShadow: canJoin ? "0 4px 20px rgba(99,102,241,0.4)" : "none", transition: "all .2s", letterSpacing: "-.1px" }}>
-              {joining ? <><Spinner /> Conectando...</> : isGuest ? "Solicitar entrada" : "Iniciar sessão →"}
+              style={{ width: "100%", height: 50, borderRadius: 13, fontWeight: 800, fontSize: 15, color: "#fff", background: canJoin ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(99,102,241,0.25)", border: "none", cursor: canJoin ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 9, boxShadow: canJoin ? "0 4px 20px rgba(99,102,241,0.4)" : "none", transition: "all .2s" }}>
+              {joining ? <><Spinner /> Conectando...</> : "Solicitar entrada"}
             </button>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 10 }}>
               <Shield size={11} color="#1e3a4c" />
@@ -377,12 +444,8 @@ const Lobby: React.FC<{
         @media(max-width:600px){
           .lobby-logo { margin-bottom: 10px !important; }
           .lobby-grid { grid-template-columns: 1fr !important; border-radius: 16px !important; }
-          /* Host: câmera ocupa altura razoável */
-          .lobby-grid > div:first-child { min-height: 200px !important; max-height: 260px !important; }
-          /* Guest mobile: câmera vira cartão compacto fixo no topo */
-          .lobby-guest .lobby-cam-col { min-height: 0 !important; max-height: 180px !important; height: 180px !important; border-radius: 0 !important; }
+          .lobby-guest .lobby-cam-col { min-height: 0 !important; max-height: 180px !important; height: 180px !important; }
           .lobby-guest .lobby-cam-video { min-height: 0 !important; }
-          /* Direita: não limitar height no mobile, deixa rolar se precisar */
           .lobby-guest > div:last-child { max-height: none !important; overflow-y: auto !important; }
         }
       `}</style>
