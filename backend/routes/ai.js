@@ -1218,12 +1218,19 @@ router.post('/transcribe-audio', authMiddleware, transcribeUpload.single('audio'
     const { toFile } = require('openai');
     const audioFile = await toFile(audioBuffer, `audio.${ext}`, { type: mimeType });
 
+    // O prompt do Whisper funciona como vocabulário de contexto — quanto mais termos relevantes,
+    // melhor o modelo reconhece palavras parecidas no áudio.
+    const whisperPrompt = req.body.prompt ||
+      'Consulta psicológica em português brasileiro. ' +
+      'Termos frequentes: ansiedade, depressão, terapia, psicoterapia, sessão, paciente, terapeuta, psicólogo, psiquiatra, CRP, hipnose, inconsciente, comportamento, emoção, trauma, luto, vínculo, apego, autoestima, resiliência, borderline, transtorno, diagnóstico, medicação, prontuário, atendimento, teleatendimento, PsiFlux, agendamento, transcrição, gravação, sala virtual, videochamada, plataforma. ' +
+      'O áudio pode conter pausas, respirações e sobreposição de falas.';
+
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
       language,
       response_format: 'text',
-      prompt: 'Consulta psicológica em português brasileiro. Transcreva fielmente o que foi dito.',
+      prompt: whisperPrompt,
     });
 
     res.json({ text: transcription });
