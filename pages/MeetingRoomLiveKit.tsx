@@ -93,8 +93,8 @@ const Lobby: React.FC<{
   roomCode: string; isGuest: boolean; guestName: string;
   setGuestName: (v: string) => void; onJoin: () => void;
   joining: boolean; error: string | null; isDark: boolean;
-  userName?: string;
-}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName }) => {
+  userName?: string; onCamChange?: (v: boolean) => void; onMicChange?: (v: boolean) => void;
+}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -148,8 +148,8 @@ const Lobby: React.FC<{
     return () => { streamRef.current?.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  const togglePreviewMic = () => { const n = !micOn; setMicOn(n); streamRef.current?.getAudioTracks().forEach(t => { t.enabled = n; }); };
-  const togglePreviewCam = () => { const n = !camOn; setCamOn(n); streamRef.current?.getVideoTracks().forEach(t => { t.enabled = n; }); };
+  const togglePreviewMic = () => { const n = !micOn; setMicOn(n); onMicChange?.(n); streamRef.current?.getAudioTracks().forEach(t => { t.enabled = n; }); };
+  const togglePreviewCam = () => { const n = !camOn; setCamOn(n); onCamChange?.(n); streamRef.current?.getVideoTracks().forEach(t => { t.enabled = n; }); };
   const handleVideoDevice = (id: string) => { setSelectedVideo(id); startPreview(selectedAudio || undefined, id); };
   const handleAudioDevice = (id: string) => { setSelectedAudio(id); startPreview(id, selectedVideo || undefined); };
   const copyLink = () => { navigator.clipboard.writeText(guestUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); };
@@ -377,7 +377,9 @@ const ParticipantVideo: React.FC<{
   participant: LocalParticipant | RemoteParticipant;
   isLocal: boolean;
   style?: React.CSSProperties;
-}> = ({ participant, isLocal, style }) => {
+  objectFit?: "cover" | "contain";
+  hideName?: boolean;
+}> = ({ participant, isLocal, style, objectFit = "cover", hideName = false }) => {
   const tracks = useParticipantTracks(
     [Track.Source.Camera, Track.Source.ScreenShare],
     participant.identity
@@ -387,24 +389,27 @@ const ParticipantVideo: React.FC<{
   const activeTrack = screenTrack || camTrack;
   const isCamOn = !!activeTrack;
   const initials = (participant.name || participant.identity)?.charAt(0).toUpperCase() || "?";
+  const avatarSize = objectFit === "contain" ? 80 : 52;
 
   return (
-    <div style={{ position: "relative", overflow: "hidden", background: "#1a1d2e", ...style }}>
+    <div style={{ position: "relative", overflow: "hidden", background: "#111827", ...style }}>
       {isCamOn && activeTrack
-        ? <VideoTrack trackRef={activeTrack} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ? <VideoTrack trackRef={activeTrack} style={{ width: "100%", height: "100%", objectFit }} />
         : (
           <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#fff" }}>
+            <div style={{ width: avatarSize, height: avatarSize, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0284c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: avatarSize * 0.4, fontWeight: 800, color: "#fff" }}>
               {initials}
             </div>
-            <span style={{ fontSize: 12, color: "#475569" }}>Câmera desligada</span>
+            {objectFit !== "cover" && <span style={{ fontSize: 12, color: "#475569" }}>Câmera desligada</span>}
           </div>
         )
       }
-      <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff" }}>
-        {participant.name || participant.identity}{isLocal ? " (Você)" : ""}
-      </div>
-      {!participant.isMicrophoneEnabled && (
+      {!hideName && (
+        <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff", maxWidth: "80%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {participant.name || participant.identity}{isLocal ? " (Você)" : ""}
+        </div>
+      )}
+      {!participant.isMicrophoneEnabled && !hideName && (
         <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(220,38,38,0.9)", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <MicOff size={12} color="#fff" />
         </div>
@@ -488,7 +493,7 @@ const RoomInner: React.FC<{
   const remoteParticipants = useRemoteParticipants();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | null>(null);
-  const [showMiniature, setShowMiniature] = useState(true);
+  const [pinned, setPinned] = useState<"remote" | "local">("remote");
 
   const micOn = isMicrophoneEnabled;
   const camOn = isCameraEnabled;
@@ -500,9 +505,16 @@ const RoomInner: React.FC<{
 
   const togglePanel = (panel: "chat" | "invite") => setSidePanel(prev => prev === panel ? null : panel);
 
-  const mainParticipant = remoteParticipants.length > 0 ? remoteParticipants[0] : localParticipant;
+  const hasRemote = remoteParticipants.length > 0;
+  // Quem fica na tela principal
+  const mainParticipant = !hasRemote
+    ? localParticipant
+    : (pinned === "remote" ? remoteParticipants[0] : localParticipant);
+  const pipParticipant = !hasRemote
+    ? null
+    : (pinned === "remote" ? localParticipant : remoteParticipants[0]);
   const mainIsLocal = mainParticipant.identity === localParticipant.identity;
-  const showPip = remoteParticipants.length > 0 && !mainIsLocal;
+  const showPip = hasRemote;
 
   // Estilo base dos botões de controle
   const btn = (on: boolean): React.CSSProperties => ({
@@ -522,35 +534,56 @@ const RoomInner: React.FC<{
     <div style={{ position: "fixed", inset: 0, background: "#0d0f14", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
       {/* Área de vídeo */}
-      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
-        <ParticipantVideo participant={mainParticipant} isLocal={mainIsLocal} style={{ width: "100%", height: "100%", borderRadius: 0 }} />
+      <div style={{ flex: 1, position: "relative", minHeight: 0, background: "#0d0f14" }}>
+        <ParticipantVideo
+          participant={mainParticipant}
+          isLocal={mainIsLocal}
+          style={{ width: "100%", height: "100%", borderRadius: 0 }}
+          objectFit="contain"
+        />
 
         {/* Header flutuante */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)", pointerEvents: "none" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 24, objectFit: "contain" }} />
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>{roomCode}</span>
+            <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 22, objectFit: "contain", opacity: 0.7 }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <Clock size={12} color="#6366f1" />
             <span style={{ fontSize: 12, color: "#fff", fontFamily: "monospace", fontWeight: 700 }}>{formatTime(elapsedTime)}</span>
             <span style={{ width: 1, height: 14, background: "rgba(255,255,255,0.2)", margin: "0 4px" }} />
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />
-            <span style={{ fontSize: 11, color: "#86efac" }}>{remoteParticipants.length > 0 ? "Conectado" : "Aguardando"}</span>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: hasRemote ? "#22c55e" : "#f59e0b" }} />
+            <span style={{ fontSize: 11, color: hasRemote ? "#86efac" : "#fcd34d" }}>{hasRemote ? "Conectado" : "Aguardando"}</span>
           </div>
         </div>
 
-        {/* PiP miniatura local */}
-        {showPip && showMiniature && (
-          <div onClick={() => setShowMiniature(false)}
-            style={{ position: "absolute", bottom: 16, right: 16, width: 100, height: 140, borderRadius: 12, overflow: "hidden", border: "2px solid rgba(99,102,241,0.6)", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
-            <ParticipantVideo participant={localParticipant} isLocal={true} style={{ width: "100%", height: "100%", borderRadius: 0 }} />
+        {/* PiP — clica para trocar quem é o principal (igual Google Meet) */}
+        {showPip && pipParticipant && (
+          <div
+            onClick={() => setPinned(p => p === "remote" ? "local" : "remote")}
+            title="Clique para trocar"
+            style={{
+              position: "absolute", bottom: 16, right: 16,
+              width: 120, height: 90,
+              borderRadius: 12, overflow: "hidden",
+              border: "2px solid rgba(255,255,255,0.25)",
+              cursor: "pointer", boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+              transition: "transform .15s, border-color .15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#6366f1"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
+          >
+            <ParticipantVideo
+              participant={pipParticipant}
+              isLocal={pipParticipant.identity === localParticipant.identity}
+              style={{ width: "100%", height: "100%", borderRadius: 0 }}
+              objectFit="cover"
+              hideName
+            />
+            {/* ícone de troca */}
+            <div style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "2px 4px", display: "flex", alignItems: "center", gap: 3 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+            </div>
           </div>
-        )}
-        {showPip && !showMiniature && (
-          <button onClick={() => setShowMiniature(true)} style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, cursor: "pointer" }}>
-            Mostrar você
-          </button>
         )}
 
         {/* Painel lateral */}
@@ -688,6 +721,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   const [joining, setJoining] = useState(false);
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lobbyCamOn, setLobbyCamOn] = useState(true);
+  const [lobbyMicOn, setLobbyMicOn] = useState(true);
 
   // Sala de espera — guest
   const [waitingToken, setWaitingToken] = useState<string | null>(null);
@@ -860,6 +895,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         error={error}
         isDark={isDark}
         userName={participantName}
+        onCamChange={setLobbyCamOn}
+        onMicChange={setLobbyMicOn}
       />
     );
   }
@@ -870,8 +907,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         token={token}
         serverUrl={livekitUrl}
         connect={true}
-        video={true}
-        audio={true}
+        video={lobbyCamOn}
+        audio={lobbyMicOn}
         onDisconnected={handleLeave}
         style={{ height: "100vh" }}
         data-lk-theme="default"
