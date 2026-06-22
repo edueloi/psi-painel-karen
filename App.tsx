@@ -17,6 +17,7 @@ import { PatientDetail } from './pages/PatientDetail';
 import { Agenda } from './pages/Agenda';
 import { VirtualRooms } from './pages/VirtualRooms';
 import { MeetingRoom } from './pages/MeetingRoom';
+import { MeetingRoomLiveKit } from './pages/MeetingRoomLiveKit';
 import { Forms } from './pages/Forms';
 import { FormsList } from './pages/FormsList';
 import { FormsMetrics } from './pages/FormsMetrics';
@@ -277,7 +278,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/pacientes/:id" element={<ProtectedRoute requiredPermission="view_patients"><PatientDetail /></ProtectedRoute>} />
       <Route path="/agenda" element={<ProtectedRoute requiredPermission="view_agenda"><Agenda /></ProtectedRoute>} />
       <Route path="/salas-virtuais" element={<ProtectedRoute requiredPermission="view_agenda"><VirtualRooms /></ProtectedRoute>} />
-      <Route path="/sala/:id" element={<MeetingRoom />} />
+      <Route path="/sala/:id" element={<MeetingRoomLiveKit />} />
+      <Route path="/sala-legacy/:id" element={<MeetingRoom />} />
       <Route path="/bot" element={<ProtectedRoute requiredPermission="manage_bot_integration"><BotIntegration /></ProtectedRoute>} />
 
       {/* Rotas clinicas avancadas */}
