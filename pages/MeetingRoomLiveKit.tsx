@@ -7,9 +7,9 @@ import {
   useRemoteParticipants,
   VideoTrack,
   ConnectionStateToast,
-  TrackToggle,
   useChat,
   useParticipantTracks,
+  useRoomContext,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { Track, type LocalParticipant, type RemoteParticipant } from "livekit-client";
@@ -379,14 +379,18 @@ const ParticipantVideo: React.FC<{
   style?: React.CSSProperties;
   objectFit?: "cover" | "contain";
   hideName?: boolean;
-}> = ({ participant, isLocal, style, objectFit = "cover", hideName = false }) => {
+  forceSource?: Track.Source.Camera | Track.Source.ScreenShare;
+}> = ({ participant, isLocal, style, objectFit = "cover", hideName = false, forceSource }) => {
   const tracks = useParticipantTracks(
     [Track.Source.Camera, Track.Source.ScreenShare],
     participant.identity
   );
   const camTrack = tracks.find(t => t.source === Track.Source.Camera);
   const screenTrack = tracks.find(t => t.source === Track.Source.ScreenShare);
-  const activeTrack = screenTrack || camTrack;
+  // forceSource permite exibir câmera mesmo quando há screen share ativo
+  const activeTrack = forceSource
+    ? (forceSource === Track.Source.Camera ? camTrack : screenTrack)
+    : (screenTrack || camTrack);
   const isCamOn = !!activeTrack;
   const initials = (participant.name || participant.identity)?.charAt(0).toUpperCase() || "?";
   const avatarSize = objectFit === "contain" ? 80 : 52;
@@ -485,25 +489,144 @@ const LiveKitChatPanel: React.FC<{ participantName: string; onClose: () => void 
   );
 };
 
+// ── Hook para detectar screen share de um participante ──────────────────────
+const useHasScreenShare = (identity: string) => {
+  const tracks = useParticipantTracks([Track.Source.ScreenShare], identity);
+  return tracks.length > 0;
+};
+
+// ── Painel de configurações de dispositivos ──────────────────────────────────
+const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const room = useRoomContext();
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
+  const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([]);
+  const [selCam, setSelCam] = useState("");
+  const [selMic, setSelMic] = useState("");
+  const [selSpk, setSelSpk] = useState("");
+
+  useEffect(() => {
+    navigator.mediaDevices.enumerateDevices().then(devs => {
+      setCameras(devs.filter(d => d.kind === "videoinput"));
+      setMics(devs.filter(d => d.kind === "audioinput"));
+      setSpeakers(devs.filter(d => d.kind === "audiooutput"));
+    });
+  }, []);
+
+  const applyCamera = async (deviceId: string) => {
+    setSelCam(deviceId);
+    try { await room.switchActiveDevice("videoinput", deviceId); } catch {}
+  };
+  const applyMic = async (deviceId: string) => {
+    setSelMic(deviceId);
+    try { await room.switchActiveDevice("audioinput", deviceId); } catch {}
+  };
+  const applySpk = async (deviceId: string) => {
+    setSelSpk(deviceId);
+    try { await room.switchActiveDevice("audiooutput", deviceId); } catch {}
+  };
+
+  const selStyle: React.CSSProperties = {
+    width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 8, padding: "8px 10px", color: "#e2e8f0", fontSize: 13, outline: "none", cursor: "pointer",
+  };
+  const labelStyle: React.CSSProperties = { fontSize: 11, color: "#94a3b8", fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase", marginBottom: 6 };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <Settings size={16} color="#6366f1" /> Configurações
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
+        {cameras.length > 0 && (
+          <div>
+            <p style={labelStyle}>Câmera</p>
+            <select value={selCam} onChange={e => applyCamera(e.target.value)} style={selStyle}>
+              {cameras.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Câmera " + d.deviceId.slice(0,6)}</option>)}
+            </select>
+          </div>
+        )}
+        {mics.length > 0 && (
+          <div>
+            <p style={labelStyle}>Microfone</p>
+            <select value={selMic} onChange={e => applyMic(e.target.value)} style={selStyle}>
+              {mics.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Microfone " + d.deviceId.slice(0,6)}</option>)}
+            </select>
+          </div>
+        )}
+        {speakers.length > 0 && (
+          <div>
+            <p style={labelStyle}>Alto-falante</p>
+            <select value={selSpk} onChange={e => applySpk(e.target.value)} style={selStyle}>
+              {speakers.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Alto-falante " + d.deviceId.slice(0,6)}</option>)}
+            </select>
+          </div>
+        )}
+        {cameras.length === 0 && mics.length === 0 && (
+          <p style={{ fontSize: 13, color: "#475569", textAlign: "center", marginTop: 20 }}>Nenhum dispositivo encontrado.<br/>Verifique as permissões do navegador.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Sala principal ────────────────────────────────────────────────────────────
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: () => void; roomCode: string;
-}> = ({ roomId, participantName, isHost, onLeave, roomCode }) => {
+  initialCam: boolean; initialMic: boolean;
+}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic }) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | null>(null);
+  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | null>(null);
   const [pinned, setPinned] = useState<"remote" | "local">("remote");
 
   const micOn = isMicrophoneEnabled;
   const camOn = isCameraEnabled;
+  const room = useRoomContext();
+
+  // Garante que câmera/mic iniciam com o estado escolhido no lobby
+  useEffect(() => {
+    const apply = async () => {
+      try {
+        await localParticipant.setCameraEnabled(initialCam);
+        await localParticipant.setMicrophoneEnabled(initialMic);
+      } catch {}
+    };
+    apply();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Detecta screen share ativo (local ou remoto) — hooks sempre chamados
+  const localHasScreen = useHasScreenShare(localParticipant.identity);
+  const remoteIdentity = remoteParticipants[0]?.identity ?? "";
+  const remoteHasScreen = useHasScreenShare(remoteIdentity);
+  const screenShareActive = localHasScreen || (remoteParticipants.length > 0 && remoteHasScreen);
+  const screenSharer = localHasScreen ? localParticipant : (remoteParticipants.length > 0 && remoteHasScreen ? remoteParticipants[0] : null);
+
+  const toggleMic = useCallback(async () => {
+    try { await localParticipant.setMicrophoneEnabled(!micOn); } catch {}
+  }, [localParticipant, micOn]);
+
+  const toggleCam = useCallback(async () => {
+    try { await localParticipant.setCameraEnabled(!camOn); } catch {}
+  }, [localParticipant, camOn]);
+
+  const toggleScreen = useCallback(async () => {
+    try { await localParticipant.setScreenShareEnabled(!localHasScreen); } catch {}
+  }, [localParticipant, localHasScreen]);
 
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const togglePanel = (panel: "chat" | "invite") => setSidePanel(prev => prev === panel ? null : panel);
+  const togglePanel = (panel: "chat" | "invite" | "settings") => setSidePanel(prev => prev === panel ? null : panel);
 
   const hasRemote = remoteParticipants.length > 0;
   // Quem fica na tela principal
@@ -536,12 +659,90 @@ const RoomInner: React.FC<{
 
       {/* Área de vídeo */}
       <div style={{ flex: 1, position: "relative", minHeight: 0, background: "#0d0f14" }}>
-        <ParticipantVideo
-          participant={mainParticipant}
-          isLocal={mainIsLocal}
-          style={{ width: "100%", height: "100%", borderRadius: 0 }}
-          objectFit="contain"
-        />
+
+        {/* Modo screen share: tela em full, câmeras como strip no canto */}
+        {screenShareActive && screenSharer ? (
+          <>
+            {/* Tela compartilhada em full */}
+            <ParticipantVideo
+              participant={screenSharer}
+              isLocal={screenSharer.identity === localParticipant.identity}
+              style={{ width: "100%", height: "100%", borderRadius: 0 }}
+              objectFit="contain"
+              forceSource={Track.Source.ScreenShare}
+              hideName
+            />
+            {/* Strip de câmeras no canto inferior direito */}
+            <div style={{ position: "absolute", bottom: 16, right: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* Câmera local */}
+              <div style={{ width: 110, height: 80, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,255,255,0.2)", boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}>
+                <ParticipantVideo
+                  participant={localParticipant}
+                  isLocal={true}
+                  style={{ width: "100%", height: "100%", borderRadius: 0 }}
+                  objectFit="cover"
+                  forceSource={Track.Source.Camera}
+                  hideName
+                />
+              </div>
+              {/* Câmera remota se houver */}
+              {remoteParticipants.length > 0 && (
+                <div style={{ width: 110, height: 80, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,255,255,0.2)", boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}>
+                  <ParticipantVideo
+                    participant={remoteParticipants[0]}
+                    isLocal={false}
+                    style={{ width: "100%", height: "100%", borderRadius: 0 }}
+                    objectFit="cover"
+                    forceSource={Track.Source.Camera}
+                    hideName
+                  />
+                </div>
+              )}
+            </div>
+            {/* Badge "Tela sendo compartilhada" */}
+            <div style={{ position: "absolute", top: 50, left: "50%", transform: "translateX(-50%)", background: "rgba(99,102,241,0.9)", borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#fff", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+              <ScreenShare size={13} /> {screenSharer.name || screenSharer.identity} está compartilhando
+            </div>
+          </>
+        ) : (
+          /* Modo normal: câmera principal + PiP */
+          <>
+            <ParticipantVideo
+              participant={mainParticipant}
+              isLocal={mainIsLocal}
+              style={{ width: "100%", height: "100%", borderRadius: 0 }}
+              objectFit="contain"
+            />
+            {/* PiP — clica para trocar quem é o principal (igual Google Meet) */}
+            {showPip && pipParticipant && (
+              <div
+                onClick={() => setPinned(p => p === "remote" ? "local" : "remote")}
+                title="Clique para trocar"
+                style={{
+                  position: "absolute", bottom: 16, right: 16,
+                  width: 120, height: 90,
+                  borderRadius: 12, overflow: "hidden",
+                  border: "2px solid rgba(255,255,255,0.25)",
+                  cursor: "pointer", boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                  transition: "transform .15s, border-color .15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#6366f1"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
+              >
+                <ParticipantVideo
+                  participant={pipParticipant}
+                  isLocal={pipParticipant.identity === localParticipant.identity}
+                  style={{ width: "100%", height: "100%", borderRadius: 0 }}
+                  objectFit="cover"
+                  hideName
+                />
+                <div style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "2px 4px", display: "flex", alignItems: "center", gap: 3 }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Header flutuante */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)", pointerEvents: "none" }}>
@@ -557,41 +758,13 @@ const RoomInner: React.FC<{
           </div>
         </div>
 
-        {/* PiP — clica para trocar quem é o principal (igual Google Meet) */}
-        {showPip && pipParticipant && (
-          <div
-            onClick={() => setPinned(p => p === "remote" ? "local" : "remote")}
-            title="Clique para trocar"
-            style={{
-              position: "absolute", bottom: 16, right: 16,
-              width: 120, height: 90,
-              borderRadius: 12, overflow: "hidden",
-              border: "2px solid rgba(255,255,255,0.25)",
-              cursor: "pointer", boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-              transition: "transform .15s, border-color .15s",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#6366f1"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
-          >
-            <ParticipantVideo
-              participant={pipParticipant}
-              isLocal={pipParticipant.identity === localParticipant.identity}
-              style={{ width: "100%", height: "100%", borderRadius: 0 }}
-              objectFit="cover"
-              hideName
-            />
-            {/* ícone de troca */}
-            <div style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "2px 4px", display: "flex", alignItems: "center", gap: 3 }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
-            </div>
-          </div>
-        )}
-
         {/* Painel lateral */}
         {sidePanel && (
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
               ? <LiveKitChatPanel participantName={participantName} onClose={() => setSidePanel(null)} />
+              : sidePanel === "settings"
+              ? <SettingsPanel onClose={() => setSidePanel(null)} />
               : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
             }
           </div>
@@ -604,26 +777,26 @@ const RoomInner: React.FC<{
 
           {/* Mic */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <TrackToggle source={Track.Source.Microphone} style={btn(micOn)} showIcon={false}>
+            <button onClick={toggleMic} style={btn(micOn)}>
               {micOn ? <Mic size={22} /> : <MicOff size={22} />}
-            </TrackToggle>
+            </button>
             <span style={{ fontSize: 10, color: micOn ? "#94a3b8" : "#f87171", letterSpacing: ".3px" }}>{micOn ? "Mic" : "Mudo"}</span>
           </div>
 
           {/* Câmera */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <TrackToggle source={Track.Source.Camera} style={btn(camOn)} showIcon={false}>
+            <button onClick={toggleCam} style={btn(camOn)}>
               {camOn ? <Video size={22} /> : <VideoOff size={22} />}
-            </TrackToggle>
+            </button>
             <span style={{ fontSize: 10, color: camOn ? "#94a3b8" : "#f87171", letterSpacing: ".3px" }}>{camOn ? "Câmera" : "Deslig."}</span>
           </div>
 
           {/* Compartilhar tela — esconde em mobile */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-            <TrackToggle source={Track.Source.ScreenShare} style={btnActive(false)} showIcon={false}>
-              <ScreenShare size={22} />
-            </TrackToggle>
-            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Tela</span>
+            <button onClick={toggleScreen} style={btnActive(localHasScreen)}>
+              {localHasScreen ? <ScreenShareOff size={22} /> : <ScreenShare size={22} />}
+            </button>
+            <span style={{ fontSize: 10, color: localHasScreen ? "#a5b4fc" : "#94a3b8", letterSpacing: ".3px" }}>{localHasScreen ? "Parar" : "Tela"}</span>
           </div>
 
           {/* Chat */}
@@ -641,6 +814,16 @@ const RoomInner: React.FC<{
                 <UserPlus size={22} />
               </button>
               <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Convidar</span>
+            </div>
+          )}
+
+          {/* Configurações (só host) */}
+          {isHost && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <button onClick={() => togglePanel("settings")} style={btnActive(sidePanel === "settings")}>
+                <Settings size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Config.</span>
             </div>
           )}
 
@@ -937,6 +1120,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
           isHost={!isGuest}
           onLeave={handleLeave}
           roomCode={id || ""}
+          initialCam={lobbyCamOn}
+          initialMic={lobbyMicOn}
         />
       </LiveKitRoom>
 
