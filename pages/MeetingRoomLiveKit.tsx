@@ -310,7 +310,6 @@ const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ room
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: () => void; roomCode: string;
 }> = ({ roomId, participantName, isHost, onLeave, roomCode }) => {
-  const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -318,132 +317,122 @@ const RoomInner: React.FC<{
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [screenOn, setScreenOn] = useState(false);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [showMiniature, setShowMiniature] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const toggleMic = () => {
-    localParticipant.setMicrophoneEnabled(!micOn);
-    setMicOn(v => !v);
-  };
+  const toggleMic = () => { localParticipant.setMicrophoneEnabled(!micOn); setMicOn(v => !v); };
+  const toggleCam = () => { localParticipant.setCameraEnabled(!camOn); setCamOn(v => !v); };
+  const toggleScreen = async () => { try { await localParticipant.setScreenShareEnabled(!screenOn); setScreenOn(v => !v); } catch {} };
+  const togglePanel = (panel: "chat" | "invite") => setSidePanel(prev => prev === panel ? null : panel);
 
-  const toggleCam = () => {
-    localParticipant.setCameraEnabled(!camOn);
-    setCamOn(v => !v);
-  };
-
-  const toggleScreen = async () => {
-    try {
-      await localParticipant.setScreenShareEnabled(!screenOn);
-      setScreenOn(v => !v);
-    } catch {}
-  };
-
-  const togglePanel = (panel: "chat" | "invite") => {
-    setSidePanel(prev => prev === panel ? null : panel);
-  };
-
-  const allParticipants = [localParticipant, ...remoteParticipants];
-  const focused = focusedId ? allParticipants.find(p => p.identity === focusedId) : null;
-  const others = allParticipants.filter(p => p.identity !== focusedId);
-
-  // Tracks para vídeo
   const allTracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: true }],
-    { onlySubscribed: false }
+    { onlySubscribed: false, updateOnlyOn: [] }
   );
-
+  // Deduplica: pega só o primeiro track por identity+source
+  const seenTracks = new Set<string>();
+  const dedupedTracks = allTracks.filter(t => {
+    const key = `${t.participant.identity}-${t.source}`;
+    if (seenTracks.has(key)) return false;
+    seenTracks.add(key);
+    return true;
+  });
   const getTrack = (identity: string) =>
-    allTracks.find(t => t.participant.identity === identity && t.source === Track.Source.Camera);
+    dedupedTracks.find(t => t.participant.identity === identity && t.source === Track.Source.Camera);
 
-  const renderVideoTile = (participant: LocalParticipant | RemoteParticipant, isLocal: boolean, large = false) => {
+  const renderVideo = (
+    participant: LocalParticipant | RemoteParticipant,
+    isLocal: boolean,
+    style: React.CSSProperties
+  ) => {
     const track = getTrack(participant.identity);
     const isCamOn = track?.publication?.isEnabled ?? false;
-
+    const initials = (participant.name || participant.identity)?.charAt(0).toUpperCase();
     return (
-      <div
-        key={participant.identity}
-        onClick={() => !large && setFocusedId(participant.identity)}
-        style={{
-          position: "relative", borderRadius: large ? 20 : 12, overflow: "hidden",
-          background: "#1e2130", cursor: large ? "default" : "pointer",
-          border: `2px solid ${focusedId === participant.identity ? "#6366f1" : "transparent"}`,
-          transition: "border-color .2s",
-          ...(large ? { flex: 1, minHeight: 0 } : { width: "100%", aspectRatio: "16/9" }),
-        }}
-      >
-        {isCamOn && track ? (
-          <VideoTrack trackRef={track} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "linear-gradient(135deg, #1e2130, #161920)" }}>
-            <div style={{ width: large ? 80 : 48, height: large ? 80 : 48, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: large ? 30 : 18, fontWeight: 800, color: "#fff" }}>
-              {(participant.name || participant.identity)?.charAt(0).toUpperCase()}
+      <div style={{ position: "relative", overflow: "hidden", background: "#1a1d2e", ...style }}>
+        {isCamOn && track
+          ? <VideoTrack trackRef={track} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#fff" }}>{initials}</div>
+              <span style={{ fontSize: 12, color: "#475569" }}>Câmera desligada</span>
             </div>
-            <span style={{ fontSize: large ? 14 : 11, color: "#64748b" }}>Câmera desligada</span>
-          </div>
-        )}
-        <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", borderRadius: 8, padding: "3px 10px", fontSize: large ? 13 : 11, fontWeight: 600, color: "#fff" }}>
+        }
+        <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff" }}>
           {participant.name || participant.identity}{isLocal ? " (Você)" : ""}
         </div>
         {!participant.isMicrophoneEnabled && (
-          <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(239,68,68,0.85)", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <MicOff size={13} color="#fff" />
+          <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(220,38,38,0.9)", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <MicOff size={12} color="#fff" />
           </div>
         )}
       </div>
     );
   };
 
+  // Vídeo principal: remoto se existir, senão local
+  const mainParticipant = remoteParticipants.length > 0 ? remoteParticipants[0] : localParticipant;
+  const mainIsLocal = mainParticipant.identity === localParticipant.identity;
+  // PiP só aparece quando há participante remoto (mostra o local no cantinho)
+  const showPip = remoteParticipants.length > 0 && !mainIsLocal;
+
+  const btnStyle = (active: boolean, danger = false): React.CSSProperties => ({
+    width: 48, height: 48, borderRadius: "50%", border: "none", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
+    background: danger ? "#dc2626" : active ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.12)",
+    color: danger ? "#fff" : active ? "#a5b4fc" : "#e2e8f0",
+    flexShrink: 0,
+  });
+
+  const btnOffStyle = (): React.CSSProperties => ({
+    width: 48, height: 48, borderRadius: "50%", border: "1px solid rgba(239,68,68,0.5)", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
+    background: "rgba(239,68,68,0.15)", color: "#f87171", flexShrink: 0,
+  });
+
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0d0f14", overflow: "hidden", flexDirection: "column" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#0d0f14", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-      {/* Header */}
-      <div style={{ height: 52, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "#0d0f14", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 28, objectFit: "contain" }} />
-          <span style={{ fontSize: 13, color: "#475569", fontFamily: "monospace" }}>{roomCode}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", animation: "pulse 2s infinite" }} />
-          <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>
-            {remoteParticipants.length > 0 ? "Conectado" : "Aguardando paciente"}
-          </span>
-        </div>
-      </div>
+      {/* Vídeo principal — ocupa tudo menos o header e footer */}
+      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+        {renderVideo(mainParticipant, mainIsLocal, { width: "100%", height: "100%", borderRadius: 0 })}
 
-      {/* Corpo principal */}
-      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-
-        {/* Área de vídeo */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, padding: 12, gap: 12 }}>
-          {/* Vídeo focado (grande) */}
-          <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-            {focused
-              ? renderVideoTile(focused, focused.identity === localParticipant.identity, true)
-              : remoteParticipants.length > 0
-                ? renderVideoTile(remoteParticipants[0], false, true)
-                : renderVideoTile(localParticipant, true, true)
-            }
+        {/* Header flutuante sobre o vídeo */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 24, objectFit: "contain" }} />
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>{roomCode}</span>
           </div>
-
-          {/* Miniaturas */}
-          {allParticipants.length > 1 && (
-            <div style={{ display: "flex", gap: 8, height: 110, flexShrink: 0 }}>
-              {(focused ? others : allParticipants.slice(1)).map(p =>
-                <div key={p.identity} style={{ width: 160, flexShrink: 0 }}>
-                  {renderVideoTile(p, p.identity === localParticipant.identity, false)}
-                </div>
-              )}
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <Clock size={12} color="#6366f1" />
+            <span style={{ fontSize: 12, color: "#fff", fontFamily: "monospace", fontWeight: 700 }}>{formatTime(elapsedTime)}</span>
+            <span style={{ width: 1, height: 14, background: "rgba(255,255,255,0.2)", margin: "0 4px" }} />
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />
+            <span style={{ fontSize: 11, color: "#86efac" }}>{remoteParticipants.length > 0 ? "Conectado" : "Aguardando"}</span>
+          </div>
         </div>
 
-        {/* Painel lateral */}
+        {/* PiP — miniatura local flutuante no canto */}
+        {showPip && showMiniature && (
+          <div
+            onClick={() => setShowMiniature(false)}
+            style={{ position: "absolute", bottom: 16, right: 16, width: 100, height: 140, borderRadius: 12, overflow: "hidden", border: "2px solid rgba(99,102,241,0.6)", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}
+          >
+            {renderVideo(localParticipant, true, { width: "100%", height: "100%", borderRadius: 0 })}
+          </div>
+        )}
+        {showPip && !showMiniature && (
+          <button onClick={() => setShowMiniature(true)} style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, cursor: "pointer" }}>
+            Mostrar você
+          </button>
+        )}
+
+        {/* Painel lateral — sobrepõe em mobile, lateral em desktop */}
         {sidePanel && (
-          <div style={{ width: 320, flexShrink: 0 }}>
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
               ? <ChatPanel roomId={roomId} participantName={participantName} isHost={isHost} onClose={() => setSidePanel(null)} />
               : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
@@ -452,59 +441,42 @@ const RoomInner: React.FC<{
         )}
       </div>
 
-      {/* Barra de controles */}
-      <div style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", background: "#0d0f14", borderTop: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
+      {/* Barra de controles fixa na base */}
+      <div style={{ flexShrink: 0, background: "rgba(13,15,20,0.97)", backdropFilter: "blur(12px)", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 16px", paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
 
-        {/* Timer */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 90 }}>
-          <Clock size={14} color="#6366f1" />
-          <span style={{ fontSize: 13, color: "#94a3b8", fontFamily: "monospace", fontWeight: 600 }}>{formatTime(elapsedTime)}</span>
-        </div>
-
-        {/* Controles centrais */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Microfone */}
-          <button onClick={toggleMic} title={micOn ? "Desligar microfone" : "Ligar microfone"} style={{ width: 48, height: 48, borderRadius: "50%", background: micOn ? "rgba(255,255,255,0.1)" : "rgba(239,68,68,0.2)", border: `1px solid ${micOn ? "rgba(255,255,255,0.12)" : "rgba(239,68,68,0.4)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: micOn ? "#e2e8f0" : "#f87171", transition: "all .2s" }}>
+          {/* Mic */}
+          <button onClick={toggleMic} style={micOn ? btnStyle(false) : btnOffStyle()}>
             {micOn ? <Mic size={20} /> : <MicOff size={20} />}
           </button>
 
           {/* Câmera */}
-          <button onClick={toggleCam} title={camOn ? "Desligar câmera" : "Ligar câmera"} style={{ width: 48, height: 48, borderRadius: "50%", background: camOn ? "rgba(255,255,255,0.1)" : "rgba(239,68,68,0.2)", border: `1px solid ${camOn ? "rgba(255,255,255,0.12)" : "rgba(239,68,68,0.4)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: camOn ? "#e2e8f0" : "#f87171", transition: "all .2s" }}>
+          <button onClick={toggleCam} style={camOn ? btnStyle(false) : btnOffStyle()}>
             {camOn ? <Video size={20} /> : <VideoOff size={20} />}
           </button>
 
-          {/* Compartilhar tela */}
-          <button onClick={toggleScreen} title={screenOn ? "Parar compartilhamento" : "Compartilhar tela"} style={{ width: 48, height: 48, borderRadius: "50%", background: screenOn ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.1)", border: `1px solid ${screenOn ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: screenOn ? "#818cf8" : "#e2e8f0", transition: "all .2s" }}>
+          {/* Compartilhar tela — esconde em mobile */}
+          <button onClick={toggleScreen} style={btnStyle(screenOn)} className="hide-mobile">
             {screenOn ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
           </button>
 
           {/* Chat */}
-          <button onClick={() => togglePanel("chat")} title="Chat" style={{ width: 48, height: 48, borderRadius: "50%", background: sidePanel === "chat" ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.1)", border: `1px solid ${sidePanel === "chat" ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: sidePanel === "chat" ? "#818cf8" : "#e2e8f0", transition: "all .2s" }}>
+          <button onClick={() => togglePanel("chat")} style={btnStyle(sidePanel === "chat")}>
             <MessageSquare size={20} />
           </button>
 
           {/* Convidar (só host) */}
           {isHost && (
-            <button onClick={() => togglePanel("invite")} title="Convidar paciente" style={{ width: 48, height: 48, borderRadius: "50%", background: sidePanel === "invite" ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.1)", border: `1px solid ${sidePanel === "invite" ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: sidePanel === "invite" ? "#818cf8" : "#e2e8f0", transition: "all .2s" }}>
+            <button onClick={() => togglePanel("invite")} style={btnStyle(sidePanel === "invite")}>
               <UserPlus size={20} />
             </button>
           )}
 
           {/* Encerrar */}
-          <button onClick={onLeave} title={isHost ? "Encerrar sessão" : "Sair da sala"} style={{ height: 48, padding: "0 20px", borderRadius: 24, background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "#fff", fontWeight: 700, fontSize: 14, transition: "background .2s" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "#b91c1c")}
-            onMouseLeave={e => (e.currentTarget.style.background = "#dc2626")}
-          >
+          <button onClick={onLeave} style={{ height: 48, padding: "0 22px", borderRadius: 24, background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "#fff", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
             <PhoneOff size={18} />
-            {isHost ? "Encerrar" : "Sair"}
+            <span>{isHost ? "Encerrar" : "Sair"}</span>
           </button>
-        </div>
-
-        {/* Participantes */}
-        <div style={{ minWidth: 90, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
-          <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontWeight: 700, color: "#94a3b8" }}>{allParticipants.length}</span> participante{allParticipants.length !== 1 ? "s" : ""}
-          </div>
         </div>
       </div>
 
@@ -512,7 +484,8 @@ const RoomInner: React.FC<{
       <ConnectionStateToast />
 
       <style>{`
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @media(max-width:480px){ .hide-mobile{ display:none !important } }
       `}</style>
     </div>
   );
