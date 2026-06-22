@@ -555,28 +555,33 @@ const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ room
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: () => void; roomCode: string;
 }> = ({ roomId, participantName, isHost, onLeave, roomCode }) => {
-  const { localParticipant } = useLocalParticipant();
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | null>(null);
-  const [micOn, setMicOn] = useState(true);
-  const [camOn, setCamOn] = useState(true);
   const [screenOn, setScreenOn] = useState(false);
   const [showMiniature, setShowMiniature] = useState(true);
+
+  // Usa o estado real do LiveKit em vez de estado local
+  const micOn = isMicrophoneEnabled;
+  const camOn = isCameraEnabled;
 
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const toggleMic = () => { localParticipant.setMicrophoneEnabled(!micOn); setMicOn(v => !v); };
-  const toggleCam = () => { localParticipant.setCameraEnabled(!camOn); setCamOn(v => !v); };
+  const toggleMic = () => { localParticipant.setMicrophoneEnabled(!micOn); };
+  const toggleCam = () => { localParticipant.setCameraEnabled(!camOn); };
   const toggleScreen = async () => { try { await localParticipant.setScreenShareEnabled(!screenOn); setScreenOn(v => !v); } catch {} };
   const togglePanel = (panel: "chat" | "invite") => setSidePanel(prev => prev === panel ? null : panel);
 
   const allTracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: true }],
-    { onlySubscribed: false, updateOnlyOn: [] }
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false }
   );
   // Deduplica: pega só o primeiro track por identity+source
   const seenTracks = new Set<string>();
@@ -595,7 +600,11 @@ const RoomInner: React.FC<{
     style: React.CSSProperties
   ) => {
     const track = getTrack(participant.identity);
-    const isCamOn = track?.publication?.isEnabled ?? false;
+    // Para local: publication.isEnabled. Para remoto: publication.isSubscribed && isEnabled
+    const pub = track?.publication;
+    const isCamOn = isLocal
+      ? (pub?.isEnabled ?? false)
+      : (pub?.isSubscribed && pub?.isEnabled) ?? false;
     const initials = (participant.name || participant.identity)?.charAt(0).toUpperCase();
     return (
       <div style={{ position: "relative", overflow: "hidden", background: "#1a1d2e", ...style }}>
@@ -603,7 +612,10 @@ const RoomInner: React.FC<{
           ? <VideoTrack trackRef={track} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           : <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <div style={{ width: 64, height: 64, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#fff" }}>{initials}</div>
-              <span style={{ fontSize: 12, color: "#475569" }}>Câmera desligada</span>
+              {!pub?.isSubscribed && !isLocal
+                ? <span style={{ fontSize: 12, color: "#475569" }}>Conectando câmera...</span>
+                : <span style={{ fontSize: 12, color: "#475569" }}>Câmera desligada</span>
+              }
             </div>
         }
         <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff" }}>
