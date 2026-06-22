@@ -818,9 +818,33 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   // Sala de espera — host
   const [pendingGuests, setPendingGuests] = useState<{ id: string; guest_name: string }[]>([]);
   const hostPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notifiedIdsRef = useRef<Set<string>>(new Set());
 
   const participantName = isGuest ? guestName : (user?.name || user?.email || "Profissional");
   const lkRoomName = `psiflux-${id}`;
+
+  // Toca som de notificação usando Web Audio API (sem arquivo externo)
+  const playNotificationSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Dois beeps curtos tipo "ding ding"
+      const playBeep = (startTime: number, freq: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+        osc.start(startTime);
+        osc.stop(startTime + 0.35);
+      };
+      playBeep(ctx.currentTime, 880);
+      playBeep(ctx.currentTime + 0.2, 1100);
+    } catch {}
+  }, []);
 
   // Host: polling da sala de espera
   useEffect(() => {
@@ -829,13 +853,20 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
       try {
         const res = await api.get<any>(`/virtual-rooms/${id}/waiting`);
         const waiting = (Array.isArray(res) ? res : []).filter((e: any) => e.status === "waiting");
+        // Toca som para novos que ainda não foram notificados
+        waiting.forEach((entry: any) => {
+          if (!notifiedIdsRef.current.has(entry.id)) {
+            notifiedIdsRef.current.add(entry.id);
+            playNotificationSound();
+          }
+        });
         setPendingGuests(waiting);
       } catch {}
     };
     poll();
     hostPollRef.current = setInterval(poll, 3000);
     return () => { if (hostPollRef.current) clearInterval(hostPollRef.current); };
-  }, [isGuest, joined, id]);
+  }, [isGuest, joined, id, playNotificationSound]);
 
   const approveGuest = async (entryId: string) => {
     try {
