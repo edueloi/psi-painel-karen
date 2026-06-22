@@ -199,8 +199,10 @@ async function checkAppointmentReminders() {
         }
 
         // 24h antes — consulta é amanhã, horário 8h-22h, somente se tiver responsável preenchido
-        const _aptDateSP = new Date(apt.start_time).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-        const _tomorrowSP = new Date(now.getTime() + 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const _aptDateSP = aptStart.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const _nowDateSP = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const [_y, _m, _d] = _nowDateSP.split('-').map(Number);
+        const _tomorrowSP = new Date(Date.UTC(_y, _m - 1, _d + 1)).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
         const _hourSP = parseInt(now.toLocaleString('pt-BR', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }));
         if (_aptDateSP === _tomorrowSP && _hourSP >= 8 && _hourSP < 22 && !apt.whatsapp_reminder_personal_24h_sent && responsavel) {
           const msg = `📅 *${greeting}, ${apt.professional_name || 'Profissional'}!*\n\nLembrete de evento para amanhã:\n\n🗓️ *Evento:* ${eventTitle}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}${respLine}\n\n_⚠️ Mensagem automática._`;
@@ -264,8 +266,10 @@ async function checkAppointmentReminders() {
             console.log(`[CRON-QUEUE Paciente 1h] ${apt.patient_name} | Tenant ${apt.tenant_id}`);
           }
           // Lembrete 24h: consulta é amanhã E horário atual entre 8h e 22h (SP)
-          const aptDateSP = new Date(apt.start_time).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-          const tomorrowSP = new Date(now.getTime() + 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+          const aptDateSP = aptStart.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+          const nowDateSP = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+          const [y, m, d] = nowDateSP.split('-').map(Number);
+          const tomorrowSP = new Date(Date.UTC(y, m - 1, d + 1)).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
           const isConsultaTomorrow = aptDateSP === tomorrowSP;
           const hourSP = parseInt(now.toLocaleString('pt-BR', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }));
           const inSendWindow = hourSP >= 8 && hourSP < 22;
