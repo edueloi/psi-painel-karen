@@ -2113,8 +2113,8 @@ router.get('/export/carneleao', authMiddleware, async (req, res) => {
       `SELECT
          t.date,
          t.amount,
-         COALESCE(t.payer_name, t.beneficiary_name, t.patient_name) AS nome_pagador,
-         COALESCE(t.payer_cpf, t.beneficiary_cpf)                   AS cpf_pagador,
+         COALESCE(t.payer_name, t.beneficiary_name) AS nome_pagador,
+         COALESCE(t.payer_cpf, t.beneficiary_cpf)   AS cpf_pagador,
          t.description,
          t.payment_method,
          t.category
