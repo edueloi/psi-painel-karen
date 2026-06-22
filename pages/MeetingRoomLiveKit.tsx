@@ -945,9 +945,17 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
     }
   };
 
-  const handleLeave = () => {
+  const handleLeave = async () => {
     if (waitingPollRef.current) clearInterval(waitingPollRef.current);
     if (hostPollRef.current) clearInterval(hostPollRef.current);
+
+    // Host encerra a sala no LiveKit — expulsa todos os participantes
+    if (!isGuest && id) {
+      try {
+        await api.delete<any>(`/livekit/room/psiflux-${id}`);
+      } catch {}
+    }
+
     setJoined(false);
     setToken(null);
     setWaitingToken(null);

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { AccessToken } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 const { authMiddleware } = require('../middleware/auth');
 
 // POST /livekit/token
@@ -85,6 +85,29 @@ router.get('/token-guest', async (req, res) => {
   } catch (err) {
     console.error('[LiveKit] Erro ao gerar token guest:', err);
     res.status(500).json({ error: 'Erro ao gerar token LiveKit' });
+  }
+});
+
+// DELETE /livekit/room/:roomName — host encerra sala (expulsa todos)
+router.delete('/room/:roomName', authMiddleware, async (req, res) => {
+  try {
+    const { roomName } = req.params;
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const livekitUrl = process.env.LIVEKIT_URL;
+
+    if (!apiKey || !apiSecret || !livekitUrl) {
+      return res.status(500).json({ error: 'LiveKit não configurado no servidor' });
+    }
+
+    const svc = new RoomServiceClient(livekitUrl, apiKey, apiSecret);
+    await svc.deleteRoom(roomName);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[LiveKit] Erro ao encerrar sala:', err);
+    // Mesmo com erro (sala já não existe) retorna ok pro frontend prosseguir
+    res.json({ ok: true });
   }
 });
 
