@@ -386,13 +386,13 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({
         if (id) localStorage.setItem(`psi_room_guest_name_${id}`, guestName.trim());
       } else {
         // Host/profissional autenticado
-        const res = await api.post("/livekit/token", {
+        const res = await api.post<any>("/livekit/token", {
           roomName: lkRoomName,
           participantName,
           isHost: true,
         });
-        setToken(res.data.token);
-        setLivekitUrl(res.data.url || import.meta.env.VITE_LIVEKIT_URL);
+        setToken(res.token);
+        setLivekitUrl(res.url || import.meta.env.VITE_LIVEKIT_URL);
       }
       setJoined(true);
     } catch (err: any) {

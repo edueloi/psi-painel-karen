@@ -65,6 +65,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/forms`, formsRoutes);
   app.use(`${prefix}/disc`, discRoutes);
   app.use(`${prefix}/public-profile`, require('./routes/public-profile'));
+  app.get(`${prefix}/livekit/token-guest`, livekitTokenRoutes);
 
   // ---- Health check (publico) ----
   app.get(`${prefix}/health`, (req, res) => {
