@@ -516,17 +516,18 @@ const RoomInner: React.FC<{
   const mainIsLocal = mainParticipant.identity === localParticipant.identity;
   const showPip = hasRemote;
 
-  // Estilo base dos botões de controle
+  // Estilo base dos botões de controle — tamanho maior para toque fácil
+  const BTN = 56;
   const btn = (on: boolean): React.CSSProperties => ({
-    width: 48, height: 48, borderRadius: "50%", border: on ? "none" : "1px solid rgba(239,68,68,0.5)",
+    width: BTN, height: BTN, borderRadius: "50%", border: on ? "none" : "1px solid rgba(239,68,68,0.5)",
     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
-    background: on ? "rgba(255,255,255,0.12)" : "rgba(239,68,68,0.15)",
+    background: on ? "rgba(255,255,255,0.13)" : "rgba(239,68,68,0.18)",
     color: on ? "#e2e8f0" : "#f87171", flexShrink: 0,
   });
   const btnActive = (active: boolean): React.CSSProperties => ({
-    width: 48, height: 48, borderRadius: "50%", border: "none", cursor: "pointer",
+    width: BTN, height: BTN, borderRadius: "50%", border: "none", cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
-    background: active ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.12)",
+    background: active ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.13)",
     color: active ? "#a5b4fc" : "#e2e8f0", flexShrink: 0,
   });
 
@@ -598,41 +599,58 @@ const RoomInner: React.FC<{
       </div>
 
       {/* Barra de controles */}
-      <div style={{ flexShrink: 0, background: "rgba(13,15,20,0.97)", backdropFilter: "blur(12px)", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 16px", paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ flexShrink: 0, background: "rgba(13,15,20,0.97)", backdropFilter: "blur(12px)", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "12px 16px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
 
-          {/* Mic — TrackToggle nativo do LiveKit */}
-          <TrackToggle source={Track.Source.Microphone} style={btn(micOn)} showIcon={false}>
-            {micOn ? <Mic size={20} /> : <MicOff size={20} />}
-          </TrackToggle>
+          {/* Mic */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <TrackToggle source={Track.Source.Microphone} style={btn(micOn)} showIcon={false}>
+              {micOn ? <Mic size={22} /> : <MicOff size={22} />}
+            </TrackToggle>
+            <span style={{ fontSize: 10, color: micOn ? "#94a3b8" : "#f87171", letterSpacing: ".3px" }}>{micOn ? "Mic" : "Mudo"}</span>
+          </div>
 
-          {/* Câmera — TrackToggle nativo */}
-          <TrackToggle source={Track.Source.Camera} style={btn(camOn)} showIcon={false}>
-            {camOn ? <Video size={20} /> : <VideoOff size={20} />}
-          </TrackToggle>
+          {/* Câmera */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <TrackToggle source={Track.Source.Camera} style={btn(camOn)} showIcon={false}>
+              {camOn ? <Video size={22} /> : <VideoOff size={22} />}
+            </TrackToggle>
+            <span style={{ fontSize: 10, color: camOn ? "#94a3b8" : "#f87171", letterSpacing: ".3px" }}>{camOn ? "Câmera" : "Deslig."}</span>
+          </div>
 
-          {/* Compartilhar tela — TrackToggle nativo, esconde em mobile */}
-          <TrackToggle source={Track.Source.ScreenShare} style={btnActive(false)} showIcon={false} className="hide-mobile">
-            <ScreenShare size={20} />
-          </TrackToggle>
+          {/* Compartilhar tela — esconde em mobile */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+            <TrackToggle source={Track.Source.ScreenShare} style={btnActive(false)} showIcon={false}>
+              <ScreenShare size={22} />
+            </TrackToggle>
+            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Tela</span>
+          </div>
 
           {/* Chat */}
-          <button onClick={() => togglePanel("chat")} style={btnActive(sidePanel === "chat")}>
-            <MessageSquare size={20} />
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <button onClick={() => togglePanel("chat")} style={btnActive(sidePanel === "chat")}>
+              <MessageSquare size={22} />
+            </button>
+            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Chat</span>
+          </div>
 
           {/* Convidar (só host) */}
           {isHost && (
-            <button onClick={() => togglePanel("invite")} style={btnActive(sidePanel === "invite")}>
-              <UserPlus size={20} />
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <button onClick={() => togglePanel("invite")} style={btnActive(sidePanel === "invite")}>
+                <UserPlus size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Convidar</span>
+            </div>
           )}
 
           {/* Encerrar */}
-          <button onClick={onLeave} style={{ height: 48, padding: "0 22px", borderRadius: 24, background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: "#fff", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
-            <PhoneOff size={18} />
-            <span>{isHost ? "Encerrar" : "Sair"}</span>
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <button onClick={onLeave} style={{ width: BTN, height: BTN, borderRadius: "50%", background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff" }}>
+              <PhoneOff size={22} />
+            </button>
+            <span style={{ fontSize: 10, color: "#f87171", letterSpacing: ".3px" }}>{isHost ? "Encerrar" : "Sair"}</span>
+          </div>
         </div>
       </div>
 
