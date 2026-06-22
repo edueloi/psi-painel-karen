@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Calendar, Video, FileText, Users, BarChart2, Shield,
-  CheckCircle, ArrowRight, Menu, X, Star, MessageSquare,
+  CheckCircle, ArrowRight, Menu, X, MessageSquare,
   ClipboardList, Sparkles, Heart, Brain, ChevronRight, Lock,
 } from 'lucide-react';
 import logoUrl from '../images/logo-psiflux.png';
@@ -38,12 +38,6 @@ const plans = [
   },
 ];
 
-const testimonials = [
-  { name: 'Dra. Ana Lima',     role: 'Psicóloga Clínica',      text: 'O PsiFlux transformou minha clínica. A agenda e as salas virtuais me economizam horas toda semana.', initial: 'A' },
-  { name: 'Dr. Carlos Mendes', role: 'Neuropsicólogo',          text: 'A funcionalidade de PEI é incrível. Consigo criar planos completos em minutos para compartilhar.',    initial: 'C' },
-  { name: 'Clínica Bem Estar', role: 'Equipe multidisciplinar', text: 'Migramos de 3 sistemas diferentes para o PsiFlux. Tudo em um lugar, muito mais organizado.',         initial: 'B' },
-];
-
 const painPoints = [
   'Prontuários dispersos em papéis ou planilhas',
   'Conflitos de horário na agenda',
@@ -52,7 +46,7 @@ const painPoints = [
 ];
 
 /* ─── Logo ─── */
-const Logo = ({ size = 34 }: { size?: number }) => (
+const Logo = ({ size = 44 }: { size?: number }) => (
   <div className="flex items-center gap-2.5">
     <img src={logoUrl} alt="PsiFlux" style={{ width: size, height: size }} className="rounded-xl object-contain" />
     <span className="font-bold text-xl" style={{ color: '#0F172A', letterSpacing: '-0.02em' }}>PsiFlux</span>
@@ -596,40 +590,6 @@ export const LandingPage: React.FC = () => {
                   onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                   {plan.cta}
                 </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ DEPOIMENTOS ═══ */}
-      <section className="section" style={{ background: 'var(--surface)' }}>
-        <div className="wrap">
-          <div style={{ textAlign: 'center', marginBottom: 'clamp(40px,5vw,60px)' }}>
-            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Depoimentos</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
-              O que profissionais estão dizendo
-            </h2>
-            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)' }}>Feedback real de quem usa o PsiFlux na prática clínica.</p>
-          </div>
-          <div className="testi-grid">
-            {testimonials.map(t => (
-              <div key={t.name} className="card">
-                <div style={{ display: 'flex', gap: 3, marginBottom: 16 }}>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={14} style={{ color: '#FBBF24', fill: '#FBBF24' }} />
-                  ))}
-                </div>
-                <p style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--muted)', marginBottom: 20 }}>"{t.text}"</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#EEF0FF', border: '1px solid #D0CCFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'var(--accent)', flexShrink: 0 }}>
-                    {t.initial}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.role}</div>
-                  </div>
-                </div>
               </div>
             ))}
           </div>
