@@ -109,6 +109,7 @@ async function getActiveTenants() {
 async function checkAppointmentReminders() {
   try {
     const now = new Date();
+    console.log(`[CRON-DEBUG] checkAppointmentReminders rodou: ${now.toISOString()}`);
     // Pega a hora exata em São Paulo
     const curHour = parseInt(now.toLocaleString('pt-BR', { 
         hour: 'numeric', 
@@ -164,11 +165,13 @@ async function checkAppointmentReminders() {
          )
     `);
 
+    console.log(`[CRON-DEBUG] ${appointments.length} agendamentos encontrados na janela`);
     if (appointments.length === 0) return;
 
     for (const apt of appointments) {
       const aptStart = new Date(apt.start_time.toString().includes('Z') ? apt.start_time : apt.start_time + 'Z');
       const diffMinutes = Math.round((aptStart.getTime() - now.getTime()) / 60000);
+      console.log(`[CRON-DEBUG] apt ${apt.id} | diff=${diffMinutes}min | r1h=${apt.whatsapp_reminder_1h_sent} | paciente=${apt.patient_name} | phone=${apt.patient_phone}`);
       // Lembrete 1h: expira 30min após a consulta. Lembrete 24h: expira 2h após a consulta (bot pode ter ficado offline).
       const expiresAt1h  = new Date(aptStart.getTime() + 30  * 60000).toISOString().slice(0, 19).replace('T', ' ');
       const expiresAt24h = new Date(aptStart.getTime() + 120 * 60000).toISOString().slice(0, 19).replace('T', ' ');
