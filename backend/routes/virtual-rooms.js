@@ -927,7 +927,7 @@ router.get('/public/:id/info', async (req, res) => {
     const rid = req.params.id;
     const numId = parseInt(rid) || 0;
     const [rooms] = await db.query(
-      `SELECT r.title, r.code, r.hash, u.name as host_name, u.clinic_logo_url, u.company_name
+      `SELECT r.title, r.code, r.hash, u.name as host_name, u.clinic_logo_url, u.company_name, u.crp, u.specialty, u.avatar_url
        FROM virtual_rooms r
        JOIN users u ON u.id = r.host_id
        WHERE r.hash = ? OR r.code = ? OR r.id = ?`,
@@ -940,6 +940,9 @@ router.get('/public/:id/info', async (req, res) => {
       host_name: room.host_name || null,
       company_name: room.company_name || null,
       clinic_logo_url: room.clinic_logo_url || null,
+      crp: room.crp || null,
+      specialty: room.specialty || null,
+      avatar_url: room.avatar_url || null,
     });
   } catch (err) {
     console.error(err);
