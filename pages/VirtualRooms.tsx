@@ -390,6 +390,16 @@ export const VirtualRooms: React.FC = () => {
     return `${m}m ${s.toString().padStart(2, '0')}s`;
   };
 
+  // Banco armazena em UTC sem 'Z' — força interpretação como UTC para converter corretamente para BRT
+  const formatSessionDate = (raw: string) => {
+    if (!raw) return '';
+    const utc = raw.includes('T') || raw.includes('Z') ? raw : raw.replace(' ', 'T') + 'Z';
+    const d = new Date(utc);
+    const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo' });
+    const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+    return `${date} · ${time}`;
+  };
+
   const matchesQuery = (room: VirtualRoom) => {
     const query = roomSearch.trim().toLowerCase();
     if (!query) return true;
@@ -976,9 +986,7 @@ export const VirtualRooms: React.FC = () => {
                                 )}
                               </p>
                               <p className="text-xs text-slate-400">
-                                {new Date(session.started_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                {' · '}
-                                {new Date(session.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                {formatSessionDate(session.started_at)}
                                 {session.duration_seconds != null && ` · ${formatDuration(session.duration_seconds)}`}
                               </p>
                             </div>
