@@ -451,7 +451,7 @@ export const ClinicalTools: React.FC = () => {
                     <h2 className="text-6xl font-black tracking-tighter leading-none uppercase">A inteligência que<br /><span className="text-indigo-500">potencializa</span> sua clínica.</h2>
                 </div>
                 <p className="text-indigo-100/60 font-medium italic text-xl max-w-3xl leading-relaxed">
-                    "Todas as ferramentas da sua caixa estão vivas. Elas retroalimentam o motor de IA do PsiFlux para sugerir condutas baseadas em anos de prática clínica e ciência do comportamento."
+                    "Todas as ferramentas da sua caixa estão vivas. Elas retroalimentam o motor de IA do PsiFlux para organizar dados clínicos, sistematizar informações e apoiar a documentação — o julgamento clínico é sempre do profissional."
                 </p>
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6">
                     <div className="flex items-center gap-3 px-5 py-2.5 bg-white/5 rounded-2xl text-xs font-black uppercase tracking-widest border border-white/10 group hover:bg-white/10 transition-colors">
