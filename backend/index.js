@@ -65,7 +65,26 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/forms`, formsRoutes);
   app.use(`${prefix}/disc`, discRoutes);
   app.use(`${prefix}/public-profile`, require('./routes/public-profile'));
-  app.get(`${prefix}/livekit/token-guest`, livekitTokenRoutes);
+  // Token guest público (sem autenticação) — pacientes sem login
+  app.get(`${prefix}/livekit/token-guest`, async (req, res) => {
+    try {
+      const { AccessToken } = require('livekit-server-sdk');
+      const { roomName, participantName, token: guestToken } = req.query;
+      if (!roomName || !participantName || !guestToken) {
+        return res.status(400).json({ error: 'roomName, participantName e token são obrigatórios' });
+      }
+      const apiKey = process.env.LIVEKIT_API_KEY;
+      const apiSecret = process.env.LIVEKIT_API_SECRET;
+      if (!apiKey || !apiSecret) return res.status(500).json({ error: 'LiveKit não configurado' });
+      const at = new AccessToken(apiKey, apiSecret, { identity: participantName, ttl: '4h' });
+      at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: false });
+      const token = await at.toJwt();
+      res.json({ token, url: process.env.LIVEKIT_URL });
+    } catch (err) {
+      console.error('[LiveKit] Erro token guest:', err);
+      res.status(500).json({ error: 'Erro ao gerar token' });
+    }
+  });
 
   // ---- Health check (publico) ----
   app.get(`${prefix}/health`, (req, res) => {
