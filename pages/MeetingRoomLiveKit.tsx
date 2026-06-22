@@ -694,11 +694,13 @@ const RoomInner: React.FC<{
     const chunks = audioChunksRef.current;
     if (!chunks.length) return;
 
-    // Upload do áudio
-    const blob = new Blob(chunks, { type: 'audio/webm' });
+    // Usa o mimetype real do gravador para garantir que o Whisper receba o formato correto
+    const actualMime = mediaRecorderRef.current?.mimeType || mr.mimeType || 'audio/webm';
+    const recordExt = actualMime.includes('ogg') ? 'ogg' : actualMime.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type: actualMime || 'audio/webm' });
     const sk = sessionKeyRef.current;
     const formData = new FormData();
-    formData.append('audio', blob, `recording-${sk}.webm`);
+    formData.append('audio', blob, `recording-${sk}.${recordExt}`);
     formData.append('speaker_role', isHost ? 'host' : 'guest');
     formData.append('speaker_name', participantName);
     formData.append('duration_seconds', String(Math.round(elapsedTime)));
@@ -711,7 +713,7 @@ const RoomInner: React.FC<{
       setTranscribing(true);
       try {
         const tf = new FormData();
-        tf.append('audio', blob, `audio.webm`);
+        tf.append('audio', blob, `audio.${recordExt}`);
         tf.append('language', 'pt');
         const res = await api.post<any>('/ai/transcribe-audio', tf);
         const text: string = res?.text || '';

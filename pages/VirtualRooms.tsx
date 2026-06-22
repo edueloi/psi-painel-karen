@@ -369,8 +369,21 @@ export const VirtualRooms: React.FC = () => {
       const blob = await resp.blob();
 
       // Envia para Whisper via backend
+      // Força o mimetype correto baseado na extensão do arquivo, pois fetch blob pode retornar octet-stream
+      const fileName = rec.file_name || 'audio.webm';
+      const ext = fileName.split('.').pop()?.toLowerCase() || 'webm';
+      const mimeMap: Record<string, string> = {
+        webm: 'audio/webm',
+        mp4: 'audio/mp4',
+        m4a: 'audio/mp4',
+        ogg: 'audio/ogg',
+        wav: 'audio/wav',
+        mp3: 'audio/mpeg',
+      };
+      const forcedMime = mimeMap[ext] || 'audio/webm';
+      const audioBlob = new Blob([blob], { type: forcedMime });
       const formData = new FormData();
-      formData.append('audio', blob, rec.file_name || 'audio.webm');
+      formData.append('audio', audioBlob, fileName);
       formData.append('language', 'pt');
       const result = await api.post<any>('/ai/transcribe-audio', formData);
       const transcribed: string = result?.text?.trim() || '';

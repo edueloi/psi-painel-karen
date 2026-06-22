@@ -1200,15 +1200,19 @@ router.post('/transcribe-audio', authMiddleware, transcribeUpload.single('audio'
     if (!req.file) return res.status(400).json({ error: 'Arquivo de áudio não enviado' });
 
     const language = req.body.language || 'pt';
-    const { Readable } = require('stream');
 
-    // Whisper precisa de um File-like object — criamos via blob do buffer
+    // Determina mimetype e extensão — prioriza o que veio no filename original
     const audioBuffer = req.file.buffer;
-    const mimeType = req.file.mimetype || 'audio/webm';
-    const ext = mimeType.includes('mp4') ? 'mp4'
-              : mimeType.includes('ogg') ? 'ogg'
-              : mimeType.includes('wav') ? 'wav'
-              : 'webm';
+    const originalName = req.file.originalname || 'audio.webm';
+    const fileExt = originalName.split('.').pop()?.toLowerCase() || 'webm';
+    const extToMime = {
+      webm: 'audio/webm', mp4: 'audio/mp4', m4a: 'audio/mp4',
+      ogg: 'audio/ogg', wav: 'audio/wav', mp3: 'audio/mpeg',
+    };
+    const mimeType = extToMime[fileExt] || req.file.mimetype || 'audio/webm';
+    const ext = fileExt in extToMime ? fileExt : 'webm';
+
+    console.log(`[Whisper] arquivo=${originalName} ext=${ext} mime=${mimeType} size=${audioBuffer.length}`);
 
     // OpenAI SDK aceita File (Node 20+) ou toFile helper
     const { toFile } = require('openai');
@@ -1219,6 +1223,7 @@ router.post('/transcribe-audio', authMiddleware, transcribeUpload.single('audio'
       model: 'whisper-1',
       language,
       response_format: 'text',
+      prompt: 'Consulta psicológica em português brasileiro. Transcreva fielmente o que foi dito.',
     });
 
     res.json({ text: transcription });
