@@ -30,7 +30,6 @@ import { Patient, User, VirtualRoom } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { DatePicker } from '../components/UI/DatePicker';
 import { PageHeader } from '../components/UI/PageHeader';
 import {
@@ -99,7 +98,6 @@ export const VirtualRooms: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
-  const { preferences, updatePreference } = useUserPreferences();
 
   const [rooms, setRooms] = useState<VirtualRoom[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -129,33 +127,6 @@ export const VirtualRooms: React.FC = () => {
   const [filterHasRecording, setFilterHasRecording] = useState<boolean | null>(null);
   const [filterHasTranscript, setFilterHasTranscript] = useState<boolean | null>(null);
 
-  const geminiKeys: string[] = preferences.gemini?.apiKeys?.length
-    ? preferences.gemini.apiKeys
-    : preferences.gemini?.apiKey ? [preferences.gemini.apiKey] : [];
-  const [newKeyInput, setNewKeyInput] = useState('');
-  const [keySaved, setKeySaved] = useState(false);
-
-  const addGeminiKey = () => {
-    const k = newKeyInput.trim();
-    if (!k) return;
-    const updated = [...geminiKeys.filter(x => x !== k), k];
-    updatePreference('gemini', { apiKeys: updated, apiKey: updated[0] });
-    setNewKeyInput('');
-    setKeySaved(true);
-    setTimeout(() => setKeySaved(false), 2000);
-  };
-
-  const removeGeminiKey = (key: string) => {
-    const updated = geminiKeys.filter(x => x !== key);
-    updatePreference('gemini', { apiKeys: updated, apiKey: updated[0] ?? '' });
-  };
-
-  const moveKeyUp = (idx: number) => {
-    if (idx === 0) return;
-    const updated = [...geminiKeys];
-    [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
-    updatePreference('gemini', { apiKeys: updated, apiKey: updated[0] });
-  };
 
   const [createForm, setCreateForm] = useState({
     title: '',
@@ -404,7 +375,7 @@ export const VirtualRooms: React.FC = () => {
         `/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript`
       );
       setSessionTranscripts((prev) => ({ ...prev, [session.session_key]: updated || [] }));
-      toastSuccess('Transcrição concluída', 'Áudio transcrito com Whisper!');
+      toastSuccess('Transcrição concluída', 'Áudio transcrito com sucesso!');
     } catch (e: any) {
       toastError('Erro', e?.message || 'Erro ao transcrever o áudio.');
     } finally {
@@ -896,18 +867,6 @@ export const VirtualRooms: React.FC = () => {
         {/* ── TRANSCRIÇÕES TAB ── */}
         {activeTab === 'transcricoes' && (
           <div className="space-y-5">
-            {/* Info Whisper */}
-            <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-slate-50 p-5 flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
-                <Mic size={18} />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-800">Transcrição via OpenAI Whisper</h3>
-                <p className="mt-1 text-sm text-slate-500">As gravações são transcritas automaticamente usando o modelo <span className="font-semibold text-indigo-600">Whisper</span> da OpenAI, com alta precisão em português.</p>
-                <p className="mt-2 text-xs text-slate-400">Clique em "Transcrever com Whisper" em qualquer gravação abaixo para gerar a transcrição.</p>
-              </div>
-            </div>
-
             {/* Histórico */}
             <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4 space-y-3">
@@ -1119,9 +1078,9 @@ export const VirtualRooms: React.FC = () => {
                                           className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                           {transcribingRecording === rec.id ? (
-                                            <><Loader2 size={13} className="animate-spin" /> Transcrevendo com Whisper...</>
+                                            <><Loader2 size={13} className="animate-spin" /> Transcrevendo...</>
                                           ) : (
-                                            <><Mic size={13} /> Transcrever com Whisper</>
+                                            <><Mic size={13} /> Transcrever</>
                                           )}
                                         </button>
                                       </div>
