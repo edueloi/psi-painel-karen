@@ -1078,6 +1078,14 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
       ]
     );
 
+    // Se o horário mudou, reseta as flags de lembrete para reenviar
+    if (start_time) {
+      await db.query(
+        `UPDATE appointments SET whatsapp_reminder_1h_sent = 0, whatsapp_reminder_24h_sent = 0, whatsapp_reminder_professional_sent = 0 WHERE id = ? AND tenant_id = ?`,
+        [req.params.id, req.user.tenant_id]
+      );
+    }
+
     // Sync sessions_used if status changed
     const CONSUMING = ['completed', 'no_show', 'confirmed', 'rescheduled', 'falta_justificada'];
     const prevStatus = existing[0].old_status;
