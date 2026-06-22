@@ -113,6 +113,7 @@ const Lobby: React.FC<{
   const [camOn, setCamOn] = useState(true);
   const [copied, setCopied] = useState(false);
   const [activeSection, setActiveSection] = useState<"link" | "devices" | "recording" | null>("link");
+  const [guestDevicesOpen, setGuestDevicesOpen] = useState(false);
   const [roomInfo, setRoomInfo] = useState<RoomInfo>({});
 
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -180,16 +181,17 @@ const Lobby: React.FC<{
   return (
     <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "12px 16px 24px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 16 }} className="lobby-logo">
         <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 26, objectFit: "contain", opacity: 0.6 }} />
       </div>
 
-      <div style={{ width: "100%", maxWidth: isGuest ? 760 : 860, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, background: "#12151e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 22, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.75)" }} className="lobby-grid">
+      {/* ── Layout desktop: grid 2 colunas. Mobile guest: coluna única compacta ── */}
+      <div style={{ width: "100%", maxWidth: isGuest ? 760 : 860, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, background: "#12151e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 22, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.75)" }} className={isGuest ? "lobby-grid lobby-guest" : "lobby-grid"}>
 
         {/* ── Coluna esquerda — câmera ── */}
-        <div style={{ position: "relative", background: "#0a0c12", minHeight: 320, display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "relative", background: "#0a0c12", minHeight: 320, display: "flex", flexDirection: "column" }} className="lobby-cam-col">
           <video ref={videoRef} autoPlay muted playsInline
-            style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn ? "block" : "none", minHeight: 320 }} />
+            style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn ? "block" : "none", minHeight: 320 }} className="lobby-cam-video" />
           {!camOn && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#0a0c12" }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: isGuest ? "linear-gradient(135deg,#0284c7,#0369a1)" : "linear-gradient(135deg,#6366f1,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, color: "#fff", boxShadow: "0 8px 24px rgba(99,102,241,0.35)" }}>
@@ -292,13 +294,32 @@ const Lobby: React.FC<{
               </div>
             )}
 
-            {/* Seção: Dispositivos */}
-            {(isGuest || activeSection === "devices") && (
+            {/* Seção: Dispositivos — host sempre via secção, guest com toggle escondido no mobile */}
+            {(!isGuest && activeSection === "devices") && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {!isGuest && <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".05em", margin: 0 }}>Dispositivos</p>}
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".05em", margin: 0 }}>Dispositivos</p>
                 {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={11} />} />}
                 {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={11} />} />}
                 {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={11} />} />}
+              </div>
+            )}
+
+            {/* Dispositivos para guest — toggle expansível, escondido por padrão no mobile */}
+            {isGuest && (videoDevices.length > 0 || audioDevices.length > 0 || audioOutDevices.length > 0) && (
+              <div>
+                <button onClick={() => setGuestDevicesOpen(v => !v)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "#475569", fontSize: 12, fontWeight: 600, padding: "4px 0" }}>
+                  <Settings size={13} />
+                  Configurar dispositivos
+                  <ChevronDown size={13} style={{ transform: guestDevicesOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                </button>
+                {guestDevicesOpen && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                    {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={11} />} />}
+                    {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={11} />} />}
+                    {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={11} />} />}
+                  </div>
+                )}
               </div>
             )}
 
@@ -354,8 +375,15 @@ const Lobby: React.FC<{
       <style>{`
         .lobby-grid { grid-template-columns: 1fr 1fr !important; }
         @media(max-width:600px){
-          .lobby-grid { grid-template-columns: 1fr !important; }
-          .lobby-grid > div:first-child { min-height: 200px !important; max-height: 240px; }
+          .lobby-logo { margin-bottom: 10px !important; }
+          .lobby-grid { grid-template-columns: 1fr !important; border-radius: 16px !important; }
+          /* Host: câmera ocupa altura razoável */
+          .lobby-grid > div:first-child { min-height: 200px !important; max-height: 260px !important; }
+          /* Guest mobile: câmera vira cartão compacto fixo no topo */
+          .lobby-guest .lobby-cam-col { min-height: 0 !important; max-height: 180px !important; height: 180px !important; border-radius: 0 !important; }
+          .lobby-guest .lobby-cam-video { min-height: 0 !important; }
+          /* Direita: não limitar height no mobile, deixa rolar se precisar */
+          .lobby-guest > div:last-child { max-height: none !important; overflow-y: auto !important; }
         }
       `}</style>
     </div>
@@ -719,12 +747,13 @@ const RoomInner: React.FC<{
   const camOn = isCameraEnabled;
   const room = useRoomContext();
 
-  // Garante que câmera/mic iniciam com o estado escolhido no lobby
+  // Só desliga câmera/mic se o usuário os deixou desligados no lobby.
+  // Se estavam ligados não mexemos — LiveKit já inicia com video={lobbyCamOn}.
   useEffect(() => {
     const apply = async () => {
       try {
-        await localParticipant.setCameraEnabled(initialCam);
-        await localParticipant.setMicrophoneEnabled(initialMic);
+        if (!initialCam) await localParticipant.setCameraEnabled(false);
+        if (!initialMic) await localParticipant.setMicrophoneEnabled(false);
       } catch {}
     };
     apply();
