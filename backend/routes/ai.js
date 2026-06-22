@@ -1221,9 +1221,28 @@ router.post('/transcribe-audio', authMiddleware, transcribeUpload.single('audio'
     // O prompt do Whisper funciona como vocabulário de contexto — quanto mais termos relevantes,
     // melhor o modelo reconhece palavras parecidas no áudio.
     const whisperPrompt = req.body.prompt ||
-      'Consulta psicológica em português brasileiro. ' +
-      'Termos frequentes: ansiedade, depressão, terapia, psicoterapia, sessão, paciente, terapeuta, psicólogo, psiquiatra, CRP, hipnose, inconsciente, comportamento, emoção, trauma, luto, vínculo, apego, autoestima, resiliência, borderline, transtorno, diagnóstico, medicação, prontuário, atendimento, teleatendimento, PsiFlux, agendamento, transcrição, gravação, sala virtual, videochamada, plataforma. ' +
-      'O áudio pode conter pausas, respirações e sobreposição de falas.';
+      'Sessão clínica em português brasileiro. ' +
+
+      // Profissionais e registros
+      'Profissionais: psicólogo, psicóloga, psiquiatra, psicoterapeuta, psicopedagogo, psicopedagoga, neurologista, neuropediatra, terapeuta ocupacional, fonoaudiólogo, assistente social. ' +
+      'Registros profissionais: CRP, CRM, CREFITO, CRFa, CFP, CFM. ' +
+
+      // Diagnósticos e transtornos
+      'Transtornos e diagnósticos: TDAH, TDA, TDAH-PI, TEA, autismo, Asperger, TOC, TAG, transtorno de ansiedade generalizada, fobia social, fobia específica, transtorno do pânico, agorafobia, TEPT, transtorno de estresse pós-traumático, depressão, distimia, ciclotimia, bipolaridade, transtorno bipolar, borderline, TPB, transtorno de personalidade borderline, TPN, narcisismo, esquizofrenia, psicose, transtorno esquizoafetivo, TOD, transtorno opositivo desafiador, TCD, dislexia, discalculia, disgrafia, TPOC, tricotilomania, BED, bulimia, anorexia, transtorno alimentar. ' +
+
+      // Abordagens terapêuticas
+      'Abordagens terapêuticas: TCC, terapia cognitivo-comportamental, ACT, terapia de aceitação e compromisso, DBT, terapia comportamental dialética, EMDR, dessensibilização e reprocessamento, psicanálise, psicanalítico, psicodinâmica, humanismo, abordagem humanista, Gestalt, terapia gestáltica, ABA, análise do comportamento aplicada, terapia sistêmica, terapia familiar, terapia de casal, terapia breve, terapia narrativa, terapia do esquema, terapia focada nas emoções, mindfulness, psicologia positiva, hipnoterapia, MBSR, TRE. ' +
+
+      // Conceitos clínicos
+      'Conceitos: ansiedade, depressão, estresse, burnout, luto, trauma, apego, vínculo, transferência, contratransferência, resistência, inconsciente, repressão, projeção, introjeção, dissociação, alexitimia, regulação emocional, autoestima, autoeficácia, resiliência, ruminação, evitação, esquema cognitivo, crença disfuncional, pensamento automático, distorção cognitiva, catastrofização, reestruturação cognitiva, exposição gradual, dessensibilização, psicoeducação, psicoeducação familiar, insight, elaboração, holding, setting terapêutico, aliança terapêutica, escuta ativa, empatia, acolhimento, ressignificação, repertório comportamental. ' +
+
+      // Medicamentos comuns
+      'Medicamentos: fluoxetina, sertralina, escitalopram, citalopram, paroxetina, venlafaxina, duloxetina, bupropiona, mirtazapina, imipramina, amitriptilina, clomipramina, alprazolam, clonazepam, diazepam, lorazepam, bromazepam, risperidona, olanzapina, quetiapina, aripiprazol, haloperidol, clozapina, lítio, valproato, carbamazepina, lamotrigina, metilfenidato, lisdexanfetamina, atomoxetina, modafinila, topiramato, gabapentina, pregabalina. ' +
+
+      // Contexto clínico e plataforma
+      'Contexto: prontuário, anamnese, avaliação psicológica, laudo, relatório, encaminhamento, hipótese diagnóstica, CID, DSM, WISC, Rorschach, HTP, Bender, escala de ansiedade, escala de depressão, BDI, BAI, SNAP-IV, CBCL, sessão terapêutica, plano terapêutico, contrato terapêutico, consentimento informado, sigilo, confidencialidade, ética profissional, supervisão clínica, interconsulta, telepsicologia, teleatendimento, PsiFlux, agendamento, sala virtual, videochamada, transcrição, gravação de sessão. ' +
+
+      'O áudio pode conter pausas, respirações, interrupções e sobreposição de falas. Transcreva fielmente.';
 
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
