@@ -169,7 +169,7 @@ async function checkAppointmentReminders() {
     if (appointments.length === 0) return;
 
     for (const apt of appointments) {
-      const aptStart = new Date(apt.start_time.toString().includes('Z') ? apt.start_time : apt.start_time + 'Z');
+      const aptStart = apt.start_time instanceof Date ? apt.start_time : new Date(apt.start_time.toString().includes('Z') ? apt.start_time : apt.start_time + 'Z');
       const diffMinutes = Math.round((aptStart.getTime() - now.getTime()) / 60000);
       console.log(`[CRON-DEBUG] apt ${apt.id} | diff=${diffMinutes}min | r1h=${apt.whatsapp_reminder_1h_sent} | paciente=${apt.patient_name} | phone=${apt.patient_phone}`);
       // Lembrete 1h: expira 30min após a consulta. Lembrete 24h: expira 2h após a consulta (bot pode ter ficado offline).
