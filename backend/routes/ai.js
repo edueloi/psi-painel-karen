@@ -1186,4 +1186,46 @@ RESPONDA SEMPRE EM PORTUGUES-BR.`;
   }
 });
 
+// POST /ai/transcribe-audio — transcrição de áudio via OpenAI Whisper
+// multipart/form-data: campo "audio" (webm/mp4/wav/ogg), campo opcional "language" (padrão "pt")
+const transcribeUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB — limite do Whisper
+});
+
+const { authMiddleware } = require('../middleware/auth');
+
+router.post('/transcribe-audio', authMiddleware, transcribeUpload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo de áudio não enviado' });
+
+    const language = req.body.language || 'pt';
+    const { Readable } = require('stream');
+
+    // Whisper precisa de um File-like object — criamos via blob do buffer
+    const audioBuffer = req.file.buffer;
+    const mimeType = req.file.mimetype || 'audio/webm';
+    const ext = mimeType.includes('mp4') ? 'mp4'
+              : mimeType.includes('ogg') ? 'ogg'
+              : mimeType.includes('wav') ? 'wav'
+              : 'webm';
+
+    // OpenAI SDK aceita File (Node 20+) ou toFile helper
+    const { toFile } = require('openai');
+    const audioFile = await toFile(audioBuffer, `audio.${ext}`, { type: mimeType });
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      language,
+      response_format: 'text',
+    });
+
+    res.json({ text: transcription });
+  } catch (err) {
+    console.error('[Whisper] Erro na transcrição:', err);
+    res.status(500).json({ error: 'Erro ao transcrever áudio: ' + (err.message || err) });
+  }
+});
+
 module.exports = router;

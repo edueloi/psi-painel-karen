@@ -160,6 +160,7 @@ export const Settings: React.FC = () => {
   const MENU_ITEMS = [
     { id: 'aparencia',    label: 'Aparência',      icon: <Palette size={18} />,      desc: 'Cores e modo visual' },
     { id: 'geral',        label: 'Geral',           icon: <SettingsIcon size={18} />, desc: 'Idioma e preferências' },
+    { id: 'sessoes',      label: 'Sessões',         icon: <Video size={18} />,        desc: 'Gravação e transcrição' },
     ...(hasPermission('manage_clinic_settings') ? [{ id: 'notificacoes', label: 'Notificações', icon: <Bell size={18} />, desc: 'Emails automáticos' }] : []),
     ...(hasPermission('manage_professionals') && (user?.plan_features?.includes('profissionais')) ? [{ id: 'equipe', label: 'Equipe', icon: <Users size={18} />, desc: 'Profissionais da clínica' }] : []),
     ...(hasPermission('manage_bot_integration') || hasPermission('manage_clinical_tools') || hasPermission('manage_clinic_settings') ? [{ id: 'integracoes', label: 'Integrações', icon: <Plug size={18} />, desc: 'Módulos e conexões' }] : []),
@@ -284,6 +285,55 @@ export const Settings: React.FC = () => {
                   ))}
                 </div>
               </section>
+            </div>
+          )}
+
+          {/* ── SESSÕES ──────────────────────────────────────────────────── */}
+          {activeTab === 'sessoes' && (
+            <div className="space-y-8 max-w-2xl">
+              <SectionHeader icon={<Video size={20} />} title="Sessões Virtuais" desc="Configure gravação e transcrição automática das consultas." />
+
+              {/* Gravação de áudio */}
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                  <p className="text-sm font-semibold text-slate-700">Gravação de Áudio</p>
+                  <p className="text-xs text-slate-500 mt-0.5">O áudio da sessão é gravado no seu navegador e enviado ao servidor ao encerrar.</p>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  <div className="flex items-center justify-between px-6 py-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Gravar áudio automaticamente</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Inicia a gravação assim que você entrar na sala virtual</p>
+                    </div>
+                    <button
+                      onClick={() => updatePreference('sessions', { autoRecord: !preferences.sessions?.autoRecord })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${preferences.sessions?.autoRecord ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${preferences.sessions?.autoRecord ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between px-6 py-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Transcrever automaticamente ao encerrar</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Usa OpenAI Whisper para gerar a transcrição da sessão após o encerramento</p>
+                    </div>
+                    <button
+                      onClick={() => updatePreference('sessions', { autoTranscribe: !preferences.sessions?.autoTranscribe })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${preferences.sessions?.autoTranscribe ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${preferences.sessions?.autoTranscribe ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aviso LGPD */}
+              <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800 leading-relaxed">
+                  <strong>Atenção LGPD:</strong> a gravação e transcrição de sessões é considerada dado sensível de saúde. Certifique-se de obter o consentimento do paciente antes de gravar. Os arquivos ficam armazenados com segurança no servidor da clínica.
+                </div>
+              </div>
             </div>
           )}
 

@@ -16,11 +16,12 @@ import { Track, type LocalParticipant, type RemoteParticipant } from "livekit-cl
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
-  ChevronDown, Settings,
+  ChevronDown, Settings, Circle, Loader2, FileText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { api, API_BASE_URL } from "../services/api";
+import { useUserPreferences } from "../contexts/UserPreferencesContext";
 import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
 import logoUrl from '../images/logo-psiflux.png';
 
@@ -582,9 +583,91 @@ const RoomInner: React.FC<{
 }> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic }) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
+  const { preferences } = useUserPreferences();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | null>(null);
   const [pinned, setPinned] = useState<"remote" | "local">("remote");
+
+  // ── Gravação de áudio ──────────────────────────────────────────────────────
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcriptDone, setTranscriptDone] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const sessionKeyRef = useRef<string>(`sess-${Date.now()}`);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+      const mr = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.start(1000);
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+    } catch {}
+  }, []);
+
+  const stopRecordingAndTranscribe = useCallback(async () => {
+    const mr = mediaRecorderRef.current;
+    if (!mr || mr.state === 'inactive') return;
+    mr.stop();
+    mr.stream.getTracks().forEach(t => t.stop());
+    setRecording(false);
+
+    const shouldTranscribe = preferences.sessions?.autoTranscribe;
+    const chunks = audioChunksRef.current;
+    if (!chunks.length) return;
+
+    // Upload do áudio
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const sk = sessionKeyRef.current;
+    const formData = new FormData();
+    formData.append('audio', blob, `recording-${sk}.webm`);
+    formData.append('speaker_role', isHost ? 'host' : 'guest');
+    formData.append('speaker_name', participantName);
+    formData.append('duration_seconds', String(Math.round(elapsedTime)));
+    try {
+      await api.post<any>(`/virtual-rooms/${roomId}/sessions/${sk}/recordings`, formData);
+    } catch {}
+
+    // Transcrição via Whisper
+    if (shouldTranscribe) {
+      setTranscribing(true);
+      try {
+        const tf = new FormData();
+        tf.append('audio', blob, `audio.webm`);
+        tf.append('language', 'pt');
+        const res = await api.post<any>('/ai/transcribe-audio', tf);
+        const text: string = res?.text || '';
+        if (text) {
+          await api.post<any>(`/virtual-rooms/${roomId}/transcripts`, {
+            session_key: sk,
+            speaker_role: isHost ? 'host' : 'guest',
+            speaker_name: participantName,
+            text,
+          });
+          setTranscriptDone(true);
+          setTimeout(() => setTranscriptDone(false), 5000);
+        }
+      } catch {}
+      setTranscribing(false);
+    }
+  }, [preferences.sessions?.autoTranscribe, isHost, participantName, roomId, elapsedTime]);
+
+  // Auto-inicia gravação se configurado
+  useEffect(() => {
+    if (isHost && preferences.sessions?.autoRecord) {
+      startRecording();
+    }
+    return () => {
+      // Para gravação ao desmontar sem chamar transcrição
+      mediaRecorderRef.current?.stop();
+      mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const micOn = isMicrophoneEnabled;
   const camOn = isCameraEnabled;
@@ -827,9 +910,33 @@ const RoomInner: React.FC<{
             </div>
           )}
 
+          {/* Gravar (só host) */}
+          {isHost && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <button
+                onClick={() => recording ? stopRecordingAndTranscribe() : startRecording()}
+                style={{ ...btnActive(recording), ...(recording ? { background: "rgba(239,68,68,0.25)", color: "#f87171" } : {}) }}
+                title={recording ? "Parar gravação" : "Iniciar gravação"}
+              >
+                {transcribing
+                  ? <Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} />
+                  : transcriptDone
+                  ? <FileText size={22} style={{ color: "#22c55e" }} />
+                  : <Circle size={22} style={recording ? { fill: "#ef4444", color: "#ef4444" } : {}} />
+                }
+              </button>
+              <span style={{ fontSize: 10, color: recording ? "#f87171" : transcribing ? "#fbbf24" : "#94a3b8", letterSpacing: ".3px" }}>
+                {transcribing ? "Transcrev." : transcriptDone ? "Salvo!" : recording ? "Grav." : "Gravar"}
+              </span>
+            </div>
+          )}
+
           {/* Encerrar */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button onClick={onLeave} style={{ width: BTN, height: BTN, borderRadius: "50%", background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff" }}>
+            <button
+              onClick={async () => { await stopRecordingAndTranscribe(); onLeave(); }}
+              style={{ width: BTN, height: BTN, borderRadius: "50%", background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff" }}
+            >
               <PhoneOff size={22} />
             </button>
             <span style={{ fontSize: 10, color: "#f87171", letterSpacing: ".3px" }}>{isHost ? "Encerrar" : "Sair"}</span>
@@ -842,6 +949,7 @@ const RoomInner: React.FC<{
 
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @media(max-width:480px){ .hide-mobile{ display:none !important } }
         .lk-button { all: unset !important; }
       `}</style>

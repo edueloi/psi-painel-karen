@@ -59,8 +59,12 @@ export interface UserPreferences {
     hiddenIds: string[];
   };
   gemini: {
-    apiKey: string;       // legacy / chave principal
-    apiKeys: string[];    // lista de chaves (com fallback automático)
+    apiKey: string;
+    apiKeys: string[];
+  };
+  sessions: {
+    autoRecord: boolean;      // gravar áudio automaticamente ao entrar na sala
+    autoTranscribe: boolean;  // transcrever automaticamente ao encerrar
   };
   menuLayouts: MenuLayout[];
   activeMenuLayoutId: string | null;
@@ -142,6 +146,10 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     apiKey: '',
     apiKeys: [],
   },
+  sessions: {
+    autoRecord: false,
+    autoTranscribe: false,
+  },
   menuLayouts: [],
   activeMenuLayoutId: null,
 };
@@ -163,6 +171,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     livroCaixa:  { ...DEFAULT_PREFERENCES.livroCaixa,  ...stored?.livroCaixa },
     clinicalTools: { ...DEFAULT_PREFERENCES.clinicalTools, ...stored?.clinicalTools },
     gemini:       { ...DEFAULT_PREFERENCES.gemini, ...stored?.gemini, apiKeys: Array.isArray(stored?.gemini?.apiKeys) ? stored.gemini.apiKeys : (stored?.gemini?.apiKey ? [stored.gemini.apiKey] : []) },
+    sessions:     { ...DEFAULT_PREFERENCES.sessions, ...stored?.sessions },
     menuLayouts: Array.isArray(stored?.menuLayouts) ? stored.menuLayouts : [],
     activeMenuLayoutId: stored?.activeMenuLayoutId ?? null,
   };
