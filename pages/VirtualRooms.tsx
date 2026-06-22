@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -77,7 +76,7 @@ type RecordingEntry = {
   created_at: string;
 };
 
-const normalizeGeminiAudioMimeType = (mimeType?: string) => {
+const _normalizeAudioMimeType = (mimeType?: string) => {
   const normalized = (mimeType || '').toLowerCase();
   if (normalized.includes('webm')) return 'audio/webm';
   if (normalized.includes('ogg')) return 'audio/ogg';
@@ -361,51 +360,23 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const transcribeRecording = async (rec: RecordingEntry, session: SessionSummary) => {
-    if (!geminiKeys.length) {
-      toastError('Chave Gemini necessária', 'Configure uma chave Gemini em "Chaves Gemini para Transcrição" primeiro.');
-      return;
-    }
     setTranscribingRecording(rec.id);
     try {
+      // Baixa o áudio do servidor
       const audioUrl = resolveRecordingUrl(rec.file_url);
       const resp = await fetch(audioUrl);
       if (!resp.ok) throw new Error('Falha ao baixar áudio');
       const blob = await resp.blob();
-      const mimeType = normalizeGeminiAudioMimeType(blob.type);
 
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-2.5-pro'];
-      let transcribed = '';
-      outer: for (const key of geminiKeys) {
-        for (const model of GEMINI_MODELS) {
-          try {
-            const ai = new GoogleGenAI({ apiKey: key });
-            const response = await ai.models.generateContent({
-              model,
-              contents: [{
-                parts: [
-                  { inlineData: { mimeType, data: base64 } },
-                  { text: 'Transcreva este áudio em português brasileiro. Identifique os falantes quando possível (Profissional e Paciente). Retorne apenas o texto transcrito com os falantes, sem explicações adicionais.' },
-                ],
-              }],
-            });
-            const t = response.text?.trim() || '';
-            if (t) { transcribed = t; break outer; }
-          } catch (err: any) {
-            const is429 = err?.message?.includes('429') || err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED');
-            if (!is429) break;
-          }
-        }
-      }
+      // Envia para Whisper via backend
+      const formData = new FormData();
+      formData.append('audio', blob, rec.file_name || 'audio.webm');
+      formData.append('language', 'pt');
+      const result = await api.post<any>('/ai/transcribe-audio', formData);
+      const transcribed: string = result?.text?.trim() || '';
 
       if (!transcribed) {
-        toastError('Falha na transcrição', 'Gemini não conseguiu transcrever o áudio. Tente novamente.');
+        toastError('Falha na transcrição', 'Whisper não retornou texto. Verifique se o áudio tem fala.');
         return;
       }
 
@@ -420,9 +391,9 @@ export const VirtualRooms: React.FC = () => {
         `/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript`
       );
       setSessionTranscripts((prev) => ({ ...prev, [session.session_key]: updated || [] }));
-      toastSuccess('Transcrição concluída', 'Áudio transcrito com sucesso!');
-    } catch (e) {
-      toastError('Erro', 'Erro ao transcrever o áudio.');
+      toastSuccess('Transcrição concluída', 'Áudio transcrito com Whisper!');
+    } catch (e: any) {
+      toastError('Erro', e?.message || 'Erro ao transcrever o áudio.');
     } finally {
       setTranscribingRecording(null);
     }
@@ -912,64 +883,16 @@ export const VirtualRooms: React.FC = () => {
         {/* ── TRANSCRIÇÕES TAB ── */}
         {activeTab === 'transcricoes' && (
           <div className="space-y-5">
-            {/* Gemini keys */}
-            <div className="rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50 p-5 sm:p-6">
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md">
-                  <Mic size={15} />
-                </div>
-                <h3 className="font-bold text-slate-800">Chaves Gemini para Transcrição</h3>
-                <span className="ml-auto text-[11px] text-slate-400">Fallback automático entre chaves</span>
+            {/* Info Whisper */}
+            <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-slate-50 p-5 flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
+                <Mic size={18} />
               </div>
-
-              {geminiKeys.length > 0 ? (
-                <div className="mb-4 space-y-2">
-                  {geminiKeys.map((key, idx) => (
-                    <div key={idx} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${idx === 0 ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                        {idx + 1}
-                      </span>
-                      <span className="flex-1 font-mono text-xs text-slate-600 truncate">
-                        {key.slice(0, 8)}{'•'.repeat(20)}{key.slice(-4)}
-                      </span>
-                      {idx === 0 && (
-                        <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Principal</span>
-                      )}
-                      {idx > 0 && (
-                        <button onClick={() => moveKeyUp(idx)} className="shrink-0 rounded-lg border border-slate-200 p-1 text-slate-400 hover:text-indigo-600 transition">
-                          <ChevronDown size={12} className="rotate-180" />
-                        </button>
-                      )}
-                      <button onClick={() => removeGeminiKey(key)} className="shrink-0 rounded-lg border border-red-100 p-1 text-red-400 hover:bg-red-50 transition">
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mb-4 text-sm text-slate-500">Nenhuma chave configurada. Adicione ao menos uma para transcrever com Gemini.</p>
-              )}
-
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={newKeyInput}
-                  onChange={e => setNewKeyInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addGeminiKey()}
-                  placeholder="AIza... — cole sua chave do Google AI Studio"
-                  className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono placeholder-slate-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
-                />
-                <button
-                  onClick={addGeminiKey}
-                  disabled={!newKeyInput.trim()}
-                  className="flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-700 disabled:opacity-40"
-                >
-                  {keySaved ? <><Check size={14} /> Salvo!</> : <><Plus size={14} /> Adicionar</>}
-                </button>
+              <div>
+                <h3 className="font-bold text-slate-800">Transcrição via OpenAI Whisper</h3>
+                <p className="mt-1 text-sm text-slate-500">As gravações são transcritas automaticamente usando o modelo <span className="font-semibold text-indigo-600">Whisper</span> da OpenAI, com alta precisão em português.</p>
+                <p className="mt-2 text-xs text-slate-400">Clique em "Transcrever com Whisper" em qualquer gravação abaixo para gerar a transcrição.</p>
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">
-                Chaves gratuitas em <span className="font-mono text-violet-600">aistudio.google.com/apikey</span>
-              </p>
             </div>
 
             {/* Histórico */}
@@ -1183,9 +1106,9 @@ export const VirtualRooms: React.FC = () => {
                                           className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                           {transcribingRecording === rec.id ? (
-                                            <><Loader2 size={13} className="animate-spin" /> Transcrevendo com Gemini...</>
+                                            <><Loader2 size={13} className="animate-spin" /> Transcrevendo com Whisper...</>
                                           ) : (
-                                            <><Mic size={13} /> Transcrever com Gemini</>
+                                            <><Mic size={13} /> Transcrever com Whisper</>
                                           )}
                                         </button>
                                       </div>
