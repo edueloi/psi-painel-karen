@@ -29,8 +29,29 @@ interface Plan {
   price: number;
   max_users: number;
   features: string[];
-  highlighted: boolean;
+  highlighted: boolean | number;
 }
+
+const FEATURE_LABELS: Record<string, string> = {
+  agenda: 'Agenda completa',
+  pacientes: 'Gestão de pacientes',
+  prontuario: 'Prontuário digital',
+  formularios: 'Formulários e anamneses',
+  salas_virtuais: 'Salas virtuais (teleconsulta)',
+  pei: 'PEI e documentos clínicos',
+  ferramentas_clinicas: 'Ferramentas clínicas',
+  estudos_de_caso: 'Estudos de caso',
+  documentos: 'Documentos e encaminhamentos',
+  financeiro: 'Financeiro & Livro Caixa',
+  relatorios: 'Relatórios & Desempenho',
+  mensagens: 'Mensagens internas',
+  aurora_ia: 'Aurora IA',
+  whatsapp_bot: 'WhatsApp Bot',
+  profissionais: 'Múltiplos profissionais',
+  servicos: 'Serviços e produtos',
+  comandas: 'Comandas',
+  instrumentos: 'Instrumentos (DISC, DASS-21)',
+};
 
 const painPoints = [
   'Prontuários dispersos em papéis ou planilhas',
@@ -161,7 +182,8 @@ export const LandingPage: React.FC = () => {
         .feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 
         /* Plan grid */
-        .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: start; }
+        .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: center; max-width: 900px; margin: 0 auto; }
+        @media (max-width: 720px) { .plan-grid { grid-template-columns: 1fr; max-width: 420px; } }
 
         /* Testimonials */
         .testi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
@@ -556,44 +578,46 @@ export const LandingPage: React.FC = () => {
             </div>
           ) : (
           <div className="plan-grid">
-            {plans.map(plan => (
+            {plans.map(plan => {
+              const hl = Boolean(plan.highlighted);
+              return (
               <div key={plan.id} style={{
-                background: plan.highlighted ? 'var(--accent)' : '#fff',
-                border: `1.5px solid ${plan.highlighted ? 'var(--accent)' : 'var(--border)'}`,
+                background: hl ? 'var(--accent)' : '#fff',
+                border: `1.5px solid ${hl ? 'var(--accent)' : 'var(--border)'}`,
                 borderRadius: 22, padding: '30px 26px',
                 display: 'flex', flexDirection: 'column',
-                marginTop: plan.highlighted ? -10 : 0,
-                marginBottom: plan.highlighted ? -10 : 0,
-                boxShadow: plan.highlighted ? '0 16px 56px rgba(99,85,216,.35)' : '0 1px 4px rgba(0,0,0,.04)',
+                marginTop: hl ? -12 : 0,
+                marginBottom: hl ? -12 : 0,
+                boxShadow: hl ? '0 20px 60px rgba(99,85,216,.38)' : '0 1px 4px rgba(0,0,0,.04)',
                 transition: 'box-shadow .2s',
               }}>
-                {plan.highlighted && (
-                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', marginBottom: 12 }}>
+                {hl && (
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.7)', marginBottom: 12 }}>
                     ⭐ Mais popular
                   </p>
                 )}
-                <h3 style={{ fontWeight: 700, fontSize: 18, color: plan.highlighted ? '#fff' : 'var(--text)', marginBottom: 4 }}>{plan.name}</h3>
-                <p style={{ fontSize: 13, color: plan.highlighted ? 'rgba(255,255,255,.65)' : 'var(--muted)', marginBottom: 22 }}>{plan.description || ''}</p>
+                <h3 style={{ fontWeight: 700, fontSize: 20, color: hl ? '#fff' : 'var(--text)', marginBottom: 4 }}>{plan.name}</h3>
+                <p style={{ fontSize: 13, color: hl ? 'rgba(255,255,255,.65)' : 'var(--muted)', marginBottom: 22, minHeight: 18 }}>{plan.description || ''}</p>
                 <div style={{ marginBottom: 24 }}>
-                  <span style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', color: plan.highlighted ? '#fff' : 'var(--text)' }}>
+                  <span style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', color: hl ? '#fff' : 'var(--text)' }}>
                     {Number(plan.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
-                  <span style={{ fontSize: 13, color: plan.highlighted ? 'rgba(255,255,255,.55)' : 'var(--muted)', marginLeft: 4 }}>/mês</span>
+                  <span style={{ fontSize: 13, color: hl ? 'rgba(255,255,255,.55)' : 'var(--muted)', marginLeft: 4 }}>/mês</span>
                 </div>
                 <ul style={{ listStyle: 'none', flex: 1, marginBottom: 26 }}>
                   {(plan.features || []).map(f => (
-                    <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14, padding: '7px 0', color: plan.highlighted ? 'rgba(255,255,255,.85)' : 'var(--muted)', borderBottom: `1px solid ${plan.highlighted ? 'rgba(255,255,255,.12)' : 'var(--border)'}` }}>
-                      <CheckCircle size={14} style={{ color: plan.highlighted ? 'rgba(255,255,255,.7)' : 'var(--accent2)', flexShrink: 0, marginTop: 1 }} />
-                      {f}
+                    <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14, padding: '7px 0', color: hl ? 'rgba(255,255,255,.85)' : 'var(--muted)', borderBottom: `1px solid ${hl ? 'rgba(255,255,255,.12)' : 'var(--border)'}` }}>
+                      <CheckCircle size={14} style={{ color: hl ? 'rgba(255,255,255,.7)' : 'var(--accent2)', flexShrink: 0, marginTop: 1 }} />
+                      {FEATURE_LABELS[f] || f}
                     </li>
                   ))}
                 </ul>
                 <button onClick={go} style={{
                   width: '100%', padding: '13px 0', borderRadius: 12, fontWeight: 700, fontSize: 14,
-                  background: plan.highlighted ? '#fff' : 'var(--accent)',
-                  color: plan.highlighted ? 'var(--accent)' : '#fff',
+                  background: hl ? '#fff' : 'var(--accent)',
+                  color: hl ? 'var(--accent)' : '#fff',
                   border: 'none', cursor: 'pointer',
-                  boxShadow: plan.highlighted ? 'none' : '0 4px 14px rgba(99,85,216,.28)',
+                  boxShadow: hl ? 'none' : '0 4px 14px rgba(99,85,216,.28)',
                   transition: 'opacity .15s, transform .15s',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.opacity = '.88'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
@@ -601,7 +625,8 @@ export const LandingPage: React.FC = () => {
                   Começar
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
           )}
         </div>
