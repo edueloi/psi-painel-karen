@@ -195,11 +195,8 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
   const accentColor = p.profile_theme?.accent_color || C.accent;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => navigate(`/p/${p.public_slug}`)}
-      onKeyDown={e => e.key === 'Enter' && navigate(`/p/${p.public_slug}`)}
+    <a
+      href={`/p/${p.public_slug}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -208,6 +205,8 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
         borderRadius: 24,
         overflow: 'hidden',
         cursor: 'pointer',
+        textDecoration: 'none',
+        color: 'inherit',
         transition: 'box-shadow .25s, border-color .25s, transform .25s',
         boxShadow: hovered ? `0 16px 48px ${accentColor}22, 0 2px 8px rgba(0,0,0,.06)` : '0 1px 4px rgba(0,0,0,.04)',
         transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
@@ -353,7 +352,7 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
           </span>
         </div>
       </div>
-    </div>
+    </a>
   );
 };
 
