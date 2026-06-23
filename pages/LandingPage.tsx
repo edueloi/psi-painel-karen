@@ -182,9 +182,8 @@ export const LandingPage: React.FC = () => {
         .feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 
         /* Plan grid */
-        .plan-grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch; justify-content: center; max-width: 1000px; margin: 0 auto; }
-        .plan-card { flex: 1 1 260px; max-width: 320px; min-width: 240px; }
-        @media (max-width: 600px) { .plan-card { flex: 1 1 100%; max-width: 100%; } }
+        .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; align-items: stretch; }
+        @media (max-width: 520px) { .plan-grid { grid-template-columns: 1fr; } }
 
         /* Testimonials */
         .testi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
@@ -562,7 +561,7 @@ export const LandingPage: React.FC = () => {
 
       {/* ═══ PLANOS ═══ */}
       <section className="section" id="planos" style={{ background: '#fff' }}>
-        <div className="wrap-sm">
+        <div className="wrap">
           <div style={{ textAlign: 'center', marginBottom: 'clamp(40px,5vw,60px)' }}>
             <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Planos</span>
             <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
@@ -582,7 +581,7 @@ export const LandingPage: React.FC = () => {
             {plans.map(plan => {
               const hl = Boolean(plan.highlighted);
               return (
-              <div key={plan.id} className="plan-card" style={{
+              <div key={plan.id} style={{
                 background: hl ? 'var(--accent)' : '#fff',
                 border: `2px solid ${hl ? 'var(--accent)' : 'var(--border)'}`,
                 borderRadius: 22, padding: '30px 26px',
