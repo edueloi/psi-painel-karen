@@ -56,8 +56,9 @@ router.get('/me', async (req, res) => {
               u.two_factor_enabled, u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme,
               u.gender, u.cpf, u.cnpj,
               p.permissions as profile_permissions, p.slug as profile_slug,
-              pl.features as plan_features
-       FROM users u 
+              pl.features as plan_features,
+              t.trial_ends_at
+       FROM users u
        LEFT JOIN tenant_permission_profiles p ON u.tenant_profile_id = p.id
        LEFT JOIN tenants t ON u.tenant_id = t.id
        LEFT JOIN plans pl ON t.plan_id = pl.id

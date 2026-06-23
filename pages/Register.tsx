@@ -383,7 +383,7 @@ export const Register: React.FC = () => {
         <div className="relative z-10 flex items-center justify-center gap-3 p-10 pt-6">
           {[
             { value: '14 dias', label: 'Teste grátis' },
-            { value: 'Sem', label: 'Cartão de crédito' },
+            { value: 'Pix', label: 'ou assinatura' },
           ].map(({ value, label }) => (
             <div
               key={label}

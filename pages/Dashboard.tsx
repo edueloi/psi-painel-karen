@@ -766,8 +766,55 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  // Calcula dias restantes do trial
+  const trialBanner = (() => {
+    if (!user?.trialEndsAt || user.role === 'super_admin') return null;
+    const ends = new Date(user.trialEndsAt);
+    const diffMs = ends.getTime() - Date.now();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return null; // já bloqueado no login
+    return diffDays;
+  })();
+
   return (
     <PageWrapper className="space-y-4 sm:space-y-6">
+
+      {/* Banner de período de teste */}
+      {trialBanner !== null && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm"
+          style={{
+            background: trialBanner <= 3
+              ? 'linear-gradient(90deg, #7f1d1d22, #991b1b18)'
+              : 'linear-gradient(90deg, #1e1b4b33, #312e8133)',
+            border: `1px solid ${trialBanner <= 3 ? 'rgba(239,68,68,0.35)' : 'rgba(99,85,216,0.35)'}`,
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <Zap
+              size={16}
+              style={{ color: trialBanner <= 3 ? '#f87171' : '#a78bfa', flexShrink: 0 }}
+            />
+            <span style={{ color: trialBanner <= 3 ? '#fca5a5' : '#c4b5fd' }}>
+              {trialBanner <= 3
+                ? `Seu período de teste expira em ${trialBanner} dia${trialBanner === 1 ? '' : 's'}. Assine para não perder o acesso.`
+                : `Você está no período de teste gratuito — ${trialBanner} dia${trialBanner === 1 ? '' : 's'} restante${trialBanner === 1 ? '' : 's'}.`
+              }
+            </span>
+          </div>
+          <button
+            onClick={() => navigate('/assinatura')}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{
+              background: trialBanner <= 3 ? '#dc2626' : '#6355D8',
+              color: '#fff',
+            }}
+          >
+            Assinar agora
+          </button>
+        </div>
+      )}
+
       <SectionTitle
         title="Dashboard"
         description="Visão geral da agenda, indicadores e rotinas da clínica."
