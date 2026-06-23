@@ -11,7 +11,7 @@ const rateLimit = require('express-rate-limit');
 // Bloqueio de Força Bruta (Rate Limiters)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10, // Máximo de 10 tentativas por IP
+  max: 30, // 30 tentativas por IP por janela
   message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,

@@ -607,7 +607,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   }}
                 >
                   <span style={{ fontSize: '10px' }}>✦</span>
-                  14 dias grátis — sem cartão
+                  14 dias grátis para testar
                 </span>
                 <p className="text-sm text-slate-400">
                   Ainda não tem conta?{' '}
