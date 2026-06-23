@@ -382,9 +382,8 @@ export const Register: React.FC = () => {
         {/* Stats */}
         <div className="relative z-10 flex items-center justify-center gap-3 p-10 pt-6">
           {[
-            { value: '14 dias', label: 'Grátis' },
-            { value: '2k+',    label: 'Psicólogos' },
-            { value: '4.9★',   label: 'Avaliação' },
+            { value: '14 dias', label: 'Teste grátis' },
+            { value: 'Sem', label: 'Cartão de crédito' },
           ].map(({ value, label }) => (
             <div
               key={label}
