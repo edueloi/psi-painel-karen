@@ -20,23 +20,17 @@ const features = [
   { icon: MessageSquare, title: 'Mensagens',            desc: 'Comunicação interna e notificações automáticas para pacientes.',            color: '#0EA98B', bg: '#E6F7F4' },
 ];
 
-const plans = [
-  {
-    name: 'Starter', price: 'R$ 97', desc: 'Para profissionais autônomos',
-    items: ['1 profissional', 'Agenda completa', 'Prontuário digital', 'Salas virtuais', 'Suporte por e-mail'],
-    highlight: false, cta: 'Começar',
-  },
-  {
-    name: 'Pro', price: 'R$ 197', desc: 'Para clínicas em crescimento',
-    items: ['Até 5 profissionais', 'Tudo do Starter', 'Aurora IA', 'Relatórios avançados', 'PEI e documentos', 'Suporte prioritário'],
-    highlight: true, cta: 'Escolher Pro',
-  },
-  {
-    name: 'Clínica', price: 'R$ 397', desc: 'Para grandes equipes',
-    items: ['Profissionais ilimitados', 'Tudo do Pro', 'Multi-unidade', 'API de integração', 'Gerente de conta dedicado'],
-    highlight: false, cta: 'Falar com vendas',
-  },
-];
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+interface Plan {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  max_users: number;
+  features: string[];
+  highlighted: boolean;
+}
 
 const painPoints = [
   'Prontuários dispersos em papéis ou planilhas',
@@ -59,11 +53,19 @@ export const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/plans`)
+      .then(r => r.json())
+      .then((data: Plan[]) => { if (Array.isArray(data)) setPlans(data); })
+      .catch(() => {});
   }, []);
 
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
@@ -548,52 +550,60 @@ export const LandingPage: React.FC = () => {
             </p>
           </div>
 
+          {plans.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 14 }}>
+              Carregando planos...
+            </div>
+          ) : (
           <div className="plan-grid">
             {plans.map(plan => (
-              <div key={plan.name} style={{
-                background: plan.highlight ? 'var(--accent)' : '#fff',
-                border: `1.5px solid ${plan.highlight ? 'var(--accent)' : 'var(--border)'}`,
+              <div key={plan.id} style={{
+                background: plan.highlighted ? 'var(--accent)' : '#fff',
+                border: `1.5px solid ${plan.highlighted ? 'var(--accent)' : 'var(--border)'}`,
                 borderRadius: 22, padding: '30px 26px',
                 display: 'flex', flexDirection: 'column',
-                marginTop: plan.highlight ? -10 : 0,
-                marginBottom: plan.highlight ? -10 : 0,
-                boxShadow: plan.highlight ? '0 16px 56px rgba(99,85,216,.35)' : '0 1px 4px rgba(0,0,0,.04)',
+                marginTop: plan.highlighted ? -10 : 0,
+                marginBottom: plan.highlighted ? -10 : 0,
+                boxShadow: plan.highlighted ? '0 16px 56px rgba(99,85,216,.35)' : '0 1px 4px rgba(0,0,0,.04)',
                 transition: 'box-shadow .2s',
               }}>
-                {plan.highlight && (
+                {plan.highlighted && (
                   <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', marginBottom: 12 }}>
                     ⭐ Mais popular
                   </p>
                 )}
-                <h3 style={{ fontWeight: 700, fontSize: 18, color: plan.highlight ? '#fff' : 'var(--text)', marginBottom: 4 }}>{plan.name}</h3>
-                <p style={{ fontSize: 13, color: plan.highlight ? 'rgba(255,255,255,.65)' : 'var(--muted)', marginBottom: 22 }}>{plan.desc}</p>
+                <h3 style={{ fontWeight: 700, fontSize: 18, color: plan.highlighted ? '#fff' : 'var(--text)', marginBottom: 4 }}>{plan.name}</h3>
+                <p style={{ fontSize: 13, color: plan.highlighted ? 'rgba(255,255,255,.65)' : 'var(--muted)', marginBottom: 22 }}>{plan.description || ''}</p>
                 <div style={{ marginBottom: 24 }}>
-                  <span style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', color: plan.highlight ? '#fff' : 'var(--text)' }}>{plan.price}</span>
-                  <span style={{ fontSize: 13, color: plan.highlight ? 'rgba(255,255,255,.55)' : 'var(--muted)', marginLeft: 4 }}>/mês</span>
+                  <span style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', color: plan.highlighted ? '#fff' : 'var(--text)' }}>
+                    {Number(plan.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                  <span style={{ fontSize: 13, color: plan.highlighted ? 'rgba(255,255,255,.55)' : 'var(--muted)', marginLeft: 4 }}>/mês</span>
                 </div>
                 <ul style={{ listStyle: 'none', flex: 1, marginBottom: 26 }}>
-                  {plan.items.map(f => (
-                    <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14, padding: '7px 0', color: plan.highlight ? 'rgba(255,255,255,.85)' : 'var(--muted)', borderBottom: `1px solid ${plan.highlight ? 'rgba(255,255,255,.12)' : 'var(--border)'}` }}>
-                      <CheckCircle size={14} style={{ color: plan.highlight ? 'rgba(255,255,255,.7)' : 'var(--accent2)', flexShrink: 0, marginTop: 1 }} />
+                  {(plan.features || []).map(f => (
+                    <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14, padding: '7px 0', color: plan.highlighted ? 'rgba(255,255,255,.85)' : 'var(--muted)', borderBottom: `1px solid ${plan.highlighted ? 'rgba(255,255,255,.12)' : 'var(--border)'}` }}>
+                      <CheckCircle size={14} style={{ color: plan.highlighted ? 'rgba(255,255,255,.7)' : 'var(--accent2)', flexShrink: 0, marginTop: 1 }} />
                       {f}
                     </li>
                   ))}
                 </ul>
                 <button onClick={go} style={{
                   width: '100%', padding: '13px 0', borderRadius: 12, fontWeight: 700, fontSize: 14,
-                  background: plan.highlight ? '#fff' : 'var(--accent)',
-                  color: plan.highlight ? 'var(--accent)' : '#fff',
+                  background: plan.highlighted ? '#fff' : 'var(--accent)',
+                  color: plan.highlighted ? 'var(--accent)' : '#fff',
                   border: 'none', cursor: 'pointer',
-                  boxShadow: plan.highlight ? 'none' : '0 4px 14px rgba(99,85,216,.28)',
+                  boxShadow: plan.highlighted ? 'none' : '0 4px 14px rgba(99,85,216,.28)',
                   transition: 'opacity .15s, transform .15s',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.opacity = '.88'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                   onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                  {plan.cta}
+                  Começar
                 </button>
               </div>
             ))}
           </div>
+          )}
         </div>
       </section>
 

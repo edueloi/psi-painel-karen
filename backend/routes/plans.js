@@ -36,12 +36,12 @@ router.get('/all', authorize('super_admin'), async (req, res) => {
 // POST /plans
 router.post('/', authorize('super_admin'), async (req, res) => {
   try {
-    const { name, price, max_users, max_patients, features, description } = req.body;
+    const { name, price, max_users, max_patients, features, description, highlighted } = req.body;
     if (!name || price === undefined) return res.status(400).json({ error: 'Nome e preço são obrigatórios' });
 
     const [result] = await db.query(
-      'INSERT INTO plans (name, description, price, max_users, max_patients, features) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, description || null, price, max_users || 5, max_patients || 100, JSON.stringify(features || [])]
+      'INSERT INTO plans (name, description, price, max_users, max_patients, features, highlighted) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name, description || null, price, max_users || 5, max_patients || 100, JSON.stringify(features || []), highlighted ? 1 : 0]
     );
 
     const [plan] = await db.query('SELECT * FROM plans WHERE id = ?', [result.insertId]);
@@ -57,7 +57,7 @@ router.post('/', authorize('super_admin'), async (req, res) => {
 // PUT /plans/:id
 router.put('/:id', authorize('super_admin'), async (req, res) => {
   try {
-    const { name, description, price, max_users, max_patients, features, active } = req.body;
+    const { name, description, price, max_users, max_patients, features, active, highlighted } = req.body;
 
     await db.query(
       `UPDATE plans SET
@@ -67,12 +67,14 @@ router.put('/:id', authorize('super_admin'), async (req, res) => {
         max_users = COALESCE(?, max_users),
         max_patients = COALESCE(?, max_patients),
         features = COALESCE(?, features),
-        active = COALESCE(?, active)
+        active = COALESCE(?, active),
+        highlighted = COALESCE(?, highlighted)
        WHERE id = ?`,
       [
         name, description, price, max_users, max_patients,
         features !== undefined ? JSON.stringify(features) : undefined,
         active !== undefined ? active : undefined,
+        highlighted !== undefined ? (highlighted ? 1 : 0) : undefined,
         req.params.id
       ]
     );

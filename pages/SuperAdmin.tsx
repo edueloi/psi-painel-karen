@@ -306,7 +306,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   // plan modal
   const [planModal, setPlanModal]   = useState(false);
   const [editPlan, setEditPlan]     = useState<any>(null);
-  const [planForm, setPlanForm]     = useState({ name: '', description: '', price: '', max_users: '10', features: [] as string[] });
+  const [planForm, setPlanForm]     = useState({ name: '', description: '', price: '', max_users: '10', features: [] as string[], highlighted: false });
 
   // permission profile modal
   const [permModal, setPermModal]   = useState(false);
@@ -464,8 +464,8 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     });
   };
 
-  const openNewPlan  = () => { setError(''); setEditPlan(null); setPlanForm({ name: '', description: '', price: '', max_users: '10', features: [] }); setPlanModal(true); };
-  const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), max_users: String(p.max_users), features: p.features || [] }); setPlanModal(true); };
+  const openNewPlan  = () => { setError(''); setEditPlan(null); setPlanForm({ name: '', description: '', price: '', max_users: '10', features: [], highlighted: false }); setPlanModal(true); };
+  const openEditPlan = (p: any) => { setError(''); setEditPlan(p); setPlanForm({ name: p.name, description: p.description || '', price: Number(p.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), max_users: String(p.max_users), features: p.features || [], highlighted: !!p.highlighted }); setPlanModal(true); };
   
   const handleDeletePlan = (p: any) =>
     doConfirm({ message: `Remover plano "${p.name}"?`, detail: 'Esta ação removerá o plano. Se existirem clínicas usando este plano, ele será apenas desativado para novas adesões.', danger: true,
@@ -1575,6 +1575,17 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               />
             </div>
             <div>{lbl('Usuários')}<input type="number" className={inp} placeholder="10" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} /></div>
+            <div className="col-span-2">
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-indigo-300 transition" style={{ background: planForm.highlighted ? 'rgba(99,102,241,0.06)' : undefined }}>
+                <div onClick={() => setPlanForm({ ...planForm, highlighted: !planForm.highlighted })} className={`w-10 h-5 rounded-full flex items-center transition-all duration-200 px-0.5 ${planForm.highlighted ? 'bg-indigo-500' : 'bg-slate-200'}`} style={{ cursor: 'pointer' }}>
+                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${planForm.highlighted ? 'translate-x-5' : 'translate-x-0'}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-600 text-slate-700">Destaque no site</p>
+                  <p className="text-xs text-slate-400">Aparece como "Mais popular" na página de planos</p>
+                </div>
+              </label>
+            </div>
           </div>
           <div>
             {lbl('Funcionalidades')}
