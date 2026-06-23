@@ -232,6 +232,7 @@ export const LandingPage: React.FC = () => {
             <a href="#historia" className="nav-a">Nossa história</a>
             <a href="#funcionalidades" className="nav-a">Funcionalidades</a>
             <a href="#planos" className="nav-a">Planos</a>
+            <a href="/encontrar-psicologo" className="nav-a" style={{ color: 'var(--accent)', fontWeight: 600 }}>Encontrar Psicólogo</a>
           </div>
 
           {/* Desktop actions */}
@@ -261,7 +262,7 @@ export const LandingPage: React.FC = () => {
         {/* Mobile menu */}
         {menuOpen && (
           <div className="mob-menu">
-            {[['#historia', 'Nossa história'], ['#funcionalidades', 'Funcionalidades'], ['#planos', 'Planos']].map(([href, label]) => (
+            {[['#historia', 'Nossa história'], ['#funcionalidades', 'Funcionalidades'], ['#planos', 'Planos'], ['/encontrar-psicologo', 'Encontrar Psicólogo']].map(([href, label]) => (
               <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>
             ))}
             <button className="btn-p" onClick={go} style={{ marginTop: 14, justifyContent: 'center' }}>

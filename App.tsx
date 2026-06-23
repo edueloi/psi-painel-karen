@@ -24,6 +24,7 @@ import { FormsMetrics } from './pages/FormsMetrics';
 import { FormEditor } from './pages/FormEditor';
 import { FormResponses } from './pages/FormResponses';
 import { PublicProfile } from './pages/PublicProfile';
+import { PsychologistDirectory } from './pages/PsychologistDirectory';
 import { ExternalForm } from './pages/ExternalForm';
 import { PatientPortalLogin } from './pages/PatientPortalLogin';
 import { PatientPortal } from './pages/PatientPortal';
@@ -256,6 +257,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/f/anamnese" element={<AnamnesisPublic />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
       <Route path="/p/:slug" element={<PublicProfile />} />
+      <Route path="/encontrar-psicologo" element={<PsychologistDirectory />} />
 
       {/* Portal do Paciente */}
       <Route path="/portal" element={<PatientPortalLogin />} />

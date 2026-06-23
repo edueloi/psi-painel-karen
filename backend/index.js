@@ -65,6 +65,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/forms`, formsRoutes);
   app.use(`${prefix}/disc`, discRoutes);
   app.use(`${prefix}/public-profile`, require('./routes/public-profile'));
+  app.use(`${prefix}/directory`, require('./routes/directory'));
   // Token guest público (sem autenticação) — pacientes sem login
   app.get(`${prefix}/livekit/token-guest`, async (req, res) => {
     try {
