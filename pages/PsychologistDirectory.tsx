@@ -428,25 +428,39 @@ export const PsychologistDirectory: React.FC = () => {
       {/* ── NAVBAR ── */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 200,
-        height: 60,
+        height: 72,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px',
-        background: scrolled ? 'rgba(255,255,255,.92)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(16px) saturate(1.4)' : 'none',
+        padding: '0 32px',
+        background: scrolled ? 'rgba(255,255,255,.95)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(20px) saturate(1.6)' : 'none',
         borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
         transition: 'background .3s, border-color .3s, box-shadow .3s',
-        boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,.06)' : 'none',
+        boxShadow: scrolled ? '0 2px 24px rgba(0,0,0,.08)' : 'none',
       }}>
         {/* Logo */}
         <button
           onClick={() => navigate('/')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: 4 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '4px 6px', borderRadius: 10 }}
           aria-label="Página inicial PsiFlux"
         >
-          <img src={logoUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8 }} />
-          <span style={{ fontWeight: 900, fontSize: 15, color: '#fff', letterSpacing: '-0.03em', transition: 'color .3s' }}
-            ref={el => { if (el) el.style.color = scrolled ? C.text : '#fff'; }}>
-            Psi<span style={{ color: scrolled ? C.accent : '#B5AFFF' }}>Flux</span>
+          <div style={{
+            width: 42, height: 42, borderRadius: 12,
+            background: scrolled ? 'transparent' : 'rgba(255,255,255,.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden',
+            border: scrolled ? 'none' : '1px solid rgba(255,255,255,.15)',
+            transition: 'background .3s, border .3s',
+          }}>
+            <img src={logoUrl} alt="PsiFlux" style={{ width: 38, height: 38, objectFit: 'contain' }} />
+          </div>
+          <span style={{
+            fontWeight: 900, fontSize: 20,
+            letterSpacing: '-0.04em',
+            color: scrolled ? C.text : '#fff',
+            transition: 'color .3s',
+            lineHeight: 1,
+          }}>
+            Psi<span style={{ color: scrolled ? C.accent : '#A89DFF' }}>Flux</span>
           </span>
         </button>
 
@@ -454,14 +468,18 @@ export const PsychologistDirectory: React.FC = () => {
         <button
           onClick={() => navigate('/login')}
           style={{
-            background: scrolled ? C.accent : 'rgba(255,255,255,.15)',
-            backdropFilter: scrolled ? 'none' : 'blur(8px)',
+            background: scrolled ? C.accent : 'rgba(255,255,255,.12)',
+            backdropFilter: scrolled ? 'none' : 'blur(10px)',
             color: '#fff',
-            border: scrolled ? 'none' : '1px solid rgba(255,255,255,.25)',
-            borderRadius: 10, padding: '8px 20px',
-            fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            transition: 'background .2s',
+            border: scrolled ? 'none' : '1.5px solid rgba(255,255,255,.2)',
+            borderRadius: 12, padding: '10px 24px',
+            fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            letterSpacing: '-.01em',
+            transition: 'background .2s, box-shadow .2s',
+            boxShadow: scrolled ? `0 2px 12px ${C.accent}40` : 'none',
           }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = scrolled ? '#5447C4' : 'rgba(255,255,255,.22)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = scrolled ? C.accent : 'rgba(255,255,255,.12)'; }}
         >
           Entrar
         </button>
@@ -472,7 +490,7 @@ export const PsychologistDirectory: React.FC = () => {
         position: 'relative',
         background: '#0C0B1A',
         paddingTop: 80, paddingBottom: 96,
-        marginTop: -60,
+        marginTop: -72,
         overflow: 'hidden',
         textAlign: 'center',
       }}>
