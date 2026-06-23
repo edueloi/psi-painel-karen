@@ -196,11 +196,31 @@ const StatusBadge = ({ active, status, expires_at }: { active: boolean; status?:
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+const TAB_SLUGS: Record<Tab, string> = {
+  dashboard: 'dashboard', clients: 'parceiros', team: 'equipe',
+  permissions: 'permissoes', plans: 'planos', whatsapp: 'whatsapp',
+};
+const SLUG_TO_TAB: Record<string, Tab> = Object.fromEntries(
+  Object.entries(TAB_SLUGS).map(([k, v]) => [v, k as Tab])
+);
+
 export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'super_admin';
-  const [tab, setTab] = useState<Tab>('dashboard');
+
+  const getInitialTab = (): Tab => {
+    const slug = window.location.pathname.split('/').pop() || '';
+    return SLUG_TO_TAB[slug] || 'dashboard';
+  };
+
+  const [tab, setTab] = useState<Tab>(getInitialTab);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const changeTab = (id: Tab) => {
+    setTab(id);
+    setSidebarOpen(false);
+    window.history.pushState({}, '', `/painel-master/${TAB_SLUGS[id]}`);
+  };
   const [loading, setLoading] = useState(true);
   const [tenants, setTenants]           = useState<any[]>([]);
   const [plans, setPlans]               = useState<any[]>([]);
@@ -540,7 +560,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
         </div>
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {finalNav.map(({ id, label, Icon }) => (
-            <button key={id} onClick={() => { setTab(id as Tab); setSidebarOpen(false); }}
+            <button key={id} onClick={() => changeTab(id as Tab)}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${tab === id ? 'text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/8'}`}
               style={tab === id ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.35), rgba(139,92,246,0.25))', border: '1px solid rgba(99,102,241,0.4)' } : {}}>
               <Icon size={16} className={tab === id ? 'text-indigo-300' : ''} />
@@ -684,7 +704,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                         <p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><BarChart3 size={14} className="text-amber-500" /> Performance por Plano</p>
-                        <button onClick={() => setTab('plans')} className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1">Ver planos <ArrowUpRight size={11} /></button>
+                        <button onClick={() => changeTab('plans')} className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1">Ver planos <ArrowUpRight size={11} /></button>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[480px]">
@@ -1104,128 +1124,99 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-sm">
                       <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Package size={22} className="text-white" /></div>
                       <p className="text-slate-700 font-bold text-base">Nenhum plano criado</p>
-                      <p className="text-slate-400 text-sm mt-1 mb-5">Crie planos de assinatura que serão exibidos no site para pagamento</p>
-                      <button onClick={openNewPlan} className="inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={15} /> Criar primeiro plano</button>
+                      <p className="text-slate-400 text-sm mt-1 mb-5">Crie planos que serão exibidos no site para pagamento</p>
+                      <button onClick={openNewPlan} className="inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={15} /> Criar plano</button>
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {plans.map((p, i) => {
-                          const planGrad = [
-                            'linear-gradient(135deg, #4f46e5, #6366f1)',
-                            'linear-gradient(135deg, #059669, #10b981)',
-                            'linear-gradient(135deg, #d97706, #f59e0b)',
-                            'linear-gradient(135deg, #0284c7, #38bdf8)',
-                            'linear-gradient(135deg, #7c3aed, #8b5cf6)',
-                          ][i % 5];
-                          const monthlyPrice = Number(p.price);
-                          const displayPrice = billingPeriod === 'annual' ? monthlyPrice * 0.8 : monthlyPrice;
-                          const annualTotal = (monthlyPrice * 0.8 * 12).toFixed(2);
-                          const isPopular = i === 1 || (plans.length === 1);
-                          return (
-                            <div key={p.id} className={`bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 ${!p.active ? 'opacity-60' : ''} ${isPopular ? 'ring-2 ring-indigo-500 ring-offset-2' : 'border border-slate-200'}`}>
-                              {isPopular && (
-                                <div className="text-center py-1.5 text-[10px] font-black uppercase tracking-widest text-white" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                                  ⭐ Mais Popular
-                                </div>
-                              )}
-                              {/* Top colorido */}
-                              <div className="p-5 pb-4" style={{ background: planGrad }}>
-                                <div className="flex items-start justify-between mb-3">
-                                  <div>
-                                    <h3 className="font-black text-white text-lg leading-tight">{p.name}</h3>
-                                    {p.description && <p className="text-white/70 text-xs mt-0.5">{p.description}</p>}
-                                  </div>
-                                  <div className="flex gap-1 flex-shrink-0">
-                                    <button onClick={() => openEditPlan(p)} className="p-1.5 rounded-lg transition" style={{ background: 'rgba(255,255,255,0.15)' }}><Edit2 size={12} className="text-white" /></button>
-                                    <button onClick={() => handleDeletePlan(p)} className="p-1.5 rounded-lg transition" style={{ background: 'rgba(255,255,255,0.15)' }}><Trash2 size={12} className="text-white" /></button>
-                                  </div>
-                                </div>
-                                <div className="flex items-end gap-1">
-                                  <span className="text-3xl font-black text-white">{fmt(displayPrice)}</span>
-                                  <span className="text-white/60 text-xs mb-1.5">/mês</span>
-                                </div>
-                                {billingPeriod === 'annual' && (
-                                  <div className="mt-1">
-                                    <span className="text-white/50 line-through text-xs">{fmt(monthlyPrice)}/mês</span>
-                                    <span className="ml-2 text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">R$ {annualTotal}/ano</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="p-5">
-                                <div className="flex items-center gap-3 text-xs text-slate-500 mb-4 pb-4 border-b border-slate-100">
-                                  <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-lg font-semibold"><Users size={11} className="text-slate-400" />{p.max_users === 999 ? '∞' : p.max_users} usuários</span>
-                                  {p.active ? (
-                                    <span className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 px-2.5 py-1 rounded-lg font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Ativo</span>
-                                  ) : (
-                                    <span className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 text-slate-400 px-2.5 py-1 rounded-lg font-semibold">Inativo</span>
-                                  )}
-                                </div>
-                                <div className="space-y-1.5">
-                                  {(() => {
-                                    const activeFeatures = (p.features || []).filter((fk: string) => fk !== 'pacientes');
-                                    return (
-                                      <>
-                                        {activeFeatures.slice(0, 6).map((f: string) => {
-                                          const opt = FEATURES_OPTIONS.find(o => o.key === f);
-                                          return <div key={f} className="flex items-center gap-2 text-xs text-slate-600"><CheckCircle size={12} className="text-emerald-500 flex-shrink-0" />{opt?.label || f}</div>;
-                                        })}
-                                        {activeFeatures.length > 6 && (
-                                          <p className="text-xs text-indigo-500 font-semibold pl-1">+{activeFeatures.length - 6} funcionalidades incluídas</p>
-                                        )}
-                                      </>
-                                    );
-                                  })()}
-                                </div>
-                                <div className="mt-5 pt-4 border-t border-slate-100 flex gap-2">
-                                  <button onClick={() => openEditPlan(p)} className="flex-1 py-2 rounded-xl text-xs font-bold transition border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1.5">
-                                    <Edit2 size={12} /> Editar
-                                  </button>
-                                  <button className="flex-1 py-2 rounded-xl text-xs font-bold transition text-white flex items-center justify-center gap-1.5" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                                    <Globe size={12} /> Publicar
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Seção de integração de pagamento */}
+                      {/* Grade de planos — layout horizontal limpo */}
                       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                              <DollarSign size={15} className="text-white" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-slate-800">Integração de Pagamento</p>
-                              <p className="text-xs text-slate-400">Configure cobrança automática recorrente</p>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-amber-200 text-amber-600 bg-amber-50">Em breve</span>
+                          <p className="text-sm font-bold text-slate-700">{plans.length} plano{plans.length !== 1 ? 's' : ''} ativos</p>
+                          <button onClick={openNewPlan} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition">
+                            <Plus size={13} /> Novo plano
+                          </button>
                         </div>
-                        <div className="p-6">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {[
-                              { icon: '💳', title: 'Stripe', desc: 'Cartão de crédito, boleto, Pix. Cobrança mensal ou anual automática.', ready: false },
-                              { icon: '🏦', title: 'Asaas', desc: 'Boleto bancário, Pix e cartão. Integração nacional simplificada.', ready: false },
-                              { icon: '🔗', title: 'Hotmart / Eduzz', desc: 'Checkout externo. Ativação automática via webhook.', ready: false },
-                            ].map(g => (
-                              <div key={g.title} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
-                                <div className="text-2xl flex-shrink-0">{g.icon}</div>
-                                <div>
-                                  <p className="text-sm font-bold text-slate-700">{g.title}</p>
-                                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{g.desc}</p>
-                                  <button disabled className="mt-2 text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg cursor-not-allowed">Configurar</button>
+                        <div className="divide-y divide-slate-50">
+                          {plans.map((p, i) => {
+                            const accent = CHART_COLORS[i % CHART_COLORS.length];
+                            const monthlyPrice = Number(p.price);
+                            const displayPrice = billingPeriod === 'annual' ? monthlyPrice * 0.8 : monthlyPrice;
+                            const activeFeatures = (p.features || []).filter((fk: string) => fk !== 'pacientes');
+                            return (
+                              <div key={p.id} className={`flex items-center gap-5 px-6 py-4 hover:bg-slate-50/70 transition-colors ${!p.active ? 'opacity-50' : ''}`}>
+                                {/* Cor + nome */}
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: accent + '20' }}>
+                                    <Package size={17} style={{ color: accent }} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-slate-800 text-sm truncate">{p.name}</p>
+                                    <p className="text-[11px] text-slate-400 truncate">{p.description || `${p.max_users === 999 ? '∞' : p.max_users} usuários`}</p>
+                                  </div>
+                                </div>
+                                {/* Preço */}
+                                <div className="text-right flex-shrink-0 hidden sm:block w-32">
+                                  <p className="text-lg font-black text-slate-800">{fmt(displayPrice)}</p>
+                                  <p className="text-[10px] text-slate-400">/mês{billingPeriod === 'annual' ? ' (anual)' : ''}</p>
+                                </div>
+                                {/* Usuários */}
+                                <div className="flex-shrink-0 hidden md:block w-24 text-center">
+                                  <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg font-semibold">
+                                    <Users size={10} /> {p.max_users === 999 ? '∞' : p.max_users}
+                                  </span>
+                                </div>
+                                {/* Features */}
+                                <div className="flex-shrink-0 hidden lg:flex items-center gap-1 flex-wrap w-52">
+                                  {activeFeatures.slice(0, 3).map((f: string) => {
+                                    const opt = FEATURES_OPTIONS.find(o => o.key === f);
+                                    return <span key={f} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-medium">{opt?.label || f}</span>;
+                                  })}
+                                  {activeFeatures.length > 3 && <span className="text-[10px] text-indigo-500 font-bold">+{activeFeatures.length - 3}</span>}
+                                </div>
+                                {/* Status */}
+                                <div className="flex-shrink-0">
+                                  {p.active
+                                    ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Ativo</span>
+                                    : <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">Inativo</span>}
+                                </div>
+                                {/* Ações */}
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <button onClick={() => openEditPlan(p)} className="p-2 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition"><Edit2 size={14} /></button>
+                                  <button onClick={() => handleDeletePlan(p)} className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition"><Trash2 size={14} /></button>
                                 </div>
                               </div>
-                            ))}
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Integração de pagamento */}
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><DollarSign size={14} className="text-white" /></div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">Gateway de Pagamento</p>
+                              <p className="text-xs text-slate-400">Cobrança automática recorrente mensal ou anual</p>
+                            </div>
                           </div>
-                          <div className="mt-4 flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3">
-                            <Info size={14} className="text-indigo-500 flex-shrink-0" />
-                            <p className="text-xs text-indigo-700">Após configurar a integração, ao criar ou editar um plano você poderá vincular o produto no gateway de pagamento. A ativação/suspensão do acesso das clínicas será automática com base nos pagamentos recebidos.</p>
-                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-amber-200 text-amber-600 bg-amber-50">Em breve</span>
+                        </div>
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {[
+                            { icon: '💳', title: 'Stripe', desc: 'Cartão, boleto, Pix — recorrência automática.' },
+                            { icon: '🏦', title: 'Asaas', desc: 'Gateway nacional. Boleto, Pix e cartão.' },
+                            { icon: '🔗', title: 'Hotmart / Eduzz', desc: 'Checkout externo via webhook.' },
+                          ].map(g => (
+                            <div key={g.title} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                              <span className="text-2xl flex-shrink-0">{g.icon}</span>
+                              <div>
+                                <p className="text-sm font-bold text-slate-700">{g.title}</p>
+                                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{g.desc}</p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </>
@@ -1235,187 +1226,119 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
               {/* ══ WHATSAPP BOT ══ */}
               {tab === 'whatsapp' && canAccessWpp && (
-                <div className="max-w-4xl space-y-6">
-                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center shadow-lg shadow-emerald-50">
-                          <Phone size={24} className="text-emerald-600" />
+                <div className="max-w-3xl space-y-4">
+                  {/* Status card */}
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    {/* Header colorido com status */}
+                    <div className="px-6 py-5 flex items-center justify-between" style={{ background: wppStatus.status === 'connected' ? 'linear-gradient(135deg, #059669, #10b981)' : wppStatus.status === 'connecting' ? 'linear-gradient(135deg, #d97706, #f59e0b)' : 'linear-gradient(135deg, #475569, #64748b)' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                          <Phone size={20} className="text-white" />
                         </div>
                         <div>
-                          <h2 className="text-lg font-bold text-slate-800">Status do WhatsApp Global</h2>
-                          <p className="text-xs text-slate-400">Instância Master para Notificações do Sistema</p>
+                          <p className="font-bold text-white text-base">WhatsApp Bot</p>
+                          <p className="text-white/70 text-xs">Instância Master — Notificações</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {wppStatus.status === 'connected' ? (
-                          <span className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-bold bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-full">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            CONECTADO
-                          </span>
-                        ) : wppStatus.status === 'connecting' ? (
-                          <span className="inline-flex items-center gap-1.5 text-amber-700 text-xs font-bold bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full">
-                            <Loader2 size={13} className="animate-spin text-amber-500" />
-                            AGUARDANDO...
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-bold bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full">
-                            <span className="w-2 h-2 rounded-full bg-slate-400" />
-                            DESCONECTADO
-                          </span>
-                        )}
+                      <div>
+                        {wppStatus.status === 'connected'
+                          ? <span className="inline-flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full"><span className="w-2 h-2 rounded-full bg-white animate-pulse" />CONECTADO</span>
+                          : wppStatus.status === 'connecting'
+                          ? <span className="inline-flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full"><Loader2 size={12} className="animate-spin" />AGUARDANDO QR</span>
+                          : <span className="inline-flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full"><span className="w-2 h-2 rounded-full bg-white/60" />DESCONECTADO</span>}
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-                          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-2">
-                            <Info size={14} className="text-indigo-500" /> Informações
-                          </h3>
-                          <p className="text-xs text-slate-500 leading-relaxed">
-                            Este bot é responsável por enviar lembretes de agendamento automáticos para os profissionais 60 minutos antes das sessões em todas as clínicas.
-                          </p>
-                        </div>
-
-                        {wppStatus.status === 'connected' && wppStatus.phone && (
-                          <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
-                            <p className="text-xs font-semibold text-emerald-700 mb-1 uppercase tracking-wider">Número Conectado</p>
-                            <p className="text-lg font-bold text-emerald-800">{wppStatus.phone}</p>
-                          </div>
-                        )}
-
-                        <div className="flex flex-col gap-3">
-                          {wppStatus.status === 'disconnected' ? (
-                            <button
-                              onClick={handleWppConnect}
-                              disabled={loadingWpp}
-                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
-                            >
-                              {loadingWpp ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-                              Gerar Novo QR Code
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                onClick={handleWppDisconnect}
-                                disabled={loadingWpp}
-                                className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl transition border border-red-100 flex items-center justify-center gap-2"
-                              >
-                                {loadingWpp ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
-                                Desconectar Instância
-                              </button>
-
-                              {wppStatus.status === 'connected' && (
-                                <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-2">
-                                  <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest px-1">Teste de Envio</p>
-                                  <div className="flex gap-2">
-                                    <input
-                                      type="text"
-                                      placeholder="(00) 00000-0000"
-                                      id="testPhone"
-                                      onChange={(e) => {
-                                        let v = e.target.value.replace(/\D/g, '');
-                                        if (v.length > 11) v = v.slice(0, 11);
-                                        if (v.length > 2) v = `(${v.slice(0, 2)}) ${v.slice(2)}`;
-                                        if (v.length > 9) v = `${v.slice(0, 10)}-${v.slice(10)}`;
-                                        e.target.value = v;
-                                      }}
-                                      className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400"
-                                    />
-                                    <button
-                                      onClick={async () => {
-                                        const phone = (document.getElementById('testPhone') as HTMLInputElement).value;
-                                        if (!phone) return toast('Insira um número', 'info');
-                                        try {
-                                          await api.post('/whatsapp/test', { phone, message: '🚀 Teste de conexão PsiFlux: O bot está operando corretamente!' });
-                                          toast('Mensagem de teste enviada!');
-                                        } catch { toast('Erro ao enviar teste', 'error'); }
-                                      }}
-                                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm"
-                                    >
-                                      Testar
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          
-                          {(wppStatus.status === 'connecting' || wppStatus.status === 'connected') && (
-                            <button
-                              onClick={loadWppStatus}
-                              className="w-full bg-white border border-slate-200 text-slate-600 font-bold py-2 rounded-xl text-xs hover:bg-slate-50 transition flex items-center justify-center gap-2"
-                            >
-                              <RefreshCw size={14} /> Atualizar Status
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl p-6 bg-slate-50/30">
-                        {(wppStatus.status === 'connecting' || wppStatus.qrcode) && wppStatus.qrcode ? (
-                          <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100">
-                            <img src={wppStatus.qrcode} alt="WhatsApp QR Code" className="w-64 h-64" />
-                            <p className="text-[10px] text-center text-slate-400 mt-3 font-medium uppercase tracking-widest">Escaneie pelo WhatsApp</p>
-                          </div>
-                        ) : wppStatus.status === 'connected' ? (
-                          <div className="text-center">
-                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-lg">
-                              <CheckCircle size={32} className="text-emerald-500" />
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          {wppStatus.status === 'connected' && wppStatus.phone && (
+                            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+                              <CheckCircle size={16} className="text-emerald-500 flex-shrink-0" />
+                              <div>
+                                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Número ativo</p>
+                                <p className="text-sm font-bold text-emerald-800">{wppStatus.phone}</p>
+                              </div>
                             </div>
-                            <p className="text-slate-700 font-bold">Bot em Operação</p>
-                            <p className="text-xs text-slate-400 mt-1">Pronto para enviar mensagens</p>
+                          )}
+                          <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
+                            Envia lembretes automáticos 60 min antes das sessões para todos os profissionais cadastrados nas clínicas.
+                          </p>
+                          <div className="flex flex-col gap-2">
+                            {wppStatus.status === 'disconnected' ? (
+                              <button onClick={handleWppConnect} disabled={loadingWpp}
+                                className="w-full text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm"
+                                style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
+                                {loadingWpp ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Conectar WhatsApp
+                              </button>
+                            ) : (
+                              <>
+                                <button onClick={handleWppDisconnect} disabled={loadingWpp}
+                                  className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-xl transition border border-red-100 flex items-center justify-center gap-2 text-sm">
+                                  {loadingWpp ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />} Desconectar
+                                </button>
+                                {wppStatus.status === 'connected' && (
+                                  <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Enviar teste</p>
+                                    <div className="flex gap-2">
+                                      <input type="text" placeholder="(00) 00000-0000" id="testPhone"
+                                        onChange={e => { let v = e.target.value.replace(/\D/g,''); if(v.length>11)v=v.slice(0,11); if(v.length>2)v=`(${v.slice(0,2)}) ${v.slice(2)}`; if(v.length>9)v=`${v.slice(0,10)}-${v.slice(10)}`; e.target.value=v; }}
+                                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-300" />
+                                      <button onClick={async () => { const ph=(document.getElementById('testPhone') as HTMLInputElement).value; if(!ph) return toast('Insira um número','info'); try { await api.post('/whatsapp/test',{phone:ph,message:'🚀 Teste PsiFlux: Bot operando!'}); toast('Enviado!'); } catch { toast('Erro','error'); }}}
+                                        className="text-white px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                                        Testar
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {(wppStatus.status === 'connecting' || wppStatus.status === 'connected') && (
+                              <button onClick={loadWppStatus} className="w-full bg-slate-50 border border-slate-200 text-slate-500 font-semibold py-2 rounded-xl text-xs hover:bg-slate-100 transition flex items-center justify-center gap-2">
+                                <RefreshCw size={12} /> Atualizar status
+                              </button>
+                            )}
                           </div>
-                        ) : (
-                          <div className="text-center opacity-40">
-                            <Phone size={48} className="text-slate-300 mx-auto mb-4" />
-                            <p className="text-sm font-semibold text-slate-400">Instância Desconectada</p>
-                          </div>
-                        )}
+                        </div>
+                        {/* QR Code panel */}
+                        <div className="flex items-center justify-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl min-h-[180px]">
+                          {wppStatus.qrcode ? (
+                            <div className="bg-white p-3 rounded-xl shadow-lg border border-slate-100">
+                              <img src={wppStatus.qrcode} alt="QR Code" className="w-52 h-52" />
+                              <p className="text-[9px] text-center text-slate-400 mt-2 font-bold uppercase tracking-widest">Escaneie no WhatsApp</p>
+                            </div>
+                          ) : wppStatus.status === 'connected' ? (
+                            <div className="text-center">
+                              <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3"><CheckCircle size={28} className="text-emerald-500" /></div>
+                              <p className="text-sm font-bold text-slate-700">Bot ativo</p>
+                              <p className="text-xs text-slate-400 mt-1">Enviando mensagens</p>
+                            </div>
+                          ) : (
+                            <div className="text-center opacity-40">
+                              <Phone size={36} className="text-slate-300 mx-auto mb-2" />
+                              <p className="text-xs text-slate-400">Desconectado</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                          <Calendar size={15} className="text-indigo-600" />
+                  {/* Info cards */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { Icon: Calendar, color: '#6366f1', bg: '#eef2ff', title: 'Antecedência', value: '60 min' },
+                      { Icon: Users, color: '#0284c7', bg: '#f0f9ff', title: 'Destinatários', value: 'Profissionais' },
+                      { Icon: Check, color: '#059669', bg: '#f0fdf4', title: 'Sistema', value: 'Ativo' },
+                    ].map(c => (
+                      <div key={c.title} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.bg }}>
+                            <c.Icon size={13} style={{ color: c.color }} />
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{c.title}</p>
                         </div>
-                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Antecedência</h4>
+                        <p className="text-sm font-bold text-slate-700">{c.value}</p>
                       </div>
-                      <p className="text-slate-400 text-[10px] mb-2 leading-relaxed">Tempo antes da sessão para o envio do lembrete.</p>
-                      <div className="bg-slate-50 rounded-lg py-2 text-center text-sm font-bold text-slate-700 border border-slate-100">
-                        60 Minutos
-                      </div>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
-                          <Users size={15} className="text-sky-600" />
-                        </div>
-                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Destinatários</h4>
-                      </div>
-                      <p className="text-slate-400 text-[10px] mb-2 leading-relaxed">Quem receberá as notificações automáticas.</p>
-                      <div className="bg-slate-50 rounded-lg py-2 text-center text-sm font-bold text-slate-700 border border-slate-200">
-                        Profissionais
-                      </div>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-                          <Check size={15} className="text-emerald-600" />
-                        </div>
-                        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Logs</h4>
-                      </div>
-                      <p className="text-slate-400 text-[10px] mb-2 leading-relaxed">Última checagem do sistema de notificações.</p>
-                      <div className="bg-slate-50 rounded-lg py-2 text-center text-sm font-bold text-slate-700 border border-slate-200">
-                        Ativa (Real-time)
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
