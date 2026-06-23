@@ -1575,16 +1575,18 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               />
             </div>
             <div>{lbl('Usuários')}<input type="number" className={inp} placeholder="10" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} /></div>
+            <div className="col-span-2">
+              <label onClick={() => setPlanForm({ ...planForm, highlighted: !planForm.highlighted })} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all" style={{ borderColor: planForm.highlighted ? '#6366f1' : '#e2e8f0', background: planForm.highlighted ? 'rgba(99,102,241,0.06)' : '#fff' }}>
+                <div className={`w-10 h-5 rounded-full flex items-center transition-all duration-200 px-0.5 flex-shrink-0 ${planForm.highlighted ? 'bg-indigo-500' : 'bg-slate-200'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${planForm.highlighted ? 'translate-x-5' : 'translate-x-0'}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: planForm.highlighted ? '#4f46e5' : '#374151' }}>⭐ Destaque no site — "Mais popular"</p>
+                  <p className="text-xs text-slate-400">Este plano aparecerá em destaque (roxo) na página de planos do site</p>
+                </div>
+              </label>
+            </div>
           </div>
-          <label onClick={() => setPlanForm({ ...planForm, highlighted: !planForm.highlighted })} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all" style={{ borderColor: planForm.highlighted ? '#6366f1' : '#e2e8f0', background: planForm.highlighted ? 'rgba(99,102,241,0.06)' : '#fff' }}>
-            <div className={`w-10 h-5 rounded-full flex items-center transition-all duration-200 px-0.5 flex-shrink-0 ${planForm.highlighted ? 'bg-indigo-500' : 'bg-slate-200'}`}>
-              <div className={`w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${planForm.highlighted ? 'translate-x-5' : 'translate-x-0'}`} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: planForm.highlighted ? '#4f46e5' : '#374151' }}>⭐ Destaque no site</p>
-              <p className="text-xs text-slate-400">Aparece como "Mais popular" na página de planos</p>
-            </div>
-          </label>
           <div>
             {lbl('Funcionalidades')}
             <div className="space-y-3 mt-1">

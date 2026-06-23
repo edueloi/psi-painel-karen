@@ -66,6 +66,15 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/disc`, discRoutes);
   app.use(`${prefix}/public-profile`, require('./routes/public-profile'));
   app.use(`${prefix}/directory`, require('./routes/directory'));
+  // Planos públicos para landing page (sem auth)
+  app.get(`${prefix}/plans`, async (req, res) => {
+    try {
+      const db = require('./db');
+      const [plans] = await db.query('SELECT * FROM plans WHERE active = true ORDER BY price');
+      for (const p of plans) { try { p.features = JSON.parse(p.features); } catch { p.features = []; } }
+      res.json(plans);
+    } catch (err) { res.status(500).json({ error: 'Erro ao buscar planos' }); }
+  });
   // Token guest público (sem autenticação) — pacientes sem login
   app.get(`${prefix}/livekit/token-guest`, async (req, res) => {
     try {
