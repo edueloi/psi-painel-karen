@@ -182,8 +182,9 @@ export const LandingPage: React.FC = () => {
         .feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 
         /* Plan grid */
-        .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: center; max-width: 900px; margin: 0 auto; }
-        @media (max-width: 720px) { .plan-grid { grid-template-columns: 1fr; max-width: 420px; } }
+        .plan-grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch; justify-content: center; max-width: 1000px; margin: 0 auto; }
+        .plan-card { flex: 1 1 260px; max-width: 320px; min-width: 240px; }
+        @media (max-width: 600px) { .plan-card { flex: 1 1 100%; max-width: 100%; } }
 
         /* Testimonials */
         .testi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
@@ -581,13 +582,11 @@ export const LandingPage: React.FC = () => {
             {plans.map(plan => {
               const hl = Boolean(plan.highlighted);
               return (
-              <div key={plan.id} style={{
+              <div key={plan.id} className="plan-card" style={{
                 background: hl ? 'var(--accent)' : '#fff',
-                border: `1.5px solid ${hl ? 'var(--accent)' : 'var(--border)'}`,
+                border: `2px solid ${hl ? 'var(--accent)' : 'var(--border)'}`,
                 borderRadius: 22, padding: '30px 26px',
                 display: 'flex', flexDirection: 'column',
-                marginTop: hl ? -12 : 0,
-                marginBottom: hl ? -12 : 0,
                 boxShadow: hl ? '0 20px 60px rgba(99,85,216,.38)' : '0 1px 4px rgba(0,0,0,.04)',
                 transition: 'box-shadow .2s',
               }}>
