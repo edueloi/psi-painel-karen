@@ -199,7 +199,13 @@ router.get('/', async (req, res) => {
     let query = 'SELECT * FROM uploads WHERE tenant_id = ?';
     const params = [req.user.tenant_id];
 
-    if (patient_id) { query += ' AND patient_id = ?'; params.push(patient_id); }
+    if (patient_id) {
+      query += ' AND patient_id = ?';
+      params.push(patient_id);
+    } else {
+      // Tela da clínica: só docs sem paciente vinculado
+      query += ' AND (patient_id IS NULL OR patient_id = 0)';
+    }
     query += ' ORDER BY created_at DESC';
 
     const [uploads] = await db.query(query, params);
