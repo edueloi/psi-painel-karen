@@ -835,20 +835,64 @@ const RoomInner: React.FC<{
   const camOn = isCameraEnabled;
   const room = useRoomContext();
 
-  // Só desliga câmera/mic se o usuário os deixou desligados no lobby.
-  // Aguarda 2s para o LiveKit terminar de publicar os tracks antes de desligar,
-  // evitando que setCameraEnabled(false) cancele uma publicação ainda em andamento.
+  // Garante estado correto de câmera/mic após conectar ao LiveKit.
+  // Aguarda 2.5s para a publicação inicial dos tracks completar antes de agir.
+  // Se initialCam=true mas isCameraEnabled ainda false (falhou na publicação),
+  // força setCameraEnabled(true) para recuperar a câmera.
   useEffect(() => {
-    if (initialCam && initialMic) return; // nada a desligar
     const timer = setTimeout(async () => {
       try {
-        if (!initialCam) await localParticipant.setCameraEnabled(false);
-        if (!initialMic) await localParticipant.setMicrophoneEnabled(false);
+        if (initialCam && !localParticipant.isCameraEnabled) {
+          // Câmera deveria estar ligada mas não está — força publicação
+          await localParticipant.setCameraEnabled(true);
+        } else if (!initialCam && localParticipant.isCameraEnabled) {
+          await localParticipant.setCameraEnabled(false);
+        }
+        if (initialMic && !localParticipant.isMicrophoneEnabled) {
+          await localParticipant.setMicrophoneEnabled(true);
+        } else if (!initialMic && localParticipant.isMicrophoneEnabled) {
+          await localParticipant.setMicrophoneEnabled(false);
+        }
       } catch {}
-    }, 2000);
+    }, 2500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Watchdog: se a câmera deveria estar ligada mas ficou desligada após conexão,
+  // tenta religar automaticamente por até 15s (a cada 3s).
+  const camWatchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const camWatchdogAttemptsRef = useRef(0);
+  useEffect(() => {
+    if (!initialCam) return; // usuário escolheu câmera desligada — não interfere
+    if (isCameraEnabled) {
+      // Câmera está ligada — para watchdog se estava rodando
+      if (camWatchdogRef.current) {
+        clearInterval(camWatchdogRef.current);
+        camWatchdogRef.current = null;
+        camWatchdogAttemptsRef.current = 0;
+      }
+      return;
+    }
+    // Câmera desligada mas deveria estar ligada — inicia watchdog
+    if (camWatchdogRef.current) return; // já rodando
+    camWatchdogRef.current = setInterval(async () => {
+      camWatchdogAttemptsRef.current += 1;
+      if (camWatchdogAttemptsRef.current > 5) {
+        clearInterval(camWatchdogRef.current!);
+        camWatchdogRef.current = null;
+        return;
+      }
+      if (!localParticipant.isCameraEnabled && !camTogglingRef.current) {
+        camTogglingRef.current = true;
+        try { await localParticipant.setCameraEnabled(true); } catch {}
+        finally { camTogglingRef.current = false; }
+      }
+    }, 3000);
+    return () => {
+      if (camWatchdogRef.current) clearInterval(camWatchdogRef.current);
+    };
+  }, [isCameraEnabled, initialCam, localParticipant]);
 
   // Detecta screen share ativo (local ou remoto) — hooks sempre chamados
   const localHasScreen = useHasScreenShare(localParticipant.identity);
