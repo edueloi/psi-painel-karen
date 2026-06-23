@@ -835,16 +835,36 @@ const RoomInner: React.FC<{
   const camOn = isCameraEnabled;
   const room = useRoomContext();
 
-  // Garante estado correto de câmera/mic após conectar ao LiveKit.
-  // Aguarda 2.5s para a publicação inicial dos tracks completar antes de agir.
-  // Se initialCam=true mas isCameraEnabled ainda false (falhou na publicação),
-  // força setCameraEnabled(true) para recuperar a câmera.
+  // LOG: estado inicial ao montar RoomInner
   useEffect(() => {
-    const timer = setTimeout(async () => {
+    console.log('[CAM-DEBUG] RoomInner montado', {
+      initialCam,
+      initialMic,
+      isCameraEnabled: localParticipant.isCameraEnabled,
+      isMicrophoneEnabled: localParticipant.isMicrophoneEnabled,
+      identity: localParticipant.identity,
+      trackPublications: Array.from(localParticipant.trackPublications.values()).map(t => ({
+        source: t.source, muted: t.isMuted, subscribed: t.isSubscribed, kind: t.kind
+      })),
+    });
+
+    // Após 1s, 2.5s e 5s — log do estado real da câmera
+    [1000, 2500, 5000].forEach(delay => {
+      setTimeout(() => {
+        const tracks = Array.from(localParticipant.trackPublications.values());
+        console.log(`[CAM-DEBUG] t+${delay}ms`, {
+          isCameraEnabled: localParticipant.isCameraEnabled,
+          tracks: tracks.map(t => ({ source: t.source, muted: t.isMuted, kind: t.kind })),
+        });
+      }, delay);
+    });
+
+    const apply = async () => {
       try {
         if (initialCam && !localParticipant.isCameraEnabled) {
-          // Câmera deveria estar ligada mas não está — força publicação
+          console.log('[CAM-DEBUG] t+2500ms: forcando setCameraEnabled(true)');
           await localParticipant.setCameraEnabled(true);
+          console.log('[CAM-DEBUG] setCameraEnabled(true) concluido, isCameraEnabled=', localParticipant.isCameraEnabled);
         } else if (!initialCam && localParticipant.isCameraEnabled) {
           await localParticipant.setCameraEnabled(false);
         }
@@ -853,20 +873,27 @@ const RoomInner: React.FC<{
         } else if (!initialMic && localParticipant.isMicrophoneEnabled) {
           await localParticipant.setMicrophoneEnabled(false);
         }
-      } catch {}
-    }, 2500);
+      } catch (err) {
+        console.error('[CAM-DEBUG] erro no apply:', err);
+      }
+    };
+    const timer = setTimeout(apply, 2500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // LOG: toda mudança de isCameraEnabled
+  useEffect(() => {
+    console.log('[CAM-DEBUG] isCameraEnabled mudou =>', isCameraEnabled);
+  }, [isCameraEnabled]);
 
   // Watchdog: se a câmera deveria estar ligada mas ficou desligada após conexão,
   // tenta religar automaticamente por até 15s (a cada 3s).
   const camWatchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const camWatchdogAttemptsRef = useRef(0);
   useEffect(() => {
-    if (!initialCam) return; // usuário escolheu câmera desligada — não interfere
+    if (!initialCam) return;
     if (isCameraEnabled) {
-      // Câmera está ligada — para watchdog se estava rodando
       if (camWatchdogRef.current) {
         clearInterval(camWatchdogRef.current);
         camWatchdogRef.current = null;
@@ -874,19 +901,27 @@ const RoomInner: React.FC<{
       }
       return;
     }
-    // Câmera desligada mas deveria estar ligada — inicia watchdog
-    if (camWatchdogRef.current) return; // já rodando
+    if (camWatchdogRef.current) return;
+    console.log('[CAM-DEBUG] watchdog iniciado — camera off mas deveria estar on');
     camWatchdogRef.current = setInterval(async () => {
       camWatchdogAttemptsRef.current += 1;
+      console.log(`[CAM-DEBUG] watchdog tentativa ${camWatchdogAttemptsRef.current}, isCameraEnabled=`, localParticipant.isCameraEnabled, 'toggling=', camTogglingRef.current);
       if (camWatchdogAttemptsRef.current > 5) {
+        console.warn('[CAM-DEBUG] watchdog esgotou tentativas — camera permanece off');
         clearInterval(camWatchdogRef.current!);
         camWatchdogRef.current = null;
         return;
       }
       if (!localParticipant.isCameraEnabled && !camTogglingRef.current) {
         camTogglingRef.current = true;
-        try { await localParticipant.setCameraEnabled(true); } catch {}
-        finally { camTogglingRef.current = false; }
+        try {
+          await localParticipant.setCameraEnabled(true);
+          console.log('[CAM-DEBUG] watchdog setCameraEnabled(true) ok, resultado=', localParticipant.isCameraEnabled);
+        } catch (err) {
+          console.error('[CAM-DEBUG] watchdog setCameraEnabled erro:', err);
+        } finally {
+          camTogglingRef.current = false;
+        }
       }
     }, 3000);
     return () => {
@@ -912,10 +947,20 @@ const RoomInner: React.FC<{
   }, [localParticipant, micOn]);
 
   const toggleCam = useCallback(async () => {
-    if (camTogglingRef.current) return;
+    console.log('[CAM-DEBUG] toggleCam clicado', { camOn, toggling: camTogglingRef.current, isCameraEnabled: localParticipant.isCameraEnabled });
+    if (camTogglingRef.current) {
+      console.warn('[CAM-DEBUG] toggleCam ignorado — ja em andamento');
+      return;
+    }
     camTogglingRef.current = true;
-    try { await localParticipant.setCameraEnabled(!camOn); } catch {}
-    finally { camTogglingRef.current = false; }
+    try {
+      await localParticipant.setCameraEnabled(!camOn);
+      console.log('[CAM-DEBUG] toggleCam concluido, isCameraEnabled=', localParticipant.isCameraEnabled);
+    } catch (err) {
+      console.error('[CAM-DEBUG] toggleCam erro:', err);
+    } finally {
+      camTogglingRef.current = false;
+    }
   }, [localParticipant, camOn]);
 
   const toggleScreen = useCallback(async () => {
