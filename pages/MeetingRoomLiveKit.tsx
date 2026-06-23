@@ -154,7 +154,9 @@ const Lobby: React.FC<{
       setAudioOutDevices(devices.filter(d => d.kind === "audiooutput"));
     };
     init();
-    return () => { streamRef.current?.getTracks().forEach(t => t.stop()); };
+    // Não para o stream aqui — o LiveKit reutiliza o dispositivo ao entrar na sala.
+    // Parar o stream antes do LiveKit conectar causa atraso na publicação da câmera.
+    return () => {};
   }, []);
 
   const togglePreviewMic = () => { const n = !micOn; setMicOn(n); onMicChange?.(n); streamRef.current?.getAudioTracks().forEach(t => { t.enabled = n; }); };
@@ -724,6 +726,27 @@ const RoomInner: React.FC<{
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | null>(null);
   const [pinned, setPinned] = useState<"remote" | "local">("remote");
+  const [roomNotice, setRoomNotice] = useState<{ msg: string; type: 'enter' | 'leave' } | null>(null);
+  const roomNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevRemoteCountRef = useRef(0);
+
+  const showRoomNotice = useCallback((msg: string, type: 'enter' | 'leave') => {
+    if (roomNoticeTimerRef.current) clearTimeout(roomNoticeTimerRef.current);
+    setRoomNotice({ msg, type });
+    roomNoticeTimerRef.current = setTimeout(() => setRoomNotice(null), 4000);
+  }, []);
+
+  useEffect(() => {
+    const prev = prevRemoteCountRef.current;
+    const curr = remoteParticipants.length;
+    if (curr > prev) {
+      const name = remoteParticipants[curr - 1]?.name || 'Participante';
+      showRoomNotice(`${name} entrou na sala.`, 'enter');
+    } else if (curr < prev && prev > 0) {
+      showRoomNotice('O participante saiu da sala.', 'leave');
+    }
+    prevRemoteCountRef.current = curr;
+  }, [remoteParticipants, showRoomNotice]);
 
   // ── Gravação de áudio ──────────────────────────────────────────────────────
   const [recording, setRecording] = useState(false);
@@ -813,15 +836,17 @@ const RoomInner: React.FC<{
   const room = useRoomContext();
 
   // Só desliga câmera/mic se o usuário os deixou desligados no lobby.
-  // Se estavam ligados não mexemos — LiveKit já inicia com video={lobbyCamOn}.
+  // Aguarda 2s para o LiveKit terminar de publicar os tracks antes de desligar,
+  // evitando que setCameraEnabled(false) cancele uma publicação ainda em andamento.
   useEffect(() => {
-    const apply = async () => {
+    if (initialCam && initialMic) return; // nada a desligar
+    const timer = setTimeout(async () => {
       try {
         if (!initialCam) await localParticipant.setCameraEnabled(false);
         if (!initialMic) await localParticipant.setMicrophoneEnabled(false);
       } catch {}
-    };
-    apply();
+    }, 2000);
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -832,12 +857,21 @@ const RoomInner: React.FC<{
   const screenShareActive = localHasScreen || (remoteParticipants.length > 0 && remoteHasScreen);
   const screenSharer = localHasScreen ? localParticipant : (remoteParticipants.length > 0 && remoteHasScreen ? remoteParticipants[0] : null);
 
+  const camTogglingRef = useRef(false);
+  const micTogglingRef = useRef(false);
+
   const toggleMic = useCallback(async () => {
+    if (micTogglingRef.current) return;
+    micTogglingRef.current = true;
     try { await localParticipant.setMicrophoneEnabled(!micOn); } catch {}
+    finally { micTogglingRef.current = false; }
   }, [localParticipant, micOn]);
 
   const toggleCam = useCallback(async () => {
+    if (camTogglingRef.current) return;
+    camTogglingRef.current = true;
     try { await localParticipant.setCameraEnabled(!camOn); } catch {}
+    finally { camTogglingRef.current = false; }
   }, [localParticipant, camOn]);
 
   const toggleScreen = useCallback(async () => {
@@ -879,6 +913,21 @@ const RoomInner: React.FC<{
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0d0f14", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+      {/* Notificação de entrada/saída */}
+      {roomNotice && (
+        <div style={{
+          position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
+          zIndex: 9999, pointerEvents: "none",
+          background: roomNotice.type === 'leave' ? "rgba(245,158,11,0.15)" : "rgba(34,197,94,0.15)",
+          border: `1px solid ${roomNotice.type === 'leave' ? "rgba(245,158,11,0.4)" : "rgba(34,197,94,0.4)"}`,
+          color: roomNotice.type === 'leave' ? "#fcd34d" : "#86efac",
+          padding: "8px 20px", borderRadius: 12, fontSize: 13, fontWeight: 600,
+          whiteSpace: "nowrap", backdropFilter: "blur(8px)",
+        }}>
+          {roomNotice.msg}
+        </div>
+      )}
 
       {/* Área de vídeo */}
       <div style={{ flex: 1, position: "relative", minHeight: 0, background: "#0d0f14" }}>
