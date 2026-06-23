@@ -274,6 +274,8 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     "focus" | "side-by-side" | "stacked"
   >("side-by-side");
   const [entryNotice, setEntryNotice] = useState<string | null>(null);
+  const [entryNoticeType, setEntryNoticeType] = useState<'enter' | 'leave'>('enter');
+  const entryNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [waitingList, setWaitingList] = useState<WaitingEntry[]>([]);
   const [waitingToken, setWaitingToken] = useState<string | null>(null);
   const [remoteWhiteboardActive, setRemoteWhiteboardActive] = useState(false);
@@ -1935,7 +1937,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           entryAudioRef.current.play().catch(() => {});
         }
         if (prev.length && names.length === 0) {
-          setEntryNotice(`${prev[0]} saiu da sala.`);
+          showRoomNotice(`${prev[0]} saiu da sala.`, 'leave');
           setRemoteConnected(false);
           setRemoteParticipantName(null);
         }
@@ -1955,7 +1957,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
       active = false;
       clearInterval(interval);
     };
-  }, [id, hasAuthToken]);
+  }, [id, hasAuthToken, showRoomNotice]);
 
   useEffect(() => {
     if (!isGuest || !participantToken || !id) return;
@@ -2053,13 +2055,17 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   }, [hasJoined, connectionStatus, isCompanionMode]);
 
+  const showRoomNotice = useCallback((msg: string, type: 'enter' | 'leave') => {
+    if (entryNoticeTimerRef.current) clearTimeout(entryNoticeTimerRef.current);
+    setEntryNotice(msg);
+    setEntryNoticeType(type);
+    entryNoticeTimerRef.current = setTimeout(() => setEntryNotice(null), 4000);
+  }, []);
+
   useEffect(() => {
     if (!remoteUserConnected) return;
-    const message = `${remoteDisplayName} entrou na sala.`;
-    setEntryNotice(message);
-    const timeout = setTimeout(() => setEntryNotice(null), 3000);
-    return () => clearTimeout(timeout);
-  }, [remoteUserConnected, remoteDisplayName]);
+    showRoomNotice(`${remoteDisplayName} entrou na sala.`, 'enter');
+  }, [remoteUserConnected, remoteDisplayName, showRoomNotice]);
 
   // WebRTC: host creates offer when remote user connects
   useEffect(() => {
@@ -2398,13 +2404,50 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
     }
   };
 
-  const toggleCam = () => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !cameraOn;
-        setCameraOn(!cameraOn);
+  const toggleCam = async () => {
+    if (!localStreamRef.current) return;
+    const videoTrack = localStreamRef.current.getVideoTracks()[0];
+
+    if (cameraOn) {
+      // Desligar: apenas desabilita o track (não para, para poder religar)
+      if (videoTrack) videoTrack.enabled = false;
+      setCameraOn(false);
+      return;
+    }
+
+    // Ligar: se o track ainda existe e está vivo, só habilita
+    if (videoTrack && videoTrack.readyState === 'live') {
+      videoTrack.enabled = true;
+      setCameraOn(true);
+      return;
+    }
+
+    // Track parado ou inexistente — re-adquire a câmera
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (!newVideoTrack) return;
+
+      // Remove tracks de vídeo antigos do stream local
+      localStreamRef.current.getVideoTracks().forEach(t => {
+        localStreamRef.current!.removeTrack(t);
+        t.stop();
+      });
+      localStreamRef.current.addTrack(newVideoTrack);
+
+      // Atualiza o sender no PeerConnection se houver conexão ativa
+      if (peerConnectionRef.current) {
+        const sender = peerConnectionRef.current.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) sender.replaceTrack(newVideoTrack);
       }
+
+      // Atualiza os elementos de vídeo
+      if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
+      if (lobbyVideoRef.current) lobbyVideoRef.current.srcObject = localStreamRef.current;
+
+      setCameraOn(true);
+    } catch (err) {
+      console.error('Erro ao religar câmera:', err);
     }
   };
 
@@ -3801,7 +3844,11 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
           ? "absolute top-16 inset-x-4 z-30 pointer-events-none"
           : "px-4 pt-3"
         }>
-          <div className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-xl text-sm text-center">
+          <div className={`px-4 py-2 rounded-xl text-sm text-center border ${
+            entryNoticeType === 'leave'
+              ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+          }`}>
             {entryNotice}
           </div>
         </div>
