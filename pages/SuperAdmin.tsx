@@ -172,7 +172,7 @@ const Modal: React.FC<{ title: string; sub?: string; onClose: () => void; childr
 const inp = 'w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition';
 const sel = inp + ' cursor-pointer';
 const lbl = (t: string) => <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{t}</label>;
-const btnP = 'flex-1 py-2.5 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm flex items-center justify-center gap-2';
+const btnP = 'flex-1 py-2.5 font-semibold text-white rounded-lg disabled:opacity-50 transition text-sm flex items-center justify-center gap-2';
 const btnS = 'flex-1 py-2.5 font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition text-sm';
 const mkP = (v: string) => v.replace(/\D/g, "").replace(/^(\d{2})(\d)/g, "($1) $2").replace(/(\d)(\d{4})$/, "$1-$2").substring(0, 15);
 const mkC = (v: string) => {
@@ -506,57 +506,62 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   }));
 
   const ticketMedio = useMemo(() => stats?.active_tenants > 0 ? (stats.mrr / stats.active_tenants) : 0, [stats]);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', whatsapp: 'WhatsApp Bot' };
 
   const finalNav = NAV.filter(n => n.id !== 'whatsapp' || canAccessWpp);
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex font-sans">
+    <div className="min-h-screen bg-[#f0f2f8] text-slate-800 flex font-sans">
 
       <Toasts toasts={toasts} remove={removeToast} />
       {confirmState && <ConfirmModal {...confirmState} onClose={() => setConfirmState(null)} />}
 
       {/* ══ SIDEBAR OVERLAY (mobile) ══ */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* ══ SIDEBAR ══ */}
-      <aside className={`w-64 bg-white border-r border-slate-200 flex flex-col fixed h-full z-40 shadow-sm transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        <div className="px-5 py-5 border-b border-slate-100 flex items-center justify-between">
+      {/* ══ SIDEBAR (dark) ══ */}
+      <aside className={`w-64 flex flex-col fixed h-full z-40 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%)' }}>
+        <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-200">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
               <ShieldCheck size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800 leading-none">PsiFlux</p>
-              <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-0.5">Super Admin</p>
+              <p className="text-sm font-bold text-white leading-none">PsiFlux</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: '#a5b4fc' }}>Super Admin</p>
             </div>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition"><X size={16} /></button>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition"><X size={16} /></button>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {finalNav.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => { setTab(id as Tab); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${tab === id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-              <Icon size={16} className={tab === id ? 'text-indigo-600' : 'text-slate-400'} />
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${tab === id ? 'text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/8'}`}
+              style={tab === id ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.35), rgba(139,92,246,0.25))', border: '1px solid rgba(99,102,241,0.4)' } : {}}>
+              <Icon size={16} className={tab === id ? 'text-indigo-300' : ''} />
               {label}
-              {tab === id && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+              {tab === id && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400" />}
             </button>
           ))}
         </nav>
-        <div className="p-3 border-t border-slate-100">
-          <div className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl bg-slate-50 mb-2">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-              <User size={14} className="text-indigo-600" />
+        <div className="p-3 border-t border-white/10">
+          <div className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl mb-2" style={{ background: 'rgba(255,255,255,0.07)' }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+              <User size={14} className="text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700 truncate">Super Admin</p>
-              <p className="text-[10px] text-slate-400 truncate">super_admin</p>
+              <p className="text-xs font-semibold text-white truncate">{user?.name || 'Super Admin'}</p>
+              <p className="text-[10px] truncate" style={{ color: '#a5b4fc' }}>Administrador Master</p>
             </div>
           </div>
-          <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-red-50 hover:text-red-500 transition font-medium">
+          <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition" style={{ color: 'rgba(255,255,255,0.45)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#fca5a5'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = ''; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)'; }}>
             <LogOut size={14} /> Sair
           </button>
         </div>
@@ -564,22 +569,24 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
       {/* ══ MAIN ══ */}
       <main className="flex-1 lg:ml-64 flex flex-col min-h-screen w-full min-w-0">
-        <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition flex-shrink-0">
               <Menu size={18} />
             </button>
             <div className="flex items-center gap-2 text-xs text-slate-400 min-w-0">
-              <span className="text-slate-500 font-medium hidden sm:inline">Root</span>
+              <span className="text-slate-500 font-medium hidden sm:inline">PsiFlux</span>
               <ChevronRight size={12} className="flex-shrink-0 hidden sm:inline" />
-              <span className="text-slate-700 font-semibold truncate">{TAB_LABELS[tab]}</span>
+              <span className="hidden sm:inline text-slate-400">Master</span>
+              <ChevronRight size={12} className="flex-shrink-0 hidden sm:inline" />
+              <span className="text-slate-800 font-bold truncate">{TAB_LABELS[tab]}</span>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {tab === 'clients'     && <button onClick={openClientModal} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition shadow-sm shadow-indigo-200"><Plus size={14} /><span className="hidden sm:inline">Nova Clínica</span></button>}
-            {tab === 'plans'       && <button onClick={openNewPlan}     className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition shadow-sm shadow-indigo-200"><Plus size={14} /><span className="hidden sm:inline">Novo Plano</span></button>}
-            {tab === 'team'        && <button onClick={openTeamModal}   className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition shadow-sm shadow-indigo-200"><Plus size={14} /><span className="hidden sm:inline">Novo Integrante</span></button>}
-            {tab === 'permissions' && <button onClick={openNewPerm}     className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition shadow-sm shadow-indigo-200"><Plus size={14} /><span className="hidden sm:inline">Novo Perfil</span></button>}
+            {tab === 'clients'     && <button onClick={openClientModal} className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Nova Clínica</span></button>}
+            {tab === 'plans'       && <button onClick={openNewPlan}     className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Novo Plano</span></button>}
+            {tab === 'team'        && <button onClick={openTeamModal}   className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Novo Integrante</span></button>}
+            {tab === 'permissions' && <button onClick={openNewPerm}     className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Novo Perfil</span></button>}
           </div>
         </header>
 
@@ -591,16 +598,35 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               {/* ══ DASHBOARD ══ */}
               {tab === 'dashboard' && stats && (
                 <div className="space-y-5 max-w-6xl">
+                  <div className="rounded-2xl p-6 mb-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
+                    <div>
+                      <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">Visão Geral</p>
+                      <h2 className="text-white text-xl font-bold">Painel Master PsiFlux</h2>
+                      <p className="text-white/50 text-xs mt-1">Administração centralizada de todas as clínicas</p>
+                    </div>
+                    <div className="hidden md:flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-white/50 text-[10px] uppercase tracking-widest">MRR Total</p>
+                        <p className="text-white text-2xl font-bold">{fmt(stats.mrr || 0)}</p>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.5)' }}>
+                        <TrendingUp size={22} className="text-indigo-300" />
+                      </div>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                     {[
-                      { label: 'Receita Mensal (MRR)', value: fmt(stats.mrr || 0), Icon: DollarSign, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', border: 'border-l-emerald-400', sub: `${stats.active_tenants || 0} clínicas ativas` },
-                      { label: 'Clínicas Ativas', value: String(stats.active_tenants || 0), Icon: Building2, iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600', border: 'border-l-indigo-400', sub: `${stats.total_tenants || 0} total` },
-                      { label: 'Usuários Totais', value: String(stats.total_users || 0), Icon: Users, iconBg: 'bg-sky-100', iconColor: 'text-sky-600', border: 'border-l-sky-400', sub: 'Em todas as clínicas' },
-                      { label: 'Ticket Médio', value: fmt(ticketMedio), Icon: TrendingUp, iconBg: 'bg-amber-100', iconColor: 'text-amber-600', border: 'border-l-amber-400', sub: 'Por clínica / mês' },
+                      { label: 'Receita Mensal (MRR)', value: fmt(stats.mrr || 0), Icon: DollarSign, grad: 'linear-gradient(135deg, #059669, #10b981)', sub: `${stats.active_tenants || 0} clínicas ativas` },
+                      { label: 'Clínicas Ativas', value: String(stats.active_tenants || 0), Icon: Building2, grad: 'linear-gradient(135deg, #4f46e5, #6366f1)', sub: `${stats.total_tenants || 0} total` },
+                      { label: 'Usuários Totais', value: String(stats.total_users || 0), Icon: Users, grad: 'linear-gradient(135deg, #0284c7, #38bdf8)', sub: 'Em todas as clínicas' },
+                      { label: 'Ticket Médio', value: fmt(ticketMedio), Icon: TrendingUp, grad: 'linear-gradient(135deg, #d97706, #f59e0b)', sub: 'Por clínica / mês' },
                     ].map(c => (
-                      <div key={c.label} className={`bg-white border border-slate-200 border-l-4 ${c.border} rounded-xl p-5 shadow-sm`}>
+                      <div key={c.label} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow overflow-hidden relative">
+                        <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.06]" style={{ background: c.grad, transform: 'translate(30%, -30%)' }} />
                         <div className="flex items-start justify-between mb-4">
-                          <div className={`w-9 h-9 rounded-xl ${c.iconBg} flex items-center justify-center`}><c.Icon size={17} className={c.iconColor} /></div>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ background: c.grad }}>
+                            <c.Icon size={18} className="text-white" />
+                          </div>
                           <ArrowUpRight size={14} className="text-slate-300" />
                         </div>
                         <p className="text-xs font-semibold text-slate-400 mb-1">{c.label}</p>
@@ -1059,56 +1085,159 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
               {/* ══ PLANOS ══ */}
               {tab === 'plans' && (
-                <div className="max-w-5xl space-y-4">
-                  <p className="text-sm text-slate-500"><span className="font-semibold text-slate-700">{plans.length}</span> plano{plans.length !== 1 ? 's' : ''}</p>
+                <div className="max-w-5xl space-y-6">
+                  {/* Header com toggle mensal/anual */}
+                  <div className="rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
+                    <div>
+                      <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-1">Gestão de Assinaturas</p>
+                      <h2 className="text-white text-lg font-bold flex items-center gap-2"><Package size={18} className="text-indigo-300" /> Planos & Precificação</h2>
+                      <p className="text-white/50 text-xs mt-1">Gerencie os planos que serão exibidos para pagamento no site</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-3 flex-shrink-0">
+                      <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                        <button onClick={() => setBillingPeriod('monthly')}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${billingPeriod === 'monthly' ? 'bg-white text-slate-800 shadow-sm' : 'text-white/60 hover:text-white'}`}>
+                          Mensal
+                        </button>
+                        <button onClick={() => setBillingPeriod('annual')}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${billingPeriod === 'annual' ? 'bg-white text-slate-800 shadow-sm' : 'text-white/60 hover:text-white'}`}>
+                          Anual
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: billingPeriod === 'annual' ? '#10b981' : 'rgba(16,185,129,0.3)', color: billingPeriod === 'annual' ? '#fff' : '#6ee7b7' }}>-20%</span>
+                        </button>
+                      </div>
+                      <p className="text-white/40 text-[10px]">{plans.length} plano{plans.length !== 1 ? 's' : ''} cadastrado{plans.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+
                   {plans.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-xl p-16 text-center shadow-sm">
-                      <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Package size={22} className="text-slate-400" /></div>
-                      <p className="text-slate-500 font-medium">Nenhum plano criado</p>
-                      <button onClick={openNewPlan} className="mt-5 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition"><Plus size={15} /> Criar plano</button>
+                    <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-sm">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Package size={22} className="text-white" /></div>
+                      <p className="text-slate-700 font-bold text-base">Nenhum plano criado</p>
+                      <p className="text-slate-400 text-sm mt-1 mb-5">Crie planos de assinatura que serão exibidos no site para pagamento</p>
+                      <button onClick={openNewPlan} className="inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={15} /> Criar primeiro plano</button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {plans.map((p, i) => (
-                        <div key={p.id} className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition hover:shadow-md ${p.active ? 'border-slate-200' : 'border-slate-100 opacity-60'}`}>
-                          <div className="h-1.5" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                          <div className="p-5">
-                            <div className="flex justify-between items-start mb-4">
-                              <div>
-                                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2.5" style={{ background: CHART_COLORS[i % CHART_COLORS.length] + '18' }}>
-                                  <Package size={16} style={{ color: CHART_COLORS[i % CHART_COLORS.length] }} />
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {plans.map((p, i) => {
+                          const planGrad = [
+                            'linear-gradient(135deg, #4f46e5, #6366f1)',
+                            'linear-gradient(135deg, #059669, #10b981)',
+                            'linear-gradient(135deg, #d97706, #f59e0b)',
+                            'linear-gradient(135deg, #0284c7, #38bdf8)',
+                            'linear-gradient(135deg, #7c3aed, #8b5cf6)',
+                          ][i % 5];
+                          const monthlyPrice = Number(p.price);
+                          const displayPrice = billingPeriod === 'annual' ? monthlyPrice * 0.8 : monthlyPrice;
+                          const annualTotal = (monthlyPrice * 0.8 * 12).toFixed(2);
+                          const isPopular = i === 1 || (plans.length === 1);
+                          return (
+                            <div key={p.id} className={`bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 ${!p.active ? 'opacity-60' : ''} ${isPopular ? 'ring-2 ring-indigo-500 ring-offset-2' : 'border border-slate-200'}`}>
+                              {isPopular && (
+                                <div className="text-center py-1.5 text-[10px] font-black uppercase tracking-widest text-white" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                                  ⭐ Mais Popular
                                 </div>
-                                <h3 className="font-bold text-slate-800 text-base">{p.name}</h3>
-                                {p.description && <p className="text-slate-400 text-xs mt-0.5">{p.description}</p>}
+                              )}
+                              {/* Top colorido */}
+                              <div className="p-5 pb-4" style={{ background: planGrad }}>
+                                <div className="flex items-start justify-between mb-3">
+                                  <div>
+                                    <h3 className="font-black text-white text-lg leading-tight">{p.name}</h3>
+                                    {p.description && <p className="text-white/70 text-xs mt-0.5">{p.description}</p>}
+                                  </div>
+                                  <div className="flex gap-1 flex-shrink-0">
+                                    <button onClick={() => openEditPlan(p)} className="p-1.5 rounded-lg transition" style={{ background: 'rgba(255,255,255,0.15)' }}><Edit2 size={12} className="text-white" /></button>
+                                    <button onClick={() => handleDeletePlan(p)} className="p-1.5 rounded-lg transition" style={{ background: 'rgba(255,255,255,0.15)' }}><Trash2 size={12} className="text-white" /></button>
+                                  </div>
+                                </div>
+                                <div className="flex items-end gap-1">
+                                  <span className="text-3xl font-black text-white">{fmt(displayPrice)}</span>
+                                  <span className="text-white/60 text-xs mb-1.5">/mês</span>
+                                </div>
+                                {billingPeriod === 'annual' && (
+                                  <div className="mt-1">
+                                    <span className="text-white/50 line-through text-xs">{fmt(monthlyPrice)}/mês</span>
+                                    <span className="ml-2 text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">R$ {annualTotal}/ano</span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex gap-1.5">
-                                <button onClick={() => openEditPlan(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"><Edit2 size={13} /></button>
-                                <button onClick={() => handleDeletePlan(p)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition"><Trash2 size={13} /></button>
+                              <div className="p-5">
+                                <div className="flex items-center gap-3 text-xs text-slate-500 mb-4 pb-4 border-b border-slate-100">
+                                  <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-lg font-semibold"><Users size={11} className="text-slate-400" />{p.max_users === 999 ? '∞' : p.max_users} usuários</span>
+                                  {p.active ? (
+                                    <span className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 px-2.5 py-1 rounded-lg font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Ativo</span>
+                                  ) : (
+                                    <span className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 text-slate-400 px-2.5 py-1 rounded-lg font-semibold">Inativo</span>
+                                  )}
+                                </div>
+                                <div className="space-y-1.5">
+                                  {(() => {
+                                    const activeFeatures = (p.features || []).filter((fk: string) => fk !== 'pacientes');
+                                    return (
+                                      <>
+                                        {activeFeatures.slice(0, 6).map((f: string) => {
+                                          const opt = FEATURES_OPTIONS.find(o => o.key === f);
+                                          return <div key={f} className="flex items-center gap-2 text-xs text-slate-600"><CheckCircle size={12} className="text-emerald-500 flex-shrink-0" />{opt?.label || f}</div>;
+                                        })}
+                                        {activeFeatures.length > 6 && (
+                                          <p className="text-xs text-indigo-500 font-semibold pl-1">+{activeFeatures.length - 6} funcionalidades incluídas</p>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                                <div className="mt-5 pt-4 border-t border-slate-100 flex gap-2">
+                                  <button onClick={() => openEditPlan(p)} className="flex-1 py-2 rounded-xl text-xs font-bold transition border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1.5">
+                                    <Edit2 size={12} /> Editar
+                                  </button>
+                                  <button className="flex-1 py-2 rounded-xl text-xs font-bold transition text-white flex items-center justify-center gap-1.5" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                                    <Globe size={12} /> Publicar
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                            <p className="text-3xl font-bold text-slate-800 mb-1">{fmt(p.price)}<span className="text-sm font-normal text-slate-400">/mês</span></p>
-                            <div className="flex gap-3 text-xs text-slate-400 mb-4 mt-1.5 pb-4 border-b border-slate-100">
-                              <span className="flex items-center gap-1"><Users size={10} />{p.max_users === 999 ? '∞' : p.max_users} usuários registrados</span>
+                          );
+                        })}
+                      </div>
+
+                      {/* Seção de integração de pagamento */}
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                              <DollarSign size={15} className="text-white" />
                             </div>
-                            <div className="space-y-1.5">
-                              {(() => {
-                                const activeFeatures = (p.features || []).filter((fk: string) => fk !== 'pacientes');
-                                return (
-                                  <>
-                                    {activeFeatures.slice(0, 5).map((f: string) => {
-                                      const opt = FEATURES_OPTIONS.find(o => o.key === f);
-                                      return <div key={f} className="flex items-center gap-2 text-xs text-slate-500"><CheckCircle size={11} className="text-emerald-500 flex-shrink-0" />{opt?.label || f}</div>;
-                                    })}
-                                    {activeFeatures.length > 5 && <p className="text-xs text-indigo-500 font-medium">+{activeFeatures.length - 5} funcionalidades</p>}
-                                  </>
-                                );
-                              })()}
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">Integração de Pagamento</p>
+                              <p className="text-xs text-slate-400">Configure cobrança automática recorrente</p>
                             </div>
-                            {!p.active && <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-3 pt-3 border-t border-slate-100">Inativo</p>}
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-amber-200 text-amber-600 bg-amber-50">Em breve</span>
+                        </div>
+                        <div className="p-6">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {[
+                              { icon: '💳', title: 'Stripe', desc: 'Cartão de crédito, boleto, Pix. Cobrança mensal ou anual automática.', ready: false },
+                              { icon: '🏦', title: 'Asaas', desc: 'Boleto bancário, Pix e cartão. Integração nacional simplificada.', ready: false },
+                              { icon: '🔗', title: 'Hotmart / Eduzz', desc: 'Checkout externo. Ativação automática via webhook.', ready: false },
+                            ].map(g => (
+                              <div key={g.title} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="text-2xl flex-shrink-0">{g.icon}</div>
+                                <div>
+                                  <p className="text-sm font-bold text-slate-700">{g.title}</p>
+                                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{g.desc}</p>
+                                  <button disabled className="mt-2 text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg cursor-not-allowed">Configurar</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4 flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3">
+                            <Info size={14} className="text-indigo-500 flex-shrink-0" />
+                            <p className="text-xs text-indigo-700">Após configurar a integração, ao criar ou editar um plano você poderá vincular o produto no gateway de pagamento. A ativação/suspensão do acesso das clínicas será automática com base nos pagamentos recebidos.</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -1359,7 +1488,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
           <div className="flex gap-3 pt-6 border-t border-slate-100 mt-4">
             <button onClick={() => { setClientModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSaveClient} disabled={saving} className={btnP}>
+            <button onClick={handleSaveClient} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
               {editClient ? 'Salvar Alterações' : 'Criar Clínica'}
             </button>
@@ -1452,7 +1581,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
           
           <div className="flex gap-3 pt-6 border-t border-slate-100 mt-4">
             <button onClick={() => { setTeamModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSaveTeamMember} disabled={saving} className={btnP}>
+            <button onClick={handleSaveTeamMember} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
               {editTeam ? 'Salvar Alterações' : 'Criar Integrante'}
             </button>
@@ -1506,7 +1635,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
           )}
           <div className="flex gap-3 pt-1">
             <button onClick={() => { setPermModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSavePerm} disabled={saving} className={btnP}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {editPerm ? 'Salvar' : 'Criar Perfil'}</button>
+            <button onClick={handleSavePerm} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {editPerm ? 'Salvar' : 'Criar Perfil'}</button>
           </div>
         </Modal>
       )}
@@ -1560,7 +1689,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
           </div>
           <div className="flex gap-3 pt-1">
             <button onClick={() => { setPlanModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSavePlan} disabled={saving} className={btnP}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {editPlan ? 'Salvar' : 'Criar Plano'}</button>
+            <button onClick={handleSavePlan} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {editPlan ? 'Salvar' : 'Criar Plano'}</button>
           </div>
         </Modal>
       )}
