@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Mail, Lock, Eye, EyeOff, Loader2, User, Phone,
-  BrainCircuit, ChevronLeft, CheckCircle2, Building2, Hash,
+  ChevronLeft, CheckCircle2, Building2, Hash, UserCircle2,
+  FileText,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logoUrl from '../images/logo-psiflux.png';
@@ -9,67 +10,214 @@ import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
 
-// Mesma ilustração da esquerda do Login
-const LeftIllustration = () => (
-  <svg viewBox="0 0 480 480" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full max-w-sm mx-auto">
-    <ellipse cx="240" cy="260" rx="200" ry="180" fill="#e0e7ff" fillOpacity="0.5" />
-    <ellipse cx="300" cy="180" rx="130" ry="120" fill="#ede9fe" fillOpacity="0.6" />
-    {/* Tela central */}
-    <rect x="100" y="120" width="280" height="200" rx="20" fill="white" stroke="#c7d2fe" strokeWidth="2" />
-    <rect x="100" y="120" width="280" height="36" rx="20" fill="#6355D8" />
-    <rect x="100" y="138" width="280" height="18" fill="#6355D8" />
-    <circle cx="122" cy="138" r="5" fill="white" fillOpacity="0.5" />
-    <circle cx="140" cy="138" r="5" fill="white" fillOpacity="0.5" />
-    <circle cx="158" cy="138" r="5" fill="white" fillOpacity="0.5" />
-    {/* Formulário */}
-    <rect x="128" y="170" width="224" height="26" rx="8" fill="#F1F5F9" stroke="#E2E8F0" strokeWidth="1.5" />
-    <rect x="140" y="180" width="80" height="6" rx="3" fill="#CBD5E1" />
-    <rect x="128" y="205" width="224" height="26" rx="8" fill="#F1F5F9" stroke="#E2E8F0" strokeWidth="1.5" />
-    <rect x="140" y="215" width="60" height="6" rx="3" fill="#CBD5E1" />
-    <rect x="128" y="240" width="224" height="26" rx="8" fill="#F1F5F9" stroke="#E2E8F0" strokeWidth="1.5" />
-    <rect x="140" y="250" width="70" height="6" rx="3" fill="#CBD5E1" />
-    <rect x="128" y="275" width="224" height="28" rx="10" fill="#6355D8" />
-    <rect x="200" y="284" width="80" height="8" rx="4" fill="white" fillOpacity="0.8" />
-    {/* Cards flutuantes */}
-    <rect x="40" y="200" width="110" height="62" rx="14" fill="white" stroke="#e0e7ff" strokeWidth="1.5"
-      style={{ filter:'drop-shadow(0 4px 12px rgba(99,85,216,0.12))' }} />
-    <rect x="52" y="212" width="26" height="26" rx="8" fill="#eef2ff" />
-    <path d="M65 218 a5 5 0 1 1 0 .01 M58 232 a7 5 0 0 1 14 0" stroke="#6355D8" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
-    <rect x="86" y="214" width="50" height="6" rx="3" fill="#e0e7ff" />
-    <rect x="86" y="224" width="36" height="5" rx="2.5" fill="#c7d2fe" />
-    <text x="52" y="257" fontSize="7" fill="#6355D8" fontWeight="700">Perfil público</text>
-    <rect x="330" y="215" width="110" height="62" rx="14" fill="white" stroke="#d1fae5" strokeWidth="1.5"
-      style={{ filter:'drop-shadow(0 4px 12px rgba(14,169,139,0.12))' }} />
-    <rect x="342" y="227" width="26" height="26" rx="8" fill="#ecfdf5" />
-    <path d="M355 233 v12 M351 237 h8 M351 241 h8" stroke="#0EA98B" strokeWidth="1.8" strokeLinecap="round"/>
-    <rect x="376" y="229" width="50" height="6" rx="3" fill="#d1fae5" />
-    <rect x="376" y="239" width="36" height="5" rx="2.5" fill="#a7f3d0" />
-    <text x="342" y="272" fontSize="7" fill="#0EA98B" fontWeight="700">Agenda online</text>
-    {/* Checklist */}
-    <rect x="155" y="355" width="170" height="70" rx="14" fill="white" stroke="#e0e7ff" strokeWidth="1.5"
-      style={{ filter:'drop-shadow(0 4px 16px rgba(99,85,216,0.10))' }} />
-    {[0,1,2].map(i => (
-      <g key={i} transform={`translate(167,${367+i*18})`}>
-        <circle cx="7" cy="7" r="7" fill={i === 2 ? '#F1F5F9' : '#6355D8'} fillOpacity={i === 2 ? 1 : 0.15} />
-        {i < 2 && <path d="M4 7 l2.5 2.5 l4-4" stroke="#6355D8" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>}
-        <rect x="20" y="4" width={i === 0 ? 90 : i === 1 ? 70 : 50} height="6" rx="3" fill={i === 2 ? '#F1F5F9' : '#e0e7ff'} />
-      </g>
-    ))}
-    {/* Decoração */}
-    {[[80,150],[400,300],[420,140],[60,340]].map(([cx,cy],i) => (
-      <g key={i} transform={`translate(${cx},${cy})`} opacity="0.4">
-        <line x1="-5" y1="0" x2="5" y2="0" stroke="#a5b4fc" strokeWidth="1.5" strokeLinecap="round"/>
-        <line x1="0" y1="-5" x2="0" y2="5" stroke="#a5b4fc" strokeWidth="1.5" strokeLinecap="round"/>
-      </g>
-    ))}
-    <circle cx="240" cy="88" r="28" fill="#6355D8" style={{ filter:'drop-shadow(0 8px 24px rgba(99,85,216,0.35))' }} />
-    <path d="M232 88 q0-6 6-8 q3-1 6 2 q4 3 3 8 q-1 3-4 5 l0 3" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    <circle cx="240" cy="110" r="1.8" fill="white" />
+// ── SVG Brain/Nodes Illustration (dark panel) ──────────────────────────────────
+const BrainIllustration = () => (
+  <svg viewBox="0 0 520 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full max-w-md mx-auto">
+    <defs>
+      <radialGradient id="rg-glow1" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#8B7CF6" stopOpacity="0.35" />
+        <stop offset="100%" stopColor="#8B7CF6" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="rg-glow2" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#6355D8" stopOpacity="0.25" />
+        <stop offset="100%" stopColor="#6355D8" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="rg-orb" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.9" />
+        <stop offset="60%" stopColor="#6355D8" stopOpacity="0.7" />
+        <stop offset="100%" stopColor="#4338CA" stopOpacity="0.4" />
+      </radialGradient>
+      <filter id="reg-blur1"><feGaussianBlur stdDeviation="18" /></filter>
+      <filter id="reg-blur2"><feGaussianBlur stdDeviation="10" /></filter>
+      <filter id="reg-nodeglow">
+        <feGaussianBlur stdDeviation="3" result="b" />
+        <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+      </filter>
+    </defs>
+    {/* Ambient glow */}
+    <ellipse cx="260" cy="230" rx="180" ry="160" fill="url(#rg-glow1)" filter="url(#reg-blur1)" />
+    <ellipse cx="180" cy="160" rx="120" ry="100" fill="url(#rg-glow2)" filter="url(#reg-blur1)" />
+    <ellipse cx="360" cy="320" rx="100" ry="90" fill="url(#rg-glow2)" filter="url(#reg-blur1)" />
+    {/* Outer ring connections */}
+    <line x1="140" y1="130" x2="210" y2="100" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="210" y1="100" x2="290" y2="90" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="290" y1="90" x2="370" y2="120" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.4" />
+    <line x1="370" y1="120" x2="400" y2="190" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="400" y1="190" x2="390" y2="270" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
+    <line x1="390" y1="270" x2="360" y2="350" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
+    <line x1="360" y1="350" x2="290" y2="390" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
+    <line x1="290" y1="390" x2="210" y2="380" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
+    <line x1="210" y1="380" x2="145" y2="340" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
+    <line x1="145" y1="340" x2="120" y2="265" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="120" y1="265" x2="130" y2="190" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="130" y1="190" x2="140" y2="130" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
+    {/* Inner ring */}
+    <line x1="200" y1="165" x2="260" y2="160" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
+    <line x1="260" y1="160" x2="330" y2="180" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
+    <line x1="330" y1="180" x2="340" y2="250" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
+    <line x1="340" y1="250" x2="310" y2="320" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.5" />
+    <line x1="310" y1="320" x2="240" y2="330" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.5" />
+    <line x1="240" y1="330" x2="175" y2="300" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.5" />
+    <line x1="175" y1="300" x2="170" y2="230" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
+    <line x1="170" y1="230" x2="200" y2="165" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
+    {/* Spokes to center */}
+    <line x1="200" y1="165" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
+    <line x1="260" y1="160" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
+    <line x1="330" y1="180" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
+    <line x1="340" y1="250" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
+    <line x1="310" y1="320" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
+    <line x1="240" y1="330" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
+    <line x1="175" y1="300" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
+    <line x1="170" y1="230" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
+    {/* Cross connections */}
+    <line x1="140" y1="130" x2="200" y2="165" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="210" y1="100" x2="260" y2="160" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="370" y1="120" x2="330" y2="180" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="400" y1="190" x2="340" y2="250" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="360" y1="350" x2="310" y2="320" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="210" y1="380" x2="240" y2="330" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="120" y1="265" x2="170" y2="230" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="145" y1="340" x2="175" y2="300" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
+    {/* Hexagons */}
+    <polygon points="260,195 280,207 280,231 260,243 240,231 240,207" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.3" fill="none" />
+    <polygon points="260,140 290,157 290,191 260,208 230,191 230,157" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.2" fill="none" />
+    {/* Outer nodes */}
+    <circle cx="140" cy="130" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="210" cy="100" r="8" fill="#6355D8" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="290" cy="90" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="370" cy="120" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="400" cy="190" r="9" fill="#6355D8" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
+    <circle cx="390" cy="270" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="360" cy="350" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
+    <circle cx="290" cy="390" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="210" cy="380" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
+    <circle cx="145" cy="340" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="120" cy="265" r="8" fill="#6355D8" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="130" cy="190" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    {/* Inner nodes */}
+    <circle cx="200" cy="165" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
+    <circle cx="260" cy="160" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
+    <circle cx="330" cy="180" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
+    <circle cx="340" cy="250" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
+    <circle cx="310" cy="320" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
+    <circle cx="240" cy="330" r="7" fill="#8B7CF6" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" />
+    <circle cx="175" cy="300" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
+    <circle cx="170" cy="230" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
+    {/* Center orb */}
+    <circle cx="260" cy="245" r="28" fill="url(#rg-orb)" filter="url(#reg-blur2)" />
+    <circle cx="260" cy="245" r="20" fill="#7C6FF7" fillOpacity="0.9" stroke="#A78BFA" strokeWidth="2.5" filter="url(#reg-nodeglow)" />
+    <circle cx="260" cy="245" r="10" fill="#C4B5FD" fillOpacity="0.6" />
+    <circle cx="255" cy="240" r="4" fill="white" fillOpacity="0.4" />
+    {/* Accent dots */}
+    <circle cx="450" cy="100" r="3" fill="#A78BFA" fillOpacity="0.5" />
+    <circle cx="465" cy="115" r="2" fill="#8B7CF6" fillOpacity="0.4" />
+    <circle cx="75" cy="400" r="3" fill="#A78BFA" fillOpacity="0.5" />
+    <circle cx="60" cy="415" r="2" fill="#8B7CF6" fillOpacity="0.4" />
+    <circle cx="460" cy="380" r="2.5" fill="#A78BFA" fillOpacity="0.4" />
+    {/* Pulse rings */}
+    <circle cx="400" cy="190" r="16" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.25" fill="none" />
+    <circle cx="200" cy="165" r="15" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.25" fill="none" />
+    <circle cx="310" cy="320" r="15" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.25" fill="none" />
+    <circle cx="260" cy="245" r="36" stroke="#8B7CF6" strokeWidth="1.5" strokeOpacity="0.2" fill="none" />
+    <circle cx="260" cy="245" r="50" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.12" fill="none" />
   </svg>
 );
 
-const STEPS = ['Acesso', 'Perfil', 'Pronto'];
+// ── Constants ──────────────────────────────────────────────────────────────────
+const STEPS = ['Acesso', 'Perfil', 'Especialidades', 'Boas-vindas'] as const;
 
+const SPECIALTIES = [
+  'Ansiedade', 'Depressão', 'TDAH', 'Relacionamentos', 'Trauma e TEPT',
+  'Luto', 'Burnout', 'Transição de Carreira', 'Autoestima',
+  'Transtornos Alimentares', 'Infantil', 'Adolescência', 'Autismo (TEA)',
+  'Orientação Vocacional', 'Dependência Química', 'Síndrome do Pânico',
+  'Abuso Sexual', 'Abuso Psicológico', 'Problemas Familiares', 'Sexualidade',
+  'Identidade de Gênero', 'Ansiedade Social', 'Fobias', 'Insônia',
+  'Dor Crônica', 'Neurodivergências',
+];
+
+const ABORDAGENS = [
+  'Terapia Cognitivo Comportamental (TCC)',
+  'Terapia de Aceitação e Compromisso (ACT)',
+  'Terapia Comportamental Dialética (DBT)',
+  'Terapia dos Esquemas',
+  'Psicanálise',
+  'Psicoterapia Junguiana (Analítica)',
+  'Terapia analítico-comportamental (Behaviorismo)',
+  'Gestalt-terapia',
+  'Humanista',
+  'Psicologia positiva',
+  'Terapia Fenomenológico-Existencial',
+  'Terapia familiar',
+  'Terapia de casal',
+  'Logoterapia',
+  'EMDR',
+  'Mindfulness',
+];
+
+const DISPONIBILIDADE = ['Manhã', 'Tarde', 'Noite'];
+const MODALIDADE = ['Presencial', 'Online'];
+
+// ── Mask helpers ──────────────────────────────────────────────────────────────
+function applyPhoneMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function applyCrpMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+// ── Multi-select Pill ──────────────────────────────────────────────────────────
+interface PillGroupProps {
+  label: string;
+  items: string[];
+  selected: string[];
+  onToggle: (item: string) => void;
+}
+const PillGroup: React.FC<PillGroupProps> = ({ label, items, selected, onToggle }) => (
+  <div>
+    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">{label}</p>
+    <div className="flex flex-wrap gap-2">
+      {items.map(item => {
+        const active = selected.includes(item);
+        return (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onToggle(item)}
+            className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1"
+            style={
+              active
+                ? {
+                    background: '#6355D8',
+                    borderColor: '#6355D8',
+                    color: '#fff',
+                    boxShadow: '0 2px 8px rgba(99,85,216,0.30)',
+                    focusRingColor: '#6355D8',
+                  }
+                : {
+                    background: '#F8FAFC',
+                    borderColor: '#E2E8F0',
+                    color: '#64748B',
+                  }
+            }
+          >
+            {item}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+// ── Main Component ────────────────────────────────────────────────────────────
 export const Register: React.FC = () => {
   const navigate = useNavigate();
   const { resolvedMode } = useTheme();
@@ -78,9 +226,8 @@ export const Register: React.FC = () => {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
 
-  // Step 0 — acesso
+  // Step 0 — Acesso
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -88,43 +235,84 @@ export const Register: React.FC = () => {
   const [showPass, setShowPass] = useState(false);
   const [showConf, setShowConf] = useState(false);
 
-  // Step 1 — perfil
-  const [phone, setPhone]         = useState('');
-  const [specialty, setSpecialty] = useState('');
+  // Step 1 — Perfil
   const [crp, setCrp]             = useState('');
-  const [company, setCompany]     = useState('');
+  const [phone, setPhone]         = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [gender, setGender]       = useState('');
+  const [bio, setBio]             = useState('');
 
+  // Step 2 — Especialidades
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [selectedAbordagens, setSelectedAbordagens]   = useState<string[]>([]);
+  const [selectedDisp, setSelectedDisp]               = useState<string[]>([]);
+  const [selectedModal, setSelectedModal]             = useState<string[]>([]);
+
+  // ── Password strength ──────────────────────────────────────────────────────
   const passwordStrength = (() => {
     if (!password) return 0;
     let s = 0;
-    if (password.length >= 8)  s++;
-    if (/[A-Z]/.test(password)) s++;
-    if (/[0-9]/.test(password)) s++;
+    if (password.length >= 8)        s++;
+    if (/[A-Z]/.test(password))      s++;
+    if (/[0-9]/.test(password))      s++;
     if (/[^A-Za-z0-9]/.test(password)) s++;
     return s;
   })();
   const strengthLabel = ['', 'Fraca', 'Média', 'Boa', 'Forte'][passwordStrength];
   const strengthColor = ['', '#EF4444', '#F59E0B', '#3B82F6', '#10B981'][passwordStrength];
 
+  // ── Toggle pill helper ─────────────────────────────────────────────────────
+  const toggle = (arr: string[], setArr: React.Dispatch<React.SetStateAction<string[]>>, item: string) => {
+    setArr(prev => prev.includes(item) ? prev.filter(x => x !== item) : [...prev, item]);
+  };
+
+  // ── Step navigation ────────────────────────────────────────────────────────
   const goNext = () => {
     setError('');
     if (step === 0) {
-      if (!name.trim()) return setError('Digite seu nome completo.');
-      if (!email.trim() || !email.includes('@')) return setError('Digite um e-mail válido.');
-      if (password.length < 8) return setError('A senha deve ter ao menos 8 caracteres.');
-      if (password !== confirm) return setError('As senhas não coincidem.');
+      if (!name.trim())                              return setError('Digite seu nome completo.');
+      if (!email.trim() || !email.includes('@'))     return setError('Digite um e-mail válido.');
+      if (password.length < 8)                       return setError('A senha deve ter ao menos 8 caracteres.');
+      if (password !== confirm)                      return setError('As senhas não coincidem.');
+      setStep(1);
+      return;
     }
-    setStep(s => s + 1);
+    if (step === 1) {
+      if (!crp.trim())   return setError('Digite seu CRP.');
+      if (!phone.trim()) return setError('Digite seu telefone.');
+      setStep(2);
+      return;
+    }
+    if (step === 2) {
+      handleSubmit();
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const goBack = () => {
+    setError('');
+    setStep(s => Math.max(0, s - 1));
+  };
+
+  // ── API Submit ─────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
     setLoading(true);
     setError('');
     try {
-      await api.post('/auth/register', { name, email, password, phone, specialty, crp, company_name: company });
-      setDone(true);
-      setStep(2);
+      await api.post('/auth/register', {
+        name,
+        email,
+        password,
+        phone,
+        crp,
+        specialty: selectedSpecialties.join(', '),
+        company_name: companyName,
+        gender,
+        bio,
+        abordagens: JSON.stringify(selectedAbordagens),
+        disponibilidade: JSON.stringify(selectedDisp),
+        modalidade: JSON.stringify(selectedModal),
+      });
+      setStep(3);
     } catch (err: any) {
       setError(err.message || 'Erro ao criar conta. Tente novamente.');
     } finally {
@@ -132,64 +320,94 @@ export const Register: React.FC = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen w-full flex font-sans bg-white overflow-y-auto">
+  // ── Shared input class ─────────────────────────────────────────────────────
+  const inputCls =
+    'w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6355D8] focus:ring-2 focus:ring-[#6355D8]/15 transition-all duration-200';
 
-      {/* ── Esquerda — ilustração (mesmo estilo do Login) ── */}
-      <div className="hidden lg:flex flex-col justify-between w-[50%] p-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(145deg, #eef2ff 0%, #f5f3ff 55%, #fdf4ff 100%)' }}>
-        <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-40"
-          style={{ background: 'radial-gradient(circle, #c7d2fe, transparent 70%)', transform: 'translate(30%,-30%)' }} />
-        <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full opacity-30"
-          style={{ background: 'radial-gradient(circle, #ddd6fe, transparent 70%)', transform: 'translate(-30%,30%)' }} />
+  // ── Accent button ──────────────────────────────────────────────────────────
+  const accentBtn =
+    'w-full py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed';
+
+  const firstName = name.split(' ')[0];
+
+  return (
+    <div className="min-h-screen w-full flex font-sans overflow-hidden">
+
+      {/* ── LEFT PANEL — dark ───────────────────────────────────────────────── */}
+      <div
+        className="hidden lg:flex flex-col justify-between w-[48%] flex-shrink-0 relative overflow-hidden"
+        style={{ background: '#0C0B1A' }}
+      >
+        {/* Glow layers */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 60% at 40% 35%, rgba(99,85,216,0.18) 0%, transparent 70%), ' +
+              'radial-gradient(ellipse 50% 50% at 75% 70%, rgba(139,124,246,0.10) 0%, transparent 65%)',
+          }}
+        />
 
         {/* Logo */}
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-[64px] h-[64px] rounded-2xl overflow-hidden shadow-xl ring-2 ring-indigo-200/60 bg-white/80 backdrop-blur-sm flex-shrink-0">
-            <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain p-0.5" />
+        <div className="relative z-10 flex items-center gap-3 p-10">
+          <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10 shadow-2xl">
+            <img src={logoDarkUrl} alt="PsiFlux" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h1 className="text-slate-800 font-display font-bold text-[24px] leading-none tracking-tight flex items-baseline">
-              <span style={{ color: '#1e295b' }}>Psi</span>
-              <span style={{ color: '#00bcd4' }}>Flux</span>
+            <h1 className="font-bold text-[26px] leading-none tracking-tight" style={{ fontWeight: 900 }}>
+              <span style={{ color: '#E0DEFF' }}>Psi</span>
+              <span style={{ color: '#A78BFA' }}>Flux</span>
             </h1>
-            <p style={{ color: '#1e295b' }} className="text-[11px] font-medium tracking-tight mt-0.5">Onde o seu consultório flui.</p>
+            <p className="text-[11px] font-medium tracking-wide mt-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>
+              Onde o seu consultório flui.
+            </p>
           </div>
         </div>
 
-        {/* Ilustração */}
-        <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-6">
-          <LeftIllustration />
-          <div className="text-center mt-2">
-            <h2 className="text-xl font-bold text-slate-700">Tudo para sua prática clínica</h2>
-            <p className="text-slate-400 text-sm mt-1.5 max-w-xs">
-              Agenda inteligente, prontuário digital, salas de vídeo e perfil público — tudo em um lugar.
+        {/* Illustration + headline */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-10 -mt-6">
+          <div className="w-full max-w-[420px]">
+            <BrainIllustration />
+          </div>
+          <div className="text-center mt-2 px-6">
+            <h2 className="text-xl font-bold leading-tight" style={{ color: 'rgba(255,255,255,0.92)' }}>
+              Crie sua conta grátis
+            </h2>
+            <p className="text-sm mt-2 leading-relaxed max-w-xs mx-auto" style={{ color: 'rgba(167,139,250,0.65)' }}>
+              14 dias sem compromisso. Cancele quando quiser.
             </p>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="flex items-center justify-center gap-4 relative z-10">
+        <div className="relative z-10 flex items-center justify-center gap-3 p-10 pt-6">
           {[
-            { value: '7 dias', label: 'Grátis para testar' },
-            { value: '2k+',   label: 'Psicólogos' },
-            { value: '4.9★',  label: 'Avaliação' },
+            { value: '14 dias', label: 'Grátis' },
+            { value: '2k+',    label: 'Psicólogos' },
+            { value: '4.9★',   label: 'Avaliação' },
           ].map(({ value, label }) => (
-            <div key={label} className="text-center px-5 py-3 bg-indigo-50 rounded-2xl border border-white/80 shadow-sm">
-              <p className="text-slate-800 font-display font-bold text-xl leading-none">{value}</p>
-              <p className="text-slate-500 text-xs mt-1 font-medium">{label}</p>
+            <div
+              key={label}
+              className="text-center px-5 py-3 rounded-2xl border"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                borderColor: 'rgba(167,139,250,0.18)',
+              }}
+            >
+              <p className="font-bold text-[18px] leading-none" style={{ color: '#E0DEFF' }}>{value}</p>
+              <p className="text-[11px] mt-1 font-medium" style={{ color: 'rgba(167,139,250,0.55)' }}>{label}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Direita — formulário ── */}
-      <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 bg-white overflow-y-auto">
-        <div className="w-full max-w-[420px] mx-auto py-8">
+      {/* ── RIGHT PANEL — form ──────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col bg-white overflow-y-auto">
+        <div className="w-full max-w-[480px] mx-auto px-6 sm:px-8 py-10 flex-1 flex flex-col justify-center">
 
-          {/* Logo mobile */}
+          {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md ring-2 ring-indigo-100 flex-shrink-0">
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md ring-2 ring-slate-100 flex-shrink-0">
               <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
             </div>
             <div>
@@ -201,53 +419,63 @@ export const Register: React.FC = () => {
             </div>
           </div>
 
-          {/* Stepper */}
-          {!done && (
+          {/* Stepper (steps 0-2) */}
+          {step < 3 && (
             <div className="flex items-center gap-2 mb-8">
-              {STEPS.map((label, i) => (
+              {STEPS.slice(0, 3).map((label, i) => (
                 <React.Fragment key={label}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all
-                      ${i < step ? 'bg-indigo-600 text-white' : i === step ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' : 'bg-slate-100 text-slate-400'}`}>
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300"
+                      style={
+                        i < step
+                          ? { background: '#6355D8', color: '#fff' }
+                          : i === step
+                          ? { background: '#6355D8', color: '#fff', boxShadow: '0 0 0 4px rgba(99,85,216,0.15)' }
+                          : { background: '#F1F5F9', color: '#94A3B8' }
+                      }
+                    >
                       {i < step ? <CheckCircle2 size={14} /> : i + 1}
                     </div>
-                    <span className={`text-xs font-semibold hidden sm:block ${i === step ? 'text-slate-700' : 'text-slate-400'}`}>
+                    <span
+                      className="text-xs font-semibold hidden sm:block transition-colors"
+                      style={{ color: i === step ? '#1E293B' : '#94A3B8' }}
+                    >
                       {label}
                     </span>
                   </div>
-                  {i < STEPS.length - 1 && (
-                    <div className={`flex-1 h-0.5 rounded-full transition-all ${i < step ? 'bg-indigo-600' : 'bg-slate-100'}`} />
+                  {i < 2 && (
+                    <div
+                      className="flex-1 h-0.5 rounded-full transition-all duration-500"
+                      style={{ background: i < step ? '#6355D8' : '#E2E8F0' }}
+                    />
                   )}
                 </React.Fragment>
               ))}
             </div>
           )}
 
-          {/* ── Step 0: Acesso ── */}
+          {/* ── Step 0: Acesso ─────────────────────────────────────────────── */}
           {step === 0 && (
-            <div className="animate-[fadeIn_.4s_ease-out]">
+            <div key="step-0" className="animate-[fadeIn_.35s_ease-out]">
               <div className="mb-7">
-                <h2 className="text-[26px] font-bold text-slate-900 tracking-tight mb-1">Crie sua conta</h2>
+                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Crie sua conta</h2>
                 <p className="text-slate-400 text-sm">Comece agora — sem cartão de crédito.</p>
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl mb-5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
+              {error && <ErrorBanner msg={error} />}
 
               <div className="space-y-4">
                 {/* Nome */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome completo</label>
                   <div className="relative">
-                    <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type="text" value={name} onChange={e => setName(e.target.value)}
                       placeholder="Dra. Ana Silva"
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                      className={inputCls}
+                      autoComplete="name"
                     />
                   </div>
                 </div>
@@ -256,11 +484,12 @@ export const Register: React.FC = () => {
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">E-mail profissional</label>
                   <div className="relative">
-                    <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type="email" value={email} onChange={e => setEmail(e.target.value)}
                       placeholder="ana@consultorio.com.br"
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                      className={inputCls}
+                      autoComplete="email"
                     />
                   </div>
                 </div>
@@ -269,28 +498,30 @@ export const Register: React.FC = () => {
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Senha</label>
                   <div className="relative">
-                    <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type={showPass ? 'text' : 'password'} value={password}
                       onChange={e => setPassword(e.target.value)}
                       placeholder="Mínimo 8 caracteres"
-                      className="w-full pl-11 pr-12 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                      className={`${inputCls} pr-12`}
+                      autoComplete="new-password"
                     />
                     <button type="button" onClick={() => setShowPass(s => !s)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
                       {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  {/* Barra de força */}
+                  {/* Strength bar */}
                   {password && (
                     <div className="flex items-center gap-2 mt-1.5">
                       <div className="flex gap-1 flex-1">
-                        {[1,2,3,4].map(i => (
-                          <div key={i} className="h-1 flex-1 rounded-full transition-all"
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="h-1 flex-1 rounded-full transition-all duration-300"
                             style={{ background: i <= passwordStrength ? strengthColor : '#E2E8F0' }} />
                         ))}
                       </div>
-                      <span className="text-xs font-semibold" style={{ color: strengthColor }}>{strengthLabel}</span>
+                      <span className="text-xs font-semibold w-10 text-right transition-colors"
+                        style={{ color: strengthColor }}>{strengthLabel}</span>
                     </div>
                   )}
                 </div>
@@ -299,28 +530,32 @@ export const Register: React.FC = () => {
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Confirmar senha</label>
                   <div className="relative">
-                    <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type={showConf ? 'text' : 'password'} value={confirm}
                       onChange={e => setConfirm(e.target.value)}
                       placeholder="Repita a senha"
-                      className={`w-full pl-11 pr-12 py-3.5 rounded-xl bg-slate-50 border text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
+                      autoComplete="new-password"
+                      className={`w-full pl-11 pr-12 py-3.5 rounded-xl bg-slate-50 border text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all duration-200
                         ${confirm && confirm !== password
                           ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                          : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'}`}
+                          : 'border-slate-200 focus:border-[#6355D8] focus:ring-[#6355D8]/15'}`}
                     />
                     <button type="button" onClick={() => setShowConf(s => !s)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
                       {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+                  {confirm && confirm !== password && (
+                    <p className="text-xs text-red-500 mt-1">As senhas não coincidem.</p>
+                  )}
                 </div>
               </div>
 
               <button
                 onClick={goNext}
-                className="w-full mt-7 py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 shadow-lg active:scale-[0.99]"
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.35)' }}
+                className={`${accentBtn} mt-7 shadow-lg`}
+                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
               >
@@ -330,56 +565,61 @@ export const Register: React.FC = () => {
               <p className="text-center text-sm text-slate-400 mt-5">
                 Já tem conta?{' '}
                 <button onClick={() => navigate('/login')}
-                  className="font-semibold text-indigo-600 hover:text-indigo-700 transition">
+                  className="font-semibold transition-colors"
+                  style={{ color: '#6355D8' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#5447C4')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#6355D8')}>
                   Entrar
                 </button>
               </p>
             </div>
           )}
 
-          {/* ── Step 1: Perfil profissional ── */}
+          {/* ── Step 1: Perfil ─────────────────────────────────────────────── */}
           {step === 1 && (
-            <form onSubmit={handleSubmit} className="animate-[fadeIn_.4s_ease-out]">
-              <button onClick={() => setStep(0)} type="button"
-                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-7 transition">
+            <div key="step-1" className="animate-[fadeIn_.35s_ease-out]">
+              <button onClick={goBack} type="button"
+                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-7 transition-colors">
                 <ChevronLeft size={15} /> Voltar
               </button>
 
               <div className="mb-7">
-                <h2 className="text-[26px] font-bold text-slate-900 tracking-tight mb-1">Seu perfil profissional</h2>
-                <p className="text-slate-400 text-sm">Essas informações aparecerão no seu perfil público. Você pode editar depois.</p>
+                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Perfil profissional</h2>
+                <p className="text-slate-400 text-sm">Essas informações poderão aparecer no seu perfil público.</p>
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl mb-5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
+              {error && <ErrorBanner msg={error} />}
 
               <div className="space-y-4">
-                {/* Especialidade */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Especialidade principal</label>
-                  <div className="relative">
-                    <BrainCircuit size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text" value={specialty} onChange={e => setSpecialty(e.target.value)}
-                      placeholder="Ex: Psicologia Clínica, TCC, Infantil…"
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
-                    />
-                  </div>
-                </div>
-
                 {/* CRP */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">CRP</label>
                   <div className="relative">
-                    <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
-                      type="text" value={crp} onChange={e => setCrp(e.target.value)}
-                      placeholder="Ex: 06/123456"
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                      type="text" value={crp}
+                      onChange={e => setCrp(applyCrpMask(e.target.value))}
+                      placeholder="06/123456"
+                      maxLength={9}
+                      className={inputCls}
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400">Formato: região/número (ex: 06/123456)</p>
+                </div>
+
+                {/* Telefone */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Telefone / WhatsApp</label>
+                  <div className="relative">
+                    <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="tel" value={phone}
+                      onChange={e => setPhone(applyPhoneMask(e.target.value))}
+                      placeholder="(11) 99999-9999"
+                      maxLength={16}
+                      className={inputCls}
+                      inputMode="numeric"
                     />
                   </div>
                 </div>
@@ -387,48 +627,132 @@ export const Register: React.FC = () => {
                 {/* Nome do consultório */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Nome do consultório <span className="text-slate-300 font-normal normal-case">(opcional)</span>
+                    Nome do consultório{' '}
+                    <span className="text-slate-300 font-normal normal-case">(opcional)</span>
                   </label>
                   <div className="relative">
-                    <Building2 size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Building2 size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
-                      type="text" value={company} onChange={e => setCompany(e.target.value)}
+                      type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
                       placeholder="Ex: Consultório Ana Silva"
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                      className={inputCls}
                     />
                   </div>
                 </div>
 
-                {/* Telefone */}
+                {/* Gênero */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Gênero</label>
+                  <div className="relative">
+                    <UserCircle2 size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                    <select
+                      value={gender}
+                      onChange={e => setGender(e.target.value)}
+                      className={`${inputCls} appearance-none cursor-pointer`}
+                    >
+                      <option value="">Prefiro não informar</option>
+                      <option value="Masculino">Masculino</option>
+                      <option value="Feminino">Feminino</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                        <path d="M6 8L1 3h10L6 8z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bio */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Telefone / WhatsApp <span className="text-slate-300 font-normal normal-case">(opcional)</span>
+                    Apresentação{' '}
+                    <span className="text-slate-300 font-normal normal-case">(opcional)</span>
                   </label>
                   <div className="relative">
-                    <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                      placeholder="(11) 99999-9999"
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                    <FileText size={15} className="absolute left-4 top-4 text-slate-400 pointer-events-none" />
+                    <textarea
+                      value={bio} onChange={e => setBio(e.target.value)}
+                      placeholder="Conte um pouco sobre você e sua abordagem…"
+                      rows={3}
+                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6355D8] focus:ring-2 focus:ring-[#6355D8]/15 transition-all duration-200 resize-none"
                     />
                   </div>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-400 mt-5 leading-relaxed">
+              <button
+                onClick={goNext}
+                className={`${accentBtn} mt-7 shadow-lg`}
+                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+              >
+                Continuar
+              </button>
+            </div>
+          )}
+
+          {/* ── Step 2: Especialidades ─────────────────────────────────────── */}
+          {step === 2 && (
+            <div key="step-2" className="animate-[fadeIn_.35s_ease-out]">
+              <button onClick={goBack} type="button"
+                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-7 transition-colors">
+                <ChevronLeft size={15} /> Voltar
+              </button>
+
+              <div className="mb-7">
+                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Especialidades</h2>
+                <p className="text-slate-400 text-sm">Selecione tudo que se aplica. Você pode alterar depois.</p>
+              </div>
+
+              {error && <ErrorBanner msg={error} />}
+
+              <div className="space-y-7">
+                <PillGroup
+                  label="Especialidades"
+                  items={SPECIALTIES}
+                  selected={selectedSpecialties}
+                  onToggle={item => toggle(selectedSpecialties, setSelectedSpecialties, item)}
+                />
+                <PillGroup
+                  label="Abordagens"
+                  items={ABORDAGENS}
+                  selected={selectedAbordagens}
+                  onToggle={item => toggle(selectedAbordagens, setSelectedAbordagens, item)}
+                />
+                <PillGroup
+                  label="Disponibilidade"
+                  items={DISPONIBILIDADE}
+                  selected={selectedDisp}
+                  onToggle={item => toggle(selectedDisp, setSelectedDisp, item)}
+                />
+                <PillGroup
+                  label="Modalidade"
+                  items={MODALIDADE}
+                  selected={selectedModal}
+                  onToggle={item => toggle(selectedModal, setSelectedModal, item)}
+                />
+              </div>
+
+              <p className="text-xs text-slate-400 mt-6 leading-relaxed">
                 Ao criar sua conta você concorda com os{' '}
                 <button type="button" onClick={() => navigate('/termos-publicos')}
-                  className="text-indigo-500 hover:underline">Termos de Uso</button>{' '}
+                  className="hover:underline transition-colors" style={{ color: '#6355D8' }}>
+                  Termos de Uso
+                </button>{' '}
                 e a{' '}
                 <button type="button" onClick={() => navigate('/privacidade')}
-                  className="text-indigo-500 hover:underline">Política de Privacidade</button>.
+                  className="hover:underline transition-colors" style={{ color: '#6355D8' }}>
+                  Política de Privacidade
+                </button>.
               </p>
 
               <button
-                type="submit"
+                onClick={goNext}
                 disabled={loading}
-                className="w-full mt-5 py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 shadow-lg active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.35)' }}
+                className={`${accentBtn} mt-5 shadow-lg`}
+                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#5447C4'; }}
                 onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#6355D8'; }}
               >
@@ -436,24 +760,59 @@ export const Register: React.FC = () => {
                   ? <><Loader2 size={16} className="animate-spin" /> Criando conta…</>
                   : 'Criar minha conta'}
               </button>
-            </form>
+            </div>
           )}
 
-          {/* ── Step 2: Sucesso ── */}
-          {step === 2 && done && (
-            <div className="text-center py-6 animate-[fadeIn_.5s_ease-out]">
-              <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <CheckCircle2 size={40} className="text-emerald-500" />
+          {/* ── Step 3: Boas-vindas ────────────────────────────────────────── */}
+          {step === 3 && (
+            <div key="step-3" className="flex flex-col items-center text-center py-8 animate-[fadeIn_.5s_ease-out]">
+              {/* Confetti decoration */}
+              <div className="flex items-center justify-center gap-1 text-3xl mb-4 select-none" aria-hidden="true">
+                <span className="animate-bounce" style={{ animationDelay: '0ms' }}>🎉</span>
+                <span className="animate-bounce" style={{ animationDelay: '120ms' }}>✨</span>
+                <span className="animate-bounce" style={{ animationDelay: '240ms' }}>🎊</span>
               </div>
-              <h2 className="text-[26px] font-bold text-slate-900 tracking-tight mb-2">Conta criada!</h2>
+
+              {/* Success circle */}
+              <div
+                className="w-24 h-24 rounded-3xl flex items-center justify-center mb-6 shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #7C6FF7 0%, #6355D8 100%)', boxShadow: '0 8px 32px rgba(99,85,216,0.35)' }}
+              >
+                <CheckCircle2 size={44} className="text-white" />
+              </div>
+
+              <h2 className="text-[30px] font-bold text-slate-900 tracking-tight mb-3">
+                Conta criada!
+              </h2>
+              <p className="text-slate-500 text-sm max-w-xs mx-auto mb-2 leading-relaxed">
+                Bem-vindo ao PsiFlux,{' '}
+                <span className="font-bold text-slate-800">{firstName}</span>! 🌟
+              </p>
               <p className="text-slate-400 text-sm max-w-xs mx-auto mb-8 leading-relaxed">
-                Bem-vindo ao PsiFlux, <strong className="text-slate-700">{name.split(' ')[0]}</strong>!<br />
                 Faça login para acessar seu painel e começar a configurar seu consultório.
               </p>
+
+              {/* Feature chips */}
+              <div className="flex flex-wrap justify-center gap-2 mb-10">
+                {['Agenda inteligente', 'Prontuário digital', 'Sala de vídeo', 'Perfil público'].map(feat => (
+                  <span
+                    key={feat}
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold border"
+                    style={{
+                      background: 'rgba(99,85,216,0.07)',
+                      borderColor: 'rgba(99,85,216,0.20)',
+                      color: '#6355D8',
+                    }}
+                  >
+                    {feat}
+                  </span>
+                ))}
+              </div>
+
               <button
                 onClick={() => navigate('/login')}
-                className="w-full py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 shadow-lg"
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.35)' }}
+                className={`${accentBtn} shadow-lg`}
+                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
               >
@@ -461,8 +820,17 @@ export const Register: React.FC = () => {
               </button>
             </div>
           )}
+
         </div>
       </div>
     </div>
   );
 };
+
+// ── Error Banner helper (small, local) ────────────────────────────────────────
+const ErrorBanner: React.FC<{ msg: string }> = ({ msg }) => (
+  <div className="flex items-center gap-2.5 bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-xl mb-5">
+    <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+    <span>{msg}</span>
+  </div>
+);

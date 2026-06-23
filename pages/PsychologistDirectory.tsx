@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Instagram, Globe, Linkedin, Twitter, ArrowUpRight, ChevronRight, X } from 'lucide-react';
+import { Search, MapPin, Instagram, Globe, Linkedin, Twitter, ArrowUpRight, ChevronRight, X, SlidersHorizontal, Monitor } from 'lucide-react';
 import logoUrl from '../images/logo-psiflux.png';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -33,6 +33,27 @@ const C = {
   border:  '#E2E8F0',
   surface: '#F7F8FC',
 };
+
+/* ─── Listas de filtro ─── */
+const ABORDAGENS = [
+  'TCC', 'ACT', 'DBT', 'Terapia dos Esquemas', 'Psicanálise',
+  'Psicoterapia Junguiana', 'Behaviorismo', 'Gestalt-terapia', 'Humanista',
+  'Psicologia positiva', 'Fenomenológico-Existencial', 'Terapia familiar',
+  'Terapia de casal', 'Logoterapia', 'EMDR', 'Mindfulness',
+];
+
+const ESPECIALIDADES = [
+  'Ansiedade', 'Depressão', 'TDAH', 'Relacionamentos', 'Trauma e TEPT',
+  'Luto', 'Burnout', 'Transição de Carreira', 'Autoestima',
+  'Transtornos Alimentares', 'Infantil', 'Adolescência', 'Autismo (TEA)',
+  'Orientação Vocacional', 'Dependência Química', 'Síndrome do Pânico',
+  'Abuso Sexual', 'Abuso Psicológico', 'Problemas Familiares', 'Sexualidade',
+  'Identidade de Gênero', 'Ansiedade Social', 'Fobias', 'Insônia',
+  'Dor Crônica', 'Neurodivergências',
+];
+
+const DISPONIBILIDADE_OPTS = ['Manhã', 'Tarde', 'Noite'];
+const MODALIDADE_OPTS = ['Presencial', 'Remoto'];
 
 /* ─── Gradientes de capa para cards — determinísticos pelo nome ─── */
 const CARD_GRADIENTS = [
@@ -109,7 +130,6 @@ const HeroCanvas: React.FC = () => {
         ctx.fill();
       });
 
-      // Linhas entre pontos próximos
       for (let i = 0; i < dots.length; i++) {
         for (let j = i + 1; j < dots.length; j++) {
           const dx = dots[i].x - dots[j].x, dy = dots[i].y - dots[j].y;
@@ -203,7 +223,6 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
           position: 'absolute', inset: 0,
           background: 'repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0px, rgba(255,255,255,.03) 1px, transparent 1px, transparent 10px)',
         }} />
-        {/* Badge CRP no topo direito */}
         {p.crp && (
           <span style={{
             position: 'absolute', top: 12, right: 12,
@@ -245,7 +264,6 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
 
       {/* Conteúdo */}
       <div style={{ padding: '12px 24px 20px', display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-        {/* Nome + empresa */}
         <div>
           <p style={{ fontWeight: 800, fontSize: 16, color: C.text, margin: 0, lineHeight: 1.25, letterSpacing: '-0.02em' }}>
             {p.name}
@@ -257,7 +275,6 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
           )}
         </div>
 
-        {/* Especialidades */}
         {specialties.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {specialties.slice(0, 3).map((s, i) => (
@@ -280,7 +297,6 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
           </div>
         )}
 
-        {/* Bio */}
         {p.bio && (
           <p style={{
             fontSize: 13, color: '#475569', lineHeight: 1.65, margin: 0,
@@ -290,7 +306,6 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
           </p>
         )}
 
-        {/* Endereço */}
         {p.address && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#94A3B8', fontSize: 12 }}>
             <MapPin size={12} strokeWidth={2} />
@@ -298,7 +313,6 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
           </div>
         )}
 
-        {/* Footer do card: redes + CTA */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', gap: 6 }}>
             {(p.social_links || []).slice(0, 3).map((s, i) => (
@@ -343,6 +357,42 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
   );
 };
 
+/* ─── Pill button ─── */
+interface PillProps {
+  label: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}
+const Pill: React.FC<PillProps> = ({ label, active, onClick }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        border: `1px solid ${active ? C.accent : hovered ? C.accent : C.border}`,
+        borderRadius: 99,
+        fontSize: 12,
+        padding: '5px 12px',
+        cursor: 'pointer',
+        background: active ? C.accent : 'transparent',
+        color: active ? '#fff' : hovered ? C.accent : C.text,
+        fontWeight: active ? 700 : 500,
+        transition: 'all .15s',
+        whiteSpace: 'nowrap' as const,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        lineHeight: 1.4,
+        fontFamily: 'inherit',
+      }}
+    >
+      {label}
+    </button>
+  );
+};
+
 /* ─── Página principal ─── */
 export const PsychologistDirectory: React.FC = () => {
   const navigate = useNavigate();
@@ -354,32 +404,93 @@ export const PsychologistDirectory: React.FC = () => {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  /* ─── Filter state ─── */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedAbordagens, setSelectedAbordagens] = useState<string[]>([]);
+  const [selectedEspecialidade, setSelectedEspecialidade] = useState<string>('');
+  const [selectedDisponibilidade, setSelectedDisponibilidade] = useState<string[]>([]);
+  const [selectedModalidade, setSelectedModalidade] = useState<string>('');
+
+  const activeFilterCount =
+    selectedAbordagens.length +
+    (selectedEspecialidade ? 1 : 0) +
+    selectedDisponibilidade.length +
+    (selectedModalidade ? 1 : 0);
+
+  const hasActiveFilters = activeFilterCount > 0;
+
+  const clearAllFilters = useCallback(() => {
+    setSelectedAbordagens([]);
+    setSelectedEspecialidade('');
+    setSelectedDisponibilidade([]);
+    setSelectedModalidade('');
+  }, []);
+
+  const toggleAbordagem = (v: string) =>
+    setSelectedAbordagens(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+
+  const toggleDisponibilidade = (v: string) =>
+    setSelectedDisponibilidade(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+
+  const toggleModalidade = (v: string) =>
+    setSelectedModalidade(prev => prev === v ? '' : v);
+
+  const toggleEspecialidade = (v: string) =>
+    setSelectedEspecialidade(prev => prev === v ? '' : v);
+
+  /* ─── Scroll listener ─── */
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  /* ─── Debounce search ─── */
   useEffect(() => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setDebouncedSearch(search), 320);
     return () => clearTimeout(debounceRef.current);
   }, [search]);
 
+  /* ─── Fetch ─── */
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('q', debouncedSearch);
+    if (selectedEspecialidade) params.set('specialty', selectedEspecialidade);
+    if (selectedAbordagens.length) params.set('abordagem', selectedAbordagens.join(','));
+    if (selectedDisponibilidade.length) params.set('disponibilidade', selectedDisponibilidade.join(','));
+    if (selectedModalidade) params.set('modalidade', selectedModalidade);
+
     fetch(`${API_BASE}/directory?${params}`)
       .then(r => r.json())
       .then(data => { setPsychologists(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => { setPsychologists([]); setLoading(false); });
-  }, [debouncedSearch]);
+  }, [debouncedSearch, selectedEspecialidade, selectedAbordagens, selectedDisponibilidade, selectedModalidade]);
 
   const clearSearch = useCallback(() => {
     setSearch('');
     searchInputRef.current?.focus();
   }, []);
+
+  /* ─── Responsive: track mobile breakpoint ─── */
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  const filterPanelVisible = !isMobile || filtersOpen;
+
+  /* ─── Filter panel section label ─── */
+  const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <p style={{ fontSize: 13, fontWeight: 700, color: C.text, margin: '0 0 10px', letterSpacing: '-0.01em' }}>
+      {children}
+    </p>
+  );
 
   return (
     <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: C.surface, minHeight: '100vh', color: C.text }}>
@@ -403,6 +514,10 @@ export const PsychologistDirectory: React.FC = () => {
         @keyframes dir-spin {
           to { transform: rotate(360deg); }
         }
+        @keyframes dir-filter-in {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
 
         .dir-grid {
           display: grid;
@@ -415,6 +530,21 @@ export const PsychologistDirectory: React.FC = () => {
 
         .dir-search-wrap:focus-within {
           box-shadow: 0 0 0 3px rgba(99,85,216,.18), 0 8px 32px rgba(0,0,0,.18) !important;
+        }
+
+        .dir-filter-panel {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+        }
+        @media (max-width: 768px) {
+          .dir-filter-panel { grid-template-columns: 1fr; gap: 20px; }
+        }
+
+        .dir-pill-group {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -437,7 +567,6 @@ export const PsychologistDirectory: React.FC = () => {
         transition: 'background .3s, border-color .3s, box-shadow .3s',
         boxShadow: scrolled ? '0 2px 24px rgba(0,0,0,.08)' : 'none',
       }}>
-        {/* Logo */}
         <button
           onClick={() => navigate('/')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '4px 6px', borderRadius: 10 }}
@@ -464,7 +593,6 @@ export const PsychologistDirectory: React.FC = () => {
           </span>
         </button>
 
-        {/* CTA */}
         <button
           onClick={() => navigate('/login')}
           style={{
@@ -494,7 +622,6 @@ export const PsychologistDirectory: React.FC = () => {
         overflow: 'hidden',
         textAlign: 'center',
       }}>
-        {/* Orbes de fundo */}
         <div style={{
           position: 'absolute', top: -80, left: '50%', transform: 'translateX(-50%)',
           width: 700, height: 400,
@@ -514,11 +641,9 @@ export const PsychologistDirectory: React.FC = () => {
           pointerEvents: 'none',
         }} />
 
-        {/* Canvas partículas */}
         <HeroCanvas />
 
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 680, margin: '0 auto', padding: '60px 24px 0' }}>
-          {/* Eyebrow */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24,
             background: 'rgba(99,85,216,.2)', border: '1px solid rgba(99,85,216,.35)',
@@ -605,7 +730,7 @@ export const PsychologistDirectory: React.FC = () => {
             )}
           </div>
 
-          {/* Sugestões de busca rápida */}
+          {/* Quick search suggestions */}
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 16 }}>
             {['Ansiedade', 'TCC', 'Infantil', 'Online', 'Casais'].map(tag => (
               <button
@@ -615,6 +740,7 @@ export const PsychologistDirectory: React.FC = () => {
                   background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)',
                   borderRadius: 99, padding: '5px 13px', fontSize: 12, fontWeight: 600,
                   color: 'rgba(255,255,255,.6)', cursor: 'pointer', transition: 'all .15s',
+                  fontFamily: 'inherit',
                 }}
                 onMouseEnter={e => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,85,216,.3)';
@@ -637,7 +763,197 @@ export const PsychologistDirectory: React.FC = () => {
       {/* ── CONTEÚDO ── */}
       <div style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 24px 80px' }}>
 
-        {/* Barra de status */}
+        {/* ── FILTROS TOGGLE (mobile) ── */}
+        {isMobile && (
+          <div style={{ marginBottom: 16 }}>
+            <button
+              onClick={() => setFiltersOpen(v => !v)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: hasActiveFilters ? `${C.accent}10` : '#fff',
+                border: `1.5px solid ${hasActiveFilters ? C.accent + '40' : C.border}`,
+                borderRadius: 12, padding: '10px 18px',
+                fontSize: 14, fontWeight: 700,
+                color: hasActiveFilters ? C.accent : C.text,
+                cursor: 'pointer', transition: 'all .15s',
+                fontFamily: 'inherit',
+              }}
+            >
+              <SlidersHorizontal size={16} strokeWidth={2} />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span style={{
+                  background: C.accent, color: '#fff',
+                  fontSize: 11, fontWeight: 800,
+                  width: 20, height: 20, borderRadius: '50%',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1,
+                }}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* ── FILTER PANEL ── */}
+        {filterPanelVisible && (
+          <div
+            style={{
+              background: '#fff',
+              border: `1.5px solid ${C.border}`,
+              borderRadius: 20,
+              padding: 24,
+              marginBottom: 28,
+              animation: isMobile ? 'dir-filter-in .22s ease both' : 'none',
+            }}
+          >
+            {/* Desktop toggle label row */}
+            {!isMobile && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 20,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SlidersHorizontal size={16} color={C.accent} strokeWidth={2} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Filtros</span>
+                  {activeFilterCount > 0 && (
+                    <span style={{
+                      background: C.accent, color: '#fff',
+                      fontSize: 11, fontWeight: 800,
+                      width: 20, height: 20, borderRadius: '50%',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </div>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearAllFilters}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: 13, fontWeight: 600, color: C.muted,
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '4px 8px', borderRadius: 8,
+                      transition: 'color .15s',
+                      fontFamily: 'inherit',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = C.accent)}
+                    onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
+                  >
+                    <X size={13} /> Limpar filtros
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 2-column grid for Abordagens + Especialidades */}
+            <div className="dir-filter-panel">
+              {/* Left: Abordagens */}
+              <div>
+                <SectionLabel>Abordagens:</SectionLabel>
+                <div className="dir-pill-group">
+                  {ABORDAGENS.map(v => (
+                    <Pill
+                      key={v}
+                      label={v}
+                      active={selectedAbordagens.includes(v)}
+                      onClick={() => toggleAbordagem(v)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: Especialidades */}
+              <div>
+                <SectionLabel>Especialidades:</SectionLabel>
+                <div className="dir-pill-group">
+                  {ESPECIALIDADES.map(v => (
+                    <Pill
+                      key={v}
+                      label={v}
+                      active={selectedEspecialidade === v}
+                      onClick={() => toggleEspecialidade(v)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom row: Disponibilidade + Local */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'auto auto',
+              justifyContent: 'start',
+              gap: 32,
+              marginTop: 24,
+              paddingTop: 20,
+              borderTop: `1px solid ${C.border}`,
+            }}>
+              {/* Disponibilidade */}
+              <div>
+                <SectionLabel>Disponibilidade:</SectionLabel>
+                <div className="dir-pill-group">
+                  {DISPONIBILIDADE_OPTS.map(v => (
+                    <Pill
+                      key={v}
+                      label={v}
+                      active={selectedDisponibilidade.includes(v)}
+                      onClick={() => toggleDisponibilidade(v)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Local / Modalidade */}
+              <div>
+                <SectionLabel>Local:</SectionLabel>
+                <div className="dir-pill-group">
+                  <Pill
+                    label={<><MapPin size={12} strokeWidth={2} /> Presencial</>}
+                    active={selectedModalidade === 'Presencial'}
+                    onClick={() => toggleModalidade('Presencial')}
+                  />
+                  <Pill
+                    label={<><Monitor size={12} strokeWidth={2} /> Remoto</>}
+                    active={selectedModalidade === 'Remoto'}
+                    onClick={() => toggleModalidade('Remoto')}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile: Limpar filtros */}
+            {isMobile && hasActiveFilters && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+                <button
+                  onClick={clearAllFilters}
+                  style={{
+                    background: 'none', border: `1px solid ${C.border}`, cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600, color: C.muted,
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '8px 16px', borderRadius: 99,
+                    transition: 'all .15s',
+                    fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLButtonElement).style.color = C.accent;
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = C.accent;
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLButtonElement).style.color = C.muted;
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = C.border;
+                  }}
+                >
+                  <X size={13} /> Limpar filtros
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Status bar ── */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 10, marginBottom: 28,
@@ -658,22 +974,84 @@ export const PsychologistDirectory: React.FC = () => {
               )
             }
           </p>
-          {debouncedSearch && !loading && (
-            <button
-              onClick={clearSearch}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
-                borderRadius: 99, padding: '5px 12px',
-                fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
-              }}
-            >
-              <X size={11} /> "{debouncedSearch}"
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {debouncedSearch && !loading && (
+              <button
+                onClick={clearSearch}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
+                  borderRadius: 99, padding: '5px 12px',
+                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <X size={11} /> "{debouncedSearch}"
+              </button>
+            )}
+            {/* Active filter chips in status bar */}
+            {selectedAbordagens.map(v => (
+              <button
+                key={v}
+                onClick={() => toggleAbordagem(v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
+                  borderRadius: 99, padding: '5px 12px',
+                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <X size={11} /> {v}
+              </button>
+            ))}
+            {selectedEspecialidade && (
+              <button
+                onClick={() => setSelectedEspecialidade('')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
+                  borderRadius: 99, padding: '5px 12px',
+                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <X size={11} /> {selectedEspecialidade}
+              </button>
+            )}
+            {selectedDisponibilidade.map(v => (
+              <button
+                key={v}
+                onClick={() => toggleDisponibilidade(v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
+                  borderRadius: 99, padding: '5px 12px',
+                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <X size={11} /> {v}
+              </button>
+            ))}
+            {selectedModalidade && (
+              <button
+                onClick={() => setSelectedModalidade('')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
+                  borderRadius: 99, padding: '5px 12px',
+                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <X size={11} /> {selectedModalidade}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Grid */}
+        {/* ── Grid ── */}
         {loading ? (
           <div className="dir-grid">
             {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -697,16 +1075,19 @@ export const PsychologistDirectory: React.FC = () => {
             <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, maxWidth: 320, margin: '0 auto 24px' }}>
               {debouncedSearch
                 ? `Não encontramos ninguém com "${debouncedSearch}". Tente outro termo.`
-                : 'Ainda não há psicólogos com perfil público ativo.'}
+                : hasActiveFilters
+                  ? 'Nenhum profissional corresponde aos filtros selecionados.'
+                  : 'Ainda não há psicólogos com perfil público ativo.'}
             </p>
-            {debouncedSearch && (
+            {(debouncedSearch || hasActiveFilters) && (
               <button
-                onClick={clearSearch}
+                onClick={() => { clearSearch(); clearAllFilters(); }}
                 style={{
                   background: C.accent, color: '#fff', border: 'none',
                   borderRadius: 12, padding: '12px 28px',
                   fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   boxShadow: `0 4px 20px ${C.accent}40`,
+                  fontFamily: 'inherit',
                 }}
               >
                 Ver todos os profissionais
@@ -719,7 +1100,7 @@ export const PsychologistDirectory: React.FC = () => {
           </div>
         )}
 
-        {/* Rodapé da página */}
+        {/* ── Rodapé da página ── */}
         <div style={{
           marginTop: 72, paddingTop: 40,
           borderTop: `1px solid ${C.border}`,
@@ -740,6 +1121,7 @@ export const PsychologistDirectory: React.FC = () => {
               borderRadius: 12, padding: '10px 22px',
               fontSize: 13, fontWeight: 700, color: C.text, cursor: 'pointer',
               transition: 'border-color .15s, box-shadow .15s',
+              fontFamily: 'inherit',
             }}
             onMouseEnter={e => {
               (e.currentTarget as HTMLButtonElement).style.borderColor = C.accent;

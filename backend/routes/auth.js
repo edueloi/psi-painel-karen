@@ -33,14 +33,20 @@ const forgotPasswordLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Garante colunas de reset na tabela users
+// Garante colunas de reset na tabela users e trial na tenants
 (async () => {
   try {
     await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(64) NULL`);
     await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires DATETIME NULL`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20) NULL`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT NULL`);
+    await db.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_ends_at DATETIME NULL`);
   } catch {
     try { await db.query(`ALTER TABLE users ADD COLUMN reset_token VARCHAR(64) NULL`); } catch (_) {}
     try { await db.query(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME NULL`); } catch (_) {}
+    try { await db.query(`ALTER TABLE users ADD COLUMN gender VARCHAR(20) NULL`); } catch (_) {}
+    try { await db.query(`ALTER TABLE users ADD COLUMN bio TEXT NULL`); } catch (_) {}
+    try { await db.query(`ALTER TABLE tenants ADD COLUMN trial_ends_at DATETIME NULL`); } catch (_) {}
   }
 })();
 
@@ -54,7 +60,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     const [users] = await db.query(
-      `SELECT u.*, t.name as tenant_name, t.slug as tenant_slug, t.active as tenant_active
+      `SELECT u.*, t.name as tenant_name, t.slug as tenant_slug, t.active as tenant_active, t.trial_ends_at
        FROM users u
        LEFT JOIN tenants t ON t.id = u.tenant_id
        WHERE u.email = ? AND u.active = true`,
@@ -70,6 +76,17 @@ router.post('/login', loginLimiter, async (req, res) => {
     // Só bloqueia por tenant inativo se o usuário pertencer a um tenant (super_admin não pertence)
     if (user.tenant_id && !user.tenant_active) {
       return res.status(403).json({ error: 'Esta clínica está desativada' });
+    }
+
+    // Bloqueia se trial expirou (só para não-super_admin)
+    if (user.role !== 'super_admin' && user.trial_ends_at) {
+      const trialExpired = new Date(user.trial_ends_at) < new Date();
+      if (trialExpired) {
+        return res.status(403).json({
+          error: 'Seu período de teste gratuito de 14 dias expirou. Entre em contato para continuar usando o PsiFlux.',
+          trial_expired: true,
+        });
+      }
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
@@ -335,7 +352,10 @@ const registerLimiter = rateLimit({
 });
 
 router.post('/register', registerLimiter, async (req, res) => {
-  const { name, email, password, phone, specialty, crp, company_name } = req.body;
+  const {
+    name, email, password, phone, specialty, crp, company_name,
+    gender, bio, abordagens, disponibilidade, modalidade,
+  } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
@@ -348,20 +368,17 @@ router.post('/register', registerLimiter, async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Verificar se e-mail já existe em qualquer tenant
     const [[existing]] = await conn.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing) {
       await conn.rollback();
       return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
     }
 
-    // Buscar plano padrão (menor preço ativo)
     const [[defaultPlan]] = await conn.query(
       'SELECT id FROM plans WHERE active = true ORDER BY price ASC LIMIT 1'
     );
     const planId = defaultPlan?.id || null;
 
-    // Gerar slug único para o tenant
     const baseSlug = (company_name || name)
       .toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -371,25 +388,49 @@ router.post('/register', registerLimiter, async (req, res) => {
     const uniqueSuffix = crypto.randomBytes(3).toString('hex');
     const tenantSlug = `${baseSlug}-${uniqueSuffix}`;
 
-    // Criar tenant
+    // trial_ends_at = agora + 14 dias
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
     const [tenantResult] = await conn.query(
-      `INSERT INTO tenants (name, slug, phone, plan_id, active)
-       VALUES (?, ?, ?, ?, true)`,
-      [company_name || name, tenantSlug, phone || null, planId]
+      `INSERT INTO tenants (name, slug, phone, plan_id, active, trial_ends_at)
+       VALUES (?, ?, ?, ?, true, ?)`,
+      [company_name || name, tenantSlug, phone || null, planId, trialEndsAt]
     );
     const tenantId = tenantResult.insertId;
 
-    // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Gerar slug público do profissional
     const profSlug = baseSlug + '-' + crypto.randomBytes(4).toString('hex');
 
-    // Criar usuário como admin do tenant
+    // Montar profile_theme com especialidades, abordagens, disponibilidade e modalidade
+    let abordagensArr = [];
+    let disponibilidadeArr = [];
+    let modalidadeVal = null;
+    try { abordagensArr = abordagens ? JSON.parse(abordagens) : []; } catch { abordagensArr = []; }
+    try { disponibilidadeArr = disponibilidade ? JSON.parse(disponibilidade) : []; } catch { disponibilidadeArr = []; }
+    try { modalidadeVal = modalidade ? JSON.parse(modalidade) : null; } catch { modalidadeVal = null; }
+
+    const specialtiesList = specialty
+      ? specialty.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+
+    const profileTheme = JSON.stringify({
+      specialties_list: specialtiesList,
+      abordagens: abordagensArr,
+      disponibilidade: disponibilidadeArr,
+      modalidade: Array.isArray(modalidadeVal) ? modalidadeVal : (modalidadeVal ? [modalidadeVal] : []),
+    });
+
     await conn.query(
-      `INSERT INTO users (tenant_id, name, email, password, role, specialty, crp, phone, company_name, public_slug, active)
-       VALUES (?, ?, ?, ?, 'admin', ?, ?, ?, ?, ?, true)`,
-      [tenantId, name, email, hashedPassword, specialty || null, crp || null, phone || null, company_name || null, profSlug]
+      `INSERT INTO users
+         (tenant_id, name, email, password, role, specialty, crp, phone,
+          company_name, gender, bio, public_slug, profile_theme, active)
+       VALUES (?, ?, ?, ?, 'admin', ?, ?, ?, ?, ?, ?, ?, ?, true)`,
+      [
+        tenantId, name, email, hashedPassword,
+        specialtiesList[0] || null,
+        crp || null, phone || null, company_name || null,
+        gender || null, bio || null, profSlug, profileTheme,
+      ]
     );
 
     await conn.commit();
