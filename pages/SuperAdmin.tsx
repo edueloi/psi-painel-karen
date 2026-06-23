@@ -743,19 +743,19 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                   </div>
 
                   {tenants.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-3xl p-20 text-center shadow-sm">
-                      <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-300"><Building2 size={36} /></div>
-                      <h3 className="text-xl font-bold text-slate-800">Nenhuma clínica ainda</h3>
-                      <p className="text-slate-400 mt-2 mb-8 max-w-xs mx-auto">Comece adicionando seu primeiro parceiro clínico na plataforma.</p>
-                      <button onClick={openClientModal} className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-7 py-3 rounded-2xl text-sm font-bold transition shadow-lg shadow-indigo-100"><Plus size={18} /> Nova Clínica</button>
+                    <div className="bg-white border border-slate-200 rounded-2xl p-20 text-center shadow-sm">
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Building2 size={28} className="text-white" /></div>
+                      <h3 className="text-lg font-bold text-slate-800">Nenhuma clínica ainda</h3>
+                      <p className="text-slate-400 text-sm mt-2 mb-6 max-w-xs mx-auto">Adicione o primeiro parceiro clínico na plataforma.</p>
+                      <button onClick={openClientModal} className="inline-flex items-center gap-2 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={16} /> Nova Clínica</button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {tenants.filter(t => {
                         if (t.id === 1) return false;
                         if (clientFilter === 'active') return t.status === 'active' && t.active;
                         if (clientFilter === 'blocked') return t.status === 'blocked';
-                        if (clientFilter === 'expired') return t.expires_at && new Date(t.expires_at) < new Date();
+                        if (clientFilter === 'expired') return t.expires_at && new Date(t.expires_at) < new Date() && t.status !== 'blocked';
                         if (clientFilter === 'expiring') {
                           if (!t.expires_at) return false;
                           const d = Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5);
@@ -763,103 +763,94 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                         }
                         return true;
                       }).map((t, i) => {
-                        const planColor = CHART_COLORS[i % CHART_COLORS.length];
-                        const userPct = t.max_users ? Math.round((t.user_count || 0) / t.max_users * 100) : 0;
+                        const accentColor = avatarColor(t.company_name);
                         const daysLeft = t.expires_at ? Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5) : null;
-                        
+                        const isExpired = daysLeft !== null && daysLeft < 0;
+                        const isBlocked = t.status === 'blocked';
+                        const isExpiring = daysLeft !== null && daysLeft >= 0 && daysLeft <= 5;
+
                         return (
-                          <div key={t.id} className={`group bg-white border border-slate-200 rounded-[32px] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col ${!t.active ? 'opacity-70' : ''}`}>
-                            <div className="h-2" style={{ background: t.active ? planColor : '#e2e8f0' }} />
-                            
-                            <div className="p-7 flex-1 flex flex-col">
-                              {/* Top */}
-                              <div className="flex items-start justify-between mb-6">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg"
-                                    style={{ background: `linear-gradient(135deg, ${avatarColor(t.company_name)}, ${avatarColor(t.company_name)}cc)` }}>
+                          <div key={t.id} className={`bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col ${isBlocked ? 'border-red-200' : isExpired ? 'border-amber-200' : 'border-slate-200'}`}>
+                            {/* Faixa de status no topo */}
+                            <div className="h-1" style={{ background: isBlocked ? '#ef4444' : isExpired ? '#f59e0b' : isExpiring ? '#f97316' : accentColor }} />
+
+                            <div className="p-5 flex-1 flex flex-col gap-4">
+                              {/* Header */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-black text-base flex-shrink-0"
+                                    style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}bb)` }}>
                                     {initials(t.company_name)}
                                   </div>
                                   <div className="min-w-0">
-                                    <h4 className="font-bold text-slate-800 text-base leading-tight truncate max-w-[140px]">{t.company_name}</h4>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-1.5">
-                                      <Calendar size={10} /> Desde {new Date(t.created_at).toLocaleDateString()}
-                                    </p>
+                                    <h4 className="font-bold text-slate-800 text-sm leading-tight truncate">{t.company_name}</h4>
+                                    <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><Calendar size={9} /> Desde {new Date(t.created_at).toLocaleDateString('pt-BR')}</p>
                                   </div>
                                 </div>
                                 <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} />
                               </div>
 
-                              {/* Subscription Info */}
-                              <div className="bg-slate-50 border border-slate-100 rounded-3xl px-5 py-4 mb-6">
-                                <div className="flex items-center justify-between mb-3">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assinatura</span>
-                                  {daysLeft !== null && daysLeft <= 10 && (
-                                    <span className={`text-[10px] font-bold ${daysLeft < 0 ? 'text-red-500' : 'text-amber-500'}`}>
-                                      {daysLeft < 0 ? 'Expirada' : `Vence em ${daysLeft}d`}
-                                    </span>
-                                  )}
+                              {/* Info row */}
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Plano</p>
+                                  <p className="text-xs font-bold text-slate-700 truncate">{t.plan_name || '—'}</p>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-slate-400 border border-slate-200">
-                                      <Star size={14} className={t.plan_name ? 'text-indigo-500' : ''} />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-bold text-slate-800 truncate">{t.plan_name || 'Sem Plano'}</p>
-                                      <p className="text-[10px] text-slate-500 font-semibold">{fmt(t.plan_price || 0)}/mês</p>
-                                    </div>
-                                  </div>
-                                  {t.expires_at && (
-                                    <div className="text-right">
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase leading-none">Vencimento</p>
-                                      <p className="text-xs font-bold text-slate-800 mt-1">{new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
-                                    </div>
-                                  )}
+                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Valor</p>
+                                  <p className="text-xs font-bold text-emerald-600">{t.plan_price ? `R$${Number(t.plan_price).toFixed(0)}` : '—'}</p>
+                                </div>
+                                <div className={`border rounded-xl p-2.5 text-center ${isExpired ? 'bg-red-50 border-red-100' : isExpiring ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Vencimento</p>
+                                  <p className={`text-xs font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : 'text-slate-700'}`}>
+                                    {t.expires_at ? new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
+                                  </p>
                                 </div>
                               </div>
 
-                              {/* Usage */}
-                              <div className="space-y-4 mb-6">
-                                <div>
-                                  <div className="flex items-center justify-between text-[11px] mb-2 font-bold uppercase tracking-wider">
-                                    <span className="text-slate-400 flex items-center gap-1.5"><Users size={12} /> Usuários</span>
-                                    <span className="text-slate-700">{t.user_count || 0}/{t.max_users}</span>
-                                  </div>
-                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full transition-all duration-500" 
-                                      style={{ width: `${Math.min(userPct, 100)}%`, background: userPct > 90 ? '#ef4444' : planColor }} />
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4 text-[11px] text-slate-500">
-                                  <div className="flex items-center gap-1.5 truncate"><Mail size={12} className="text-slate-300" /> {t.admin_email}</div>
-                                </div>
+                              {/* Email + usuários */}
+                              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                                <span className="flex items-center gap-1.5 truncate min-w-0"><Mail size={11} className="flex-shrink-0" /><span className="truncate">{t.admin_email}</span></span>
+                                <span className="flex items-center gap-1 flex-shrink-0 ml-2"><Users size={11} />{t.user_count || 0}/{t.max_users === 999 ? '∞' : t.max_users}</span>
                               </div>
 
-                              <div className="mt-auto flex flex-col gap-2 pt-5 border-t border-slate-100">
-                                <div className="flex items-center gap-2">
+                              {/* Alert banner para vencidos */}
+                              {isExpired && !isBlocked && (
+                                <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                                  <AlertTriangle size={12} className="text-red-500 flex-shrink-0" />
+                                  <p className="text-[11px] font-semibold text-red-600">Assinatura vencida — login bloqueado automaticamente</p>
+                                </div>
+                              )}
+                              {isBlocked && (
+                                <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                                  <Lock size={12} className="text-red-500 flex-shrink-0" />
+                                  <p className="text-[11px] font-semibold text-red-600">Acesso bloqueado manualmente</p>
+                                </div>
+                              )}
+
+                              {/* Ações */}
+                              <div className="mt-auto pt-3 border-t border-slate-100 flex flex-col gap-1.5">
+                                <div className="flex gap-1.5">
                                   <button onClick={() => openEditClient(t)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all border border-indigo-100">
-                                    <Edit2 size={13} /> Editar / Plano
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition border border-indigo-100">
+                                    <Edit2 size={12} /> Editar
                                   </button>
                                   <button onClick={() => handleToggleClient(t)} disabled={!isAdmin || t.id === 1}
-                                    title={t.active ? "Suspender Acesso" : "Ativar Acesso"}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border ${t.active ? 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50' : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'}`}>
-                                    {t.active ? <><ShieldOff size={13} /> Suspender</> : <><ShieldCheck size={13} /> Reativar</>}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition border ${t.active ? 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'}`}>
+                                    {t.active ? <><ShieldOff size={12} /> Suspender</> : <><ShieldCheck size={12} /> Reativar</>}
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateTenantStatus(t, t.status === 'blocked' ? 'active' : 'blocked')}
+                                    disabled={!isAdmin || t.id === 1}
+                                    title={t.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
+                                    className={`flex items-center justify-center p-2 rounded-xl text-xs font-bold transition border ${t.status === 'blocked' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'bg-white border-red-200 text-red-500 hover:bg-red-50'}`}>
+                                    {t.status === 'blocked' ? <Unlock size={13} /> : <Lock size={13} />}
                                   </button>
                                 </div>
-                                <button 
-                                  onClick={() => handleUpdateTenantStatus(t, t.status === 'blocked' ? 'active' : 'blocked')}
-                                  disabled={!isAdmin || t.id === 1}
-                                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border ${t.status === 'blocked' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'bg-white border-red-200 text-red-500 hover:bg-red-50'}`}
-                                >
-                                  {t.status === 'blocked' ? <><Unlock size={13} /> Desbloquear Financeiro</> : <><Lock size={13} /> Bloquear Acesso</>}
-                                </button>
                                 {user?.email === 'super@psiflux.com' && t.id !== 1 && (
-                                  <button 
-                                    onClick={() => handleDeleteClient(t)}
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-white border-red-100 text-red-500 hover:bg-red-50 hover:border-red-200 transition-all border mt-1"
-                                  >
-                                    <Trash2 size={13} /> Excluir Clínica
+                                  <button onClick={() => handleDeleteClient(t)}
+                                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-bold text-red-400 hover:text-red-600 hover:bg-red-50 transition border border-transparent hover:border-red-100">
+                                    <Trash2 size={11} /> Excluir clínica
                                   </button>
                                 )}
                               </div>

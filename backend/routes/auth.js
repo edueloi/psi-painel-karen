@@ -60,7 +60,8 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     const [users] = await db.query(
-      `SELECT u.*, t.name as tenant_name, t.slug as tenant_slug, t.active as tenant_active, t.trial_ends_at
+      `SELECT u.*, t.name as tenant_name, t.slug as tenant_slug, t.active as tenant_active,
+              t.trial_ends_at, t.expires_at as tenant_expires_at, t.status as tenant_status
        FROM users u
        LEFT JOIN tenants t ON t.id = u.tenant_id
        WHERE (u.email = ? OR u.name = ?) AND u.active = true`,
@@ -76,6 +77,25 @@ router.post('/login', loginLimiter, async (req, res) => {
     // Só bloqueia por tenant inativo se o usuário pertencer a um tenant (super_admin não pertence)
     if (user.tenant_id && !user.tenant_active) {
       return res.status(403).json({ error: 'Esta clínica está desativada' });
+    }
+
+    // Bloqueia se tenant está com status bloqueado
+    if (user.role !== 'super_admin' && user.tenant_status === 'blocked') {
+      return res.status(403).json({
+        error: 'O acesso desta clínica está bloqueado. Entre em contato com o suporte.',
+        blocked: true,
+      });
+    }
+
+    // Bloqueia se assinatura venceu (só para não-super_admin, só se tiver expires_at definido)
+    if (user.role !== 'super_admin' && user.tenant_expires_at) {
+      const expired = new Date(user.tenant_expires_at) < new Date();
+      if (expired) {
+        return res.status(403).json({
+          error: 'A assinatura desta clínica está vencida. Renove para continuar acessando.',
+          subscription_expired: true,
+        });
+      }
     }
 
     // Bloqueia se trial expirou (só para não-super_admin)
