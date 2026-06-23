@@ -63,8 +63,8 @@ router.post('/login', loginLimiter, async (req, res) => {
       `SELECT u.*, t.name as tenant_name, t.slug as tenant_slug, t.active as tenant_active, t.trial_ends_at
        FROM users u
        LEFT JOIN tenants t ON t.id = u.tenant_id
-       WHERE u.email = ? AND u.active = true`,
-      [email]
+       WHERE (u.email = ? OR u.name = ?) AND u.active = true`,
+      [email, email]
     );
 
     if (users.length === 0) {

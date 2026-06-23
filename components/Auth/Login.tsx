@@ -511,15 +511,15 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Email */}
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">E-mail</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">E-mail ou usuário</label>
                   <div className="relative">
                     <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      type="email"
+                      type="text"
                       required
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="seu@email.com"
+                      placeholder="seu@email.com ou Admin"
                       className={inputCls}
                     />
                   </div>
