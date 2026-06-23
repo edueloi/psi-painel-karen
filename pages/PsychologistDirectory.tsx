@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, ExternalLink, User, Instagram, Globe, Linkedin, ArrowLeft } from 'lucide-react';
+import { Search, MapPin, Instagram, Globe, Linkedin, Twitter, ArrowUpRight, ChevronRight, X } from 'lucide-react';
 import logoUrl from '../images/logo-psiflux.png';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -24,158 +24,326 @@ interface Psychologist {
   } | null;
 }
 
-const ACCENT = '#6355D8';
-const ACCENT2 = '#0EA98B';
+/* ─── Paleta do projeto ─── */
+const C = {
+  accent:  '#6355D8',
+  accent2: '#0EA98B',
+  text:    '#0F172A',
+  muted:   '#64748B',
+  border:  '#E2E8F0',
+  surface: '#F7F8FC',
+};
+
+/* ─── Gradientes de capa para cards — determinísticos pelo nome ─── */
+const CARD_GRADIENTS = [
+  ['#6355D8','#8B7CF6'],
+  ['#0EA98B','#34D399'],
+  ['#7C3AED','#C084FC'],
+  ['#0369A1','#38BDF8'],
+  ['#B45309','#FCD34D'],
+  ['#BE185D','#F9A8D4'],
+  ['#065F46','#6EE7B7'],
+  ['#1E40AF','#93C5FD'],
+];
+function cardGradient(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  const [a, b] = CARD_GRADIENTS[h % CARD_GRADIENTS.length];
+  return `linear-gradient(135deg, ${a} 0%, ${b} 100%)`;
+}
 
 function getInitials(name: string) {
-  return name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  return name.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
 }
 
 function getSocialIcon(platform: string) {
   const p = platform.toLowerCase();
-  if (p.includes('instagram')) return <Instagram size={16} />;
-  if (p.includes('linkedin')) return <Linkedin size={16} />;
-  return <Globe size={16} />;
+  if (p.includes('instagram')) return <Instagram size={14} />;
+  if (p.includes('linkedin'))  return <Linkedin  size={14} />;
+  if (p.includes('twitter') || p.includes('x.com')) return <Twitter size={14} />;
+  return <Globe size={14} />;
 }
 
-const PsychCard: React.FC<{ p: Psychologist }> = ({ p }) => {
-  const navigate = useNavigate();
-  const specialties = p.profile_theme?.specialties_list?.length
-    ? p.profile_theme.specialties_list
-    : p.specialty
-      ? [p.specialty]
-      : [];
+/* ─── Partículas canvas na hero ─── */
+const HeroCanvas: React.FC = () => {
+  const ref = useRef<HTMLCanvasElement>(null);
 
-  const accentColor = p.profile_theme?.accent_color || ACCENT;
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    let raf: number;
+    let W = 0, H = 0;
+
+    const dots: { x: number; y: number; r: number; vx: number; vy: number; a: number; va: number }[] = [];
+
+    const resize = () => {
+      W = canvas.offsetWidth; H = canvas.offsetHeight;
+      canvas.width = W; canvas.height = H;
+    };
+
+    const init = () => {
+      dots.length = 0;
+      const n = Math.min(60, Math.floor((W * H) / 12000));
+      for (let i = 0; i < n; i++) {
+        dots.push({
+          x: Math.random() * W, y: Math.random() * H,
+          r: Math.random() * 2.2 + 0.4,
+          vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3,
+          a: Math.random(), va: (Math.random() - .5) * .005,
+        });
+      }
+    };
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      dots.forEach(d => {
+        d.x += d.vx; d.y += d.vy; d.a += d.va;
+        if (d.x < 0) d.x = W; if (d.x > W) d.x = 0;
+        if (d.y < 0) d.y = H; if (d.y > H) d.y = 0;
+        if (d.a < 0.05) d.va = Math.abs(d.va);
+        if (d.a > 0.7)  d.va = -Math.abs(d.va);
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(180,170,255,${d.a})`;
+        ctx.fill();
+      });
+
+      // Linhas entre pontos próximos
+      for (let i = 0; i < dots.length; i++) {
+        for (let j = i + 1; j < dots.length; j++) {
+          const dx = dots[i].x - dots[j].x, dy = dots[i].y - dots[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 110) {
+            ctx.beginPath();
+            ctx.moveTo(dots[i].x, dots[i].y);
+            ctx.lineTo(dots[j].x, dots[j].y);
+            ctx.strokeStyle = `rgba(140,120,255,${0.08 * (1 - dist / 110)})`;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+
+    const ro = new ResizeObserver(() => { resize(); init(); });
+    ro.observe(canvas);
+    resize(); init(); draw();
+
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, []);
+
+  return (
+    <canvas
+      ref={ref}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+      aria-hidden="true"
+    />
+  );
+};
+
+/* ─── Skeleton card ─── */
+const SkeletonCard: React.FC = () => (
+  <div style={{
+    background: '#fff', borderRadius: 24, overflow: 'hidden',
+    border: `1.5px solid ${C.border}`,
+  }}>
+    <div style={{ height: 88, background: '#F1F5F9', animation: 'dir-pulse 1.4s ease-in-out infinite' }} />
+    <div style={{ padding: '52px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {[120, 80, 200, 140].map((w, i) => (
+        <div key={i} style={{
+          height: i === 0 ? 18 : i === 1 ? 14 : 13,
+          width: w, background: '#F1F5F9', borderRadius: 6,
+          animation: `dir-pulse 1.4s ease-in-out ${i * 0.1}s infinite`,
+        }} />
+      ))}
+    </div>
+  </div>
+);
+
+/* ─── Card de psicólogo ─── */
+const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) => {
+  const navigate = useNavigate();
+  const [hovered, setHovered] = useState(false);
+
+  const specialties: string[] = p.profile_theme?.specialties_list?.length
+    ? p.profile_theme.specialties_list
+    : p.specialty ? [p.specialty] : [];
+
+  const gradient = cardGradient(p.name);
+  const accentColor = p.profile_theme?.accent_color || C.accent;
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => navigate(`/p/${p.public_slug}`)}
+      onKeyDown={e => e.key === 'Enter' && navigate(`/p/${p.public_slug}`)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         background: '#fff',
-        border: '1.5px solid #E2E8F0',
-        borderRadius: 20,
-        padding: '28px 24px',
+        border: `1.5px solid ${hovered ? accentColor + '55' : C.border}`,
+        borderRadius: 24,
+        overflow: 'hidden',
         cursor: 'pointer',
-        transition: 'box-shadow .2s, transform .2s, border-color .2s',
+        transition: 'box-shadow .25s, border-color .25s, transform .25s',
+        boxShadow: hovered ? `0 16px 48px ${accentColor}22, 0 2px 8px rgba(0,0,0,.06)` : '0 1px 4px rgba(0,0,0,.04)',
+        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = `0 8px 32px rgba(99,85,216,.14)`;
-        (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)';
-        (e.currentTarget as HTMLDivElement).style.borderColor = accentColor;
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-        (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-        (e.currentTarget as HTMLDivElement).style.borderColor = '#E2E8F0';
+        animationDelay: `${index * 0.05}s`,
+        animation: 'dir-fade-up .4s ease both',
       }}
     >
-      {/* Avatar + nome */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      {/* Capa colorida */}
+      <div style={{ position: 'relative', height: 88, background: gradient, flexShrink: 0 }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0px, rgba(255,255,255,.03) 1px, transparent 1px, transparent 10px)',
+        }} />
+        {/* Badge CRP no topo direito */}
+        {p.crp && (
+          <span style={{
+            position: 'absolute', top: 12, right: 12,
+            background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(6px)',
+            color: '#fff', fontSize: 11, fontWeight: 700,
+            padding: '3px 9px', borderRadius: 99, letterSpacing: '.03em',
+          }}>
+            CRP {p.crp}
+          </span>
+        )}
+      </div>
+
+      {/* Avatar flutuante */}
+      <div style={{ padding: '0 24px', position: 'relative', marginTop: -36 }}>
         {p.avatar_url ? (
           <img
             src={p.avatar_url}
             alt={p.name}
-            style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${accentColor}22`, flexShrink: 0 }}
+            style={{
+              width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
+              border: '3px solid #fff',
+              boxShadow: '0 4px 16px rgba(0,0,0,.12)',
+            }}
           />
         ) : (
           <div style={{
-            width: 64, height: 64, borderRadius: '50%', background: `${accentColor}18`,
+            width: 72, height: 72, borderRadius: '50%',
+            background: gradient,
+            border: '3px solid #fff',
+            boxShadow: '0 4px 16px rgba(0,0,0,.12)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, fontWeight: 800, color: accentColor, flexShrink: 0,
+            fontSize: 24, fontWeight: 800, color: '#fff',
+            letterSpacing: '-0.02em',
           }}>
             {getInitials(p.name)}
           </div>
         )}
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontWeight: 700, fontSize: 16, color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
-          {p.company_name && (
-            <p style={{ fontSize: 13, color: '#64748B', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.company_name}</p>
-          )}
-          {p.crp && (
-            <p style={{ fontSize: 12, color: ACCENT2, fontWeight: 600, margin: '2px 0 0' }}>CRP {p.crp}</p>
-          )}
-        </div>
       </div>
 
-      {/* Especialidades */}
-      {specialties.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {specialties.slice(0, 4).map((s, i) => (
-            <span key={i} style={{
-              background: `${accentColor}12`, color: accentColor,
-              fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99,
-            }}>
-              {s}
-            </span>
-          ))}
-          {specialties.length > 4 && (
-            <span style={{ fontSize: 12, color: '#94A3B8', padding: '3px 6px' }}>+{specialties.length - 4}</span>
+      {/* Conteúdo */}
+      <div style={{ padding: '12px 24px 20px', display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+        {/* Nome + empresa */}
+        <div>
+          <p style={{ fontWeight: 800, fontSize: 16, color: C.text, margin: 0, lineHeight: 1.25, letterSpacing: '-0.02em' }}>
+            {p.name}
+          </p>
+          {p.company_name && (
+            <p style={{ fontSize: 12, color: C.muted, margin: '3px 0 0', fontWeight: 500 }}>
+              {p.company_name}
+            </p>
           )}
         </div>
-      )}
 
-      {/* Bio */}
-      {p.bio && (
-        <p style={{
-          fontSize: 13, color: '#475569', lineHeight: 1.6, margin: 0,
-          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}>
-          {p.bio}
-        </p>
-      )}
+        {/* Especialidades */}
+        {specialties.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {specialties.slice(0, 3).map((s, i) => (
+              <span key={i} style={{
+                background: `${accentColor}10`, color: accentColor,
+                fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 99,
+                letterSpacing: '.01em',
+              }}>
+                {s}
+              </span>
+            ))}
+            {specialties.length > 3 && (
+              <span style={{
+                fontSize: 11, fontWeight: 600, color: C.muted,
+                padding: '3px 7px', borderRadius: 99, background: '#F1F5F9',
+              }}>
+                +{specialties.length - 3}
+              </span>
+            )}
+          </div>
+        )}
 
-      {/* Endereço */}
-      {p.address && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 12 }}>
-          <MapPin size={13} />
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.address}</span>
+        {/* Bio */}
+        {p.bio && (
+          <p style={{
+            fontSize: 13, color: '#475569', lineHeight: 1.65, margin: 0,
+            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            {p.bio}
+          </p>
+        )}
+
+        {/* Endereço */}
+        {p.address && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#94A3B8', fontSize: 12 }}>
+            <MapPin size={12} strokeWidth={2} />
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.address}</span>
+          </div>
+        )}
+
+        {/* Footer do card: redes + CTA */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(p.social_links || []).slice(0, 3).map((s, i) => (
+              <a
+                key={i}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                aria-label={s.platform}
+                style={{
+                  width: 30, height: 30, borderRadius: 8, background: '#F8FAFC',
+                  border: `1px solid ${C.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: C.muted, textDecoration: 'none', transition: 'all .15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = `${accentColor}12`;
+                  (e.currentTarget as HTMLAnchorElement).style.color = accentColor;
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = `${accentColor}40`;
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = '#F8FAFC';
+                  (e.currentTarget as HTMLAnchorElement).style.color = C.muted;
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = C.border;
+                }}
+              >
+                {getSocialIcon(s.platform)}
+              </a>
+            ))}
+          </div>
+          <span style={{
+            fontSize: 12, fontWeight: 700, color: accentColor,
+            display: 'flex', alignItems: 'center', gap: 3,
+            letterSpacing: '.02em',
+          }}>
+            Ver perfil <ArrowUpRight size={12} strokeWidth={2.5} />
+          </span>
         </div>
-      )}
-
-      {/* Redes + CTA */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 4 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {p.social_links?.slice(0, 3).map((s, i) => (
-            <a
-              key={i}
-              href={s.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{
-                width: 32, height: 32, borderRadius: 8, background: '#F1F5F9',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#64748B', textDecoration: 'none', transition: 'background .15s, color .15s',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLAnchorElement).style.background = `${accentColor}18`;
-                (e.currentTarget as HTMLAnchorElement).style.color = accentColor;
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLAnchorElement).style.background = '#F1F5F9';
-                (e.currentTarget as HTMLAnchorElement).style.color = '#64748B';
-              }}
-            >
-              {getSocialIcon(s.platform)}
-            </a>
-          ))}
-        </div>
-        <span style={{
-          fontSize: 13, fontWeight: 600, color: accentColor,
-          display: 'flex', alignItems: 'center', gap: 4,
-        }}>
-          Ver perfil <ExternalLink size={13} />
-        </span>
       </div>
     </div>
   );
 };
 
+/* ─── Página principal ─── */
 export const PsychologistDirectory: React.FC = () => {
   const navigate = useNavigate();
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
@@ -184,16 +352,17 @@ export const PsychologistDirectory: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [scrolled, setScrolled] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 16);
+    const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 350);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 320);
     return () => clearTimeout(debounceRef.current);
   }, [search]);
 
@@ -207,198 +376,366 @@ export const PsychologistDirectory: React.FC = () => {
       .catch(() => { setPsychologists([]); setLoading(false); });
   }, [debouncedSearch]);
 
+  const clearSearch = useCallback(() => {
+    setSearch('');
+    searchInputRef.current?.focus();
+  }, []);
+
   return (
-    <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: '#F7F8FC', minHeight: '100vh', color: '#0F172A' }}>
+    <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: C.surface, minHeight: '100vh', color: C.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
         input:focus { outline: none; }
-        .psych-grid {
+        button:focus-visible { outline: 2px solid #6355D8; outline-offset: 2px; }
+        a:focus-visible { outline: 2px solid #6355D8; outline-offset: 2px; border-radius: 4px; }
+
+        @keyframes dir-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .45; }
+        }
+        @keyframes dir-fade-up {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dir-spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .dir-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
           gap: 20px;
         }
-        @media (max-width: 600px) {
-          .psych-grid { grid-template-columns: 1fr; }
+        @media (max-width: 480px) {
+          .dir-grid { grid-template-columns: 1fr; gap: 14px; }
+        }
+
+        .dir-search-wrap:focus-within {
+          box-shadow: 0 0 0 3px rgba(99,85,216,.18), 0 8px 32px rgba(0,0,0,.18) !important;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: .01ms !important;
+            transition-duration: .01ms !important;
+          }
         }
       `}</style>
 
-      {/* Navbar */}
+      {/* ── NAVBAR ── */}
       <nav style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        background: scrolled ? 'rgba(255,255,255,0.95)' : '#fff',
-        borderBottom: '1px solid #E2E8F0',
-        backdropFilter: 'blur(12px)',
+        position: 'sticky', top: 0, zIndex: 200,
+        height: 60,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px',
-        height: 64,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        transition: 'box-shadow .2s',
-        boxShadow: scrolled ? '0 2px 12px rgba(0,0,0,.06)' : 'none',
+        background: scrolled ? 'rgba(255,255,255,.92)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(16px) saturate(1.4)' : 'none',
+        borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
+        transition: 'background .3s, border-color .3s, box-shadow .3s',
+        boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,.06)' : 'none',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            onClick={() => navigate('/')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#64748B', fontSize: 14, fontWeight: 500 }}
-          >
-            <ArrowLeft size={16} /> Início
-          </button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={logoUrl} alt="PsiFlux" style={{ width: 32, height: 32, borderRadius: 8 }} />
-          <span style={{ fontWeight: 800, fontSize: 16, color: '#0F172A', letterSpacing: '-0.02em' }}>
-            Psi<span style={{ color: ACCENT }}>Flux</span>
+        {/* Logo */}
+        <button
+          onClick={() => navigate('/')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: 4 }}
+          aria-label="Página inicial PsiFlux"
+        >
+          <img src={logoUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8 }} />
+          <span style={{ fontWeight: 900, fontSize: 15, color: '#fff', letterSpacing: '-0.03em', transition: 'color .3s' }}
+            ref={el => { if (el) el.style.color = scrolled ? C.text : '#fff'; }}>
+            Psi<span style={{ color: scrolled ? C.accent : '#B5AFFF' }}>Flux</span>
           </span>
-        </div>
+        </button>
+
+        {/* CTA */}
         <button
           onClick={() => navigate('/login')}
           style={{
-            background: ACCENT, color: '#fff', border: 'none', borderRadius: 10,
-            padding: '8px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            background: scrolled ? C.accent : 'rgba(255,255,255,.15)',
+            backdropFilter: scrolled ? 'none' : 'blur(8px)',
+            color: '#fff',
+            border: scrolled ? 'none' : '1px solid rgba(255,255,255,.25)',
+            borderRadius: 10, padding: '8px 20px',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            transition: 'background .2s',
           }}
         >
           Entrar
         </button>
       </nav>
 
-      {/* Hero */}
+      {/* ── HERO ── */}
       <div style={{
-        background: `linear-gradient(135deg, ${ACCENT} 0%, #8B7CF6 100%)`,
-        padding: '64px 24px 72px',
+        position: 'relative',
+        background: '#0C0B1A',
+        paddingTop: 80, paddingBottom: 96,
+        marginTop: -60,
+        overflow: 'hidden',
         textAlign: 'center',
-        color: '#fff',
       }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.8, marginBottom: 16 }}>
-            Diretório de Profissionais
-          </p>
-          <h1 style={{ fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 800, lineHeight: 1.15, marginBottom: 16, letterSpacing: '-0.03em' }}>
-            Encontre seu Psicólogo
+        {/* Orbes de fundo */}
+        <div style={{
+          position: 'absolute', top: -80, left: '50%', transform: 'translateX(-50%)',
+          width: 700, height: 400,
+          background: 'radial-gradient(ellipse at center, rgba(99,85,216,.35) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -40, left: '20%',
+          width: 320, height: 320,
+          background: 'radial-gradient(circle, rgba(14,169,139,.18) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', top: 60, right: '15%',
+          width: 200, height: 200,
+          background: 'radial-gradient(circle, rgba(139,124,246,.15) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Canvas partículas */}
+        <HeroCanvas />
+
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 680, margin: '0 auto', padding: '60px 24px 0' }}>
+          {/* Eyebrow */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24,
+            background: 'rgba(99,85,216,.2)', border: '1px solid rgba(99,85,216,.35)',
+            borderRadius: 99, padding: '6px 16px',
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.accent2, display: 'block', flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#B5AFFF', letterSpacing: '.1em', textTransform: 'uppercase' }}>
+              Profissionais verificados
+            </span>
+          </div>
+
+          <h1 style={{
+            fontSize: 'clamp(32px, 6vw, 58px)',
+            fontWeight: 900,
+            letterSpacing: '-0.04em',
+            lineHeight: 1.08,
+            color: '#fff',
+            marginBottom: 18,
+          }}>
+            Encontre o psicólogo<br />
+            <span style={{
+              background: `linear-gradient(90deg, ${C.accent} 0%, #A78BFA 50%, ${C.accent2} 100%)`,
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
+              certo para você
+            </span>
           </h1>
-          <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', opacity: 0.85, lineHeight: 1.6, marginBottom: 36 }}>
-            Profissionais verificados da plataforma PsiFlux prontos para te atender.
+
+          <p style={{ fontSize: 'clamp(15px, 2vw, 17px)', color: 'rgba(255,255,255,.6)', lineHeight: 1.65, marginBottom: 40 }}>
+            Conheça os profissionais da plataforma PsiFlux, veja suas abordagens e entre em contato diretamente.
           </p>
 
-          {/* Search */}
-          <div style={{
-            background: '#fff', borderRadius: 16, padding: '6px 8px 6px 20px',
-            display: 'flex', alignItems: 'center', gap: 12,
-            boxShadow: '0 8px 32px rgba(0,0,0,.15)',
-            maxWidth: 520, margin: '0 auto',
-          }}>
-            <Search size={18} style={{ color: '#94A3B8', flexShrink: 0 }} />
+          {/* Search bar */}
+          <div
+            className="dir-search-wrap"
+            style={{
+              background: 'rgba(255,255,255,.06)',
+              border: '1.5px solid rgba(255,255,255,.12)',
+              borderRadius: 16,
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '0 8px 0 20px',
+              maxWidth: 540, margin: '0 auto',
+              transition: 'box-shadow .2s',
+              boxShadow: '0 8px 40px rgba(0,0,0,.25)',
+            }}
+          >
+            <Search size={17} style={{ color: 'rgba(255,255,255,.4)', flexShrink: 0 }} />
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Buscar por nome, especialidade, cidade..."
+              placeholder="Nome, especialidade, cidade…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
                 flex: 1, border: 'none', background: 'transparent',
-                fontSize: 15, color: '#0F172A', padding: '8px 0',
+                fontSize: 15, color: '#fff', padding: '16px 0',
+                caretColor: C.accent,
               }}
             />
-            {search && (
+            {search ? (
               <button
-                onClick={() => setSearch('')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '4px 8px', fontSize: 13 }}
+                onClick={clearSearch}
+                aria-label="Limpar busca"
+                style={{
+                  background: 'rgba(255,255,255,.1)', border: 'none', cursor: 'pointer',
+                  width: 28, height: 28, borderRadius: 6, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,.6)',
+                  transition: 'background .15s', flexShrink: 0,
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.18)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.1)')}
               >
-                ✕
+                <X size={13} />
               </button>
+            ) : (
+              <div style={{
+                background: C.accent, borderRadius: 10,
+                padding: '9px 16px', fontSize: 13, fontWeight: 700, color: '#fff',
+                flexShrink: 0, letterSpacing: '-.01em',
+              }}>
+                Buscar
+              </div>
             )}
+          </div>
+
+          {/* Sugestões de busca rápida */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+            {['Ansiedade', 'TCC', 'Infantil', 'Online', 'Casais'].map(tag => (
+              <button
+                key={tag}
+                onClick={() => setSearch(tag)}
+                style={{
+                  background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)',
+                  borderRadius: 99, padding: '5px 13px', fontSize: 12, fontWeight: 600,
+                  color: 'rgba(255,255,255,.6)', cursor: 'pointer', transition: 'all .15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,85,216,.3)';
+                  (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = `${C.accent}60`;
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.07)';
+                  (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,.6)';
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,.1)';
+                }}
+              >
+                {tag}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 24px' }}>
-        {/* Contagem */}
-        <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <p style={{ fontSize: 14, color: '#64748B', fontWeight: 500 }}>
-            {loading
-              ? 'Carregando...'
-              : psychologists.length === 0
-                ? 'Nenhum profissional encontrado'
-                : `${psychologists.length} profissional${psychologists.length !== 1 ? 'is' : ''} encontrado${psychologists.length !== 1 ? 's' : ''}`
+      {/* ── CONTEÚDO ── */}
+      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 24px 80px' }}>
+
+        {/* Barra de status */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 10, marginBottom: 28,
+        }}>
+          <p style={{ fontSize: 14, color: C.muted, fontWeight: 500 }}>
+            {loading ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 14, height: 14, border: '2px solid #E2E8F0', borderTopColor: C.accent, borderRadius: '50%', display: 'inline-block', animation: 'dir-spin .7s linear infinite' }} />
+                Buscando profissionais…
+              </span>
+            ) : psychologists.length === 0
+              ? 'Nenhum profissional encontrado'
+              : (
+                <>
+                  <strong style={{ color: C.text }}>{psychologists.length}</strong>
+                  {' '}profissional{psychologists.length !== 1 ? 'is' : ''} encontrado{psychologists.length !== 1 ? 's' : ''}
+                </>
+              )
             }
           </p>
-          {debouncedSearch && (
-            <p style={{ fontSize: 13, color: '#94A3B8' }}>
-              Resultados para: <strong style={{ color: '#475569' }}>"{debouncedSearch}"</strong>
-            </p>
+          {debouncedSearch && !loading && (
+            <button
+              onClick={clearSearch}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
+                borderRadius: 99, padding: '5px 12px',
+                fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
+              }}
+            >
+              <X size={11} /> "{debouncedSearch}"
+            </button>
           )}
         </div>
 
         {/* Grid */}
         {loading ? (
-          <div className="psych-grid">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{
-                background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 20,
-                padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 16,
-              }}>
-                {[64, 20, 14, 14].map((h, j) => (
-                  <div key={j} style={{
-                    height: h, background: '#F1F5F9', borderRadius: 8,
-                    animation: 'pulse 1.5s ease-in-out infinite',
-                  }} />
-                ))}
-              </div>
-            ))}
+          <div className="dir-grid">
+            {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : psychologists.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+          <div style={{
+            textAlign: 'center', padding: '80px 24px',
+            background: '#fff', borderRadius: 24, border: `1.5px solid ${C.border}`,
+          }}>
             <div style={{
-              width: 80, height: 80, background: '#EEF0FF', borderRadius: '50%',
+              width: 72, height: 72, borderRadius: 20,
+              background: `${C.accent}12`, margin: '0 auto 20px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 20px', color: ACCENT,
+              fontSize: 32,
             }}>
-              <User size={36} />
+              🔍
             </div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Nenhum profissional encontrado</p>
-            <p style={{ fontSize: 14, color: '#64748B' }}>
+            <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
+              Nenhum resultado
+            </p>
+            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, maxWidth: 320, margin: '0 auto 24px' }}>
               {debouncedSearch
-                ? 'Tente buscar por outro nome ou especialidade.'
+                ? `Não encontramos ninguém com "${debouncedSearch}". Tente outro termo.`
                 : 'Ainda não há psicólogos com perfil público ativo.'}
             </p>
             {debouncedSearch && (
               <button
-                onClick={() => setSearch('')}
+                onClick={clearSearch}
                 style={{
-                  marginTop: 20, background: ACCENT, color: '#fff', border: 'none',
-                  borderRadius: 10, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  background: C.accent, color: '#fff', border: 'none',
+                  borderRadius: 12, padding: '12px 28px',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: `0 4px 20px ${C.accent}40`,
                 }}
               >
-                Limpar busca
+                Ver todos os profissionais
               </button>
             )}
           </div>
         ) : (
-          <div className="psych-grid">
-            {psychologists.map(p => <PsychCard key={p.public_slug} p={p} />)}
+          <div className="dir-grid">
+            {psychologists.map((p, i) => <PsychCard key={p.public_slug} p={p} index={i} />)}
           </div>
         )}
 
-        {/* Footer note */}
-        <div style={{ textAlign: 'center', marginTop: 64, paddingTop: 32, borderTop: '1px solid #E2E8F0' }}>
-          <p style={{ fontSize: 13, color: '#94A3B8' }}>
-            Profissionais listados são usuários ativos da plataforma{' '}
-            <span style={{ color: ACCENT, fontWeight: 600 }}>PsiFlux</span>.
-          </p>
-          <p style={{ fontSize: 12, color: '#CBD5E1', marginTop: 6 }}>
-            Você é psicólogo? <button onClick={() => navigate('/login')} style={{ background: 'none', border: 'none', color: ACCENT, fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>Crie seu perfil público gratuitamente</button>
-          </p>
+        {/* Rodapé da página */}
+        <div style={{
+          marginTop: 72, paddingTop: 40,
+          borderTop: `1px solid ${C.border}`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+          textAlign: 'center',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src={logoUrl} alt="PsiFlux" style={{ width: 26, height: 26, borderRadius: 6, opacity: .6 }} />
+            <span style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>
+              Diretório de profissionais <strong style={{ color: C.text }}>PsiFlux</strong>
+            </span>
+          </div>
+          <button
+            onClick={() => navigate('/login')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'none', border: `1.5px solid ${C.border}`,
+              borderRadius: 12, padding: '10px 22px',
+              fontSize: 13, fontWeight: 700, color: C.text, cursor: 'pointer',
+              transition: 'border-color .15s, box-shadow .15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = C.accent;
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 2px 12px ${C.accent}18`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = C.border;
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
+            }}
+          >
+            Sou psicólogo — quero cadastrar meu perfil <ChevronRight size={14} />
+          </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: .4; }
-        }
-      `}</style>
     </div>
   );
 };
