@@ -104,7 +104,8 @@ const Lobby: React.FC<{
   setGuestName: (v: string) => void; onJoin: () => void;
   joining: boolean; error: string | null; isDark: boolean;
   userName?: string; onCamChange?: (v: boolean) => void; onMicChange?: (v: boolean) => void;
-}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange }) => {
+  onDeviceChange?: (videoId: string, audioId: string) => void;
+}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { preferences, updatePreference } = useUserPreferences();
@@ -161,8 +162,8 @@ const Lobby: React.FC<{
 
   const togglePreviewMic = () => { const n = !micOn; setMicOn(n); onMicChange?.(n); streamRef.current?.getAudioTracks().forEach(t => { t.enabled = n; }); };
   const togglePreviewCam = () => { const n = !camOn; setCamOn(n); onCamChange?.(n); streamRef.current?.getVideoTracks().forEach(t => { t.enabled = n; }); };
-  const handleVideoDevice = (id: string) => { setSelectedVideo(id); startPreview(selectedAudio || undefined, id); };
-  const handleAudioDevice = (id: string) => { setSelectedAudio(id); startPreview(id, selectedVideo || undefined); };
+  const handleVideoDevice = (id: string) => { setSelectedVideo(id); onDeviceChange?.(id, selectedAudio); startPreview(selectedAudio || undefined, id); };
+  const handleAudioDevice = (id: string) => { setSelectedAudio(id); onDeviceChange?.(selectedVideo, id); startPreview(id, selectedVideo || undefined); };
   const copyLink = () => { navigator.clipboard.writeText(guestUrl); setCopied(true); setTimeout(() => setCopied(false), 2500); };
   const sendWhatsApp = () => {
     const msg = `Olá! Sua consulta vai começar em breve.\n\nAcesse sua sala virtual pelo link:\n${guestUrl}\n\n_Não é necessário login._`;
@@ -718,8 +719,8 @@ const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 // ── Sala principal ────────────────────────────────────────────────────────────
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: () => void; roomCode: string;
-  initialCam: boolean; initialMic: boolean;
-}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic }) => {
+  initialCam: boolean; initialMic: boolean; videoDeviceId?: string; audioDeviceId?: string;
+}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId }) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const { preferences } = useUserPreferences();
@@ -859,17 +860,19 @@ const RoomInner: React.FC<{
       }, delay);
     });
 
+    const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
+    const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
     const apply = async () => {
       try {
         if (initialCam && !localParticipant.isCameraEnabled) {
-          console.log('[CAM-DEBUG] t+2500ms: forcando setCameraEnabled(true)');
-          await localParticipant.setCameraEnabled(true);
+          console.log('[CAM-DEBUG] t+2500ms: forcando setCameraEnabled(true)', { videoDeviceId });
+          await localParticipant.setCameraEnabled(true, camOpts);
           console.log('[CAM-DEBUG] setCameraEnabled(true) concluido, isCameraEnabled=', localParticipant.isCameraEnabled);
         } else if (!initialCam && localParticipant.isCameraEnabled) {
           await localParticipant.setCameraEnabled(false);
         }
         if (initialMic && !localParticipant.isMicrophoneEnabled) {
-          await localParticipant.setMicrophoneEnabled(true);
+          await localParticipant.setMicrophoneEnabled(true, micOpts);
         } else if (!initialMic && localParticipant.isMicrophoneEnabled) {
           await localParticipant.setMicrophoneEnabled(false);
         }
@@ -914,8 +917,9 @@ const RoomInner: React.FC<{
       }
       if (!localParticipant.isCameraEnabled && !camTogglingRef.current) {
         camTogglingRef.current = true;
+        const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
         try {
-          await localParticipant.setCameraEnabled(true);
+          await localParticipant.setCameraEnabled(true, camOpts);
           console.log('[CAM-DEBUG] watchdog setCameraEnabled(true) ok, resultado=', localParticipant.isCameraEnabled);
         } catch (err) {
           console.error('[CAM-DEBUG] watchdog setCameraEnabled erro:', err);
@@ -953,15 +957,16 @@ const RoomInner: React.FC<{
       return;
     }
     camTogglingRef.current = true;
+    const camOpts = (!camOn && videoDeviceId) ? { deviceId: videoDeviceId } : undefined;
     try {
-      await localParticipant.setCameraEnabled(!camOn);
+      await localParticipant.setCameraEnabled(!camOn, camOpts);
       console.log('[CAM-DEBUG] toggleCam concluido, isCameraEnabled=', localParticipant.isCameraEnabled);
     } catch (err) {
       console.error('[CAM-DEBUG] toggleCam erro:', err);
     } finally {
       camTogglingRef.current = false;
     }
-  }, [localParticipant, camOn]);
+  }, [localParticipant, camOn, videoDeviceId]);
 
   const toggleScreen = useCallback(async () => {
     try { await localParticipant.setScreenShareEnabled(!localHasScreen); } catch {}
@@ -1310,6 +1315,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   const [error, setError] = useState<string | null>(null);
   const [lobbyCamOn, setLobbyCamOn] = useState(true);
   const [lobbyMicOn, setLobbyMicOn] = useState(true);
+  const lobbyVideoDeviceRef = useRef<string>("");
+  const lobbyAudioDeviceRef = useRef<string>("");
 
   // Sala de espera — guest
   const [waitingToken, setWaitingToken] = useState<string | null>(null);
@@ -1484,6 +1491,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         userName={participantName}
         onCamChange={setLobbyCamOn}
         onMicChange={setLobbyMicOn}
+        onDeviceChange={(vid, aid) => { lobbyVideoDeviceRef.current = vid; lobbyAudioDeviceRef.current = aid; }}
       />
     );
   }
@@ -1508,6 +1516,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
           roomCode={id || ""}
           initialCam={lobbyCamOn}
           initialMic={lobbyMicOn}
+          videoDeviceId={lobbyVideoDeviceRef.current}
+          audioDeviceId={lobbyAudioDeviceRef.current}
         />
       </LiveKitRoom>
 
