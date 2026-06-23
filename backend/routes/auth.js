@@ -325,4 +325,83 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// POST /auth/register — Cadastro público de psicólogo (cria tenant + usuário admin)
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 10,
+  message: { error: 'Muitos cadastros deste IP. Tente novamente em 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/register', registerLimiter, async (req, res) => {
+  const { name, email, password, phone, specialty, crp, company_name } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'A senha deve ter ao menos 8 caracteres.' });
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Verificar se e-mail já existe em qualquer tenant
+    const [[existing]] = await conn.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existing) {
+      await conn.rollback();
+      return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
+    }
+
+    // Buscar plano padrão (menor preço ativo)
+    const [[defaultPlan]] = await conn.query(
+      'SELECT id FROM plans WHERE active = true ORDER BY price ASC LIMIT 1'
+    );
+    const planId = defaultPlan?.id || null;
+
+    // Gerar slug único para o tenant
+    const baseSlug = (company_name || name)
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40);
+    const uniqueSuffix = crypto.randomBytes(3).toString('hex');
+    const tenantSlug = `${baseSlug}-${uniqueSuffix}`;
+
+    // Criar tenant
+    const [tenantResult] = await conn.query(
+      `INSERT INTO tenants (name, slug, phone, plan_id, active)
+       VALUES (?, ?, ?, ?, true)`,
+      [company_name || name, tenantSlug, phone || null, planId]
+    );
+    const tenantId = tenantResult.insertId;
+
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Gerar slug público do profissional
+    const profSlug = baseSlug + '-' + crypto.randomBytes(4).toString('hex');
+
+    // Criar usuário como admin do tenant
+    await conn.query(
+      `INSERT INTO users (tenant_id, name, email, password, role, specialty, crp, phone, company_name, public_slug, active)
+       VALUES (?, ?, ?, ?, 'admin', ?, ?, ?, ?, ?, true)`,
+      [tenantId, name, email, hashedPassword, specialty || null, crp || null, phone || null, company_name || null, profSlug]
+    );
+
+    await conn.commit();
+
+    res.status(201).json({ message: 'Cadastro realizado! Faça login para acessar seu painel.' });
+  } catch (err) {
+    await conn.rollback();
+    console.error('Erro no registro:', err);
+    res.status(500).json({ error: 'Erro interno ao criar conta. Tente novamente.' });
+  } finally {
+    conn.release();
+  }
+});
+
 module.exports = router;

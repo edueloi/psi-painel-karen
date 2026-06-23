@@ -386,7 +386,18 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                 </button>
               </form>
 
-              <div className="mt-8 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
+              <p className="text-center text-sm text-slate-400 mt-6">
+                Ainda não tem conta?{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/cadastro')}
+                  className="font-semibold text-indigo-600 hover:text-indigo-700 transition"
+                >
+                  Cadastre-se grátis
+                </button>
+              </p>
+
+              <div className="mt-5 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
                 <ShieldCheck size={13} className="text-slate-300" />
                 <p className="text-xs text-slate-400">Conexão segura · Dados criptografados · LGPD</p>
               </div>

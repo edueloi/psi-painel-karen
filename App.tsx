@@ -29,6 +29,7 @@ import { ExternalForm } from './pages/ExternalForm';
 import { PatientPortalLogin } from './pages/PatientPortalLogin';
 import { PatientPortal } from './pages/PatientPortal';
 import { ResetPassword } from './pages/ResetPassword';
+import { Register } from './pages/Register';
 import { SuperAdmin } from './pages/SuperAdmin';
 import { BotIntegration } from './pages/BotIntegration';
 import { PEI } from './pages/PEI';
@@ -248,6 +249,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login onLogin={() => {}} />} />
       <Route path="/redefinir-senha" element={<ResetPassword />} />
+      <Route path="/cadastro" element={<Register />} />
       <Route path="/f/dass-21" element={<DASS21Public />} />
       <Route path="/f/disc" element={<DISCPublic />} />
       <Route path="/f/bdi-ii" element={<BDIPublic />} />
