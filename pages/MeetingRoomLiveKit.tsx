@@ -12,7 +12,7 @@ import {
   useRoomContext,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, type LocalParticipant, type RemoteParticipant } from "livekit-client";
+import { Track, LocalVideoTrack, LocalAudioTrack, type LocalParticipant, type RemoteParticipant } from "livekit-client";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
@@ -105,7 +105,8 @@ const Lobby: React.FC<{
   joining: boolean; error: string | null; isDark: boolean;
   userName?: string; onCamChange?: (v: boolean) => void; onMicChange?: (v: boolean) => void;
   onDeviceChange?: (videoId: string, audioId: string) => void;
-}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange }) => {
+  onStreamReady?: (stream: MediaStream | null) => void;
+}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange, onStreamReady }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { preferences, updatePreference } = useUserPreferences();
@@ -143,6 +144,7 @@ const Lobby: React.FC<{
       if (videoRef.current) videoRef.current.srcObject = stream;
       stream.getVideoTracks().forEach(t => { t.enabled = camOn; });
       stream.getAudioTracks().forEach(t => { t.enabled = micOn; });
+      onStreamReady?.(stream);
     } catch {}
   }, []);
 
@@ -720,7 +722,8 @@ const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: () => void; roomCode: string;
   initialCam: boolean; initialMic: boolean; videoDeviceId?: string; audioDeviceId?: string;
-}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId }) => {
+  lobbyStream?: MediaStream | null;
+}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId, lobbyStream }) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const { preferences } = useUserPreferences();
@@ -836,59 +839,68 @@ const RoomInner: React.FC<{
   const camOn = isCameraEnabled;
   const room = useRoomContext();
 
-  // LOG: estado inicial ao montar RoomInner
+  // Publica tracks ao montar: tenta usar o stream do lobby (evita getUserMedia duplo no Android)
+  const publishedLobbyStreamRef = useRef(false);
   useEffect(() => {
-    console.log('[CAM-DEBUG] RoomInner montado', {
-      initialCam,
-      initialMic,
-      isCameraEnabled: localParticipant.isCameraEnabled,
-      isMicrophoneEnabled: localParticipant.isMicrophoneEnabled,
-      identity: localParticipant.identity,
-      trackPublications: Array.from(localParticipant.trackPublications.values()).map(t => ({
-        source: t.source, muted: t.isMuted, subscribed: t.isSubscribed, kind: t.kind
-      })),
-    });
-
-    // Após 1s, 2.5s e 5s — log do estado real da câmera
-    [1000, 2500, 5000].forEach(delay => {
-      setTimeout(() => {
-        const tracks = Array.from(localParticipant.trackPublications.values());
-        console.log(`[CAM-DEBUG] t+${delay}ms`, {
-          isCameraEnabled: localParticipant.isCameraEnabled,
-          tracks: tracks.map(t => ({ source: t.source, muted: t.isMuted, kind: t.kind })),
-        });
-      }, delay);
-    });
-
-    const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
-    const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
     const apply = async () => {
+      if (publishedLobbyStreamRef.current) return;
+      publishedLobbyStreamRef.current = true;
+
       try {
-        if (initialCam && !localParticipant.isCameraEnabled) {
-          console.log('[CAM-DEBUG] t+2500ms: forcando setCameraEnabled(true)', { videoDeviceId });
+        // Tenta publicar o track de vídeo do lobby diretamente
+        if (initialCam && lobbyStream) {
+          const videoTrack = lobbyStream.getVideoTracks()[0];
+          if (videoTrack && videoTrack.readyState === 'live') {
+            const lkVideoTrack = new LocalVideoTrack(videoTrack, undefined, false);
+            await localParticipant.publishTrack(lkVideoTrack, { source: Track.Source.Camera });
+          } else {
+            // Track não está vivo, pede câmera normalmente
+            const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
+            await localParticipant.setCameraEnabled(true, camOpts);
+          }
+        } else if (initialCam) {
+          const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
           await localParticipant.setCameraEnabled(true, camOpts);
-          console.log('[CAM-DEBUG] setCameraEnabled(true) concluido, isCameraEnabled=', localParticipant.isCameraEnabled);
         } else if (!initialCam && localParticipant.isCameraEnabled) {
           await localParticipant.setCameraEnabled(false);
         }
-        if (initialMic && !localParticipant.isMicrophoneEnabled) {
+
+        // Publica áudio do lobby diretamente se disponível
+        if (initialMic && lobbyStream) {
+          const audioTrack = lobbyStream.getAudioTracks()[0];
+          if (audioTrack && audioTrack.readyState === 'live' && !localParticipant.isMicrophoneEnabled) {
+            const lkAudioTrack = new LocalAudioTrack(audioTrack, undefined, false);
+            await localParticipant.publishTrack(lkAudioTrack, { source: Track.Source.Microphone });
+          } else if (!localParticipant.isMicrophoneEnabled) {
+            const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
+            await localParticipant.setMicrophoneEnabled(true, micOpts);
+          }
+        } else if (initialMic && !localParticipant.isMicrophoneEnabled) {
+          const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
           await localParticipant.setMicrophoneEnabled(true, micOpts);
         } else if (!initialMic && localParticipant.isMicrophoneEnabled) {
           await localParticipant.setMicrophoneEnabled(false);
         }
-      } catch (err) {
-        console.error('[CAM-DEBUG] erro no apply:', err);
+      } catch {
+        // Fallback: usa setCameraEnabled/setMicrophoneEnabled normalmente
+        try {
+          if (initialCam && !localParticipant.isCameraEnabled) {
+            const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
+            await localParticipant.setCameraEnabled(true, camOpts);
+          }
+          if (initialMic && !localParticipant.isMicrophoneEnabled) {
+            const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
+            await localParticipant.setMicrophoneEnabled(true, micOpts);
+          }
+        } catch {}
       }
     };
-    const timer = setTimeout(apply, 2500);
+
+    // Pequeno delay para garantir que o Room está conectado
+    const timer = setTimeout(apply, 500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // LOG: toda mudança de isCameraEnabled
-  useEffect(() => {
-    console.log('[CAM-DEBUG] isCameraEnabled mudou =>', isCameraEnabled);
-  }, [isCameraEnabled]);
 
   // Watchdog: se a câmera deveria estar ligada mas ficou desligada após conexão,
   // tenta religar automaticamente por até 15s (a cada 3s).
@@ -905,12 +917,9 @@ const RoomInner: React.FC<{
       return;
     }
     if (camWatchdogRef.current) return;
-    console.log('[CAM-DEBUG] watchdog iniciado — camera off mas deveria estar on');
     camWatchdogRef.current = setInterval(async () => {
       camWatchdogAttemptsRef.current += 1;
-      console.log(`[CAM-DEBUG] watchdog tentativa ${camWatchdogAttemptsRef.current}, isCameraEnabled=`, localParticipant.isCameraEnabled, 'toggling=', camTogglingRef.current);
       if (camWatchdogAttemptsRef.current > 5) {
-        console.warn('[CAM-DEBUG] watchdog esgotou tentativas — camera permanece off');
         clearInterval(camWatchdogRef.current!);
         camWatchdogRef.current = null;
         return;
@@ -920,12 +929,8 @@ const RoomInner: React.FC<{
         const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
         try {
           await localParticipant.setCameraEnabled(true, camOpts);
-          console.log('[CAM-DEBUG] watchdog setCameraEnabled(true) ok, resultado=', localParticipant.isCameraEnabled);
-        } catch (err) {
-          console.error('[CAM-DEBUG] watchdog setCameraEnabled erro:', err);
-        } finally {
-          camTogglingRef.current = false;
-        }
+        } catch {}
+        finally { camTogglingRef.current = false; }
       }
     }, 3000);
     return () => {
@@ -951,21 +956,13 @@ const RoomInner: React.FC<{
   }, [localParticipant, micOn]);
 
   const toggleCam = useCallback(async () => {
-    console.log('[CAM-DEBUG] toggleCam clicado', { camOn, toggling: camTogglingRef.current, isCameraEnabled: localParticipant.isCameraEnabled });
-    if (camTogglingRef.current) {
-      console.warn('[CAM-DEBUG] toggleCam ignorado — ja em andamento');
-      return;
-    }
+    if (camTogglingRef.current) return;
     camTogglingRef.current = true;
     const camOpts = (!camOn && videoDeviceId) ? { deviceId: videoDeviceId } : undefined;
     try {
       await localParticipant.setCameraEnabled(!camOn, camOpts);
-      console.log('[CAM-DEBUG] toggleCam concluido, isCameraEnabled=', localParticipant.isCameraEnabled);
-    } catch (err) {
-      console.error('[CAM-DEBUG] toggleCam erro:', err);
-    } finally {
-      camTogglingRef.current = false;
-    }
+    } catch {}
+    finally { camTogglingRef.current = false; }
   }, [localParticipant, camOn, videoDeviceId]);
 
   const toggleScreen = useCallback(async () => {
@@ -1268,7 +1265,13 @@ const WaitingToastHost: React.FC<{
 );
 
 // ── Tela de espera (para o guest) ────────────────────────────────────────────
-const WaitingScreen: React.FC<{ guestName: string; onCancel: () => void }> = ({ guestName, onCancel }) => (
+const WaitingScreen: React.FC<{ guestName: string; onCancel: () => void; keepStream?: MediaStream | null }> = ({ guestName, onCancel, keepStream }) => {
+  // Mantém o stream do lobby vivo enquanto aguarda aprovação,
+  // impedindo que o Android libere o dispositivo de câmera antes do LiveKit conectar.
+  const streamHolderRef = useRef(keepStream);
+  streamHolderRef.current = keepStream;
+
+  return (
   <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0d0f14", padding: 16 }}>
     <div style={{ textAlign: "center", maxWidth: 360 }}>
       <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(99,102,241,0.15)", border: "2px solid rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", animation: "pulse 2s infinite" }}>
@@ -1293,7 +1296,8 @@ const WaitingScreen: React.FC<{ guestName: string; onCancel: () => void }> = ({ 
       @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     `}</style>
   </div>
-);
+  );
+};
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest: isGuestProp = false }) => {
@@ -1317,6 +1321,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   const [lobbyMicOn, setLobbyMicOn] = useState(true);
   const lobbyVideoDeviceRef = useRef<string>("");
   const lobbyAudioDeviceRef = useRef<string>("");
+  const lobbyStreamRef = useRef<MediaStream | null>(null);
 
   // Sala de espera — guest
   const [waitingToken, setWaitingToken] = useState<string | null>(null);
@@ -1471,9 +1476,9 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
     navigate(-1);
   };
 
-  // Guest aguardando aprovação
+  // Guest aguardando aprovação — mantém referência ao stream do lobby para não perder o dispositivo
   if (isGuest && waitingStatus === "waiting") {
-    return <WaitingScreen guestName={guestName} onCancel={handleLeave} />;
+    return <WaitingScreen guestName={guestName} onCancel={handleLeave} keepStream={lobbyStreamRef.current} />;
   }
 
   // Lobby
@@ -1492,6 +1497,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         onCamChange={setLobbyCamOn}
         onMicChange={setLobbyMicOn}
         onDeviceChange={(vid, aid) => { lobbyVideoDeviceRef.current = vid; lobbyAudioDeviceRef.current = aid; }}
+        onStreamReady={stream => { lobbyStreamRef.current = stream; }}
       />
     );
   }
@@ -1502,8 +1508,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         token={token}
         serverUrl={livekitUrl}
         connect={true}
-        video={lobbyCamOn}
-        audio={lobbyMicOn}
+        video={false}
+        audio={false}
         onDisconnected={handleLeave}
         style={{ height: "100vh" }}
         data-lk-theme="default"
@@ -1518,6 +1524,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
           initialMic={lobbyMicOn}
           videoDeviceId={lobbyVideoDeviceRef.current}
           audioDeviceId={lobbyAudioDeviceRef.current}
+          lobbyStream={lobbyStreamRef.current}
         />
       </LiveKitRoom>
 
