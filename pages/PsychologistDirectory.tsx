@@ -568,7 +568,13 @@ export const PsychologistDirectory: React.FC = () => {
         }
 
         .dir-search-wrap:focus-within {
-          box-shadow: 0 0 0 3px rgba(99,85,216,.18), 0 8px 32px rgba(0,0,0,.18) !important;
+          box-shadow: 0 0 0 3px rgba(99,85,216,.2), 0 20px 60px rgba(0,0,0,.35), 0 4px 16px rgba(99,85,216,.3) !important;
+        }
+        @media (max-width: 480px) {
+          .dir-search-wrap { padding: 5px 5px 5px 14px !important; border-radius: 14px !important; }
+          .dir-search-wrap input { font-size: 14px !important; padding: 8px 0 !important; }
+          .dir-search-wrap button:last-child { padding: 9px 14px !important; font-size: 13px !important; border-radius: 10px !important; }
+          .dir-search-wrap button:last-child svg { display: none; }
         }
 
         .dir-filter-panel {
@@ -771,84 +777,99 @@ export const PsychologistDirectory: React.FC = () => {
           </p>
 
           {/* Search bar */}
-          <div
-            className="dir-search-wrap"
-            style={{
-              background: 'rgba(255,255,255,.06)',
-              border: '1.5px solid rgba(255,255,255,.12)',
-              borderRadius: 16,
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '0 8px 0 20px',
-              maxWidth: 540, margin: '0 auto',
-              transition: 'box-shadow .2s',
-              boxShadow: '0 8px 40px rgba(0,0,0,.25)',
-            }}
-          >
-            <Search size={17} style={{ color: 'rgba(255,255,255,.4)', flexShrink: 0 }} />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Nome, especialidade, cidade…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+          <div style={{ maxWidth: 560, margin: '0 auto' }}>
+            <div
+              className="dir-search-wrap"
               style={{
-                flex: 1, border: 'none', background: 'transparent',
-                fontSize: 15, color: '#fff', padding: '16px 0',
-                caretColor: C.accent,
+                background: 'rgba(255,255,255,.95)',
+                borderRadius: 18,
+                display: 'flex', alignItems: 'center',
+                padding: '6px 6px 6px 18px',
+                boxShadow: '0 20px 60px rgba(0,0,0,.35), 0 4px 16px rgba(99,85,216,.25)',
+                gap: 10,
               }}
-            />
-            {search ? (
-              <button
-                onClick={clearSearch}
-                aria-label="Limpar busca"
+            >
+              <Search size={18} style={{ color: '#94A3B8', flexShrink: 0 }} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Nome, especialidade, cidade…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
                 style={{
-                  background: 'rgba(255,255,255,.1)', border: 'none', cursor: 'pointer',
-                  width: 28, height: 28, borderRadius: 6, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,.6)',
-                  transition: 'background .15s', flexShrink: 0,
+                  flex: 1, border: 'none', background: 'transparent',
+                  fontSize: 15, color: C.text, padding: '10px 0',
+                  caretColor: C.accent,
+                  minWidth: 0,
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.18)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.1)')}
-              >
-                <X size={13} />
-              </button>
-            ) : (
-              <div style={{
-                background: C.accent, borderRadius: 10,
-                padding: '9px 16px', fontSize: 13, fontWeight: 700, color: '#fff',
-                flexShrink: 0, letterSpacing: '-.01em',
-              }}>
-                Buscar
-              </div>
-            )}
-          </div>
-
-          {/* Quick search suggestions */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-            {['Ansiedade', 'TCC', 'Infantil', 'Online', 'Casais'].map(tag => (
+              />
+              {search && (
+                <button
+                  onClick={clearSearch}
+                  aria-label="Limpar busca"
+                  style={{
+                    background: '#F1F5F9', border: 'none', cursor: 'pointer',
+                    width: 30, height: 30, borderRadius: 8, display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', color: '#94A3B8',
+                    transition: 'background .15s', flexShrink: 0,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#E2E8F0')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#F1F5F9')}
+                >
+                  <X size={13} />
+                </button>
+              )}
               <button
-                key={tag}
-                onClick={() => setSearch(tag)}
+                onClick={() => { setDebouncedSearch(search); }}
                 style={{
-                  background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)',
-                  borderRadius: 99, padding: '5px 13px', fontSize: 12, fontWeight: 600,
-                  color: 'rgba(255,255,255,.6)', cursor: 'pointer', transition: 'all .15s',
+                  background: `linear-gradient(135deg, ${C.accent} 0%, #7C6EE8 100%)`,
+                  border: 'none', borderRadius: 12,
+                  padding: '10px 20px',
+                  fontSize: 14, fontWeight: 700, color: '#fff',
+                  cursor: 'pointer', flexShrink: 0,
+                  letterSpacing: '-.01em',
+                  boxShadow: `0 4px 16px ${C.accent}50`,
+                  transition: 'opacity .15s, transform .15s',
                   fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,85,216,.3)';
-                  (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = `${C.accent}60`;
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.07)';
-                  (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,.6)';
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,.1)';
-                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '.9'; (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.02)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
               >
-                {tag}
+                <Search size={14} strokeWidth={2.5} />
+                Buscar
               </button>
-            ))}
+            </div>
+
+            {/* Quick search suggestions */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 7, marginTop: 14 }}>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,.35)', alignSelf: 'center', fontWeight: 500 }}>Popular:</span>
+              {['Ansiedade', 'TCC', 'Infantil', 'Online', 'Casais'].map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setSearch(tag)}
+                  style={{
+                    background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)',
+                    borderRadius: 99, padding: '4px 12px', fontSize: 12, fontWeight: 600,
+                    color: 'rgba(255,255,255,.65)', cursor: 'pointer', transition: 'all .15s',
+                    fontFamily: 'inherit',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,85,216,.35)';
+                    (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = `${C.accent}50`;
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.08)';
+                    (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,.65)';
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,.12)';
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
