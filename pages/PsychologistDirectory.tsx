@@ -592,12 +592,63 @@ export const PsychologistDirectory: React.FC = () => {
             transition-duration: .01ms !important;
           }
         }
+
+        /* ── Mobile navbar ── */
+        @media (max-width: 480px) {
+          .dir-navbar { padding: 0 16px !important; }
+          .dir-navbar-logo-text { font-size: 18px !important; }
+          .dir-navbar-btn { padding: 8px 16px !important; font-size: 13px !important; }
+        }
+
+        /* ── Mobile hero ── */
+        @media (max-width: 480px) {
+          .dir-hero-badge { font-size: 10px !important; padding: 5px 12px !important; }
+          .dir-hero-desc { font-size: 14px !important; }
+          .dir-hero-tags { gap: 6px !important; }
+          .dir-hero-tags button { font-size: 11px !important; padding: 4px 10px !important; }
+          .dir-search-wrap { padding: 0 6px 0 14px !important; }
+          .dir-search-wrap input { font-size: 14px !important; padding: 13px 0 !important; }
+        }
+
+        /* ── Mobile filter as bottom overlay ── */
+        @media (max-width: 768px) {
+          .dir-filter-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.45);
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            animation: dir-overlay-in .2s ease both;
+          }
+          .dir-filter-sheet {
+            background: #fff;
+            border-radius: 24px 24px 0 0;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: dir-sheet-in .25s ease both;
+          }
+          @keyframes dir-overlay-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          @keyframes dir-sheet-in {
+            from { transform: translateY(100%); }
+            to   { transform: translateY(0); }
+          }
+        }
+
+        /* ── Mobile status bar ── */
+        @media (max-width: 480px) {
+          .dir-status-bar { flex-direction: column; align-items: flex-start !important; gap: 8px !important; }
+        }
       `}</style>
 
       {/* ── NAVBAR ── */}
-      <nav style={{
+      <nav className="dir-navbar" style={{
         position: 'sticky', top: 0, zIndex: 200,
-        height: 72,
+        height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 32px',
         background: scrolled ? 'rgba(255,255,255,.95)' : 'transparent',
@@ -621,7 +672,7 @@ export const PsychologistDirectory: React.FC = () => {
           }}>
             <img src={logoUrl} alt="PsiFlux" style={{ width: 38, height: 38, objectFit: 'contain' }} />
           </div>
-          <span style={{
+          <span className="dir-navbar-logo-text" style={{
             fontWeight: 900, fontSize: 20,
             letterSpacing: '-0.04em',
             color: scrolled ? C.text : '#fff',
@@ -633,6 +684,7 @@ export const PsychologistDirectory: React.FC = () => {
         </button>
 
         <button
+          className="dir-navbar-btn"
           onClick={() => navigate('/login')}
           style={{
             background: scrolled ? C.accent : 'rgba(255,255,255,.12)',
@@ -644,6 +696,7 @@ export const PsychologistDirectory: React.FC = () => {
             letterSpacing: '-.01em',
             transition: 'background .2s, box-shadow .2s',
             boxShadow: scrolled ? `0 2px 12px ${C.accent}40` : 'none',
+            fontFamily: 'inherit',
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = scrolled ? '#5447C4' : 'rgba(255,255,255,.22)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = scrolled ? C.accent : 'rgba(255,255,255,.12)'; }}
@@ -656,7 +709,8 @@ export const PsychologistDirectory: React.FC = () => {
       <div style={{
         position: 'relative',
         background: '#0C0B1A',
-        paddingTop: 80, paddingBottom: 96,
+        paddingTop: 'clamp(48px, 8vw, 80px)',
+        paddingBottom: 'clamp(56px, 10vw, 96px)',
         marginTop: -72,
         overflow: 'hidden',
         textAlign: 'center',
@@ -682,7 +736,7 @@ export const PsychologistDirectory: React.FC = () => {
 
         <HeroCanvas />
 
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: 680, margin: '0 auto', padding: '60px 24px 0' }}>
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 680, margin: '0 auto', padding: 'clamp(28px,6vw,60px) 20px 0' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24,
             background: 'rgba(99,85,216,.2)', border: '1px solid rgba(99,85,216,.35)',
@@ -800,7 +854,7 @@ export const PsychologistDirectory: React.FC = () => {
       </div>
 
       {/* ── CONTEÚDO ── */}
-      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 24px 80px' }}>
+      <div style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(24px,4vw,48px) clamp(16px,4vw,24px) 80px' }}>
 
         {/* ── FILTROS TOGGLE (mobile) ── */}
         {isMobile && (
@@ -835,174 +889,211 @@ export const PsychologistDirectory: React.FC = () => {
           </div>
         )}
 
-        {/* ── FILTER PANEL ── */}
-        {filterPanelVisible && (
-          <div
-            style={{
-              background: '#fff',
-              border: `1.5px solid ${C.border}`,
-              borderRadius: 20,
-              overflow: 'hidden',
-              marginBottom: 28,
-              animation: isMobile ? 'dir-filter-in .22s ease both' : 'none',
-            }}
-          >
-            {/* Header row */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px',
-              borderBottom: `1px solid ${C.border}`,
-              background: C.surface,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <SlidersHorizontal size={15} color={C.accent} strokeWidth={2} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Filtros</span>
-                {activeFilterCount > 0 && (
-                  <span style={{
-                    background: C.accent, color: '#fff',
-                    fontSize: 10, fontWeight: 800,
-                    minWidth: 18, height: 18, borderRadius: 99,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 5px',
-                  }}>
-                    {activeFilterCount}
-                  </span>
-                )}
-              </div>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearAllFilters}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 12, fontWeight: 600, color: C.muted,
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '4px 8px', borderRadius: 8,
-                    transition: 'color .15s',
-                    fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = C.accent)}
-                  onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
-                >
-                  <X size={12} /> Limpar tudo
-                </button>
-              )}
-            </div>
+        {/* ── FILTER PANEL (desktop inline / mobile bottom sheet) ── */}
+        {(() => {
+          const filterSections = ([
+            {
+              key: 'abordagens',
+              label: 'Abordagens',
+              count: selectedAbordagens.length,
+              content: (
+                <div className="dir-pill-group">
+                  {ABORDAGENS.map(v => (
+                    <Pill key={v} label={v} active={selectedAbordagens.includes(v)} onClick={() => toggleAbordagem(v)} />
+                  ))}
+                </div>
+              ),
+            },
+            {
+              key: 'especialidades',
+              label: 'Especialidades',
+              count: selectedEspecialidade ? 1 : 0,
+              content: (
+                <div className="dir-pill-group">
+                  {ESPECIALIDADES.map(v => (
+                    <Pill key={v} label={v} active={selectedEspecialidade === v} onClick={() => toggleEspecialidade(v)} />
+                  ))}
+                </div>
+              ),
+            },
+            {
+              key: 'disponibilidade',
+              label: 'Disponibilidade',
+              count: selectedDisponibilidade.length,
+              content: (
+                <div className="dir-pill-group">
+                  {DISPONIBILIDADE_OPTS.map(v => (
+                    <Pill key={v} label={v} active={selectedDisponibilidade.includes(v)} onClick={() => toggleDisponibilidade(v)} />
+                  ))}
+                </div>
+              ),
+            },
+            {
+              key: 'local',
+              label: 'Local / Modalidade',
+              count: selectedModalidade ? 1 : 0,
+              content: (
+                <div className="dir-pill-group">
+                  <Pill label={<><MapPin size={12} strokeWidth={2} /> Presencial</>} active={selectedModalidade === 'Presencial'} onClick={() => toggleModalidade('Presencial')} />
+                  <Pill label={<><Monitor size={12} strokeWidth={2} /> Remoto</>} active={selectedModalidade === 'Remoto'} onClick={() => toggleModalidade('Remoto')} />
+                </div>
+              ),
+            },
+            ...(cities.length > 0 ? [{
+              key: 'cidade',
+              label: 'Cidade',
+              count: selectedCity ? 1 : 0,
+              content: (
+                <div className="dir-pill-group">
+                  {cities.map(c => (
+                    <Pill key={c} label={c} active={selectedCity === c} onClick={() => { setSelectedCity((prev: string) => prev === c ? '' : c); setPage(1); }} />
+                  ))}
+                </div>
+              ),
+            }] : []),
+          ] as { key: string; label: string; count: number; content: React.ReactNode }[]);
 
-            {/* Accordion sections */}
-            {([
-              {
-                key: 'abordagens',
-                label: 'Abordagens',
-                count: selectedAbordagens.length,
-                content: (
-                  <div className="dir-pill-group">
-                    {ABORDAGENS.map(v => (
-                      <Pill key={v} label={v} active={selectedAbordagens.includes(v)} onClick={() => toggleAbordagem(v)} />
-                    ))}
-                  </div>
-                ),
-              },
-              {
-                key: 'especialidades',
-                label: 'Especialidades',
-                count: selectedEspecialidade ? 1 : 0,
-                content: (
-                  <div className="dir-pill-group">
-                    {ESPECIALIDADES.map(v => (
-                      <Pill key={v} label={v} active={selectedEspecialidade === v} onClick={() => toggleEspecialidade(v)} />
-                    ))}
-                  </div>
-                ),
-              },
-              {
-                key: 'disponibilidade',
-                label: 'Disponibilidade',
-                count: selectedDisponibilidade.length,
-                content: (
-                  <div className="dir-pill-group">
-                    {DISPONIBILIDADE_OPTS.map(v => (
-                      <Pill key={v} label={v} active={selectedDisponibilidade.includes(v)} onClick={() => toggleDisponibilidade(v)} />
-                    ))}
-                  </div>
-                ),
-              },
-              {
-                key: 'local',
-                label: 'Local / Modalidade',
-                count: selectedModalidade ? 1 : 0,
-                content: (
-                  <div className="dir-pill-group">
-                    <Pill label={<><MapPin size={12} strokeWidth={2} /> Presencial</>} active={selectedModalidade === 'Presencial'} onClick={() => toggleModalidade('Presencial')} />
-                    <Pill label={<><Monitor size={12} strokeWidth={2} /> Remoto</>} active={selectedModalidade === 'Remoto'} onClick={() => toggleModalidade('Remoto')} />
-                  </div>
-                ),
-              },
-              ...(cities.length > 0 ? [{
-                key: 'cidade',
-                label: 'Cidade',
-                count: selectedCity ? 1 : 0,
-                content: (
-                  <div className="dir-pill-group">
-                    {cities.map(c => (
-                      <Pill key={c} label={c} active={selectedCity === c} onClick={() => { setSelectedCity(prev => prev === c ? '' : c); setPage(1); }} />
-                    ))}
-                  </div>
-                ),
-              }] : []),
-            ] as { key: string; label: string; count: number; content: React.ReactNode }[]).map((section, idx, arr) => {
-              const isOpen = openSections[section.key];
-              return (
-                <div key={section.key} style={{ borderBottom: idx < arr.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                  {/* Section header — clickable */}
-                  <button
-                    onClick={() => toggleSection(section.key)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '13px 20px',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      transition: 'background .15s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = C.surface)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{section.label}</span>
-                      {section.count > 0 && (
-                        <span style={{
-                          background: `${C.accent}18`, color: C.accent,
-                          fontSize: 11, fontWeight: 700,
-                          padding: '1px 7px', borderRadius: 99,
-                        }}>
-                          {section.count}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown
-                      size={16}
-                      color={C.muted}
-                      strokeWidth={2}
-                      style={{
-                        transition: 'transform .2s',
-                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                        flexShrink: 0,
-                      }}
-                    />
-                  </button>
-                  {/* Section content */}
-                  {isOpen && (
-                    <div style={{ padding: '4px 20px 16px' }}>
-                      {section.content}
-                    </div>
+          const accordionBody = (
+            <>
+              {/* Header row */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '14px 20px',
+                borderBottom: `1px solid ${C.border}`,
+                background: C.surface,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SlidersHorizontal size={15} color={C.accent} strokeWidth={2} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Filtros</span>
+                  {activeFilterCount > 0 && (
+                    <span style={{
+                      background: C.accent, color: '#fff',
+                      fontSize: 10, fontWeight: 800,
+                      minWidth: 18, height: 18, borderRadius: 99,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '0 5px',
+                    }}>
+                      {activeFilterCount}
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearAllFilters}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600, color: C.muted,
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '4px 8px', borderRadius: 8,
+                        transition: 'color .15s', fontFamily: 'inherit',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.color = C.accent)}
+                      onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
+                    >
+                      <X size={12} /> Limpar tudo
+                    </button>
+                  )}
+                  {isMobile && (
+                    <button
+                      onClick={() => setFiltersOpen(false)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        width: 32, height: 32, borderRadius: 8,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: C.muted, fontFamily: 'inherit',
+                      }}
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Accordion sections */}
+              {filterSections.map((section, idx, arr) => {
+                const isOpen = openSections[section.key];
+                return (
+                  <div key={section.key} style={{ borderBottom: idx < arr.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                    <button
+                      onClick={() => toggleSection(section.key)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '13px 20px',
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontFamily: 'inherit', transition: 'background .15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = C.surface)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{section.label}</span>
+                        {section.count > 0 && (
+                          <span style={{
+                            background: `${C.accent}18`, color: C.accent,
+                            fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
+                          }}>
+                            {section.count}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown
+                        size={16} color={C.muted} strokeWidth={2}
+                        style={{ transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink: 0 }}
+                      />
+                    </button>
+                    {isOpen && (
+                      <div style={{ padding: '4px 20px 16px' }}>
+                        {section.content}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          );
+
+          if (isMobile) {
+            if (!filtersOpen) return null;
+            return (
+              <div
+                className="dir-filter-overlay"
+                onClick={() => setFiltersOpen(false)}
+              >
+                <div className="dir-filter-sheet" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 2px' }}>
+                    <div style={{ width: 40, height: 4, borderRadius: 2, background: '#CBD5E1' }} />
+                  </div>
+                  {accordionBody}
+                  <div style={{ padding: '12px 20px 24px' }}>
+                    <button
+                      onClick={() => setFiltersOpen(false)}
+                      style={{
+                        width: '100%', background: C.accent, color: '#fff', border: 'none',
+                        borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      Ver resultados {total > 0 && `(${total})`}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div style={{
+              background: '#fff', border: `1.5px solid ${C.border}`,
+              borderRadius: 20, overflow: 'hidden', marginBottom: 28,
+            }}>
+              {accordionBody}
+            </div>
+          );
+        })()}
 
         {/* ── Status bar ── */}
-        <div style={{
+        <div className="dir-status-bar" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 10, marginBottom: 28,
         }}>
