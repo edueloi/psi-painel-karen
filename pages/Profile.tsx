@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
 import { api, getStaticUrl } from '../services/api';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Modal } from '../components/UI/Modal';
+import { Button } from '../components/UI/Button';
+import { Input, Textarea } from '../components/UI/Input';
 import {
   Mail,
   Phone,
   Building2,
-  Briefcase,
   Clock,
   MapPin,
   Camera,
@@ -30,10 +30,6 @@ import {
   X,
   Copy,
   Sparkles,
-  Loader2,
-  ChevronDown,
-  CheckCircle,
-  Monitor
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -595,20 +591,20 @@ Gere o seguinte JSON:
   };
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-24 animate-fadeIn font-sans space-y-6">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-4 pb-20 animate-fadeIn font-sans space-y-5">
       <PageHeader
         icon={<User />}
         title="Meu Perfil"
         subtitle="Gerencie suas informações pessoais, profissionais e configurações de conta."
         showBackButton
         onBackClick={() => navigate('/')}
-        containerClassName="mb-12"
+        containerClassName="mb-6"
       />
 
       {/* Header Section */}
       <div className="relative">
         {/* Cover Photo */}
-        <div className="h-64 sm:h-80 w-full relative overflow-hidden">
+        <div className="h-48 sm:h-64 w-full relative overflow-hidden">
           {user.coverUrl ? (
             <img src={getStaticUrl(user.coverUrl)} alt="Cover" className="w-full h-full object-cover" />
           ) : (
@@ -633,90 +629,76 @@ Gere o seguinte JSON:
 
 
         {/* Profile Info Overlay Card */}
-        <div className="mx-auto -mt-32 relative z-10 px-6">
-          <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-white/50">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 sm:gap-8">
+        <div className="mx-auto -mt-20 relative z-10 px-4 sm:px-6">
+          <div className="bg-white rounded-[2rem] p-5 sm:p-6 shadow-[0_16px_40px_rgba(0,0,0,0.07)] border border-white/50">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-4 sm:gap-6">
               {/* Avatar */}
-              <div className="relative -mt-20 md:-mt-24 group">
-                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] bg-white p-2 shadow-xl border border-slate-100 overflow-hidden">
-                  <div className="w-full h-full rounded-[1.6rem] overflow-hidden bg-slate-100 flex items-center justify-center">
+              <div className="relative -mt-16 md:-mt-20 group">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[1.5rem] bg-white p-1.5 shadow-xl border border-slate-100 overflow-hidden">
+                  <div className="w-full h-full rounded-[1.3rem] overflow-hidden bg-slate-100 flex items-center justify-center">
                     {user.avatarUrl ? (
                       <img src={getStaticUrl(user.avatarUrl)} alt="Avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                     ) : (
-                      <span className="text-4xl font-black text-indigo-400">{initials}</span>
+                      <span className="text-3xl font-black text-indigo-400">{initials}</span>
                     )}
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => avatarInputRef.current?.click()}
-                  className="absolute bottom-2 right-2 p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg border-4 border-white transition-all transform hover:scale-110"
+                  className="absolute bottom-1 right-1 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg border-2 border-white transition-all transform hover:scale-110"
                 >
-                  <Camera size={18} />
+                  <Camera size={14} />
                 </button>
                 <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={e => onAvatarPick(e.target.files?.[0])} />
               </div>
 
               {/* Name and Tags */}
-              <div className="flex-1 text-center md:text-left pt-2 pb-4">
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-2">
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-800">{user.name || "Seu Nome"}</h1>
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-100 flex items-center gap-1.5">
+              <div className="flex-1 text-center md:text-left pt-1 pb-2">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-1.5">
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-800">{user.name || "Seu Nome"}</h1>
+                  <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-100 flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> Ativo
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-slate-500 font-bold text-sm">
-                  <span className="flex items-center gap-1.5"><Stethoscope size={16} className="text-indigo-500" /> {user.specialty || "Especialidade"}</span>
-                  <span className="flex items-center gap-1.5"><Shield size={16} className="text-violet-500" /> CRP {user.crp || "-"}</span>
-                  <span className="flex items-center gap-1.5 font-black text-indigo-600 px-3 py-1 bg-indigo-50 rounded-lg">PREMIUM</span>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-slate-500 font-semibold text-xs">
+                  <span className="flex items-center gap-1.5"><Stethoscope size={14} className="text-indigo-500" /> {user.specialty || "Especialidade"}</span>
+                  <span className="flex items-center gap-1.5"><Shield size={14} className="text-violet-500" /> CRP {user.crp || "-"}</span>
+                  <span className="flex items-center gap-1 font-black text-indigo-600 px-2.5 py-0.5 bg-indigo-50 rounded-lg text-[10px]">PREMIUM</span>
                 </div>
               </div>
 
               {/* Actions Header */}
               <div className="flex flex-col items-center md:items-end gap-3 pt-4">
-                <button
+                <Button
                   onClick={handleSave}
                   disabled={saveStatus === 'saving'}
-                  className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl shadow-xl transition-all font-black text-xs uppercase tracking-widest active:scale-95 ${
-                    saveStatus === 'saved' 
-                    ? 'bg-emerald-500 text-white' 
-                    : 'bg-indigo-600 text-white hover:bg-slate-800'
-                  }`}
+                  variant={saveStatus === 'saved' ? 'success' : 'primary'}
+                  size="md"
+                  loading={saveStatus === 'saving'}
+                  loadingText="Salvando..."
+                  iconLeft={saveStatus === 'saved' ? <Award size={14} /> : <Save size={14} />}
+                  elevation="md"
                 >
-                  {saveStatus === 'saving' ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Salvando...</span>
-                    </>
-                  ) : saveStatus === 'saved' ? (
-                    <>
-                      <Award size={18} className="animate-bounce" />
-                      <span>Salvo!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save size={18} />
-                      <span>Salvar Perfil</span>
-                    </>
-                  )}
-                </button>
+                  {saveStatus === 'saved' ? 'Salvo!' : 'Salvar Perfil'}
+                </Button>
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-2 mt-8 border-t border-slate-100 pt-6 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 mt-5 border-t border-slate-100 pt-4 overflow-x-auto no-scrollbar">
               {[
-                { id: 'info', label: 'Dados Pessoais', icon: <User size={16} /> },
-                { id: 'schedule', label: 'Minha Agenda', icon: <CalendarIcon size={16} /> },
-                { id: 'clinic', label: 'Dados da Clínica', icon: <Building2 size={16} /> },
-                { id: 'external', label: 'Página Externa', icon: <Globe size={16} /> },
+                { id: 'info', label: 'Dados Pessoais', icon: <User size={13} /> },
+                { id: 'schedule', label: 'Minha Agenda', icon: <CalendarIcon size={13} /> },
+                { id: 'clinic', label: 'Dados da Clínica', icon: <Building2 size={13} /> },
+                { id: 'external', label: 'Página Externa', icon: <Globe size={13} /> },
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black transition-all whitespace-nowrap ${
-                    activeTab === tab.id 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 translate-y-[-2px]' 
-                    : 'bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600 border border-slate-100'
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap ${
+                    activeTab === tab.id
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 border border-slate-100'
                   }`}
                 >
                   {tab.icon} {tab.label}
@@ -728,22 +710,22 @@ Gere o seguinte JSON:
       </div>
 
       {/* Content Section */}
-      <div className="mx-auto mt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+      <div className="mx-auto mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
           {/* Main Content Area */}
-          <div className="lg:col-span-8 space-y-8">
+          <div className="lg:col-span-8 space-y-5">
             {activeTab === 'info' && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <Card title="Sobre você" icon={<Info className="text-indigo-500" />}>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <ProfileInput label="Nome Completo" icon={<User size={16} />} value={user.name} onChange={v => setUser(p => ({ ...p, name: v }))} />
                       <ProfileInput label="E-mail Profissional" icon={<Mail size={16} />} value={user.email} onChange={v => setUser(p => ({ ...p, email: v }))} />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ProfileInput 
-                        label="Telefone / WhatsApp" 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <ProfileInput
+                        label="Telefone / WhatsApp"
                         icon={<Phone size={16} />} 
                         value={user.phone} 
                         onChange={v => {
@@ -756,7 +738,7 @@ Gere o seguinte JSON:
                       />
                       <ProfileInput label="Especialidade" icon={<Stethoscope size={16} />} value={user.specialty} onChange={v => setUser(p => ({ ...p, specialty: v }))} />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <ProfileInput
                         label="CPF"
                         icon={<Shield size={16} />}
@@ -785,26 +767,22 @@ Gere o seguinte JSON:
                         }}
                       />
                     </div>
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Breve Biografia / Perfil</label>
-                      <textarea
-                        value={user.bio}
-                        onChange={e => setUser(p => ({ ...p, bio: e.target.value }))}
-                        rows={5}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-3xl p-5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-none"
-                        placeholder="Conte um pouco sobre sua formação e experiência..."
-                      />
-                      <div className="flex justify-end mt-2 px-2">
-                        <span className="text-[10px] font-bold text-slate-400">{user.bio.length} / 500</span>
-                      </div>
-                    </div>
+                    <Textarea
+                      label="Breve Biografia / Perfil"
+                      value={user.bio}
+                      onChange={e => setUser(p => ({ ...p, bio: e.target.value }))}
+                      rows={4}
+                      maxLength={500}
+                      placeholder="Conte um pouco sobre sua formação e experiência..."
+                      className="text-sm"
+                    />
                   </div>
                 </Card>
               </div>
             )}
 
             {activeTab === 'schedule' && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Stats Strip */}
                 <div className="grid grid-cols-3 gap-3">
                   <ScheduleInsightCard
@@ -831,29 +809,20 @@ Gere o seguinte JSON:
                 </div>
 
                 {/* Preset Banner */}
-                <div className="flex flex-col gap-3 rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-600">Templates rápidos</p>
                     <p className="mt-0.5 text-sm font-black text-slate-700">Aplique um padrão de horário de uma vez</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => applySchedulePreset(DEFAULT_SCHEDULE)}
-                      className="rounded-2xl border border-indigo-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95">
-                      Seg – Sex
-                    </button>
-                    <button onClick={() => applySchedulePreset(SATURDAY_SCHEDULE)}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all hover:bg-slate-50 active:scale-95">
-                      Seg – Sáb
-                    </button>
-                    <button onClick={clearBreaks}
-                      className="rounded-2xl border border-rose-100 bg-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-rose-500 transition-all hover:bg-rose-50 active:scale-95">
-                      Sem intervalos
-                    </button>
+                    <Button onClick={() => applySchedulePreset(DEFAULT_SCHEDULE)} variant="outline" size="sm">Seg – Sex</Button>
+                    <Button onClick={() => applySchedulePreset(SATURDAY_SCHEDULE)} variant="soft" size="sm">Seg – Sáb</Button>
+                    <Button onClick={clearBreaks} variant="softDanger" size="sm">Sem intervalos</Button>
                   </div>
                 </div>
 
                 {/* Weekly Schedule */}
-                <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm">
                   <div className="mb-5 flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-black text-slate-800">Rotina semanal</h4>
@@ -880,7 +849,7 @@ Gere o seguinte JSON:
                 {/* Blocked Dates Section */}
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   {/* Calendar Picker */}
-                  <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                  <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm">
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
                         <h4 className="text-sm font-black text-slate-800">Dias bloqueados</h4>
@@ -888,14 +857,14 @@ Gere o seguinte JSON:
                           Clique em um dia para bloquear ou liberar. Reflete na agenda.
                         </p>
                       </div>
-                      <button
+                      <Button
                         onClick={clearClosedDates}
                         disabled={sortedClosedDates.length === 0}
-                        className={sortedClosedDates.length === 0
-                          ? 'shrink-0 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-300 cursor-not-allowed'
-                          : 'shrink-0 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-600 transition-all hover:bg-rose-100 active:scale-95'}>
+                        variant="softDanger"
+                        size="sm"
+                      >
                         Limpar tudo
-                      </button>
+                      </Button>
                     </div>
                     <AvailabilityCalendar
                       blockedDates={sortedClosedDates.map((item) => item.date)}
@@ -931,14 +900,14 @@ Gere o seguinte JSON:
                           value={customDateInput}
                           min={new Date().toISOString().slice(0, 10)}
                           onChange={e => setCustomDateInput(e.target.value)}
-                          className="flex-shrink-0 w-36 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition-all"
+                          className="flex-shrink-0 w-36 h-8 rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 text-xs font-bold text-zinc-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 focus:bg-white transition-all"
                         />
                         <input
                           type="text"
                           value={customLabelInput}
                           onChange={e => setCustomLabelInput(e.target.value)}
                           placeholder="Motivo (Férias, Congresso...)"
-                          className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:border-indigo-300 focus:bg-white transition-all"
+                          className="flex-1 min-w-0 h-8 rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 text-xs font-bold text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 focus:bg-white transition-all"
                           onKeyDown={e => {
                             if (e.key === 'Enter' && customDateInput) {
                               addClosedDatePreset({ date: customDateInput, label: customLabelInput || 'Folga' });
@@ -947,7 +916,7 @@ Gere o seguinte JSON:
                             }
                           }}
                         />
-                        <button
+                        <Button
                           type="button"
                           disabled={!customDateInput}
                           onClick={() => {
@@ -956,18 +925,18 @@ Gere o seguinte JSON:
                             setCustomDateInput('');
                             setCustomLabelInput('');
                           }}
-                          className={!customDateInput
-                            ? 'shrink-0 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-300 cursor-not-allowed'
-                            : 'shrink-0 rounded-xl border border-indigo-200 bg-indigo-600 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-indigo-700 transition-all active:scale-95'}
+                          variant="primary"
+                          size="sm"
+                          iconLeft={<Plus size={12} strokeWidth={3} />}
                         >
-                          + Bloquear
-                        </button>
+                          Bloquear
+                        </Button>
                       </div>
                     </div>
                   </div>
 
                   {/* Blocked dates list */}
-                  <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm flex flex-col">
+                  <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm flex flex-col">
                     <div className="mb-4 flex items-center justify-between gap-3">
                       <div>
                         <h4 className="text-sm font-black text-slate-800">Lista de bloqueios</h4>
@@ -1027,7 +996,7 @@ Gere o seguinte JSON:
             )}
 
             {activeTab === 'external' && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <Card 
                   title="Sua Vitrine Digital" 
                   icon={<Globe className="text-pink-500" />}
@@ -1035,60 +1004,61 @@ Gere o seguinte JSON:
                 >
                   <div className="space-y-8">
                     {/* Ativação */}
-                    <div className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-[1.25rem] border border-slate-100">
                       <div>
                         <h4 className="text-sm font-black text-slate-800">Status da Página</h4>
-                        <p className="text-[10px] font-bold text-slate-400">Ative para que seu perfil seja visível publicamente.</p>
+                        <p className="text-[10px] font-medium text-slate-400">Ative para que seu perfil seja visível publicamente.</p>
                       </div>
                       <button
                         onClick={() => setUser(p => ({ ...p, public_profile_enabled: !p.public_profile_enabled }))}
-                        className={`w-14 h-8 rounded-full relative transition-all duration-300 ${user.public_profile_enabled ? 'bg-emerald-500 shadow-lg shadow-emerald-100' : 'bg-slate-200'}`}
+                        className={`w-12 h-7 rounded-full relative transition-all duration-300 shrink-0 ${user.public_profile_enabled ? 'bg-emerald-500 shadow-md shadow-emerald-100' : 'bg-slate-200'}`}
                       >
-                        <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${user.public_profile_enabled ? 'left-7' : 'left-1'}`} />
+                        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${user.public_profile_enabled ? 'left-6' : 'left-1'}`} />
                       </button>
                     </div>
 
                     {/* Slug / Link */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Seu Link Personalizado</label>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 flex items-center h-14 bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden group focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-400 transition-all">
-                          <span className="pl-4 pr-1 text-slate-400 text-xs font-bold whitespace-nowrap">psiflux.com.br/p/</span>
-                          <input
-                            type="text"
-                            value={user.public_slug}
-                            onChange={e => {
-                              const val = e.target.value
-                                .toLowerCase()
-                                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
-                                .replace(/[^a-z0-9]/g, '-') // remove special chars/dots/spaces
-                                .replace(/-+/g, '-'); // collapse multiple hyphens
-                              setUser(p => ({ ...p, public_slug: val }));
-                            }}
-                            className="flex-1 h-full bg-transparent border-none outline-none text-sm font-black text-indigo-600 placeholder:text-slate-300"
-                            placeholder="ex-meu-nome"
-                          />
-                        </div>
+                        <Input
+                          addonLeft={<span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">psiflux.com.br/p/</span>}
+                          value={user.public_slug}
+                          onChange={e => {
+                            const val = e.target.value
+                              .toLowerCase()
+                              .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                              .replace(/[^a-z0-9]/g, '-')
+                              .replace(/-+/g, '-');
+                            setUser(p => ({ ...p, public_slug: val }));
+                          }}
+                          placeholder="ex-meu-nome"
+                          size="sm"
+                          wrapperClassName="flex-1"
+                          className="text-indigo-600 font-black"
+                        />
                         {user.public_slug && (
-                          <button 
+                          <Button
                             onClick={() => {
                               navigator.clipboard.writeText(`https://psiflux.com.br/p/${user.public_slug}`);
                               pushToast('success', 'Link copiado!');
                             }}
-                            className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all"
+                            variant="soft"
+                            size="sm"
+                            iconOnly
                             title="Copiar link"
                           >
-                            <Copy size={20} />
-                          </button>
+                            <Copy size={15} />
+                          </Button>
                         )}
-                        <a 
-                          href={`/p/${user.public_slug}`} 
-                          target="_blank" 
+                        <a
+                          href={`/p/${user.public_slug}`}
+                          target="_blank"
                           rel="noreferrer"
-                          className="p-4 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all"
                           title="Visualizar"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] bg-slate-800 text-white hover:bg-slate-700 transition-colors shrink-0"
                         >
-                          <ExternalLink size={20} />
+                          <ExternalLink size={14} />
                         </a>
                       </div>
                     </div>
@@ -1097,17 +1067,19 @@ Gere o seguinte JSON:
                     <div className="space-y-4 pt-4 border-t border-slate-50">
                       <div className="flex items-center justify-between px-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Links de Redes Sociais</label>
-                        <button 
+                        <Button
                           onClick={() => setUser(p => ({ ...p, social_links: [...p.social_links, { platform: 'Instagram', url: '' }] }))}
-                          className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-all"
+                          variant="ghost"
+                          size="xs"
+                          iconLeft={<Plus size={12} />}
                         >
-                          <Plus size={14} /> ADICIONAR LINK
-                        </button>
+                          Adicionar Link
+                        </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                         {user.social_links.map((link, idx) => (
-                          <div key={idx} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-[1.5rem] group hover:border-indigo-200 transition-all shadow-sm">
+                          <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-100 rounded-xl group hover:border-indigo-200 transition-all shadow-sm">
                             <select
                               value={link.platform}
                               onChange={e => {
@@ -1115,7 +1087,7 @@ Gere o seguinte JSON:
                                 newLinks[idx].platform = e.target.value;
                                 setUser(p => ({ ...p, social_links: newLinks }));
                               }}
-                              className="h-10 bg-slate-50 border-none rounded-xl text-[10px] font-black text-slate-600 focus:ring-0"
+                              className="h-7 bg-zinc-50 border border-zinc-200 rounded-lg text-[10px] font-black text-zinc-700 focus:ring-0 focus:border-amber-400 outline-none pr-1 shrink-0"
                             >
                               {['Instagram', 'WhatsApp', 'LinkedIn', 'Facebook', 'TikTok', 'YouTube', 'Site', 'Threads'].map(p => (
                                 <option key={p} value={p}>{p}</option>
@@ -1129,20 +1101,20 @@ Gere o seguinte JSON:
                                 newLinks[idx].url = e.target.value;
                                 setUser(p => ({ ...p, social_links: newLinks }));
                               }}
-                              className="flex-1 h-10 bg-transparent border-none outline-none text-xs font-bold text-slate-700 placeholder:text-slate-300"
+                              className="flex-1 h-7 bg-transparent border-none outline-none text-xs font-bold text-zinc-800 placeholder:text-zinc-400"
                               placeholder="URL ou @usuário"
                             />
                             <button
                               onClick={() => setUser(p => ({ ...p, social_links: p.social_links.filter((_, i) => i !== idx) }))}
-                              className="p-2 text-slate-300 hover:text-red-500 transition-all"
+                              className="p-1 text-slate-300 hover:text-red-500 transition-all shrink-0"
                             >
-                              <X size={16} />
+                              <X size={14} />
                             </button>
                           </div>
                         ))}
                       </div>
                       {user.social_links.length === 0 && (
-                        <div className="text-center py-8 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                        <div className="text-center py-6 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100">
                           <p className="text-[10px] font-black text-slate-400">NENHUM LINK ADICIONADO</p>
                         </div>
                       )}
@@ -1150,20 +1122,23 @@ Gere o seguinte JSON:
 
                     {/* Aurora Builder */}
                     <div className="pt-8 border-t border-slate-100">
-                      <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200">
-                          <Sparkles size={22} className="text-white" />
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
+                          <Sparkles size={18} className="text-white" />
                         </div>
                         <div className="flex-1">
                           <p className="font-black text-slate-800 text-sm">Aurora monta sua página por você</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Responda algumas perguntas rápidas e a IA preenche todo o conteúdo automaticamente.</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Responda perguntas rápidas e a IA preenche o conteúdo automaticamente.</p>
                         </div>
-                        <button
+                        <Button
                           onClick={() => { setAuroraOpen(true); setAuroraStep(0); setAuroraAnswers({}); }}
-                          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 shrink-0 active:scale-95"
+                          variant="primary"
+                          size="sm"
+                          iconLeft={<Sparkles size={13} />}
+                          elevation="sm"
                         >
-                          <Sparkles size={13} /> Gerar com IA
-                        </button>
+                          Gerar com IA
+                        </Button>
                       </div>
                     </div>
 
@@ -1174,38 +1149,31 @@ Gere o seguinte JSON:
                         <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Conteúdo Estratégico do Site</h4>
                       </div>
 
-                      <div className="space-y-2 mb-6">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Seu Nome na Página Pública</label>
-                         <input 
-                           type="text"
-                           value={user.profile_theme.public_name || ''}
-                           onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, public_name: e.target.value } }))}
-                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
-                           placeholder="Ex: Dr. Eduardo Eloi"
-                         />
+                      <div className="mb-5">
+                        <Input
+                          label="Seu Nome na Página Pública"
+                          value={user.profile_theme.public_name || ''}
+                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, public_name: e.target.value } }))}
+                          placeholder="Ex: Dr. Eduardo Eloi"
+                          size="sm"
+                        />
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Título de Impacto (Hero)</label>
-                           <input 
-                             type="text"
-                             value={user.profile_theme.hero_title || ''}
-                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, hero_title: e.target.value } }))}
-                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
-                             placeholder="Ex: Apoio Psicológico de Confiança"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Resumo das Especialidades</label>
-                           <input 
-                             type="text"
-                             value={user.profile_theme.specialties_summary || ''}
-                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_summary: e.target.value } }))}
-                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
-                             placeholder="Ex: Especialidades focadas no seu desenvolvimento..."
-                           />
-                        </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <Input
+                          label="Título de Impacto (Hero)"
+                          value={user.profile_theme.hero_title || ''}
+                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, hero_title: e.target.value } }))}
+                          placeholder="Ex: Apoio Psicológico de Confiança"
+                          size="sm"
+                        />
+                        <Input
+                          label="Resumo das Especialidades"
+                          value={user.profile_theme.specialties_summary || ''}
+                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_summary: e.target.value } }))}
+                          placeholder="Ex: Especialidades focadas no seu desenvolvimento..."
+                          size="sm"
+                        />
                       </div>
 
                       {/* Foto da Trajetória */}
@@ -1215,8 +1183,8 @@ Gere o seguinte JSON:
                             <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Foto da Trajetória / Bio</h4>
                         </div>
                         <div className="flex flex-col md:flex-row gap-6 items-start">
-                          <div 
-                            className="relative w-full md:w-64 h-64 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
+                          <div
+                            className="relative w-full md:w-48 h-48 bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
                             onClick={() => {
                               const input = document.createElement('input');
                               input.type = 'file';
@@ -1248,39 +1216,34 @@ Gere o seguinte JSON:
                             </p>
                             <div className="flex gap-2">
                               {user.profile_theme.trajectory_url && (
-                                <button 
+                                <Button
                                   onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, trajectory_url: '' } }))}
-                                  className="px-4 py-2 bg-rose-50 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-100 transition-all"
+                                  variant="softDanger"
+                                  size="sm"
                                 >
                                   Remover Foto
-                                </button>
+                                </Button>
                               )}
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Anos de Experiência</label>
-                           <input 
-                             type="text"
-                             value={user.profile_theme.experience_years || ''}
-                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, experience_years: e.target.value } }))}
-                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
-                             placeholder="Ex: 8+"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Clientes/Vidas Atendidas</label>
-                           <input 
-                             type="text"
-                             value={user.profile_theme.patients_count || ''}
-                             onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, patients_count: e.target.value } }))}
-                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
-                             placeholder="Ex: +100"
-                           />
-                        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <Input
+                          label="Anos de Experiência"
+                          value={user.profile_theme.experience_years || ''}
+                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, experience_years: e.target.value } }))}
+                          placeholder="Ex: 8+"
+                          size="sm"
+                        />
+                        <Input
+                          label="Clientes/Vidas Atendidas"
+                          value={user.profile_theme.patients_count || ''}
+                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, patients_count: e.target.value } }))}
+                          placeholder="Ex: +100"
+                          size="sm"
+                        />
                       </div>
 
                       {/* Cartões de Proposta de Valor */}
@@ -1289,29 +1252,24 @@ Gere o seguinte JSON:
                             <div className="w-1.5 h-6 rounded-full bg-rose-500"></div>
                             <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Cartões de Proposta de Valor (3 Cards)</h4>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           {[1, 2, 3].map(num => (
-                            <div key={num} className="space-y-4 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                               <div className="space-y-2">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Título Card {num}</label>
-                                  <input 
-                                    type="text"
-                                    value={(user.profile_theme as any)[`prop_${num}_title`] || ''}
-                                    onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_title`]: e.target.value } }))}
-                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all"
-                                    placeholder={`Título do Card ${num}`}
-                                  />
-                               </div>
-                               <div className="space-y-2">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Descrição Card {num}</label>
-                                  <textarea 
-                                    value={(user.profile_theme as any)[`prop_${num}_desc`] || ''}
-                                    onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_desc`]: e.target.value } }))}
-                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all resize-none"
-                                    rows={3}
-                                    placeholder={`Descrição breve do Card ${num}`}
-                                  />
-                               </div>
+                            <div key={num} className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                              <Input
+                                label={`Título Card ${num}`}
+                                value={(user.profile_theme as any)[`prop_${num}_title`] || ''}
+                                onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_title`]: e.target.value } }))}
+                                placeholder={`Título do Card ${num}`}
+                                size="sm"
+                              />
+                              <Textarea
+                                label={`Descrição Card ${num}`}
+                                value={(user.profile_theme as any)[`prop_${num}_desc`] || ''}
+                                onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_desc`]: e.target.value } }))}
+                                rows={2}
+                                placeholder={`Descrição breve do Card ${num}`}
+                                className="text-xs"
+                              />
                             </div>
                           ))}
                         </div>
@@ -1323,43 +1281,35 @@ Gere o seguinte JSON:
                             <div className="w-1.5 h-6 rounded-full bg-amber-500"></div>
                             <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Seção: Como Funciona (Título + 3 Passos)</h4>
                         </div>
-                        <div className="space-y-6">
-                           <div className="space-y-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Título da Seção de Passos</label>
-                              <input 
-                                type="text"
-                                value={user.profile_theme.steps_title || ''}
-                                onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, steps_title: e.target.value } }))}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all"
-                                placeholder="Ex: Dê o primeiro passo hoje."
-                              />
-                           </div>
-                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                              {[1, 2, 3].map(num => (
-                                <div key={num} className="space-y-4 p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Passo {num} - Título</label>
-                                    <input 
-                                      type="text"
-                                      value={(user.profile_theme as any)[`step_${num}_title`] || ''}
-                                      onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_title`]: e.target.value } }))}
-                                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all"
-                                      placeholder={`Título do Passo ${num}`}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Passo {num} - Descrição</label>
-                                    <textarea 
-                                      value={(user.profile_theme as any)[`step_${num}_desc`] || ''}
-                                      onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_desc`]: e.target.value } }))}
-                                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all resize-none"
-                                      rows={2}
-                                      placeholder={`Descrição do Passo ${num}`}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                           </div>
+                        <div className="space-y-4">
+                          <Input
+                            label="Título da Seção de Passos"
+                            value={user.profile_theme.steps_title || ''}
+                            onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, steps_title: e.target.value } }))}
+                            placeholder="Ex: Dê o primeiro passo hoje."
+                            size="sm"
+                          />
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {[1, 2, 3].map(num => (
+                              <div key={num} className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <Input
+                                  label={`Passo ${num} — Título`}
+                                  value={(user.profile_theme as any)[`step_${num}_title`] || ''}
+                                  onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_title`]: e.target.value } }))}
+                                  placeholder={`Título do Passo ${num}`}
+                                  size="sm"
+                                />
+                                <Textarea
+                                  label={`Passo ${num} — Descrição`}
+                                  value={(user.profile_theme as any)[`step_${num}_desc`] || ''}
+                                  onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_desc`]: e.target.value } }))}
+                                  rows={2}
+                                  placeholder={`Descrição do Passo ${num}`}
+                                  className="text-xs"
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
 
@@ -1369,7 +1319,7 @@ Gere o seguinte JSON:
                           <div className="w-1.5 h-6 rounded-full bg-emerald-500"></div>
                           <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Configuração de Seções do Site</h4>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
                           {[
                             { id: 'show_trajectory', label: 'Trajetória/Bio' },
                             { id: 'show_specialties', label: 'Especialidades' },
@@ -1377,14 +1327,14 @@ Gere o seguinte JSON:
                             { id: 'show_schedule', label: 'Agenda Semanal' },
                             { id: 'show_map', label: 'Mapa/Localização' },
                           ].map(s => (
-                            <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                               <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{s.label}</span>
-                               <button 
-                                 onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [s.id]: !p.profile_theme[s.id as keyof typeof p.profile_theme] } }))}
-                                 className={`w-10 h-6 rounded-full transition-all relative ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                               >
-                                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'left-5' : 'left-1'}`} />
-                               </button>
+                            <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                              <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{s.label}</span>
+                              <button
+                                onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [s.id]: !p.profile_theme[s.id as keyof typeof p.profile_theme] } }))}
+                                className={`w-9 h-5 rounded-full transition-all relative shrink-0 ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                              >
+                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'left-4' : 'left-0.5'}`} />
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1394,12 +1344,14 @@ Gere o seguinte JSON:
                       <div className="space-y-4 mb-8">
                         <div className="flex items-center justify-between px-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Especialidades em Cartão</label>
-                          <button 
+                          <Button
                             onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_list: [...(p.profile_theme.specialties_list || []), ''] } }))}
-                            className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-all"
+                            variant="ghost"
+                            size="xs"
+                            iconLeft={<Plus size={12} />}
                           >
-                            <Plus size={14} /> ADICIONAR ITEM
-                          </button>
+                            Adicionar Item
+                          </Button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {(user.profile_theme.specialties_list || []).map((s, idx) => (
@@ -1431,28 +1383,30 @@ Gere o seguinte JSON:
                       <div className="space-y-4">
                         <div className="flex items-center justify-between px-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perguntas Frequentes (FAQ)</label>
-                          <button 
+                          <Button
                             onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: [...(p.profile_theme.faq || []), { question: '', answer: '' }] } }))}
-                            className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 hover:text-indigo-700 transition-all"
+                            variant="ghost"
+                            size="xs"
+                            iconLeft={<Plus size={12} />}
                           >
-                            <Plus size={14} /> ADICIONAR PERGUNTA
-                          </button>
+                            Adicionar Pergunta
+                          </Button>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                           {(user.profile_theme.faq || []).map((f, idx) => (
-                            <div key={idx} className="p-4 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col gap-3 relative group">
+                            <div key={idx} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col gap-2.5 relative group">
                               <button
                                 onClick={() => {
                                   const newFaq = [...user.profile_theme.faq];
                                   newFaq.splice(idx, 1);
                                   setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
                                 }}
-                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                className="absolute top-3 right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
                               >
-                                <X size={20} />
+                                <X size={15} />
                               </button>
-                              <input 
+                              <input
                                 type="text"
                                 value={f.question}
                                 onChange={e => {
@@ -1460,17 +1414,17 @@ Gere o seguinte JSON:
                                   newFaq[idx].question = e.target.value;
                                   setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
                                 }}
-                                className="bg-transparent border-none outline-none text-sm font-black text-slate-800 placeholder:text-slate-400"
+                                className="bg-transparent border-none outline-none text-xs font-black text-slate-800 placeholder:text-slate-400 pr-6"
                                 placeholder="Pergunta (Ex: Qual o valor da sessão?)"
                               />
-                              <textarea 
+                              <textarea
                                 value={f.answer}
                                 onChange={e => {
                                   const newFaq = [...user.profile_theme.faq];
                                   newFaq[idx].answer = e.target.value;
                                   setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
                                 }}
-                                className="bg-transparent border-none outline-none text-xs font-bold text-slate-500 placeholder:text-slate-400 min-h-[60px] resize-none"
+                                className="bg-transparent border-none outline-none text-[11px] font-medium text-slate-500 placeholder:text-zinc-400 min-h-[50px] resize-none"
                                 placeholder="Resposta detalhada..."
                               />
                             </div>
@@ -1483,23 +1437,20 @@ Gere o seguinte JSON:
                     <div className="pt-6 border-t border-slate-100">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1 mb-4">Gênero Profissional</label>
                       <p className="text-[10px] text-slate-400 font-bold mb-4 px-1">Isso ajustará seu título automaticamente para "Psicólogo" ou "Psicóloga" na página pública.</p>
-                      <div className="flex gap-3">
+                      <div className="flex flex-wrap gap-2">
                         {[
                           { id: 'female', label: 'Feminino (Psicóloga)' },
                           { id: 'male', label: 'Masculino (Psicólogo)' },
                           { id: 'other', label: 'Outro (Psicólogo(a))' }
                         ].map(g => (
-                          <button
+                          <Button
                             key={g.id}
                             onClick={() => setUser(p => ({ ...p, gender: g.id as any }))}
-                            className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all border-2 ${
-                              user.gender === g.id 
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' 
-                              : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'
-                            }`}
+                            variant={user.gender === g.id ? 'primary' : 'soft'}
+                            size="sm"
                           >
                             {g.label}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -1514,16 +1465,16 @@ Gere o seguinte JSON:
                              <div className="w-1.5 h-4 rounded-full bg-indigo-500"></div>
                              <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Cor Principal</p>
                            </div>
-                           <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                             <input 
-                              type="color" 
+                           <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                             <input
+                              type="color"
                               value={user.profile_theme.primaryColor}
                               onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, primaryColor: e.target.value } }))}
-                              className="w-12 h-12 rounded-xl cursor-pointer border-none bg-transparent"
+                              className="w-9 h-9 rounded-lg cursor-pointer border-none bg-transparent"
                              />
                              <div className="flex flex-col">
                                <span className="text-xs font-black text-slate-700 uppercase tracking-tighter">{user.profile_theme.primaryColor}</span>
-                               <span className="text-[9px] font-bold text-slate-400 uppercase">Clique para alterar</span>
+                               <span className="text-[9px] font-medium text-slate-400">Clique para alterar</span>
                              </div>
                            </div>
                         </div>
@@ -1612,13 +1563,13 @@ Gere o seguinte JSON:
             
             {activeTab === 'clinic' && (
               <Card title="Identidade da Clínica" icon={<Building2 className="text-violet-500" />}>
-                <div className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      {/* Logo Upload Area */}
                      <div className="space-y-3">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Logomarca Oficial</label>
-                        <div 
-                          className="relative h-48 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden p-6"
+                        <div
+                          className="relative h-36 bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden p-4"
                           onClick={() => logoInputRef.current?.click()}
                         >
                            {user.clinicLogoUrl ? (
@@ -1643,8 +1594,8 @@ Gere o seguinte JSON:
                      {/* Cover Upload Area */}
                      <div className="space-y-3">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Imagem de Capa / Banner</label>
-                        <div 
-                          className="relative h-48 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
+                        <div
+                          className="relative h-36 bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
                           onClick={() => coverInputRef.current?.click()}
                         >
                            {user.coverUrl ? (
@@ -1666,7 +1617,7 @@ Gere o seguinte JSON:
                      </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-slate-50">
                     <ProfileInput label="Razão Social / Nome Fantasia" icon={<Building2 size={16} />} value={user.companyName} onChange={v => setUser(p => ({ ...p, companyName: v }))} />
                     <ProfileInput label="Registro Profissional (CRP/CRM)" icon={<Shield size={16} />} value={user.crp} onChange={v => setUser(p => ({ ...p, crp: v }))} />
                   </div>
@@ -1677,56 +1628,62 @@ Gere o seguinte JSON:
           </div>
 
           {/* Sidebar Area */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Status Card */}
-            <div className="bg-indigo-600 rounded-[2rem] p-6 text-white overflow-hidden relative shadow-xl shadow-indigo-100">
-               <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
-               <div className="relative z-10">
-                 <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-md border border-white/20">
-                      <Lock size={18} />
-                    </div>
-                    <h4 className="font-black text-sm uppercase tracking-wider text-indigo-100">Segurança</h4>
-                 </div>
-                 <p className="text-xs font-bold leading-relaxed mb-6">Sua conta está protegida com criptografia de ponta a ponta. Se precisar alterar sua senha, use o botão abaixo.</p>
-                 <button 
-                   onClick={() => navigate('/privacidade')}
-                   className="w-full py-3 bg-white text-indigo-600 rounded-2xl text-xs font-black shadow-lg hover:bg-slate-50 transition-colors"
-                 >
-                   ALTERAR SENHA
-                 </button>
-               </div>
-            </div>
-
-            {/* Quick Actions / Performance summary */}
-            <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-6">
-               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Dicas de Perfil</h4>
-               <div className="space-y-4">
-                 <CheckItem label="Foto de perfil de alta qualidade" checked={!!user.avatarUrl} />
-                 <CheckItem label="Biografia detalhada" checked={user.bio.length > 50} />
-                 <CheckItem label="Agenda de horarios configurada" checked={schedule.some(d => d.active)} />
-                 <CheckItem label="Folgas e datas especiais definidas" checked={sortedClosedDates.length > 0} />
-                 <CheckItem label="Endereço da clínica preenchido" checked={!!user.address} />
-               </div>
-            </div>
-
-            {/* Support Box */}
-            <div className="p-6 bg-slate-800 rounded-[2rem] text-white space-y-4">
-              <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center">
-                    <Layout size={18} className="text-indigo-400" />
-                 </div>
-                 <div>
-                   <h5 className="text-[12px] font-black">Suporte Psiflux</h5>
-                   <p className="text-[10px] text-slate-400 font-bold">Precisa de ajuda?</p>
-                 </div>
+          <div className="lg:col-span-4 space-y-4">
+            {/* Security Card */}
+            <div className="bg-indigo-600 rounded-[1.5rem] p-5 text-white overflow-hidden relative shadow-lg shadow-indigo-100/60">
+              <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="p-2 bg-white/20 rounded-lg border border-white/20">
+                    <Lock size={15} />
+                  </div>
+                  <h4 className="font-black text-xs uppercase tracking-wider text-indigo-100">Segurança</h4>
+                </div>
+                <p className="text-xs font-medium leading-relaxed mb-4 text-indigo-100">Sua conta está protegida com criptografia de ponta a ponta.</p>
+                <Button
+                  onClick={() => navigate('/privacidade')}
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                  className="!bg-white !border-white/80 !text-indigo-600 hover:!bg-slate-50"
+                >
+                  Alterar Senha
+                </Button>
               </div>
-              <button 
+            </div>
+
+            {/* Profile Tips */}
+            <div className="bg-white rounded-[1.5rem] p-5 border border-slate-100 shadow-sm">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Dicas de Perfil</h4>
+              <div className="space-y-3">
+                <CheckItem label="Foto de perfil de alta qualidade" checked={!!user.avatarUrl} />
+                <CheckItem label="Biografia detalhada" checked={user.bio.length > 50} />
+                <CheckItem label="Agenda de horários configurada" checked={schedule.some(d => d.active)} />
+                <CheckItem label="Folgas e datas especiais definidas" checked={sortedClosedDates.length > 0} />
+                <CheckItem label="Endereço da clínica preenchido" checked={!!user.address} />
+              </div>
+            </div>
+
+            {/* Support */}
+            <div className="p-5 bg-slate-800 rounded-[1.5rem] text-white space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
+                  <Layout size={16} className="text-indigo-400" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-black">Suporte Psiflux</h5>
+                  <p className="text-[10px] text-slate-400 font-medium">Precisa de ajuda?</p>
+                </div>
+              </div>
+              <Button
                 onClick={() => navigate('/ajuda')}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl text-xs font-black transition-all"
+                variant="primary"
+                size="sm"
+                fullWidth
+                iconRight={<ExternalLink size={13} />}
               >
-                Abrir Central de Ajuda <ExternalLink size={14} />
-              </button>
+                Abrir Central de Ajuda
+              </Button>
             </div>
           </div>
         </div>
@@ -1739,47 +1696,50 @@ Gere o seguinte JSON:
         onClose={() => setAuroraOpen(false)}
         title="Aurora — Construtor de Perfil"
         subtitle={`Passo ${auroraStep + 1} de ${AURORA_QUESTIONS.length}`}
-        maxWidth="lg"
-        bodyClassName="!p-0"
+        size="lg"
         footer={
           <div className="flex w-full items-center justify-between gap-3 p-1">
-            <button
+            <Button
               onClick={() => auroraStep > 0 ? setAuroraStep(s => s - 1) : setAuroraOpen(false)}
-              className="flex items-center gap-2 px-5 py-2.5 text-slate-500 hover:text-slate-700 text-xs font-black rounded-xl transition-all border border-slate-200 hover:border-slate-300 bg-white"
+              variant="soft"
+              size="sm"
             >
               {auroraStep > 0 ? '← Voltar' : 'Cancelar'}
-            </button>
+            </Button>
 
             <div className="flex items-center gap-2">
-              <div className="flex gap-1 mr-2 hidden sm:flex">
+              <div className="hidden sm:flex gap-1 mr-2">
                 {AURORA_QUESTIONS.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setAuroraStep(i)}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === auroraStep ? 'bg-indigo-600 w-4' : i < auroraStep ? 'bg-indigo-300' : 'bg-slate-200'}`}
+                    className={`h-1.5 rounded-full transition-all ${i === auroraStep ? 'bg-indigo-600 w-4' : i < auroraStep ? 'bg-indigo-300 w-1.5' : 'bg-slate-200 w-1.5'}`}
                   />
                 ))}
               </div>
 
               {auroraStep < AURORA_QUESTIONS.length - 1 ? (
-                <button
+                <Button
                   onClick={() => setAuroraStep(s => s + 1)}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95"
+                  variant="primary"
+                  size="sm"
+                  elevation="sm"
                 >
                   Próximo →
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button
                   onClick={handleAuroraGenerate}
                   disabled={auroraLoading}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95 disabled:opacity-60"
+                  loading={auroraLoading}
+                  loadingText="Gerando..."
+                  variant="primary"
+                  size="sm"
+                  iconLeft={<Sparkles size={13} />}
+                  elevation="sm"
                 >
-                  {auroraLoading ? (
-                    <><Loader2 size={13} className="animate-spin" /> Gerando...</>
-                  ) : (
-                    <><Sparkles size={13} /> Gerar Perfil</>
-                  )}
-                </button>
+                  Gerar Perfil
+                </Button>
               )}
             </div>
           </div>
@@ -1812,7 +1772,7 @@ Gere o seguinte JSON:
                 else handleAuroraGenerate();
               }
             }}
-            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all resize-none"
+            className="w-full bg-zinc-50 border border-zinc-200 rounded-[10px] px-3 py-2.5 text-sm font-bold text-zinc-800 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 focus:bg-white transition-all resize-none"
             rows={4}
             placeholder={AURORA_QUESTIONS[auroraStep].placeholder}
           />
@@ -1843,14 +1803,14 @@ interface CardProps {
 
 const Card: React.FC<CardProps> = ({ title, subtitle, icon, children }) => {
   return (
-    <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 border border-slate-100 shadow-sm">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="w-12 h-12 rounded-2xl bg-white shadow-md border border-slate-100 flex items-center justify-center">
-           {icon}
+    <div className="bg-white rounded-[1.75rem] p-5 sm:p-6 border border-slate-100 shadow-sm">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+          {icon}
         </div>
         <div>
-          <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
-          {subtitle && <p className="text-xs font-bold text-slate-400 mt-0.5">{subtitle}</p>}
+          <h3 className="text-base font-black text-slate-800 tracking-tight">{title}</h3>
+          {subtitle && <p className="text-xs font-medium text-slate-400 mt-0.5 leading-relaxed">{subtitle}</p>}
         </div>
       </div>
       {children}
@@ -1868,21 +1828,15 @@ interface ProfileInputProps {
 
 const ProfileInput: React.FC<ProfileInputProps> = ({ label, icon, value, onChange, type = 'text' }) => {
   return (
-    <div className="group">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1 group-focus-within:text-indigo-600 transition-colors">{label}</label>
-      <div className="relative">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-400 transition-colors">
-          {icon}
-        </div>
-        <input
-          type={type}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className="w-full h-14 bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 text-sm font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
-          placeholder={`Digite ${label.toLowerCase()}...`}
-        />
-      </div>
-    </div>
+    <Input
+      label={label}
+      iconLeft={<span className="flex items-center">{icon}</span>}
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={`Digite ${label.toLowerCase()}...`}
+      size="sm"
+    />
   );
 };
 
@@ -1918,105 +1872,84 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({ day, t, onToggle, onUpdate, o
     : 'Dia fechado para atendimento';
 
   return (
-    <div className={day.active ? 'overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-r from-white via-white to-emerald-50/70 p-4 shadow-[0_18px_35px_rgba(15,23,42,0.05)] transition-all' : 'overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-50/90 p-4 transition-all'}>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
-          <div className="flex min-w-0 items-start gap-4">
+    <div className={day.active ? 'overflow-hidden rounded-[1.25rem] border border-emerald-100 bg-gradient-to-r from-white via-white to-emerald-50/70 p-3.5 shadow-sm transition-all' : 'overflow-hidden rounded-[1.25rem] border border-slate-200 bg-slate-50/90 p-3.5 transition-all'}>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="flex min-w-0 items-start gap-3">
             <button
               onClick={onToggle}
-              className={day.active ? 'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-100 transition-all hover:bg-emerald-600' : 'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm transition-all hover:bg-slate-100'}
+              className={day.active ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-100 transition-all hover:bg-emerald-600' : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm transition-all hover:bg-slate-100'}
             >
-              <ChevronRight size={18} className={day.active ? 'rotate-90 transition-transform' : 'transition-transform'} />
+              <ChevronRight size={14} className={day.active ? 'rotate-90 transition-transform' : 'transition-transform'} />
             </button>
 
-            <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0 space-y-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-black uppercase tracking-tight text-slate-800">{t('days.' + day.dayKey)}</p>
-                <span className={day.active ? 'inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-700' : 'inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500'}>
-                  {day.active ? 'Disponivel' : 'Fechado'}
+                <p className="text-xs font-black uppercase tracking-tight text-slate-800">{t('days.' + day.dayKey)}</p>
+                <span className={day.active ? 'inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-700' : 'inline-flex items-center rounded-full bg-slate-200 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-500'}>
+                  {day.active ? 'Disponível' : 'Fechado'}
                 </span>
               </div>
-              <p className="text-xs font-bold text-slate-500">{summary}</p>
+              <p className="text-[10px] font-medium text-slate-400">{summary}</p>
             </div>
           </div>
 
           <div className="hidden xl:block xl:flex-1" />
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {day.active && (
-              <button
-                onClick={addBreak}
-                className="rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-emerald-600 transition-all hover:border-emerald-200 hover:bg-emerald-50"
-                title="Adicionar intervalo"
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <Plus size={12} strokeWidth={3} /> Intervalo
-                </span>
-              </button>
+              <Button onClick={addBreak} variant="soft" size="xs" iconLeft={<Plus size={11} strokeWidth={3} />} title="Adicionar intervalo">
+                Intervalo
+              </Button>
             )}
-
-            <button
-              onClick={onCopyToAll}
-              className="rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 transition-all hover:border-indigo-200 hover:bg-indigo-50"
-              title="Repetir este horario para os demais dias"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <Copy size={12} strokeWidth={3} /> Repetir dia
-              </span>
-            </button>
-
-            <button
-              onClick={onToggle}
-              className={day.active ? 'rounded-2xl border border-slate-900 bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-slate-800' : 'rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-slate-300 hover:bg-slate-50'}
-            >
-              {day.active ? 'Marcar fechado' : 'Liberar dia'}
-            </button>
+            <Button onClick={onCopyToAll} variant="outline" size="xs" iconLeft={<Copy size={11} strokeWidth={3} />} title="Repetir este horário">
+              Repetir
+            </Button>
+            <Button onClick={onToggle} variant={day.active ? 'secondary' : 'soft'} size="xs">
+              {day.active ? 'Fechar' : 'Liberar'}
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="rounded-[1.6rem] border border-white bg-white/90 p-4 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Horario base</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 sm:flex-nowrap">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="rounded-xl border border-white bg-white/90 p-3 shadow-sm">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">Horário base</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 sm:flex-nowrap">
               <TimeInput value={day.start} onChange={v => onUpdate({ start: v })} disabled={!day.active} />
-              <span className="px-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">ate</span>
+              <span className="px-1 text-[10px] font-black text-slate-300">às</span>
               <TimeInput value={day.end} onChange={v => onUpdate({ end: v })} disabled={!day.active} />
             </div>
           </div>
 
-          <div className="rounded-[1.6rem] border border-white bg-white/90 p-4 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Intervalos do dia</p>
-            <p className="mt-3 text-sm font-bold text-slate-500">{day.active ? breakSummary : 'Ative o dia para configurar pausas ou almoco.'}</p>
+          <div className="rounded-xl border border-white bg-white/90 p-3 shadow-sm">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">Intervalos</p>
+            <p className="mt-2 text-xs font-medium text-slate-500">{day.active ? breakSummary : 'Ative o dia para configurar pausas.'}</p>
           </div>
         </div>
       </div>
 
       {day.active && day.breaks.length > 0 && (
-        <div className="mt-4 space-y-3 border-t border-emerald-100/80 pt-4">
+        <div className="mt-3 space-y-2 border-t border-emerald-100/80 pt-3">
           {day.breaks.map((b, i) => (
-            <div key={i} className="flex flex-col gap-3 rounded-[1.5rem] border border-white bg-white/90 p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div key={i} className="flex flex-col gap-2 rounded-xl border border-white bg-white/90 p-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                  <Clock size={14} />
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                  <Clock size={12} />
                 </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                    {day.breaks.length > 1 ? 'Intervalo ' + String(i + 1) : 'Intervalo'}
-                  </p>
-                  <p className="text-xs font-bold text-slate-500">Defina inicio e fim da pausa.</p>
-                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  {day.breaks.length > 1 ? `Intervalo ${i + 1}` : 'Intervalo'}
+                </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+              <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
                 <TimeInput value={b.start} onChange={v => updateBreak(i, 'start', v)} disabled={!day.active} />
-                <span className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">ate</span>
+                <span className="px-1 text-[10px] font-black text-slate-300">às</span>
                 <TimeInput value={b.end} onChange={v => updateBreak(i, 'end', v)} disabled={!day.active} />
                 <button
                   onClick={() => removeBreak(i)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500 transition-all hover:bg-rose-600 hover:text-white"
-                  title="Remover intervalo"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-500 transition-all hover:bg-rose-600 hover:text-white"
                 >
-                  <X size={15} strokeWidth={3} />
+                  <X size={13} strokeWidth={3} />
                 </button>
               </div>
             </div>
@@ -2041,30 +1974,21 @@ function ScheduleInsightCard({
   tone?: 'indigo' | 'emerald' | 'amber';
 }) {
   const toneMap = {
-    indigo: {
-      wrap: 'bg-indigo-100 text-indigo-600',
-      value: 'text-indigo-700',
-    },
-    emerald: {
-      wrap: 'bg-emerald-100 text-emerald-600',
-      value: 'text-emerald-700',
-    },
-    amber: {
-      wrap: 'bg-amber-100 text-amber-600',
-      value: 'text-amber-700',
-    },
+    indigo: { wrap: 'bg-indigo-100 text-indigo-600', value: 'text-indigo-700' },
+    emerald: { wrap: 'bg-emerald-100 text-emerald-600', value: 'text-emerald-700' },
+    amber: { wrap: 'bg-amber-100 text-amber-600', value: 'text-amber-700' },
   } as const;
 
   const styles = toneMap[tone];
 
   return (
-    <div className="rounded-[1.8rem] border border-slate-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className={'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ' + styles.wrap}>{icon}</div>
-        <div className="min-w-0 space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
-          <p className={'truncate text-lg font-black tracking-tight ' + styles.value}>{value}</p>
-          <p className="text-xs font-bold leading-relaxed text-slate-500">{hint}</p>
+    <div className="rounded-[1.25rem] border border-slate-100 bg-white p-3.5 shadow-sm">
+      <div className="flex items-start gap-2.5">
+        <div className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ' + styles.wrap}>{icon}</div>
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
+          <p className={'truncate text-base font-black tracking-tight ' + styles.value}>{value}</p>
+          <p className="text-[10px] font-medium leading-relaxed text-slate-400">{hint}</p>
         </div>
       </div>
     </div>
@@ -2073,13 +1997,13 @@ function ScheduleInsightCard({
 
 function TimeInput({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
   return (
-    <input 
-      type="time" 
-      value={value} 
+    <input
+      type="time"
+      value={value}
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
-      className={`h-9 bg-white border border-slate-200 rounded-xl px-3 text-[11px] font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all ${
-        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-slate-300'
+      className={`h-7 bg-white border border-zinc-200 rounded-lg px-2 text-[11px] font-black text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 transition-all ${
+        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-zinc-300'
       }`}
     />
   );
