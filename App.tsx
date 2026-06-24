@@ -220,10 +220,6 @@ const AppRoutes: React.FC = () => {
           </div>
 
           <div className="text-center space-y-4 animate-slideUpFade">
-            <h1 className="text-4xl font-display font-black tracking-tight flex items-baseline justify-center gap-0.5">
-              <span className={isDark ? "text-slate-100" : "text-slate-900"}>Psi</span>
-              <span className="text-indigo-600">Flux</span>
-            </h1>
             <div className="flex flex-col items-center gap-4">
                <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
                   <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
