@@ -224,8 +224,7 @@ async function checkAppointmentReminders() {
       // --- 1. NOTIFICAÇÃO DO PACIENTE (Via WhatsApp PRÓPRIO da Clínica) ---
       // Só para consultas com paciente que tem nome E telefone
       // ══════════════════════════════════════════════════════════════════
-      const tenantBotConnected = await isBotConnected(apt.tenant_id);
-      if (tenantBotConnected && apt.tenant_id != masterTenantId) {
+      if (apt.tenant_id != masterTenantId) {
         const prefs       = typeof apt.whatsapp_preferences === 'string' ? JSON.parse(apt.whatsapp_preferences || '{}') : (apt.whatsapp_preferences || {});
         const targetPhone = apt.patient_phone;
         const hasPatient  = apt.patient_name && apt.patient_name.trim() && targetPhone
@@ -253,7 +252,9 @@ async function checkAppointmentReminders() {
                       .replace(/\{package_name\}/g, packageName);
           };
 
-          if (diffMinutes > 30 && diffMinutes <= 70 && !apt.whatsapp_reminder_1h_sent && prefs.reminder_1h_enabled !== false) {
+          // Lembrete 1h: só enfileira se bot conectado agora (janela curta, sem retry útil)
+          const tenantBotConnected = await isBotConnected(apt.tenant_id);
+          if (tenantBotConnected && diffMinutes > 30 && diffMinutes <= 70 && !apt.whatsapp_reminder_1h_sent && prefs.reminder_1h_enabled !== false) {
             const msg = buildMsg(prefs.reminder_1h_msg, `🔔 *Lembrete de Atendimento*\n\nOlá, *{patient_name}*.\nSua sessão com {professional_name} é hoje às {time}.`);
             await notificationService.enqueue({
               tenant_id: apt.tenant_id,
@@ -265,7 +266,7 @@ async function checkAppointmentReminders() {
             await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
             console.log(`[CRON-QUEUE Paciente 1h] ${apt.patient_name} | Tenant ${apt.tenant_id}`);
           }
-          // Lembrete 24h: consulta é amanhã E horário atual entre 8h e 22h (SP)
+          // Lembrete 24h: enfileira independente do status do bot (notificationService faz retry até expires_at)
           const aptDateSP = aptStart.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
           const nowDateSP = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
           const [y, m, d] = nowDateSP.split('-').map(Number);
