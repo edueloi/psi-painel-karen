@@ -405,6 +405,16 @@ export const PsychologistDirectory: React.FC = () => {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  /* ─── Paginação ─── */
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 10;
+
+  /* ─── Cidades ─── */
+  const [cities, setCities] = useState<string[]>([]);
+  const [selectedCity, setSelectedCity] = useState('');
+
   /* ─── Filter state ─── */
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedAbordagens, setSelectedAbordagens] = useState<string[]>([]);
@@ -412,7 +422,7 @@ export const PsychologistDirectory: React.FC = () => {
   const [selectedDisponibilidade, setSelectedDisponibilidade] = useState<string[]>([]);
   const [selectedModalidade, setSelectedModalidade] = useState<string>('');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    abordagens: false, especialidades: false, disponibilidade: false, local: false,
+    abordagens: false, especialidades: false, disponibilidade: false, local: false, cidade: false,
   });
   const toggleSection = (key: string) =>
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -421,7 +431,8 @@ export const PsychologistDirectory: React.FC = () => {
     selectedAbordagens.length +
     (selectedEspecialidade ? 1 : 0) +
     selectedDisponibilidade.length +
-    (selectedModalidade ? 1 : 0);
+    (selectedModalidade ? 1 : 0) +
+    (selectedCity ? 1 : 0);
 
   const hasActiveFilters = activeFilterCount > 0;
 
@@ -430,19 +441,20 @@ export const PsychologistDirectory: React.FC = () => {
     setSelectedEspecialidade('');
     setSelectedDisponibilidade([]);
     setSelectedModalidade('');
+    setSelectedCity('');
+    setPage(1);
   }, []);
 
-  const toggleAbordagem = (v: string) =>
+  const toggleAbordagem = (v: string) => {
     setSelectedAbordagens(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
-
-  const toggleDisponibilidade = (v: string) =>
+    setPage(1);
+  };
+  const toggleDisponibilidade = (v: string) => {
     setSelectedDisponibilidade(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
-
-  const toggleModalidade = (v: string) =>
-    setSelectedModalidade(prev => prev === v ? '' : v);
-
-  const toggleEspecialidade = (v: string) =>
-    setSelectedEspecialidade(prev => prev === v ? '' : v);
+    setPage(1);
+  };
+  const toggleModalidade = (v: string) => { setSelectedModalidade(prev => prev === v ? '' : v); setPage(1); };
+  const toggleEspecialidade = (v: string) => { setSelectedEspecialidade(prev => prev === v ? '' : v); setPage(1); };
 
   /* ─── Scroll listener ─── */
   useEffect(() => {
@@ -454,9 +466,17 @@ export const PsychologistDirectory: React.FC = () => {
   /* ─── Debounce search ─── */
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 320);
+    debounceRef.current = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 320);
     return () => clearTimeout(debounceRef.current);
   }, [search]);
+
+  /* ─── Buscar cidades ─── */
+  useEffect(() => {
+    fetch(`${API_BASE}/directory/cities`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCities(data); })
+      .catch(() => {});
+  }, []);
 
   /* ─── Fetch ─── */
   useEffect(() => {
@@ -467,15 +487,28 @@ export const PsychologistDirectory: React.FC = () => {
     if (selectedAbordagens.length) params.set('abordagem', selectedAbordagens.join(','));
     if (selectedDisponibilidade.length) params.set('disponibilidade', selectedDisponibilidade.join(','));
     if (selectedModalidade) params.set('modalidade', selectedModalidade);
+    if (selectedCity) params.set('cidade', selectedCity);
+    params.set('page', String(page));
+    params.set('limit', String(PAGE_SIZE));
 
     fetch(`${API_BASE}/directory?${params}`)
       .then(r => r.json())
-      .then(data => { setPsychologists(Array.isArray(data) ? data : []); setLoading(false); })
+      .then(data => {
+        if (data && Array.isArray(data.data)) {
+          setPsychologists(data.data);
+          setTotal(data.total || 0);
+          setTotalPages(data.pages || 1);
+        } else {
+          setPsychologists([]);
+        }
+        setLoading(false);
+      })
       .catch(() => { setPsychologists([]); setLoading(false); });
-  }, [debouncedSearch, selectedEspecialidade, selectedAbordagens, selectedDisponibilidade, selectedModalidade]);
+  }, [debouncedSearch, selectedEspecialidade, selectedAbordagens, selectedDisponibilidade, selectedModalidade, selectedCity, page]);
 
   const clearSearch = useCallback(() => {
     setSearch('');
+    setPage(1);
     searchInputRef.current?.focus();
   }, []);
 
@@ -904,6 +937,18 @@ export const PsychologistDirectory: React.FC = () => {
                   </div>
                 ),
               },
+              ...(cities.length > 0 ? [{
+                key: 'cidade',
+                label: 'Cidade',
+                count: selectedCity ? 1 : 0,
+                content: (
+                  <div className="dir-pill-group">
+                    {cities.map(c => (
+                      <Pill key={c} label={c} active={selectedCity === c} onClick={() => { setSelectedCity(prev => prev === c ? '' : c); setPage(1); }} />
+                    ))}
+                  </div>
+                ),
+              }] : []),
             ] as { key: string; label: string; count: number; content: React.ReactNode }[]).map((section, idx, arr) => {
               const isOpen = openSections[section.key];
               return (
@@ -967,12 +1012,13 @@ export const PsychologistDirectory: React.FC = () => {
                 <span style={{ width: 14, height: 14, border: '2px solid #E2E8F0', borderTopColor: C.accent, borderRadius: '50%', display: 'inline-block', animation: 'dir-spin .7s linear infinite' }} />
                 Buscando profissionais…
               </span>
-            ) : psychologists.length === 0
+            ) : total === 0
               ? 'Nenhum profissional encontrado'
               : (
                 <>
-                  <strong style={{ color: C.text }}>{psychologists.length}</strong>
-                  {' '}profissional{psychologists.length !== 1 ? 'is' : ''} encontrado{psychologists.length !== 1 ? 's' : ''}
+                  <strong style={{ color: C.text }}>{total}</strong>
+                  {' '}profissional{total !== 1 ? 'is' : ''} encontrado{total !== 1 ? 's' : ''}
+                  {totalPages > 1 && <span style={{ color: C.muted, fontWeight: 400 }}> — página {page} de {totalPages}</span>}
                 </>
               )
             }
@@ -1051,6 +1097,20 @@ export const PsychologistDirectory: React.FC = () => {
                 <X size={11} /> {selectedModalidade}
               </button>
             )}
+            {selectedCity && (
+              <button
+                onClick={() => { setSelectedCity(''); setPage(1); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: `${C.accent2}15`, border: `1px solid ${C.accent2}30`,
+                  borderRadius: 99, padding: '5px 12px',
+                  fontSize: 12, fontWeight: 700, color: C.accent2, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <X size={11} /> {selectedCity}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1100,6 +1160,82 @@ export const PsychologistDirectory: React.FC = () => {
         ) : (
           <div className="dir-grid">
             {psychologists.map((p, i) => <PsychCard key={p.public_slug} p={p} index={i} />)}
+          </div>
+        )}
+
+        {/* ── Paginação ── */}
+        {!loading && totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 36, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => { setPage(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              disabled={page === 1}
+              style={{
+                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
+                background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: page === 1 ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                opacity: page === 1 ? 0.4 : 1,
+              }}
+            >«</button>
+            <button
+              onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              disabled={page === 1}
+              style={{
+                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
+                background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: page === 1 ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                opacity: page === 1 ? 0.4 : 1,
+              }}
+            >‹</button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(n => n === 1 || n === totalPages || (n >= page - 2 && n <= page + 2))
+              .reduce<(number | '...')[]>((acc, n, i, arr) => {
+                if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('...');
+                acc.push(n);
+                return acc;
+              }, [])
+              .map((n, i) => n === '...' ? (
+                <span key={`dots-${i}`} style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: C.muted }}>…</span>
+              ) : (
+                <button
+                  key={n}
+                  onClick={() => { setPage(n as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    border: `1.5px solid ${page === n ? C.accent : C.border}`,
+                    background: page === n ? C.accent : '#fff',
+                    color: page === n ? '#fff' : C.text,
+                    cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                    boxShadow: page === n ? `0 2px 12px ${C.accent}30` : 'none',
+                  }}
+                >{n}</button>
+              ))
+            }
+
+            <button
+              onClick={() => { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              disabled={page === totalPages}
+              style={{
+                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
+                background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: page === totalPages ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                opacity: page === totalPages ? 0.4 : 1,
+              }}
+            >›</button>
+            <button
+              onClick={() => { setPage(totalPages); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              disabled={page === totalPages}
+              style={{
+                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
+                background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: page === totalPages ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                opacity: page === totalPages ? 0.4 : 1,
+              }}
+            >»</button>
           </div>
         )}
 

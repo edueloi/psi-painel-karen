@@ -2,81 +2,117 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// GET /directory/cities — cidades disponíveis (sem auth)
+router.get('/cities', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT DISTINCT
+        TRIM(SUBSTRING_INDEX(address, ',', -2)) as city_raw,
+        address
+      FROM users u
+      LEFT JOIN tenants t ON t.id = u.tenant_id
+      WHERE u.public_profile_enabled = true
+        AND u.public_slug IS NOT NULL AND u.public_slug != ''
+        AND u.role IN ('admin','professional')
+        AND u.active = true
+        AND (t.id IS NULL OR (
+          (t.status IS NULL OR t.status != 'blocked')
+          AND (t.expires_at IS NULL OR t.expires_at > NOW())
+        ))
+        AND address IS NOT NULL AND address != ''
+      LIMIT 500
+    `);
+    // Extrai cidade/estado do endereço
+    const cities = [...new Set(
+      rows.map(r => {
+        const parts = (r.address || '').split(',').map(s => s.trim()).filter(Boolean);
+        return parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1];
+      }).filter(Boolean)
+    )].sort();
+    res.json(cities);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // GET /directory — Lista psicólogos com perfil público habilitado
-// Query params: q, specialty, abordagem, disponibilidade, modalidade
+// Query params: q, specialty, abordagem, disponibilidade, modalidade, cidade, page, limit
 router.get('/', async (req, res) => {
   try {
-    const { q, specialty, abordagem, disponibilidade, modalidade } = req.query;
+    const { q, specialty, abordagem, disponibilidade, modalidade, cidade } = req.query;
+    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+    const offset = (page - 1) * limit;
 
-    let sql = `
-      SELECT name, specialty, crp, bio, public_slug, avatar_url, clinic_logo_url,
-             company_name, address, social_links, profile_theme, gender
-      FROM users
-      WHERE public_profile_enabled = true
-        AND public_slug IS NOT NULL
-        AND public_slug != ''
-        AND role IN ('admin', 'professional')
+    let where = `
+      u.public_profile_enabled = true
+      AND u.public_slug IS NOT NULL AND u.public_slug != ''
+      AND u.role IN ('admin','professional')
+      AND u.active = true
+      AND (t.id IS NULL OR (
+        (t.status IS NULL OR t.status != 'blocked')
+        AND (t.expires_at IS NULL OR t.expires_at > NOW())
+      ))
     `;
     const params = [];
 
     if (q) {
-      sql += ` AND (name LIKE ? OR specialty LIKE ? OR company_name LIKE ? OR bio LIKE ?)`;
+      where += ` AND (u.name LIKE ? OR u.specialty LIKE ? OR u.company_name LIKE ? OR u.bio LIKE ?)`;
       const like = `%${q}%`;
       params.push(like, like, like, like);
     }
-
     if (specialty) {
-      sql += ` AND (specialty LIKE ? OR JSON_SEARCH(profile_theme, 'one', ?, NULL, '$.specialties_list') IS NOT NULL)`;
+      where += ` AND (u.specialty LIKE ? OR JSON_SEARCH(u.profile_theme,'one',?,NULL,'$.specialties_list') IS NOT NULL)`;
       params.push(`%${specialty}%`, specialty);
     }
-
-    // Filtro de abordagem — busca no profile_theme.abordagens
     if (abordagem) {
-      const abordagens = abordagem.split(',').map(a => a.trim()).filter(Boolean);
-      if (abordagens.length > 0) {
-        const clauses = abordagens.map(() =>
-          `JSON_SEARCH(profile_theme, 'one', ?, NULL, '$.abordagens') IS NOT NULL`
-        );
-        sql += ` AND (${clauses.join(' OR ')})`;
-        abordagens.forEach(a => params.push(a));
+      const abs = abordagem.split(',').map(a => a.trim()).filter(Boolean);
+      if (abs.length) {
+        where += ` AND (${abs.map(() => `JSON_SEARCH(u.profile_theme,'one',?,NULL,'$.abordagens') IS NOT NULL`).join(' OR ')})`;
+        abs.forEach(a => params.push(a));
       }
     }
-
-    // Filtro de disponibilidade — busca no profile_theme ou schedule
     if (disponibilidade) {
       const disp = disponibilidade.split(',').map(d => d.trim()).filter(Boolean);
-      if (disp.length > 0) {
-        const clauses = disp.map(() =>
-          `JSON_SEARCH(profile_theme, 'one', ?, NULL, '$.disponibilidade') IS NOT NULL`
-        );
-        sql += ` AND (${clauses.join(' OR ')})`;
+      if (disp.length) {
+        where += ` AND (${disp.map(() => `JSON_SEARCH(u.profile_theme,'one',?,NULL,'$.disponibilidade') IS NOT NULL`).join(' OR ')})`;
         disp.forEach(d => params.push(d));
       }
     }
-
-    // Filtro de modalidade — busca no profile_theme
     if (modalidade) {
-      sql += ` AND JSON_SEARCH(profile_theme, 'one', ?, NULL, '$.modalidade') IS NOT NULL`;
+      where += ` AND JSON_SEARCH(u.profile_theme,'one',?,NULL,'$.modalidade') IS NOT NULL`;
       params.push(modalidade);
     }
+    if (cidade) {
+      where += ` AND u.address LIKE ?`;
+      params.push(`%${cidade}%`);
+    }
 
-    sql += ` ORDER BY name ASC LIMIT 200`;
+    const baseSql = `
+      FROM users u
+      LEFT JOIN tenants t ON t.id = u.tenant_id
+      WHERE ${where}
+    `;
 
-    const [rows] = await db.query(sql, params);
+    const [[{ total }]] = await db.query(`SELECT COUNT(*) as total ${baseSql}`, params);
+
+    const [rows] = await db.query(
+      `SELECT u.name, u.specialty, u.crp, u.bio, u.public_slug, u.avatar_url,
+              u.clinic_logo_url, u.company_name, u.address, u.social_links,
+              u.profile_theme, u.gender
+       ${baseSql} ORDER BY u.name ASC LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
 
     const result = rows.map(u => {
       let socialLinks = u.social_links;
       let profileTheme = u.profile_theme;
-      if (socialLinks && typeof socialLinks === 'string') {
-        try { socialLinks = JSON.parse(socialLinks); } catch { socialLinks = []; }
-      }
-      if (profileTheme && typeof profileTheme === 'string') {
-        try { profileTheme = JSON.parse(profileTheme); } catch { profileTheme = null; }
-      }
+      if (typeof socialLinks === 'string') { try { socialLinks = JSON.parse(socialLinks); } catch { socialLinks = []; } }
+      if (typeof profileTheme === 'string') { try { profileTheme = JSON.parse(profileTheme); } catch { profileTheme = null; } }
       return { ...u, social_links: socialLinks || [], profile_theme: profileTheme };
     });
 
-    res.json(result);
+    res.json({ data: result, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) {
     console.error('Erro ao buscar diretório de psicólogos:', err);
     res.status(500).json({ error: 'Erro interno.' });
