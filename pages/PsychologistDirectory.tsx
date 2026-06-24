@@ -197,6 +197,8 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
   return (
     <a
       href={`/p/${p.public_slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
