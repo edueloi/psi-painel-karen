@@ -419,6 +419,15 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
     let finalPatientId = patient_id || null;
     let finalProfId = professional_id || psychologist_id || null;
 
+    // Se professional_id não foi enviado, usa o único profissional do tenant (se houver só um)
+    if (!finalProfId) {
+      const [profRows] = await db.query(
+        "SELECT id FROM users WHERE tenant_id = ? AND role IN ('admin','professional') ORDER BY id LIMIT 2",
+        [req.user.tenant_id]
+      );
+      if (profRows.length === 1) finalProfId = profRows[0].id;
+    }
+
     // Se o patient_id não for numérico, assume que é um NOME e cria o paciente
     if (finalPatientId && isNaN(parseInt(finalPatientId))) {
         const [pRes] = await db.query(
