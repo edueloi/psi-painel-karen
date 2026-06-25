@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Globe, Users, Link2, Copy, Check, Trash2, Plus, RefreshCw, Eye, EyeOff, Send, Clock, Shield, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Globe, Users, Link2, Copy, Check, Trash2, Plus, RefreshCw,
+  Send, Clock, Settings, QrCode, CreditCard, Wallet, ChevronRight,
+  ToggleLeft, ToggleRight, ExternalLink, Shield, AlertCircle
+} from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
 
@@ -7,6 +11,7 @@ interface PortalToken {
   id: number;
   patient_id: number;
   patient_name?: string;
+  patient_phone?: string;
   label?: string;
   token: string;
   is_used: number;
@@ -21,45 +26,100 @@ interface Patient {
   id: number;
   name?: string;
   full_name?: string;
+  phone?: string;
 }
+
+interface PortalSettings {
+  pix_key?: string;
+  pix_key_type?: string;
+  pix_owner_name?: string;
+  pix_instructions?: string;
+  payment_pix_enabled?: boolean;
+  payment_credit_enabled?: boolean;
+  payment_debit_enabled?: boolean;
+  payment_transfer_enabled?: boolean;
+  require_payment_before_session?: boolean;
+}
+
+type Tab = 'pacientes' | 'configuracoes';
+
+const PIX_KEY_TYPES = [
+  { value: 'cpf', label: 'CPF' },
+  { value: 'cnpj', label: 'CNPJ' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'random', label: 'Chave aleatória' },
+];
 
 export const PortalPaciente: React.FC = () => {
   const { pushToast } = useToast();
+  const [tab, setTab] = useState<Tab>('pacientes');
   const [tokens, setTokens] = useState<PortalToken[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     patient_id: '',
-    label: '',
     expires_in_days: 365,
     allow_self_schedule: true,
     require_approval: false,
-    self_register: false,
   });
+
+  // Settings tab state
+  const [settings, setSettings] = useState<PortalSettings>({
+    pix_key: '',
+    pix_key_type: 'cpf',
+    pix_owner_name: '',
+    pix_instructions: '',
+    payment_pix_enabled: true,
+    payment_credit_enabled: false,
+    payment_debit_enabled: false,
+    payment_transfer_enabled: false,
+    require_payment_before_session: false,
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(false);
 
   const baseUrl = window.location.origin;
 
-  const fetchTokens = async () => {
+  const fetchTokens = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.get<PortalToken[]>('/patient-portal/tokens');
+      const data = await api.get<PortalToken[]>('/patient-portal/tokens/all');
       setTokens(Array.isArray(data) ? data : []);
     } catch { setTokens([]); }
     finally { setLoading(false); }
-  };
+  }, []);
 
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     try {
       const data = await api.get<any>('/patients?limit=500');
       const list = Array.isArray(data) ? data : (data?.patients || data?.data || []);
       setPatients(list);
     } catch { setPatients([]); }
-  };
+  }, []);
 
-  useEffect(() => { fetchTokens(); fetchPatients(); }, []);
+  const fetchSettings = useCallback(async () => {
+    setLoadingSettings(true);
+    try {
+      const data = await api.get<PortalSettings>('/patient-portal/settings');
+      if (data && typeof data === 'object') {
+        setSettings(prev => ({ ...prev, ...data }));
+      }
+    } catch { /* uses defaults */ }
+    finally { setLoadingSettings(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchTokens();
+    fetchPatients();
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'configuracoes') fetchSettings();
+  }, [tab]);
 
   const createToken = async () => {
     if (!form.patient_id) { pushToast('error', 'Selecione um paciente.'); return; }
@@ -67,15 +127,13 @@ export const PortalPaciente: React.FC = () => {
     try {
       await api.post('/patient-portal/tokens', {
         patient_id: parseInt(form.patient_id),
-        label: form.label || undefined,
         expires_in_days: form.expires_in_days,
         allow_self_schedule: form.allow_self_schedule ? 1 : 0,
         require_approval: form.require_approval ? 1 : 0,
-        self_register: form.self_register ? 1 : 0,
       });
       pushToast('success', 'Link de acesso criado!');
       setShowForm(false);
-      setForm({ patient_id: '', label: '', expires_in_days: 365, allow_self_schedule: true, require_approval: false, self_register: false });
+      setForm({ patient_id: '', expires_in_days: 365, allow_self_schedule: true, require_approval: false });
       fetchTokens();
     } catch (e: any) {
       pushToast('error', e?.message || 'Erro ao criar link.');
@@ -92,209 +150,365 @@ export const PortalPaciente: React.FC = () => {
   };
 
   const copyLink = (token: string, id: number) => {
-    const url = `${baseUrl}/portal/entrar/${token}`;
-    navigator.clipboard.writeText(url).then(() => {
+    navigator.clipboard.writeText(`${baseUrl}/portal/entrar/${token}`).then(() => {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
       pushToast('success', 'Link copiado!');
     });
   };
 
-  const sendWhatsApp = (token: PortalToken) => {
-    const patient = patients.find(p => String(p.id) === String(token.patient_id));
-    const name = token.patient_name || patient?.full_name || patient?.name || 'Paciente';
-    const url = `${baseUrl}/portal/entrar/${token.token}`;
+  const sendWhatsApp = (t: PortalToken) => {
+    const patient = patients.find(p => String(p.id) === String(t.patient_id));
+    const name = t.patient_name || patient?.full_name || patient?.name || 'Paciente';
+    const phone = t.patient_phone || patient?.phone || '';
+    const url = `${baseUrl}/portal/entrar/${t.token}`;
     const msg = encodeURIComponent(
-      `Olá ${name}! Aqui está o link de acesso ao seu portal de paciente:\n\n${url}\n\nNele você pode agendar consultas, acompanhar seus pagamentos e muito mais. 😊`
+      `Olá ${name}! Aqui está seu link de acesso ao portal:\n\n${url}\n\nNele você pode agendar consultas e muito mais. 😊`
     );
-    window.open(`https://wa.me/?text=${msg}`, '_blank');
+    const wa = phone
+      ? `https://wa.me/55${phone.replace(/\D/g, '')}?text=${msg}`
+      : `https://wa.me/?text=${msg}`;
+    window.open(wa, '_blank');
   };
 
-  const activeTokens = tokens.filter(t => t.is_used);
-  const pendingTokens = tokens.filter(t => !t.is_used);
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      await api.post('/patient-portal/settings', settings);
+      pushToast('success', 'Configurações salvas!');
+    } catch { pushToast('error', 'Erro ao salvar configurações.'); }
+    finally { setSavingSettings(false); }
+  };
+
+  const activeCount = tokens.filter(t => t.is_used).length;
+  const pendingCount = tokens.filter(t => !t.is_used).length;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center">
-              <Globe size={20} className="text-indigo-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-slate-800">Portal do Paciente</h1>
-              <p className="text-sm text-slate-400">Gerencie o acesso dos pacientes ao portal</p>
-            </div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
+            <Globe size={16} className="text-indigo-600" />
+          </div>
+          <div>
+            <h1 className="text-base font-black text-slate-800 leading-none">Portal do Paciente</h1>
+            <p className="text-[11px] text-slate-400 mt-0.5">Gerencie acessos e configurações do portal</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-sm"
-        >
-          <Plus size={15} /> Novo link de acesso
-        </button>
+        {tab === 'pacientes' && (
+          <button
+            onClick={() => setShowForm(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
+          >
+            <Plus size={13} /> Novo link
+          </button>
+        )}
       </div>
 
-      {/* Info box */}
-      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex gap-3">
-        <Shield size={18} className="text-indigo-500 mt-0.5 shrink-0" />
-        <div className="text-sm text-indigo-700">
-          <p className="font-bold mb-1">Como funciona o Portal do Paciente?</p>
-          <p className="text-indigo-600">Gere um link exclusivo para cada paciente. Ao acessar o link, o paciente cria sua senha e pode: agendar consultas, ver pagamentos, baixar documentos e muito mais. O link fica ativo pelo período configurado.</p>
-        </div>
-      </div>
-
-      {/* Form novo link */}
-      {showForm && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="font-black text-slate-700">Criar novo link de acesso</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Paciente *</label>
-              <select
-                value={form.patient_id}
-                onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              >
-                <option value="">Selecionar paciente...</option>
-                {patients.map(p => (
-                  <option key={p.id} value={p.id}>{p.full_name || p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Rótulo (opcional)</label>
-              <input
-                type="text"
-                value={form.label}
-                onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-                placeholder="Ex.: Acesso 2026"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 block">Validade do link</label>
-              <select
-                value={form.expires_in_days}
-                onChange={e => setForm(f => ({ ...f, expires_in_days: parseInt(e.target.value) }))}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              >
-                <option value={7}>7 dias</option>
-                <option value={30}>30 dias</option>
-                <option value={90}>3 meses</option>
-                <option value={365}>1 ano</option>
-                <option value={3650}>Sem expiração (10 anos)</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.allow_self_schedule}
-                onChange={e => setForm(f => ({ ...f, allow_self_schedule: e.target.checked }))}
-                className="rounded accent-indigo-600" />
-              <span className="text-sm text-slate-700 font-medium">Permitir auto-agendamento</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.require_approval}
-                onChange={e => setForm(f => ({ ...f, require_approval: e.target.checked }))}
-                className="rounded accent-indigo-600" />
-              <span className="text-sm text-slate-700 font-medium">Exigir aprovação da psicóloga</span>
-            </label>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 font-medium">Cancelar</button>
-            <button onClick={createToken} disabled={creating}
-              className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-all">
-              {creating ? 'Criando...' : 'Criar link'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stats — compact row */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
         {[
-          { label: 'Total de links', value: tokens.length, icon: <Link2 size={16} />, color: 'bg-slate-100 text-slate-600' },
-          { label: 'Ativos (usados)', value: activeTokens.length, icon: <Users size={16} />, color: 'bg-green-100 text-green-600' },
-          { label: 'Aguardando uso', value: pendingTokens.length, icon: <Clock size={16} />, color: 'bg-amber-100 text-amber-600' },
+          { label: 'Total', value: tokens.length, color: 'text-slate-700', bg: 'bg-slate-50' },
+          { label: 'Com acesso', value: activeCount, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Pendentes', value: pendingCount, color: 'text-amber-600', bg: 'bg-amber-50' },
         ].map(s => (
-          <div key={s.label} className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${s.color}`}>{s.icon}</div>
-            <div>
-              <p className="text-xl font-black text-slate-800">{s.value}</p>
-              <p className="text-xs text-slate-400">{s.label}</p>
-            </div>
+          <div key={s.label} className={`${s.bg} rounded-xl px-3 py-2 flex items-center gap-2`}>
+            <span className={`text-lg font-black ${s.color}`}>{s.value}</span>
+            <span className="text-[11px] text-slate-400 font-medium">{s.label}</span>
           </div>
         ))}
       </div>
 
-      {/* Lista de tokens */}
-      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h3 className="font-black text-slate-700">Links de acesso</h3>
-          <button onClick={fetchTokens} className="p-1.5 text-slate-400 hover:text-indigo-500 transition-colors">
-            <RefreshCw size={15} />
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-3 w-fit">
+        {(['pacientes', 'configuracoes'] as Tab[]).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+              tab === t ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t === 'pacientes' ? <><Users size={12} /> Pacientes</> : <><Settings size={12} /> Configurações</>}
           </button>
-        </div>
-        {loading ? (
-          <div className="p-8 text-center text-slate-400 text-sm">Carregando...</div>
-        ) : tokens.length === 0 ? (
-          <div className="p-8 text-center">
-            <Globe size={32} className="text-slate-200 mx-auto mb-2" />
-            <p className="text-slate-400 text-sm">Nenhum link criado ainda.</p>
-            <p className="text-slate-300 text-xs mt-1">Crie o primeiro link para um paciente.</p>
+        ))}
+      </div>
+
+      {/* ── TAB: PACIENTES ── */}
+      {tab === 'pacientes' && (
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+          {/* Inline create form */}
+          {showForm && (
+            <div className="px-4 py-3 bg-indigo-50/60 border-b border-indigo-100">
+              <p className="text-xs font-black text-indigo-700 mb-2">Novo link de acesso</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="col-span-2 md:col-span-1">
+                  <select
+                    value={form.patient_id}
+                    onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  >
+                    <option value="">Paciente *</option>
+                    {patients.map(p => (
+                      <option key={p.id} value={p.id}>{p.full_name || p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <select
+                    value={form.expires_in_days}
+                    onChange={e => setForm(f => ({ ...f, expires_in_days: parseInt(e.target.value) }))}
+                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  >
+                    <option value={30}>30 dias</option>
+                    <option value={90}>3 meses</option>
+                    <option value={365}>1 ano</option>
+                    <option value={3650}>Sem expiração</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={form.allow_self_schedule}
+                      onChange={e => setForm(f => ({ ...f, allow_self_schedule: e.target.checked }))}
+                      className="rounded accent-indigo-600 w-3 h-3" />
+                    <span className="text-[11px] text-slate-600">Auto-agend.</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={form.require_approval}
+                      onChange={e => setForm(f => ({ ...f, require_approval: e.target.checked }))}
+                      className="rounded accent-indigo-600 w-3 h-3" />
+                    <span className="text-[11px] text-slate-600">Aprovação</span>
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowForm(false)}
+                    className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium rounded-lg">
+                    Cancelar
+                  </button>
+                  <button onClick={createToken} disabled={creating}
+                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all">
+                    {creating ? '...' : 'Criar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Table header */}
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-4 py-2 bg-slate-50 border-b border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Paciente</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide hidden md:block">Criado</span>
+            <div className="flex items-center justify-end gap-1">
+              <button onClick={fetchTokens} className="p-1 text-slate-400 hover:text-indigo-500">
+                <RefreshCw size={12} />
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="divide-y divide-slate-50">
-            {tokens.map(t => {
-              const patient = patients.find(p => String(p.id) === String(t.patient_id));
-              const name = t.patient_name || patient?.full_name || patient?.name || `Paciente #${t.patient_id}`;
-              const link = `${baseUrl}/portal/entrar/${t.token}`;
-              const isExpired = t.expires_at && new Date(t.expires_at) < new Date();
-              return (
-                <div key={t.id} className="px-5 py-4 flex items-center gap-4 hover:bg-slate-50/50">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-black ${t.is_used ? 'bg-green-100 text-green-600' : isExpired ? 'bg-red-100 text-red-500' : 'bg-amber-100 text-amber-600'}`}>
-                    {name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-700 text-sm truncate">{name}</p>
-                    <p className="text-xs text-slate-400 truncate">{link}</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.is_used ? 'bg-green-100 text-green-600' : isExpired ? 'bg-red-100 text-red-500' : 'bg-amber-100 text-amber-600'}`}>
-                        {t.is_used ? 'ATIVO' : isExpired ? 'EXPIRADO' : 'AGUARDANDO'}
-                      </span>
-                      {t.allow_self_schedule ? (
-                        <span className="text-[10px] text-indigo-500 font-bold">Auto-agendamento</span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400">Só consulta</span>
-                      )}
-                      {t.label && <span className="text-[10px] text-slate-400">{t.label}</span>}
+
+          {loading ? (
+            <div className="p-6 text-center text-slate-400 text-xs">Carregando...</div>
+          ) : tokens.length === 0 ? (
+            <div className="p-8 text-center">
+              <Globe size={28} className="text-slate-200 mx-auto mb-2" />
+              <p className="text-slate-400 text-xs">Nenhum link de acesso criado.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {tokens.map(t => {
+                const patient = patients.find(p => String(p.id) === String(t.patient_id));
+                const name = t.patient_name || patient?.full_name || patient?.name || `Paciente #${t.patient_id}`;
+                const isExpired = t.expires_at && new Date(t.expires_at) < new Date();
+                const statusLabel = t.is_used ? 'ATIVO' : isExpired ? 'EXPIRADO' : 'PENDENTE';
+                const statusColor = t.is_used
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : isExpired
+                    ? 'bg-red-100 text-red-500'
+                    : 'bg-amber-100 text-amber-600';
+                const createdAt = new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+                return (
+                  <div key={t.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-slate-50/60 transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${statusColor}`}>
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {t.allow_self_schedule ? (
+                            <span className="text-[10px] text-indigo-400 font-medium">Auto-agend.</span>
+                          ) : (
+                            <span className="text-[10px] text-slate-300 font-medium">Só consulta</span>
+                          )}
+                          {t.require_approval ? (
+                            <span className="text-[10px] text-orange-400 font-medium">Aprovação</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${statusColor}`}>
+                      {statusLabel}
+                    </span>
+
+                    <span className="text-[10px] text-slate-400 hidden md:block whitespace-nowrap">{createdAt}</span>
+
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => copyLink(t.token, t.id)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"
+                        title="Copiar link">
+                        {copiedId === t.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                      </button>
+                      <button onClick={() => sendWhatsApp(t)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-500 transition-colors rounded-lg hover:bg-emerald-50"
+                        title="Enviar WhatsApp">
+                        <Send size={13} />
+                      </button>
+                      <button
+                        onClick={() => window.open(`${baseUrl}/portal/entrar/${t.token}`, '_blank')}
+                        className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
+                        title="Abrir link">
+                        <ExternalLink size={13} />
+                      </button>
+                      <button onClick={() => revokeToken(t.id)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                        title="Revogar">
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => copyLink(t.token, t.id)}
-                      className="p-2 text-slate-400 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"
-                      title="Copiar link">
-                      {copiedId === t.id ? <Check size={15} className="text-green-500" /> : <Copy size={15} />}
-                    </button>
-                    <button onClick={() => sendWhatsApp(t)}
-                      className="p-2 text-slate-400 hover:text-green-500 transition-colors rounded-lg hover:bg-green-50"
-                      title="Enviar via WhatsApp">
-                      <Send size={15} />
-                    </button>
-                    <button onClick={() => revokeToken(t.id)}
-                      className="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
-                      title="Revogar link">
-                      <Trash2 size={15} />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: CONFIGURAÇÕES ── */}
+      {tab === 'configuracoes' && (
+        <div className="space-y-3">
+          {loadingSettings ? (
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 text-center text-xs text-slate-400">Carregando...</div>
+          ) : (
+            <>
+              {/* PIX */}
+              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
+                  <QrCode size={14} className="text-indigo-500" />
+                  <span className="text-xs font-black text-slate-700">Configurações de PIX</span>
+                </div>
+                <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Tipo de chave</label>
+                    <select
+                      value={settings.pix_key_type || 'cpf'}
+                      onChange={e => setSettings(s => ({ ...s, pix_key_type: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    >
+                      {PIX_KEY_TYPES.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Chave PIX</label>
+                    <input
+                      type="text"
+                      value={settings.pix_key || ''}
+                      onChange={e => setSettings(s => ({ ...s, pix_key: e.target.value }))}
+                      placeholder="Ex.: 123.456.789-00"
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Nome do titular</label>
+                    <input
+                      type="text"
+                      value={settings.pix_owner_name || ''}
+                      onChange={e => setSettings(s => ({ ...s, pix_owner_name: e.target.value }))}
+                      placeholder="Ex.: Karen Gomes"
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Instruções de pagamento (visível ao paciente)</label>
+                    <textarea
+                      value={settings.pix_instructions || ''}
+                      onChange={e => setSettings(s => ({ ...s, pix_instructions: e.target.value }))}
+                      rows={2}
+                      placeholder="Ex.: Realize o pagamento antes da sessão e envie o comprovante via WhatsApp."
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Formas de pagamento */}
+              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
+                  <CreditCard size={14} className="text-indigo-500" />
+                  <span className="text-xs font-black text-slate-700">Formas de pagamento aceitas</span>
+                </div>
+                <div className="px-4 py-3 space-y-2">
+                  {[
+                    { key: 'payment_pix_enabled' as const, label: 'PIX', desc: 'Pagamento via chave PIX' },
+                    { key: 'payment_credit_enabled' as const, label: 'Cartão de crédito', desc: 'Máquina ou link de pagamento' },
+                    { key: 'payment_debit_enabled' as const, label: 'Cartão de débito', desc: 'Máquina presencial' },
+                    { key: 'payment_transfer_enabled' as const, label: 'Transferência bancária', desc: 'TED / DOC' },
+                  ].map(item => (
+                    <div key={item.key} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                      <div>
+                        <p className="text-xs font-bold text-slate-700">{item.label}</p>
+                        <p className="text-[11px] text-slate-400">{item.desc}</p>
+                      </div>
+                      <button
+                        onClick={() => setSettings(s => ({ ...s, [item.key]: !s[item.key] }))}
+                        className="transition-colors"
+                      >
+                        {settings[item.key]
+                          ? <ToggleRight size={22} className="text-indigo-500" />
+                          : <ToggleLeft size={22} className="text-slate-300" />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Opções adicionais */}
+              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
+                  <Shield size={14} className="text-indigo-500" />
+                  <span className="text-xs font-black text-slate-700">Opções do portal</span>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Exigir pagamento antes da sessão</p>
+                      <p className="text-[11px] text-slate-400">Paciente precisa confirmar pagamento para o agendamento ser aceito</p>
+                    </div>
+                    <button onClick={() => setSettings(s => ({ ...s, require_payment_before_session: !s.require_payment_before_session }))}>
+                      {settings.require_payment_before_session
+                        ? <ToggleRight size={22} className="text-indigo-500" />
+                        : <ToggleLeft size={22} className="text-slate-300" />}
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              </div>
+
+              {/* Save button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={saveSettings}
+                  disabled={savingSettings}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm"
+                >
+                  {savingSettings ? 'Salvando...' : 'Salvar configurações'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

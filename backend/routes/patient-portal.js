@@ -1097,6 +1097,54 @@ router.get('/documents', portalAuth, async (req, res) => {
   }
 });
 
+// ─── ADMIN: configurações do portal (portal_settings no tenant) ──────────────
+
+// GET /patient-portal/settings — lê configurações do portal do tenant
+router.get('/settings', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    // Auto-migra coluna se não existir
+    try {
+      await db.query("ALTER TABLE tenants ADD COLUMN portal_settings JSON NULL");
+    } catch (e) { /* já existe */ }
+    const [rows] = await db.query('SELECT portal_settings FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    const raw = rows[0]?.portal_settings;
+    const settings = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    res.json(settings);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/settings — salva configurações do portal do tenant
+router.post('/settings', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    await db.query('UPDATE tenants SET portal_settings = ? WHERE id = ?', [JSON.stringify(req.body), req.user.tenant_id]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// GET /patient-portal/tokens/all — listar TODOS os tokens do tenant (admin)
+router.get('/tokens/all', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    const [rows] = await db.query(
+      `SELECT ppt.*, p.name as patient_name, p.phone as patient_phone
+       FROM patient_portal_tokens ppt
+       LEFT JOIN patients p ON p.id = ppt.patient_id
+       WHERE ppt.tenant_id = ?
+       ORDER BY ppt.created_at DESC`,
+      [req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // ─── ADMIN: gerar token de convite (rota protegida pelo auth principal) ───────
 // Todas as rotas abaixo exigem o JWT do profissional (authMiddleware já aplicado antes de /patient-portal)
 
