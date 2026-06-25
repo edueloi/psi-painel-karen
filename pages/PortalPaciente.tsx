@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, Users, Link2, Copy, Check, Trash2, Plus, RefreshCw, Eye, EyeOff, Send, Clock, Shield, Calendar } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
-import api from '../lib/api';
+import { api } from '../services/api';
 
 interface PortalToken {
   id: number;
