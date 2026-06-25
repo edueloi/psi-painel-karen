@@ -4,7 +4,7 @@ import {
   Calendar, Clock, CreditCard, User, LogOut, Video,
   MapPin, Plus, CheckCircle, XCircle, AlertCircle, Paperclip,
   Upload, Trash2, Eye, X, Phone, Home, FileText, ArrowLeft,
-  Check, Send, Loader2, ExternalLink, Edit3, Save, Lock,
+  Check, Send, Loader2, ExternalLink, Edit3, Save, Lock, Copy, QrCode,
   Eye as EyeIcon, EyeOff, Shield, ChevronRight, Bell, FolderOpen, Download,
   ChevronLeft, Heart, Users,
   Mail, Cake, Briefcase, Sparkles, Stethoscope, GraduationCap, Gem,
@@ -1257,6 +1257,71 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   );
 }
 
+// ─── Componente PIX Card ─────────────────────────────────────────────────────
+function PixCard({ pix_key, pix_owner_name, pix_instructions }: {
+  pix_key: string;
+  pix_owner_name?: string | null;
+  pix_instructions?: string | null;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+
+  const copyKey = () => {
+    navigator.clipboard.writeText(pix_key).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
+
+  // QR code via API pública do quickchart.io (funciona em qualquer browser)
+  const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(pix_key)}&size=200&margin=2`;
+
+  return (
+    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl overflow-hidden">
+      <div className="px-4 py-3 flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
+          <span className="text-white text-xs font-black">PIX</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-black text-emerald-800">{pix_owner_name || "Chave PIX"}</p>
+          <p className="text-sm font-bold text-emerald-700 break-all mt-0.5">{pix_key}</p>
+          {pix_instructions && (
+            <p className="text-xs text-emerald-600 mt-1">{pix_instructions}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex border-t border-emerald-200">
+        <button
+          onClick={copyKey}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold transition-all ${copied ? "text-emerald-700 bg-emerald-100" : "text-emerald-600 hover:bg-emerald-100"}`}
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          {copied ? "Chave copiada!" : "Copiar chave"}
+        </button>
+        <div className="w-px bg-emerald-200" />
+        <button
+          onClick={() => setShowQr(v => !v)}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold transition-all ${showQr ? "text-emerald-700 bg-emerald-100" : "text-emerald-600 hover:bg-emerald-100"}`}
+        >
+          <QrCode size={13} />
+          {showQr ? "Fechar QR" : "Ver QR Code"}
+        </button>
+      </div>
+      {showQr && (
+        <div className="flex flex-col items-center py-4 bg-white border-t border-emerald-100">
+          <img
+            src={qrUrl}
+            alt="QR Code PIX"
+            className="w-44 h-44 rounded-xl border border-emerald-100"
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          <p className="text-[11px] text-slate-400 mt-2">Escaneie com o app do seu banco</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tab: Pagamentos ──────────────────────────────────────────────────────────
 function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSettings }: {
   payments: PortalPayment[];
@@ -1365,20 +1430,7 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
 
       {/* PIX info se configurado */}
       {portalSettings.pix_key && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-start gap-3">
-          <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
-            <span className="text-white text-xs font-black">PIX</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-black text-emerald-800">
-              {portalSettings.pix_owner_name || "Chave PIX"}
-            </p>
-            <p className="text-sm font-bold text-emerald-700 break-all">{portalSettings.pix_key}</p>
-            {portalSettings.pix_instructions && (
-              <p className="text-xs text-emerald-600 mt-0.5">{portalSettings.pix_instructions}</p>
-            )}
-          </div>
-        </div>
+        <PixCard pix_key={portalSettings.pix_key} pix_owner_name={portalSettings.pix_owner_name} pix_instructions={portalSettings.pix_instructions} />
       )}
 
       {/* Botão declarar / form */}
