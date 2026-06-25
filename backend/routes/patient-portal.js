@@ -336,6 +336,31 @@ async function portalAuth(req, res, next) {
   next();
 }
 
+// ─── CONFIGURAÇÕES DO PORTAL (leitura pública via token do paciente) ──────────
+// GET /patient-portal/portal-settings
+router.get('/portal-settings', portalAuth, async (req, res) => {
+  try {
+    const { tenant_id } = req.portalSession;
+    const [rows] = await db.query('SELECT portal_settings FROM tenants WHERE id = ? LIMIT 1', [tenant_id]);
+    const raw = rows[0]?.portal_settings;
+    const settings = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    // Expõe apenas campos relevantes ao paciente (sem dados sensíveis de admin)
+    res.json({
+      pix_key: settings.pix_key || null,
+      pix_key_type: settings.pix_key_type || null,
+      pix_owner_name: settings.pix_owner_name || null,
+      pix_instructions: settings.pix_instructions || null,
+      payment_pix_enabled: settings.payment_pix_enabled,
+      payment_credit_enabled: settings.payment_credit_enabled,
+      payment_debit_enabled: settings.payment_debit_enabled,
+      payment_transfer_enabled: settings.payment_transfer_enabled,
+      require_payment_before_session: settings.require_payment_before_session,
+    });
+  } catch (e) {
+    res.json({});
+  }
+});
+
 // ─── PERFIL DO PACIENTE ───────────────────────────────────────────────────────
 // GET /patient-portal/me
 router.get('/me', portalAuth, async (req, res) => {

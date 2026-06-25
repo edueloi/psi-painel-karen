@@ -97,6 +97,18 @@ interface PortalPayment {
   created_at: string;
 }
 
+interface PortalSettings {
+  pix_key?: string;
+  pix_key_type?: string;
+  pix_owner_name?: string;
+  pix_instructions?: string;
+  payment_pix_enabled?: boolean;
+  payment_credit_enabled?: boolean;
+  payment_debit_enabled?: boolean;
+  payment_transfer_enabled?: boolean;
+  require_payment_before_session?: boolean;
+}
+
 interface ScheduleRequest {
   id: number;
   preferred_date: string;
@@ -1246,20 +1258,46 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 }
 
 // ─── Tab: Pagamentos ──────────────────────────────────────────────────────────
-function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
+function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSettings }: {
   payments: PortalPayment[];
   appointments: PortalAppointment[];
   onRefresh: () => void;
   showToast: (msg: string, type?: ToastType) => void;
+  portalSettings: PortalSettings;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Filtro mês/ano
+  const now = new Date();
+  const [filterMonth, setFilterMonth] = useState(now.getMonth()); // 0-11
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+
   const [form, setForm] = useState({
     appointment_id: "", amount: "", payment_method: "pix",
     payment_date: new Date().toISOString().split("T")[0], notes: "",
+  });
+
+  // Formas de pagamento disponíveis com base nas configurações
+  const enabledMethods: { key: string; label: string }[] = [
+    { key: "pix",      label: "PIX"           },
+    { key: "credit",   label: "Crédito"       },
+    { key: "debit",    label: "Débito"        },
+    { key: "cash",     label: "Dinheiro"      },
+    { key: "transfer", label: "Transferência" },
+    { key: "check",    label: "Cheque"        },
+  ].filter(m => {
+    // Se não tiver nenhuma config, mostra todos
+    const hasCfg = portalSettings.payment_pix_enabled !== undefined;
+    if (!hasCfg) return true;
+    if (m.key === "pix")      return portalSettings.payment_pix_enabled !== false;
+    if (m.key === "credit")   return portalSettings.payment_credit_enabled === true;
+    if (m.key === "debit")    return portalSettings.payment_debit_enabled === true;
+    if (m.key === "transfer") return portalSettings.payment_transfer_enabled === true;
+    return true; // cash, check sempre visíveis
   });
 
   const submitPayment = async () => {
@@ -1277,13 +1315,30 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro.", "error"); return; }
       showToast("Pagamento registrado! Aguarde a confirmação.", "success");
       setShowForm(false); setFiles([]);
-      setForm({ appointment_id: "", amount: "", payment_method: "pix", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+      setForm({ appointment_id: "", amount: "", payment_method: enabledMethods[0]?.key || "pix", payment_date: new Date().toISOString().split("T")[0], notes: "" });
       onRefresh();
     } finally { setLoading(false); }
   };
 
   const pendingAppts = appointments.filter(a => ["scheduled", "confirmed", "completed"].includes(a.status));
-  const totalPaid = payments.filter(p => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
+
+  // Totais gerais
+  const totalConfirmed = payments.filter(p => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
+  const totalPending   = payments.filter(p => p.status === "pending").reduce((s, p) => s + p.amount, 0);
+
+  // Anos disponíveis no histórico
+  const years = Array.from(new Set(payments.map(p => new Date(p.payment_date).getFullYear()))).sort((a, b) => b - a);
+  if (!years.includes(now.getFullYear())) years.unshift(now.getFullYear());
+
+  const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+  // Pagamentos do mês/ano selecionado
+  const filtered = payments.filter(p => {
+    const d = new Date(p.payment_date);
+    return d.getMonth() === filterMonth && d.getFullYear() === filterYear;
+  });
+
+  const filteredTotal = filtered.filter(p => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
 
   return (
     <div className="space-y-4 pb-6">
@@ -1298,33 +1353,51 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
         </div>
       )}
 
-      {/* Resumo */}
-      {payments.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 text-center">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Confirmados</p>
-            <p className="text-lg font-black text-emerald-600">{fmtCurrency(totalPaid)}</p>
+      {/* Resumo total */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total confirmado</p>
+          <p className="text-xl font-black text-emerald-600">{fmtCurrency(totalConfirmed)}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Aguardando</p>
+          <p className="text-xl font-black text-amber-500">{fmtCurrency(totalPending)}</p>
+        </div>
+      </div>
+
+      {/* PIX info se configurado */}
+      {portalSettings.pix_key && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
+            <span className="text-white text-xs font-black">PIX</span>
           </div>
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 text-center">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Total</p>
-            <p className="text-lg font-black text-slate-800">{payments.length} registro{payments.length !== 1 ? "s" : ""}</p>
+          <div className="min-w-0">
+            <p className="text-xs font-black text-emerald-800">
+              {portalSettings.pix_owner_name || "Chave PIX"}
+            </p>
+            <p className="text-sm font-bold text-emerald-700 break-all">{portalSettings.pix_key}</p>
+            {portalSettings.pix_instructions && (
+              <p className="text-xs text-emerald-600 mt-0.5">{portalSettings.pix_instructions}</p>
+            )}
           </div>
         </div>
       )}
 
-      {!showForm && (
-        <Button variant="primary" onClick={() => setShowForm(true)} className="w-full bg-emerald-600 border-emerald-600 hover:bg-emerald-700 shadow-lg h-14">
-          <Plus size={18} /> Declarar Pagamento
-        </Button>
-      )}
-
-      {showForm && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="bg-emerald-50 border-b border-emerald-100 px-5 py-3 flex items-center justify-between">
+      {/* Botão declarar / form */}
+      {!showForm ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 text-white text-sm font-bold rounded-2xl hover:bg-emerald-700 shadow-md transition-all"
+        >
+          <Plus size={16} /> Declarar Pagamento
+        </button>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-2.5 flex items-center justify-between">
             <span className="text-sm font-black text-emerald-700 flex items-center gap-2"><CreditCard size={14} />Declarar Pagamento</span>
             <button onClick={() => setShowForm(false)} className="text-slate-400 p-1"><X size={16} /></button>
           </div>
-          <div className="p-5 space-y-4">
+          <div className="p-4 space-y-3">
             {pendingAppts.length > 0 && (
               <Select label="Consulta relacionada" value={form.appointment_id}
                 onChange={e => setForm(f => ({ ...f, appointment_id: e.target.value }))}
@@ -1342,10 +1415,10 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
             <div>
               <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Forma de pagamento</label>
               <div className="grid grid-cols-3 gap-2">
-                {Object.entries(METHOD_LABELS).map(([k, v]) => (
-                  <button key={k} onClick={() => setForm(f => ({ ...f, payment_method: k }))}
-                    className={`py-2.5 px-2 rounded-2xl text-xs font-bold border transition-all ${form.payment_method === k ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
-                    {v}
+                {enabledMethods.map(m => (
+                  <button key={m.key} onClick={() => setForm(f => ({ ...f, payment_method: m.key }))}
+                    className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all ${form.payment_method === m.key ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
+                    {m.label}
                   </button>
                 ))}
               </div>
@@ -1353,11 +1426,11 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
             <Textarea label="Observações" rows={2} placeholder="Ex.: pago via PIX..."
               value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Comprovantes</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center cursor-pointer hover:border-emerald-300 transition-colors"
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Comprovante (opcional)</label>
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-emerald-300 transition-colors"
                 onClick={() => fileRef.current?.click()}>
-                <Upload size={18} className="text-slate-400 mx-auto mb-1" />
-                <p className="text-xs text-slate-500">Toque para anexar fotos ou PDF</p>
+                <Upload size={16} className="text-slate-400 mx-auto mb-1" />
+                <p className="text-xs text-slate-500">Toque para anexar foto ou PDF</p>
                 <input ref={fileRef} type="file" accept="image/*,application/pdf" multiple className="hidden"
                   onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} />
               </div>
@@ -1376,37 +1449,85 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast }: {
         </div>
       )}
 
-      {payments.length > 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-50">
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Meus Pagamentos</span>
+      {/* Histórico com filtro mês/ano */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Header com filtros */}
+        <div className="px-4 py-3 border-b border-slate-100">
+          <p className="text-xs font-black text-slate-600 mb-2">Histórico de Pagamentos</p>
+          {/* Seletor de ano */}
+          <div className="flex gap-1.5 mb-2 overflow-x-auto pb-0.5">
+            {years.map(y => (
+              <button key={y} onClick={() => setFilterYear(y)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all ${filterYear === y ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                {y}
+              </button>
+            ))}
           </div>
-          {payments.map(p => (
-            <div key={p.id} className="px-5 py-4 border-b border-slate-50 last:border-0">
-              <div className="flex items-start justify-between gap-3 mb-1">
-                <div>
-                  <p className="text-base font-black text-slate-800">{fmtCurrency(p.amount)}</p>
-                  <p className="text-xs text-slate-400">{fmtDate(p.payment_date)} · {METHOD_LABELS[p.payment_method] || p.payment_method}</p>
-                </div>
-                <Badge color={PAYMENT_BADGE_COLOR[p.status] || "default"} dot>{PAYMENT_STATUS[p.status]?.label || p.status}</Badge>
-              </div>
-              {p.notes && <p className="text-xs text-slate-500 italic mb-2">"{p.notes}"</p>}
-              {p.attachments && p.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {p.attachments.map(att => (
-                    <button key={att.id} onClick={() => setPreview(`${API_BASE_URL}${att.file_url}`)}
-                      className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-colors">
-                      <Eye size={11} />{att.file_name.slice(0, 18)}{att.file_name.length > 18 ? "…" : ""}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+          {/* Seletor de mês */}
+          <div className="flex gap-1 overflow-x-auto pb-0.5">
+            {MONTHS.map((m, i) => (
+              <button key={i} onClick={() => setFilterMonth(i)}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all ${filterMonth === i ? "bg-emerald-600 text-white" : "bg-slate-50 text-slate-400 hover:bg-slate-100"}`}>
+                {m}
+              </button>
+            ))}
+          </div>
         </div>
-      ) : (
-        <EmptyState icon={CreditCard} title="Nenhum pagamento registrado" description="Declare seus pagamentos para manter o histórico." />
-      )}
+
+        {/* Subtotal do mês */}
+        {filtered.length > 0 && (
+          <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-medium">{filtered.length} pagamento{filtered.length !== 1 ? "s" : ""} em {MONTHS[filterMonth]}/{filterYear}</span>
+            <span className="text-xs font-black text-emerald-600">{fmtCurrency(filteredTotal)} confirmados</span>
+          </div>
+        )}
+
+        {/* Lista do mês */}
+        {filtered.length === 0 ? (
+          <div className="p-6 text-center">
+            <CreditCard size={28} className="text-slate-200 mx-auto mb-2" />
+            <p className="text-xs text-slate-400">Nenhum pagamento em {MONTHS[filterMonth]}/{filterYear}</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {filtered.map(p => (
+              <div key={p.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-3 mb-0.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[10px] font-black ${
+                      p.status === "confirmed" ? "bg-emerald-100 text-emerald-600" :
+                      p.status === "rejected"  ? "bg-red-100 text-red-500" : "bg-amber-100 text-amber-600"
+                    }`}>
+                      {new Date(p.payment_date).getDate().toString().padStart(2, "0")}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-800">{fmtCurrency(p.amount)}</p>
+                      <p className="text-[11px] text-slate-400">{METHOD_LABELS[p.payment_method] || p.payment_method} · {new Date(p.payment_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                    p.status === "confirmed" ? "bg-emerald-100 text-emerald-600" :
+                    p.status === "rejected"  ? "bg-red-100 text-red-500" : "bg-amber-100 text-amber-600"
+                  }`}>
+                    {PAYMENT_STATUS[p.status]?.label || p.status}
+                  </span>
+                </div>
+                {p.notes && <p className="text-[11px] text-slate-400 italic ml-10 mt-0.5">"{p.notes}"</p>}
+                {p.attachments && p.attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 ml-10 mt-1.5">
+                    {p.attachments.map(att => (
+                      <button key={att.id} onClick={() => setPreview(`${API_BASE_URL}${att.file_url}`)}
+                        className="flex items-center gap-1 text-[11px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                        <Eye size={10} />{att.file_name.slice(0, 16)}{att.file_name.length > 16 ? "…" : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2008,6 +2129,7 @@ export const PatientPortal: React.FC = () => {
   const [requests, setRequests] = useState<ScheduleRequest[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [documents, setDocuments] = useState<{ documents: any[]; uploads: any[] }>({ documents: [], uploads: [] });
+  const [portalSettings, setPortalSettings] = useState<PortalSettings>({});
   const [loading, setLoading] = useState(true);
   const [allowSchedule, setAllowSchedule] = useState(true);
   const globalToast = useToast();
@@ -2022,13 +2144,14 @@ export const PatientPortal: React.FC = () => {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [meRes, apptRes, payRes, reqRes, profRes, docsRes] = await Promise.all([
+      const [meRes, apptRes, payRes, reqRes, profRes, docsRes, settingsRes] = await Promise.all([
         portalFetch("/me"),
         portalFetch("/appointments"),
         portalFetch("/payments"),
         portalFetch("/schedule-requests"),
         portalFetch("/professionals"),
         portalFetch("/documents"),
+        portalFetch("/portal-settings"),
       ]);
       if (meRes.ok) setPatient(await meRes.json());
       if (apptRes.ok) setAppointments(await apptRes.json());
@@ -2036,6 +2159,7 @@ export const PatientPortal: React.FC = () => {
       if (reqRes.ok) setRequests(await reqRes.json());
       if (profRes.ok) setProfessionals(await profRes.json());
       if (docsRes.ok) setDocuments(await docsRes.json());
+      if (settingsRes.ok) setPortalSettings(await settingsRes.json());
     } finally { setLoading(false); }
   }, []);
 
@@ -2156,7 +2280,7 @@ export const PatientPortal: React.FC = () => {
             {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
             {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} />}
             {tab === "documents" && <DocumentsTab data={documents} />}
-            {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} onRefresh={loadAll} showToast={globalToast.show} />}
+            {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
             {tab === "profile"   && <ProfileTab patient={patient} onLogout={handleLogout} onPatientUpdate={loadAll} showToast={globalToast.show} />}
           </div>
         </main>
