@@ -788,11 +788,11 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
 
     if (baseSlots.length === 0) return res.json({ slots: [], date, day_key: dayKey, duration });
 
-    // Busca appointments já ocupados nesse dia
+    // Busca appointments já ocupados nesse dia (start_time em UTC, converte para SP para comparar)
     const [occupied] = await db.query(
       `SELECT start_time, end_time FROM appointments
        WHERE professional_id = ? AND tenant_id = ?
-         AND DATE(start_time) = ? AND status NOT IN ('cancelled')`,
+         AND DATE(CONVERT_TZ(start_time, '+00:00', '-03:00')) = ? AND status NOT IN ('cancelled')`,
       [profId, tenant_id, date]
     );
 
@@ -803,15 +803,14 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
     const isToday = (yyyy === nowY && mm === nowMo && dd === nowD);
 
     const slots = baseSlots.map(t => {
-      // start_time é gravado como string de horário local do Brasil ("YYYY-MM-DD HH:MM:SS"),
-      // então comparamos em minutos diretamente.
+      // start_time no banco é UTC. Converte o slot (horário SP = UTC-3) para UTC somando 3h.
       const slotStartStr = brtDateTimeStr(yyyy, mm, dd, Math.floor(t / 60), t % 60);
-      const slotStartLocal = new Date(slotStartStr.replace(' ', 'T') + 'Z').getTime();
-      const slotEndLocal   = slotStartLocal + duration * 60000;
+      const slotStartUTC = new Date(slotStartStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS;
+      const slotEndUTC   = slotStartUTC + duration * 60000;
       const busy = occupied.some(apt => {
         const aptStart = new Date(String(apt.start_time).replace(' ', 'T') + 'Z').getTime();
         const aptEnd   = new Date(String(apt.end_time).replace(' ', 'T') + 'Z').getTime();
-        return slotStartLocal < aptEnd && slotEndLocal > aptStart;
+        return slotStartUTC < aptEnd && slotEndUTC > aptStart;
       });
       // Horários que já passaram hoje ficam indisponíveis (com 30min de antecedência mínima)
       const isPast = isToday && t <= nowMinutes + 30;
