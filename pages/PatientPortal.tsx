@@ -1282,23 +1282,21 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
   });
 
   // Formas de pagamento disponíveis com base nas configurações
+  const hasCfg = portalSettings.payment_pix_enabled !== undefined;
   const enabledMethods: { key: string; label: string }[] = [
-    { key: "pix",      label: "PIX"           },
-    { key: "credit",   label: "Crédito"       },
-    { key: "debit",    label: "Débito"        },
-    { key: "cash",     label: "Dinheiro"      },
-    { key: "transfer", label: "Transferência" },
-    { key: "check",    label: "Cheque"        },
+    { key: "pix",      label: "PIX",           flag: portalSettings.payment_pix_enabled      },
+    { key: "credit",   label: "Crédito",       flag: portalSettings.payment_credit_enabled   },
+    { key: "debit",    label: "Débito",        flag: portalSettings.payment_debit_enabled    },
+    { key: "cash",     label: "Dinheiro",      flag: undefined                               },
+    { key: "transfer", label: "Transferência", flag: portalSettings.payment_transfer_enabled },
+    { key: "check",    label: "Cheque",        flag: undefined                               },
   ].filter(m => {
-    // Se não tiver nenhuma config, mostra todos
-    const hasCfg = portalSettings.payment_pix_enabled !== undefined;
-    if (!hasCfg) return true;
-    if (m.key === "pix")      return portalSettings.payment_pix_enabled !== false;
-    if (m.key === "credit")   return portalSettings.payment_credit_enabled === true;
-    if (m.key === "debit")    return portalSettings.payment_debit_enabled === true;
-    if (m.key === "transfer") return portalSettings.payment_transfer_enabled === true;
-    return true; // cash, check sempre visíveis
-  });
+    if (!hasCfg) return true; // sem config: mostra tudo
+    if (m.flag === true) return true;  // explicitamente habilitado
+    if (m.flag === false) return false; // explicitamente desabilitado
+    // flag === undefined (cash, check): só mostra se não tiver config alguma ativa
+    return false;
+  }) as { key: string; label: string }[];
 
   const submitPayment = async () => {
     if (!form.amount || !form.payment_date) return showToast("Preencha valor e data.", "error");
@@ -1399,12 +1397,18 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
           </div>
           <div className="p-4 space-y-3">
             {pendingAppts.length > 0 && (
-              <Select label="Consulta relacionada" value={form.appointment_id}
-                onChange={e => setForm(f => ({ ...f, appointment_id: e.target.value }))}
-                options={[
-                  { value: "", label: "Sem consulta específica" },
-                  ...pendingAppts.map(a => ({ value: String(a.id), label: `${fmtDate(a.start_date)} ${fmtTime(a.start_date)}${a.service_name ? ` — ${a.service_name}` : ""}` })),
-                ]} />
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Consulta relacionada</label>
+                <Combobox
+                  value={form.appointment_id}
+                  onChange={(v) => setForm(f => ({ ...f, appointment_id: Array.isArray(v) ? v[0] || "" : v }))}
+                  options={[
+                    { value: "", label: "Sem consulta específica" },
+                    ...pendingAppts.map(a => ({ value: String(a.id), label: `${fmtDate(a.start_date)} ${fmtTime(a.start_date)}${a.service_name ? ` — ${a.service_name}` : ""}` })),
+                  ]}
+                  placeholder="Sem consulta específica"
+                />
+              </div>
             )}
             <div className="grid grid-cols-2 gap-3">
               <Input label="Valor (R$)" type="number" placeholder="0,00" value={form.amount}
