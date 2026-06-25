@@ -28,6 +28,7 @@ import { PsychologistDirectory } from './pages/PsychologistDirectory';
 import { ExternalForm } from './pages/ExternalForm';
 import { PatientPortalLogin } from './pages/PatientPortalLogin';
 import { PatientPortal } from './pages/PatientPortal';
+import { PortalPaciente } from './pages/PortalPaciente';
 import { ResetPassword } from './pages/ResetPassword';
 import { Register } from './pages/Register';
 import { SuperAdmin } from './pages/SuperAdmin';
@@ -335,6 +336,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/desempenho" element={<ProtectedRoute requiredPermission="view_performance_reports"><Performance /></ProtectedRoute>} />
       <Route path="/mensagens" element={<ProtectedRoute requiredPermission="access_messages"><Messages /></ProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><Settings /></ProtectedRoute>} />
+      <Route path="/portal-paciente" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><PortalPaciente /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/privacidade" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
       <Route path="/termos" element={<ProtectedRoute><Terms /></ProtectedRoute>} />
