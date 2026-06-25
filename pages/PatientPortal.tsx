@@ -612,27 +612,38 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     }
   }, [mode, schedForm.professional_id]);
 
-  // Quando há repetição, vai para o step de revisão de datas; sem repetição, confirma direto
-  const goToReviewOrConfirm = async () => {
-    if (!schedForm.recurrence_freq) { setStep("confirm"); return; }
+  // Carrega preview das datas automaticamente quando repetição é selecionada/alterada no step confirm
+  useEffect(() => {
+    if (step !== "confirm" && step !== "review") return;
+    if (!schedForm.recurrence_freq || !schedForm.date || !schedForm.time) {
+      setReviewOccurrences([]);
+      return;
+    }
+    let cancelled = false;
     setReviewLoading(true);
-    try {
-      const res = await portalFetch("/preview-occurrences", {
-        method: "POST",
-        body: JSON.stringify({
-          professional_id: parseInt(schedForm.professional_id),
-          date: schedForm.date,
-          time: schedForm.time,
-          recurrence_freq: schedForm.recurrence_freq,
-          recurrence_count: schedForm.recurrence_count,
-        }),
-      });
-      if (!res.ok) { setStep("confirm"); return; }
-      const data = await res.json();
-      setReviewOccurrences((data.occurrences || []).map((o: any) => ({ ...o, editingSlots: undefined, editingLoading: false })));
-      setStep("review");
-    } catch { setStep("confirm"); }
-    finally { setReviewLoading(false); }
+    portalFetch("/preview-occurrences", {
+      method: "POST",
+      body: JSON.stringify({
+        professional_id: parseInt(schedForm.professional_id),
+        date: schedForm.date,
+        time: schedForm.time,
+        recurrence_freq: schedForm.recurrence_freq,
+        recurrence_count: schedForm.recurrence_count,
+      }),
+    }).then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (cancelled || !data) return;
+        setReviewOccurrences((data.occurrences || []).map((o: any) => ({ ...o, editingSlots: undefined, editingLoading: false })));
+        setEditingSessionIdx(null);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setReviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [step, schedForm.recurrence_freq, schedForm.recurrence_count, schedForm.date, schedForm.time]);
+
+  // Sem repetição não precisa do step review — vai direto confirmar
+  const goToReviewOrConfirm = () => {
+    setStep(schedForm.recurrence_freq ? "review" : "confirm");
   };
 
   const loadSlotsForReview = async (idx: number, date: string) => {
@@ -984,9 +995,27 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   </div>
                 )}
                 {schedForm.recurrence_freq && (
-                  <p className="text-[11px] text-slate-400 mt-1.5 px-1">
-                    Serão criadas {schedForm.recurrence_count} sessões a partir do dia/horário escolhido.
-                  </p>
+                  <div className="mt-2">
+                    {reviewLoading ? (
+                      <p className="text-[11px] text-slate-400 px-1 animate-pulse">Verificando datas...</p>
+                    ) : reviewOccurrences.length > 0 ? (
+                      <div className="rounded-xl border border-slate-200 overflow-hidden">
+                        {reviewOccurrences.map((o, i) => (
+                          <div key={i} className={`flex items-center justify-between px-3 py-2 text-xs border-b last:border-b-0 ${o.conflict ? "bg-red-50 border-red-100" : "bg-white"}`}>
+                            <span className={`font-bold ${o.conflict ? "text-red-600" : "text-slate-700"}`}>
+                              Sessão {i + 1} — {new Date(o.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" })} às {o.time}
+                            </span>
+                            {o.conflict && <span className="text-red-500 font-bold text-[10px]">OCUPADO</span>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 px-1">Serão criadas {schedForm.recurrence_count} sessões a partir do dia/horário escolhido.</p>
+                    )}
+                    {reviewOccurrences.some(o => o.conflict) && (
+                      <p className="text-[11px] text-orange-500 font-bold mt-1 px-1">Há conflitos — você poderá escolher outros horários na próxima tela.</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -1005,9 +1034,9 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 <>
                   <Button variant="primary"
                     onClick={() => schedForm.recurrence_freq ? goToReviewOrConfirm() : submitDirect()}
-                    loading={loading || reviewLoading} loadingText={schedForm.recurrence_freq ? "Verificando datas..." : "Agendando..."}
+                    loading={loading} loadingText="Agendando..."
                     iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
-                    {schedForm.recurrence_freq ? "Ver datas das sessões" : "Confirmar Agendamento"}
+                    {schedForm.recurrence_freq ? `Revisar e confirmar ${schedForm.recurrence_count} sessões` : "Confirmar Agendamento"}
                   </Button>
                   <Button variant="ghost" onClick={submitRequest} disabled={loading || reviewLoading} className="w-full">
                     <Send size={14} /> Enviar como Solicitação

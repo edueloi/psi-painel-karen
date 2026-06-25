@@ -888,19 +888,29 @@ router.post('/preview-occurrences', portalAuth, async (req, res) => {
     const freq = PORTAL_RECURRENCE_FREQS.includes(recurrence_freq) ? recurrence_freq : null;
     const occurrences = buildOccurrences({ yyyy, mm, dd, h, min, freq, count: recurrence_count });
 
-    // Busca duração do profissional
-    const [uRows] = await db.query('SELECT duration_minutes FROM users WHERE id = ? AND tenant_id = ?', [professional_id, tenant_id]);
-    const duration = uRows[0]?.duration_minutes || 50;
+    // Busca duração do profissional via schedule (duration_minutes não existe na tabela users)
+    let duration = 50;
+    try {
+      const [uRows] = await db.query('SELECT schedule FROM users WHERE id = ? AND tenant_id = ? LIMIT 1', [professional_id, tenant_id]);
+      const sch = uRows[0]?.schedule;
+      const schParsed = sch ? (typeof sch === 'string' ? JSON.parse(sch) : sch) : null;
+      if (schParsed?.duration_minutes) duration = parseInt(schParsed.duration_minutes) || 50;
+      else if (Array.isArray(schParsed) && schParsed[0]?.duration_minutes) duration = parseInt(schParsed[0].duration_minutes) || 50;
+    } catch (e) { /* usa 50 */ }
 
     const result = [];
     for (const o of occurrences) {
       const sStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
-      const eMs = new Date(sStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS + duration * 60000;
-      const eStr = new Date(eMs).toISOString().slice(0, 19).replace('T', ' ');
+      // sStr é horário SP. Para comparar com start_time UTC no banco: sStr+'Z' trata como UTC,
+      // então precisamos somar BRT_OFFSET_MS para obter o UTC real (SP = UTC+3h)
+      const sUTC = new Date(sStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS;
+      const eUTC = sUTC + duration * 60000;
+      const eStr = new Date(eUTC).toISOString().slice(0, 19).replace('T', ' ');
+      const sUtcStr = new Date(sUTC).toISOString().slice(0, 19).replace('T', ' ');
       const [conflict] = await db.query(
         `SELECT id FROM appointments WHERE professional_id = ? AND tenant_id = ?
            AND status NOT IN ('cancelled') AND start_time < ? AND end_time > ?`,
-        [professional_id, tenant_id, eStr, sStr]
+        [professional_id, tenant_id, eStr, sUtcStr]
       );
       result.push({
         date: `${o.yyyy}-${String(o.mm).padStart(2,'0')}-${String(o.dd).padStart(2,'0')}`,
