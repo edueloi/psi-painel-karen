@@ -874,6 +874,47 @@ function buildOccurrences({ yyyy, mm, dd, h, min, freq, count }) {
   return occ;
 }
 
+// POST /patient-portal/preview-occurrences — retorna as datas geradas com status de disponibilidade
+router.post('/preview-occurrences', portalAuth, async (req, res) => {
+  try {
+    const { tenant_id } = req.portalSession;
+    const { professional_id, date, time, recurrence_freq, recurrence_count } = req.body;
+    if (!professional_id || !date || !time)
+      return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
+
+    const [yyyy, mm, dd] = date.split('-').map(Number);
+    const [h, min] = time.split(':').map(Number);
+
+    const freq = PORTAL_RECURRENCE_FREQS.includes(recurrence_freq) ? recurrence_freq : null;
+    const occurrences = buildOccurrences({ yyyy, mm, dd, h, min, freq, count: recurrence_count });
+
+    // Busca duração do profissional
+    const [uRows] = await db.query('SELECT duration_minutes FROM users WHERE id = ? AND tenant_id = ?', [professional_id, tenant_id]);
+    const duration = uRows[0]?.duration_minutes || 50;
+
+    const result = [];
+    for (const o of occurrences) {
+      const sStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
+      const eMs = new Date(sStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS + duration * 60000;
+      const eStr = new Date(eMs).toISOString().slice(0, 19).replace('T', ' ');
+      const [conflict] = await db.query(
+        `SELECT id FROM appointments WHERE professional_id = ? AND tenant_id = ?
+           AND status NOT IN ('cancelled') AND start_time < ? AND end_time > ?`,
+        [professional_id, tenant_id, eStr, sStr]
+      );
+      result.push({
+        date: `${o.yyyy}-${String(o.mm).padStart(2,'0')}-${String(o.dd).padStart(2,'0')}`,
+        time,
+        conflict: conflict.length > 0,
+      });
+    }
+    res.json({ occurrences: result, duration });
+  } catch (e) {
+    console.error('[portal preview-occurrences]', e?.message || e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // POST /patient-portal/appointments — agendar diretamente (se allow_self_schedule)
 // Suporta repetição (recurrence_freq + recurrence_count) e cria uma comanda/pacote
 // automaticamente, vinculando todas as sessões a ela. Nenhum valor é exposto/cobrado.
@@ -883,6 +924,7 @@ router.post('/appointments', portalAuth, async (req, res) => {
     const {
       professional_id, date, time, modality, notes,
       recurrence_freq, recurrence_count, skip_comanda,
+      custom_dates, // array opcional [{date:'YYYY-MM-DD', time:'HH:MM'}, ...] para datas customizadas
     } = req.body;
     if (!professional_id || !date || !time)
       return res.status(400).json({ error: 'Profissional, data e horário são obrigatórios.' });
@@ -916,9 +958,18 @@ router.post('/appointments', portalAuth, async (req, res) => {
 
     // Normaliza recorrência
     const freq = PORTAL_RECURRENCE_FREQS.includes(recurrence_freq) ? recurrence_freq : null;
-    const occurrences = buildOccurrences({ yyyy, mm, dd, h, min, freq, count: recurrence_count });
+    let occurrences = buildOccurrences({ yyyy, mm, dd, h, min, freq, count: recurrence_count });
     if (occurrences.length === 0)
       return res.status(400).json({ error: 'Data inválida.' });
+
+    // Se o paciente escolheu datas customizadas (substituiu alguma com conflito), usa elas
+    if (Array.isArray(custom_dates) && custom_dates.length === occurrences.length) {
+      occurrences = custom_dates.map(cd => {
+        const [y2, m2, d2] = cd.date.split('-').map(Number);
+        const [h2, min2] = cd.time.split(':').map(Number);
+        return { yyyy: y2, mm: m2, dd: d2, h: h2, min: min2 };
+      });
+    }
 
     // Verifica conflito de cada ocorrência antes de criar qualquer coisa
     for (const o of occurrences) {

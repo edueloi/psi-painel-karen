@@ -507,7 +507,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   };
 
   // Schedule flow state
-  const [step, setStep] = useState<"calendar" | "slots" | "confirm">("calendar");
+  const [step, setStep] = useState<"calendar" | "slots" | "confirm" | "review">("calendar");
   const [schedForm, setSchedForm] = useState({
     professional_id: professionals[0]?.id?.toString() || "",
     date: "",
@@ -520,6 +520,11 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   const [slots, setSlots] = useState<{ time: string; available: boolean }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [duration, setDuration] = useState(50);
+  // Review step: datas das sessões com status de conflito, editáveis individualmente
+  type ReviewOccurrence = { date: string; time: string; conflict: boolean; editingSlots?: { time: string; available: boolean }[]; editingLoading?: boolean };
+  const [reviewOccurrences, setReviewOccurrences] = useState<ReviewOccurrence[]>([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [editingSessionIdx, setEditingSessionIdx] = useState<number | null>(null);
   // dayAvailability: para colorir o calendário — carregado em batch para o mês
   const [dayAvailability, setDayAvailability] = useState<Record<string, { total: number; available: number }>>({});
   const [monthLoading, setMonthLoading] = useState(false);
@@ -607,7 +612,41 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     }
   }, [mode, schedForm.professional_id]);
 
-  const submitDirect = async () => {
+  // Quando há repetição, vai para o step de revisão de datas; sem repetição, confirma direto
+  const goToReviewOrConfirm = async () => {
+    if (!schedForm.recurrence_freq) { setStep("confirm"); return; }
+    setReviewLoading(true);
+    try {
+      const res = await portalFetch("/preview-occurrences", {
+        method: "POST",
+        body: JSON.stringify({
+          professional_id: parseInt(schedForm.professional_id),
+          date: schedForm.date,
+          time: schedForm.time,
+          recurrence_freq: schedForm.recurrence_freq,
+          recurrence_count: schedForm.recurrence_count,
+        }),
+      });
+      if (!res.ok) { setStep("confirm"); return; }
+      const data = await res.json();
+      setReviewOccurrences((data.occurrences || []).map((o: any) => ({ ...o, editingSlots: undefined, editingLoading: false })));
+      setStep("review");
+    } catch { setStep("confirm"); }
+    finally { setReviewLoading(false); }
+  };
+
+  const loadSlotsForReview = async (idx: number, date: string) => {
+    setReviewOccurrences(prev => prev.map((o, i) => i === idx ? { ...o, editingLoading: true } : o));
+    try {
+      const res = await portalFetch(`/professionals/${schedForm.professional_id}/slots?date=${date}`);
+      if (res.ok) {
+        const data = await res.json();
+        setReviewOccurrences(prev => prev.map((o, i) => i === idx ? { ...o, editingSlots: data.slots || [], editingLoading: false } : o));
+      }
+    } catch { setReviewOccurrences(prev => prev.map((o, i) => i === idx ? { ...o, editingLoading: false } : o)); }
+  };
+
+  const submitDirect = async (customDates?: { date: string; time: string }[]) => {
     setLoading(true);
     try {
       const res = await portalFetch("/appointments", {
@@ -620,6 +659,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           notes: schedForm.notes,
           recurrence_freq: schedForm.recurrence_freq || undefined,
           recurrence_count: schedForm.recurrence_freq ? schedForm.recurrence_count : undefined,
+          custom_dates: customDates,
         }),
       });
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao agendar.", "error"); return; }
@@ -630,6 +670,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
       );
       setMode("list");
       setStep("calendar");
+      setReviewOccurrences([]);
+      setEditingSessionIdx(null);
       setSchedForm(f => ({ ...f, date: "", time: "", recurrence_freq: "", recurrence_count: 4 }));
       onRefresh();
     } finally { setLoading(false); }
@@ -732,7 +774,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               {isReschedule ? "Reagendar Consulta" : "Agendar Consulta"}
             </h2>
             <p className="text-xs text-slate-400">
-              {step === "calendar" ? "Escolha a nova data" : step === "slots" ? "Escolha o horário" : "Confirmar"}
+              {step === "calendar" ? "Escolha a nova data" : step === "slots" ? "Escolha o horário" : step === "confirm" ? "Confirmar" : "Revisar datas"}
             </p>
           </div>
         </div>
@@ -961,16 +1003,95 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 </Button>
               ) : (
                 <>
-                  <Button variant="primary" onClick={submitDirect} loading={loading} loadingText="Agendando..." iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
-                    Confirmar Agendamento
+                  <Button variant="primary"
+                    onClick={() => schedForm.recurrence_freq ? goToReviewOrConfirm() : submitDirect()}
+                    loading={loading || reviewLoading} loadingText={schedForm.recurrence_freq ? "Verificando datas..." : "Agendando..."}
+                    iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+                    {schedForm.recurrence_freq ? "Ver datas das sessões" : "Confirmar Agendamento"}
                   </Button>
-                  <Button variant="ghost" onClick={submitRequest} disabled={loading} className="w-full">
+                  <Button variant="ghost" onClick={submitRequest} disabled={loading || reviewLoading} className="w-full">
                     <Send size={14} /> Enviar como Solicitação
                   </Button>
                 </>
               )}
             </div>
             <Button variant="ghost" size="sm" onClick={() => setStep("slots")} className="w-full text-slate-400">← Escolher outro horário</Button>
+          </div>
+        )}
+
+        {/* Step: Revisar datas das sessões (quando há repetição) */}
+        {step === "review" && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+            <p className="text-xs text-slate-500">Confira as datas das suas sessões. Horários em vermelho já estão ocupados — toque para escolher outro.</p>
+            <div className="space-y-2">
+              {reviewOccurrences.map((occ, idx) => {
+                const dateLabel = new Date(occ.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
+                const isEditing = editingSessionIdx === idx;
+                return (
+                  <div key={idx} className={`rounded-xl border p-3 transition-all ${occ.conflict ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${occ.conflict ? "bg-red-400 text-white" : "bg-indigo-500 text-white"}`}>{idx + 1}</span>
+                        <div>
+                          <p className={`text-sm font-bold ${occ.conflict ? "text-red-700" : "text-slate-700"}`}>{dateLabel}</p>
+                          <p className={`text-xs ${occ.conflict ? "text-red-500" : "text-slate-400"}`}>{occ.time} · {duration}min {occ.conflict ? "— horário ocupado" : ""}</p>
+                        </div>
+                      </div>
+                      {occ.conflict && (
+                        <button type="button"
+                          onClick={() => {
+                            if (isEditing) { setEditingSessionIdx(null); return; }
+                            setEditingSessionIdx(idx);
+                            if (!occ.editingSlots) loadSlotsForReview(idx, occ.date);
+                          }}
+                          className="text-xs font-bold text-red-600 underline">
+                          {isEditing ? "Fechar" : "Trocar"}
+                        </button>
+                      )}
+                    </div>
+                    {isEditing && (
+                      <div className="mt-3 pt-3 border-t border-red-200">
+                        {occ.editingLoading ? (
+                          <p className="text-xs text-slate-400 text-center py-2">Carregando horários...</p>
+                        ) : (
+                          <>
+                            <p className="text-xs font-bold text-slate-500 mb-2">Horários disponíveis em {dateLabel}:</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {(occ.editingSlots || []).filter(s => s.available).map(s => (
+                                <button key={s.time} type="button"
+                                  onClick={() => {
+                                    setReviewOccurrences(prev => prev.map((o, i) => i === idx ? { ...o, time: s.time, conflict: false, editingSlots: undefined } : o));
+                                    setEditingSessionIdx(null);
+                                  }}
+                                  className="py-1.5 rounded-lg text-xs font-bold border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50">
+                                  {s.time}
+                                </button>
+                              ))}
+                              {(occ.editingSlots || []).filter(s => s.available).length === 0 && (
+                                <p className="col-span-4 text-xs text-slate-400 text-center py-1">Nenhum horário disponível neste dia.</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {reviewOccurrences.some(o => o.conflict) && (
+              <p className="text-xs text-red-500 font-bold text-center">Resolva os conflitos antes de confirmar.</p>
+            )}
+            <div className="space-y-2">
+              <Button variant="primary"
+                onClick={() => submitDirect(reviewOccurrences.map(o => ({ date: o.date, time: o.time })))}
+                disabled={reviewOccurrences.some(o => o.conflict)}
+                loading={loading} loadingText="Agendando..."
+                iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+                Confirmar {reviewOccurrences.length} Sessões
+              </Button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setStep("confirm")} className="w-full text-slate-400">← Voltar</Button>
           </div>
         )}
       </div>
