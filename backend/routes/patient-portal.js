@@ -807,9 +807,16 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
       const slotStartStr = brtDateTimeStr(yyyy, mm, dd, Math.floor(t / 60), t % 60);
       const slotStartUTC = new Date(slotStartStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS;
       const slotEndUTC   = slotStartUTC + duration * 60000;
+      const toMs = (v) => {
+        if (!v) return NaN;
+        const s = String(v);
+        // MySQL pode retornar ISO com Z já incluído ou sem — normaliza nos dois casos
+        return new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z').getTime();
+      };
       const busy = occupied.some(apt => {
-        const aptStart = new Date(String(apt.start_time).replace(' ', 'T') + 'Z').getTime();
-        const aptEnd   = new Date(String(apt.end_time).replace(' ', 'T') + 'Z').getTime();
+        const aptStart = toMs(apt.start_time);
+        const aptEnd   = apt.end_time ? toMs(apt.end_time) : aptStart + duration * 60000;
+        if (isNaN(aptStart)) return false;
         return slotStartUTC < aptEnd && slotEndUTC > aptStart;
       });
       // Horários que já passaram hoje ficam indisponíveis (com 30min de antecedência mínima)
