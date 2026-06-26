@@ -39,6 +39,8 @@ export interface GridTableProps<T> {
   disableMobileCards?: boolean;
   // Feature: Remove the card wrapper (border/shadow/rounded) from the desktop table — use when the parent already provides the container styling
   noDesktopCard?: boolean;
+  // Feature: Override the minimum table width (default 520px) to prevent column wrapping
+  tableMinWidth?: number;
   // Pagination — when provided, GridTable renders a Pagination bar at the bottom
   pagination?: {
     total: number;
@@ -177,7 +179,7 @@ export function GridTable<T>({
   data, columns, keyExtractor, selectedIds, onToggleSelect, onToggleSelectAll,
   onRowClick, emptyMessage = 'Nenhum registro encontrado.', sortKey, sortOrder = 'asc', onSort, isLoading = false,
   renderMobileItem, renderMobileExpandedContent, renderMobileAvatar, getMobileBorderClass,
-  disableMobileCards = false, noDesktopCard = false, pagination,
+  disableMobileCards = false, noDesktopCard = false, pagination, tableMinWidth,
 }: GridTableProps<T>) {
   const isSelectable = !!selectedIds && !!onToggleSelect;
   const allSelected = isSelectable && data.length > 0 && data.every((row) => selectedIds.has(String(keyExtractor(row))));
@@ -220,7 +222,7 @@ export function GridTable<T>({
         !disableMobileCards && 'hidden sm:block',
       )}>
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse" style={{ minWidth: disableMobileCards ? 0 : 520 }}>
+          <table className="w-full text-left border-collapse" style={{ minWidth: disableMobileCards ? 0 : (tableMinWidth ?? 520) }}>
             <thead className="bg-zinc-50 border-b border-zinc-200">
               <tr>
                 {isSelectable && (

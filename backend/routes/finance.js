@@ -1146,10 +1146,12 @@ router.get('/comandas', authMiddleware, async (req, res) => {
     await withFinanceSchema();
     const { status } = req.query;
     let query = `
-      SELECT c.*, p.name as patient_name, u.name as professional_name
+      SELECT c.*, p.name as patient_name, u.name as professional_name,
+             uc.name as created_by_name
       FROM comandas c
       LEFT JOIN patients p ON p.id = c.patient_id
       LEFT JOIN users u ON u.id = c.professional_id
+      LEFT JOIN users uc ON uc.id = c.created_by
       WHERE c.tenant_id = ?
     `;
     const params = [req.user.tenant_id];
@@ -1556,8 +1558,8 @@ router.post('/comandas', async (req, res) => {
         tenant_id, patient_id, professional_id, description, total, discount,
         items, notes, payment_method, start_date, duration_minutes, status,
         receipt_code, discount_type, discount_value, total_net, sessions_total, package_id,
-        sync_to_livrocaixa, livrocaixa_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sync_to_livrocaixa, livrocaixa_date, created_by, source
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, patient_id || null, professional_id || null,
         req.body.description || 'Consulta/Serviço',
@@ -1565,7 +1567,8 @@ router.post('/comandas', async (req, res) => {
         payment_method || null, start_date || null, duration_minutes || 60,
         req.body.status || 'open', receipt_code || null,
         dType, dValue, total, (sessions_total || sessions_from_items || 1),
-        package_id || null, syncLC, syncLC ? lcDate : null
+        package_id || null, syncLC, syncLC ? lcDate : null,
+        req.user?.id || null, 'manual'
       ]
     );
 

@@ -1050,8 +1050,8 @@ router.post('/appointments', portalAuth, async (req, res) => {
         const [comandaIns] = await db.query(
           `INSERT INTO comandas
            (tenant_id, patient_id, professional_id, description, total, total_net, discount,
-            sessions_total, sessions_used, status, start_date, duration_minutes, created_at)
-           VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', ?, ?, NOW())`,
+            sessions_total, sessions_used, status, start_date, duration_minutes, source, created_at)
+           VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', ?, ?, 'portal', NOW())`,
           [tenant_id, patient_id, professional_id, description, sessionsTotal, firstStr, duration]
         );
         comandaId = comandaIns.insertId;
@@ -1256,8 +1256,8 @@ router.post('/comandas', portalAuth, async (req, res) => {
     const [ins] = await db.query(
       `INSERT INTO comandas
        (tenant_id, patient_id, professional_id, description, total, total_net, discount,
-        sessions_total, sessions_used, status, start_date, duration_minutes, package_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', NOW(), ?, ?, NOW())`,
+        sessions_total, sessions_used, status, start_date, duration_minutes, package_id, source, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', NOW(), ?, ?, 'portal', NOW())`,
       [tenant_id, patient_id, professional_id, desc,
        req.body.total || 0, req.body.total_net || req.body.total || 0,
        req.body.discount || 0, sessions_total, duration, req.body.package_id || null]

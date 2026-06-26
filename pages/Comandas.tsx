@@ -1685,6 +1685,7 @@ export const Comandas: React.FC = () => {
               onToggleSelectAll={toggleSelectAll}
               onRowClick={(c) => { setHistoryComanda(c); setIsHistoryOpen(true); }}
               emptyMessage="Nenhuma comanda encontrada."
+              tableMinWidth={960}
               columns={[
                 {
                   header: 'ID',
@@ -1736,6 +1737,20 @@ export const Comandas: React.FC = () => {
                 {
                   header: 'Status',
                   render: (c: any) => <StatusBadge status={c.status} />
+                },
+                {
+                  header: 'Criado em',
+                  render: (c: any) => {
+                    if (!c.created_at) return <span className="text-slate-300 text-xs">—</span>;
+                    const d = new Date(c.created_at);
+                    return (
+                      <div className="flex flex-col">
+                        <span className="text-xs text-slate-600">{d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                        {c.created_by_name && <span className="text-[10px] text-slate-400 truncate max-w-[100px]">{c.created_by_name}</span>}
+                        {!c.created_by_name && c.source === 'portal' && <span className="text-[10px] text-indigo-400">Portal</span>}
+                      </div>
+                    );
+                  }
                 },
                 {
                   header: 'Ações',
@@ -2443,6 +2458,25 @@ export const Comandas: React.FC = () => {
           <p className="text-sm font-bold text-amber-700">{formatCurrency(getComandaPending(historyComanda))}</p>
         </div>
       </div>
+
+      {/* criação */}
+      {(historyComanda as any).created_at && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          <span>
+            <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-1">Criado em</span>
+            {new Date((historyComanda as any).created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+          {(historyComanda as any).created_by_name && (
+            <span>
+              <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-1">Por</span>
+              {(historyComanda as any).created_by_name}
+            </span>
+          )}
+          {!(historyComanda as any).created_by_name && (historyComanda as any).source === 'portal' && (
+            <span className="text-indigo-500 font-medium">Via Portal do Paciente</span>
+          )}
+        </div>
+      )}
 
       {/* tabs */}
       <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
