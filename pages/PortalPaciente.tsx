@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Globe, Users, Link2, Copy, Check, Trash2, Plus, RefreshCw,
   Send, Clock, Settings, QrCode, CreditCard, Wallet, ChevronRight,
-  ToggleLeft, ToggleRight, ExternalLink, Shield, AlertCircle
+  ToggleLeft, ToggleRight, ExternalLink, Shield, AlertCircle, Package, ChevronDown, ChevronUp, Loader2
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
@@ -39,6 +39,16 @@ interface PortalSettings {
   payment_debit_enabled?: boolean;
   payment_transfer_enabled?: boolean;
   require_payment_before_session?: boolean;
+}
+
+interface TokenPackageConfig {
+  package_id: number;
+  name: string;
+  sessions_count: number;
+  default_price: number;
+  custom_price: number | null;
+  active: boolean;
+  configured: boolean;
 }
 
 type Tab = 'pacientes' | 'configuracoes';
@@ -178,6 +188,55 @@ export const PortalPaciente: React.FC = () => {
       pushToast('success', 'Configurações salvas!');
     } catch { pushToast('error', 'Erro ao salvar configurações.'); }
     finally { setSavingSettings(false); }
+  };
+
+  // Estado para configuração de pacotes por token
+  const [expandedTokenId, setExpandedTokenId] = useState<number | null>(null);
+  const [tokenPackages, setTokenPackages] = useState<Record<number, TokenPackageConfig[]>>({});
+  const [loadingTokenPkgs, setLoadingTokenPkgs] = useState<number | null>(null);
+  const [savingTokenPkgs, setSavingTokenPkgs] = useState<number | null>(null);
+
+  const loadTokenPackages = async (tokenId: number) => {
+    if (tokenPackages[tokenId]) {
+      setExpandedTokenId(expandedTokenId === tokenId ? null : tokenId);
+      return;
+    }
+    setLoadingTokenPkgs(tokenId);
+    try {
+      const data = await api.get<TokenPackageConfig[]>(`/patient-portal/token-packages/${tokenId}`);
+      setTokenPackages(prev => ({ ...prev, [tokenId]: Array.isArray(data) ? data : [] }));
+      setExpandedTokenId(tokenId);
+    } catch { pushToast('error', 'Erro ao carregar pacotes.'); }
+    finally { setLoadingTokenPkgs(null); }
+  };
+
+  const toggleExpandToken = (tokenId: number) => {
+    if (expandedTokenId === tokenId) { setExpandedTokenId(null); return; }
+    loadTokenPackages(tokenId);
+  };
+
+  const updateTokenPackage = (tokenId: number, packageId: number, field: 'active' | 'custom_price', value: any) => {
+    setTokenPackages(prev => ({
+      ...prev,
+      [tokenId]: (prev[tokenId] || []).map(p =>
+        p.package_id === packageId ? { ...p, [field]: value } : p
+      ),
+    }));
+  };
+
+  const saveTokenPackages = async (tokenId: number) => {
+    const pkgs = tokenPackages[tokenId];
+    if (!pkgs) return;
+    setSavingTokenPkgs(tokenId);
+    try {
+      await api.post(`/patient-portal/token-packages/${tokenId}`, pkgs.map(p => ({
+        package_id: p.package_id,
+        active: p.active,
+        custom_price: p.custom_price !== null && p.custom_price !== undefined && String(p.custom_price) !== '' ? p.custom_price : null,
+      })));
+      pushToast('success', 'Pacotes configurados!');
+    } catch { pushToast('error', 'Erro ao salvar.'); }
+    finally { setSavingTokenPkgs(null); }
   };
 
   const activeCount = tokens.filter(t => t.is_used).length;
@@ -329,7 +388,8 @@ export const PortalPaciente: React.FC = () => {
                 const createdAt = new Date(t.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
                 return (
-                  <div key={t.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-slate-50/60 transition-colors">
+                  <div key={t.id} className="border-b border-slate-50 last:border-0">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-slate-50/60 transition-colors">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${statusColor}`}>
                         {name.charAt(0).toUpperCase()}
@@ -372,6 +432,14 @@ export const PortalPaciente: React.FC = () => {
                         title="Abrir link">
                         <ExternalLink size={13} />
                       </button>
+                      <button
+                        onClick={() => toggleExpandToken(t.id)}
+                        className={`p-1.5 transition-colors rounded-lg ${expandedTokenId === t.id ? 'text-indigo-500 bg-indigo-50' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                        title="Configurar pacotes">
+                        {loadingTokenPkgs === t.id
+                          ? <Loader2 size={13} className="animate-spin" />
+                          : <Package size={13} />}
+                      </button>
                       <button onClick={() => revokeToken(t.id)}
                         className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
                         title="Revogar">
@@ -379,6 +447,52 @@ export const PortalPaciente: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Painel de configuração de pacotes */}
+                  {expandedTokenId === t.id && tokenPackages[t.id] && (
+                    <div className="border-t border-indigo-100 bg-indigo-50/40 px-4 py-3">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <Package size={11} /> Pacotes disponíveis para {name}
+                      </p>
+                      {tokenPackages[t.id].length === 0 ? (
+                        <p className="text-xs text-slate-400">Nenhum pacote cadastrado ainda.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {tokenPackages[t.id].map(pkg => (
+                            <div key={pkg.package_id} className="bg-white rounded-xl border border-slate-200 px-3 py-2 flex items-center gap-3">
+                              <input type="checkbox" checked={pkg.active}
+                                onChange={e => updateTokenPackage(t.id, pkg.package_id, 'active', e.target.checked)}
+                                className="rounded accent-indigo-600 w-3.5 h-3.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs font-bold truncate ${pkg.active ? 'text-slate-700' : 'text-slate-300'}`}>{pkg.name}</p>
+                                <p className="text-[10px] text-slate-400">{pkg.sessions_count} sessões · padrão: R$ {Number(pkg.default_price).toFixed(2)}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] text-slate-400">Preço:</span>
+                                <input
+                                  type="number"
+                                  value={pkg.custom_price !== null && pkg.custom_price !== undefined ? String(pkg.custom_price) : ''}
+                                  onChange={e => updateTokenPackage(t.id, pkg.package_id, 'custom_price', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                  placeholder={String(Number(pkg.default_price).toFixed(2))}
+                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                          <div className="flex justify-end pt-1">
+                            <button
+                              onClick={() => saveTokenPackages(t.id)}
+                              disabled={savingTokenPkgs === t.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all">
+                              {savingTokenPkgs === t.id ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                              Salvar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 );
               })}
             </div>

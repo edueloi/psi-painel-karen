@@ -75,7 +75,8 @@ async function resolveSession(req, res) {
   const sessionToken = req.headers['x-portal-token'] || req.query.session;
   if (!sessionToken) return null;
   const [rows] = await db.query(
-    `SELECT pps.*, p.name AS full_name, p.email, p.phone AS whatsapp, p.tenant_id, p.responsible_professional_id AS psychologist_id
+    `SELECT pps.*, p.name AS full_name, p.email, p.phone AS whatsapp, p.tenant_id, p.responsible_professional_id AS psychologist_id,
+            pps.token_id
      FROM patient_portal_sessions pps
      JOIN patients p ON p.id = pps.patient_id
      WHERE pps.session_token = ? AND pps.expires_at > NOW()`,
@@ -157,9 +158,9 @@ router.post('/invite/:token/login', async (req, res) => {
     const sessionToken = genToken();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // sessão válida por 30 dias
     await db.query(
-      `INSERT INTO patient_portal_sessions (tenant_id, patient_id, session_token, expires_at)
-       VALUES (?, ?, ?, ?)`,
-      [row.tenant_id, row.pid, sessionToken, expiresAt]
+      `INSERT INTO patient_portal_sessions (tenant_id, patient_id, session_token, expires_at, token_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [row.tenant_id, row.pid, sessionToken, expiresAt, row.id]
     );
 
     res.json({
@@ -1207,17 +1208,53 @@ router.get('/comandas', portalAuth, async (req, res) => {
   }
 });
 
-// GET /patient-portal/packages — lista pacotes ativos do tenant para o paciente escolher
+// GET /patient-portal/packages — lista pacotes disponíveis para o paciente
+// Se o token tem pacotes configurados, retorna apenas esses com preço customizado
+// Caso contrário retorna todos os ativos do tenant
+// Nunca expõe desconto/acréscimo — apenas o preço final (display_price)
 router.get('/packages', portalAuth, async (req, res) => {
   try {
-    const { tenant_id } = req.portalSession;
+    const { tenant_id, token_id } = req.portalSession;
+
+    // Verifica se o token tem pacotes configurados individualmente
+    let tokenPackages = [];
+    if (token_id) {
+      const [tp] = await db.query(
+        `SELECT ptp.package_id, ptp.custom_price, ptp.active,
+                pkg.name, pkg.description, pkg.sessions_count, pkg.totalPrice
+         FROM portal_token_packages ptp
+         JOIN packages pkg ON pkg.id = ptp.package_id
+         WHERE ptp.token_id = ? AND ptp.tenant_id = ?`,
+        [token_id, tenant_id]
+      );
+      tokenPackages = tp;
+    }
+
+    if (tokenPackages.length > 0) {
+      // Usa configuração individual: só pacotes ativos no token
+      const rows = tokenPackages
+        .filter(r => r.active)
+        .map(r => ({
+          id: r.package_id,
+          name: r.name,
+          description: r.description,
+          sessions_count: r.sessions_count,
+          // Preço final: custom_price se definido, senão totalPrice do pacote
+          display_price: r.custom_price !== null ? parseFloat(r.custom_price) : parseFloat(r.totalPrice || 0),
+        }));
+      return res.json(rows);
+    }
+
+    // Sem configuração individual: todos os pacotes ativos, preço padrão
     const [rows] = await db.query(
-      `SELECT id, name, description, sessions_count, price, totalPrice, discountType, discountValue
+      `SELECT id, name, description, sessions_count,
+              totalPrice AS display_price
        FROM packages WHERE tenant_id = ? AND active = 1 ORDER BY sessions_count ASC, totalPrice ASC`,
       [tenant_id]
     );
     res.json(rows);
   } catch (e) {
+    console.error('[portal packages]', e?.message);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });
@@ -1313,6 +1350,73 @@ router.get('/tokens/all', async (req, res) => {
     );
     res.json(rows);
   } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ─── ADMIN: pacotes por token ─────────────────────────────────────────────────
+
+// GET /patient-portal/token-packages/:tokenId — lê config de pacotes do token
+router.get('/token-packages/:tokenId', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    const { tokenId } = req.params;
+    const tenant_id = req.user.tenant_id;
+    // Todos os pacotes ativos do tenant
+    const [allPkgs] = await db.query(
+      `SELECT id, name, sessions_count, totalPrice FROM packages WHERE tenant_id = ? AND active = 1 ORDER BY sessions_count ASC`,
+      [tenant_id]
+    );
+    // Config existente para este token
+    const [existing] = await db.query(
+      `SELECT package_id, custom_price, active FROM portal_token_packages WHERE token_id = ? AND tenant_id = ?`,
+      [tokenId, tenant_id]
+    );
+    const map = {};
+    existing.forEach(r => { map[r.package_id] = r; });
+    const result = allPkgs.map(p => ({
+      package_id: p.id,
+      name: p.name,
+      sessions_count: p.sessions_count,
+      default_price: parseFloat(p.totalPrice || 0),
+      custom_price: map[p.id]?.custom_price !== undefined ? parseFloat(map[p.id].custom_price) : null,
+      active: map[p.id] ? (map[p.id].active ? true : false) : true, // default: todos ativos
+      configured: !!map[p.id],
+    }));
+    res.json(result);
+  } catch (e) {
+    console.error('[token-packages GET]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/token-packages/:tokenId — salva config de pacotes do token
+// body: [{ package_id, active, custom_price }]
+router.post('/token-packages/:tokenId', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    const { tokenId } = req.params;
+    const tenant_id = req.user.tenant_id;
+    const items = Array.isArray(req.body) ? req.body : [];
+
+    // Verifica que o token pertence ao tenant
+    const [tkRows] = await db.query(`SELECT id FROM patient_portal_tokens WHERE id = ? AND tenant_id = ?`, [tokenId, tenant_id]);
+    if (!tkRows.length) return res.status(404).json({ error: 'Token não encontrado.' });
+
+    for (const item of items) {
+      const { package_id, active, custom_price } = item;
+      const customVal = (custom_price !== null && custom_price !== '' && !isNaN(parseFloat(custom_price)))
+        ? parseFloat(custom_price) : null;
+      await db.query(
+        `INSERT INTO portal_token_packages (tenant_id, token_id, package_id, custom_price, active)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE custom_price = VALUES(custom_price), active = VALUES(active)`,
+        [tenant_id, tokenId, package_id, customVal, active ? 1 : 0]
+      );
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[token-packages POST]', e?.message);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });

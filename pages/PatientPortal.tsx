@@ -563,8 +563,9 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   // Estado do modal "Criar pacote"
   interface AvailablePackage {
     id: number; name: string; description?: string;
-    sessions_count: number; price: number; totalPrice: number;
-    discountType: string; discountValue: number;
+    sessions_count: number; display_price: number;
+    // campos legados do backend sem config individual
+    price?: number; totalPrice?: number; discountType?: string; discountValue?: number;
   }
   const [availablePackages, setAvailablePackages] = useState<AvailablePackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(false);
@@ -596,9 +597,9 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
       if (selectedPkg) {
         body.package_id = selectedPkg.id;
         body.description = selectedPkg.name;
-        body.total = selectedPkg.totalPrice;
-        body.total_net = selectedPkg.totalPrice;
-        body.discount = selectedPkg.discountValue;
+        body.total = selectedPkg.display_price ?? selectedPkg.totalPrice ?? 0;
+        body.total_net = body.total;
+        body.discount = 0;
       }
       const res = await portalFetch("/comandas", { method: "POST", body: JSON.stringify(body) });
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao criar pacote.", "error"); return; }
@@ -885,7 +886,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           <div className="space-y-2">
             {availablePackages.map(pkg => {
               const isSelected = selectedPackageId === pkg.id;
-              const pricePerSession = pkg.sessions_count ? pkg.totalPrice / pkg.sessions_count : 0;
+              const finalPrice = pkg.display_price ?? pkg.totalPrice ?? 0;
+              const pricePerSession = pkg.sessions_count ? finalPrice / pkg.sessions_count : 0;
               return (
                 <button key={pkg.id} onClick={() => setSelectedPackageId(isSelected ? null : pkg.id)}
                   className={`w-full text-left rounded-2xl border transition-all overflow-hidden ${isSelected ? "border-indigo-400 bg-indigo-50 shadow-md" : "border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm"}`}>
@@ -904,12 +906,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-base font-black text-indigo-600">{fmtCurrency(pkg.totalPrice)}</p>
-                      {pkg.discountValue > 0 && (
-                        <p className="text-[10px] text-emerald-600 font-bold">
-                          {pkg.discountType === "percentage" ? `${pkg.discountValue}% off` : `− ${fmtCurrency(pkg.discountValue)}`}
-                        </p>
-                      )}
+                      <p className="text-base font-black text-indigo-600">{fmtCurrency(finalPrice)}</p>
                     </div>
                   </div>
                   {isSelected && (
@@ -928,7 +925,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             <p className="text-xs font-black text-indigo-700">{selectedPkg.name}</p>
             <div className="flex justify-between text-xs text-indigo-600">
               <span>{selectedPkg.sessions_count} sessões</span>
-              <span className="font-bold">{fmtCurrency(selectedPkg.totalPrice)}</span>
+              <span className="font-bold">{fmtCurrency(selectedPkg.display_price ?? selectedPkg.totalPrice ?? 0)}</span>
             </div>
             <p className="text-[11px] text-indigo-500">Após confirmar, agende cada sessão individualmente na sua agenda.</p>
           </div>
