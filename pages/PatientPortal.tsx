@@ -1383,7 +1383,18 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
     } finally { setLoading(false); }
   };
 
-  const pendingAppts = appointments.filter(a => ["scheduled", "confirmed", "completed"].includes(a.status));
+  // IDs de consultas que já têm pagamento confirmado ou pendente registrado
+  const paidAppointmentIds = new Set(
+    payments
+      .filter(p => p.status === "confirmed" || p.status === "pending")
+      .map(p => p.appointment_id)
+      .filter(Boolean)
+  );
+  // Só consultas sem pagamento registrado e que não são passadas (scheduled/confirmed) ou recentes (completed sem pagamento)
+  const pendingAppts = appointments.filter(a =>
+    ["scheduled", "confirmed", "completed"].includes(a.status) &&
+    !paidAppointmentIds.has(a.id)
+  );
 
   // Totais gerais
   const totalConfirmed = payments.filter(p => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
