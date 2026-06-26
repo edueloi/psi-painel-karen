@@ -624,6 +624,25 @@ router.post('/payments', portalAuth, upload.array('attachments', 5), async (req,
       }
     }
 
+    // Cria alerta para notificar a psicóloga do novo pagamento declarado
+    try {
+      const [patRows] = await db.query(
+        `SELECT name FROM patients WHERE id = ? AND tenant_id = ? LIMIT 1`,
+        [patient_id, tenant_id]
+      );
+      const patientName = patRows[0]?.name || 'Paciente';
+      const fmtAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(amount));
+      await db.query(
+        `INSERT INTO system_alerts (tenant_id, title, message, type, link)
+         VALUES (?, ?, ?, 'info', '/financeiro')`,
+        [tenant_id,
+         `💰 ${patientName} declarou um pagamento`,
+         `Valor: ${fmtAmount} · Aguardando revisão no Portal`]
+      );
+    } catch (alertErr) {
+      console.error('[portal] falha ao criar alerta de pagamento:', alertErr.message);
+    }
+
     res.json({ id: paymentId, status: 'pending' });
   } catch (e) {
     console.error(e);
