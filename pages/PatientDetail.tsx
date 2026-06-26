@@ -1184,7 +1184,7 @@ const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
         icon={CheckSquare}
         iconWrapClassName="border-violet-100 bg-violet-50"
         iconClassName="text-violet-600"
-        headerRight={
+        action={
           <button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 rounded-lg hover:opacity-90 transition-opacity">
