@@ -1014,9 +1014,13 @@ router.post('/appointments', portalAuth, async (req, res) => {
     }
 
     // Verifica conflito de cada ocorrência antes de criar qualquer coisa
+    // brtDateTimeStr produz "YYYY-MM-DD HH:MM:SS" no horário de Brasília.
+    // O banco armazena UTC → precisamos somar BRT_OFFSET_MS (3h) para converter BRT→UTC.
     for (const o of occurrences) {
-      const sStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
-      const eMs = new Date(sStr.replace(' ', 'T') + 'Z').getTime() + duration * 60000;
+      const brtStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
+      const sMs  = new Date(brtStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS;
+      const eMs  = sMs + duration * 60000;
+      const sStr = new Date(sMs).toISOString().slice(0, 19).replace('T', ' ');
       const eStr = new Date(eMs).toISOString().slice(0, 19).replace('T', ' ');
       const [conflict] = await db.query(
         `SELECT id FROM appointments
@@ -1062,11 +1066,13 @@ router.post('/appointments', portalAuth, async (req, res) => {
       ? JSON.stringify({ freq, count: sessionsTotal, source: 'portal' })
       : null;
 
-    // Insere todas as ocorrências
+    // Insere todas as ocorrências — start_time e end_time em UTC
     const created = [];
     for (const o of occurrences) {
-      const sStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
-      const eMs = new Date(sStr.replace(' ', 'T') + 'Z').getTime() + duration * 60000;
+      const brtStr = brtDateTimeStr(o.yyyy, o.mm, o.dd, o.h, o.min);
+      const sMs  = new Date(brtStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS;
+      const eMs  = sMs + duration * 60000;
+      const sStr = new Date(sMs).toISOString().slice(0, 19).replace('T', ' ');
       const eStr = new Date(eMs).toISOString().slice(0, 19).replace('T', ' ');
       const [ins] = await db.query(
         `INSERT INTO appointments

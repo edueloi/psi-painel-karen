@@ -154,6 +154,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   completed:  { label: "Realizada",  color: "text-slate-600",   bg: "bg-slate-100 border-slate-200",  dot: "bg-slate-400"   },
   cancelled:  { label: "Cancelada",  color: "text-red-600",     bg: "bg-red-50 border-red-200",       dot: "bg-red-400"     },
   "no-show":  { label: "Faltou",     color: "text-orange-600",  bg: "bg-orange-50 border-orange-200", dot: "bg-orange-400"  },
+  "no_show":  { label: "Faltou",     color: "text-orange-600",  bg: "bg-orange-50 border-orange-200", dot: "bg-orange-400"  },
 };
 
 const PAYMENT_STATUS: Record<string, { label: string; color: string; bg: string }> = {
@@ -194,7 +195,7 @@ function fmtCurrency(v: number) {
 // Badge color mappings for portal statuses
 const STATUS_BADGE_COLOR: Record<string, "info" | "success" | "default" | "danger" | "warning"> = {
   scheduled: "info", confirmed: "success", completed: "default",
-  cancelled: "danger", "no-show": "warning",
+  cancelled: "danger", "no-show": "warning", "no_show": "warning",
 };
 const PAYMENT_BADGE_COLOR: Record<string, "warning" | "success" | "danger"> = {
   pending: "warning", confirmed: "success", rejected: "danger",
