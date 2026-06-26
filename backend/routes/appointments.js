@@ -6,6 +6,7 @@ const ExcelJS = require('exceljs');
 const xlsx = require('xlsx');
 const db = require('../db');
 const { sendMail, templates } = require('../services/emailService');
+const { sendPushToPatient } = require('../services/pushService');
 
 const memoryUpload = multer({ storage: multer.memoryStorage() });
 
@@ -883,6 +884,14 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
             '/agenda'
           ]
         ).catch(() => {});
+
+        // Push notification para o app do paciente
+        if (apt.patient_id) {
+          sendPushToPatient(apt.patient_id,
+            '🗓 Consulta agendada',
+            `${dateStr} às ${timeStr}`
+          ).catch(() => {});
+        }
 
         // Envia email apenas se a preferência estiver ativada
         const rawPrefs = prof.email_preferences;

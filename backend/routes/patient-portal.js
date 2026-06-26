@@ -1,4 +1,5 @@
 const express = require('express');
+const { sendPushToPatient } = require('../services/pushService');
 const router = express.Router();
 const db = require('../db');
 const crypto = require('crypto');
@@ -1809,6 +1810,12 @@ router.post('/admin/tasks', async (req, res) => {
       );
     } catch {}
 
+    // Push notification para o app do paciente
+    sendPushToPatient(patient_id,
+      '📋 Nova tarefa do seu profissional',
+      title.trim()
+    ).catch(() => {});
+
     res.json({ id: result.insertId, ok: true });
   } catch (e) {
     console.error('[tasks create]', e?.message);
@@ -1927,6 +1934,40 @@ router.post('/tasks/:id/undo', portalAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ── Tabela push tokens ────────────────────────────────────────────────
+async function ensurePushTokensTable() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS patient_push_tokens (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      patient_id INT NOT NULL,
+      tenant_id  INT NOT NULL,
+      push_token VARCHAR(512) NOT NULL,
+      updated_at DATETIME DEFAULT NOW() ON UPDATE NOW(),
+      UNIQUE KEY uq_patient_token (patient_id, push_token),
+      INDEX (patient_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `).catch(() => {});
+}
+ensurePushTokensTable();
+
+// POST /patient-portal/auth/push-token — registra token do device
+router.post('/auth/push-token', portalAuth, async (req, res) => {
+  try {
+    const { push_token } = req.body;
+    if (!push_token) return res.json({ ok: true });
+    const session = req.portalSession;
+    await db.query(
+      `INSERT INTO patient_push_tokens (patient_id, tenant_id, push_token)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE updated_at = NOW()`,
+      [session.patient_id, session.tenant_id, push_token]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false });
   }
 });
 

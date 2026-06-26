@@ -1296,7 +1296,7 @@ const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
                           )}
                           {task.due_date && (
                             <span className="text-[10px] font-semibold text-slate-500 flex items-center gap-1">
-                              <Clock size={9} />{new Date(task.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                              <Clock size={9} />{new Date(task.due_date.slice(0,10) + 'T12:00:00').toLocaleDateString('pt-BR')}
                             </span>
                           )}
                           {task.created_by_name && (
