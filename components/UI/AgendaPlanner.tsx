@@ -184,7 +184,7 @@ const toLocalDateInputValue = (date: Date) => {
 
 const normalizeEvent = (event: AgendaPlannerEvent): NormalizedEvent => ({
   ...event,
-  type: event.type || 'consulta',
+  type: (event.type === 'sessao' ? 'consulta' : event.type) || 'consulta',
   status: event.status || 'scheduled',
   startDate: event.start instanceof Date ? event.start : new Date(event.start),
   endDate: event.end instanceof Date ? event.end : new Date(event.end),
@@ -946,8 +946,8 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           )}
 
                         {dayEvents[dayIndex]?.map((event) => {
-                          const meta = typeMeta[event.type || 'consulta'];
-                          const status = statusMeta[event.status || 'scheduled'];
+                          const meta = typeMeta[event.type] || typeMeta['consulta'];
+                          const status = statusMeta[event.status] || statusMeta['scheduled'];
 
                           // Status-based color só se aplica a consultas.
                           // Bloqueio = sempre cinza. Pessoal = sempre âmbar.

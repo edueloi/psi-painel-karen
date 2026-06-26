@@ -1085,6 +1085,30 @@ router.post('/appointments', portalAuth, async (req, res) => {
       created.push({ id: ins.insertId, start_time: sStr });
     }
 
+    // Cria alerta no sistema para notificar a psicóloga do novo agendamento
+    try {
+      const firstAppt = created[0];
+      const apptDate = new Date(firstAppt.start_time + 'Z');
+      const dateBRT = apptDate.toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
+      const alertTitle = created.length > 1
+        ? `📅 ${patientName} agendou ${created.length} sessões pelo portal`
+        : `📅 ${patientName} agendou uma consulta pelo portal`;
+      const alertMsg = created.length > 1
+        ? `Primeira sessão: ${dateBRT}`
+        : `Data: ${dateBRT}`;
+      await db.query(
+        `INSERT INTO system_alerts (tenant_id, title, message, type, link)
+         VALUES (?, ?, ?, 'info', '/agenda')`,
+        [tenant_id, alertTitle, alertMsg]
+      );
+    } catch (alertErr) {
+      console.error('[portal] falha ao criar alerta de agendamento:', alertErr.message);
+    }
+
     res.json({
       ok: true,
       status: 'scheduled',
