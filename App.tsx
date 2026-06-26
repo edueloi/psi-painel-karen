@@ -261,6 +261,7 @@ const AppRoutes: React.FC = () => {
       {/* Portal do Paciente */}
       <Route path="/portal" element={<PatientPortalLogin />} />
       <Route path="/portal/entrar/:token" element={<PatientPortalLogin />} />
+      <Route path="/portal/reset-password/:token" element={<PatientPortalLogin />} />
       <Route path="/portal/inicio" element={<PatientPortal />} />
 
       {/* Rotas de Super Admin */}

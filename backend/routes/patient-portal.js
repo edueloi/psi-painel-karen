@@ -329,6 +329,79 @@ router.post('/auth/change-password', async (req, res) => {
   }
 });
 
+// POST /patient-portal/auth/forgot-password — solicita reset de senha
+router.post('/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email obrigatório.' });
+
+    const [rows] = await db.query(
+      `SELECT id, name, tenant_id FROM patients
+       WHERE (portal_email = ? OR email = ?) AND portal_password_set = 1
+       LIMIT 1`,
+      [email.trim().toLowerCase(), email.trim().toLowerCase()]
+    );
+
+    // Responde sempre com sucesso (não revela se email existe)
+    if (!rows[0]) return res.json({ ok: true });
+
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2h
+
+    // Garante coluna portal_reset_token na tabela patients
+    try {
+      await db.query(`ALTER TABLE patients ADD COLUMN portal_reset_token VARCHAR(64) NULL`);
+      await db.query(`ALTER TABLE patients ADD COLUMN portal_reset_expires DATETIME NULL`);
+    } catch {}
+
+    await db.query(
+      `UPDATE patients SET portal_reset_token = ?, portal_reset_expires = ? WHERE id = ?`,
+      [token, expiresAt, rows[0].id]
+    );
+
+    const appUrl = process.env.APP_URL || 'https://psiflux.com.br';
+    const resetLink = `${appUrl}/portal/reset-password/${token}`;
+    const { sendMail, templates } = require('../services/emailService');
+    const html = templates.passwordReset({ name: rows[0].name, link: resetLink });
+    await sendMail(email.trim(), 'Redefinição de senha — Portal do Paciente', html).catch(() => {});
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[portal forgot-password]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/auth/reset-password — redefine senha com token
+router.post('/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token e senha obrigatórios.' });
+    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
+
+    const [rows] = await db.query(
+      `SELECT id FROM patients
+       WHERE portal_reset_token = ? AND portal_reset_expires > NOW()
+       LIMIT 1`,
+      [token]
+    );
+    if (!rows[0]) return res.status(400).json({ error: 'Link inválido ou expirado.' });
+
+    const hash = await bcrypt.hash(password, 10);
+    await db.query(
+      `UPDATE patients SET portal_password_hash = ?, portal_password_set = 1,
+       portal_reset_token = NULL, portal_reset_expires = NULL, updated_at = NOW()
+       WHERE id = ?`,
+      [hash, rows[0].id]
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[portal reset-password]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // ─── Middleware de sessão para rotas autenticadas do portal ───────────────────
 async function portalAuth(req, res, next) {
   const session = await resolveSession(req, res);
