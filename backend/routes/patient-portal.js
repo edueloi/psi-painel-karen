@@ -461,6 +461,7 @@ router.get('/me', portalAuth, async (req, res) => {
               p.status, p.photo_url AS avatar_url,
               COALESCE(p.portal_password_set, 0) AS portal_password_set,
               p.portal_email,
+              p.responsible_professional_id AS psychologist_id,
               u.name AS professional_name, u.specialty, u.crp, u.avatar_url AS prof_avatar,
               ten.name AS company_name
        FROM patients p
