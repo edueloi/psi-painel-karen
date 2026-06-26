@@ -555,7 +555,7 @@ router.patch('/appointments/:id/cancel', portalAuth, async (req, res) => {
       return res.status(409).json({ error: 'Cancelamentos devem ser feitos com pelo menos 2 horas de antecedência.' });
 
     await db.query(
-      `UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE id = ?`,
+      `UPDATE appointments SET status = 'cancelled' WHERE id = ?`,
       [req.params.id]
     );
     res.json({ ok: true });
@@ -1046,8 +1046,8 @@ router.post('/appointments', portalAuth, async (req, res) => {
         const [comandaIns] = await db.query(
           `INSERT INTO comandas
            (tenant_id, patient_id, professional_id, description, total, total_net, discount,
-            sessions_total, sessions_used, status, start_date, duration_minutes, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', ?, ?, NOW(), NOW())`,
+            sessions_total, sessions_used, status, start_date, duration_minutes, created_at)
+           VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', ?, ?, NOW())`,
           [tenant_id, patient_id, professional_id, description, sessionsTotal, firstStr, duration]
         );
         comandaId = comandaIns.insertId;
@@ -1071,8 +1071,8 @@ router.post('/appointments', portalAuth, async (req, res) => {
       const [ins] = await db.query(
         `INSERT INTO appointments
          (tenant_id, patient_id, professional_id, start_time, end_time, duration_minutes,
-          status, modality, notes, type, comanda_id, recurrence_rule, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 'sessao', ?, ?, NOW(), NOW())`,
+          status, modality, notes, type, comanda_id, recurrence_rule, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 'sessao', ?, ?, NOW())`,
         [tenant_id, patient_id, professional_id, sStr, eStr, duration,
          modality || 'online', notes || null, comandaId, recurrenceRule]
       );
@@ -1140,7 +1140,7 @@ router.get('/comandas', portalAuth, async (req, res) => {
         (SELECT COUNT(*) FROM appointments a
          WHERE a.comanda_id = c.id AND a.status IN ('scheduled','confirmed')) AS sessions_scheduled,
         (SELECT COUNT(*) FROM appointments a
-         WHERE a.comanda_id = c.id AND a.status IN ('completed','no-show')) AS sessions_done,
+         WHERE a.comanda_id = c.id AND a.status IN ('completed','no_show')) AS sessions_done,
         (SELECT COUNT(*) FROM appointments a
          WHERE a.comanda_id = c.id AND a.status NOT IN ('cancelled')) AS sessions_active
        FROM comandas c
