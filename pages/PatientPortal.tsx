@@ -555,23 +555,50 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   const [monthLoading, setMonthLoading] = useState(false);
 
   // Estado do modal "Criar pacote"
-  const [newComandaForm, setNewComandaForm] = useState({ sessions_total: 4 });
+  interface AvailablePackage {
+    id: number; name: string; description?: string;
+    sessions_count: number; price: number; totalPrice: number;
+    discountType: string; discountValue: number;
+  }
+  const [availablePackages, setAvailablePackages] = useState<AvailablePackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [creatingComanda, setCreatingComanda] = useState(false);
+
+  const loadPackages = useCallback(async () => {
+    setPackagesLoading(true);
+    try {
+      const res = await portalFetch("/packages");
+      if (res.ok) setAvailablePackages(await res.json());
+    } finally { setPackagesLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (mode === "new-comanda") loadPackages();
+  }, [mode]);
+
+  const selectedPkg = availablePackages.find(p => p.id === selectedPackageId);
 
   const createComanda = async () => {
     if (!professionals[0]) return;
     setCreatingComanda(true);
     try {
-      const res = await portalFetch("/comandas", {
-        method: "POST",
-        body: JSON.stringify({
-          professional_id: professionals[0].id,
-          sessions_total: newComandaForm.sessions_total,
-        }),
-      });
+      const body: any = {
+        professional_id: professionals[0].id,
+        sessions_total: selectedPkg ? selectedPkg.sessions_count : 1,
+      };
+      if (selectedPkg) {
+        body.package_id = selectedPkg.id;
+        body.description = selectedPkg.name;
+        body.total = selectedPkg.totalPrice;
+        body.total_net = selectedPkg.totalPrice;
+        body.discount = selectedPkg.discountValue;
+      }
+      const res = await portalFetch("/comandas", { method: "POST", body: JSON.stringify(body) });
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao criar pacote.", "error"); return; }
       showToast("Pacote criado! Agora agende suas sessões.", "success");
       setMode("list");
+      setSelectedPackageId(null);
       onRefresh();
     } finally { setCreatingComanda(false); }
   };
@@ -835,45 +862,79 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h2 className="text-base font-black text-slate-800">Criar Pacote de Sessões</h2>
-            <p className="text-xs text-slate-400">Seu terapeuta será notificado para confirmar</p>
+            <h2 className="text-base font-black text-slate-800">Escolher Pacote</h2>
+            <p className="text-xs text-slate-400">Selecione o pacote que deseja contratar</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-          <div>
-            <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3 block">Quantas sessões no pacote?</label>
-            <div className="grid grid-cols-4 gap-2">
-              {[4, 8, 12, 16].map(n => (
-                <button key={n} onClick={() => setNewComandaForm(f => ({ ...f, sessions_total: n }))}
-                  className={`py-3 rounded-xl text-sm font-black border transition-all ${newComandaForm.sessions_total === n ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300"}`}>
-                  {n}
+        {packagesLoading ? (
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-xs text-slate-400">Carregando pacotes...</div>
+        ) : availablePackages.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
+            <Gem size={28} className="text-slate-200 mx-auto mb-2" />
+            <p className="text-sm text-slate-500 font-bold">Nenhum pacote disponível</p>
+            <p className="text-xs text-slate-400 mt-1">Entre em contato com seu terapeuta para mais informações.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {availablePackages.map(pkg => {
+              const isSelected = selectedPackageId === pkg.id;
+              const pricePerSession = pkg.sessions_count ? pkg.totalPrice / pkg.sessions_count : 0;
+              return (
+                <button key={pkg.id} onClick={() => setSelectedPackageId(isSelected ? null : pkg.id)}
+                  className={`w-full text-left rounded-2xl border transition-all overflow-hidden ${isSelected ? "border-indigo-400 bg-indigo-50 shadow-md" : "border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm"}`}>
+                  <div className="px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-sm ${isSelected ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-600"}`}>
+                        {pkg.sessions_count}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-slate-800 truncate">{pkg.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {pkg.sessions_count} sessão{pkg.sessions_count !== 1 ? "ões" : ""}
+                          {pricePerSession > 0 ? ` · ${fmtCurrency(pricePerSession)}/sessão` : ""}
+                        </p>
+                        {pkg.description && <p className="text-xs text-slate-400 truncate mt-0.5">{pkg.description}</p>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-base font-black text-indigo-600">{fmtCurrency(pkg.totalPrice)}</p>
+                      {pkg.discountValue > 0 && (
+                        <p className="text-[10px] text-emerald-600 font-bold">
+                          {pkg.discountType === "percentage" ? `${pkg.discountValue}% off` : `− ${fmtCurrency(pkg.discountValue)}`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="px-4 pb-3 flex items-center gap-1.5 text-xs text-indigo-600 font-bold">
+                      <Check size={12} /> Selecionado
+                    </div>
+                  )}
                 </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 mt-3">
-              <button onClick={() => setNewComandaForm(f => ({ ...f, sessions_total: Math.max(1, f.sessions_total - 1) }))}
-                className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 font-black text-lg flex items-center justify-center hover:bg-slate-200 transition-all">−</button>
-              <div className="flex-1 text-center">
-                <span className="text-2xl font-black text-indigo-600">{newComandaForm.sessions_total}</span>
-                <span className="text-sm text-slate-400 ml-1">sessões</span>
-              </div>
-              <button onClick={() => setNewComandaForm(f => ({ ...f, sessions_total: Math.min(50, f.sessions_total + 1) }))}
-                className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 font-black text-lg flex items-center justify-center hover:bg-slate-200 transition-all">+</button>
-            </div>
+              );
+            })}
           </div>
+        )}
 
-          <div className="bg-indigo-50 rounded-xl px-4 py-3 text-xs text-indigo-700">
-            <p className="font-black mb-1">O que é um pacote?</p>
-            <p>Você reserva um número de sessões com seu terapeuta. Depois, agenda cada sessão individualmente no dia e horário que preferir, dentro das sessões disponíveis.</p>
+        {selectedPkg && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3 space-y-1">
+            <p className="text-xs font-black text-indigo-700">{selectedPkg.name}</p>
+            <div className="flex justify-between text-xs text-indigo-600">
+              <span>{selectedPkg.sessions_count} sessões</span>
+              <span className="font-bold">{fmtCurrency(selectedPkg.totalPrice)}</span>
+            </div>
+            <p className="text-[11px] text-indigo-500">Após confirmar, agende cada sessão individualmente na sua agenda.</p>
           </div>
+        )}
 
-          <Button variant="primary" onClick={createComanda} loading={creatingComanda} loadingText="Criando..."
-            iconLeft={<Check size={16} />}
-            className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
-            Criar pacote de {newComandaForm.sessions_total} sessões
-          </Button>
-        </div>
+        <Button variant="primary" onClick={createComanda}
+          disabled={!selectedPkg || creatingComanda}
+          loading={creatingComanda} loadingText="Criando..."
+          iconLeft={<Check size={16} />}
+          className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+          {selectedPkg ? `Contratar: ${selectedPkg.name}` : "Selecione um pacote acima"}
+        </Button>
       </div>
     );
   }

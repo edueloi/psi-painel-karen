@@ -1177,6 +1177,21 @@ router.get('/comandas', portalAuth, async (req, res) => {
   }
 });
 
+// GET /patient-portal/packages — lista pacotes ativos do tenant para o paciente escolher
+router.get('/packages', portalAuth, async (req, res) => {
+  try {
+    const { tenant_id } = req.portalSession;
+    const [rows] = await db.query(
+      `SELECT id, name, description, sessions_count, price, totalPrice, discountType, discountValue
+       FROM packages WHERE tenant_id = ? AND active = 1 ORDER BY sessions_count ASC, totalPrice ASC`,
+      [tenant_id]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // POST /patient-portal/comandas — paciente cria nova comanda/pacote
 router.post('/comandas', portalAuth, async (req, res) => {
   try {
@@ -1211,9 +1226,11 @@ router.post('/comandas', portalAuth, async (req, res) => {
     const [ins] = await db.query(
       `INSERT INTO comandas
        (tenant_id, patient_id, professional_id, description, total, total_net, discount,
-        sessions_total, sessions_used, status, start_date, duration_minutes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', NOW(), ?, NOW(), NOW())`,
-      [tenant_id, patient_id, professional_id, desc, sessions_total, duration]
+        sessions_total, sessions_used, status, start_date, duration_minutes, package_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', NOW(), ?, ?, NOW())`,
+      [tenant_id, patient_id, professional_id, desc,
+       req.body.total || 0, req.body.total_net || req.body.total || 0,
+       req.body.discount || 0, sessions_total, duration, req.body.package_id || null]
     );
     res.json({ ok: true, comanda_id: ins.insertId, description: desc, sessions_total });
   } catch (e) {
