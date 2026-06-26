@@ -476,6 +476,26 @@ router.get('/me', portalAuth, async (req, res) => {
       try { p.emergency_contacts = JSON.parse(p.emergency_contacts); } catch { p.emergency_contacts = []; }
     }
     p.has_children = Boolean(p.has_children);
+    // fallback: se responsible_professional_id não estiver setado, usa o profissional do último agendamento
+    if (!p.psychologist_id) {
+      try {
+        const [apRows] = await db.query(
+          `SELECT a.professional_id, u.name AS professional_name, u.specialty, u.crp, u.avatar_url AS prof_avatar
+           FROM appointments a
+           JOIN users u ON u.id = a.professional_id
+           WHERE a.patient_id = ? AND a.tenant_id = ? AND a.status != 'cancelled'
+           ORDER BY a.start_time DESC LIMIT 1`,
+          [patient_id, tenant_id]
+        );
+        if (apRows[0]) {
+          p.psychologist_id   = apRows[0].professional_id;
+          p.professional_name = apRows[0].professional_name;
+          p.specialty         = apRows[0].specialty;
+          p.crp               = apRows[0].crp;
+          p.prof_avatar       = apRows[0].prof_avatar;
+        }
+      } catch {}
+    }
     res.json(p);
   } catch (e) {
     console.error(e);
