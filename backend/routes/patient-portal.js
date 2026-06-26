@@ -976,11 +976,18 @@ router.post('/appointments', portalAuth, async (req, res) => {
 
     // Busca dados do profissional e do paciente (nome p/ descrição da comanda)
     const [profRows] = await db.query(
-      `SELECT id, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      `SELECT id, schedule FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
       [professional_id, tenant_id]
     );
     if (!profRows[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
-    const duration = profRows[0].duration_minutes || 50;
+    // duration_minutes fica dentro do JSON schedule
+    let duration = 50;
+    try {
+      const sch = profRows[0].schedule;
+      const schParsed = sch ? (typeof sch === 'string' ? JSON.parse(sch) : sch) : null;
+      if (schParsed?.duration_minutes) duration = parseInt(schParsed.duration_minutes) || 50;
+      else if (Array.isArray(schParsed) && schParsed[0]?.duration_minutes) duration = parseInt(schParsed[0].duration_minutes) || 50;
+    } catch (e) { /* usa 50 */ }
 
     const [patRows] = await db.query(
       `SELECT name FROM patients WHERE id = ? AND tenant_id = ? LIMIT 1`,
@@ -1180,10 +1187,19 @@ router.post('/comandas', portalAuth, async (req, res) => {
 
     // Verifica se o profissional pertence ao tenant
     const [profRows] = await db.query(
-      'SELECT id, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1',
+      'SELECT id, schedule FROM users WHERE id = ? AND tenant_id = ? LIMIT 1',
       [professional_id, tenant_id]
     );
     if (!profRows[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
+
+    // duration_minutes fica dentro do JSON schedule
+    let duration = 50;
+    try {
+      const sch = profRows[0].schedule;
+      const schParsed = sch ? (typeof sch === 'string' ? JSON.parse(sch) : sch) : null;
+      if (schParsed?.duration_minutes) duration = parseInt(schParsed.duration_minutes) || 50;
+      else if (Array.isArray(schParsed) && schParsed[0]?.duration_minutes) duration = parseInt(schParsed[0].duration_minutes) || 50;
+    } catch (e) { /* usa 50 */ }
 
     const [patRows] = await db.query(
       'SELECT name FROM patients WHERE id = ? AND tenant_id = ? LIMIT 1',
@@ -1191,7 +1207,6 @@ router.post('/comandas', portalAuth, async (req, res) => {
     );
     const patientName = patRows[0]?.name || 'Paciente';
     const desc = description || `Pacote de ${sessions_total} sessões — ${patientName}`;
-    const duration = profRows[0].duration_minutes || 50;
 
     const [ins] = await db.query(
       `INSERT INTO comandas
