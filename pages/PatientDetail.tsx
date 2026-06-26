@@ -5,6 +5,7 @@ import {
   Boxes, StickyNote, MapPin, Shield, Phone, Mail, User, Edit2,
   Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink,
   ChevronRight, History, Activity, Link2, Copy, Check, X, Clock, Smartphone,
+  CheckSquare, Plus, Flag, Tag, AlarmClock,
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,11 +57,12 @@ const safeGet = async <T,>(url: string, params?: Record<string, string>): Promis
   try { return await api.get<T>(url, params); } catch { return null; }
 };
 
-type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas';
+type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'dados',       label: 'Dados',       icon: <User size={14} /> },
   { key: 'agenda',      label: 'Agenda',      icon: <Calendar size={14} /> },
+  { key: 'tarefas',     label: 'Tarefas',     icon: <CheckSquare size={14} /> },
   { key: 'documentos',  label: 'Documentos',  icon: <FolderOpen size={14} /> },
   { key: 'prontuario',  label: 'Prontuário',  icon: <FileText size={14} /> },
   { key: 'formularios', label: 'Formulários', icon: <ClipboardList size={14} /> },
@@ -438,6 +440,7 @@ export const PatientDetail: React.FC = () => {
         {activeTab === 'agenda' && <TabAgenda appointments={appointments} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
         {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
+        {activeTab === 'tarefas'     && <TabTarefas patientId={id!} />}
         {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
       </div>
@@ -1099,6 +1102,249 @@ const TabFerramentas: React.FC<{ patientId: string; navigate: (p: string) => voi
     </div>
   </div>
 );
+
+// ─── Tab: Tarefas ─────────────────────────────────────────────────────────────
+const TASK_PRIOS = [
+  { id: 'alta',  label: 'Alta',  color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200' },
+  { id: 'media', label: 'Média', color: 'text-amber-600',  bg: 'bg-amber-50',  border: 'border-amber-200' },
+  { id: 'baixa', label: 'Baixa', color: 'text-emerald-600',bg: 'bg-emerald-50',border: 'border-emerald-200' },
+];
+const TASK_CATS = [
+  { id: 'geral',   label: 'Geral' },
+  { id: 'terapia', label: 'Terapia' },
+  { id: 'saude',   label: 'Saúde' },
+  { id: 'fisico',  label: 'Físico' },
+  { id: 'social',  label: 'Social' },
+  { id: 'lazer',   label: 'Lazer' },
+  { id: 'escrita', label: 'Escrita' },
+];
+
+const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
+  const { pushToast } = useToast();
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: '', description: '', category: 'geral', priority: 'media', due_date: '',
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.get<any>('/patient-portal/admin/tasks', { patient_id: patientId });
+      setTasks(data?.tasks || []);
+    } catch { setTasks([]); }
+    setLoading(false);
+  }, [patientId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    if (!form.title.trim()) { pushToast('error', 'Título é obrigatório.'); return; }
+    setSaving(true);
+    try {
+      await api.post('/patient-portal/admin/tasks', {
+        patient_id: parseInt(patientId),
+        ...form,
+        due_date: form.due_date || null,
+      });
+      pushToast('success', 'Tarefa criada! O paciente verá no app.');
+      setForm({ title: '', description: '', category: 'geral', priority: 'media', due_date: '' });
+      setShowForm(false);
+      await load();
+    } catch { pushToast('error', 'Erro ao criar tarefa.'); }
+    setSaving(false);
+  };
+
+  const del = async (id: number) => {
+    try {
+      await api.delete(`/patient-portal/admin/tasks/${id}`);
+      setTasks(t => t.filter(x => x.id !== id));
+      pushToast('success', 'Tarefa removida.');
+    } catch { pushToast('error', 'Erro ao remover.'); }
+  };
+
+  const toggleStatus = async (task: any) => {
+    const newStatus = task.status === 'concluida' ? 'pendente' : 'concluida';
+    try {
+      await api.put(`/patient-portal/admin/tasks/${task.id}`, { status: newStatus });
+      setTasks(t => t.map(x => x.id === task.id ? { ...x, status: newStatus, completed_at: newStatus === 'concluida' ? new Date().toISOString() : null } : x));
+    } catch { pushToast('error', 'Erro.'); }
+  };
+
+  const pending = tasks.filter(t => t.status !== 'concluida');
+  const done    = tasks.filter(t => t.status === 'concluida');
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <PanelCard
+        title="Tarefas do Paciente"
+        icon={CheckSquare}
+        iconWrapClassName="border-violet-100 bg-violet-50"
+        iconClassName="text-violet-600"
+        headerRight={
+          <button
+            onClick={() => setShowForm(v => !v)}
+            className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 rounded-lg hover:opacity-90 transition-opacity">
+            <Plus size={13} /> Nova tarefa
+          </button>
+        }>
+        <p className="text-xs text-slate-400 -mt-2 mb-3">
+          Tarefas criadas aqui aparecem automaticamente no <strong>app do paciente</strong> em tempo real.
+        </p>
+
+        {/* Formulário inline */}
+        {showForm && (
+          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 mb-4 space-y-3">
+            <p className="text-xs font-bold text-violet-700 uppercase tracking-wide">Nova tarefa</p>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Título *</label>
+              <input
+                className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                placeholder="Ex: Fazer anotações diárias no diário"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Descrição (opcional)</label>
+              <textarea
+                rows={2}
+                className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                placeholder="Detalhes ou instruções para o paciente..."
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Categoria</label>
+                <select className="w-full text-xs border border-slate-200 rounded-xl px-2 py-2.5 focus:outline-none focus:border-indigo-400 bg-white"
+                  value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                  {TASK_CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Prioridade</label>
+                <select className="w-full text-xs border border-slate-200 rounded-xl px-2 py-2.5 focus:outline-none focus:border-indigo-400 bg-white"
+                  value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                  {TASK_PRIOS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Prazo</label>
+                <input type="date" className="w-full text-xs border border-slate-200 rounded-xl px-2 py-2.5 focus:outline-none focus:border-indigo-400 bg-white"
+                  value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={save} disabled={saving}
+                className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-60 transition-opacity">
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                {saving ? 'Salvando...' : 'Criar tarefa'}
+              </button>
+              <button onClick={() => setShowForm(false)}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-indigo-400" /></div>
+        ) : tasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center">
+              <CheckSquare size={22} className="text-violet-300" />
+            </div>
+            <p className="text-sm font-semibold text-slate-400">Nenhuma tarefa criada ainda</p>
+            <p className="text-xs text-slate-300 text-center max-w-xs">Crie tarefas para esse paciente. Elas aparecem no app móvel do paciente.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Pendentes */}
+            {pending.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlarmClock size={11} /> A fazer · {pending.length}
+                </p>
+                {pending.map(task => {
+                  const prio = TASK_PRIOS.find(p => p.id === task.priority) || TASK_PRIOS[1];
+                  return (
+                    <div key={task.id} className="flex items-start gap-3 bg-white border border-slate-100 rounded-2xl p-3.5 shadow-sm hover:shadow-md transition-shadow">
+                      <button onClick={() => toggleStatus(task)}
+                        className="mt-0.5 w-5 h-5 rounded-md border-2 border-slate-300 hover:border-violet-500 flex items-center justify-center shrink-0 transition-colors">
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800">{task.title}</p>
+                        {task.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{task.description}</p>}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${prio.color} ${prio.bg} ${prio.border}`}>
+                            <Flag size={8} className="inline mr-0.5" />{prio.label}
+                          </span>
+                          {task.category && task.category !== 'geral' && (
+                            <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                              <Tag size={8} className="inline mr-0.5" />{TASK_CATS.find(c => c.id === task.category)?.label}
+                            </span>
+                          )}
+                          {task.due_date && (
+                            <span className="text-[10px] font-semibold text-slate-500 flex items-center gap-1">
+                              <Clock size={9} />{new Date(task.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
+                          {task.created_by_name && (
+                            <span className="text-[10px] text-slate-300 ml-auto">por {task.created_by_name}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => del(task.id)} className="text-slate-300 hover:text-red-400 transition-colors shrink-0 mt-0.5">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Concluídas */}
+            {done.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide flex items-center gap-1.5 mt-4">
+                  <Check size={11} /> Concluídas pelo paciente · {done.length}
+                </p>
+                {done.map(task => (
+                  <div key={task.id} className="flex items-start gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-3.5 opacity-60">
+                    <div className="mt-0.5 w-5 h-5 rounded-md bg-emerald-500 flex items-center justify-center shrink-0">
+                      <Check size={11} className="text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-500 line-through">{task.title}</p>
+                      {task.completed_at && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Concluída em {new Date(task.completed_at).toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
+                    </div>
+                    <button onClick={() => del(task.id)} className="text-slate-300 hover:text-red-400 transition-colors shrink-0">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </PanelCard>
+    </div>
+  );
+};
 
 // ─── Shared components ────────────────────────────────────────────────────────
 const TabLoader: React.FC = () => (

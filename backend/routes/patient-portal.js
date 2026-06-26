@@ -1748,4 +1748,186 @@ router.delete('/admin/payments/:id', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// TAREFAS DO PACIENTE — criadas pelo psicólogo, lidas pelo paciente
+// ═══════════════════════════════════════════════════════════════════
+
+// Garante tabela patient_tasks
+async function ensureTasksTable() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS patient_tasks (
+      id            INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id     INT NOT NULL,
+      patient_id    INT NOT NULL,
+      created_by    INT NOT NULL,
+      title         VARCHAR(255) NOT NULL,
+      description   TEXT NULL,
+      category      VARCHAR(50) DEFAULT 'geral',
+      priority      VARCHAR(20) DEFAULT 'media',
+      due_date      DATE NULL,
+      status        VARCHAR(20) DEFAULT 'pendente',
+      completed_at  DATETIME NULL,
+      created_at    DATETIME DEFAULT NOW(),
+      updated_at    DATETIME DEFAULT NOW() ON UPDATE NOW(),
+      INDEX (patient_id),
+      INDEX (tenant_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `).catch(() => {});
+}
+ensureTasksTable();
+
+// ── ADMIN: Criar tarefa para paciente ──────────────────────────────
+router.post('/admin/tasks', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    const { patient_id, title, description, category, priority, due_date } = req.body;
+    if (!patient_id || !title?.trim()) return res.status(400).json({ error: 'patient_id e title são obrigatórios.' });
+
+    // Verifica se paciente pertence ao tenant
+    const [[pat]] = await db.query(
+      `SELECT id, name FROM patients WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [patient_id, req.user.tenant_id]
+    );
+    if (!pat) return res.status(404).json({ error: 'Paciente não encontrado.' });
+
+    const [result] = await db.query(
+      `INSERT INTO patient_tasks (tenant_id, patient_id, created_by, title, description, category, priority, due_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.tenant_id, patient_id, req.user.id, title.trim(),
+       description || null, category || 'geral', priority || 'media', due_date || null]
+    );
+
+    // Alerta no sino do sistema
+    try {
+      await db.query(
+        `INSERT INTO system_alerts (tenant_id, type, title, message, link, created_at)
+         VALUES (?, 'task', ?, ?, ?, NOW())`,
+        [req.user.tenant_id,
+         `Nova tarefa para ${pat.name}`,
+         `"${title.trim()}" foi atribuída ao paciente ${pat.name}`,
+         `/pacientes/${patient_id}`]
+      );
+    } catch {}
+
+    res.json({ id: result.insertId, ok: true });
+  } catch (e) {
+    console.error('[tasks create]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ── ADMIN: Listar tarefas de um paciente ───────────────────────────
+router.get('/admin/tasks', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    const { patient_id } = req.query;
+    if (!patient_id) return res.status(400).json({ error: 'patient_id é obrigatório.' });
+
+    const [tasks] = await db.query(
+      `SELECT t.*, u.name AS created_by_name
+       FROM patient_tasks t
+       LEFT JOIN users u ON u.id = t.created_by
+       WHERE t.tenant_id = ? AND t.patient_id = ?
+       ORDER BY t.created_at DESC`,
+      [req.user.tenant_id, patient_id]
+    );
+    res.json({ tasks });
+  } catch (e) {
+    console.error('[tasks list admin]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ── ADMIN: Atualizar tarefa ────────────────────────────────────────
+router.put('/admin/tasks/:id', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    const { title, description, category, priority, due_date, status } = req.body;
+    const completedAt = status === 'concluida' ? new Date() : null;
+
+    await db.query(
+      `UPDATE patient_tasks SET
+         title = COALESCE(?, title),
+         description = ?,
+         category = COALESCE(?, category),
+         priority = COALESCE(?, priority),
+         due_date = ?,
+         status = COALESCE(?, status),
+         completed_at = ?
+       WHERE id = ? AND tenant_id = ?`,
+      [title || null, description ?? null, category || null, priority || null,
+       due_date ?? null, status || null, completedAt, req.params.id, req.user.tenant_id]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[tasks update]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ── ADMIN: Deletar tarefa ──────────────────────────────────────────
+router.delete('/admin/tasks/:id', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
+  try {
+    await db.query(
+      `DELETE FROM patient_tasks WHERE id = ? AND tenant_id = ?`,
+      [req.params.id, req.user.tenant_id]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ── PORTAL PACIENTE: Listar tarefas ───────────────────────────────
+router.get('/tasks', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    const [tasks] = await db.query(
+      `SELECT t.id, t.title, t.description, t.category, t.priority,
+              t.due_date, t.status, t.completed_at, t.created_at,
+              u.name AS assigned_by
+       FROM patient_tasks t
+       LEFT JOIN users u ON u.id = t.created_by
+       WHERE t.patient_id = ? AND t.tenant_id = ?
+       ORDER BY FIELD(t.status,'pendente','em_progresso','concluida'), t.priority DESC, t.created_at DESC`,
+      [session.patient_id, session.tenant_id]
+    );
+    res.json({ tasks });
+  } catch (e) {
+    console.error('[portal tasks]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ── PORTAL PACIENTE: Marcar tarefa como concluída ─────────────────
+router.post('/tasks/:id/complete', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    await db.query(
+      `UPDATE patient_tasks SET status = 'concluida', completed_at = NOW()
+       WHERE id = ? AND patient_id = ? AND tenant_id = ?`,
+      [req.params.id, session.patient_id, session.tenant_id]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ── PORTAL PACIENTE: Desfazer conclusão ───────────────────────────
+router.post('/tasks/:id/undo', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    await db.query(
+      `UPDATE patient_tasks SET status = 'pendente', completed_at = NULL
+       WHERE id = ? AND patient_id = ? AND tenant_id = ?`,
+      [req.params.id, session.patient_id, session.tenant_id]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 module.exports = router;
