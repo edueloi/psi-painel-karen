@@ -1122,6 +1122,91 @@ router.get('/documents', portalAuth, async (req, res) => {
   }
 });
 
+// ─── COMANDAS DO PACIENTE ─────────────────────────────────────────────────────
+
+// GET /patient-portal/comandas — lista comandas abertas do paciente com sessões restantes
+router.get('/comandas', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [rows] = await db.query(
+      `SELECT c.*,
+        (SELECT COUNT(*) FROM appointments a
+         WHERE a.comanda_id = c.id AND a.status IN ('scheduled','confirmed')) AS sessions_scheduled,
+        (SELECT COUNT(*) FROM appointments a
+         WHERE a.comanda_id = c.id AND a.status IN ('completed','no-show')) AS sessions_done,
+        (SELECT COUNT(*) FROM appointments a
+         WHERE a.comanda_id = c.id AND a.status NOT IN ('cancelled')) AS sessions_active
+       FROM comandas c
+       WHERE c.patient_id = ? AND c.tenant_id = ? AND c.status = 'open'
+       ORDER BY c.created_at DESC`,
+      [patient_id, tenant_id]
+    );
+    // Para cada comanda, busca as próximas sessões agendadas
+    const result = [];
+    for (const c of rows) {
+      const [appts] = await db.query(
+        `SELECT id, start_time, end_time, status, modality
+         FROM appointments
+         WHERE comanda_id = ? AND status IN ('scheduled','confirmed')
+         ORDER BY start_time ASC LIMIT 20`,
+        [c.id]
+      );
+      result.push({
+        id: c.id,
+        description: c.description,
+        sessions_total: c.sessions_total || 0,
+        sessions_done: Number(c.sessions_done) || 0,
+        sessions_scheduled: Number(c.sessions_scheduled) || 0,
+        sessions_remaining: Math.max(0, (c.sessions_total || 0) - (Number(c.sessions_done) || 0)),
+        status: c.status,
+        start_date: c.start_date,
+        upcoming_appointments: appts,
+      });
+    }
+    res.json(result);
+  } catch (e) {
+    console.error('[portal comandas]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/comandas — paciente cria nova comanda/pacote
+router.post('/comandas', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const { professional_id, sessions_total, description } = req.body;
+    if (!sessions_total || sessions_total < 1 || sessions_total > 50)
+      return res.status(400).json({ error: 'Número de sessões inválido (1-50).' });
+
+    // Verifica se o profissional pertence ao tenant
+    const [profRows] = await db.query(
+      'SELECT id, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1',
+      [professional_id, tenant_id]
+    );
+    if (!profRows[0]) return res.status(404).json({ error: 'Profissional não encontrado.' });
+
+    const [patRows] = await db.query(
+      'SELECT name FROM patients WHERE id = ? AND tenant_id = ? LIMIT 1',
+      [patient_id, tenant_id]
+    );
+    const patientName = patRows[0]?.name || 'Paciente';
+    const desc = description || `Pacote de ${sessions_total} sessões — ${patientName}`;
+    const duration = profRows[0].duration_minutes || 50;
+
+    const [ins] = await db.query(
+      `INSERT INTO comandas
+       (tenant_id, patient_id, professional_id, description, total, total_net, discount,
+        sessions_total, sessions_used, status, start_date, duration_minutes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 0, 0, 0, ?, 0, 'open', NOW(), ?, NOW(), NOW())`,
+      [tenant_id, patient_id, professional_id, desc, sessions_total, duration]
+    );
+    res.json({ ok: true, comanda_id: ins.insertId, description: desc, sessions_total });
+  } catch (e) {
+    console.error('[portal new comanda]', e?.message);
+    res.status(500).json({ error: 'Erro ao criar pacote.' });
+  }
+});
+
 // ─── ADMIN: configurações do portal (portal_settings no tenant) ──────────────
 
 // GET /patient-portal/settings — lê configurações do portal do tenant

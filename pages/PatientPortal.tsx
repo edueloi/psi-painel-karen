@@ -97,6 +97,18 @@ interface PortalPayment {
   created_at: string;
 }
 
+interface PortalComanda {
+  id: number;
+  description: string;
+  sessions_total: number;
+  sessions_done: number;
+  sessions_scheduled: number;
+  sessions_remaining: number;
+  status: string;
+  start_date: string;
+  upcoming_appointments: { id: number; start_time: string; status: string; modality: string }[];
+}
+
 interface PortalSettings {
   pix_key?: string;
   pix_key_type?: string;
@@ -498,15 +510,16 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
 }
 
 // ─── Tab: Agenda ──────────────────────────────────────────────────────────────
-function AgendaTab({ appointments, requests, professionals, onRefresh, allowSchedule, showToast }: {
+function AgendaTab({ appointments, requests, professionals, onRefresh, allowSchedule, showToast, comandas }: {
   appointments: PortalAppointment[];
   requests: ScheduleRequest[];
   professionals: { id: number; name: string; specialty?: string }[];
   onRefresh: () => void;
   allowSchedule: boolean;
   showToast: (msg: string, type?: ToastType) => void;
+  comandas: PortalComanda[];
 }) {
-  const [mode, setMode] = useState<"list" | "schedule" | "reschedule">("list");
+  const [mode, setMode] = useState<"list" | "schedule" | "reschedule" | "new-comanda">("list");
   const [loading, setLoading] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [rescheduleAppt, setRescheduleAppt] = useState<PortalAppointment | null>(null);
@@ -540,6 +553,37 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   // dayAvailability: para colorir o calendário — carregado em batch para o mês
   const [dayAvailability, setDayAvailability] = useState<Record<string, { total: number; available: number }>>({});
   const [monthLoading, setMonthLoading] = useState(false);
+
+  // Estado do modal "Criar pacote"
+  const [newComandaForm, setNewComandaForm] = useState({ sessions_total: 4 });
+  const [creatingComanda, setCreatingComanda] = useState(false);
+
+  const createComanda = async () => {
+    if (!professionals[0]) return;
+    setCreatingComanda(true);
+    try {
+      const res = await portalFetch("/comandas", {
+        method: "POST",
+        body: JSON.stringify({
+          professional_id: professionals[0].id,
+          sessions_total: newComandaForm.sessions_total,
+        }),
+      });
+      if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao criar pacote.", "error"); return; }
+      showToast("Pacote criado! Agora agende suas sessões.", "success");
+      setMode("list");
+      onRefresh();
+    } finally { setCreatingComanda(false); }
+  };
+
+  // Comanda ativa (aberta com sessões disponíveis)
+  const activeComanda = comandas.find(c => c.sessions_remaining > 0);
+  // Sessões já agendadas na comanda ativa
+  const scheduledInComanda = activeComanda
+    ? appointments.filter(a => ["scheduled","confirmed"].includes(a.status) && new Date(a.start_date) > new Date()).length
+    : 0;
+  // Quantas sessões o paciente ainda pode agendar
+  const slotsLeft = activeComanda ? Math.max(0, activeComanda.sessions_remaining - scheduledInComanda) : null;
 
   const upcoming = appointments
     .filter(a => ["scheduled", "confirmed"].includes(a.status) && new Date(a.start_date) > new Date())
@@ -781,6 +825,58 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     .map(a => a.start_date?.split("T")[0] || "");
 
   const selectedProf = professionals.find(p => p.id.toString() === schedForm.professional_id);
+
+  // ─── NEW COMANDA FLOW ───────────────────────────────────────────────────────
+  if (mode === "new-comanda") {
+    return (
+      <div className="space-y-4 pb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <button onClick={() => setMode("list")} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-all">
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h2 className="text-base font-black text-slate-800">Criar Pacote de Sessões</h2>
+            <p className="text-xs text-slate-400">Seu terapeuta será notificado para confirmar</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+          <div>
+            <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3 block">Quantas sessões no pacote?</label>
+            <div className="grid grid-cols-4 gap-2">
+              {[4, 8, 12, 16].map(n => (
+                <button key={n} onClick={() => setNewComandaForm(f => ({ ...f, sessions_total: n }))}
+                  className={`py-3 rounded-xl text-sm font-black border transition-all ${newComandaForm.sessions_total === n ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300"}`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <button onClick={() => setNewComandaForm(f => ({ ...f, sessions_total: Math.max(1, f.sessions_total - 1) }))}
+                className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 font-black text-lg flex items-center justify-center hover:bg-slate-200 transition-all">−</button>
+              <div className="flex-1 text-center">
+                <span className="text-2xl font-black text-indigo-600">{newComandaForm.sessions_total}</span>
+                <span className="text-sm text-slate-400 ml-1">sessões</span>
+              </div>
+              <button onClick={() => setNewComandaForm(f => ({ ...f, sessions_total: Math.min(50, f.sessions_total + 1) }))}
+                className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 font-black text-lg flex items-center justify-center hover:bg-slate-200 transition-all">+</button>
+            </div>
+          </div>
+
+          <div className="bg-indigo-50 rounded-xl px-4 py-3 text-xs text-indigo-700">
+            <p className="font-black mb-1">O que é um pacote?</p>
+            <p>Você reserva um número de sessões com seu terapeuta. Depois, agenda cada sessão individualmente no dia e horário que preferir, dentro das sessões disponíveis.</p>
+          </div>
+
+          <Button variant="primary" onClick={createComanda} loading={creatingComanda} loadingText="Criando..."
+            iconLeft={<Check size={16} />}
+            className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+            Criar pacote de {newComandaForm.sessions_total} sessões
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // ─── SCHEDULE / RESCHEDULE FLOW ─────────────────────────────────────────────
   if (mode === "schedule" || mode === "reschedule") {
@@ -1142,11 +1238,78 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   // ─── LIST VIEW ───────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 pb-6">
+
+      {/* Banner do pacote ativo */}
+      {activeComanda && (
+        <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+          <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+                <Sparkles size={12} className="text-white" />
+              </div>
+              <span className="text-xs font-black text-indigo-700">Seu Pacote Ativo</span>
+            </div>
+            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">ABERTO</span>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-xs font-bold text-slate-600 mb-2 truncate">{activeComanda.description}</p>
+            {/* Barra de progresso */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-2 bg-indigo-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (activeComanda.sessions_done / activeComanda.sessions_total) * 100)}%` }}
+                />
+              </div>
+              <span className="text-xs font-black text-slate-600 shrink-0">
+                {activeComanda.sessions_done}/{activeComanda.sessions_total}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-slate-50 rounded-xl py-2">
+                <p className="text-base font-black text-slate-800">{activeComanda.sessions_total}</p>
+                <p className="text-[10px] text-slate-400">Total</p>
+              </div>
+              <div className="bg-emerald-50 rounded-xl py-2">
+                <p className="text-base font-black text-emerald-600">{activeComanda.sessions_done}</p>
+                <p className="text-[10px] text-slate-400">Realizadas</p>
+              </div>
+              <div className="bg-indigo-50 rounded-xl py-2">
+                <p className="text-base font-black text-indigo-600">{activeComanda.sessions_remaining}</p>
+                <p className="text-[10px] text-slate-400">Restantes</p>
+              </div>
+            </div>
+            {slotsLeft !== null && slotsLeft > 0 && (
+              <p className="text-xs text-indigo-600 font-bold mt-2 text-center">
+                Você pode agendar mais {slotsLeft} sessão{slotsLeft !== 1 ? "ões" : ""}
+              </p>
+            )}
+            {slotsLeft === 0 && (
+              <p className="text-xs text-amber-600 font-bold mt-2 text-center">
+                Todas as sessões do pacote já estão agendadas
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Botões de ação */}
       {allowSchedule && (
-        <Button variant="primary" onClick={() => { setMode("schedule"); setStep("calendar"); setSchedForm(f => ({ ...f, date: "", time: "" })); }}
-          className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700 shadow-lg">
-          <Plus size={18} /> Agendar / Solicitar Consulta
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="primary"
+            disabled={slotsLeft === 0 && !!activeComanda}
+            onClick={() => { setMode("schedule"); setStep("calendar"); setSchedForm(f => ({ ...f, date: "", time: "" })); }}
+            className="flex-1 bg-indigo-600 border-indigo-600 hover:bg-indigo-700 shadow-lg disabled:opacity-50">
+            <Plus size={16} /> {activeComanda ? "Usar sessão do pacote" : "Agendar Consulta"}
+          </Button>
+          <button
+            onClick={() => setMode("new-comanda")}
+            className="flex items-center gap-1.5 px-3 py-2 border border-indigo-200 text-indigo-600 text-xs font-bold rounded-xl hover:bg-indigo-50 transition-all shrink-0"
+            title="Criar pacote de sessões"
+          >
+            <Gem size={14} /> Pacote
+          </button>
+        </div>
       )}
 
       {requests.filter(r => r.status === "pending").length > 0 && (
@@ -2197,6 +2360,7 @@ export const PatientPortal: React.FC = () => {
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [documents, setDocuments] = useState<{ documents: any[]; uploads: any[] }>({ documents: [], uploads: [] });
   const [portalSettings, setPortalSettings] = useState<PortalSettings>({});
+  const [comandas, setComandas] = useState<PortalComanda[]>([]);
   const [loading, setLoading] = useState(true);
   const [allowSchedule, setAllowSchedule] = useState(true);
   const globalToast = useToast();
@@ -2211,7 +2375,7 @@ export const PatientPortal: React.FC = () => {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [meRes, apptRes, payRes, reqRes, profRes, docsRes, settingsRes] = await Promise.all([
+      const [meRes, apptRes, payRes, reqRes, profRes, docsRes, settingsRes, comandasRes] = await Promise.all([
         portalFetch("/me"),
         portalFetch("/appointments"),
         portalFetch("/payments"),
@@ -2219,6 +2383,7 @@ export const PatientPortal: React.FC = () => {
         portalFetch("/professionals"),
         portalFetch("/documents"),
         portalFetch("/portal-settings"),
+        portalFetch("/comandas"),
       ]);
       if (meRes.ok) setPatient(await meRes.json());
       if (apptRes.ok) setAppointments(await apptRes.json());
@@ -2227,6 +2392,7 @@ export const PatientPortal: React.FC = () => {
       if (profRes.ok) setProfessionals(await profRes.json());
       if (docsRes.ok) setDocuments(await docsRes.json());
       if (settingsRes.ok) setPortalSettings(await settingsRes.json());
+      if (comandasRes.ok) setComandas(await comandasRes.json());
     } finally { setLoading(false); }
   }, []);
 
@@ -2345,7 +2511,7 @@ export const PatientPortal: React.FC = () => {
         <main className="flex-1 px-4 md:px-8 pt-4 pb-6 overflow-y-auto">
           <div className="max-w-4xl w-full">
             {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
-            {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} />}
+            {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} />}
             {tab === "documents" && <DocumentsTab data={documents} />}
             {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
             {tab === "profile"   && <ProfileTab patient={patient} onLogout={handleLogout} onPatientUpdate={loadAll} showToast={globalToast.show} />}
