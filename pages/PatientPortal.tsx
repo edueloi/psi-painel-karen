@@ -435,7 +435,8 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
   const getDayDot = (dateStr: string): { color: string; label: string } | null => {
     if (bookedSet.has(dateStr)) return { color: "bg-indigo-500", label: "agendado" };
     const av = dayAvailability?.[dateStr];
-    if (!av || av.total === 0) return null;
+    if (!av) return null; // ainda carregando — neutro
+    if (av.total === 0) return { color: "", label: "fechado" }; // não atende
     if (av.available === 0) return { color: "bg-red-400", label: "cheio" };
     const ratio = av.available / av.total;
     if (ratio <= 0.35) return { color: "bg-amber-400", label: "poucos" };
@@ -478,9 +479,12 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
           const isToday = date.getTime() === today.getTime();
           const dot = !isPast ? getDayDot(dateStr) : null;
           const isFull = dot?.label === "cheio";
+          const isClosed = dot?.label === "fechado";
+          const isDisabled = isPast || isFull || isClosed;
 
           let cls = "h-11 rounded-xl text-sm font-bold transition-all w-full relative flex flex-col items-center justify-center gap-0 ";
           if (isPast) cls += "text-slate-200 cursor-default";
+          else if (isClosed) cls += "text-slate-300 cursor-not-allowed line-through decoration-slate-300";
           else if (isSelected) cls += "bg-indigo-600 text-white shadow-md cursor-pointer";
           else if (isFull) cls += "text-slate-300 cursor-not-allowed";
           else if (isToday) cls += "border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 cursor-pointer";
@@ -488,10 +492,10 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
 
           return (
             <button key={dateStr} type="button"
-              disabled={isPast || isFull}
-              onClick={() => !isPast && !isFull && onChange(dateStr)} className={cls}>
+              disabled={isDisabled}
+              onClick={() => !isDisabled && onChange(dateStr)} className={cls}>
               <span className="leading-none">{day}</span>
-              {dot && (
+              {dot && dot.color && (
                 <span className={`w-1.5 h-1.5 rounded-full ${dot.color} ${isSelected ? "bg-white/80" : ""}`} />
               )}
             </button>
@@ -503,8 +507,9 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-400">
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Livre</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> Poucos horários</span>
-        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Cheio</span>
+        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Sem vagas</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block" /> Agendado</span>
+        <span className="flex items-center gap-1 line-through decoration-slate-300">Sem atend.</span>
       </div>
     </div>
   );
