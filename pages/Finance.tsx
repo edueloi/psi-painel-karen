@@ -472,14 +472,32 @@ export const Finance: React.FC = () => {
         {portalAttachModal && (
           <Modal isOpen={true} onClose={() => setPortalAttachModal(null)} title="Comprovantes" maxWidth="max-w-md">
             <div className="space-y-3 p-2">
-              {portalAttachModal.attachments.map((a: any) => (
-                <a key={a.id} href={a.file_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all group">
-                  <Paperclip size={16} className="text-indigo-400 flex-shrink-0"/>
-                  <span className="text-sm font-semibold text-slate-700 truncate group-hover:text-indigo-600">{a.file_name}</span>
-                  <Eye size={14} className="text-slate-300 group-hover:text-indigo-400 flex-shrink-0 ml-auto"/>
-                </a>
-              ))}
+              {portalAttachModal.attachments.map((a: any) => {
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name || a.file_url || '');
+                return (
+                  <div key={a.id} className="rounded-xl border border-slate-100 overflow-hidden">
+                    {isImage && (
+                      <div className="bg-slate-50 border-b border-slate-100 max-h-64 overflow-hidden flex items-center justify-center">
+                        <img src={a.file_url} alt={a.file_name} className="max-w-full max-h-64 object-contain" />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 p-3">
+                      <Paperclip size={16} className="text-indigo-400 flex-shrink-0"/>
+                      <span className="text-sm font-semibold text-slate-700 truncate flex-1">{a.file_name || 'Anexo'}</span>
+                      <a href={a.file_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[10px] font-black text-slate-500 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                        title="Visualizar">
+                        <Eye size={12}/> Ver
+                      </a>
+                      <a href={a.file_url} download={a.file_name || 'comprovante'}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[10px] font-black text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                        title="Baixar">
+                        <Download size={12}/> Baixar
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Modal>
         )}

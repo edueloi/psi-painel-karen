@@ -106,6 +106,8 @@ interface PortalComanda {
   sessions_remaining: number;
   status: string;
   start_date: string;
+  total?: number;
+  received?: number;
   upcoming_appointments: { id: number; start_time: string; status: string; modality: string }[];
 }
 
@@ -761,6 +763,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           recurrence_freq: schedForm.recurrence_freq || undefined,
           recurrence_count: schedForm.recurrence_freq ? schedForm.recurrence_count : undefined,
           custom_dates: customDates,
+          skip_comanda: !!activeComanda,
+          comanda_id: activeComanda?.id ?? undefined,
         }),
       });
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao agendar.", "error"); return; }
@@ -1734,10 +1738,15 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                 <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Pacote</label>
                 <Combobox
                   value={form.comanda_id}
-                  onChange={(v) => setForm(f => ({ ...f, comanda_id: Array.isArray(v) ? v[0] || "" : v }))}
+                  onChange={(v) => {
+                    const id = Array.isArray(v) ? v[0] || "" : v;
+                    const c = comandas.find(c => String(c.id) === id);
+                    const pending = c ? Math.max(0, (c.total ?? 0) - (c.received ?? 0)) : 0;
+                    setForm(f => ({ ...f, comanda_id: id, amount: pending > 0 ? String(pending) : f.amount }));
+                  }}
                   options={comandas.filter(c => c.status === "open").map(c => ({
                     value: String(c.id),
-                    label: `Pacote #${c.id} — ${c.sessions_total} sessões (${c.sessions_done} realizadas)`,
+                    label: `Pacote #${c.id} — ${c.sessions_total} sessões · R$ ${Number(c.total ?? 0).toFixed(2)}`,
                   }))}
                   placeholder="Selecione o pacote"
                 />

@@ -960,6 +960,7 @@ router.post('/appointments', portalAuth, async (req, res) => {
     const {
       professional_id, date, time, modality, notes,
       recurrence_freq, recurrence_count, skip_comanda,
+      comanda_id: provided_comanda_id, // comanda existente para vincular quando skip_comanda=true
       custom_dates, // array opcional [{date:'YYYY-MM-DD', time:'HH:MM'}, ...] para datas customizadas
     } = req.body;
     if (!professional_id || !date || !time)
@@ -1043,9 +1044,9 @@ router.post('/appointments', portalAuth, async (req, res) => {
     const description = sessionsTotal > 1
       ? `Pacote de ${sessionsTotal} sessões — ${patientName}`
       : `Consulta — ${patientName}`;
-    let comandaId = null;
-    // No reagendamento (skip_comanda) não criamos comanda nova — evita comandas órfãs.
-    if (!skip_comanda) {
+    let comandaId = provided_comanda_id ? parseInt(provided_comanda_id) : null;
+    // No reagendamento (skip_comanda) ou quando já existe comanda ativa, não cria nova.
+    if (!skip_comanda && !comandaId) {
       try {
         const firstStr = brtDateTimeStr(occurrences[0].yyyy, occurrences[0].mm, occurrences[0].dd, occurrences[0].h, occurrences[0].min);
         const [comandaIns] = await db.query(
@@ -1198,6 +1199,8 @@ router.get('/comandas', portalAuth, async (req, res) => {
         sessions_remaining: Math.max(0, (c.sessions_total || 0) - (Number(c.sessions_done) || 0)),
         status: c.status,
         start_date: c.start_date,
+        total: Number(c.total) || 0,
+        received: Number(c.total_received) || 0,
         upcoming_appointments: appts,
       });
     }
