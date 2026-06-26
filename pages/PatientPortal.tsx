@@ -1553,9 +1553,10 @@ function PixCard({ pix_key, pix_owner_name, pix_instructions }: {
 }
 
 // ─── Tab: Pagamentos ──────────────────────────────────────────────────────────
-function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSettings }: {
+function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, portalSettings }: {
   payments: PortalPayment[];
   appointments: PortalAppointment[];
+  comandas: PortalComanda[];
   onRefresh: () => void;
   showToast: (msg: string, type?: ToastType) => void;
   portalSettings: PortalSettings;
@@ -1571,8 +1572,9 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
   const [filterMonth, setFilterMonth] = useState(now.getMonth()); // 0-11
   const [filterYear, setFilterYear] = useState(now.getFullYear());
 
+  const [paymentTarget, setPaymentTarget] = useState<"appointment" | "comanda">("appointment");
   const [form, setForm] = useState({
-    appointment_id: "", amount: "", payment_method: "pix",
+    appointment_id: "", comanda_id: "", amount: "", payment_method: "pix",
     payment_date: new Date().toISOString().split("T")[0], notes: "",
   });
 
@@ -1598,7 +1600,13 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
     setLoading(true);
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
+      Object.entries(form).forEach(([k, v]) => {
+        if (!v) return;
+        // ao pagar pacote, não enviar appointment_id; ao pagar consulta, não enviar comanda_id
+        if (paymentTarget === "comanda" && k === "appointment_id") return;
+        if (paymentTarget === "appointment" && k === "comanda_id") return;
+        fd.append(k, v);
+      });
       files.forEach(f => fd.append("attachments", f));
       const res = await fetch(`${API_BASE_URL}/patient-portal/payments`, {
         method: "POST",
@@ -1608,7 +1616,8 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
       if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro.", "error"); return; }
       showToast("Pagamento registrado! Aguarde a confirmação.", "success");
       setShowForm(false); setFiles([]);
-      setForm({ appointment_id: "", amount: "", payment_method: enabledMethods[0]?.key || "pix", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+      setForm({ appointment_id: "", comanda_id: "", amount: "", payment_method: enabledMethods[0]?.key || "pix", payment_date: new Date().toISOString().split("T")[0], notes: "" });
+      setPaymentTarget("appointment");
       onRefresh();
     } finally { setLoading(false); }
   };
@@ -1689,7 +1698,25 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
             <button onClick={() => setShowForm(false)} className="text-slate-400 p-1"><X size={16} /></button>
           </div>
           <div className="p-4 space-y-3">
-            {pendingAppts.length > 0 && (
+            {/* Toggle: pagar consulta ou pacote */}
+            {comandas.filter(c => c.status === "open").length > 0 && (
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Tipo de pagamento</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => { setPaymentTarget("appointment"); setForm(f => ({ ...f, comanda_id: "" })); }}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${paymentTarget === "appointment" ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
+                    Consulta avulsa
+                  </button>
+                  <button type="button" onClick={() => { setPaymentTarget("comanda"); setForm(f => ({ ...f, appointment_id: "" })); }}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${paymentTarget === "comanda" ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
+                    Pacote completo
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Seleção de consulta avulsa */}
+            {paymentTarget === "appointment" && pendingAppts.length > 0 && (
               <div>
                 <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Consulta relacionada</label>
                 <Combobox
@@ -1700,6 +1727,22 @@ function PaymentsTab({ payments, appointments, onRefresh, showToast, portalSetti
                     ...pendingAppts.map(a => ({ value: String(a.id), label: `${fmtDate(a.start_date)} ${fmtTime(a.start_date)}${a.service_name ? ` — ${a.service_name}` : ""}` })),
                   ]}
                   placeholder="Sem consulta específica"
+                />
+              </div>
+            )}
+
+            {/* Seleção de pacote */}
+            {paymentTarget === "comanda" && (
+              <div>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Pacote</label>
+                <Combobox
+                  value={form.comanda_id}
+                  onChange={(v) => setForm(f => ({ ...f, comanda_id: Array.isArray(v) ? v[0] || "" : v }))}
+                  options={comandas.filter(c => c.status === "open").map(c => ({
+                    value: String(c.id),
+                    label: `Pacote #${c.id} — ${c.sessions_total} sessões (${c.sessions_done} realizadas)`,
+                  }))}
+                  placeholder="Selecione o pacote"
                 />
               </div>
             )}
@@ -2580,7 +2623,7 @@ export const PatientPortal: React.FC = () => {
             {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
             {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} />}
             {tab === "documents" && <DocumentsTab data={documents} />}
-            {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
+            {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} comandas={comandas} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
             {tab === "profile"   && <ProfileTab patient={patient} onLogout={handleLogout} onPatientUpdate={loadAll} showToast={globalToast.show} />}
           </div>
         </main>

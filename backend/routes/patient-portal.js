@@ -600,14 +600,14 @@ router.get('/payments', portalAuth, async (req, res) => {
 router.post('/payments', portalAuth, upload.array('attachments', 5), async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
-    const { appointment_id, amount, payment_method, payment_date, notes } = req.body;
+    const { appointment_id, comanda_id, amount, payment_method, payment_date, notes } = req.body;
     if (!amount || !payment_date) return res.status(400).json({ error: 'Valor e data são obrigatórios.' });
 
     const [ins] = await db.query(
       `INSERT INTO patient_portal_payments
-       (tenant_id, patient_id, appointment_id, amount, payment_method, payment_date, notes, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
-      [tenant_id, patient_id, appointment_id || null, parseFloat(amount),
+       (tenant_id, patient_id, appointment_id, comanda_id, amount, payment_method, payment_date, notes, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
+      [tenant_id, patient_id, appointment_id || null, comanda_id || null, parseFloat(amount),
        payment_method || 'pix', payment_date, notes || null]
     );
     const paymentId = ins.insertId;
