@@ -455,6 +455,17 @@ router.post('/register', registerLimiter, async (req, res) => {
 
     await conn.commit();
 
+    // Envia email de boas-vindas (não bloqueia a resposta)
+    sendMail(
+      email,
+      '🎉 Bem-vindo ao PsiFlux! Sua conta está pronta',
+      templates.welcome({
+        name,
+        email,
+        loginUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/login`,
+      })
+    ).catch(() => {});
+
     res.status(201).json({ message: 'Cadastro realizado! Faça login para acessar seu painel.' });
   } catch (err) {
     await conn.rollback();

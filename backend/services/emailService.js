@@ -233,7 +233,70 @@ function templateMonthlyReport({ monthLabel, totalAppointments, completedCount, 
   return baseTemplate('📅 Relatório Mensal', content, 'Enviado automaticamente no primeiro dia de cada mês.');
 }
 
-/** 6. Recuperação de senha */
+/** 6. Boas-vindas (novo cadastro) */
+function templateWelcome({ name, email, loginUrl }) {
+  const content = `
+    <p style="margin:0 0 8px;font-size:15px;color:#475569;">Olá, <strong>${name}</strong>! 🎉</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#475569;">Sua conta no <strong style="color:#4f46e5;">PsiFlux</strong> foi criada com sucesso. Estamos felizes em ter você aqui!</p>
+
+    <!-- Card de destaque -->
+    <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:20px;padding:28px;margin-bottom:28px;text-align:center;">
+      <p style="margin:0 0 6px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#6366f1;">Sua conta</p>
+      <p style="margin:0 0 4px;font-size:20px;font-weight:900;color:#1e293b;">${name}</p>
+      <p style="margin:0;font-size:13px;color:#64748b;">${email}</p>
+    </div>
+
+    <!-- Período de trial -->
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px 24px;margin-bottom:28px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#16a34a;">🎁 14 dias grátis</p>
+      <p style="margin:0;font-size:14px;color:#166534;">Aproveite todos os recursos do PsiFlux sem pagar nada por 14 dias. Sem precisar de cartão.</p>
+    </div>
+
+    <!-- O que você pode fazer -->
+    <p style="margin:0 0 16px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;">O que você pode fazer</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <tr>
+        <td style="padding:0 8px 0 0;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">📅</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Agenda</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Gerencie seus atendimentos com facilidade</p>
+          </div>
+        </td>
+        <td style="padding:0 0 0 8px;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">👥</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Pacientes</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Cadastro completo com prontuário digital</p>
+          </div>
+        </td>
+      </tr>
+      <tr style="margin-top:12px;">
+        <td style="padding:12px 8px 0 0;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">💰</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Financeiro</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Controle de cobranças, pacotes e fluxo de caixa</p>
+          </div>
+        </td>
+        <td style="padding:12px 0 0 8px;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">🌐</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Portal do Paciente</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Link exclusivo para seus pacientes acessarem</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:8px 0 0;">
+      <a href="${loginUrl || 'https://psiflux.com.br'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 48px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">🚀 Acessar meu painel</a>
+    </div>`;
+  return baseTemplate('Bem-vindo ao PsiFlux! 🎉', content, 'Você está recebendo este email porque criou uma conta no PsiFlux.');
+}
+
+/** 7. Recuperação de senha */
 function templatePasswordReset({ name, link }) {
   const content = `
     <p style="margin:0 0 20px;font-size:15px;color:#475569;">Olá, <strong>${name || 'usuário'}</strong> 👋</p>
@@ -261,6 +324,7 @@ module.exports = {
     newAppointment: templateNewAppointment,
     weeklyReport: templateWeeklyReport,
     monthlyReport: templateMonthlyReport,
+    welcome: templateWelcome,
     passwordReset: templatePasswordReset,
   }
 };
