@@ -1640,12 +1640,27 @@ router.patch('/admin/schedule-requests/:id', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     const { status, appointment_id } = req.body;
+    const [[req_row]] = await db.query(
+      `SELECT r.patient_id, r.preferred_date, r.preferred_time FROM patient_portal_schedule_requests r WHERE r.id = ? AND r.tenant_id = ?`,
+      [req.params.id, req.user.tenant_id]
+    );
     await db.query(
       `UPDATE patient_portal_schedule_requests SET status = ?, appointment_id = ?,
        reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
        WHERE id = ? AND tenant_id = ?`,
       [status, appointment_id || null, req.user.id, req.params.id, req.user.tenant_id]
     );
+    if (req_row) {
+      const dateStr = req_row.preferred_date || '';
+      const timeStr = req_row.preferred_time ? ` às ${req_row.preferred_time}` : '';
+      if (status === 'accepted') {
+        sendPushToPatient(req_row.patient_id, '✅ Solicitação confirmada!',
+          `Sua consulta de ${dateStr}${timeStr} foi confirmada.`, { type: 'appointment' }).catch(() => {});
+      } else if (status === 'rejected') {
+        sendPushToPatient(req_row.patient_id, '❌ Solicitação não confirmada',
+          `Sua solicitação para ${dateStr} não pôde ser confirmada.`, { type: 'appointment' }).catch(() => {});
+      }
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Erro interno.' });
@@ -1732,6 +1747,17 @@ router.patch('/admin/payments/:id', async (req, res) => {
         `UPDATE patient_portal_payments SET finance_transaction_id = ? WHERE id = ?`,
         [txRes.insertId, payment.id]
       ).catch(() => {}); // coluna pode não existir ainda, ignora silenciosamente
+    }
+
+    // Push para o paciente
+    if (status === 'confirmed') {
+      sendPushToPatient(payment.patient_id, '💰 Pagamento confirmado!',
+        `Seu pagamento de R$ ${parseFloat(payment.amount).toFixed(2).replace('.',',')} foi confirmado.`,
+        { type: 'finance' }).catch(() => {});
+    } else if (status === 'rejected') {
+      sendPushToPatient(payment.patient_id, '⚠️ Pagamento não confirmado',
+        'Seu pagamento declarado não foi confirmado. Entre em contato com seu profissional.',
+        { type: 'finance' }).catch(() => {});
     }
 
     res.json({ ok: true });
@@ -1834,7 +1860,8 @@ router.post('/admin/tasks', async (req, res) => {
     // Push notification para o app do paciente
     sendPushToPatient(patient_id,
       '📋 Nova tarefa do seu profissional',
-      title.trim()
+      title.trim(),
+      { type: 'task' }
     ).catch(() => {});
 
     res.json({ id: result.insertId, ok: true });

@@ -996,6 +996,27 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
       [req.params.id]
     );
 
+    // Push para o paciente quando o profissional muda o status
+    const apt = updated[0];
+    if (apt && apt.patient_id && dbStatus !== existing[0].old_status) {
+      const dateStr = apt.start_time
+        ? new Date(apt.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
+        : '';
+      const timeStr = apt.start_time
+        ? new Date(apt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+        : '';
+      const pushMap = {
+        confirmed: { title: '✅ Consulta confirmada!', body: `${dateStr} às ${timeStr} foi confirmada.` },
+        cancelled:  { title: '❌ Consulta cancelada', body: `Sua consulta de ${dateStr} às ${timeStr} foi cancelada.` },
+        scheduled:  { title: '🗓 Consulta agendada', body: `${dateStr} às ${timeStr}` },
+        completed:  { title: '✔️ Consulta realizada', body: `Sua sessão de ${dateStr} foi registrada.` },
+      };
+      const msg = pushMap[dbStatus];
+      if (msg) {
+        sendPushToPatient(apt.patient_id, msg.title, msg.body, { type: 'appointment', status: dbStatus }).catch(() => {});
+      }
+    }
+
     res.json(updated[0]);
   } catch (err) {
     console.error('Erro ao atualizar status:', err);
