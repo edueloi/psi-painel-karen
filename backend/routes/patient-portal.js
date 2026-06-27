@@ -536,7 +536,7 @@ router.patch('/me', portalAuth, async (req, res) => {
     if (!Object.keys(updates).length) return res.json({ ok: true });
     const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
     await db.query(
-      `UPDATE patients SET ${sets}, updated_at = NOW() WHERE id = ? AND tenant_id = ?`,
+      `UPDATE patients SET ${sets} WHERE id = ? AND tenant_id = ?`,
       [...Object.values(updates), patient_id, tenant_id]
     );
     res.json({ ok: true });
