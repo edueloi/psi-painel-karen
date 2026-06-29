@@ -2103,4 +2103,53 @@ router.post('/auth/push-token', portalAuth, async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════════
+// MENSAGENS (chat paciente ↔ profissional)
+// ══════════════════════════════════════════════════════════════════
+
+// GET /patient-portal/messages — busca histórico, marca mensagens do profissional como lidas
+router.get('/messages', requirePortalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [rows] = await db.query(
+      `SELECT id, sender_type, sender_id, content, read_at, created_at
+       FROM portal_messages
+       WHERE tenant_id = ? AND patient_id = ?
+       ORDER BY created_at ASC
+       LIMIT 300`,
+      [tenant_id, patient_id]
+    );
+    // Marca como lidas as mensagens do profissional ainda não lidas
+    await db.query(
+      `UPDATE portal_messages SET read_at = NOW()
+       WHERE tenant_id = ? AND patient_id = ? AND sender_type = 'professional' AND read_at IS NULL`,
+      [tenant_id, patient_id]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error('[portal/messages GET]', e.message);
+    res.status(500).json({ error: 'Erro ao buscar mensagens' });
+  }
+});
+
+// POST /patient-portal/messages — paciente envia mensagem
+router.post('/messages', requirePortalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const { content } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ error: 'Conteúdo obrigatório' });
+
+    const [result] = await db.query(
+      `INSERT INTO portal_messages (tenant_id, patient_id, sender_type, sender_id, content)
+       VALUES (?, ?, 'patient', ?, ?)`,
+      [tenant_id, patient_id, patient_id, content.trim()]
+    );
+    const [rows] = await db.query('SELECT * FROM portal_messages WHERE id = ?', [result.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (e) {
+    console.error('[portal/messages POST]', e.message);
+    res.status(500).json({ error: 'Erro ao enviar mensagem' });
+  }
+});
+
 module.exports = router;
