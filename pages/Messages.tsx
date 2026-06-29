@@ -1120,6 +1120,7 @@ export const Messages: React.FC = () => {
           </div>
         )}
       </div>
+      )} {/* fim pageTab === 'templates' */}
 
       {/* ── MODAL CRIAR / EDITAR ── */}
       <Modal
@@ -1384,8 +1385,6 @@ export const Messages: React.FC = () => {
           </div>
         </div>
       </Modal>
-
-      )} {/* fim pageTab === 'templates' */}
 
       <ConfirmModal
         isOpen={!!deleteTarget}
