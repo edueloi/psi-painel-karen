@@ -242,4 +242,68 @@ router.delete('/templates/:id', async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════════
+// CHAT PACIENTE — profissional lê e responde pelo painel
+// ══════════════════════════════════════════════════════════════════
+
+// GET /messages/portal/:patientId — busca conversa do paciente (profissional vê tudo)
+router.get('/portal/:patientId', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, sender_type, sender_id, content, read_at, created_at
+       FROM portal_messages
+       WHERE tenant_id = ? AND patient_id = ?
+       ORDER BY created_at ASC
+       LIMIT 500`,
+      [req.user.tenant_id, req.params.patientId]
+    );
+    // Marca como lidas as mensagens do paciente
+    await db.query(
+      `UPDATE portal_messages SET read_at = NOW()
+       WHERE tenant_id = ? AND patient_id = ? AND sender_type = 'patient' AND read_at IS NULL`,
+      [req.user.tenant_id, req.params.patientId]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error('[messages/portal GET]', e.message);
+    res.status(500).json({ error: 'Erro ao buscar mensagens' });
+  }
+});
+
+// POST /messages/portal/:patientId — profissional responde
+router.post('/portal/:patientId', async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ error: 'Conteúdo obrigatório' });
+    const [result] = await db.query(
+      `INSERT INTO portal_messages (tenant_id, patient_id, sender_type, sender_id, content)
+       VALUES (?, ?, 'professional', ?, ?)`,
+      [req.user.tenant_id, req.params.patientId, req.user.id, content.trim()]
+    );
+    const [rows] = await db.query('SELECT * FROM portal_messages WHERE id = ?', [result.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (e) {
+    console.error('[messages/portal POST]', e.message);
+    res.status(500).json({ error: 'Erro ao enviar mensagem' });
+  }
+});
+
+// GET /messages/portal/unread-counts — badges de não lidos por paciente
+router.get('/portal/unread-counts', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT patient_id, COUNT(*) as unread
+       FROM portal_messages
+       WHERE tenant_id = ? AND sender_type = 'patient' AND read_at IS NULL
+       GROUP BY patient_id`,
+      [req.user.tenant_id]
+    );
+    const map = {};
+    for (const r of rows) map[r.patient_id] = r.unread;
+    res.json(map);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro' });
+  }
+});
+
 module.exports = router;
