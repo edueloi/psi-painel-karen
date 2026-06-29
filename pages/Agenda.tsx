@@ -1238,16 +1238,41 @@ export const Agenda: React.FC = () => {
         response = await api.post<Appointment>('/appointments', payload);
       }
 
-      // Aplica as mesmas alterações (exceto data) nos demais agendamentos selecionados
+      // Aplica as mesmas alterações (mantém a data original, mas propaga o novo horário e outros campos) nos demais agendamentos selecionados
+      const localToUtc = (str: string) => {
+        if (!str) return null;
+        const [datePart, timePart = '00:00'] = str.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, min] = timePart.split(':').map(Number);
+        return new Date(year, month - 1, day, hour, min).toISOString();
+      };
+
       for (const extraId of extraIds) {
         if (String(extraId) === String(payload.id)) continue;
         const sibling = appointments.find(a => String(a.id) === String(extraId));
+        
+        let newAppointmentDate = payload.appointment_date;
+        let newStartUtc = null;
+        let newEndUtc = null;
+        
+        if (sibling && payload.appointment_date) {
+            const sDate = new Date(sibling.start);
+            const localDateStr = `${sDate.getFullYear()}-${String(sDate.getMonth() + 1).padStart(2, '0')}-${String(sDate.getDate()).padStart(2, '0')}`;
+            const newTimeStr = payload.appointment_date.split('T')[1] || '00:00';
+            newAppointmentDate = `${localDateStr}T${newTimeStr}`;
+            
+            newStartUtc = localToUtc(newAppointmentDate);
+            if (newStartUtc && payload.duration_minutes) {
+                newEndUtc = new Date(new Date(newStartUtc).getTime() + Number(payload.duration_minutes) * 60000).toISOString();
+            }
+        }
+
         const siblingPayload = {
           ...payload,
           id: extraId,
-          // mantém a data original de cada sessão — só propaga outros campos
-          start_time: null,
-          appointment_date: sibling ? new Date(sibling.start).toISOString().slice(0, 16) : payload.appointment_date,
+          appointment_date: newAppointmentDate,
+          start_time: newStartUtc || payload.start_time,
+          end_time: newEndUtc || payload.end_time,
         };
         await api.put(`/appointments/${extraId}`, siblingPayload).catch(() => {});
       }
@@ -1869,12 +1894,12 @@ export const Agenda: React.FC = () => {
                     let finalRecurrenceIndex = a.recurrence_index;
                     let finalRecurrenceCount = a.recurrence_count;
                     if (!finalRecurrenceIndex && a.comanda_id) {
-                        const comandaApts = appointments.filter(x => String(x.comanda_id || '') === String(a.comanda_id))
+                        const comandaApts = appointments.filter(x => String(x.comanda_id || '') === String(a.comanda_id) && x.status !== 'cancelled')
                             .sort((x, y) => new Date(x.start).getTime() - new Date(y.start).getTime());
                         const idx = comandaApts.findIndex(x => String(x.id) === String(a.id));
                         if (idx !== -1) {
                             finalRecurrenceIndex = idx + 1;
-                            finalRecurrenceCount = comandaApts.length;
+                            finalRecurrenceCount = a.comanda_sessions_total ? Number(a.comanda_sessions_total) : comandaApts.length;
                         }
                     }
 
