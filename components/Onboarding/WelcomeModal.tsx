@@ -12,12 +12,12 @@ interface WelcomeModalProps {
 }
 
 const ALL_FEATURES = [
-  { icon: <Calendar size={20} />, color: 'bg-sky-500',     label: 'Agenda Inteligente',   desc: 'Consultas, lembretes e recorrências automáticas', feature: 'agenda' },
-  { icon: <Users size={20} />,    color: 'bg-indigo-500',  label: 'Gestão de Pacientes',  desc: 'Prontuários, histórico e formulários clínicos',   feature: 'pacientes' },
-  { icon: <DollarSign size={20} />, color: 'bg-emerald-500', label: 'Financeiro Completo', desc: 'Comandas, NFS-e e relatórios detalhados',          feature: 'financeiro' },
-  { icon: <Video size={20} />,    color: 'bg-violet-500',  label: 'Sala Virtual',          desc: 'Videoconsultas integradas sem apps externos',       feature: 'salas_virtuais' },
-  { icon: <BookOpen size={20} />, color: 'bg-amber-500',   label: 'Formulários & DISC',   desc: 'Avaliações com análise inteligente da Aurora',      feature: 'formularios' },
-  { icon: <Sparkles size={20} />, color: 'bg-rose-500',    label: 'Aurora IA',             desc: 'Assistente que gerencia sua clínica por você',     feature: 'aurora_ai' },
+  { Icon: Calendar,   color: 'bg-sky-500',     label: 'Agenda Inteligente',   desc: 'Consultas, lembretes e recorrências automáticas', feature: 'agenda' },
+  { Icon: Users,      color: 'bg-indigo-500',  label: 'Gestão de Pacientes',  desc: 'Prontuários, histórico e formulários clínicos',   feature: 'pacientes' },
+  { Icon: DollarSign, color: 'bg-emerald-500', label: 'Financeiro Completo',  desc: 'Comandas, NFS-e e relatórios detalhados',          feature: 'financeiro' },
+  { Icon: Video,      color: 'bg-violet-500',  label: 'Sala Virtual',         desc: 'Videoconsultas integradas sem apps externos',       feature: 'salas_virtuais' },
+  { Icon: BookOpen,   color: 'bg-amber-500',   label: 'Formulários & DISC',   desc: 'Avaliações com análise inteligente da Aurora',      feature: 'formularios' },
+  { Icon: Sparkles,   color: 'bg-rose-500',    label: 'Aurora IA',            desc: 'Assistente que gerencia sua clínica por você',     feature: 'aurora_ai' },
 ];
 
 export const WelcomeModal: React.FC<WelcomeModalProps> = ({ userName, onStartTour, onSkip }) => {
@@ -64,7 +64,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ userName, onStartTou
             {features.map((f, i) => (
               <div key={i} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-100">
                 <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl ${f.color} flex items-center justify-center shrink-0 text-white shadow-sm`}>
-                  <span className="[&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5 sm:[&>svg]:h-5">{f.icon}</span>
+                  <f.Icon size={18} />
                 </div>
                 <div className="min-w-0">
                   <p className="font-bold text-slate-800 text-[11px] sm:text-xs leading-tight">{f.label}</p>

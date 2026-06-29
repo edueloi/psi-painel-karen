@@ -32,32 +32,32 @@ type AccessLevel = 'total' | 'edit' | 'own' | 'view' | 'limited' | 'none';
 // e os grupos espelham o NAV_SECTIONS do menu (constants.tsx)
 const MODULES = [
   // Geral
-  { key: 'view_dashboard',          label: 'Dashboard',                         icon: <Boxes size={16} />,       group: 'Geral' },
+  { key: 'view_dashboard',          label: 'Dashboard',                         Icon: Boxes,         group: 'Geral' },
   // Clínico
-  { key: 'view_patients',           label: 'Pacientes',                         icon: <Users size={16} />,       group: 'Clínico' },
-  { key: 'view_medical_records',    label: 'Prontuário & Estudos de Caso',       icon: <FileText size={16} />,    group: 'Clínico' },
-  { key: 'neuro_access',            label: 'Neurodesenvolvimento (PEI)',         icon: <BrainCircuit size={16} />, group: 'Clínico' },
+  { key: 'view_patients',           label: 'Pacientes',                         Icon: Users,         group: 'Clínico' },
+  { key: 'view_medical_records',    label: 'Prontuário & Estudos de Caso',       Icon: FileText,      group: 'Clínico' },
+  { key: 'neuro_access',            label: 'Neurodesenvolvimento (PEI)',         Icon: BrainCircuit,  group: 'Clínico' },
   // Intervenção & Teoria
-  { key: 'manage_clinical_tools',   label: 'Ferramentas Clínicas, Instrumentos (DISC, DASS) & Abordagens', icon: <Briefcase size={16} />, group: 'Intervenção' },
+  { key: 'manage_clinical_tools',   label: 'Ferramentas Clínicas, Instrumentos (DISC, DASS) & Abordagens', Icon: Briefcase, group: 'Intervenção' },
   // Avaliação
-  { key: 'manage_forms',            label: 'Formulários',                          icon: <ClipboardList size={16} />, group: 'Avaliação' },
+  { key: 'manage_forms',            label: 'Formulários',                          Icon: ClipboardList, group: 'Avaliação' },
   // Documentos
-  { key: 'manage_documents',        label: 'Documentos, Encaminhamentos & Termos', icon: <FolderOpen size={16} />, group: 'Documentos' },
+  { key: 'manage_documents',        label: 'Documentos, Encaminhamentos & Termos', Icon: FolderOpen,    group: 'Documentos' },
   // Gestão
-  { key: 'view_agenda',             label: 'Agenda & Salas Virtuais',            icon: <Calendar size={16} />,   group: 'Gestão' },
-  { key: 'manage_professionals',    label: 'Profissionais',                      icon: <UserCheck size={16} />,  group: 'Gestão' },
-  { key: 'manage_services',         label: 'Serviços',                           icon: <Briefcase size={16} />,  group: 'Gestão' },
-  { key: 'manage_products',         label: 'Produtos',                           icon: <Package size={16} />,    group: 'Gestão' },
-  { key: 'view_all_comandas',       label: 'Comandas',                           icon: <ShoppingBag size={16} />, group: 'Gestão' },
+  { key: 'view_agenda',             label: 'Agenda & Salas Virtuais',            Icon: Calendar,      group: 'Gestão' },
+  { key: 'manage_professionals',    label: 'Profissionais',                      Icon: UserCheck,     group: 'Gestão' },
+  { key: 'manage_services',         label: 'Serviços',                           Icon: Briefcase,     group: 'Gestão' },
+  { key: 'manage_products',         label: 'Produtos',                           Icon: Package,       group: 'Gestão' },
+  { key: 'view_all_comandas',       label: 'Comandas',                           Icon: ShoppingBag,   group: 'Gestão' },
   // Financeiro
-  { key: 'view_financial_reports',  label: 'Financeiro & Livro Caixa',           icon: <DollarSign size={16} />, group: 'Financeiro' },
-  { key: 'view_performance_reports',label: 'Relatórios & Desempenho & Melhores Clientes', icon: <BarChart2 size={16} />, group: 'Financeiro' },
+  { key: 'view_financial_reports',  label: 'Financeiro & Livro Caixa',           Icon: DollarSign,    group: 'Financeiro' },
+  { key: 'view_performance_reports',label: 'Relatórios & Desempenho & Melhores Clientes', Icon: BarChart2, group: 'Financeiro' },
   // Comunicação
-  { key: 'access_messages',         label: 'Mensagens',                          icon: <MessageCircle size={16} />, group: 'Comunicação' },
-  { key: 'aurora_ai',               label: 'Aurora AI',                          icon: <Sparkles size={16} />,   group: 'Comunicação', requiredFeature: 'aurora_ai' },
+  { key: 'access_messages',         label: 'Mensagens',                          Icon: MessageCircle, group: 'Comunicação' },
+  { key: 'aurora_ai',               label: 'Aurora AI',                          Icon: Sparkles,      group: 'Comunicação', requiredFeature: 'aurora_ai' },
   // Sistema
-  { key: 'manage_clinic_settings',  label: 'Configurações',                      icon: <Settings size={16} />,   group: 'Sistema' },
-  { key: 'manage_bot_integration',  label: 'WhatsApp Bot',                       icon: <Smartphone size={16} />, group: 'Sistema', requiredFeature: 'whatsapp_bot' },
+  { key: 'manage_clinic_settings',  label: 'Configurações',                      Icon: Settings,      group: 'Sistema' },
+  { key: 'manage_bot_integration',  label: 'WhatsApp Bot',                       Icon: Smartphone,    group: 'Sistema', requiredFeature: 'whatsapp_bot' },
 ];
 
 const ROLES = [
@@ -283,7 +283,7 @@ export const Permissions: React.FC = () => {
                         return (
                           <div key={mod.key} className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-slate-600">
-                              <span className="text-slate-400">{mod.icon}</span>
+                              <span className="text-slate-400"><mod.Icon size={16} /></span>
                               {mod.label}
                             </div>
                             <span className={`text-[10px] font-bold uppercase tracking-wide px-3 py-1 rounded-full border ${accessStyles[access]}`}>
@@ -323,7 +323,7 @@ export const Permissions: React.FC = () => {
                       <tr key={mod.key} className="hover:bg-slate-50/80">
                         <td className="px-6 py-4 text-sm text-slate-700">
                           <div className="flex items-center gap-2">
-                            <span className="text-slate-400">{mod.icon}</span>
+                            <span className="text-slate-400"><mod.Icon size={16} /></span>
                             {mod.label}
                           </div>
                         </td>

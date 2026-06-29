@@ -17,13 +17,13 @@ interface FormBuilderProps {
   onCancel: () => void;
 }
 
-const QUESTION_TYPES: { type: QuestionType; label: string; icon: React.ReactNode; color: string }[] = [
-  { type: 'text', label: 'Texto Curto', icon: <Type size={16} />, color: 'bg-blue-50 text-blue-600' },
-  { type: 'textarea', label: 'Texto Longo', icon: <AlignLeft size={16} />, color: 'bg-indigo-50 text-indigo-600' },
-  { type: 'number', label: 'Número', icon: <Hash size={16} />, color: 'bg-emerald-50 text-emerald-600' },
-  { type: 'radio', label: 'Múltipla Escolha', icon: <List size={16} />, color: 'bg-amber-50 text-amber-600' },
-  { type: 'checkbox', label: 'Caixas de Seleção', icon: <CheckSquare size={16} />, color: 'bg-rose-50 text-rose-600' },
-  { type: 'select', label: 'Lista Suspensa', icon: <ChevronDown size={16} />, color: 'bg-violet-50 text-violet-600' },
+const QUESTION_TYPES: { type: QuestionType; label: string; Icon: React.ElementType; color: string }[] = [
+  { type: 'text', label: 'Texto Curto', Icon: Type, color: 'bg-blue-50 text-blue-600' },
+  { type: 'textarea', label: 'Texto Longo', Icon: AlignLeft, color: 'bg-indigo-50 text-indigo-600' },
+  { type: 'number', label: 'Número', Icon: Hash, color: 'bg-emerald-50 text-emerald-600' },
+  { type: 'radio', label: 'Múltipla Escolha', Icon: List, color: 'bg-amber-50 text-amber-600' },
+  { type: 'checkbox', label: 'Caixas de Seleção', Icon: CheckSquare, color: 'bg-rose-50 text-rose-600' },
+  { type: 'select', label: 'Lista Suspensa', Icon: ChevronDown, color: 'bg-violet-50 text-violet-600' },
 ];
 
 export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, onCancel }) => {
@@ -290,7 +290,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {typeInfo && (
                               <span className={`p-1 rounded ${typeInfo.color}`}>
-                                {React.cloneElement(typeInfo.icon as React.ReactElement, { size: 10 })}
+                                <typeInfo.Icon size={10} />
                               </span>
                             )}
                             <span className="text-[9px] font-medium text-slate-400 uppercase tracking-tighter">{typeInfo?.label}</span>
@@ -427,7 +427,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                                         options={QUESTION_TYPES.map(t => ({ id: t.type, label: t.label }))}
                                         value={q.type}
                                         onChange={(val) => updateQuestion(q.id, 'type', val as QuestionType)}
-                                        icon={typeInfo?.icon ? React.cloneElement(typeInfo.icon as React.ReactElement, { size: 14, className: typeInfo.color }) : <Plus size={14} />}
+                                        icon={typeInfo ? <typeInfo.Icon size={14} className={typeInfo.color} /> : <Plus size={14} />}
                                         className="font-bold text-slate-700"
                                         size="sm"
                                     />

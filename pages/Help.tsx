@@ -16,7 +16,7 @@ const FAQ_CATEGORIES = [
   {
     id: 'agenda',
     label: 'Agenda',
-    icon: <Calendar size={14} />,
+    Icon: Calendar,
     color: 'bg-sky-50 text-sky-700 border-sky-200',
     faqs: [
       { q: 'Como agendar uma consulta?', a: 'Vá até a aba "Agenda", clique no horário desejado ou no botão "+ Novo Agendamento". Preencha os dados do paciente, serviço e horário. O sistema confirmará o agendamento automaticamente.' },
@@ -32,7 +32,7 @@ const FAQ_CATEGORIES = [
   {
     id: 'pacientes',
     label: 'Pacientes',
-    icon: <Users size={14} />,
+    Icon: Users,
     color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     faqs: [
       { q: 'Como cadastrar um novo paciente?', a: 'Na aba "Pacientes", clique em "+ Novo Paciente". O wizard guia pelo cadastro em etapas: dados pessoais (nome, CPF, data de nascimento), contato (telefone, WhatsApp, e-mail) e informações complementares (endereço, plano de saúde). Os campos obrigatórios são apenas nome e telefone.' },
@@ -48,7 +48,7 @@ const FAQ_CATEGORIES = [
   {
     id: 'financeiro',
     label: 'Financeiro',
-    icon: <DollarSign size={14} />,
+    Icon: DollarSign,
     color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     faqs: [
       { q: 'Como registrar um pagamento?', a: 'Você pode registrar via Comanda (ao fechar o atendimento) ou diretamente em Financeiro > "+ Nova Transação". Informe valor, data, paciente, categoria e forma de pagamento (dinheiro, cartão, PIX, convênio).' },
@@ -63,7 +63,7 @@ const FAQ_CATEGORIES = [
   {
     id: 'prontuarios',
     label: 'Prontuários',
-    icon: <FileText size={14} />,
+    Icon: FileText,
     color: 'bg-rose-50 text-rose-700 border-rose-200',
     faqs: [
       { q: 'Como criar uma evolução clínica?', a: 'Acesse o perfil do paciente > aba Prontuário > clique em "Nova Evolução". O editor de texto suporta formatação (negrito, itálico, listas). A evolução é salva com data, hora e assinatura do profissional.' },
@@ -76,7 +76,7 @@ const FAQ_CATEGORIES = [
   {
     id: 'formularios',
     label: 'Formulários',
-    icon: <BookOpen size={14} />,
+    Icon: BookOpen,
     color: 'bg-amber-50 text-amber-700 border-amber-200',
     faqs: [
       { q: 'Quais formulários estão disponíveis?', a: 'O PsiFlux inclui templates prontos: PHQ-9 (depressão), GAD-7 (ansiedade), Escala de Beck, Escala de Autoestima de Rosenberg, SRQ-20, AUDIT (álcool) e outros. Você também pode criar formulários completamente personalizados.' },
@@ -145,12 +145,12 @@ const GUIDES_CONTENT: Record<string, any> = {
 };
 
 const GUIDES = [
-  { icon: <Zap size={18} />, color: 'bg-amber-50 text-amber-600', title: 'Primeiros Passos', desc: 'Configure sua clínica em 5 passos simples.', tag: 'Essencial' },
-  { icon: <Calendar size={18} />, color: 'bg-sky-50 text-sky-600', title: 'Dominando a Agenda', desc: 'Bloqueios, recorrências e lembretes automáticos.', tag: 'Popular' },
-  { icon: <DollarSign size={18} />, color: 'bg-emerald-50 text-emerald-600', title: 'Financeiro Avançado', desc: 'Relatórios, NFS-e e controle de inadimplência.', tag: 'Avançado' },
-  { icon: <Video size={18} />, color: 'bg-violet-50 text-violet-600', title: 'Salas Virtuais', desc: 'Atendimento online integrado com vídeo.', tag: 'Novo' },
-  { icon: <Users size={18} />, color: 'bg-rose-50 text-rose-600', title: 'Gestão de Equipe', desc: 'Adicionar profissionais e controlar permissões.', tag: 'Equipe' },
-  { icon: <BookOpen size={18} />, color: 'bg-indigo-50 text-indigo-600', title: 'Prontuário Digital', desc: 'Evoluções, DISC e histórico clínico completo.', tag: 'Clínico' },
+  { Icon: Zap, color: 'bg-amber-50 text-amber-600', title: 'Primeiros Passos', desc: 'Configure sua clínica em 5 passos simples.', tag: 'Essencial' },
+  { Icon: Calendar, color: 'bg-sky-50 text-sky-600', title: 'Dominando a Agenda', desc: 'Bloqueios, recorrências e lembretes automáticos.', tag: 'Popular' },
+  { Icon: DollarSign, color: 'bg-emerald-50 text-emerald-600', title: 'Financeiro Avançado', desc: 'Relatórios, NFS-e e controle de inadimplência.', tag: 'Avançado' },
+  { Icon: Video, color: 'bg-violet-50 text-violet-600', title: 'Salas Virtuais', desc: 'Atendimento online integrado com vídeo.', tag: 'Novo' },
+  { Icon: Users, color: 'bg-rose-50 text-rose-600', title: 'Gestão de Equipe', desc: 'Adicionar profissionais e controlar permissões.', tag: 'Equipe' },
+  { Icon: BookOpen, color: 'bg-indigo-50 text-indigo-600', title: 'Prontuário Digital', desc: 'Evoluções, DISC e histórico clínico completo.', tag: 'Clínico' },
 ];
 
 const TAG_COLORS: Record<string, string> = {
@@ -312,7 +312,7 @@ export const Help: React.FC = () => {
                           : `${cat.color} hover:opacity-80`
                       }`}
                     >
-                      {cat.icon} {cat.label}
+                      <cat.Icon size={14} /> {cat.label}
                     </button>
                   ))}
                 </div>
@@ -376,7 +376,7 @@ export const Help: React.FC = () => {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${g.color}`}>
-                        {g.icon}
+                        <g.Icon size={18} />
                       </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TAG_COLORS[g.tag]}`}>
                         {g.tag}
@@ -580,7 +580,7 @@ export const Help: React.FC = () => {
         <div className="space-y-6 py-2">
             <div className={`p-4 rounded-2xl flex items-center gap-4 bg-${selectedGuide?.themeColor || 'indigo'}-50 border border-${selectedGuide?.themeColor || 'indigo'}-100`}>
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-sm text-${selectedGuide?.themeColor || 'indigo'}-600`}>
-                    {selectedGuide?.icon}
+                    {selectedGuide && <selectedGuide.Icon size={20} />}
                 </div>
                 <div>
                     <h3 className="font-bold text-slate-800">{selectedGuide?.title}</h3>

@@ -20,13 +20,13 @@ import { FinancialHealth } from '../components/Finance/FinancialHealth';
 import { AuraContabil } from '../components/AI/AuraContabil';
 
 const PAYMENT_METHODS = [
-  { id: 'pix', label: 'Pix', icon: <Smartphone size={16} />, color: 'bg-emerald-500' },
-  { id: 'credit', label: 'Crédito', icon: <CreditCard size={16} />, color: 'bg-indigo-500' },
-  { id: 'debit', label: 'Débito', icon: <CreditCard size={16} />, color: 'bg-blue-500' },
-  { id: 'cash', label: 'Dinheiro', icon: <Banknote size={16} />, color: 'bg-green-600' },
-  { id: 'transfer', label: 'Transferência', icon: <ArrowUpRight size={16} />, color: 'bg-slate-500' },
-  { id: 'check', label: 'Cheque', icon: <Receipt size={16} />, color: 'bg-amber-500' },
-  { id: 'courtesy', label: 'Cortesia', icon: <Wallet size={16} />, color: 'bg-rose-400' },
+  { id: 'pix', label: 'Pix', Icon: Smartphone, color: 'bg-emerald-500' },
+  { id: 'credit', label: 'Crédito', Icon: CreditCard, color: 'bg-indigo-500' },
+  { id: 'debit', label: 'Débito', Icon: CreditCard, color: 'bg-blue-500' },
+  { id: 'cash', label: 'Dinheiro', Icon: Banknote, color: 'bg-green-600' },
+  { id: 'transfer', label: 'Transferência', Icon: ArrowUpRight, color: 'bg-slate-500' },
+  { id: 'check', label: 'Cheque', Icon: Receipt, color: 'bg-amber-500' },
+  { id: 'courtesy', label: 'Cortesia', Icon: Wallet, color: 'bg-rose-400' },
 ];
 
 const formatCurrency = (value: number) => {
@@ -579,7 +579,7 @@ export const Finance: React.FC = () => {
                                 <div className="flex justify-between items-center mb-2.5">
                                     <div className="flex items-center gap-2.5">
                                         <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-white shadow-lg ${method.color}`}>
-                                            {React.cloneElement(method.icon as React.ReactElement<any>, { size: 14 })}
+                                            <method.Icon size={14} />
                                         </div>
                                         <span className="text-xs font-black text-slate-600 uppercase tracking-tight">{method.label}</span>
                                     </div>
