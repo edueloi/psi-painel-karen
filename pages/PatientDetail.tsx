@@ -1371,9 +1371,9 @@ function fmtDate(iso: string) {
 }
 
 const PORTAL_TABS = [
-  { key: 'humor',      label: 'Humor',      icon: <Smile size={13} /> },
-  { key: 'diario',     label: 'Diário',     icon: <BookOpen size={13} /> },
-  { key: 'atividades', label: 'Atividades', icon: <Dumbbell size={13} /> },
+  { key: 'humor',      label: 'Humor',      Icon: Smile },
+  { key: 'diario',     label: 'Diário',     Icon: BookOpen },
+  { key: 'atividades', label: 'Atividades', Icon: Dumbbell },
 ];
 
 const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
@@ -1419,7 +1419,7 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
           <button key={t.key} onClick={() => setSub(t.key as any)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
               ${sub === t.key ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-            {t.icon}{t.label}
+            <t.Icon size={13} />{t.label}
           </button>
         ))}
       </div>
