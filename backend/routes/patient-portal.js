@@ -2108,7 +2108,7 @@ router.post('/auth/push-token', portalAuth, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════
 
 // GET /patient-portal/messages — busca histórico, marca mensagens do profissional como lidas
-router.get('/messages', requirePortalAuth, async (req, res) => {
+router.get('/messages', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const [rows] = await db.query(
@@ -2133,7 +2133,7 @@ router.get('/messages', requirePortalAuth, async (req, res) => {
 });
 
 // POST /patient-portal/messages — paciente envia mensagem
-router.post('/messages', requirePortalAuth, async (req, res) => {
+router.post('/messages', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const { content } = req.body;
