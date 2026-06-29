@@ -1314,7 +1314,7 @@ router.get('/comandas', portalAuth, async (req, res) => {
         status: c.status,
         start_date: c.start_date,
         total: Number(c.total) || 0,
-        received: Number(c.total_received) || 0,
+        received: Number(c.paid_value) || 0,
         upcoming_appointments: appts,
       });
     }
