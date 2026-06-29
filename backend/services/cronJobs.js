@@ -3,6 +3,7 @@ const db = require('../db');
 const axios = require('axios');
 const { sendMail, templates } = require('./emailService');
 const notificationService = require('./notificationService');
+const { sendPushToPatient } = require('./pushService');
 
 const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
@@ -265,6 +266,8 @@ async function checkAppointmentReminders() {
             });
             await db.query('UPDATE appointments SET whatsapp_reminder_1h_sent = 1 WHERE id = ?', [apt.id]);
             console.log(`[CRON-QUEUE Paciente 1h] ${apt.patient_name} | Tenant ${apt.tenant_id}`);
+            // Push paralelo ao WhatsApp
+            sendPushToPatient(apt.patient_id, '🔔 Consulta em 1 hora', `Sua sessão com ${apt.professional_name || 'seu profissional'} começa às ${timeStr}.`, { type: 'appointment', apt_id: apt.id }).catch(() => {});
           }
           // Lembrete 24h: enfileira independente do status do bot (notificationService faz retry até expires_at)
           const aptDateSP = aptStart.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
@@ -286,6 +289,8 @@ async function checkAppointmentReminders() {
             });
             await db.query('UPDATE appointments SET whatsapp_reminder_24h_sent = 1 WHERE id = ?', [apt.id]);
             console.log(`[CRON-QUEUE Paciente 24h] ${apt.patient_name} | Tenant ${apt.tenant_id}`);
+            // Push paralelo ao WhatsApp
+            sendPushToPatient(apt.patient_id, '📅 Consulta amanhã', `Sua sessão com ${apt.professional_name || 'seu profissional'} é amanhã (${dateStr}) às ${timeStr}.`, { type: 'appointment', apt_id: apt.id }).catch(() => {});
           }
         }
       }
@@ -438,6 +443,7 @@ async function checkDailyTasks() {
                   content: msg,
                   metadata: { patient_id: p.id, type: 'birthday' }
                 });
+                sendPushToPatient(p.id, '🎂 Feliz Aniversário!', `Toda a equipe deseja a você um dia repleto de alegrias e muita paz!`, { type: 'birthday' }).catch(() => {});
                 console.log(`[CRON-QUEUE Birthday] Agendado para Tenant ${t.id}: ${p.name}`);
               }
             }
@@ -454,7 +460,7 @@ async function checkDailyTasks() {
         } else if (await isBotConnected(t.id)) {
           _dailyFired.add(payKey);
           const [payments] = await db.query(`
-            SELECT f.id, f.amount, p.name as patient_name, p.whatsapp, p.phone
+            SELECT f.id, f.amount, f.patient_id, p.name as patient_name, p.whatsapp, p.phone
             FROM financial_transactions f
             JOIN patients p ON p.id = f.patient_id
             WHERE f.tenant_id = ? AND f.due_date = ? AND f.status = 'pending' AND f.type = 'income'
@@ -487,6 +493,7 @@ async function checkDailyTasks() {
               content: msg,
               metadata: { payment_id: pay.id, type: 'payment-reminder' }
             });
+            sendPushToPatient(pay.patient_id, '💰 Lembrete de pagamento', `Olá, ${pay.patient_name}! Você tem um pagamento de R$ ${Number(pay.amount).toFixed(2).replace('.', ',')} vencendo hoje.`, { type: 'finance', payment_id: pay.id }).catch(() => {});
             console.log(`[CRON-QUEUE Payment] Agendado para Tenant ${t.id}: ${pay.patient_name}`);
           }
         }
