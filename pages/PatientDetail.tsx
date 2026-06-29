@@ -60,16 +60,16 @@ const safeGet = async <T,>(url: string, params?: Record<string, string>): Promis
 
 type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas' | 'mensagens' | 'portal';
 
-const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'dados',       label: 'Dados',       icon: <User size={14} /> },
-  { key: 'agenda',      label: 'Agenda',      icon: <Calendar size={14} /> },
-  { key: 'tarefas',     label: 'Tarefas',     icon: <CheckSquare size={14} /> },
-  { key: 'portal',      label: 'Portal',      icon: <Heart size={14} /> },
-  { key: 'mensagens',   label: 'Mensagens',   icon: <MessageCircle size={14} /> },
-  { key: 'documentos',  label: 'Documentos',  icon: <FolderOpen size={14} /> },
-  { key: 'prontuario',  label: 'Prontuário',  icon: <FileText size={14} /> },
-  { key: 'formularios', label: 'Formulários', icon: <ClipboardList size={14} /> },
-  { key: 'ferramentas', label: 'Ferramentas', icon: <Boxes size={14} /> },
+const TABS: { key: Tab; label: string; Icon: React.ElementType }[] = [
+  { key: 'dados',       label: 'Dados',       Icon: User },
+  { key: 'agenda',      label: 'Agenda',      Icon: Calendar },
+  { key: 'tarefas',     label: 'Tarefas',     Icon: CheckSquare },
+  { key: 'portal',      label: 'Portal',      Icon: Heart },
+  { key: 'mensagens',   label: 'Mensagens',   Icon: MessageCircle },
+  { key: 'documentos',  label: 'Documentos',  Icon: FolderOpen },
+  { key: 'prontuario',  label: 'Prontuário',  Icon: FileText },
+  { key: 'formularios', label: 'Formulários', Icon: ClipboardList },
+  { key: 'ferramentas', label: 'Ferramentas', Icon: Boxes },
 ];
 
 export const PatientDetail: React.FC = () => {
@@ -424,7 +424,7 @@ export const PatientDetail: React.FC = () => {
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
-              {tab.icon} {tab.label}
+              <tab.Icon size={14} /> {tab.label}
               {summary[tab.key] != null && summary[tab.key]! > 0 && (
                 <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
                   activeTab === tab.key ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
