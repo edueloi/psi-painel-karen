@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { MessageTemplate } from '../types';
 import { api } from '../services/api';
 import {
   MessageCircle, Plus, Edit3, Trash2, Send, Variable, Copy, Check,
-  Loader2, MessageSquare, Tag, Users, Sparkles, AlertTriangle,
+  Loader2, MessageSquare, Tag, Users, Sparkles, AlertTriangle, Inbox, User,
 } from 'lucide-react';
 import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
 import { Input } from '../components/UI/Input';
@@ -191,6 +191,221 @@ const MobileTemplateCard: React.FC<MobileTemplateCardProps> = ({ template, copie
   </div>
 );
 
+// ── Inbox: chat paciente ↔ profissional ──────────────────────────────────────
+const INBOX_POLL = 8000;
+
+function fmtInboxTime(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString())
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
+         d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+const InboxChat: React.FC = () => {
+  const [patients, setPatients]     = useState<any[]>([]);
+  const [selected, setSelected]     = useState<any | null>(null);
+  const [msgs, setMsgs]             = useState<any[]>([]);
+  const [unread, setUnread]         = useState<Record<number, number>>({});
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [text, setText]             = useState('');
+  const [sending, setSending]       = useState(false);
+  const listRef  = useRef<HTMLDivElement>(null);
+  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Carrega lista de pacientes que já enviaram mensagem
+  const loadPatients = useCallback(async () => {
+    try {
+      const [pts, uc] = await Promise.all([
+        api.get<any[]>('/patients'),
+        api.get<Record<number, number>>('/messages/portal/unread-counts'),
+      ]);
+      setUnread(uc || {});
+      const withMsg = (pts || []).filter((p: any) => (uc || {})[p.id] > 0 || false);
+      const withoutMsg = (pts || []).filter((p: any) => !((uc || {})[p.id] > 0));
+      setPatients([...withMsg, ...withoutMsg]);
+    } catch {}
+    setLoadingList(false);
+  }, []);
+
+  useEffect(() => { loadPatients(); }, [loadPatients]);
+
+  const loadMsgs = useCallback(async (silent = false) => {
+    if (!selected) return;
+    if (!silent) setLoadingMsgs(true);
+    try {
+      const data = await api.get<any[]>(`/messages/portal/${selected.id}`);
+      setMsgs(Array.isArray(data) ? data : []);
+      // Zera badge deste paciente
+      setUnread(u => ({ ...u, [selected.id]: 0 }));
+    } catch {}
+    if (!silent) setLoadingMsgs(false);
+  }, [selected]);
+
+  useEffect(() => {
+    if (!selected) return;
+    loadMsgs();
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => loadMsgs(true), INBOX_POLL);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [selected, loadMsgs]);
+
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [msgs]);
+
+  const send = async () => {
+    const msg = text.trim();
+    if (!msg || sending || !selected) return;
+    setText('');
+    setSending(true);
+    try {
+      await api.post(`/messages/portal/${selected.id}`, { content: msg });
+      await loadMsgs(true);
+    } catch { setText(msg); }
+    setSending(false);
+  };
+
+  const pName = (p: any) => p.full_name || p.name || '?';
+  const pInitials = (p: any) => pName(p).trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase() || '').join('');
+
+  return (
+    <div className="flex h-[calc(100vh-200px)] min-h-[500px] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+
+      {/* ── Lista de pacientes ── */}
+      <div className="w-72 shrink-0 border-r border-slate-100 flex flex-col">
+        <div className="px-4 py-3 border-b border-slate-100">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Conversas</p>
+        </div>
+        {loadingList ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 size={20} className="animate-spin text-indigo-300" />
+          </div>
+        ) : patients.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
+            <MessageCircle size={28} className="text-slate-200" />
+            <p className="text-xs text-slate-400 font-semibold">Nenhuma mensagem ainda</p>
+            <p className="text-[11px] text-slate-300">Quando pacientes enviarem mensagens pelo app, aparecerão aqui</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            {patients.map(p => {
+              const badge = unread[p.id] || 0;
+              const isActive = selected?.id === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setSelected(p)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-slate-50
+                    ${isActive ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                >
+                  <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 text-indigo-600 font-bold text-sm">
+                    {pInitials(p)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold truncate ${isActive ? 'text-indigo-700' : 'text-slate-700'}`}>{pName(p)}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{p.phone || p.whatsapp || 'Sem telefone'}</p>
+                  </div>
+                  {badge > 0 && (
+                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Área de chat ── */}
+      {!selected ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
+            <MessageCircle size={28} className="text-indigo-300" />
+          </div>
+          <p className="text-sm font-bold text-slate-500">Selecione um paciente</p>
+          <p className="text-xs text-slate-400">Escolha uma conversa na lista ao lado para visualizar e responder</p>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 bg-white">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs shrink-0">
+              {pInitials(selected)}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">{pName(selected)}</p>
+              <p className="text-[11px] text-slate-400">{selected.phone || selected.whatsapp || ''}</p>
+            </div>
+          </div>
+
+          {/* Mensagens */}
+          <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-slate-50/60">
+            {loadingMsgs ? (
+              <div className="flex-1 flex items-center justify-center py-10">
+                <Loader2 size={20} className="animate-spin text-indigo-300" />
+              </div>
+            ) : msgs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <MessageCircle size={24} className="text-slate-200" />
+                <p className="text-xs text-slate-400">Nenhuma mensagem ainda</p>
+              </div>
+            ) : msgs.map(m => {
+              const isPro = m.sender_type === 'professional';
+              return (
+                <div key={m.id} className={`flex gap-2 ${isPro ? 'justify-end' : 'justify-start'}`}>
+                  {!isPro && (
+                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <User size={11} className="text-indigo-500" />
+                    </div>
+                  )}
+                  <div className={`max-w-[68%] rounded-2xl px-3.5 py-2.5 ${
+                    isPro
+                      ? 'bg-indigo-600 text-white rounded-br-sm'
+                      : 'bg-white text-slate-700 rounded-bl-sm border border-slate-100 shadow-sm'
+                  }`}>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                    <p className={`text-[10px] mt-1 ${isPro ? 'text-indigo-200 text-right' : 'text-slate-400'}`}>
+                      {fmtInboxTime(m.created_at)}
+                      {isPro && m.read_at && <Check size={9} className="inline ml-1" />}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Input */}
+          <div className="flex items-end gap-2 px-4 py-3 border-t border-slate-100 bg-white">
+            <textarea
+              className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm
+                         text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300
+                         max-h-28 min-h-[42px]"
+              rows={1}
+              placeholder="Escreva uma resposta..."
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+              disabled={sending}
+            />
+            <button
+              onClick={send}
+              disabled={!text.trim() || sending}
+              className="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40
+                         flex items-center justify-center transition-colors shrink-0"
+            >
+              {sending ? <Loader2 size={15} className="text-white animate-spin" /> : <Send size={15} className="text-white" />}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export const Messages: React.FC = () => {
   const { pushToast } = useToast();
@@ -202,6 +417,9 @@ export const Messages: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [allCategories, setAllCategories]   = useState<string[]>(['Lembrete', 'Financeiro', 'Aniversário', 'Outros']);
   const [isLoading, setIsLoading]           = useState(true);
+
+  // Aba principal: inbox (chat) vs templates (WhatsApp)
+  const [pageTab, setPageTab] = useState<'inbox' | 'templates'>('inbox');
 
   // viewMode persisted in preferences
   const viewMode = preferences.messages.viewMode;
@@ -622,11 +840,11 @@ export const Messages: React.FC = () => {
 
       <PageHeader
         icon={<MessageCircle />}
-        title="Mensagens Pré-definidas"
-        subtitle="Modelos inteligentes com variáveis dinâmicas"
+        title="Mensagens"
+        subtitle={pageTab === 'inbox' ? 'Chat com pacientes pelo portal' : 'Modelos inteligentes com variáveis dinâmicas'}
         iconGradient="from-sky-500 to-indigo-600"
         containerClassName="mb-0"
-        actions={
+        actions={pageTab === 'templates' ? (
           <Button
             variant="primary"
             radius="xl"
@@ -635,9 +853,39 @@ export const Messages: React.FC = () => {
           >
             Nova Mensagem
           </Button>
-        }
+        ) : undefined}
       />
 
+      {/* ── Abas Inbox / Templates ── */}
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
+        <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+          {([
+            { key: 'inbox',     label: 'Inbox',     icon: <Inbox size={14} /> },
+            { key: 'templates', label: 'Templates', icon: <MessageSquare size={14} /> },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setPageTab(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all
+                ${pageTab === tab.key
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {tab.icon}{tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Inbox ── */}
+      {pageTab === 'inbox' && (
+        <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
+          <InboxChat />
+        </div>
+      )}
+
+      {/* ── Templates (conteúdo original) ── */}
+      {pageTab === 'templates' && (
       <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4">
 
         {/* ── FILTROS ── */}
@@ -1136,6 +1384,8 @@ export const Messages: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      )} {/* fim pageTab === 'templates' */}
 
       <ConfirmModal
         isOpen={!!deleteTarget}
