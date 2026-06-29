@@ -556,11 +556,15 @@ router.get('/appointments', portalAuth, async (req, res) => {
               a.start_time AS start_date, a.end_time AS end_date,
               a.status, a.type, a.modality,
               a.meeting_url, a.notes, a.duration_minutes,
+              a.comanda_id,
               u.name AS professional_name, u.specialty, u.avatar_url AS prof_avatar,
-              s.name AS service_name, s.price AS service_price
+              s.name AS service_name, s.price AS service_price,
+              c.description AS comanda_description,
+              c.sessions_total, c.sessions_used AS sessions_done_comanda
        FROM appointments a
        LEFT JOIN users u ON u.id = a.professional_id
        LEFT JOIN services s ON s.id = a.service_id
+       LEFT JOIN comandas c ON c.id = a.comanda_id
        WHERE a.patient_id = ? AND a.tenant_id = ?
          AND a.type != 'bloqueio' AND a.type != 'pessoal'
        ORDER BY a.start_time DESC
@@ -657,6 +661,67 @@ router.patch('/appointments/:id/cancel', portalAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// PATCH /patient-portal/appointments/:id/reschedule — reagendar com 24h de antecedência
+router.patch('/appointments/:id/reschedule', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const { date, time } = req.body;
+    if (!date || !time) return res.status(400).json({ error: 'Data e horário são obrigatórios.' });
+
+    const [rows] = await db.query(
+      `SELECT a.id, a.status, a.start_time, a.duration_minutes, a.professional_id, a.comanda_id, a.modality
+       FROM appointments a
+       WHERE a.id = ? AND a.patient_id = ? AND a.tenant_id = ?`,
+      [req.params.id, patient_id, tenant_id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Consulta não encontrada.' });
+    const appt = rows[0];
+    if (!['scheduled', 'confirmed'].includes(appt.status))
+      return res.status(409).json({ error: 'Apenas consultas agendadas ou confirmadas podem ser reagendadas.' });
+
+    // Validação: 24h de antecedência do horário ATUAL
+    const now = new Date();
+    const diffHours = (new Date(appt.start_time) - now) / 3600000;
+    if (diffHours < 24)
+      return res.status(409).json({ error: 'Reagendamentos devem ser feitos com pelo menos 24 horas de antecedência.' });
+
+    // Calcula novo start/end (BRT → UTC)
+    const [yyyy, mm, dd] = date.split('-').map(Number);
+    const [h, min] = time.split(':').map(Number);
+    const brtStr = brtDateTimeStr(yyyy, mm, dd, h, min);
+    const duration = appt.duration_minutes || 50;
+    const sMs = new Date(brtStr.replace(' ', 'T') + 'Z').getTime() + BRT_OFFSET_MS;
+    const eMs = sMs + duration * 60000;
+    const sStr = new Date(sMs).toISOString().slice(0, 19).replace('T', ' ');
+    const eStr = new Date(eMs).toISOString().slice(0, 19).replace('T', ' ');
+
+    // Verifica conflito no novo horário
+    const [conflict] = await db.query(
+      `SELECT id FROM appointments
+       WHERE professional_id = ? AND tenant_id = ? AND id != ?
+         AND status NOT IN ('cancelled') AND start_time < ? AND end_time > ?`,
+      [appt.professional_id, tenant_id, req.params.id, eStr, sStr]
+    );
+    if (conflict.length > 0)
+      return res.status(409).json({ error: 'Este horário não está disponível. Escolha outro.' });
+
+    await db.query(
+      `UPDATE appointments SET start_time = ?, end_time = ?, status = 'scheduled', updated_at = NOW()
+       WHERE id = ?`,
+      [sStr, eStr, req.params.id]
+    );
+
+    // Push para o paciente
+    sendPushToPatient(patient_id, '🔄 Consulta reagendada!',
+      `Nova data: ${dd}/${mm}/${yyyy} às ${time}`, { type: 'appointment' }).catch(() => {});
+
+    res.json({ ok: true, start_time: sStr });
+  } catch (e) {
+    console.error('[portal reschedule]', e?.message);
+    res.status(500).json({ error: 'Erro ao reagendar.' });
   }
 });
 
@@ -1223,6 +1288,25 @@ router.post('/appointments', portalAuth, async (req, res) => {
       );
     } catch (alertErr) {
       console.error('[portal] falha ao criar alerta de agendamento:', alertErr.message);
+    }
+
+    // Push de pacote esgotado: se vinculou a uma comanda existente, verifica sessões restantes
+    if (comandaId && provided_comanda_id) {
+      try {
+        const [cRows] = await db.query(
+          `SELECT sessions_total,
+            (SELECT COUNT(*) FROM appointments WHERE comanda_id = ? AND status NOT IN ('cancelled')) AS sessions_active
+           FROM comandas WHERE id = ?`,
+          [comandaId, comandaId]
+        );
+        if (cRows[0] && cRows[0].sessions_active >= cRows[0].sessions_total) {
+          sendPushToPatient(patient_id,
+            '📦 Pacote esgotado',
+            'Todas as sessões do seu pacote foram agendadas. Contrate um novo pacote para continuar.',
+            { type: 'finance' }
+          ).catch(() => {});
+        }
+      } catch {}
     }
 
     res.json({
