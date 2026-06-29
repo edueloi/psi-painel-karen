@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, FileText, BrainCircuit, ClipboardList, FolderOpen,
   Boxes, StickyNote, MapPin, Shield, Phone, Mail, User, Edit2,
   Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink,
   ChevronRight, History, Activity, Link2, Copy, Check, X, Clock, Smartphone,
-  CheckSquare, Plus, Flag, Tag, AlarmClock,
+  CheckSquare, Plus, Flag, Tag, AlarmClock, MessageCircle, Send,
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -57,12 +57,13 @@ const safeGet = async <T,>(url: string, params?: Record<string, string>): Promis
   try { return await api.get<T>(url, params); } catch { return null; }
 };
 
-type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas';
+type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas' | 'mensagens';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'dados',       label: 'Dados',       icon: <User size={14} /> },
   { key: 'agenda',      label: 'Agenda',      icon: <Calendar size={14} /> },
   { key: 'tarefas',     label: 'Tarefas',     icon: <CheckSquare size={14} /> },
+  { key: 'mensagens',   label: 'Mensagens',   icon: <MessageCircle size={14} /> },
   { key: 'documentos',  label: 'Documentos',  icon: <FolderOpen size={14} /> },
   { key: 'prontuario',  label: 'Prontuário',  icon: <FileText size={14} /> },
   { key: 'formularios', label: 'Formulários', icon: <ClipboardList size={14} /> },
@@ -441,6 +442,7 @@ export const PatientDetail: React.FC = () => {
         {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
         {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'tarefas'     && <TabTarefas patientId={id!} />}
+        {activeTab === 'mensagens'   && <TabMensagens patientId={id!} />}
         {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
       </div>
@@ -1343,6 +1345,127 @@ const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
         )}
       </PanelCard>
     </div>
+  );
+};
+
+// ─── Tab Mensagens ────────────────────────────────────────────────────────────
+const POLL_MS = 8000;
+
+function fmtMsgTime(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  if (isToday) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
+         d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+const TabMensagens: React.FC<{ patientId: string }> = ({ patientId }) => {
+  const [msgs, setMsgs]       = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [text, setText]       = useState('');
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const load = useCallback(async (silent = false) => {
+    try {
+      const data = await api.get<any[]>(`/messages/portal/${patientId}`);
+      setMsgs(Array.isArray(data) ? data : []);
+    } catch {}
+    if (!silent) setLoading(false);
+  }, [patientId]);
+
+  useEffect(() => {
+    load();
+    pollRef.current = setInterval(() => load(true), POLL_MS);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [load]);
+
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [msgs]);
+
+  const send = async () => {
+    const msg = text.trim();
+    if (!msg || sending) return;
+    setText('');
+    setSending(true);
+    try {
+      await api.post(`/messages/portal/${patientId}`, { content: msg });
+      await load(true);
+    } catch {
+      setText(msg);
+    }
+    setSending(false);
+  };
+
+  if (loading) return <TabLoader />;
+
+  return (
+    <PanelCard className="flex flex-col" style={{ height: 520 }}>
+      <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-100">
+        <MessageCircle size={16} className="text-indigo-500" />
+        <span className="text-sm font-bold text-slate-700">Chat com paciente</span>
+        <span className="ml-auto text-[10px] text-slate-400">Mensagens trocadas pelo portal do paciente</span>
+      </div>
+
+      {/* Lista de mensagens */}
+      <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50/60">
+        {msgs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 py-10">
+            <MessageCircle size={32} className="text-slate-200" />
+            <p className="text-xs text-slate-400 font-semibold">Nenhuma mensagem ainda</p>
+            <p className="text-[11px] text-slate-300 text-center">O paciente pode enviar mensagens pelo app portal</p>
+          </div>
+        ) : msgs.map((m) => {
+          const isPro = m.sender_type === 'professional';
+          return (
+            <div key={m.id} className={`flex gap-2 ${isPro ? 'justify-end' : 'justify-start'}`}>
+              {!isPro && (
+                <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <User size={13} className="text-indigo-500" />
+                </div>
+              )}
+              <div className={`max-w-[72%] rounded-2xl px-3.5 py-2.5 shadow-sm ${
+                isPro
+                  ? 'bg-indigo-600 text-white rounded-br-sm'
+                  : 'bg-white text-slate-700 rounded-bl-sm border border-slate-100'
+              }`}>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                <p className={`text-[10px] mt-1 ${isPro ? 'text-indigo-200 text-right' : 'text-slate-400'}`}>
+                  {fmtMsgTime(m.created_at)}
+                  {isPro && m.read_at && <Check size={10} className="inline ml-1" />}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Input */}
+      <div className="flex items-end gap-2 px-4 py-3 border-t border-slate-100 bg-white">
+        <textarea
+          className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm
+                     text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300
+                     max-h-28 min-h-[42px]"
+          rows={1}
+          placeholder="Escreva uma resposta..."
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+          disabled={sending}
+        />
+        <button
+          onClick={send}
+          disabled={!text.trim() || sending}
+          className="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40
+                     flex items-center justify-center transition-colors shrink-0"
+        >
+          {sending ? <Loader2 size={16} className="text-white animate-spin" /> : <Send size={16} className="text-white" />}
+        </button>
+      </div>
+    </PanelCard>
   );
 };
 
