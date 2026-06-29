@@ -2104,6 +2104,129 @@ router.post('/auth/push-token', portalAuth, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
+// BEM-ESTAR — humor, diário, atividades
+// ══════════════════════════════════════════════════════════════════
+
+// ── HUMOR ──────────────────────────────────────────────────────────
+router.get('/mood', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [rows] = await db.query(
+      `SELECT id, value, label, date, created_at FROM portal_mood_entries
+       WHERE tenant_id = ? AND patient_id = ? ORDER BY date DESC LIMIT 90`,
+      [tenant_id, patient_id]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/mood', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const { value, label } = req.body;
+    const date = new Date().toISOString().slice(0, 10);
+    await db.query(
+      `INSERT INTO portal_mood_entries (tenant_id, patient_id, value, label, date)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label)`,
+      [tenant_id, patient_id, value, label, date]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── DIÁRIO ─────────────────────────────────────────────────────────
+router.get('/diary', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [rows] = await db.query(
+      `SELECT id, title, content, mood, energy, gratitude, highlight, tags, created_at
+       FROM portal_diary_entries
+       WHERE tenant_id = ? AND patient_id = ? ORDER BY created_at DESC LIMIT 200`,
+      [tenant_id, patient_id]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/diary', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const { title, content, mood, energy, gratitude, highlight, tags } = req.body;
+    if (!content?.trim()) return res.status(400).json({ error: 'Conteúdo obrigatório' });
+    const [result] = await db.query(
+      `INSERT INTO portal_diary_entries (tenant_id, patient_id, title, content, mood, energy, gratitude, highlight, tags)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [tenant_id, patient_id, title || null, content.trim(), mood ?? null, energy ?? null,
+       gratitude || null, highlight || null, tags ? JSON.stringify(tags) : null]
+    );
+    res.status(201).json({ id: result.insertId, ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/diary/:id', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    await db.query(
+      'DELETE FROM portal_diary_entries WHERE id = ? AND tenant_id = ? AND patient_id = ?',
+      [req.params.id, tenant_id, patient_id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── ATIVIDADES ─────────────────────────────────────────────────────
+router.get('/activities', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [rows] = await db.query(
+      `SELECT id, title, category, duration, extra, description, done, created_at
+       FROM portal_activities
+       WHERE tenant_id = ? AND patient_id = ? ORDER BY created_at DESC LIMIT 200`,
+      [tenant_id, patient_id]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/activities', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const { title, category, duration, extra, description } = req.body;
+    if (!title?.trim()) return res.status(400).json({ error: 'Título obrigatório' });
+    const [result] = await db.query(
+      `INSERT INTO portal_activities (tenant_id, patient_id, title, category, duration, extra, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [tenant_id, patient_id, title.trim(), category || 'geral', duration || null, extra || null, description || null]
+    );
+    res.status(201).json({ id: result.insertId, ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.patch('/activities/:id/toggle', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    await db.query(
+      `UPDATE portal_activities SET done = NOT done
+       WHERE id = ? AND tenant_id = ? AND patient_id = ?`,
+      [req.params.id, tenant_id, patient_id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/activities/:id', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    await db.query(
+      'DELETE FROM portal_activities WHERE id = ? AND tenant_id = ? AND patient_id = ?',
+      [req.params.id, tenant_id, patient_id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════════════
 // MENSAGENS (chat paciente ↔ profissional)
 // ══════════════════════════════════════════════════════════════════
 

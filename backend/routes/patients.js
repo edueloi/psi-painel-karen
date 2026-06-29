@@ -995,4 +995,38 @@ router.get('/:id/history', async (req, res) => {
 
 
 
+// ── Bem-estar do paciente (dados do portal) ───────────────────────
+router.get('/:id/wellbeing/mood', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, value, label, date, created_at FROM portal_mood_entries
+       WHERE patient_id = ? AND tenant_id = ? ORDER BY date DESC LIMIT 90`,
+      [req.params.id, req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id/wellbeing/diary', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, title, content, mood, energy, gratitude, highlight, tags, created_at
+       FROM portal_diary_entries WHERE patient_id = ? AND tenant_id = ? ORDER BY created_at DESC LIMIT 200`,
+      [req.params.id, req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/:id/wellbeing/activities', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, title, category, duration, extra, description, done, created_at
+       FROM portal_activities WHERE patient_id = ? AND tenant_id = ? ORDER BY created_at DESC LIMIT 200`,
+      [req.params.id, req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

@@ -6,6 +6,7 @@ import {
   Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink,
   ChevronRight, History, Activity, Link2, Copy, Check, X, Clock, Smartphone,
   CheckSquare, Plus, Flag, Tag, AlarmClock, MessageCircle, Send,
+  Heart, BookOpen, Dumbbell, Smile,
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -57,12 +58,13 @@ const safeGet = async <T,>(url: string, params?: Record<string, string>): Promis
   try { return await api.get<T>(url, params); } catch { return null; }
 };
 
-type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas' | 'mensagens';
+type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas' | 'mensagens' | 'portal';
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'dados',       label: 'Dados',       icon: <User size={14} /> },
   { key: 'agenda',      label: 'Agenda',      icon: <Calendar size={14} /> },
   { key: 'tarefas',     label: 'Tarefas',     icon: <CheckSquare size={14} /> },
+  { key: 'portal',      label: 'Portal',      icon: <Heart size={14} /> },
   { key: 'mensagens',   label: 'Mensagens',   icon: <MessageCircle size={14} /> },
   { key: 'documentos',  label: 'Documentos',  icon: <FolderOpen size={14} /> },
   { key: 'prontuario',  label: 'Prontuário',  icon: <FileText size={14} /> },
@@ -442,6 +444,7 @@ export const PatientDetail: React.FC = () => {
         {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
         {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'tarefas'     && <TabTarefas patientId={id!} />}
+        {activeTab === 'portal'      && <TabPortal patientId={id!} />}
         {activeTab === 'mensagens'   && <TabMensagens patientId={id!} />}
         {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
@@ -1344,6 +1347,208 @@ const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
           </div>
         )}
       </PanelCard>
+    </div>
+  );
+};
+
+// ─── Tab Portal (humor, diário, atividades) ──────────────────────────────────
+const MOOD_MAP: Record<number, { emoji: string; label: string; color: string }> = {
+  5: { emoji: '😄', label: 'Ótimo',     color: '#10b981' },
+  4: { emoji: '😊', label: 'Bem',        color: '#3b82f6' },
+  3: { emoji: '😐', label: 'Neutro',     color: '#f59e0b' },
+  2: { emoji: '😕', label: 'Mal',        color: '#f97316' },
+  1: { emoji: '😞', label: 'Muito mal',  color: '#ef4444' },
+};
+
+const ACT_EMOJI: Record<string, string> = {
+  exercicio: '🏃', meditacao: '🧘', sono: '😴', alimentacao: '🥗',
+  social: '👥', terapia: '🧠', criativo: '🎨', leitura: '📚',
+  respiracao: '🌬️', gratidao: '🙏', saude: '💊', lazer: '🎮', geral: '✨',
+};
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+const PORTAL_TABS = [
+  { key: 'humor',      label: 'Humor',      icon: <Smile size={13} /> },
+  { key: 'diario',     label: 'Diário',     icon: <BookOpen size={13} /> },
+  { key: 'atividades', label: 'Atividades', icon: <Dumbbell size={13} /> },
+];
+
+const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
+  const [sub, setSub]       = useState<'humor' | 'diario' | 'atividades'>('humor');
+  const [mood, setMood]     = useState<any[]>([]);
+  const [diary, setDiary]   = useState<any[]>([]);
+  const [acts, setActs]     = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const [m, d, a] = await Promise.all([
+          api.get<any[]>(`/patients/${patientId}/wellbeing/mood`),
+          api.get<any[]>(`/patients/${patientId}/wellbeing/diary`),
+          api.get<any[]>(`/patients/${patientId}/wellbeing/activities`),
+        ]);
+        setMood(Array.isArray(m) ? m : []);
+        setDiary(Array.isArray(d) ? d : []);
+        setActs(Array.isArray(a) ? a : []);
+      } catch {}
+      setLoading(false);
+    })();
+  }, [patientId]);
+
+  if (loading) return <TabLoader />;
+
+  // Últimos 7 dias de humor para mini-gráfico
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const dateStr = d.toISOString().slice(0, 10);
+    const entry = mood.find(m => m.date === dateStr);
+    return { date: dateStr, value: entry?.value ?? null, label: entry?.label ?? null };
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Sub-abas */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+        {PORTAL_TABS.map(t => (
+          <button key={t.key} onClick={() => setSub(t.key as any)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
+              ${sub === t.key ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── HUMOR ── */}
+      {sub === 'humor' && (
+        <PanelCard>
+          <SectionTitle icon={<Smile size={14} />} label="Histórico de Humor" />
+          {mood.length === 0 ? (
+            <EmptyState icon={<Smile size={28} />} label="Nenhum registro de humor ainda" />
+          ) : (
+            <>
+              {/* Mini gráfico 7 dias */}
+              <div className="flex items-end gap-1.5 mb-5 mt-2">
+                {last7.map((d, i) => {
+                  const info = d.value ? MOOD_MAP[d.value] : null;
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="w-full rounded-md transition-all"
+                        style={{
+                          height: d.value ? `${d.value * 10 + 10}px` : '6px',
+                          backgroundColor: info?.color ?? '#e2e8f0',
+                          minHeight: '6px',
+                        }} />
+                      <span className="text-[9px] text-slate-400">
+                        {new Date(d.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'narrow' })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="space-y-2">
+                {mood.slice(0, 30).map(m => {
+                  const info = MOOD_MAP[m.value];
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <span className="text-2xl">{info?.emoji}</span>
+                      <div className="flex-1">
+                        <span className="text-sm font-bold" style={{ color: info?.color }}>{info?.label}</span>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{fmtDate(m.date || m.created_at)}</p>
+                      </div>
+                      <div className="flex gap-0.5">
+                        {[1,2,3,4,5].map(v => (
+                          <div key={v} className="w-2 h-2 rounded-full" style={{ backgroundColor: v <= m.value ? info?.color : '#e2e8f0' }} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </PanelCard>
+      )}
+
+      {/* ── DIÁRIO ── */}
+      {sub === 'diario' && (
+        <PanelCard>
+          <SectionTitle icon={<BookOpen size={14} />} label={`Diário — ${diary.length} entrada(s)`} />
+          {diary.length === 0 ? (
+            <EmptyState icon={<BookOpen size={28} />} label="Nenhuma entrada no diário ainda" />
+          ) : (
+            <div className="space-y-3">
+              {diary.map(e => {
+                const moodInfo = e.mood != null ? MOOD_MAP[e.mood] : null;
+                const isOpen = expanded === e.id;
+                const tags = e.tags ? (typeof e.tags === 'string' ? JSON.parse(e.tags) : e.tags) : [];
+                return (
+                  <div key={e.id} className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
+                    <button onClick={() => setExpanded(isOpen ? null : e.id)}
+                      className="w-full flex items-start gap-3 p-3.5 text-left hover:bg-slate-100 transition-colors">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                        style={{ backgroundColor: moodInfo?.color ? `${moodInfo.color}22` : '#f1f5f9' }}>
+                        {moodInfo?.emoji ?? '📖'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-700 truncate">{e.title || 'Entrada sem título'}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{fmtDate(e.created_at)}{moodInfo ? ` · ${moodInfo.label}` : ''}</p>
+                        {!isOpen && <p className="text-xs text-slate-500 mt-1 line-clamp-1">{e.content}</p>}
+                      </div>
+                      <ChevronRight size={14} className={`text-slate-400 shrink-0 mt-1 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 pb-4 space-y-2 border-t border-slate-100 pt-3">
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{e.content}</p>
+                        {e.highlight && <div className="text-xs bg-yellow-50 border border-yellow-100 rounded-lg p-2"><span className="font-bold text-yellow-700">Ponto alto:</span> {e.highlight}</div>}
+                        {e.gratitude && <div className="text-xs bg-emerald-50 border border-emerald-100 rounded-lg p-2"><span className="font-bold text-emerald-700">Gratidão:</span> {e.gratitude}</div>}
+                        {tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {tags.map((t: string) => <span key={t} className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-semibold">{t}</span>)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </PanelCard>
+      )}
+
+      {/* ── ATIVIDADES ── */}
+      {sub === 'atividades' && (
+        <PanelCard>
+          <SectionTitle icon={<Dumbbell size={14} />} label={`Atividades — ${acts.length} registro(s)`} />
+          {acts.length === 0 ? (
+            <EmptyState icon={<Dumbbell size={28} />} label="Nenhuma atividade registrada ainda" />
+          ) : (
+            <div className="space-y-2">
+              {acts.map(a => (
+                <div key={a.id} className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all
+                  ${a.done ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
+                  <span className="text-xl mt-0.5">{ACT_EMOJI[a.category] ?? '✨'}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className={`text-sm font-bold ${a.done ? 'text-emerald-700' : 'text-slate-700'}`}>{a.title}</p>
+                      {a.done && <Check size={12} className="text-emerald-500 shrink-0" />}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 capitalize">{a.category}{a.duration ? ` · ${a.duration}` : ''}</p>
+                    {a.description && <p className="text-xs text-slate-500 mt-1">{a.description}</p>}
+                  </div>
+                  <p className="text-[10px] text-slate-400 shrink-0">{fmtDate(a.created_at)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </PanelCard>
+      )}
     </div>
   );
 };
