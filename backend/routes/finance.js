@@ -656,7 +656,7 @@ router.post('/', authMiddleware, checkPermission('manage_payments'), async (req,
         amount, date, patient_id || null, appointment_id || null,
         payment_method || null, status || 'paid',
         payer_name || null, beneficiary_name || null, payer_cpf || null, beneficiary_cpf || null, observation || null,
-        comanda_id || null, req.body.due_date || null, req.user.id, req.body.source || 'direct'
+        comanda_id || null, req.body.due_date ? String(req.body.due_date).slice(0, 10) : null, req.user.id, req.body.source || 'direct'
       ]
     );
 
@@ -720,6 +720,8 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
     const oldComandaId = existing[0]?.comanda_id;
     const newComandaId = comanda_id !== undefined ? comanda_id : oldComandaId;
 
+    const sanitizeDate = (v) => v ? String(v).slice(0, 10) : null;
+
     await db.query(
       `UPDATE financial_transactions SET
         type = COALESCE(?, type),
@@ -738,9 +740,9 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
         comanda_id = ?
        WHERE id = ? AND tenant_id = ?`,
       [
-        type, category, description, amount, date, payment_method, status,
+        type, category, description, amount, sanitizeDate(date), payment_method, status,
         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation,
-        req.body.due_date,
+        sanitizeDate(req.body.due_date),
         newComandaId,
         req.params.id, req.user.tenant_id
       ]
