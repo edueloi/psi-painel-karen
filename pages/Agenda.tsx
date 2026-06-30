@@ -1194,7 +1194,7 @@ export const Agenda: React.FC = () => {
 
    const openDetailModal = (apt: Appointment) => {
     setSelectedApt(apt);
-    setFormData(prev => ({ ...prev, id: apt.id }));
+    setFormData((prev: any) => ({ ...prev, id: apt.id }));
     setIsDetailModalOpen(true);
   };
 
@@ -2078,7 +2078,7 @@ export const Agenda: React.FC = () => {
                                                     const res = await api.get<any[]>('/finance/comandas');
                                                     const all = Array.isArray(res) ? res : [];
                                                     const fresh = all.find(c => String(c.id) === String(formData.comanda_id));
-                                                    if (fresh) setPatientComandas(prev => [...prev.filter(c => String(c.id) !== String(formData.comanda_id)), fresh]);
+                                                    if (fresh) setPatientComandas((prev: any) => [...prev.filter((c: any) => String(c.id) !== String(formData.comanda_id)), fresh]);
                                                   } catch { /* usa dados existentes */ }
                                                   setComandaManagerSourceId(String(formData.comanda_id));
                                                   setIsComandaManagerOpen(true);
@@ -2177,7 +2177,7 @@ export const Agenda: React.FC = () => {
                                                                   const res = await api.get<any[]>('/finance/comandas');
                                                                   const all = Array.isArray(res) ? res : [];
                                                                   const fresh = all.find(x => String(x.id) === String(c.id));
-                                                                  if (fresh) setPatientComandas(prev => [...prev.filter(x => String(x.id) !== String(c.id)), fresh]);
+                                                                  if (fresh) setPatientComandas((prev: any) => [...prev.filter((x: any) => String(x.id) !== String(c.id)), fresh]);
                                                                 } catch { /* usa dados existentes */ }
                                                                 setComandaManagerSourceId(String(c.id));
                                                                 setIsComandaManagerOpen(true);
@@ -2790,7 +2790,7 @@ export const Agenda: React.FC = () => {
               className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
               onClick={() => {
                 const newDate = `${tempDateTime.date}T${tempDateTime.time}`;
-                setFormData(prev => ({ ...prev, appointment_date: newDate }));
+                setFormData((prev: any) => ({ ...prev, appointment_date: newDate }));
                 setIsRescheduleModalOpen(false);
               }}
             >
@@ -2804,14 +2804,14 @@ export const Agenda: React.FC = () => {
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data</label>
             <DatePicker
               value={tempDateTime.date}
-              onChange={val => val && setTempDateTime(prev => ({ ...prev, date: val }))}
+              onChange={val => val && setTempDateTime((prev: any) => ({ ...prev, date: val }))}
             />
           </div>
           <Input
             label="Horário"
             type="time"
             value={tempDateTime.time}
-            onChange={e => setTempDateTime(prev => ({ ...prev, time: e.target.value }))}
+            onChange={e => setTempDateTime((prev: any) => ({ ...prev, time: e.target.value }))}
           />
           {tempDateTime.date && tempDateTime.time && (
             <div className="flex items-center gap-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100 text-sm font-black text-indigo-700">
@@ -2853,7 +2853,7 @@ export const Agenda: React.FC = () => {
                         diffMs = 15 * 60000;
                     }
                     const newDuration = Math.round(diffMs / 60000);
-                    setFormData(prev => ({ ...prev, duration_minutes: newDuration }));
+                    setFormData((prev: any) => ({ ...prev, duration_minutes: newDuration }));
                     setIsEndTimeModalOpen(false);
                 } catch (e) { console.error(e); }
               }}
@@ -3485,7 +3485,7 @@ export const Agenda: React.FC = () => {
                       const all = Array.isArray(res) ? res : [];
                       const fresh = all.find(c => String(c.id) === String(apt.comanda_id));
                       if (fresh) {
-                        setPatientComandas(prev => {
+                        setPatientComandas((prev: any) => {
                           const filtered = prev.filter(c => String(c.id) !== String(apt.comanda_id));
                           return [...filtered, fresh];
                         });
@@ -3585,7 +3585,7 @@ export const Agenda: React.FC = () => {
                       <label className="text-[9px] font-black text-violet-500 uppercase tracking-widest block mb-1 ml-1">Nova Data</label>
                       <DatePicker
                         value={detailRescheduleDateTime.date}
-                        onChange={val => setDetailRescheduleDateTime(prev => ({ ...prev, date: val ?? '' }))}
+                        onChange={val => setDetailRescheduleDateTime((prev: any) => ({ ...prev, date: val ?? '' }))}
                         className="w-full"
                       />
                     </div>
@@ -3596,7 +3596,7 @@ export const Agenda: React.FC = () => {
                         <input
                           type="time"
                           value={detailRescheduleDateTime.time}
-                          onChange={e => setDetailRescheduleDateTime(prev => ({ ...prev, time: e.target.value }))}
+                          onChange={e => setDetailRescheduleDateTime((prev: any) => ({ ...prev, time: e.target.value }))}
                           className="w-full rounded-xl border border-violet-200 pl-8 pr-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 transition-colors bg-violet-50/20"
                         />
                       </div>
@@ -3704,7 +3704,7 @@ export const Agenda: React.FC = () => {
                     checked={checked}
                     className="accent-indigo-600 w-4 h-4"
                     onChange={() => {
-                      setSelectedScopeIds(prev => {
+                      setSelectedScopeIds((prev: any) => {
                         const next = new Set(prev);
                         if (next.has(id)) next.delete(id); else next.add(id);
                         return next;
@@ -3777,7 +3777,7 @@ export const Agenda: React.FC = () => {
               <input
                 type="date"
                 value={detailRescheduleDateTime.date}
-                onChange={e => setDetailRescheduleDateTime(prev => ({ ...prev, date: e.target.value }))}
+                onChange={e => setDetailRescheduleDateTime((prev: any) => ({ ...prev, date: e.target.value }))}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-indigo-400"
               />
             </div>
@@ -3786,7 +3786,7 @@ export const Agenda: React.FC = () => {
               <input
                 type="time"
                 value={detailRescheduleDateTime.time}
-                onChange={e => setDetailRescheduleDateTime(prev => ({ ...prev, time: e.target.value }))}
+                onChange={e => setDetailRescheduleDateTime((prev: any) => ({ ...prev, time: e.target.value }))}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-indigo-400"
               />
             </div>
@@ -3806,7 +3806,7 @@ export const Agenda: React.FC = () => {
                         checked={checked}
                         className="accent-indigo-600 w-4 h-4"
                         onChange={() => {
-                          setDetailRescheduleScopeIds(prev => {
+                          setDetailRescheduleScopeIds((prev: any) => {
                             const next = new Set(prev);
                             if (next.has(id)) next.delete(id); else next.add(id);
                             return next;
@@ -4133,7 +4133,7 @@ export const Agenda: React.FC = () => {
                                 <div className="w-[118px]">
                                   <DatePicker
                                     value={editAptValues.date}
-                                    onChange={(val) => setEditAptValues(prev => ({ ...prev, date: val ?? '' }))}
+                                    onChange={(val) => setEditAptValues((prev: any) => ({ ...prev, date: val ?? '' }))}
                                     className="!h-7 !border-slate-200 !rounded-lg text-[11px] font-black"
                                   />
                                 </div>
@@ -4142,7 +4142,7 @@ export const Agenda: React.FC = () => {
                                   <input
                                     type="time"
                                     value={editAptValues.time}
-                                    onChange={e => setEditAptValues(prev => ({ ...prev, time: e.target.value }))}
+                                    onChange={e => setEditAptValues((prev: any) => ({ ...prev, time: e.target.value }))}
                                     className="h-7 w-[86px] rounded-lg border border-slate-200 pl-7 pr-2 text-[11px] font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 bg-white"
                                   />
                                 </div>
@@ -4361,8 +4361,8 @@ export const Agenda: React.FC = () => {
               value={newPayment.value}
               onChange={(e) => {
                 const digits = e.target.value.replace(/\D/g, '');
-                if (!digits) { setNewPayment(prev => ({ ...prev, value: '' })); return; }
-                setNewPayment(prev => ({ ...prev, value: (parseFloat(digits) / 100).toFixed(2).replace('.', ',') }));
+                if (!digits) { setNewPayment((prev: any) => ({ ...prev, value: '' })); return; }
+                setNewPayment((prev: any) => ({ ...prev, value: (parseFloat(digits) / 100).toFixed(2).replace('.', ',') }));
               }}
               placeholder="0,00"
               className={compactInputClass}
