@@ -2278,7 +2278,7 @@ router.post('/messages', portalAuth, async (req, res) => {
 // ─── InfinitePay: paciente gera cobrança via portal ──────────────────────────
 
 // Helpers de criptografia (idênticos ao infinitepay.js)
-function ipDecryptToken(encrypted) {
+function ipDecryptData(encrypted) {
   const cryptoLib = require('crypto');
   const key = Buffer.from(process.env.INFINITEPAY_ENCRYPTION_KEY || 'psiflux-default-key-32chars!!!!!!', 'utf8').slice(0, 32);
   const [ivHex, encHex] = encrypted.split(':');
@@ -2286,6 +2286,20 @@ function ipDecryptToken(encrypted) {
   const enc = Buffer.from(encHex, 'hex');
   const decipher = cryptoLib.createDecipheriv('aes-256-cbc', key, iv);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+}
+
+async function ipGetAccessToken(encryptedData) {
+  const decrypted = ipDecryptData(encryptedData);
+  const [clientId, clientSecret] = decrypted.split('||');
+  const body = new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret });
+  const res = await fetch('https://api.infinitepay.io/v2/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  if (!res.ok) throw new Error('Credenciais InfinitePay inválidas');
+  const data = await res.json();
+  return data.access_token;
 }
 
 // GET /patient-portal/infinitepay/available — verifica se o psicólogo tem InfinitePay
@@ -2320,7 +2334,7 @@ router.post('/infinitepay/charge', portalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Pagamento online não disponível para este profissional.' });
     }
 
-    const token = ipDecryptToken(u.infinitepay_token);
+    const token = await ipGetAccessToken(u.infinitepay_token);
     const { amount, appointment_id, comanda_id, installments } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
 

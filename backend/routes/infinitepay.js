@@ -7,7 +7,7 @@ const crypto = require('crypto');
 // ── Auto-migrate: colunas InfinitePay na tabela users ────────────────────────
 async function ensureInfinitePayColumns() {
   const stmts = [
-    "ALTER TABLE users ADD COLUMN infinitepay_token TEXT NULL",
+    "ALTER TABLE users ADD COLUMN infinitepay_token TEXT NULL",        // armazena client_id:client_secret criptografado
     "ALTER TABLE users ADD COLUMN infinitepay_enabled TINYINT(1) DEFAULT 0",
     "ALTER TABLE financial_transactions ADD COLUMN infinitepay_charge_id VARCHAR(255) NULL",
     "ALTER TABLE financial_transactions ADD COLUMN infinitepay_status VARCHAR(50) NULL",
@@ -22,17 +22,17 @@ async function ensureInfinitePayColumns() {
 }
 ensureInfinitePayColumns();
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers de criptografia ───────────────────────────────────────────────────
 
-function encryptToken(token) {
+function encryptData(data) {
   const key = Buffer.from(process.env.INFINITEPAY_ENCRYPTION_KEY || 'psiflux-default-key-32chars!!!!!!', 'utf8').slice(0, 32);
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+  const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
   return iv.toString('hex') + ':' + encrypted.toString('hex');
 }
 
-function decryptToken(encrypted) {
+function decryptData(encrypted) {
   const key = Buffer.from(process.env.INFINITEPAY_ENCRYPTION_KEY || 'psiflux-default-key-32chars!!!!!!', 'utf8').slice(0, 32);
   const [ivHex, encHex] = encrypted.split(':');
   const iv = Buffer.from(ivHex, 'hex');
@@ -41,16 +41,41 @@ function decryptToken(encrypted) {
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
 }
 
-async function getUserToken(userId) {
+// ── OAuth2: troca client_id+secret por access_token ──────────────────────────
+async function fetchAccessToken(clientId, clientSecret) {
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+  const res = await fetch('https://api.infinitepay.io/v2/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error_description || err.message || 'Credenciais inválidas');
+  }
+  const data = await res.json();
+  return data.access_token;
+}
+
+// Busca credenciais do usuário e retorna um access_token fresco
+async function getUserAccessToken(userId) {
   const [rows] = await db.query(
     'SELECT infinitepay_token, infinitepay_enabled FROM users WHERE id = ?',
     [userId]
   );
   if (!rows.length || !rows[0].infinitepay_enabled || !rows[0].infinitepay_token) return null;
-  try { return decryptToken(rows[0].infinitepay_token); } catch { return null; }
+  try {
+    const decrypted = decryptData(rows[0].infinitepay_token);
+    const [clientId, clientSecret] = decrypted.split('||');
+    return await fetchAccessToken(clientId, clientSecret);
+  } catch { return null; }
 }
 
-// ── GET /infinitepay/config — Retorna se está configurado (sem expor o token) ─
+// ── GET /infinitepay/config ───────────────────────────────────────────────────
 router.get('/config', authMiddleware, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -59,88 +84,65 @@ router.get('/config', authMiddleware, async (req, res) => {
     );
     if (!rows.length) return res.json({ configured: false, enabled: false });
     const { infinitepay_enabled, infinitepay_token } = rows[0];
-    res.json({
-      configured: !!infinitepay_token,
-      enabled: !!infinitepay_enabled,
-    });
+    res.json({ configured: !!infinitepay_token, enabled: !!infinitepay_enabled });
   } catch (err) {
     console.error('[InfinitePay] Erro ao buscar config:', err);
     res.status(500).json({ error: 'Erro ao buscar configuração' });
   }
 });
 
-// ── POST /infinitepay/config — Salva/atualiza o token do psicólogo ────────────
+// ── POST /infinitepay/config — Salva client_id + client_secret ───────────────
 router.post('/config', authMiddleware, async (req, res) => {
   try {
-    const { token, enabled } = req.body;
-    if (token === undefined && enabled === undefined) {
-      return res.status(400).json({ error: 'Envie token ou enabled' });
-    }
+    const { client_id, client_secret, enabled } = req.body;
 
     const updates = [];
     const values = [];
 
-    if (token !== undefined) {
-      if (token === '') {
+    if (client_id !== undefined) {
+      if (client_id === '') {
+        // Desconectar
         updates.push('infinitepay_token = NULL', 'infinitepay_enabled = 0');
       } else {
-        const encrypted = encryptToken(token.trim());
+        const encrypted = encryptData(`${client_id.trim()}||${(client_secret || '').trim()}`);
         updates.push('infinitepay_token = ?', 'infinitepay_enabled = 1');
         values.push(encrypted);
       }
     }
 
-    if (enabled !== undefined && token === undefined) {
+    if (enabled !== undefined && client_id === undefined) {
       updates.push('infinitepay_enabled = ?');
       values.push(enabled ? 1 : 0);
     }
 
+    if (!updates.length) return res.status(400).json({ error: 'Nada para atualizar' });
+
     values.push(req.user.id);
     await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
-
-    res.json({ ok: true, message: 'Configuração salva com sucesso!' });
+    res.json({ ok: true });
   } catch (err) {
     console.error('[InfinitePay] Erro ao salvar config:', err);
     res.status(500).json({ error: 'Erro ao salvar configuração' });
   }
 });
 
-// ── POST /infinitepay/config/test — Testa se o token é válido ────────────────
+// ── POST /infinitepay/config/test — Valida client_id + client_secret ─────────
 router.post('/config/test', authMiddleware, async (req, res) => {
   try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ error: 'Token obrigatório' });
-
-    // Testa criando uma cobrança de R$ 0,01 (mínimo) e depois cancela
-    // A InfinitePay retorna 401 se o token for inválido
-    const testResp = await fetch('https://api.infinitepay.io/v2/charges', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token.trim()}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        amount: 100,
-        capture_method: 'link',
-        description: 'Teste de integração PsiFlux',
-      }),
-    });
-
-    if (testResp.status === 401) {
-      return res.status(401).json({ valid: false, error: 'Token inválido ou sem permissão' });
-    }
-
-    res.json({ valid: true, message: 'Token válido!' });
+    const { client_id, client_secret } = req.body;
+    if (!client_id || !client_secret) return res.status(400).json({ error: 'client_id e client_secret obrigatórios' });
+    await fetchAccessToken(client_id.trim(), client_secret.trim());
+    res.json({ valid: true, message: 'Credenciais válidas!' });
   } catch (err) {
-    console.error('[InfinitePay] Erro ao testar token:', err);
-    res.status(500).json({ error: 'Erro ao testar conexão com InfinitePay' });
+    console.error('[InfinitePay] Erro ao testar credenciais:', err);
+    res.status(401).json({ valid: false, error: err.message || 'Credenciais inválidas' });
   }
 });
 
 // ── POST /infinitepay/charge — Cria cobrança (link de pagamento) ──────────────
 router.post('/charge', authMiddleware, async (req, res) => {
   try {
-    const token = await getUserToken(req.user.id);
+    const token = await getUserAccessToken(req.user.id);
     if (!token) {
       return res.status(400).json({ error: 'InfinitePay não configurada para este usuário. Configure nas Configurações.' });
     }
@@ -199,7 +201,7 @@ router.post('/charge', authMiddleware, async (req, res) => {
 // ── GET /infinitepay/charge/:id — Consulta status de uma cobrança ─────────────
 router.get('/charge/:chargeId', authMiddleware, async (req, res) => {
   try {
-    const token = await getUserToken(req.user.id);
+    const token = await getUserAccessToken(req.user.id);
     if (!token) return res.status(400).json({ error: 'InfinitePay não configurada' });
 
     const ipRes = await fetch(`https://api.infinitepay.io/v2/charges/${req.params.chargeId}`, {

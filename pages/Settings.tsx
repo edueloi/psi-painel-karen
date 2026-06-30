@@ -148,7 +148,8 @@ export const Settings: React.FC = () => {
 
   // ── InfinitePay ──────────────────────────────────────────────────────────
   const [ipConfig, setIpConfig] = useState({ configured: false, enabled: false });
-  const [ipToken, setIpToken] = useState('');
+  const [ipToken, setIpToken] = useState('');           // Client ID
+  const [ipClientSecret, setIpClientSecret] = useState(''); // Client Secret
   const [ipSaving, setIpSaving] = useState(false);
   const [ipTesting, setIpTesting] = useState(false);
   const [ipShowToken, setIpShowToken] = useState(false);
@@ -159,25 +160,26 @@ export const Settings: React.FC = () => {
   }, [activeTab]);
 
   const saveIpToken = async () => {
-    if (!ipToken.trim()) return;
+    if (!ipToken.trim() || !ipClientSecret.trim()) return;
     setIpSaving(true);
     try {
-      await api.post('/infinitepay/config', { token: ipToken.trim() });
+      await api.post('/infinitepay/config', { client_id: ipToken.trim(), client_secret: ipClientSecret.trim() });
       setIpConfig({ configured: true, enabled: true });
       setIpToken('');
-      pushToast('success', 'InfinitePay configurada com sucesso!');
-    } catch { pushToast('error', 'Erro ao salvar token da InfinitePay.'); }
+      setIpClientSecret('');
+      pushToast('success', 'InfinitePay conectada com sucesso!');
+    } catch { pushToast('error', 'Erro ao salvar credenciais da InfinitePay.'); }
     finally { setIpSaving(false); }
   };
 
   const testIpToken = async () => {
-    if (!ipToken.trim()) return;
+    if (!ipToken.trim() || !ipClientSecret.trim()) return;
     setIpTesting(true);
     try {
-      await api.post('/infinitepay/config/test', { token: ipToken.trim() });
-      pushToast('success', 'Token válido! Conexão com InfinitePay OK.');
+      await api.post('/infinitepay/config/test', { client_id: ipToken.trim(), client_secret: ipClientSecret.trim() });
+      pushToast('success', 'Credenciais válidas! Conexão com InfinitePay OK.');
     } catch (e: any) {
-      pushToast('error', e?.message || 'Token inválido ou sem permissão.');
+      pushToast('error', e?.message || 'Credenciais inválidas ou sem permissão.');
     } finally { setIpTesting(false); }
   };
 
@@ -867,35 +869,42 @@ export const Settings: React.FC = () => {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                           <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                          <p className="text-xs text-emerald-700 font-medium">Token da InfinitePay configurado e criptografado.</p>
+                          <p className="text-xs text-emerald-700 font-medium">Credenciais InfinitePay configuradas e criptografadas.</p>
                         </div>
-                        <p className="text-[11px] text-slate-400">Para trocar o token, cole o novo abaixo e salve:</p>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
+                        <p className="text-[11px] text-slate-400">Para trocar as credenciais, cole as novas abaixo:</p>
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={ipToken}
+                            onChange={e => setIpToken(e.target.value)}
+                            placeholder="Novo Client ID (opcional)"
+                            className="w-full pl-3 pr-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                          />
+                          <div className="relative">
                             <input
                               type={ipShowToken ? 'text' : 'password'}
-                              value={ipToken}
-                              onChange={e => setIpToken(e.target.value)}
-                              placeholder="Novo token da InfinitePay (opcional)"
-                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                              value={ipClientSecret}
+                              onChange={e => setIpClientSecret(e.target.value)}
+                              placeholder="Novo Client Secret (opcional)"
+                              className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
                             />
                             <button onClick={() => setIpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                               {ipShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
                             </button>
                           </div>
-                          {ipToken && (
-                            <button onClick={testIpToken} disabled={ipTesting}
-                              className="px-3 py-2.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-50 whitespace-nowrap">
-                              {ipTesting ? <Loader2 size={13} className="animate-spin" /> : 'Testar'}
-                            </button>
-                          )}
-                          {ipToken && (
-                            <button onClick={saveIpToken} disabled={ipSaving}
-                              className="px-3 py-2.5 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 whitespace-nowrap">
-                              {ipSaving ? <Loader2 size={13} className="animate-spin" /> : 'Salvar'}
-                            </button>
-                          )}
                         </div>
+                        {(ipToken || ipClientSecret) && (
+                          <div className="flex gap-2">
+                            <button onClick={testIpToken} disabled={ipTesting || !ipToken.trim() || !ipClientSecret.trim()}
+                              className="flex-1 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-50">
+                              {ipTesting ? <Loader2 size={13} className="animate-spin inline" /> : 'Testar'}
+                            </button>
+                            <button onClick={saveIpToken} disabled={ipSaving || !ipToken.trim() || !ipClientSecret.trim()}
+                              className="flex-1 py-2 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50">
+                              {ipSaving ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
+                            </button>
+                          </div>
+                        )}
                         <button onClick={disconnectIp} disabled={ipSaving}
                           className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
                           <Unplug size={12} /> Desconectar InfinitePay
@@ -907,27 +916,36 @@ export const Settings: React.FC = () => {
                         <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
                           <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
                           <p className="text-xs text-amber-700">
-                            Acesse o app da <strong>InfinitePay</strong> → <strong>Configurações → Desenvolvedor</strong> e copie seu token de API.
+                            Abra o app <strong>InfinitePay</strong> → menu lateral → <strong>Configurações → Credenciais</strong>. Copie o <strong>Client ID</strong> e o <strong>Client Secret</strong>.
                           </p>
                         </div>
-                        <div className="relative">
+                        <div className="space-y-2">
                           <input
-                            type={ipShowToken ? 'text' : 'password'}
+                            type="text"
                             value={ipToken}
                             onChange={e => setIpToken(e.target.value)}
-                            placeholder="Cole aqui o token da InfinitePay"
-                            className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                            placeholder="Client ID"
+                            className="w-full pl-3 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
                           />
-                          <button onClick={() => setIpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                            {ipShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
+                          <div className="relative">
+                            <input
+                              type={ipShowToken ? 'text' : 'password'}
+                              value={ipClientSecret}
+                              onChange={e => setIpClientSecret(e.target.value)}
+                              placeholder="Client Secret"
+                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                            />
+                            <button onClick={() => setIpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              {ipShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={testIpToken} disabled={!ipToken.trim() || ipTesting}
+                          <button onClick={testIpToken} disabled={!ipToken.trim() || !ipClientSecret.trim() || ipTesting}
                             className="flex-1 py-2.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-40">
                             {ipTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
                           </button>
-                          <button onClick={saveIpToken} disabled={!ipToken.trim() || ipSaving}
+                          <button onClick={saveIpToken} disabled={!ipToken.trim() || !ipClientSecret.trim() || ipSaving}
                             className="flex-1 py-2.5 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-40">
                             {ipSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar InfinitePay'}
                           </button>
