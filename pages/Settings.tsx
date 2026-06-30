@@ -6,7 +6,7 @@ import {
   Save, AlertTriangle, Clock, Send, Loader2, Calendar,
   BarChart2, FileText, UserCheck, Users2, ExternalLink, Zap, ClipboardList,
   MessageSquare, Video, FileCode, Plug, ArrowRight, Users, Shield,
-  Phone, Briefcase
+  Phone, Briefcase, CreditCard, Eye, EyeOff, Unplug, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { PageHeader } from '../components/UI/PageHeader';
@@ -144,6 +144,59 @@ export const Settings: React.FC = () => {
       pushToast('success', (res as any).message || 'Email de teste enviado!');
     } catch { pushToast('error', 'Erro ao enviar email de teste.'); }
     finally { setTestSending(false); }
+  };
+
+  // ── InfinitePay ──────────────────────────────────────────────────────────
+  const [ipConfig, setIpConfig] = useState({ configured: false, enabled: false });
+  const [ipToken, setIpToken] = useState('');
+  const [ipSaving, setIpSaving] = useState(false);
+  const [ipTesting, setIpTesting] = useState(false);
+  const [ipShowToken, setIpShowToken] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'integracoes') return;
+    api.get<any>('/infinitepay/config').then((d: any) => setIpConfig(d)).catch(() => {});
+  }, [activeTab]);
+
+  const saveIpToken = async () => {
+    if (!ipToken.trim()) return;
+    setIpSaving(true);
+    try {
+      await api.post('/infinitepay/config', { token: ipToken.trim() });
+      setIpConfig({ configured: true, enabled: true });
+      setIpToken('');
+      pushToast('success', 'InfinitePay configurada com sucesso!');
+    } catch { pushToast('error', 'Erro ao salvar token da InfinitePay.'); }
+    finally { setIpSaving(false); }
+  };
+
+  const testIpToken = async () => {
+    if (!ipToken.trim()) return;
+    setIpTesting(true);
+    try {
+      await api.post('/infinitepay/config/test', { token: ipToken.trim() });
+      pushToast('success', 'Token válido! Conexão com InfinitePay OK.');
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Token inválido ou sem permissão.');
+    } finally { setIpTesting(false); }
+  };
+
+  const disconnectIp = async () => {
+    setIpSaving(true);
+    try {
+      await api.post('/infinitepay/config', { token: '' });
+      setIpConfig({ configured: false, enabled: false });
+      setIpToken('');
+      pushToast('success', 'InfinitePay desconectada.');
+    } catch { pushToast('error', 'Erro ao desconectar.'); }
+    finally { setIpSaving(false); }
+  };
+
+  const toggleIpEnabled = async () => {
+    try {
+      await api.post('/infinitepay/config', { enabled: !ipConfig.enabled });
+      setIpConfig(prev => ({ ...prev, enabled: !prev.enabled }));
+    } catch { pushToast('error', 'Erro ao alterar status.'); }
   };
 
   // ── Theme colors ─────────────────────────────────────────────────────────
@@ -775,6 +828,113 @@ export const Settings: React.FC = () => {
                       </div>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* ── InfinitePay ─────────────────────────────────────────────── */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Pagamentos</p>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  {/* Header da integração */}
+                  <div className="flex items-center gap-4 p-4 border-b border-slate-100">
+                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-600 shrink-0">
+                      <CreditCard size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-800 text-sm">InfinitePay</p>
+                        {ipConfig.configured && (
+                          <span className={cx(
+                            'px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            ipConfig.enabled
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-slate-100 text-slate-500 border-slate-200'
+                          )}>
+                            {ipConfig.enabled ? 'Ativo' : 'Pausado'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Receba via cartão, débito e PIX — lançamento automático no Livro Caixa</p>
+                    </div>
+                    {ipConfig.configured && (
+                      <ToggleSwitch checked={ipConfig.enabled} onChange={toggleIpEnabled} />
+                    )}
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {ipConfig.configured ? (
+                      /* Já configurado */
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                          <p className="text-xs text-emerald-700 font-medium">Token da InfinitePay configurado e criptografado.</p>
+                        </div>
+                        <p className="text-[11px] text-slate-400">Para trocar o token, cole o novo abaixo e salve:</p>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <input
+                              type={ipShowToken ? 'text' : 'password'}
+                              value={ipToken}
+                              onChange={e => setIpToken(e.target.value)}
+                              placeholder="Novo token da InfinitePay (opcional)"
+                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                            />
+                            <button onClick={() => setIpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              {ipShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          {ipToken && (
+                            <button onClick={testIpToken} disabled={ipTesting}
+                              className="px-3 py-2.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-50 whitespace-nowrap">
+                              {ipTesting ? <Loader2 size={13} className="animate-spin" /> : 'Testar'}
+                            </button>
+                          )}
+                          {ipToken && (
+                            <button onClick={saveIpToken} disabled={ipSaving}
+                              className="px-3 py-2.5 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 whitespace-nowrap">
+                              {ipSaving ? <Loader2 size={13} className="animate-spin" /> : 'Salvar'}
+                            </button>
+                          )}
+                        </div>
+                        <button onClick={disconnectIp} disabled={ipSaving}
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
+                          <Unplug size={12} /> Desconectar InfinitePay
+                        </button>
+                      </div>
+                    ) : (
+                      /* Não configurado */
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                          <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                          <p className="text-xs text-amber-700">
+                            Acesse o app da <strong>InfinitePay</strong> → <strong>Configurações → Desenvolvedor</strong> e copie seu token de API.
+                          </p>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={ipShowToken ? 'text' : 'password'}
+                            value={ipToken}
+                            onChange={e => setIpToken(e.target.value)}
+                            placeholder="Cole aqui o token da InfinitePay"
+                            className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                          />
+                          <button onClick={() => setIpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            {ipShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={testIpToken} disabled={!ipToken.trim() || ipTesting}
+                            className="flex-1 py-2.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-40">
+                            {ipTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
+                          </button>
+                          <button onClick={saveIpToken} disabled={!ipToken.trim() || ipSaving}
+                            className="flex-1 py-2.5 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-40">
+                            {ipSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar InfinitePay'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

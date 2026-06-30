@@ -43,6 +43,7 @@ const anamnesisSendRoutes = require('./routes/anamnesis-send');
 const therapeuticPlansRoutes = require('./routes/therapeutic-plans');
 const patientHistoryRoutes = require('./routes/patient-history');
 const livekitTokenRoutes = require('./routes/livekit-token');
+const infinitePayRoutes = require('./routes/infinitepay');
 const { startCronJobs } = require('./services/cronJobs');
 const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
@@ -61,6 +62,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/uploads-static`, express.static(path.join(__dirname, 'public/uploads')));
 
   // ---- Rotas publicas (sem auth) ----
+  app.use(`${prefix}/infinitepay/webhook`, infinitePayRoutes);
   app.use(`${prefix}/auth`, authRoutes);
   app.use(`${prefix}/forms`, formsRoutes);
   app.use(`${prefix}/disc`, discRoutes);
@@ -141,6 +143,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/patient-portal`, require('./routes/patient-portal'));
   app.use(`${prefix}/backup`, require('./routes/backup'));
   app.use(`${prefix}/livekit`, livekitTokenRoutes);
+  app.use(`${prefix}/infinitepay`, infinitePayRoutes);
 }
 
 // ---- Middlewares globais ----

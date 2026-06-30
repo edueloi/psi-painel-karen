@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { X, DollarSign, CreditCard, Smartphone, CheckCircle, Plus, Trash2, Split, AlertTriangle, ChevronDown } from "lucide-react";
+import { X, DollarSign, CreditCard, Smartphone, CheckCircle, Plus, Trash2, Split, AlertTriangle, ChevronDown, Zap, ExternalLink, Copy, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/src/lib/utils";
+import { api } from "../../services/api";
 
 interface PaymentEntry {
   method: "cash" | "card" | "pix";
@@ -13,6 +14,16 @@ interface PaymentModalProps {
   onClose: () => void;
   comanda: any;
   onConfirm: (paymentMethod: string, paymentDetails: any) => Promise<void>;
+  patientName?: string;
+}
+
+interface IpCharge {
+  charge_id: string;
+  payment_url: string | null;
+  pix_qr_code: string | null;
+  pix_qr_code_base64: string | null;
+  status: string;
+  amount: number;
 }
 
 const METHOD_CONFIG = {
@@ -38,7 +49,7 @@ function formatInput(v: string): string {
   return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export function PaymentModal({ isOpen, onClose, comanda, onConfirm }: PaymentModalProps) {
+export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName }: PaymentModalProps) {
   const [mode, setMode] = useState<"single" | "mixed">("single");
   const [singleMethod, setSingleMethod]     = useState<"cash" | "card" | "pix">("cash");
   const [singleInstallments, setSingleInstallments] = useState(1);
@@ -48,6 +59,14 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm }: PaymentMod
     { method: "pix",  amount: "" },
   ]);
   const [loading, setLoading] = useState(false);
+
+  // ── InfinitePay ────────────────────────────────────────────────────────────
+  const [ipAvailable, setIpAvailable] = useState(false);
+  const [useInfinitePay, setUseInfinitePay] = useState(false);
+  const [ipCharge, setIpCharge] = useState<IpCharge | null>(null);
+  const [ipLoading, setIpLoading] = useState(false);
+  const [ipCopied, setIpCopied] = useState(false);
+  const [ipPolling, setIpPolling] = useState(false);
 
   const total      = comanda ? Number(comanda.total)       : 0;
   const alreadyPaid = comanda ? Number(comanda.paidAmount || 0) : 0;
@@ -60,8 +79,57 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm }: PaymentMod
       setSingleInstallments(1);
       setSingleAmount("");
       setEntries([{ method: "cash", amount: "" }, { method: "pix", amount: "" }]);
+      setUseInfinitePay(false);
+      setIpCharge(null);
+      setIpCopied(false);
+      // Verifica se o psicólogo tem InfinitePay configurada
+      api.get<any>('/infinitepay/config').then((d: any) => {
+        setIpAvailable(d.configured && d.enabled);
+      }).catch(() => setIpAvailable(false));
     }
   }, [isOpen]);
+
+  // Polling para verificar se pagamento foi confirmado
+  useEffect(() => {
+    if (!ipCharge || !ipPolling) return;
+    const interval = setInterval(async () => {
+      try {
+        const d = await api.get<any>(`/infinitepay/charge/${ipCharge.charge_id}`);
+        if (['approved', 'paid', 'captured', 'succeeded'].includes((d as any).status?.toLowerCase())) {
+          setIpPolling(false);
+          setIpCharge(prev => prev ? { ...prev, status: 'paid' } : null);
+        }
+      } catch { /* ignora */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [ipCharge, ipPolling]);
+
+  const createIpCharge = async () => {
+    setIpLoading(true);
+    try {
+      const amount = singleAmount ? parseBRL(singleAmount) : remaining;
+      const charge = await api.post<any>('/infinitepay/charge', {
+        amount,
+        patient_name: patientName || comanda?.client?.name || 'Paciente',
+        comanda_id: comanda?.id,
+        installments: singleMethod === 'card' ? singleInstallments : 1,
+        description: `Consulta — ${patientName || comanda?.client?.name || 'Paciente'}`,
+      });
+      setIpCharge(charge as any);
+      setIpPolling(true);
+    } catch (e: any) {
+      alert(e?.message || 'Erro ao criar cobrança na InfinitePay');
+    } finally {
+      setIpLoading(false);
+    }
+  };
+
+  const copyIpLink = () => {
+    if (!ipCharge?.payment_url) return;
+    navigator.clipboard.writeText(ipCharge.payment_url);
+    setIpCopied(true);
+    setTimeout(() => setIpCopied(false), 2000);
+  };
 
   // ── Cálculos modo único ──────────────────────────────────────────────────────
   const singleAmountNum  = singleAmount ? parseBRL(singleAmount) : remaining;
@@ -213,7 +281,102 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm }: PaymentMod
                 </div>
               </div>
 
-              {/* Campo de valor */}
+              {/* ── InfinitePay toggle ── */}
+              {ipAvailable && (singleMethod === "card" || singleMethod === "pix") && (
+                <div className={cn(
+                  "rounded-2xl border-2 p-3 transition-all",
+                  useInfinitePay ? "border-emerald-300 bg-emerald-50" : "border-zinc-100 bg-zinc-50"
+                )}>
+                  <button
+                    onClick={() => { setUseInfinitePay(v => !v); setIpCharge(null); setIpPolling(false); }}
+                    className="w-full flex items-center gap-3"
+                  >
+                    <div className={cn("p-1.5 rounded-lg shrink-0", useInfinitePay ? "bg-emerald-500 text-white" : "bg-zinc-200 text-zinc-400")}>
+                      <Zap size={13} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className={cn("text-xs font-black", useInfinitePay ? "text-emerald-800" : "text-zinc-600")}>
+                        Cobrar via InfinitePay
+                      </p>
+                      <p className="text-[10px] text-zinc-400">Gera link/QR Code — lança automaticamente no Livro Caixa</p>
+                    </div>
+                    <div className={cn(
+                      "w-10 h-5 rounded-full transition-colors shrink-0",
+                      useInfinitePay ? "bg-emerald-500" : "bg-zinc-200"
+                    )}>
+                      <div className={cn("w-4 h-4 mt-0.5 mx-0.5 bg-white rounded-full shadow transition-transform", useInfinitePay ? "translate-x-5" : "translate-x-0")} />
+                    </div>
+                  </button>
+
+                  {/* Painel de cobrança InfinitePay */}
+                  {useInfinitePay && (
+                    <div className="mt-3 space-y-2">
+                      {!ipCharge ? (
+                        <button
+                          onClick={createIpCharge}
+                          disabled={ipLoading}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                        >
+                          {ipLoading
+                            ? <><Loader2 size={13} className="animate-spin" /> Gerando cobrança...</>
+                            : <><Zap size={13} /> Gerar cobrança ({fmtBRL(singleAmount ? parseBRL(singleAmount) : remaining)})</>}
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          {/* Status */}
+                          <div className={cn(
+                            "flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold",
+                            ipCharge.status === 'paid' || ipCharge.status === 'approved'
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-800"
+                          )}>
+                            {ipCharge.status === 'paid' || ipCharge.status === 'approved'
+                              ? <><CheckCircle size={13} /> Pagamento confirmado!</>
+                              : <><Loader2 size={13} className="animate-spin" /> Aguardando pagamento...</>}
+                          </div>
+
+                          {/* QR Code PIX */}
+                          {singleMethod === "pix" && ipCharge.pix_qr_code_base64 && (
+                            <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-zinc-100">
+                              <img src={ipCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-36 h-36" />
+                              <p className="text-[10px] text-zinc-500 font-bold text-center">Escaneie o QR Code com o app do banco</p>
+                              {ipCharge.pix_qr_code && (
+                                <button onClick={() => { navigator.clipboard.writeText(ipCharge.pix_qr_code!); setIpCopied(true); setTimeout(() => setIpCopied(false), 2000); }}
+                                  className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600 hover:text-violet-800">
+                                  <Copy size={11} /> {ipCopied ? "Copiado!" : "Copiar código PIX"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Link de pagamento */}
+                          {ipCharge.payment_url && (
+                            <div className="flex gap-2">
+                              <button onClick={copyIpLink}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
+                                <Copy size={11} /> {ipCopied ? "Copiado!" : "Copiar link"}
+                              </button>
+                              <a href={ipCharge.payment_url} target="_blank" rel="noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
+                                <ExternalLink size={11} /> Abrir link
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Nova cobrança */}
+                          <button onClick={() => { setIpCharge(null); setIpPolling(false); }}
+                            className="w-full text-[10px] font-bold text-zinc-400 hover:text-zinc-600 py-1">
+                            Gerar nova cobrança
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Campo de valor + Parcelamento (oculto quando InfinitePay ativo) */}
+              {!useInfinitePay && (<>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Valor a Pagar</p>
@@ -306,6 +469,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm }: PaymentMod
                   </div>
                 </div>
               )}
+              </>)} {/* fim !useInfinitePay */}
             </div>
           )}
 
@@ -403,12 +567,26 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm }: PaymentMod
           >
             Cancelar
           </button>
+          {useInfinitePay && ipCharge ? (
+            /* InfinitePay: mostra botão de fechar quando pagamento confirmado */
+            (ipCharge.status === 'paid' || ipCharge.status === 'approved') ? (
+              <button onClick={onClose}
+                className="flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-500 text-white shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-all">
+                <CheckCircle size={14} /> Pagamento Confirmado!
+              </button>
+            ) : (
+              <button disabled
+                className="flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-zinc-200 text-zinc-400 cursor-not-allowed flex items-center justify-center gap-2">
+                <Loader2 size={14} className="animate-spin" /> Aguardando Pagamento...
+              </button>
+            )
+          ) : (
           <button
             onClick={handleConfirm}
-            disabled={loading || (mode === "single" && !canConfirmSingle) || (mode === "mixed" && !canConfirmMixed)}
+            disabled={loading || (mode === "single" && (!canConfirmSingle || useInfinitePay)) || (mode === "mixed" && !canConfirmMixed)}
             className={cn(
               "flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg",
-              loading || (mode === "single" && !canConfirmSingle) || (mode === "mixed" && !canConfirmMixed)
+              loading || (mode === "single" && (!canConfirmSingle || useInfinitePay)) || (mode === "mixed" && !canConfirmMixed)
                 ? "bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none"
                 : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20 active:scale-95"
             )}
@@ -422,6 +600,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm }: PaymentMod
               ? `Pagar ${fmtBRL(mixedTotal)} (Parcial)`
               : "Confirmar Pagamento"}
           </button>
+          )}
         </div>
       </div>
     </div>

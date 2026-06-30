@@ -1579,6 +1579,39 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
     payment_date: new Date().toISOString().split("T")[0], notes: "",
   });
 
+  // ── InfinitePay ──────────────────────────────────────────────────────────
+  const [ipAvailable, setIpAvailable] = useState(false);
+  const [showIpForm, setShowIpForm] = useState(false);
+  const [ipAmount, setIpAmount] = useState("");
+  const [ipInstallments, setIpInstallments] = useState(1);
+  const [ipLoading, setIpLoading] = useState(false);
+  const [ipCharge, setIpCharge] = useState<any>(null);
+  const [ipCopied, setIpCopied] = useState(false);
+
+  useEffect(() => {
+    portalFetch("/infinitepay/available")
+      .then(r => r.json())
+      .then((d: any) => setIpAvailable(d.available))
+      .catch(() => {});
+  }, []);
+
+  const createIpCharge = async () => {
+    if (!ipAmount) return showToast("Informe o valor.", "error");
+    setIpLoading(true);
+    try {
+      const res = await portalFetch("/infinitepay/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: parseFloat(ipAmount.replace(",", ".")), installments: ipInstallments }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || "Erro ao gerar cobrança.", "error"); return; }
+      setIpCharge(data);
+    } catch (e: any) {
+      showToast(e?.message || "Erro ao gerar cobrança.", "error");
+    } finally { setIpLoading(false); }
+  };
+
   // Formas de pagamento disponíveis com base nas configurações
   const hasCfg = portalSettings.payment_pix_enabled !== undefined;
   const enabledMethods: { key: string; label: string }[] = [
@@ -1684,13 +1717,107 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
         <PixCard pix_key={portalSettings.pix_key} pix_owner_name={portalSettings.pix_owner_name} pix_instructions={portalSettings.pix_instructions} />
       )}
 
+      {/* ── Pagar Online via InfinitePay ── */}
+      {ipAvailable && (
+        <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm overflow-hidden">
+          <button
+            onClick={() => { setShowIpForm(v => !v); setIpCharge(null); setShowForm(false); }}
+            className="w-full flex items-center gap-3 p-4 text-left"
+          >
+            <div className="p-2 rounded-xl bg-emerald-100 text-emerald-600 shrink-0">
+              <CreditCard size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-black text-sm text-emerald-800">Pagar Online</p>
+              <p className="text-[11px] text-slate-400">Cartão de crédito, débito ou PIX via InfinitePay</p>
+            </div>
+            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">Disponível</span>
+          </button>
+
+          {showIpForm && (
+            <div className="border-t border-emerald-100 p-4 space-y-3">
+              {!ipCharge ? (
+                <>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Valor (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">R$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={ipAmount}
+                        onChange={e => setIpAmount(e.target.value.replace(/[^0-9,\.]/g, ""))}
+                        placeholder="0,00"
+                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-lg font-black text-slate-900 outline-none focus:border-emerald-400"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Parcelamento</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1,2,3,4,5,6].map(n => (
+                        <button key={n} onClick={() => setIpInstallments(n)}
+                          className={`py-2 rounded-xl text-xs font-bold border transition-all ${ipInstallments === n ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
+                          {n === 1 ? "À vista" : `${n}x`}
+                          {n > 1 && ipAmount && (
+                            <span className="block text-[8px] opacity-80">
+                              R$ {(parseFloat(ipAmount.replace(",", ".")) / n).toFixed(2).replace(".", ",")}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={createIpCharge} disabled={ipLoading || !ipAmount}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    {ipLoading
+                      ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Gerando...</>
+                      : <><CreditCard size={15} /> Gerar cobrança</>}
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  {/* QR Code PIX */}
+                  {ipCharge.pix_qr_code_base64 && (
+                    <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
+                      <img src={ipCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-40 h-40" />
+                      <p className="text-xs text-slate-500 font-bold text-center">Escaneie com o app do banco</p>
+                      {ipCharge.pix_qr_code && (
+                        <button onClick={() => { navigator.clipboard.writeText(ipCharge.pix_qr_code); setIpCopied(true); setTimeout(() => setIpCopied(false), 2000); }}
+                          className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                          📋 {ipCopied ? "Copiado!" : "Copiar código PIX"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Link de pagamento */}
+                  {ipCharge.payment_url && (
+                    <a href={ipCharge.payment_url} target="_blank" rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all">
+                      💳 Pagar agora
+                    </a>
+                  )}
+
+                  <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
+                  <button onClick={() => { setIpCharge(null); setIpAmount(""); }}
+                    className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 py-1">
+                    Gerar nova cobrança
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Botão declarar / form */}
       {!showForm ? (
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setShowForm(true); setShowIpForm(false); }}
           className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 text-white text-sm font-bold rounded-2xl hover:bg-emerald-700 shadow-md transition-all"
         >
-          <Plus size={16} /> Declarar Pagamento
+          <Plus size={16} /> Declarar Pagamento Manual
         </button>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">

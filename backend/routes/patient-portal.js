@@ -2275,4 +2275,98 @@ router.post('/messages', portalAuth, async (req, res) => {
   }
 });
 
+// ─── InfinitePay: paciente gera cobrança via portal ──────────────────────────
+
+// Helpers de criptografia (idênticos ao infinitepay.js)
+function ipDecryptToken(encrypted) {
+  const cryptoLib = require('crypto');
+  const key = Buffer.from(process.env.INFINITEPAY_ENCRYPTION_KEY || 'psiflux-default-key-32chars!!!!!!', 'utf8').slice(0, 32);
+  const [ivHex, encHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const enc = Buffer.from(encHex, 'hex');
+  const decipher = cryptoLib.createDecipheriv('aes-256-cbc', key, iv);
+  return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+}
+
+// GET /patient-portal/infinitepay/available — verifica se o psicólogo tem InfinitePay
+router.get('/infinitepay/available', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    if (!session.psychologist_id) return res.json({ available: false });
+    const [rows] = await db.query(
+      'SELECT infinitepay_enabled, infinitepay_token FROM users WHERE id = ?',
+      [session.psychologist_id]
+    );
+    const u = rows[0];
+    res.json({ available: !!(u && u.infinitepay_enabled && u.infinitepay_token) });
+  } catch (err) {
+    console.error('[Portal InfinitePay] Erro:', err);
+    res.json({ available: false });
+  }
+});
+
+// POST /patient-portal/infinitepay/charge — paciente cria cobrança
+router.post('/infinitepay/charge', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    if (!session.psychologist_id) return res.status(400).json({ error: 'Sem psicólogo responsável configurado' });
+
+    const [rows] = await db.query(
+      'SELECT infinitepay_enabled, infinitepay_token FROM users WHERE id = ?',
+      [session.psychologist_id]
+    );
+    const u = rows[0];
+    if (!u || !u.infinitepay_enabled || !u.infinitepay_token) {
+      return res.status(400).json({ error: 'Pagamento online não disponível para este profissional.' });
+    }
+
+    const token = ipDecryptToken(u.infinitepay_token);
+    const { amount, appointment_id, comanda_id, installments } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
+
+    const amountInCents = Math.round(Number(amount) * 100);
+    const baseUrl = process.env.APP_BASE_URL || 'https://app.psiflux.com.br';
+    const patientName = session.full_name || 'Paciente';
+
+    const payload = {
+      amount: amountInCents,
+      capture_method: 'link',
+      description: `Consulta — ${patientName}`,
+      installments: installments || 1,
+      webhook_url: `${baseUrl}/api/infinitepay/webhook`,
+      metadata: {
+        user_id: String(session.psychologist_id),
+        tenant_id: String(session.tenant_id),
+        comanda_id: comanda_id ? String(comanda_id) : null,
+        appointment_id: appointment_id ? String(appointment_id) : null,
+        patient_name: patientName,
+      },
+    };
+
+    const ipRes = await fetch('https://api.infinitepay.io/v2/charges', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const ipData = await ipRes.json();
+
+    if (!ipRes.ok) {
+      console.error('[Portal InfinitePay] Erro ao criar cobrança:', ipData);
+      return res.status(ipRes.status).json({ error: ipData.message || 'Erro ao gerar cobrança' });
+    }
+
+    res.json({
+      charge_id: ipData.id,
+      payment_url: ipData.payment_url || ipData.checkout_url,
+      pix_qr_code: ipData.pix?.qr_code || null,
+      pix_qr_code_base64: ipData.pix?.qr_code_base64 || null,
+      status: ipData.status,
+      amount: Number(amount),
+    });
+  } catch (err) {
+    console.error('[Portal InfinitePay] Erro:', err);
+    res.status(500).json({ error: 'Erro interno ao gerar cobrança' });
+  }
+});
+
 module.exports = router;
