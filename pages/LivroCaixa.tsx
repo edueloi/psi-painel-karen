@@ -231,10 +231,25 @@ const detectCategory = (text: string): string => {
   return 'Geral';
 };
 
-// ─── Export Helpers ───────────────────────────────────────────────────────────
+// ─── Export Helpers ─────────────────────────────────────────────────────────
+
+// Formata numero como moeda BR para strings (CSV, PDF)
+const fmtBRL = (v: number) =>
+  'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+const triggerDownload = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 const exportCSV = (data: Transaction[], monthLabel: string) => {
-  const header = ['DATA', 'VENCIMENTO', 'DESCRIÇÃO', 'CATEGORIA', 'TIPO', 'PAGADOR', 'CPF', 'MÉTODO', 'STATUS', 'VALOR'];
+  const header = ['DATA', 'VENCIMENTO', 'DESCRICAO', 'CATEGORIA', 'TIPO', 'PAGADOR', 'CPF', 'METODO', 'STATUS', 'VALOR'];
   const rows = data.map(tx => [
     formatDate(tx.date),
     formatDate(tx.due_date || tx.date),
@@ -247,246 +262,364 @@ const exportCSV = (data: Transaction[], monthLabel: string) => {
     STATUS_INFO[getStatus(tx)]?.label || tx.status,
     tx.amount.toFixed(2).replace('.', ','),
   ]);
-  
-  // Use semicolon as separator (standard for Brazilian CSV) and include UTF-8 BOM
   const csvContent = [header, ...rows]
-    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+    .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(';'))
     .join('\n');
-    
-  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `livro-caixa-${monthLabel}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerDownload(new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }), `livro-caixa-${monthLabel}.csv`);
+};
+
+// numFmt compativel com Excel PT-BR — virgula decimal, ponto milhar
+const BRL_FMT = '#.##0,00\ "R$"';
+
+const applyBorderAll = (cell: any) => {
+  const s = { style: 'thin' as const, color: { argb: 'FFE2E8F0' } };
+  cell.border = { top: s, left: s, bottom: s, right: s };
 };
 
 const exportXLS = async (data: Transaction[], monthLabel: string, summary: { income: number; expense: number; balance: number; pending: number }) => {
   const ExcelJS = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'PsiFlux';
-  workbook.lastModifiedBy = 'PsiFlux';
   workbook.created = new Date();
-  
-  // --- SHEET 1: RESUMO (SUMMARY) ---
-  const summarySheet = workbook.addWorksheet('Resumo Financeiro', {
-    views: [{ showGridLines: false }]
-  });
 
-  summarySheet.getCell('A1').value = `RESUMO FINANCEIRO — ${monthLabel.toUpperCase()}`;
-  summarySheet.getCell('A1').font = { name: 'Segoe UI', size: 18, bold: true, color: { argb: 'FF1E293B' } };
-  
-  summarySheet.mergeCells('A3:B3');
-  summarySheet.getCell('A3').value = 'MÉTRICAS GERAIS';
-  summarySheet.getCell('A3').font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF64748B' } };
+  // Aba 1: Resumo
+  const sumSh = workbook.addWorksheet('Resumo', { views: [{ showGridLines: false }] });
+  sumSh.getColumn('A').width = 28;
+  sumSh.getColumn('B').width = 22;
+  sumSh.getColumn('C').width = 4;
+  sumSh.getColumn('D').width = 32;
+  sumSh.getColumn('E').width = 22;
 
-  // Summary Cards
+  sumSh.mergeCells('A1:E1');
+  const titleCell = sumSh.getCell('A1');
+  titleCell.value = `LIVRO CAIXA — ${monthLabel.toUpperCase()}`;
+  titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FF1E293B' } };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  titleCell.border = { bottom: { style: 'medium', color: { argb: 'FF4F46E5' } } };
+  sumSh.getRow(1).height = 38;
+  sumSh.getRow(2).height = 10;
+
   const cards = [
-    { label: 'TOTAL DE ENTRADAS', value: summary.income, color: 'FF059669', bg: 'FFECFDF5' },
-    { label: 'TOTAL DE SAÍDAS',   value: summary.expense, color: 'FFDC2626', bg: 'FFFEF2F2' },
-    { label: 'TOTAL PENDENTE',    value: summary.pending, color: 'FFD97706', bg: 'FFFBEBEE' },
-    { label: 'SALDO FINAL',     value: summary.balance, color: 'FF4F46E5', bg: 'FFEFF6FF' },
+    { label: 'TOTAL DE ENTRADAS', value: summary.income,  color: 'FF059669', bg: 'FFECFDF5' },
+    { label: 'TOTAL DE SAIDAS',   value: summary.expense, color: 'FFDC2626', bg: 'FFFEF2F2' },
+    { label: 'TOTAL PENDENTE',    value: summary.pending, color: 'FFD97706', bg: 'FFFEF9C3' },
+    { label: 'SALDO FINAL',       value: summary.balance, color: summary.balance >= 0 ? 'FF4F46E5' : 'FFDC2626', bg: 'FFEFF6FF' },
   ];
-
   cards.forEach((card, i) => {
-    const r = 4 + (i * 3);
-    const cellValue = summarySheet.getCell(`A${r+1}`);
-    const cellLabel = summarySheet.getCell(`A${r}`);
-    
-    cellLabel.value = card.label;
-    cellLabel.font = { name: 'Segoe UI', size: 8, bold: true, color: { argb: 'FF64748B' } };
-    
-    cellValue.value = card.value;
-    cellValue.numFmt = '"R$ " #,##0.00';
-    cellValue.font = { name: 'Segoe UI', size: 16, bold: true, color: { argb: card.color } };
-    
-    // Fill background for card area
-    summarySheet.getCell(`A${r}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
-    summarySheet.getCell(`A${r+1}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
-    summarySheet.getCell(`B${r}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
-    summarySheet.getCell(`B${r+1}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
+    const rL = 3 + i * 3, rV = rL + 1;
+    sumSh.mergeCells(`A${rL}:B${rL}`);
+    sumSh.mergeCells(`A${rV}:B${rV}`);
+    const lc = sumSh.getCell(`A${rL}`);
+    const vc = sumSh.getCell(`A${rV}`);
+    lc.value = card.label;
+    lc.font = { name: 'Calibri', size: 9, bold: true, color: { argb: card.color } };
+    lc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
+    lc.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    lc.border = { left: { style: 'medium', color: { argb: card.color } }, top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+    vc.value = card.value;
+    vc.numFmt = BRL_FMT;
+    vc.font = { name: 'Calibri', size: 18, bold: true, color: { argb: card.color } };
+    vc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: card.bg } };
+    vc.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    vc.border = { left: { style: 'medium', color: { argb: card.color } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+    sumSh.getRow(rL).height = 18;
+    sumSh.getRow(rV).height = 30;
   });
 
-  // Category Breakdown
-  summarySheet.getCell('D3').value = 'DISTRIBUIÇÃO POR CATEGORIA';
-  summarySheet.getCell('D3').font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF64748B' } };
+  sumSh.mergeCells('D3:E3');
+  const catTitle = sumSh.getCell('D3');
+  catTitle.value = 'DISTRIBUICAO POR CATEGORIA';
+  catTitle.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF64748B' } };
+  catTitle.alignment = { horizontal: 'left', vertical: 'middle' };
 
   const catTotals: Record<string, number> = {};
   data.forEach(tx => {
     const cat = tx.category || 'Outros';
     catTotals[cat] = (catTotals[cat] || 0) + (tx.type === 'income' ? tx.amount : -tx.amount);
   });
-
-  const catEntries = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
-  catEntries.forEach(([cat, val], i) => {
+  Object.entries(catTotals).sort((a, b) => b[1] - a[1]).forEach(([cat, val], i) => {
     const r = 4 + i;
-    summarySheet.getCell(`D${r}`).value = cat;
-    summarySheet.getCell(`E${r}`).value = val;
-    summarySheet.getCell(`E${r}`).numFmt = '"R$ " #,##0.00';
-    summarySheet.getCell(`E${r}`).font = { color: { argb: val >= 0 ? 'FF059669' : 'FFDC2626' } };
+    const dc = sumSh.getCell(`D${r}`);
+    const ec = sumSh.getCell(`E${r}`);
+    dc.value = cat;
+    dc.font = { name: 'Calibri', size: 10 };
+    applyBorderAll(dc);
+    ec.value = val;
+    ec.numFmt = BRL_FMT;
+    ec.font = { name: 'Calibri', size: 10, bold: true, color: { argb: val >= 0 ? 'FF059669' : 'FFDC2626' } };
+    ec.alignment = { horizontal: 'right' };
+    applyBorderAll(ec);
+    sumSh.getRow(r).height = 18;
+    if (i % 2 === 0) {
+      dc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+      ec.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+    }
   });
 
-  summarySheet.getColumn('A').width = 25;
-  summarySheet.getColumn('B').width = 15;
-  summarySheet.getColumn('D').width = 30;
-  summarySheet.getColumn('E').width = 20;
+  // Aba 2: Lancamentos
+  const dataSh = workbook.addWorksheet('Lancamentos');
+  dataSh.views = [{ state: 'frozen', ySplit: 1, showGridLines: false }];
 
-  // --- SHEET 2: LANÇAMENTOS (TRANSACTIONS) ---
-  const dataSheet = workbook.addWorksheet('Lista de Lançamentos');
-  
-  dataSheet.columns = [
-    { header: 'DATA',       key: 'date',      width: 12 },
-    { header: 'VENCIMENTO', key: 'due_date',  width: 12 },
-    { header: 'DESCRIÇÃO',  key: 'desc',      width: 40 },
-    { header: 'CATEGORIA',  key: 'cat',       width: 20 },
-    { header: 'TIPO',       key: 'type',      width: 12 },
-    { header: 'PAGADOR',    key: 'payer',     width: 30 },
-    { header: 'CPF',        key: 'cpf',       width: 15 },
-    { header: 'MÉTODO',     key: 'method',    width: 15 },
-    { header: 'STATUS',     key: 'status',    width: 15 },
-    { header: 'VALOR',      key: 'amount',    width: 18 },
+  dataSh.columns = [
+    { header: 'DATA',       key: 'date',   width: 13 },
+    { header: 'VENCIMENTO', key: 'due',    width: 13 },
+    { header: 'DESCRICAO',  key: 'desc',   width: 42 },
+    { header: 'CATEGORIA',  key: 'cat',    width: 22 },
+    { header: 'TIPO',       key: 'type',   width: 12 },
+    { header: 'PAGADOR',    key: 'payer',  width: 32 },
+    { header: 'CPF',        key: 'cpf',    width: 16 },
+    { header: 'METODO',     key: 'method', width: 16 },
+    { header: 'STATUS',     key: 'status', width: 14 },
+    { header: 'VALOR (R$)', key: 'amount', width: 20 },
   ];
 
-  // Header Styling
-  const headerRow = dataSheet.getRow(1);
-  headerRow.height = 30;
-  headerRow.eachCell(cell => {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
-    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-    cell.border = { bottom: { style: 'medium', color: { argb: 'FF3730A3' } } };
+  const hdr = dataSh.getRow(1);
+  hdr.height = 28;
+  hdr.eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    cell.font = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+    cell.border = { bottom: { style: 'medium', color: { argb: 'FF4F46E5' } } };
   });
 
-  // Adding Data
-  data.forEach(tx => {
+  let totalIncome = 0, totalExpense = 0;
+
+  data.forEach((tx, i) => {
     const status = getStatus(tx);
-    const row = dataSheet.addRow({
-      date: safeDate(tx.date),
-      due_date: safeDate(tx.due_date || tx.date),
-      desc: tx.description || '',
-      cat: tx.category || '',
-      type: tx.type === 'income' ? 'Receita' : 'Despesa',
-      payer: tx.payer_name || tx.patient_name || '',
-      cpf: tx.payer_cpf || '',
+    const isIncome = tx.type === 'income';
+    if (isIncome) totalIncome += tx.amount; else totalExpense += tx.amount;
+
+    const row = dataSh.addRow({
+      date:   safeDate(tx.date),
+      due:    safeDate(tx.due_date || tx.date),
+      desc:   tx.description || '',
+      cat:    tx.category || '',
+      type:   isIncome ? 'Receita' : 'Despesa',
+      payer:  tx.payer_name || tx.patient_name || '',
+      cpf:    tx.payer_cpf || '',
       method: METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
       status: STATUS_INFO[status]?.label || tx.status,
       amount: tx.amount,
     });
+    row.height = 18;
 
-    // Formatting
-    row.getCell('date').numFmt = 'dd/mm/yyyy';
-    row.getCell('due_date').numFmt = 'dd/mm/yyyy';
-    row.getCell('amount').numFmt = '"R$ " #,##0.00';
-    
-    // Conditional Coloring for Amount
-    row.getCell('amount').font = { bold: true, color: { argb: tx.type === 'income' ? 'FF059669' : 'FFDC2626' } };
-    
-    // Status Coloring
-    if (status === 'paid' || status === 'confirmed') row.getCell('status').font = { color: { argb: 'FF059669' } };
-    else if (status === 'overdue' || status === 'cancelled') row.getCell('status').font = { color: { argb: 'FFDC2626' } };
-    else row.getCell('status').font = { color: { argb: 'FFD97706' } };
+    const bg = i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF';
+    row.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+      cell.font = { name: 'Calibri', size: 10 };
+      cell.alignment = { vertical: 'middle' };
+      applyBorderAll(cell);
+    });
+
+    row.getCell('date').numFmt = 'DD/MM/YYYY';
+    row.getCell('due').numFmt  = 'DD/MM/YYYY';
+    row.getCell('date').alignment = { horizontal: 'center', vertical: 'middle' };
+    row.getCell('due').alignment  = { horizontal: 'center', vertical: 'middle' };
+    row.getCell('type').alignment   = { horizontal: 'center', vertical: 'middle' };
+    row.getCell('status').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const amtCell = row.getCell('amount');
+    amtCell.value     = tx.amount;
+    amtCell.numFmt    = BRL_FMT;
+    amtCell.font      = { name: 'Calibri', size: 10, bold: true, color: { argb: isIncome ? 'FF059669' : 'FFDC2626' } };
+    amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    const stCell = row.getCell('status');
+    if (status === 'paid' || status === 'confirmed')
+      stCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF059669' } };
+    else if (status === 'overdue' || status === 'cancelled')
+      stCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFDC2626' } };
+    else
+      stCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFD97706' } };
+
+    row.getCell('type').font = { name: 'Calibri', size: 10, bold: true, color: { argb: isIncome ? 'FF059669' : 'FFDC2626' } };
   });
 
-  // Filters and Freezing
-  dataSheet.autoFilter = 'A1:J1';
-  dataSheet.views = [{ state: 'frozen', ySplit: 1 }];
+  // Linha de total
+  const totRow = dataSh.addRow({
+    date: '', due: '', desc: 'TOTAL GERAL', cat: '', type: '',
+    payer: '', cpf: '', method: '',
+    status: data.length + ' lancamento(s)',
+    amount: totalIncome - totalExpense,
+  });
+  totRow.height = 24;
+  totRow.eachCell(cell => {
+    cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    cell.font   = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { vertical: 'middle' };
+    cell.border = { top: { style: 'medium', color: { argb: 'FF4F46E5' } } };
+  });
+  totRow.getCell('desc').alignment   = { horizontal: 'left',   vertical: 'middle', indent: 1 };
+  totRow.getCell('status').alignment = { horizontal: 'center', vertical: 'middle' };
+  const totAmt = totRow.getCell('amount');
+  totAmt.numFmt    = BRL_FMT;
+  totAmt.font      = { name: 'Calibri', size: 12, bold: true, color: { argb: (totalIncome - totalExpense) >= 0 ? 'FF34D399' : 'FFFC8181' } };
+  totAmt.alignment = { horizontal: 'right', vertical: 'middle' };
 
-  // Save File
+  // Linha extra: Entradas e Saidas
+  const detRow = dataSh.addRow({ date: '', due: '', desc: '', cat: '', type: '', payer: '', cpf: '', method: '', status: '', amount: null });
+  dataSh.mergeCells(`A${detRow.number}:J${detRow.number}`);
+  const detCell = detRow.getCell('A');
+  detCell.value     = `Entradas: ${fmtBRL(totalIncome)}    |    Saidas: ${fmtBRL(totalExpense)}`;
+  detCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+  detCell.font      = { name: 'Calibri', size: 9, color: { argb: 'FF94A3B8' } };
+  detCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  detRow.height = 16;
+
+  dataSh.autoFilter = { from: 'A1', to: 'J1' };
+
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `livro-caixa-${monthLabel}.xlsx`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerDownload(
+    new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    `livro-caixa-${monthLabel}.xlsx`
+  );
 };
-
 
 const exportPDF = async (data: Transaction[], summary: { income: number; expense: number; balance: number; pending: number }, monthLabel: string) => {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-  doc.setFillColor(30, 30, 50);
-  doc.rect(0, 0, 297, 22, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Livro Caixa — ${monthLabel}`, 10, 14);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 220, 14);
+  const PAGE_W = 297;
+  const MARGIN = 10;
+  const COL_W  = PAGE_W - MARGIN * 2;
 
-  // Summary boxes
-  let sx = 10;
-  [
-    { label: 'Entradas', value: formatCurrency(summary.income), color: [16, 185, 129] as [number,number,number] },
-    { label: 'Saídas',   value: formatCurrency(summary.expense), color: [239, 68, 68] as [number,number,number] },
-    { label: 'Pendente', value: formatCurrency(summary.pending), color: [217, 119, 6] as [number,number,number] },
-    { label: 'Saldo',    value: formatCurrency(summary.balance), color: [99, 102, 241] as [number,number,number] },
-  ].forEach(({ label, value, color }) => {
-    doc.setFillColor(...color);
-    doc.roundedRect(sx, 26, 55, 16, 3, 3, 'F');
+  // Cabecalho
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, PAGE_W, 24, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LIVRO CAIXA — ' + monthLabel.toUpperCase(), MARGIN, 15);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184);
+  doc.text(
+    'Gerado em: ' + new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    PAGE_W - MARGIN, 15, { align: 'right' }
+  );
+  doc.text('PsiFlux', PAGE_W - MARGIN, 20, { align: 'right' });
+
+  // Cards de resumo
+  const cardDefs = [
+    { label: 'ENTRADAS', value: summary.income,  r: 16,  g: 185, b: 129 },
+    { label: 'SAIDAS',   value: summary.expense, r: 239, g: 68,  b: 68  },
+    { label: 'PENDENTE', value: summary.pending, r: 217, g: 119, b: 6   },
+    { label: 'SALDO',    value: summary.balance, r: 99,  g: 102, b: 241 },
+  ];
+  const CARD_W = 60, CARD_H = 18, CARD_Y = 28;
+  cardDefs.forEach(({ label, value, r, g, b }, i) => {
+    const cx = MARGIN + i * (CARD_W + 4);
+    doc.setFillColor(r, g, b);
+    doc.roundedRect(cx, CARD_Y, CARD_W, CARD_H, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text(label.toUpperCase(), sx + 3, 33);
-    doc.setFontSize(11);
-    doc.text(value, sx + 3, 39);
-    sx += 60;
+    doc.text(label, cx + 3, CARD_Y + 6);
+    doc.setFontSize(10.5);
+    doc.text(fmtBRL(value), cx + 3, CARD_Y + 14);
   });
 
-  // Table header
-  const headerY = 48;
-  doc.setFillColor(241, 245, 249);
-  doc.rect(10, headerY, 277, 7, 'F');
-  doc.setTextColor(100, 116, 139);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
+  // Tabela
+  const TABLE_Y = CARD_Y + CARD_H + 6;
   const cols = [
-    { x: 11,  w: 22,  label: 'DATA' },
-    { x: 35,  w: 65,  label: 'DESCRIÇÃO' },
-    { x: 102, w: 38,  label: 'PAGADOR' },
-    { x: 142, w: 25,  label: 'CATEGORIA' },
-    { x: 169, w: 28,  label: 'MÉTODO' },
-    { x: 199, w: 30,  label: 'VALOR' },
-    { x: 231, w: 22,  label: 'TIPO' },
-    { x: 255, w: 22,  label: 'STATUS' },
-  ];
-  cols.forEach(c => doc.text(c.label, c.x, headerY + 5));
+    { x: MARGIN,       w: 20, label: 'DATA',      align: 'left'   },
+    { x: MARGIN + 21,  w: 62, label: 'DESCRICAO', align: 'left'   },
+    { x: MARGIN + 84,  w: 36, label: 'PAGADOR',   align: 'left'   },
+    { x: MARGIN + 121, w: 28, label: 'CATEGORIA', align: 'left'   },
+    { x: MARGIN + 150, w: 26, label: 'METODO',    align: 'left'   },
+    { x: MARGIN + 177, w: 22, label: 'TIPO',      align: 'center' },
+    { x: MARGIN + 200, w: 22, label: 'STATUS',    align: 'center' },
+    { x: MARGIN + 223, w: 54, label: 'VALOR',     align: 'right'  },
+  ] as const;
 
-  // Rows
-  let y = headerY + 10;
+  const drawHeader = (yh: number) => {
+    doc.setFillColor(30, 41, 59);
+    doc.rect(MARGIN, yh, COL_W, 8, 'F');
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    cols.forEach(c => {
+      const tx2 = c.align === 'right' ? c.x + c.w - 1 : c.align === 'center' ? c.x + c.w / 2 : c.x + 1;
+      doc.text(c.label, tx2, yh + 5.5, { align: c.align });
+    });
+  };
+
+  drawHeader(TABLE_Y);
+  let y = TABLE_Y + 10;
+
   data.forEach((tx, i) => {
-    if (y > 190) { doc.addPage(); y = 15; }
+    if (y > 194) {
+      doc.setFillColor(30, 41, 59);
+      doc.rect(MARGIN, y - 3, COL_W, 6, 'F');
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(6);
+      doc.text('(continua...)', MARGIN + 2, y + 0.5);
+      doc.addPage();
+      y = 12;
+      drawHeader(y);
+      y += 10;
+    }
+    const isIncome = tx.type === 'income';
+    const status = getStatus(tx);
     if (i % 2 === 0) {
       doc.setFillColor(248, 250, 252);
-      doc.rect(10, y - 4, 277, 7, 'F');
+      doc.rect(MARGIN, y - 4.5, COL_W, 7.5, 'F');
     }
-    doc.setTextColor(51, 65, 85);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    const row = [
-      formatDate(tx.date),
-      (tx.description || '').slice(0, 40),
-      (tx.payer_name || tx.patient_name || '—').slice(0, 22),
-      (tx.category || '').slice(0, 15),
-      METHOD_LABEL[tx.payment_method] || '',
-      formatCurrency(tx.amount),
-      tx.type === 'income' ? 'Receita' : 'Despesa',
-      tx.status === 'paid' ? 'Pago' : 'Pendente',
+    const rowData = [
+      { val: formatDate(tx.date),                                       align: 'left'   as const, clr: null as [number,number,number]|null },
+      { val: (tx.description || '').slice(0, 38),                      align: 'left'   as const, clr: null },
+      { val: (tx.payer_name || tx.patient_name || '-').slice(0, 20),   align: 'left'   as const, clr: null },
+      { val: (tx.category || '').slice(0, 16),                         align: 'left'   as const, clr: null },
+      { val: (METHOD_LABEL[tx.payment_method] || '').slice(0, 14),    align: 'left'   as const, clr: null },
+      { val: isIncome ? 'Receita' : 'Despesa',                         align: 'center' as const, clr: (isIncome ? [5,150,105] : [220,38,38]) as [number,number,number] },
+      {
+        val: status === 'paid' || status === 'confirmed' ? 'Pago'
+           : status === 'cancelled' ? 'Cancelado'
+           : status === 'overdue'   ? 'Vencido'
+           : 'Pendente',
+        align: 'center' as const,
+        clr: (status === 'paid' || status === 'confirmed' ? [5,150,105]
+            : status === 'overdue' || status === 'cancelled' ? [220,38,38]
+            : [180,83,9]) as [number,number,number],
+      },
+      { val: fmtBRL(tx.amount), align: 'right' as const, clr: (isIncome ? [5,150,105] : [220,38,38]) as [number,number,number] },
     ];
-    cols.forEach((c, ci) => doc.text(row[ci], c.x, y));
-    y += 7;
+    doc.setFontSize(6.8);
+    rowData.forEach((rd, ci) => {
+      const c = cols[ci];
+      const tx2 = c.align === 'right' ? c.x + c.w - 1 : c.align === 'center' ? c.x + c.w / 2 : c.x + 1;
+      if (rd.clr) doc.setTextColor(...rd.clr); else doc.setTextColor(51, 65, 85);
+      doc.setFont('helvetica', ci === 7 ? 'bold' : 'normal');
+      doc.text(rd.val, tx2, y, { align: rd.align });
+    });
+    y += 7.5;
   });
 
-  doc.save(`livro-caixa-${monthLabel}.pdf`);
+  // Linha de totais
+  if (y > 193) { doc.addPage(); y = 12; }
+  doc.setFillColor(15, 23, 42);
+  doc.rect(MARGIN, y - 4.5, COL_W, 10, 'F');
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(148, 163, 184);
+  doc.text(data.length + ' lancamento(s)', MARGIN + 2, y + 1);
+  const balC: [number,number,number] = summary.balance >= 0 ? [52, 211, 153] : [252, 129, 129];
+  doc.setTextColor(...balC);
+  doc.text('Saldo: ' + fmtBRL(summary.balance), MARGIN + COL_W - 1, y + 1, { align: 'right' });
+  doc.setTextColor(148, 163, 184);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.text(
+    'Entradas: ' + fmtBRL(summary.income) + '   |   Saidas: ' + fmtBRL(summary.expense),
+    MARGIN + COL_W / 2, y + 1, { align: 'center' }
+  );
+
+  // Download via blob (mais confivel que doc.save em todos os browsers)
+  const pdfBlob = doc.output('blob');
+  triggerDownload(pdfBlob, `livro-caixa-${monthLabel}.pdf`);
 };
+
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
