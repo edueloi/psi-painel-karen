@@ -2175,7 +2175,7 @@ router.get('/export/carneleao', authMiddleware, async (req, res) => {
 
     const [rows] = await db.query(
       `SELECT
-         t.date,
+         DATE_FORMAT(t.date, '%d/%m/%Y') AS data_br,
          t.amount,
          COALESCE(t.payer_name, t.beneficiary_name) AS nome_pagador,
          COALESCE(t.payer_cpf, t.beneficiary_cpf)   AS cpf_pagador,
@@ -2209,7 +2209,7 @@ router.get('/export/carneleao', authMiddleware, async (req, res) => {
         : cpfDigits || '';
       const nome = (row.nome_pagador || 'Não informado').replace(/;/g, ',').replace(/"/g, '""');
       const valor = parseFloat(row.amount).toFixed(2).replace('.', ',');
-      const data = row.date ? String(row.date).slice(0, 10).split('-').reverse().join('/') : '';
+      const data = row.data_br || '';
       const descricao = (row.description || row.category || 'Serviço de Psicologia').replace(/;/g, ',').replace(/"/g, '""');
       const natureza = '0561'; // Serviços de saúde
 
