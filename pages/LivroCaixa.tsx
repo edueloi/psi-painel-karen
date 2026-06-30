@@ -234,8 +234,10 @@ const detectCategory = (text: string): string => {
 // ─── Export Helpers ─────────────────────────────────────────────────────────
 
 // Formata numero como moeda BR para strings (CSV, PDF)
-const fmtBRL = (v: number) =>
-  'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+const fmtBRL = (v: number | string) => {
+  const n = parseFloat(String(v)) || 0;
+  return 'R$ ' + n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
 
 const triggerDownload = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
@@ -260,7 +262,7 @@ const exportCSV = (data: Transaction[], monthLabel: string) => {
     tx.payer_cpf || '',
     METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
     STATUS_INFO[getStatus(tx)]?.label || tx.status,
-    tx.amount.toFixed(2).replace('.', ','),
+    (parseFloat(String(tx.amount)) || 0).toFixed(2).replace('.', ','),
   ]);
   const csvContent = [header, ...rows]
     .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(';'))
@@ -388,7 +390,8 @@ const exportXLS = async (data: Transaction[], monthLabel: string, summary: { inc
   data.forEach((tx, i) => {
     const status = getStatus(tx);
     const isIncome = tx.type === 'income';
-    if (isIncome) totalIncome += tx.amount; else totalExpense += tx.amount;
+    const amt = parseFloat(String(tx.amount)) || 0;
+    if (isIncome) totalIncome += amt; else totalExpense += amt;
 
     const row = dataSh.addRow({
       date:   safeDate(tx.date),
@@ -400,7 +403,7 @@ const exportXLS = async (data: Transaction[], monthLabel: string, summary: { inc
       cpf:    tx.payer_cpf || '',
       method: METHOD_LABEL[tx.payment_method] || tx.payment_method || '',
       status: STATUS_INFO[status]?.label || tx.status,
-      amount: tx.amount,
+      amount: amt,
     });
     row.height = 18;
 
@@ -420,7 +423,7 @@ const exportXLS = async (data: Transaction[], monthLabel: string, summary: { inc
     row.getCell('status').alignment = { horizontal: 'center', vertical: 'middle' };
 
     const amtCell = row.getCell('amount');
-    amtCell.value     = tx.amount;
+    amtCell.value     = amt;
     amtCell.numFmt    = BRL_FMT;
     amtCell.font      = { name: 'Calibri', size: 10, bold: true, color: { argb: isIncome ? 'FF059669' : 'FFDC2626' } };
     amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -988,25 +991,17 @@ export const LivroCaixa: React.FC = () => {
   const fetchArchive = useCallback(async () => {
     setIsLoadingArchive(true);
     try {
-      const results: MonthSummary[] = [];
-      await Promise.all(
-        Array.from({ length: 12 }, (_, i) => i + 1).map(async (month) => {
-          try {
-            const sum = await api.get<any>('/finance/summary', {
-              month: month.toString(), year: selectedYear.toString(),
-            });
-            if (sum.income > 0 || sum.expense > 0 || sum.pending > 0) {
-              results.push({
-                month, year: selectedYear,
-                income: sum.income, expense: sum.expense, balance: sum.balance,
-                pending: sum.pending,
-                count: sum.count || 0,
-                label: `${MONTH_NAMES[month - 1]} ${selectedYear}`,
-              });
-            }
-          } catch { /* skip */ }
-        })
-      );
+      const data = await api.get<any[]>('/finance/summary-year', { year: selectedYear.toString() });
+      const results: MonthSummary[] = (data || []).map((sum: any) => ({
+        month: sum.month,
+        year: selectedYear,
+        income:  parseFloat(sum.income)  || 0,
+        expense: parseFloat(sum.expense) || 0,
+        balance: parseFloat(sum.balance) || 0,
+        pending: parseFloat(sum.pending) || 0,
+        count:   parseInt(sum.count)     || 0,
+        label:   `${MONTH_NAMES[sum.month - 1]} ${selectedYear}`,
+      }));
       results.sort((a, b) => b.month - a.month);
       setMonthSummaries(results);
     } finally {
@@ -1031,8 +1026,15 @@ export const LivroCaixa: React.FC = () => {
         api.get<Transaction[]>('/finance', { start, end }),
         api.get<any>('/finance/summary', { month: month.toString(), year: year.toString() }),
       ]);
-      setTransactions(txs);
-      setSummary(sum);
+      // MySQL DECIMAL columns come back as strings — coerce to number
+      const normalized = (txs as any[]).map(t => ({ ...t, amount: parseFloat(t.amount) || 0 }));
+      setTransactions(normalized as Transaction[]);
+      setSummary({
+        income:  parseFloat(sum.income)  || 0,
+        expense: parseFloat(sum.expense) || 0,
+        balance: parseFloat(sum.balance) || 0,
+        pending: parseFloat(sum.pending) || 0,
+      });
     } catch {
       pushToast('error', 'Erro ao carregar lançamentos');
     } finally {

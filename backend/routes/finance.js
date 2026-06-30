@@ -523,6 +523,65 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
   }
 });
 
+// GET /finance/summary-year - Todos os meses de um ano (1 query só, elimina 12 requests paralelos)
+router.get('/summary-year', authMiddleware, checkPermission('view_financial_reports'), async (req, res) => {
+  try {
+    await withFinanceSchema();
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const tenantId = req.user.tenant_id;
+
+    const [incomeRows] = await db.query(
+      `SELECT MONTH(t.date) as month,
+              COALESCE(SUM(CASE WHEN t.status IN ('paid','confirmed') THEN t.amount ELSE 0 END), 0) as paid,
+              COALESCE(SUM(CASE WHEN t.status IN ('pending','waiting','overdue') THEN t.amount ELSE 0 END), 0) as pending,
+              COUNT(*) as cnt
+       FROM financial_transactions t
+       LEFT JOIN comandas c ON c.livrocaixa_tx_id = t.id
+       WHERE t.tenant_id = ? AND t.type = 'income'
+         AND (t.comanda_id IS NULL OR c.livrocaixa_tx_id = t.id)
+         AND YEAR(t.date) = ?
+       GROUP BY MONTH(t.date)`,
+      [tenantId, year]
+    );
+
+    const [expenseRows] = await db.query(
+      `SELECT MONTH(t.date) as month,
+              COALESCE(SUM(CASE WHEN t.status IN ('paid','confirmed') THEN t.amount ELSE 0 END), 0) as paid,
+              COALESCE(SUM(CASE WHEN t.status IN ('pending','waiting','overdue') THEN t.amount ELSE 0 END), 0) as pending
+       FROM financial_transactions t
+       LEFT JOIN comandas c ON c.livrocaixa_tx_id = t.id
+       WHERE t.tenant_id = ? AND t.type = 'expense'
+         AND (t.comanda_id IS NULL OR c.livrocaixa_tx_id = t.id)
+         AND YEAR(t.date) = ?
+       GROUP BY MONTH(t.date)`,
+      [tenantId, year]
+    );
+
+    const incomeMap = {};
+    const expenseMap = {};
+    incomeRows.forEach(r => { incomeMap[r.month] = r; });
+    expenseRows.forEach(r => { expenseMap[r.month] = r; });
+
+    const result = [];
+    for (let m = 1; m <= 12; m++) {
+      const inc = incomeMap[m];
+      const exp = expenseMap[m];
+      if (!inc && !exp) continue;
+      const income  = parseFloat(inc?.paid   || 0);
+      const expense = parseFloat(exp?.paid   || 0);
+      const pending = parseFloat(inc?.pending || 0) - parseFloat(exp?.pending || 0);
+      const count   = parseInt(inc?.cnt || 0);
+      if (income === 0 && expense === 0 && pending === 0) continue;
+      result.push({ month: m, year, income, expense, balance: income - expense, pending, count });
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Erro ao buscar resumo anual:', err);
+    res.status(500).json({ error: 'Erro ao buscar resumo anual' });
+  }
+});
+
 // GET /finance/summary - Resumo financeiro
 router.get('/summary', authMiddleware, checkPermission('view_financial_reports'), async (req, res) => {
   try {
@@ -2143,7 +2202,11 @@ router.get('/export/carneleao', authMiddleware, async (req, res) => {
     ];
 
     for (const row of rows) {
-      const cpf = (row.cpf_pagador || '').replace(/\D/g, '');
+      // CPF formatado com pontuação para o Carnê-Leão Web aceitar e o Excel não converter para notação científica
+      const cpfDigits = (row.cpf_pagador || '').replace(/\D/g, '');
+      const cpf = cpfDigits.length === 11
+        ? `${cpfDigits.slice(0,3)}.${cpfDigits.slice(3,6)}.${cpfDigits.slice(6,9)}-${cpfDigits.slice(9)}`
+        : cpfDigits || '';
       const nome = (row.nome_pagador || 'Não informado').replace(/;/g, ',').replace(/"/g, '""');
       const valor = parseFloat(row.amount).toFixed(2).replace('.', ',');
       const data = row.date ? String(row.date).slice(0, 10).split('-').reverse().join('/') : '';
