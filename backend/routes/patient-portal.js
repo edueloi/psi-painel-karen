@@ -704,7 +704,23 @@ router.get('/me/pending-contract', portalAuth, async (req, res) => {
       return res.json({ pending: true, signed: false, token: null, needs_type: true });
     }
 
-    const professionalId = psychologist_id;
+    let professionalId = psychologist_id;
+    // Fallback: mesmo critério usado em GET /me — se o paciente não tem
+    // responsible_professional_id setado, usa o profissional do último agendamento.
+    if (!professionalId) {
+      const [[lastApt]] = await db.query(
+        `SELECT professional_id FROM appointments
+         WHERE patient_id = ? AND tenant_id = ? AND status != 'cancelled'
+         ORDER BY start_time DESC LIMIT 1`,
+        [patient_id, tenant_id]
+      );
+      if (lastApt?.professional_id) {
+        professionalId = lastApt.professional_id;
+        // Persiste para não depender do fallback novamente
+        await db.query('UPDATE patients SET responsible_professional_id = ? WHERE id = ? AND tenant_id = ?',
+          [professionalId, patient_id, tenant_id]);
+      }
+    }
     if (!professionalId) return res.status(400).json({ error: 'Profissional responsável não definido para este paciente.' });
 
     const token = crypto.randomBytes(40).toString('hex');
