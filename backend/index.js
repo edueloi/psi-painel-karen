@@ -40,6 +40,7 @@ const commissionsRoutes = require('./routes/commissions');
 const notificationsRoutes = require('./routes/notifications');
 const whatsappRoutes = require('./routes/whatsapp');
 const anamnesisSendRoutes = require('./routes/anamnesis-send');
+const contractSendRoutes = require('./routes/contract-send');
 const therapeuticPlansRoutes = require('./routes/therapeutic-plans');
 const patientHistoryRoutes = require('./routes/patient-history');
 const livekitTokenRoutes = require('./routes/livekit-token');
@@ -138,6 +139,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/notifications`, notificationsRoutes);
   app.use(`${prefix}/whatsapp`, whatsappRoutes);
   app.use(`${prefix}/anamnesis-send`, anamnesisSendRoutes);
+  app.use(`${prefix}/contract-send`, contractSendRoutes);
   app.use(`${prefix}/therapeutic-plans`, therapeuticPlansRoutes);
   app.use(`${prefix}/patient-history`, patientHistoryRoutes);
   app.use(`${prefix}/patient-portal`, require('./routes/patient-portal'));
@@ -445,6 +447,17 @@ app.use((err, req, res, next) => {
 // ── WebSocket para sinalização WebRTC das salas virtuais ─────────────────────
 const { attachRoomWebSocket } = require('./routes/room-ws');
 attachRoomWebSocket(httpServer);
+
+// ── WebSocket de sincronização em tempo real entre dispositivos ─────────────
+require('./services/realtimeService').attach(httpServer);
+
+// Fallback: nenhum dos listeners acima tratou o upgrade (URL desconhecida) —
+// registrado por último para não interferir na ordem dos handlers válidos.
+httpServer.on('upgrade', (req, socket) => {
+  const urlPath = req.url.split('?')[0];
+  if (urlPath.startsWith('/ws/room/') || urlPath === '/ws/sync') return;
+  socket.destroy();
+});
 
 httpServer.listen(PORT, () => {
   console.log(`Backend PsiFlux rodando na porta ${PORT}`);

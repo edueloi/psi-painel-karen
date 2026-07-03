@@ -761,6 +761,7 @@ router.post('/', authMiddleware, checkPermission('manage_payments'), async (req,
 
     const [tx] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [result.insertId]);
     res.status(201).json(tx[0]);
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'finance.created', data: tx[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar transação' });
@@ -854,6 +855,7 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
 
     const [updated] = await db.query('SELECT * FROM financial_transactions WHERE id = ?', [req.params.id]);
     res.json(updated[0]);
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'finance.updated', data: updated[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar transação' });
@@ -919,6 +921,7 @@ router.delete('/:id', authMiddleware, checkPermission('manage_payments'), async 
     }
 
     res.status(204).send();
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'finance.deleted', data: { id: Number(req.params.id) } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao deletar transação' });

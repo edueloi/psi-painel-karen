@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { disconnectRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface AuthUser {
   id: number;
@@ -138,6 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('psi_token');
+    disconnectRealtimeSync();
     setToken(null);
     setUser(null);
     setIsInitializing(false);

@@ -16,6 +16,7 @@ import { FinancialTransaction, Patient } from '../types';
 import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
 import { Input, Select, Textarea } from '../components/UI/Input';
 import { useToast } from '../contexts/ToastContext';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
 import { AuraContabil } from '../components/AI/AuraContabil';
 
@@ -167,6 +168,12 @@ export const Finance: React.FC = () => {
   useEffect(() => {
     fetchPortalPayments();
   }, []);
+
+  // Sincronização em tempo real: recarrega quando outro dispositivo/aba
+  // cria, edita ou exclui um lançamento financeiro na mesma clínica.
+  useRealtimeSync('finance.created', () => fetchData());
+  useRealtimeSync('finance.updated', () => fetchData());
+  useRealtimeSync('finance.deleted', () => fetchData());
 
   const handleOpenModal = (type: 'income' | 'expense', tx?: FinancialTransaction) => {
       if (tx) {

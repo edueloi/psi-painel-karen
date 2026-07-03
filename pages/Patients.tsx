@@ -15,6 +15,7 @@ import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useToast } from '../contexts/ToastContext';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { GridTable, Column } from '../components/UI/GridTable';
 import {
   Badge,
@@ -151,6 +152,11 @@ export const Patients: React.FC = () => {
     window.addEventListener('aurora:data-updated', handler);
     return () => window.removeEventListener('aurora:data-updated', handler);
   }, []);
+
+  // Sincronização em tempo real: recarrega quando outro dispositivo/aba
+  // cria ou edita um paciente na mesma clínica.
+  useRealtimeSync('patient.created', () => fetchPatients());
+  useRealtimeSync('patient.updated', () => fetchPatients());
 
   const fetchPatients = async () => {
     setIsLoading(true);

@@ -16,6 +16,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
@@ -519,6 +520,12 @@ export const Agenda: React.FC = () => {
   }, [formData.patient_id, selectedApt?.patient_id]);
 
   useEffect(() => { fetchData(); }, []);
+
+  // Sincronização em tempo real: recarrega a agenda quando outro dispositivo/aba
+  // cria, edita ou exclui um agendamento na mesma clínica.
+  useRealtimeSync('appointment.created', () => fetchData());
+  useRealtimeSync('appointment.updated', () => fetchData());
+  useRealtimeSync('appointment.deleted', () => fetchData());
 
   useEffect(() => {
     const aptId = searchParams.get('appointmentId');

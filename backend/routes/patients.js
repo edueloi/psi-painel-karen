@@ -377,6 +377,7 @@ router.post('/', async (req, res) => {
 
     const [patient] = await db.query('SELECT * FROM patients WHERE id = ?', [result.insertId]);
     res.status(201).json(patient[0]);
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'patient.created', data: patient[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar paciente' });
@@ -515,6 +516,7 @@ router.put('/:id', async (req, res) => {
 
     const [updated] = await db.query('SELECT * FROM patients WHERE id = ?', [req.params.id]);
     res.json(updated[0]);
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'patient.updated', data: updated[0] });
   } catch (err) {
     console.error('ERRO PUT /patients/:id ->', err);
     res.status(500).json({ error: 'Erro ao atualizar paciente: ' + err.message });

@@ -855,6 +855,8 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
     };
     res.status(201).json(resultData);
 
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'appointment.created', data: resultData });
+
     // Dispara email + alerta de novo agendamento em background (não bloqueia a resposta)
     setImmediate(async () => {
       try {
@@ -1018,6 +1020,7 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
     }
 
     res.json(updated[0]);
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'appointment.updated', data: updated[0] });
   } catch (err) {
     console.error('Erro ao atualizar status:', err);
     res.status(500).json({ error: 'Erro ao atualizar status', details: err.message });
@@ -1299,6 +1302,7 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     );
 
     res.json(updated[0]);
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'appointment.updated', data: updated[0] });
   } catch (err) {
     console.error('Erro ao atualizar agendamento:', err.message, err.sql || '', 'Body:', JSON.stringify(req.body).slice(0, 500));
     res.status(500).json({ error: 'Erro ao atualizar agendamento', details: err.message });
@@ -1318,6 +1322,7 @@ router.delete('/:id', checkPermission('delete_appointment'), async (req, res) =>
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
     res.status(204).send();
+    require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'appointment.deleted', data: { id: Number(req.params.id) } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao deletar agendamento' });

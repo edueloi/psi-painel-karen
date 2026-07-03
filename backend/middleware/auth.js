@@ -51,29 +51,37 @@ async function authMiddleware(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, tenant_id, role, email, name, tokenId }
-
-    // Session check
-    if (decoded.tokenId) {
-        const db = require('../db');
-        const [session] = await db.query(
-            'SELECT id FROM user_sessions WHERE token_id = ? AND user_id = ? AND (expires_at > NOW() OR expires_at IS NULL)',
-            [decoded.tokenId, decoded.id]
-        );
-
-        if (session.length === 0) {
-            return res.status(401).json({ error: 'Sessão revogada ou expirada' });
-        }
-        
-        // Update last_active (async, don't wait)
-        db.query('UPDATE user_sessions SET last_active = NOW() WHERE token_id = ?', [decoded.tokenId]).catch(console.error);
-    }
-
+    req.user = await verifyToken(token);
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Token inválido ou expirado' });
+    return res.status(401).json({ error: err.message || 'Token inválido ou expirado' });
   }
+}
+
+/**
+ * Verifica um JWT e a sessão associada (se houver tokenId), retornando o
+ * usuário decodificado. Lança erro se o token for inválido/expirado ou a
+ * sessão tiver sido revogada. Reutilizável fora do fluxo HTTP (ex: WebSocket).
+ */
+async function verifyToken(token) {
+  const decoded = jwt.verify(token, process.env.JWT_SECRET); // { id, tenant_id, role, email, name, tokenId }
+
+  if (decoded.tokenId) {
+    const db = require('../db');
+    const [session] = await db.query(
+      'SELECT id FROM user_sessions WHERE token_id = ? AND user_id = ? AND (expires_at > NOW() OR expires_at IS NULL)',
+      [decoded.tokenId, decoded.id]
+    );
+
+    if (session.length === 0) {
+      throw new Error('Sessão revogada ou expirada');
+    }
+
+    // Update last_active (async, don't wait)
+    db.query('UPDATE user_sessions SET last_active = NOW() WHERE token_id = ?', [decoded.tokenId]).catch(console.error);
+  }
+
+  return decoded;
 }
 
 /**
@@ -139,4 +147,4 @@ function checkPermission(permissionKey) {
   };
 }
 
-module.exports = { authMiddleware, authorize, checkPermission };
+module.exports = { authMiddleware, authorize, checkPermission, verifyToken };

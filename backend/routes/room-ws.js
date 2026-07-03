@@ -93,10 +93,11 @@ function broadcastEventToRoom(roomId, item) {
 function attachRoomWebSocket(httpServer) {
   const wss = new WebSocket.Server({ noServer: true });
 
-  // Upgrade apenas em /ws/room/
+  // Upgrade apenas em /ws/room/ — outras rotas WS (ex: /ws/sync) são tratadas
+  // por outros listeners de 'upgrade' registrados no mesmo httpServer, por isso
+  // aqui apenas retornamos (sem destruir o socket) quando a URL não é nossa.
   httpServer.on('upgrade', (req, socket, head) => {
     if (!req.url.startsWith('/ws/room/')) {
-      socket.destroy();
       return;
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
