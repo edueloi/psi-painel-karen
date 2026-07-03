@@ -51,11 +51,106 @@ async function ensureTablesExist() {
       UNIQUE KEY uq_css (tenant_id, patient_id, scale_type),
       INDEX idx_css_due (next_due_at, status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // Texto do contrato editável pelo profissional (um registro por tenant + modalidade).
+    await db.query(`CREATE TABLE IF NOT EXISTS contract_templates (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      contract_type ENUM('online','presencial') NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      template_body LONGTEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      updated_by INT NULL,
+      UNIQUE KEY uq_ct_tenant_type (tenant_id, contract_type)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   } catch (e) {
     console.warn('[contract-send] ensureTablesExist:', e.message);
   }
 }
 ensureTablesExist();
+
+// ─── TEMPLATES DO CONTRATO (editor do profissional) ───────────────────────────
+// Precisam vir ANTES de "/:patientId" para não serem capturadas por esse parâmetro genérico.
+
+// GET /contract-send/templates — retorna os 2 templates do tenant (online/presencial),
+// usando o texto padrão como sugestão inicial quando o tenant ainda não personalizou.
+router.get('/templates', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT contract_type, title, template_body, updated_at FROM contract_templates WHERE tenant_id = ?',
+      [req.user.tenant_id]
+    );
+    const byType = Object.fromEntries(rows.map(r => [r.contract_type, r]));
+
+    const result = ['online', 'presencial'].map(type => {
+      const custom = byType[type];
+      const fallback = CONTRACT_TEMPLATES[type];
+      return {
+        contract_type: type,
+        title: custom?.title || fallback.title,
+        template_body: custom?.template_body || fallback.body,
+        is_customized: !!custom,
+        updated_at: custom?.updated_at || null,
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[contract-send GET /templates]', err);
+    res.status(500).json({ error: 'Erro ao buscar templates de contrato' });
+  }
+});
+
+// PUT /contract-send/templates/:contractType — salva o texto editado pelo profissional
+router.put('/templates/:contractType', async (req, res) => {
+  try {
+    const { contractType } = req.params;
+    if (!CONTRACT_TEMPLATES[contractType]) return res.status(400).json({ error: 'Tipo de contrato inválido' });
+
+    const { title, template_body } = req.body;
+    if (!template_body || !template_body.trim()) return res.status(400).json({ error: 'O texto do contrato não pode ficar vazio' });
+
+    await db.query(
+      `INSERT INTO contract_templates (tenant_id, contract_type, title, template_body, updated_by)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE title = VALUES(title), template_body = VALUES(template_body), updated_by = VALUES(updated_by)`,
+      [req.user.tenant_id, contractType, title || CONTRACT_TEMPLATES[contractType].title, template_body, req.user.id]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[contract-send PUT /templates/:contractType]', err);
+    res.status(500).json({ error: 'Erro ao salvar template de contrato' });
+  }
+});
+
+// GET /contract-send/templates/:contractType/preview — renderiza com dados fictícios para visualização
+router.get('/templates/:contractType/preview', async (req, res) => {
+  try {
+    const { contractType } = req.params;
+    if (!CONTRACT_TEMPLATES[contractType]) return res.status(400).json({ error: 'Tipo de contrato inválido' });
+
+    const rendered = await renderContract(contractType, {
+      patient_name: 'João da Silva (exemplo)',
+      patient_cpf: '000.000.000-00',
+      patient_address: 'Rua Exemplo, 123 — Bairro, Cidade/UF',
+      professional_name: req.user.name || 'Nome do(a) Profissional',
+      professional_cpf: '111.111.111-11',
+      professional_crp: req.user.crp || '00/00000',
+      pix_key: 'chave-pix-exemplo',
+      clinic_address: 'Endereço do consultório',
+      session_day: 'segunda-feira',
+      session_time: '18:00',
+      city: 'Cidade/UF',
+      date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
+    }, req.user.tenant_id);
+
+    res.json(rendered);
+  } catch (err) {
+    console.error('[contract-send GET /templates/:contractType/preview]', err);
+    res.status(500).json({ error: 'Erro ao gerar pré-visualização' });
+  }
+});
 
 // GET /contract-send/:patientId — status do contrato mais recente do paciente
 router.get('/:patientId', async (req, res) => {

@@ -147,9 +147,25 @@ const CONTRACT_TEMPLATES = {
 };
 
 // Mesmo estilo .split(key).join(value) usado em doc-generator.js — sem engine de template, sem loops/condicionais.
-function renderContract(contractType, data) {
-  const tpl = CONTRACT_TEMPLATES[contractType];
-  if (!tpl) throw new Error(`Tipo de contrato inválido: ${contractType}`);
+// Se tenantId for informado e o tenant tiver personalizado o contrato (contract_templates),
+// usa o texto editado pelo profissional; senão cai no template fixo padrão.
+async function renderContract(contractType, data, tenantId) {
+  const fallbackTpl = CONTRACT_TEMPLATES[contractType];
+  if (!fallbackTpl) throw new Error(`Tipo de contrato inválido: ${contractType}`);
+
+  let tpl = fallbackTpl;
+  if (tenantId) {
+    try {
+      const db = require('../db');
+      const [[custom]] = await db.query(
+        'SELECT title, template_body FROM contract_templates WHERE tenant_id = ? AND contract_type = ?',
+        [tenantId, contractType]
+      );
+      if (custom) tpl = { version: 'custom', title: custom.title, body: custom.template_body };
+    } catch (e) {
+      console.warn('[contractTemplates] Erro ao buscar template customizado, usando padrão:', e.message);
+    }
+  }
 
   let rendered = tpl.body;
   const replacements = {

@@ -62,6 +62,37 @@ export const ContractPublic: React.FC = () => {
     setHasStroke(false);
   };
 
+  // Ajusta a resolução interna do canvas para bater exatamente com o tamanho exibido
+  // em tela (em pixels reais, considerando devicePixelRatio) — sem isso, redimensionar
+  // o canvas apenas via CSS (w-full) faz o traço desenhado ficar desalinhado do
+  // ponto real de toque/clique do usuário.
+  const canvasWrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (step !== 'signing') return;
+    const wrap = canvasWrapRef.current;
+    const sig = sigRef.current;
+    if (!wrap || !sig) return;
+
+    const resizeCanvas = () => {
+      const canvas = sig.getCanvas();
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const { width, height } = wrap.getBoundingClientRect();
+      if (width === 0 || height === 0) return;
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      canvas.getContext('2d')?.scale(ratio, ratio);
+      sig.clear();
+      setHasStroke(false);
+    };
+
+    resizeCanvas();
+    const observer = new ResizeObserver(resizeCanvas);
+    observer.observe(wrap);
+    return () => observer.disconnect();
+  }, [step]);
+
   const handleSubmit = async () => {
     if (!sigRef.current || sigRef.current.isEmpty()) { setError('Por favor, desenhe sua assinatura antes de confirmar.'); return; }
     if (!signerName.trim() || !signerCpf.trim()) { setError('Preencha seu nome completo e CPF para confirmar a assinatura.'); return; }
@@ -184,25 +215,32 @@ export const ContractPublic: React.FC = () => {
 
   /* ── REVIEW ── */
   if (step === 'review' && data) return (
-    <div className="min-h-screen bg-[#fafaff] font-sans pb-16">
-      <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-slate-800 text-white py-10 sm:py-16 px-4 sm:px-6 shadow-2xl relative overflow-hidden">
+    <div className="min-h-screen bg-[#fafaff] font-sans flex flex-col">
+      <style>{`
+        .contract-body h1 { font-size: 1.375rem; font-weight: 900; color: #1e293b; margin: 0 0 1.25rem; line-height: 1.3; }
+        .contract-body p { font-size: 0.9375rem; line-height: 1.75; color: #334155; margin: 0 0 1rem; }
+        .contract-body strong { font-weight: 800; color: #1e293b; }
+        .contract-body br + strong { display: inline-block; margin-top: 0.5rem; }
+      `}</style>
+
+      <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-slate-800 text-white py-8 sm:py-12 px-4 sm:px-6 shadow-2xl relative overflow-hidden shrink-0">
         <div className="absolute -top-24 -left-20 w-96 h-96 bg-white/5 rounded-full blur-[120px]" />
-        <div className="max-w-2xl mx-auto space-y-5 sm:space-y-6 relative z-10 text-center">
+        <div className="max-w-2xl mx-auto space-y-4 relative z-10 text-center">
           <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 w-fit mx-auto">
             <FileSignature size={16} className="text-indigo-200" />
             <span className="text-[11px] font-black uppercase tracking-widest text-indigo-50">Assinatura Eletrônica Segura</span>
           </div>
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight px-2">{data.title}</h1>
+          <h1 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight px-2">{data.title}</h1>
           {prof && (
-            <div className="flex items-center gap-4 pt-2 justify-center">
+            <div className="flex items-center gap-4 pt-1 justify-center">
               {prof.clinic_logo_url ? (
-                <img src={getStaticUrl(prof.clinic_logo_url)} alt={prof.name} className="w-12 h-12 rounded-xl bg-white/10 object-contain p-1 border-2 border-white/20" />
+                <img src={getStaticUrl(prof.clinic_logo_url)} alt={prof.name} className="w-10 h-10 rounded-xl bg-white/10 object-contain p-1 border-2 border-white/20" />
               ) : (
-                <div className="w-12 h-12 rounded-xl bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-xl">{prof.name?.[0]}</div>
+                <div className="w-10 h-10 rounded-xl bg-white/20 border-2 border-white/30 flex items-center justify-center font-black text-lg">{prof.name?.[0]}</div>
               )}
               <div className="text-left">
                 <p className="text-indigo-200 text-[10px] font-black uppercase tracking-widest">Profissional responsável</p>
-                <p className="font-black text-lg">{prof.name}</p>
+                <p className="font-black text-base">{prof.name}</p>
                 {prof.crp && <p className="text-indigo-200 text-xs font-bold">CRP {prof.crp}</p>}
               </div>
             </div>
@@ -210,14 +248,15 @@ export const ContractPublic: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 -mt-6 sm:-mt-8 relative z-10">
-        <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-xl border border-slate-100 p-4 sm:p-8 space-y-6">
-          <div
-            className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-relaxed max-h-[50vh] overflow-y-auto pr-1 sm:pr-2 border border-slate-100 rounded-2xl p-4 sm:p-6 bg-slate-50/50"
-            dangerouslySetInnerHTML={{ __html: data.html }}
-          />
+      {/* Conteúdo rolável — padding-bottom reserva espaço para o footer fixo */}
+      <div className="flex-1 overflow-y-auto pb-32">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 -mt-4 relative z-10">
+          <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-xl border border-slate-100 p-4 sm:p-8 space-y-6">
+            <div
+              className="contract-body max-w-none border border-slate-100 rounded-2xl p-4 sm:p-6 bg-slate-50/50"
+              dangerouslySetInnerHTML={{ __html: data.html }}
+            />
 
-          <div className="space-y-3">
             <button
               type="button"
               onClick={() => setAgreed(a => !a)}
@@ -235,7 +274,12 @@ export const ContractPublic: React.FC = () => {
               </p>
             </button>
           </div>
+        </div>
+      </div>
 
+      {/* Footer fixo — sempre visível, força a decisão consciente após ler */}
+      <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] px-3 sm:px-4 py-3 sm:py-4 shrink-0">
+        <div className="max-w-2xl mx-auto">
           <button
             onClick={() => setStep('signing')}
             disabled={!agreed}
@@ -250,57 +294,69 @@ export const ContractPublic: React.FC = () => {
 
   /* ── SIGNING ── */
   if (step === 'signing' && data) return (
-    <div className="min-h-screen bg-[#fafaff] font-sans py-8 sm:py-16 px-3 sm:px-4">
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100">
-            <PenLine size={24} className="text-indigo-600" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-800">Confirme sua assinatura</h2>
-          <p className="text-slate-500 text-sm font-medium">Preencha seus dados e desenhe sua assinatura abaixo.</p>
-        </div>
-
-        <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-xl border border-slate-100 p-5 sm:p-8 space-y-5">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nome completo</label>
-            <input
-              type="text" value={signerName} onChange={e => setSignerName(e.target.value)}
-              className="w-full h-12 px-4 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">CPF</label>
-            <input
-              type="text" value={signerCpf} onChange={e => setSignerCpf(e.target.value)}
-              placeholder="000.000.000-00"
-              className="w-full h-12 px-4 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Sua assinatura</label>
-              <button type="button" onClick={clearSignature} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors">
-                <Eraser size={13} /> Limpar
-              </button>
+    <div className="min-h-screen bg-[#fafaff] font-sans flex flex-col">
+      <div className="flex-1 overflow-y-auto pb-32 px-3 sm:px-4 pt-6 sm:pt-10">
+        <div className="max-w-xl mx-auto space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100">
+              <PenLine size={24} className="text-indigo-600" />
             </div>
-            <div className="border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 overflow-hidden touch-none">
-              <SignatureCanvas
-                ref={sigRef}
-                penColor="#312e81"
-                canvasProps={{ className: 'w-full h-48 sm:h-56' }}
-                onBegin={() => setHasStroke(true)}
+            <h2 className="text-2xl font-black text-slate-800">Confirme sua assinatura</h2>
+            <p className="text-slate-500 text-sm font-medium">Preencha seus dados e desenhe sua assinatura abaixo.</p>
+          </div>
+
+          <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-xl border border-slate-100 p-5 sm:p-8 space-y-5">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nome completo</label>
+              <input
+                type="text" value={signerName} onChange={e => setSignerName(e.target.value)}
+                className="w-full h-12 px-4 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
               />
             </div>
-            <p className="text-[11px] text-slate-400 text-center">Desenhe com o dedo (celular) ou o mouse (computador)</p>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">CPF</label>
+              <input
+                type="text" value={signerCpf} onChange={e => setSignerCpf(e.target.value)}
+                placeholder="000.000.000-00"
+                className="w-full h-12 px-4 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Sua assinatura</label>
+                <button type="button" onClick={clearSignature} className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors">
+                  <Eraser size={13} /> Limpar
+                </button>
+              </div>
+              <div ref={canvasWrapRef} className="border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 overflow-hidden touch-none h-48 sm:h-56">
+                <SignatureCanvas
+                  ref={sigRef}
+                  penColor="#312e81"
+                  canvasProps={{ className: 'w-full h-full' }}
+                  onBegin={() => setHasStroke(true)}
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 text-center">Desenhe com o dedo (celular) ou o mouse (computador)</p>
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2.5 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3 border border-red-100">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5" /><span>{error}</span>
+              </div>
+            )}
           </div>
 
-          {error && (
-            <div className="flex items-start gap-2.5 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3 border border-red-100">
-              <AlertTriangle size={15} className="shrink-0 mt-0.5" /><span>{error}</span>
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-2 opacity-40">
+            <ShieldCheck size={14} className="text-indigo-400" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assinatura Eletrônica • Criptografia PsiFlux</span>
+          </div>
+        </div>
+      </div>
 
+      {/* Footer fixo com as ações de assinatura */}
+      <div className="sticky bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] px-3 sm:px-4 py-3 sm:py-4 shrink-0 space-y-2">
+        <div className="max-w-xl mx-auto space-y-2">
           <button
             onClick={handleSubmit}
             disabled={submitting || !hasStroke || !signerName.trim() || !signerCpf.trim()}
@@ -309,15 +365,9 @@ export const ContractPublic: React.FC = () => {
             {submitting ? <Loader2 size={20} className="animate-spin" /> : <FileSignature size={20} />}
             {submitting ? 'Enviando...' : 'Confirmar assinatura'}
           </button>
-
           <button onClick={() => setStep('review')} className="w-full text-center text-slate-400 text-xs font-medium underline underline-offset-2 hover:text-slate-600 transition">
             Voltar para revisar o contrato
           </button>
-        </div>
-
-        <div className="flex items-center justify-center gap-2 opacity-40">
-          <ShieldCheck size={14} className="text-indigo-400" />
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assinatura Eletrônica • Criptografia PsiFlux</span>
         </div>
       </div>
     </div>

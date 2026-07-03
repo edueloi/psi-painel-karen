@@ -706,7 +706,7 @@ router.get('/contrato/validate', async (req, res) => {
     }
 
     const { renderContract } = require('../templates/contractTemplates');
-    const rendered = renderContract(link.contract_type, {
+    const rendered = await renderContract(link.contract_type, {
       patient_name: patient.name,
       patient_cpf: patient.cpf || '',
       patient_address: patient.address || '',
@@ -719,7 +719,7 @@ router.get('/contrato/validate', async (req, res) => {
       session_time: '',
       city: patient.city || prof?.company_name || '',
       date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
-    });
+    }, link.tenant_id);
 
     let existingSignature = null;
     if (link.send_status === 'signed') {
@@ -786,7 +786,7 @@ router.post('/contrato/sign', async (req, res) => {
     } catch {}
 
     const { renderContract } = require('../templates/contractTemplates');
-    const rendered = renderContract(link.contract_type, {
+    const rendered = await renderContract(link.contract_type, {
       patient_name: patient.name,
       patient_cpf: patient.cpf || '',
       patient_address: patient.address || '',
@@ -797,7 +797,7 @@ router.post('/contrato/sign', async (req, res) => {
       clinic_address: prof?.address || '',
       city: patient.city || prof?.company_name || '',
       date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
-    });
+    }, link.tenant_id);
 
     await db.query(
       `INSERT INTO contract_signatures

@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Globe, Users, Link2, Copy, Check, Trash2, Plus, RefreshCw,
   Send, Clock, Settings, QrCode, CreditCard, Wallet, ChevronRight,
-  ToggleLeft, ToggleRight, ExternalLink, Shield, AlertCircle, Package, ChevronDown, ChevronUp, Loader2
+  ToggleLeft, ToggleRight, ExternalLink, Shield, AlertCircle, Package, ChevronDown, ChevronUp, Loader2,
+  FileSignature,
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
+import { ContractTemplateEditor } from '../components/Contract/ContractTemplateEditor';
 
 interface PortalToken {
   id: number;
@@ -91,6 +93,7 @@ export const PortalPaciente: React.FC = () => {
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(false);
+  const [isContractModalOpen, setIsContractModalOpen] = useState(false);
 
   const baseUrl = window.location.origin;
 
@@ -609,6 +612,25 @@ export const PortalPaciente: React.FC = () => {
                 </div>
               </div>
 
+              {/* Editor de Contrato */}
+              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
+                  <FileSignature size={14} className="text-indigo-500" />
+                  <span className="text-xs font-black text-slate-700">Contrato de Prestação de Serviços</span>
+                </div>
+                <div className="px-4 py-3 flex items-center justify-between gap-3">
+                  <p className="text-[11px] text-slate-400">
+                    Edite o texto do contrato que o paciente lê e assina no portal (modelos separados para atendimento online e presencial).
+                  </p>
+                  <button
+                    onClick={() => setIsContractModalOpen(true)}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-colors"
+                  >
+                    <Settings size={13} /> Editar contrato
+                  </button>
+                </div>
+              </div>
+
               {/* Save button */}
               <div className="flex justify-end">
                 <button
@@ -621,6 +643,7 @@ export const PortalPaciente: React.FC = () => {
               </div>
             </>
           )}
+          <ContractTemplateEditor isOpen={isContractModalOpen} onClose={() => setIsContractModalOpen(false)} />
         </div>
       )}
     </div>
