@@ -7,6 +7,7 @@ import {
   ChevronRight, History, Activity, Link2, Copy, Check, X, Clock, Smartphone,
   CheckSquare, Plus, Flag, Tag, AlarmClock, MessageCircle, Send,
   Heart, BookOpen, Dumbbell, Smile,
+  FileSignature, PauseCircle, PlayCircle,
 } from 'lucide-react';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,13 +59,14 @@ const safeGet = async <T,>(url: string, params?: Record<string, string>): Promis
   try { return await api.get<T>(url, params); } catch { return null; }
 };
 
-type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas' | 'mensagens' | 'portal';
+type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas' | 'mensagens' | 'portal' | 'contrato';
 
 const TABS: { key: Tab; label: string; Icon: React.ElementType }[] = [
   { key: 'dados',       label: 'Dados',       Icon: User },
   { key: 'agenda',      label: 'Agenda',      Icon: Calendar },
   { key: 'tarefas',     label: 'Tarefas',     Icon: CheckSquare },
   { key: 'portal',      label: 'Portal',      Icon: Heart },
+  { key: 'contrato',    label: 'Contrato',    Icon: FileSignature },
   { key: 'mensagens',   label: 'Mensagens',   Icon: MessageCircle },
   { key: 'documentos',  label: 'Documentos',  Icon: FolderOpen },
   { key: 'prontuario',  label: 'Prontuário',  Icon: FileText },
@@ -445,6 +447,7 @@ export const PatientDetail: React.FC = () => {
         {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'tarefas'     && <TabTarefas patientId={id!} />}
         {activeTab === 'portal'      && <TabPortal patientId={id!} />}
+        {activeTab === 'contrato'    && <TabContrato patientId={id!} />}
         {activeTab === 'mensagens'   && <TabMensagens patientId={id!} />}
         {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
         {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
@@ -1107,6 +1110,172 @@ const TabFerramentas: React.FC<{ patientId: string; navigate: (p: string) => voi
     </div>
   </div>
 );
+
+// ─── Tab: Contrato ────────────────────────────────────────────────────────────
+const CONTRACT_STATUS_LABEL: Record<string, { label: string; className: string }> = {
+  sent:      { label: 'Enviado',   className: 'bg-slate-100 text-slate-600' },
+  viewed:    { label: 'Visualizado', className: 'bg-amber-100 text-amber-700' },
+  signed:    { label: 'Assinado',  className: 'bg-emerald-100 text-emerald-700' },
+  expired:   { label: 'Expirado',  className: 'bg-rose-100 text-rose-600' },
+  cancelled: { label: 'Cancelado', className: 'bg-slate-100 text-slate-400' },
+};
+
+const SCALE_LABEL: Record<string, string> = { 'bdi-ii': 'BDI-II (Depressão)', 'bai': 'BAI (Ansiedade)' };
+
+const TabContrato: React.FC<{ patientId: string }> = ({ patientId }) => {
+  const { pushToast } = useToast();
+  const [contract, setContract] = useState<any>(null);
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [contractType, setContractType] = useState<'online' | 'presencial'>('online');
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [c, s] = await Promise.all([
+        api.get<any>(`/contract-send/${patientId}`),
+        api.get<any[]>(`/contract-send/${patientId}/scale-schedules`),
+      ]);
+      setContract(c);
+      setSchedules(s || []);
+    } catch { /* silencioso */ }
+    finally { setLoading(false); }
+  }, [patientId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const sendContract = async () => {
+    setSending(true);
+    try {
+      await api.post('/contract-send', { patient_id: Number(patientId), contract_type: contractType });
+      pushToast('success', 'Contrato enviado ao paciente');
+      await load();
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao enviar contrato');
+    } finally { setSending(false); }
+  };
+
+  const resendContract = async () => {
+    if (!contract?.id) return;
+    setSending(true);
+    try {
+      await api.post(`/contract-send/${contract.id}/resend`, {});
+      pushToast('success', 'Novo link de contrato gerado');
+      await load();
+    } catch (e: any) {
+      pushToast('error', e?.response?.data?.error || 'Erro ao reenviar contrato');
+    } finally { setSending(false); }
+  };
+
+  const toggleSchedule = async (scheduleId: number, currentStatus: string) => {
+    const nextStatus = currentStatus === 'active' ? 'paused' : 'active';
+    try {
+      await api.patch(`/contract-send/scale-schedules/${scheduleId}`, { status: nextStatus });
+      pushToast('success', nextStatus === 'active' ? 'Agendamento retomado' : 'Agendamento pausado');
+      await load();
+    } catch {
+      pushToast('error', 'Erro ao atualizar agendamento');
+    }
+  };
+
+  if (loading) return <TabLoader />;
+
+  const statusInfo = contract ? CONTRACT_STATUS_LABEL[contract.status] : null;
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <FileSignature size={16} className="text-indigo-500" />
+            <span className="text-xs font-black text-slate-500 uppercase tracking-wide">Contrato de Prestação de Serviços</span>
+          </div>
+          {statusInfo && (
+            <span className={`text-[10px] font-black px-2 py-1 rounded-full ${statusInfo.className}`}>{statusInfo.label}</span>
+          )}
+        </div>
+
+        {!contract && (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">Nenhum contrato enviado ainda para este paciente.</p>
+            <div className="flex items-center gap-2">
+              <select
+                value={contractType}
+                onChange={e => setContractType(e.target.value as 'online' | 'presencial')}
+                className="flex-1 h-10 px-3 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400"
+              >
+                <option value="online">Atendimento Online</option>
+                <option value="presencial">Atendimento Presencial</option>
+              </select>
+              <button
+                onClick={sendContract} disabled={sending}
+                className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+              >
+                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {contract && contract.status !== 'signed' && (
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500">
+              Contrato ({contract.contract_type === 'online' ? 'Online' : 'Presencial'}) aguardando assinatura do paciente.
+            </p>
+            <button
+              onClick={resendContract} disabled={sending}
+              className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1.5"
+            >
+              {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Reenviar link
+            </button>
+          </div>
+        )}
+
+        {contract && contract.status === 'signed' && (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">
+              Contrato ({contract.contract_type === 'online' ? 'Online' : 'Presencial'}) assinado
+              {contract.signature?.signed_at ? ` em ${formatDate(contract.signature.signed_at)}` : ''}.
+            </p>
+            {contract.signature?.signature_image && (
+              <div className="border border-slate-100 rounded-xl p-3 bg-slate-50 w-fit">
+                <img src={contract.signature.signature_image} alt="Assinatura" className="h-16 object-contain" />
+                <p className="text-[10px] text-slate-400 mt-1">{contract.signature.signer_name} — CPF {contract.signature.signer_cpf}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {schedules.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={16} className="text-indigo-500" />
+            <span className="text-xs font-black text-slate-500 uppercase tracking-wide">Acompanhamento Periódico (a cada 3 meses)</span>
+          </div>
+          {schedules.map(s => (
+            <div key={s.id} className="flex items-center justify-between gap-2 border border-slate-100 rounded-xl px-3 py-2.5">
+              <div>
+                <p className="text-xs font-bold text-slate-700">{SCALE_LABEL[s.scale_type] || s.scale_type}</p>
+                <p className="text-[10px] text-slate-400">
+                  {s.status === 'active' ? `Próximo envio: ${formatDate(s.next_due_at)}` : 'Pausado'}
+                  {s.last_sent_at ? ` · Último envio: ${formatDate(s.last_sent_at)}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => toggleSchedule(s.id, s.status)}
+                className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-600 transition-colors shrink-0"
+              >
+                {s.status === 'active' ? <><PauseCircle size={13} /> Pausar</> : <><PlayCircle size={13} /> Retomar</>}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ─── Tab: Tarefas ─────────────────────────────────────────────────────────────
 const TASK_PRIOS = [

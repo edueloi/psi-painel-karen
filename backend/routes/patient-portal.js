@@ -39,10 +39,36 @@ async function ensurePortalPatientColumns() {
     "ALTER TABLE patients ADD COLUMN portal_email VARCHAR(255) NULL",
     "ALTER TABLE patients ADD COLUMN portal_password_hash VARCHAR(255) NULL",
     "ALTER TABLE patients ADD COLUMN portal_password_set TINYINT(1) DEFAULT 0",
+    "ALTER TABLE patients ADD COLUMN extended_profile_completed_at DATETIME NULL",
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { /* coluna já existe, ignorar */ }
   }
+
+  await db.query(`CREATE TABLE IF NOT EXISTS patient_children (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL, tenant_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL, birth_date DATE NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pc_patient (patient_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS patient_household_members (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL, tenant_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL, age INT NULL, relationship VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_phm_patient (patient_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS patient_emergency_contacts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL, tenant_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL, phone VARCHAR(20) NULL, relationship VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pec_patient (patient_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
   portalSchemaReady = true;
 }
 
@@ -543,6 +569,159 @@ router.patch('/me', portalAuth, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Erro ao atualizar.' });
+  }
+});
+
+// GET /patient-portal/me/extended-profile — cadastro complementar (filhos, cônjuge, moradores, contatos de emergência)
+router.get('/me/extended-profile', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [[patient]] = await db.query(
+      `SELECT has_children, spouse_name, spouse_phone, extended_profile_completed_at
+       FROM patients WHERE id = ? AND tenant_id = ?`,
+      [patient_id, tenant_id]
+    );
+    if (!patient) return res.status(404).json({ error: 'Paciente não encontrado.' });
+
+    const [children] = await db.query(
+      'SELECT id, name, birth_date FROM patient_children WHERE patient_id = ? AND tenant_id = ? ORDER BY id',
+      [patient_id, tenant_id]
+    );
+    const [household] = await db.query(
+      'SELECT id, name, age, relationship FROM patient_household_members WHERE patient_id = ? AND tenant_id = ? ORDER BY id',
+      [patient_id, tenant_id]
+    );
+    const [emergencyContacts] = await db.query(
+      'SELECT id, name, phone, relationship FROM patient_emergency_contacts WHERE patient_id = ? AND tenant_id = ? ORDER BY id',
+      [patient_id, tenant_id]
+    );
+
+    res.json({
+      has_children: Boolean(patient.has_children),
+      spouse_name: patient.spouse_name || '',
+      spouse_phone: patient.spouse_phone || '',
+      children,
+      household_members: household,
+      emergency_contacts: emergencyContacts,
+      extended_profile_completed_at: patient.extended_profile_completed_at,
+    });
+  } catch (e) {
+    console.error('[portal GET extended-profile]', e?.message || e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /patient-portal/me/extended-profile — salva cadastro complementar (obrigatório antes do contrato)
+router.post('/me/extended-profile', portalAuth, async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const {
+      has_children, spouse_name, spouse_phone,
+      children, household_members, emergency_contacts,
+    } = req.body;
+
+    const contacts = Array.isArray(emergency_contacts) ? emergency_contacts.filter(c => c?.name && c?.phone) : [];
+    if (contacts.length < 2) {
+      return res.status(400).json({ error: 'Informe ao menos 2 contatos de emergência (nome e telefone).' });
+    }
+
+    const childList = has_children && Array.isArray(children) ? children.filter(c => c?.name) : [];
+    const householdList = Array.isArray(household_members) ? household_members.filter(m => m?.name) : [];
+
+    await connection.beginTransaction();
+
+    await connection.query(
+      `UPDATE patients SET
+        has_children = ?, children_count = ?, spouse_name = ?, spouse_phone = ?,
+        extended_profile_completed_at = NOW()
+       WHERE id = ? AND tenant_id = ?`,
+      [has_children ? 1 : 0, childList.length, spouse_name || null, spouse_phone || null, patient_id, tenant_id]
+    );
+
+    await connection.query('DELETE FROM patient_children WHERE patient_id = ? AND tenant_id = ?', [patient_id, tenant_id]);
+    for (const child of childList) {
+      await connection.query(
+        'INSERT INTO patient_children (patient_id, tenant_id, name, birth_date) VALUES (?, ?, ?, ?)',
+        [patient_id, tenant_id, child.name, child.birth_date || null]
+      );
+    }
+
+    await connection.query('DELETE FROM patient_household_members WHERE patient_id = ? AND tenant_id = ?', [patient_id, tenant_id]);
+    for (const member of householdList) {
+      await connection.query(
+        'INSERT INTO patient_household_members (patient_id, tenant_id, name, age, relationship) VALUES (?, ?, ?, ?, ?)',
+        [patient_id, tenant_id, member.name, member.age || null, member.relationship || null]
+      );
+    }
+
+    await connection.query('DELETE FROM patient_emergency_contacts WHERE patient_id = ? AND tenant_id = ?', [patient_id, tenant_id]);
+    for (const contact of contacts) {
+      await connection.query(
+        'INSERT INTO patient_emergency_contacts (patient_id, tenant_id, name, phone, relationship) VALUES (?, ?, ?, ?, ?)',
+        [patient_id, tenant_id, contact.name, contact.phone, contact.relationship || null]
+      );
+    }
+
+    await connection.commit();
+    res.json({ ok: true });
+  } catch (e) {
+    await connection.rollback();
+    console.error('[portal POST extended-profile]', e?.message || e);
+    res.status(500).json({ error: 'Erro ao salvar cadastro complementar.' });
+  } finally {
+    connection.release();
+  }
+});
+
+// GET /patient-portal/me/pending-contract — verifica/gera o link do contrato pendente de assinatura
+// Se o paciente ainda não tem nenhum envio de contrato, cria um a partir de contract_type (?type=online|presencial).
+router.get('/me/pending-contract', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id, psychologist_id } = req.portalSession;
+    const crypto = require('crypto');
+
+    const [[existing]] = await db.query(
+      `SELECT s.id, s.status, l.token
+       FROM contract_sends s
+       LEFT JOIN contract_secure_links l ON l.send_id = s.id AND l.is_revoked = 0
+       WHERE s.patient_id = ? AND s.tenant_id = ?
+       ORDER BY s.created_at DESC LIMIT 1`,
+      [patient_id, tenant_id]
+    );
+
+    if (existing) {
+      return res.json({
+        pending: existing.status !== 'signed',
+        signed: existing.status === 'signed',
+        token: existing.token || null,
+      });
+    }
+
+    // Nenhum envio ainda existe: precisa que o paciente informe a modalidade para criar o primeiro
+    const contractType = req.query.type;
+    if (!contractType || !['online', 'presencial'].includes(contractType)) {
+      return res.json({ pending: true, signed: false, token: null, needs_type: true });
+    }
+
+    const professionalId = psychologist_id;
+    if (!professionalId) return res.status(400).json({ error: 'Profissional responsável não definido para este paciente.' });
+
+    const token = crypto.randomBytes(40).toString('hex');
+    const [result] = await db.query(
+      `INSERT INTO contract_sends (tenant_id, patient_id, professional_id, contract_type, status, sent_at)
+       VALUES (?, ?, ?, ?, 'sent', NOW())`,
+      [tenant_id, patient_id, professionalId, contractType]
+    );
+    await db.query(
+      `INSERT INTO contract_secure_links (send_id, token, patient_id, tenant_id) VALUES (?, ?, ?, ?)`,
+      [result.insertId, token, patient_id, tenant_id]
+    );
+
+    res.json({ pending: true, signed: false, token });
+  } catch (e) {
+    console.error('[portal GET pending-contract]', e?.message || e);
+    res.status(500).json({ error: 'Erro interno.' });
   }
 });
 

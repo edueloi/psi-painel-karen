@@ -233,6 +233,15 @@ router.post('/bdi-ii/:patientId', async (req, res) => {
         [user.tenant_id, patientId, userId, patientId, 'bdi-ii', str]
       );
     }
+
+    try {
+      const [[patient]] = await db.query('SELECT name FROM patients WHERE id = ?', [patientId]);
+      await db.query(
+        'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+        [user.tenant_id, '📊 BDI-II Respondido', `${patient?.name || 'Paciente'} preencheu o Inventário de Depressão de Beck (BDI-II).`, 'info', `/pacientes/${patientId}`]
+      );
+    } catch (alertErr) { console.error('Erro ao criar alerta de BDI-II:', alertErr); }
+
     res.json({ ok: true });
   } catch (err) { console.error('Erro BDI-II POST:', err); res.status(500).json({ error: 'Erro interno.' }); }
 });
@@ -277,6 +286,15 @@ router.post('/bai/:patientId', async (req, res) => {
         [user.tenant_id, patientId, userId, patientId, 'bai', str]
       );
     }
+
+    try {
+      const [[patient]] = await db.query('SELECT name FROM patients WHERE id = ?', [patientId]);
+      await db.query(
+        'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+        [user.tenant_id, '📊 BAI Respondido', `${patient?.name || 'Paciente'} preencheu o Inventário de Ansiedade de Beck (BAI).`, 'info', `/pacientes/${patientId}`]
+      );
+    } catch (alertErr) { console.error('Erro ao criar alerta de BAI:', alertErr); }
+
     res.json({ ok: true });
   } catch (err) { console.error('Erro BAI POST:', err); res.status(500).json({ error: 'Erro interno.' }); }
 });
@@ -628,6 +646,205 @@ router.post('/anamnese/cancel', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('Erro cancelar anamnese:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// ─── CONTRATO — Rotas Públicas (acesso via token seguro do paciente) ──────────────
+
+// GET /public-profile/contrato/validate?t=TOKEN
+router.get('/contrato/validate', async (req, res) => {
+  try {
+    const { t: token } = req.query;
+    if (!token) return res.status(400).json({ error: 'Token obrigatório.' });
+
+    const [[link]] = await db.query(
+      `SELECT l.*, s.contract_type, s.template_version, s.status AS send_status, s.signed_at
+       FROM contract_secure_links l
+       JOIN contract_sends s ON s.id = l.send_id
+       WHERE l.token = ?`,
+      [token]
+    );
+    if (!link) return res.status(404).json({ error: 'Link não encontrado ou inválido.' });
+    if (link.is_revoked && link.send_status !== 'signed') {
+      return res.status(410).json({ error: 'Este link foi revogado pelo(a) profissional.' });
+    }
+    if (['cancelled', 'expired'].includes(link.send_status)) {
+      return res.status(410).json({ error: 'Este contrato foi cancelado ou expirou.' });
+    }
+
+    const [[patient]] = await db.query(
+      'SELECT id, name, cpf, address, city, state FROM patients WHERE id = ? AND tenant_id = ?',
+      [link.patient_id, link.tenant_id]
+    );
+    if (!patient) return res.status(404).json({ error: 'Paciente não encontrado.' });
+
+    const [[send]] = await db.query(
+      'SELECT professional_id FROM contract_sends WHERE id = ?', [link.send_id]
+    );
+    const [[prof]] = await db.query(
+      'SELECT name, specialty, crp, cpf, address, company_name, avatar_url, clinic_logo_url FROM users WHERE id = ?',
+      [send.professional_id]
+    );
+    const [[tenantRow]] = await db.query('SELECT portal_settings FROM tenants WHERE id = ? LIMIT 1', [link.tenant_id]);
+    let portalSettings = {};
+    try {
+      const raw = tenantRow?.portal_settings;
+      portalSettings = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    } catch {}
+
+    // Registrar primeira abertura
+    if (!link.opened_at) {
+      await db.query(
+        'UPDATE contract_secure_links SET opened_at = NOW(), ip_first_open = ? WHERE token = ?',
+        [req.ip || null, token]
+      );
+      await db.query(
+        "UPDATE contract_sends SET status = 'viewed', viewed_at = NOW() WHERE id = ? AND status = 'sent'",
+        [link.send_id]
+      );
+    }
+
+    const { renderContract } = require('../templates/contractTemplates');
+    const rendered = renderContract(link.contract_type, {
+      patient_name: patient.name,
+      patient_cpf: patient.cpf || '',
+      patient_address: patient.address || '',
+      professional_name: prof?.name || '',
+      professional_cpf: prof?.cpf || '',
+      professional_crp: prof?.crp || '',
+      pix_key: portalSettings.pix_key || '',
+      clinic_address: prof?.address || '',
+      session_day: '',
+      session_time: '',
+      city: patient.city || prof?.company_name || '',
+      date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
+    });
+
+    let existingSignature = null;
+    if (link.send_status === 'signed') {
+      const [[sig]] = await db.query(
+        'SELECT signer_name, signer_cpf, signed_at FROM contract_signatures WHERE send_id = ?',
+        [link.send_id]
+      );
+      existingSignature = sig || null;
+    }
+
+    res.json({
+      send_id: link.send_id,
+      contract_type: link.contract_type,
+      title: rendered.title,
+      html: rendered.html,
+      patient_name: patient.name,
+      patient_cpf: patient.cpf || '',
+      professional: prof,
+      already_signed: link.send_status === 'signed',
+      signature: existingSignature,
+    });
+  } catch (err) {
+    console.error('Erro validar contrato token:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /public-profile/contrato/sign?t=TOKEN
+router.post('/contrato/sign', async (req, res) => {
+  try {
+    const { t: token } = req.query;
+    if (!token) return res.status(400).json({ error: 'Token obrigatório.' });
+
+    const { signer_name, signer_cpf, signature_image } = req.body;
+    if (!signer_name?.trim() || !signer_cpf?.trim() || !signature_image) {
+      return res.status(400).json({ error: 'Nome, CPF e assinatura são obrigatórios.' });
+    }
+
+    const [[link]] = await db.query(
+      `SELECT l.*, s.contract_type, s.status AS send_status
+       FROM contract_secure_links l JOIN contract_sends s ON s.id = l.send_id
+       WHERE l.token = ? AND l.is_revoked = 0`,
+      [token]
+    );
+    if (!link) return res.status(404).json({ error: 'Link inválido.' });
+    if (link.send_status === 'signed') return res.status(409).json({ error: 'Este contrato já foi assinado.' });
+    if (['cancelled', 'expired'].includes(link.send_status)) {
+      return res.status(410).json({ error: 'Este contrato foi cancelado ou expirou.' });
+    }
+
+    const [[patient]] = await db.query(
+      'SELECT id, name, cpf, address, city FROM patients WHERE id = ? AND tenant_id = ?',
+      [link.patient_id, link.tenant_id]
+    );
+    const [[send]] = await db.query('SELECT professional_id FROM contract_sends WHERE id = ?', [link.send_id]);
+    const [[prof]] = await db.query(
+      'SELECT name, crp, cpf, address, company_name FROM users WHERE id = ?', [send.professional_id]
+    );
+    const [[tenantRow]] = await db.query('SELECT portal_settings FROM tenants WHERE id = ? LIMIT 1', [link.tenant_id]);
+    let portalSettings = {};
+    try {
+      const raw = tenantRow?.portal_settings;
+      portalSettings = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    } catch {}
+
+    const { renderContract } = require('../templates/contractTemplates');
+    const rendered = renderContract(link.contract_type, {
+      patient_name: patient.name,
+      patient_cpf: patient.cpf || '',
+      patient_address: patient.address || '',
+      professional_name: prof?.name || '',
+      professional_cpf: prof?.cpf || '',
+      professional_crp: prof?.crp || '',
+      pix_key: portalSettings.pix_key || '',
+      clinic_address: prof?.address || '',
+      city: patient.city || prof?.company_name || '',
+      date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
+    });
+
+    await db.query(
+      `INSERT INTO contract_signatures
+        (send_id, patient_id, tenant_id, signer_name, signer_cpf, signature_image, rendered_html, consent_ip, consent_user_agent, signed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [link.send_id, link.patient_id, link.tenant_id, signer_name.trim(), signer_cpf.trim(), signature_image, rendered.html,
+       req.ip || null, req.headers['user-agent'] || null]
+    );
+
+    const nextRenewal = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // +3 meses (aprox.)
+    await db.query(
+      `UPDATE contract_sends SET status = 'signed', signed_at = NOW(), next_renewal_at = ? WHERE id = ?`,
+      [nextRenewal, link.send_id]
+    );
+    await db.query('UPDATE contract_secure_links SET is_revoked = 1 WHERE send_id = ?', [link.send_id]);
+
+    // Notificação ao profissional (mesmo padrão de forms.js)
+    try {
+      await db.query(
+        'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
+        [
+          link.tenant_id,
+          '📄 Contrato Assinado',
+          `${patient.name} assinou o contrato de prestação de serviços.`,
+          'success',
+          `/pacientes/${link.patient_id}`,
+        ]
+      );
+    } catch (alertErr) {
+      console.error('Erro ao criar alerta de contrato assinado:', alertErr);
+    }
+
+    // Agenda o primeiro ciclo de BDI-II e BAI a partir da assinatura (Parte 3)
+    try {
+      await db.query(
+        `INSERT INTO clinical_scale_schedules (tenant_id, patient_id, professional_id, scale_type, status, next_due_at)
+         VALUES (?, ?, ?, 'bdi-ii', 'active', NOW()), (?, ?, ?, 'bai', 'active', NOW())
+         ON DUPLICATE KEY UPDATE status = 'active', next_due_at = NOW()`,
+        [link.tenant_id, link.patient_id, send.professional_id, link.tenant_id, link.patient_id, send.professional_id]
+      );
+    } catch (scheduleErr) {
+      console.error('Erro ao agendar escalas clínicas pós-contrato:', scheduleErr);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro ao assinar contrato:', err);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });

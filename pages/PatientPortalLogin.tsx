@@ -4,6 +4,7 @@ import {
   ArrowRight, CheckCircle, AlertCircle, Loader2, Shield,
   Calendar, CreditCard, Eye, EyeOff, Lock, Mail, Heart,
   FileText, MessageCircle, Star, KeyRound, ArrowLeft, Sparkles,
+  Plus, Trash2, Users, Baby, UserPlus,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
 
@@ -18,7 +19,45 @@ type Phase =
   | "reset_password"
   | "invite_register"
   | "invite_setpass"
+  | "complete_profile"
+  | "choose_contract_type"
   | "error";
+
+interface ChildInfo { name: string; birth_date: string; }
+interface HouseholdMember { name: string; age: string; relationship: string; }
+interface EmergencyContact { name: string; phone: string; relationship: string; }
+
+// Checa se existe contrato pendente de assinatura; se sim, redireciona para a página pública de assinatura.
+async function checkPendingContractAndNavigate(navigate: ReturnType<typeof useNavigate>, sessionToken: string, setPhase: (p: Phase) => void) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/patient-portal/me/pending-contract`, {
+      headers: { "X-Portal-Token": sessionToken },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.needs_type) { setPhase("choose_contract_type"); return; }
+      if (data.pending && data.token) { window.location.href = `/f/contrato?t=${data.token}`; return; }
+    }
+  } catch { /* se falhar a checagem, não bloqueia o acesso ao portal */ }
+  navigate("/portal/inicio", { replace: true });
+}
+
+// Checa se o cadastro complementar já foi preenchido; se não, força a etapa antes do portal.
+async function checkExtendedProfileAndNavigate(navigate: ReturnType<typeof useNavigate>, sessionToken: string, setPhase: (p: Phase) => void) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/patient-portal/me/extended-profile`, {
+      headers: { "X-Portal-Token": sessionToken },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.extended_profile_completed_at) {
+        setPhase("complete_profile");
+        return;
+      }
+    }
+  } catch { /* se falhar a checagem, não bloqueia o acesso ao portal */ }
+  await checkPendingContractAndNavigate(navigate, sessionToken, setPhase);
+}
 
 interface InviteInfo {
   valid: boolean;
@@ -249,9 +288,24 @@ export const PatientPortalLogin: React.FC = () => {
   const [showResetPass, setShowResetPass] = useState(false);
   const [resetToken, setResetToken] = useState("");
 
+  // Cadastro complementar obrigatório
+  const [hasChildren, setHasChildren] = useState(false);
+  const [children, setChildren] = useState<ChildInfo[]>([]);
+  const [spouseName, setSpouseName] = useState("");
+  const [spousePhone, setSpousePhone] = useState("");
+  const [household, setHousehold] = useState<HouseholdMember[]>([]);
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
+    { name: "", phone: "", relationship: "" },
+    { name: "", phone: "", relationship: "" },
+  ]);
+
   useEffect(() => {
     const session = localStorage.getItem(SESSION_KEY);
-    if (session) { navigate("/portal/inicio", { replace: true }); return; }
+    if (session) {
+      const parsed = JSON.parse(session);
+      checkExtendedProfileAndNavigate(navigate, parsed.token, setPhase);
+      return;
+    }
 
     // Verifica se é rota de reset de senha
     if (window.location.pathname.startsWith("/portal/reset-password/")) {
@@ -339,8 +393,8 @@ export const PatientPortalLogin: React.FC = () => {
         body: JSON.stringify({ email: passForm.email, password: passForm.password }),
       });
       if (!res.ok) { const e = await res.json(); setErrorMsg(e.error || "Erro ao definir senha."); return; }
-      setSuccessMsg("Acesso configurado! Entrando no portal...");
-      setTimeout(() => navigate("/portal/inicio", { replace: true }), 1200);
+      const finalToken = session?.token || tempSession || "";
+      setTimeout(() => checkExtendedProfileAndNavigate(navigate, finalToken, setPhase), 400);
     } catch { setErrorMsg("Erro ao conectar."); }
     finally { setSubmitting(false); }
   };
@@ -353,8 +407,7 @@ export const PatientPortalLogin: React.FC = () => {
       if (!res.ok) { const e = await res.json(); setErrorMsg(e.error || "Email ou senha incorretos."); return; }
       const data = await res.json();
       localStorage.setItem(SESSION_KEY, JSON.stringify({ ...data, token: data.session_token }));
-      setSuccessMsg("Login realizado! Entrando...");
-      setTimeout(() => navigate("/portal/inicio", { replace: true }), 900);
+      setTimeout(() => checkExtendedProfileAndNavigate(navigate, data.session_token, setPhase), 300);
     } catch { setErrorMsg("Erro ao conectar."); }
     finally { setSubmitting(false); }
   };
@@ -379,6 +432,53 @@ export const PatientPortalLogin: React.FC = () => {
       if (!res.ok) { const e = await res.json(); setErrorMsg(e.error || "Link inválido ou expirado."); return; }
       setSuccessMsg("Senha redefinida! Faça login.");
       setTimeout(() => { navigate("/portal", { replace: true }); setPhase("landing"); }, 1500);
+    } catch { setErrorMsg("Erro ao conectar."); }
+    finally { setSubmitting(false); }
+  };
+
+  const validEmergencyContacts = emergencyContacts.filter(c => c.name.trim() && c.phone.trim());
+
+  const doCompleteProfile = async () => {
+    if (validEmergencyContacts.length < 2) {
+      setErrorMsg("Informe ao menos 2 contatos de emergência (nome e telefone).");
+      return;
+    }
+    if (hasChildren && children.some(c => !c.name.trim())) {
+      setErrorMsg("Preencha o nome de todos os filhos adicionados, ou remova os campos vazios.");
+      return;
+    }
+    setSubmitting(true); setErrorMsg("");
+    try {
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      const res = await fetch(`${API_BASE_URL}/patient-portal/me/extended-profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Portal-Token": session?.token || "" },
+        body: JSON.stringify({
+          has_children: hasChildren,
+          children: hasChildren ? children.filter(c => c.name.trim()) : [],
+          spouse_name: spouseName.trim() || null,
+          spouse_phone: spousePhone.trim() || null,
+          household_members: household.filter(m => m.name.trim()),
+          emergency_contacts: validEmergencyContacts,
+        }),
+      });
+      if (!res.ok) { const e = await res.json(); setErrorMsg(e.error || "Erro ao salvar cadastro."); return; }
+      await checkPendingContractAndNavigate(navigate, session?.token || "", setPhase);
+    } catch { setErrorMsg("Erro ao conectar."); }
+    finally { setSubmitting(false); }
+  };
+
+  const doChooseContractType = async (contractType: "online" | "presencial") => {
+    setSubmitting(true); setErrorMsg("");
+    try {
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      const res = await fetch(`${API_BASE_URL}/patient-portal/me/pending-contract?type=${contractType}`, {
+        headers: { "X-Portal-Token": session?.token || "" },
+      });
+      if (!res.ok) { const e = await res.json(); setErrorMsg(e.error || "Erro ao gerar contrato."); return; }
+      const data = await res.json();
+      if (data.token) { window.location.href = `/f/contrato?t=${data.token}`; return; }
+      navigate("/portal/inicio", { replace: true });
     } catch { setErrorMsg("Erro ao conectar."); }
     finally { setSubmitting(false); }
   };
@@ -626,11 +726,6 @@ export const PatientPortalLogin: React.FC = () => {
           disabled={!passForm.password || !passForm.confirm}>
           <CheckCircle size={16} /> Salvar e entrar
         </PrimaryBtn>
-
-        <button onClick={() => navigate("/portal/inicio", { replace: true })}
-          className="w-full text-center text-xs text-slate-400 hover:text-slate-600 py-1 transition-colors">
-          Pular por agora →
-        </button>
       </div>
 
       <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1.5">
@@ -701,6 +796,188 @@ export const PatientPortalLogin: React.FC = () => {
       <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1.5">
         <Shield size={10} /> Seus dados são protegidos e seguros
       </p>
+    </PageLayout>
+  );
+
+  // ── Cadastro complementar obrigatório (filhos, cônjuge, moradores, contatos de emergência) ──
+  if (phase === "complete_profile") return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center relative py-10 px-4">
+      <BgDecor />
+      <div className="w-full max-w-2xl relative z-10">
+        <div className="text-center mb-7">
+          <div className="w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-300/40">
+            <Users size={24} className="text-white" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800">Complete seu cadastro</h2>
+          <p className="text-slate-400 text-sm mt-1.5 max-w-md mx-auto">
+            Antes de continuar, precisamos de mais algumas informações importantes para o seu atendimento.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-7">
+          {/* Filhos */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Baby size={16} className="text-indigo-500" />
+                <h3 className="font-bold text-slate-800 text-sm">Filhos</h3>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 cursor-pointer">
+                <input type="checkbox" checked={hasChildren}
+                  onChange={e => { setHasChildren(e.target.checked); if (e.target.checked && children.length === 0) setChildren([{ name: "", birth_date: "" }]); }}
+                  className="w-4 h-4 rounded accent-indigo-600" />
+                Tenho filhos
+              </label>
+            </div>
+            {hasChildren && (
+              <div className="space-y-2">
+                {children.map((child, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <input type="text" placeholder="Nome do filho(a)" value={child.name}
+                      onChange={e => setChildren(cs => cs.map((c, ci) => ci === i ? { ...c, name: e.target.value } : c))}
+                      className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                    <input type="date" value={child.birth_date}
+                      onChange={e => setChildren(cs => cs.map((c, ci) => ci === i ? { ...c, birth_date: e.target.value } : c))}
+                      className="w-36 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                    <button type="button" onClick={() => setChildren(cs => cs.filter((_, ci) => ci !== i))}
+                      className="shrink-0 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setChildren(cs => [...cs, { name: "", birth_date: "" }])}
+                  className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                  <Plus size={14} /> Adicionar filho(a)
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* Cônjuge */}
+          <section className="space-y-3 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-2">
+              <Heart size={16} className="text-indigo-500" />
+              <h3 className="font-bold text-slate-800 text-sm">Cônjuge / Companheiro(a)</h3>
+              <span className="text-[10px] text-slate-400 font-semibold">(se houver)</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input type="text" placeholder="Nome" value={spouseName} onChange={e => setSpouseName(e.target.value)}
+                className="px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+              <input type="tel" placeholder="Telefone" value={spousePhone} onChange={e => setSpousePhone(e.target.value)}
+                className="px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+            </div>
+          </section>
+
+          {/* Quem mora junto */}
+          <section className="space-y-3 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-2">
+              <Users size={16} className="text-indigo-500" />
+              <h3 className="font-bold text-slate-800 text-sm">Quem mora com você</h3>
+            </div>
+            <div className="space-y-2">
+              {household.map((member, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <input type="text" placeholder="Nome" value={member.name}
+                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, name: e.target.value } : h))}
+                    className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  <input type="number" placeholder="Idade" value={member.age}
+                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, age: e.target.value } : h))}
+                    className="w-20 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  <input type="text" placeholder="Parentesco" value={member.relationship}
+                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, relationship: e.target.value } : h))}
+                    className="w-28 sm:w-32 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  <button type="button" onClick={() => setHousehold(hs => hs.filter((_, hi) => hi !== i))}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setHousehold(hs => [...hs, { name: "", age: "", relationship: "" }])}
+                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                <UserPlus size={14} /> Adicionar morador(a)
+              </button>
+            </div>
+          </section>
+
+          {/* Contatos de emergência */}
+          <section className="space-y-3 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-2">
+              <Shield size={16} className="text-indigo-500" />
+              <h3 className="font-bold text-slate-800 text-sm">Contatos de emergência</h3>
+              <span className="text-[10px] text-red-400 font-bold">* mínimo 2</span>
+            </div>
+            <div className="space-y-2">
+              {emergencyContacts.map((contact, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <input type="text" placeholder="Nome" value={contact.name}
+                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, name: e.target.value } : c))}
+                    className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  <input type="tel" placeholder="Telefone" value={contact.phone}
+                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, phone: e.target.value } : c))}
+                    className="w-32 sm:w-36 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  <input type="text" placeholder="Parentesco" value={contact.relationship}
+                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, relationship: e.target.value } : c))}
+                    className="w-28 sm:w-32 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  {emergencyContacts.length > 2 && (
+                    <button type="button" onClick={() => setEmergencyContacts(cs => cs.filter((_, ci) => ci !== i))}
+                      className="shrink-0 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={() => setEmergencyContacts(cs => [...cs, { name: "", phone: "", relationship: "" }])}
+                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                <Plus size={14} /> Adicionar contato
+              </button>
+            </div>
+          </section>
+
+          <ErrorBox msg={errorMsg} />
+
+          <PrimaryBtn onClick={doCompleteProfile} loading={submitting}>
+            <ArrowRight size={16} /> Salvar e continuar
+          </PrimaryBtn>
+        </div>
+
+        <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1.5">
+          <Shield size={10} /> Seus dados são protegidos e confidenciais
+        </p>
+      </div>
+    </div>
+  );
+
+  // ── Escolha da modalidade de atendimento (gera o primeiro contrato) ──────────
+  if (phase === "choose_contract_type") return (
+    <PageLayout>
+      <div className="mb-6">
+        <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-4">
+          <FileText size={22} className="text-indigo-600" />
+        </div>
+        <h2 className="text-2xl font-black text-slate-800">Como será seu atendimento?</h2>
+        <p className="text-slate-400 text-sm mt-1.5">Isso define o modelo do contrato que você vai assinar a seguir.</p>
+      </div>
+
+      <div className="space-y-3">
+        <button onClick={() => doChooseContractType("online")} disabled={submitting}
+          className="w-full bg-white border-2 border-slate-200 hover:border-indigo-300 rounded-2xl p-5 text-left transition-all disabled:opacity-60">
+          <p className="font-bold text-slate-800">Atendimento Online</p>
+          <p className="text-slate-400 text-xs mt-1">Sessões por videochamada (Google Meet)</p>
+        </button>
+        <button onClick={() => doChooseContractType("presencial")} disabled={submitting}
+          className="w-full bg-white border-2 border-slate-200 hover:border-indigo-300 rounded-2xl p-5 text-left transition-all disabled:opacity-60">
+          <p className="font-bold text-slate-800">Atendimento Presencial</p>
+          <p className="text-slate-400 text-xs mt-1">Sessões no consultório</p>
+        </button>
+      </div>
+
+      <ErrorBox msg={errorMsg} />
+
+      {submitting && (
+        <div className="flex items-center justify-center gap-2 mt-4 text-slate-400 text-sm">
+          <Loader2 size={16} className="animate-spin" /> Gerando contrato...
+        </div>
+      )}
     </PageLayout>
   );
 

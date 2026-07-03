@@ -344,7 +344,53 @@ async function checkAppointmentReminders() {
     console.error('❌ Erro no job de lembrete profissional:', err.message);
   }
 }
-// Janela de disparo das tarefas diárias: do horário alvo até 2h depois.
+// ─── Reaplicação periódica de escalas clínicas (BDI-II / BAI a cada 3 meses) ──
+const SCALE_LABELS = { 'bdi-ii': 'Inventário de Depressão de Beck (BDI-II)', 'bai': 'Inventário de Ansiedade de Beck (BAI)' };
+
+async function checkClinicalScaleResends() {
+  try {
+    const [due] = await db.query(
+      `SELECT css.*, p.name AS patient_name, p.phone AS patient_phone
+       FROM clinical_scale_schedules css
+       JOIN patients p ON p.id = css.patient_id
+       WHERE css.status = 'active' AND css.next_due_at <= NOW()`
+    );
+    if (due.length === 0) return;
+
+    const { generateShareToken } = require('../utils/shareToken');
+    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+
+    for (const row of due) {
+      try {
+        const phone = (row.patient_phone || '').replace(/\D/g, '');
+        const label = SCALE_LABELS[row.scale_type] || row.scale_type;
+        const shareToken = generateShareToken(row.professional_id);
+        const link = `${frontendUrl}/f/${row.scale_type}?p=${row.patient_id}&u=${shareToken}`;
+
+        if (phone.length >= 10) {
+          const msg = `Olá, ${row.patient_name}! 😊\n\nEstá na hora de preencher novamente o *${label}*, parte do acompanhamento periódico combinado em contrato.\n\nAcesse pelo link abaixo:\n${link}\n\nSe tiver dúvidas, estou à disposição. 💙`;
+          await notificationService.enqueue({
+            tenant_id: row.tenant_id,
+            recipient_phone: phone,
+            content: msg,
+            metadata: { type: 'clinical_scale_resend', schedule_id: row.id, scale_type: row.scale_type }
+          });
+        }
+
+        await db.query(
+          `UPDATE clinical_scale_schedules SET last_sent_at = NOW(), next_due_at = DATE_ADD(NOW(), INTERVAL 3 MONTH) WHERE id = ?`,
+          [row.id]
+        );
+      } catch (rowErr) {
+        console.error(`❌ Erro ao reenviar escala clínica (schedule ${row.id}):`, rowErr.message);
+      }
+    }
+  } catch (err) {
+    console.error('❌ Erro no job de reaplicação de escalas clínicas:', err.message);
+  }
+}
+
+// Janela de disparo das tarefas diárias: do horário alvo até 2h depois.
 // A janela longa permite retry (a cada minuto) se o bot estiver offline ou o servidor reiniciar no horário alvo.
 function isWithinWindow(now, targetTimeStr, graceMinutes = 120) {
   const [h, m] = targetTimeStr.split(':').map(Number);
@@ -690,6 +736,7 @@ function startCronJobs() {
   cron.schedule('* * * * *', () => withLock('reminders', checkAppointmentReminders), { timezone: 'America/Sao_Paulo' });
   cron.schedule('* * * * *', () => withLock('dailyTasks', checkDailyTasks), { timezone: 'America/Sao_Paulo' });
   cron.schedule('*/30 * * * *', () => withLock('autoConfirm', autoConfirmAppointments), { timezone: 'America/Sao_Paulo' });
+  cron.schedule('0 8 * * *', () => withLock('scaleResend', checkClinicalScaleResends), { timezone: 'America/Sao_Paulo' });
   
   autoConfirmAppointments(); // roda uma vez na inicialização
 
@@ -1015,4 +1062,4 @@ function getRandomPhrase() {
   return `_"${MOTIVATIONAL_PHRASES[idx]}"_`;
 }
 
-module.exports = { startCronJobs, checkAppointmentReminders, checkDailyTasks, sendWeeklyReport, sendMonthlyReport, autoConfirmAppointments };
+module.exports = { startCronJobs, checkAppointmentReminders, checkDailyTasks, sendWeeklyReport, sendMonthlyReport, autoConfirmAppointments, checkClinicalScaleResends };

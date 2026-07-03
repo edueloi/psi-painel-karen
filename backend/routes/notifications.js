@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { sendMail, templates } = require('../services/emailService');
-const { checkBirthdays, sendWeeklyReport, sendMonthlyReport } = require('../services/cronJobs');
+const { checkBirthdays, sendWeeklyReport, sendMonthlyReport, checkClinicalScaleResends } = require('../services/cronJobs');
 const notificationService = require('../services/notificationService');
 
 // Garante coluna email_preferences na tabela users
@@ -94,6 +94,12 @@ router.post('/trigger/weekly', async (req, res) => {
 router.post('/trigger/monthly', async (req, res) => {
   await sendMonthlyReport();
   res.json({ message: 'Relatório mensal enviado' });
+});
+
+// POST /notifications/trigger/scale-resend
+router.post('/trigger/scale-resend', async (req, res) => {
+  await checkClinicalScaleResends();
+  res.json({ message: 'Job de reaplicação de escalas clínicas executado' });
 });
 
 
