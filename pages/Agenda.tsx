@@ -1257,7 +1257,8 @@ export const Agenda: React.FC = () => {
       for (const extraId of extraIds) {
         if (String(extraId) === String(payload.id)) continue;
         const sibling = appointments.find(a => String(a.id) === String(extraId));
-        
+        if (sibling?.status === 'completed') continue;
+
         let newAppointmentDate = payload.appointment_date;
         let newStartUtc = null;
         let newEndUtc = null;
@@ -1353,6 +1354,11 @@ export const Agenda: React.FC = () => {
     const isPackage = String(formData.service_id).startsWith('pkg_');
     const cleanServiceId = isPackage ? formData.service_id.replace('pkg_', '') : formData.service_id;
     const dateChanged = !formData._originalDate || formData.appointment_date !== formData._originalDate;
+
+    if (dateChanged && formData.status === 'completed') {
+      pushToast('error', 'Não é possível alterar o horário de uma sessão já realizada.');
+      return;
+    }
     // Interpreta str como horário LOCAL (não UTC) e converte para ISO UTC
     // new Date("YYYY-MM-DDTHH:mm") é ambíguo no spec — Chrome trata como UTC, não local
     const localToUtc = (str: string) => {
@@ -2405,19 +2411,25 @@ export const Agenda: React.FC = () => {
                               </p>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTempDateTime({
-                                date: formData.appointment_date.slice(0, 10),
-                                time: formData.appointment_date.slice(11, 16)
-                              });
-                              setIsRescheduleModalOpen(true);
-                            }}
-                            className="shrink-0 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-lg transition-all"
-                          >
-                            Alterar
-                          </button>
+                          {formData.status === 'completed' ? (
+                            <span className="shrink-0 px-2.5 py-1.5 bg-zinc-100 text-zinc-400 text-[10px] font-semibold rounded-lg cursor-not-allowed" title="Sessão já realizada não pode ter o horário alterado">
+                              Realizada
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTempDateTime({
+                                  date: formData.appointment_date.slice(0, 10),
+                                  time: formData.appointment_date.slice(11, 16)
+                                });
+                                setIsRescheduleModalOpen(true);
+                              }}
+                              className="shrink-0 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-lg transition-all"
+                            >
+                              Alterar
+                            </button>
+                          )}
                         </div>
                       ) : (
                         /* ── MODO CRIAÇÃO: campos editáveis normalmente ── */
@@ -3400,6 +3412,10 @@ export const Agenda: React.FC = () => {
         ];
 
         const handleQuickSave = async () => {
+          if (currentStatus === 'rescheduled' && apt.status === 'completed') {
+            pushToast('error', 'Não é possível reagendar uma sessão já realizada.');
+            return;
+          }
           if (needsNotes && !detailQuickNotes.trim()) {
             pushToast('error', `Informe o motivo ${currentStatus === 'no-show' ? 'da falta' : currentStatus === 'rescheduled' ? 'do reagendamento' : 'do cancelamento'}.`);
             return;
@@ -3563,12 +3579,17 @@ export const Agenda: React.FC = () => {
               <div className="px-1 mb-3">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Atualizar Status</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {quickStatuses.map(s => (
+                  {quickStatuses.map(s => {
+                    const isRescheduleBlocked = s.key === 'rescheduled' && apt.status === 'completed';
+                    return (
                     <button
                       key={s.key}
-                      onClick={() => { 
+                      disabled={isRescheduleBlocked}
+                      title={isRescheduleBlocked ? 'Sessão já realizada não pode ser reagendada' : undefined}
+                      onClick={() => {
+                        if (isRescheduleBlocked) return;
                         const isActive = s.key === currentStatus && !detailQuickStatus;
-                        setDetailQuickStatus(isActive ? null : s.key); 
+                        setDetailQuickStatus(isActive ? null : s.key);
                         setDetailQuickNotes('');
                         if (s.key === 'rescheduled' && !isActive) {
                           const aptDate = new Date(apt.start);
@@ -3578,11 +3599,12 @@ export const Agenda: React.FC = () => {
                           });
                         }
                       }}
-                      className={cx('text-[10px] font-black px-2.5 py-1 rounded-lg border transition-all', currentStatus === s.key ? s.active : s.color)}
+                      className={cx('text-[10px] font-black px-2.5 py-1 rounded-lg border transition-all', currentStatus === s.key ? s.active : s.color, isRescheduleBlocked && 'opacity-40 cursor-not-allowed')}
                     >
                       {s.label}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Reschedule specific fields */}
@@ -3704,13 +3726,17 @@ export const Agenda: React.FC = () => {
             {scopeRelatedApts.map(a => {
               const id = String(a.id);
               const checked = selectedScopeIds.has(id);
+              const dateChangedForScope = pendingSavePayload?.start_time != null;
+              const isCompleted = dateChangedForScope && a.status === 'completed';
               return (
-                <label key={id} className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                <label key={id} className={cx('flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 transition-colors', isCompleted ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer')}>
                   <input
                     type="checkbox"
-                    checked={checked}
+                    checked={checked && !isCompleted}
+                    disabled={isCompleted}
                     className="accent-indigo-600 w-4 h-4"
                     onChange={() => {
+                      if (isCompleted) return;
                       setSelectedScopeIds((prev: any) => {
                         const next = new Set(prev);
                         if (next.has(id)) next.delete(id); else next.add(id);
@@ -3726,6 +3752,7 @@ export const Agenda: React.FC = () => {
                       {new Date(a.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
+                  {isCompleted && <span className="text-[9px] font-black text-emerald-600 uppercase ml-auto">Realizada</span>}
                 </label>
               );
             })}
@@ -3806,13 +3833,16 @@ export const Agenda: React.FC = () => {
                 {scopeRelatedApts.map(a => {
                   const id = String(a.id);
                   const checked = detailRescheduleScopeIds.has(id);
+                  const isCompleted = a.status === 'completed';
                   return (
-                    <label key={id} className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                    <label key={id} className={cx('flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 transition-colors', isCompleted ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer')}>
                       <input
                         type="checkbox"
-                        checked={checked}
+                        checked={checked && !isCompleted}
+                        disabled={isCompleted}
                         className="accent-indigo-600 w-4 h-4"
                         onChange={() => {
+                          if (isCompleted) return;
                           setDetailRescheduleScopeIds((prev: any) => {
                             const next = new Set(prev);
                             if (next.has(id)) next.delete(id); else next.add(id);
@@ -3826,6 +3856,7 @@ export const Agenda: React.FC = () => {
                       <span className="text-xs text-slate-400">
                         {new Date(a.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
+                      {isCompleted && <span className="text-[9px] font-black text-emerald-600 uppercase ml-auto">Realizada</span>}
                     </label>
                   );
                 })}
@@ -3858,6 +3889,10 @@ export const Agenda: React.FC = () => {
             <button
               onClick={async () => {
                 if (!selectedApt || !detailRescheduleDateTime.date || !detailRescheduleDateTime.time) return;
+                if (selectedApt.status === 'completed') {
+                  pushToast('error', 'Não é possível alterar o horário de uma sessão já realizada.');
+                  return;
+                }
                 const newDateTime = `${detailRescheduleDateTime.date}T${detailRescheduleDateTime.time}:00`;
                 const newStartUtc = new Date(newDateTime).toISOString();
                 const basePayload = {
@@ -3876,7 +3911,7 @@ export const Agenda: React.FC = () => {
                   await api.put(`/appointments/${selectedApt.id}`, { ...basePayload, start_time: newStartUtc });
                   for (const id of detailRescheduleScopeIds) {
                     const sibling = scopeRelatedApts.find(a => String(a.id) === String(id));
-                    if (!sibling) continue;
+                    if (!sibling || sibling.status === 'completed') continue;
                     // Preserva data original do sibling, muda apenas o horário
                     const origDate = new Date(sibling.start);
                     const [h, m] = detailRescheduleDateTime.time.split(':').map(Number);
@@ -4089,6 +4124,10 @@ export const Agenda: React.FC = () => {
                         };
 
                         const handleSaveAptEdit = async () => {
+                          if (appointment.status === 'completed') {
+                            pushToast('error', 'Não é possível alterar o horário de uma sessão já realizada.');
+                            return;
+                          }
                           const newStart = new Date(`${editAptValues.date}T${editAptValues.time}:00`);
                           if (idx > 0) {
                             const prev = new Date(cmndAppointments[idx - 1].start);
@@ -4178,8 +4217,9 @@ export const Agenda: React.FC = () => {
                               <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   onClick={handleStartEdit}
-                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
-                                  title="Editar data/hora"
+                                  disabled={appointment.status === 'completed'}
+                                  className={cx('flex h-7 w-7 items-center justify-center rounded-lg transition-all', appointment.status === 'completed' ? 'text-slate-200 cursor-not-allowed' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50')}
+                                  title={appointment.status === 'completed' ? 'Sessão já realizada não pode ter o horário alterado' : 'Editar data/hora'}
                                 >
                                   <Edit3 size={12} />
                                 </button>

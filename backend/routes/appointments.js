@@ -1058,6 +1058,15 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
       formattedStart = new Date(start_time).toISOString().slice(0, 19).replace('T', ' ');
     }
 
+    if (oldStatus === 'completed' && formattedStart) {
+      const oldStartFormatted = existing[0].old_start
+        ? new Date(existing[0].old_start).toISOString().slice(0, 19).replace('T', ' ')
+        : null;
+      if (formattedStart !== oldStartFormatted) {
+        return res.status(422).json({ error: 'Não é possível alterar o horário de uma sessão já realizada.' });
+      }
+    }
+
     if (end_time) {
       formattedEnd = new Date(end_time).toISOString().slice(0, 19).replace('T', ' ');
     } else if (effectiveStartRaw) {
