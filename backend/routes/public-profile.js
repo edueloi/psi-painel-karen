@@ -823,7 +823,7 @@ router.post('/contrato/sign', async (req, res) => {
           '📄 Contrato Assinado',
           `${patient.name} assinou o contrato de prestação de serviços.`,
           'success',
-          `/pacientes/${link.patient_id}`,
+          `/pacientes/${link.patient_id}?tab=contrato`,
         ]
       );
     } catch (alertErr) {

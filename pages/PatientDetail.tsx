@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, FileText, BrainCircuit, ClipboardList, FolderOpen,
   Boxes, StickyNote, MapPin, Shield, Phone, Mail, User, Edit2,
@@ -77,12 +77,13 @@ const TABS: { key: Tab; label: string; Icon: React.ElementType }[] = [
 export const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { hasPermission } = useAuth();
   const { pushToast } = useToast();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>('dados');
+  const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'dados');
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
