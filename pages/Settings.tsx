@@ -147,23 +147,39 @@ export const Settings: React.FC = () => {
   };
 
   // ── Mercado Pago ─────────────────────────────────────────────────────────
-  const [mpConfig, setMpConfig] = useState({ configured: false, enabled: false });
+  const [mpConfig, setMpConfig] = useState({ configured: false, enabled: false, interest_rate: 0 });
   const [mpToken, setMpToken] = useState('');
   const [mpSaving, setMpSaving] = useState(false);
   const [mpTesting, setMpTesting] = useState(false);
   const [mpShowToken, setMpShowToken] = useState(false);
+  const [mpInterestRate, setMpInterestRate] = useState('');
+  const [mpSavingRate, setMpSavingRate] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'integracoes') return;
-    api.get<any>('/mercadopago/config').then((d: any) => setMpConfig(d)).catch(() => {});
+    api.get<any>('/mercadopago/config').then((d: any) => {
+      setMpConfig(d);
+      setMpInterestRate(d.interest_rate ? String(d.interest_rate) : '');
+    }).catch(() => {});
   }, [activeTab]);
+
+  const saveMpInterestRate = async () => {
+    setMpSavingRate(true);
+    try {
+      const rate = parseFloat(mpInterestRate.replace(',', '.')) || 0;
+      await api.post('/mercadopago/config', { interest_rate: rate });
+      setMpConfig(prev => ({ ...prev, interest_rate: rate }));
+      pushToast('success', 'Taxa de juros atualizada!');
+    } catch { pushToast('error', 'Erro ao salvar taxa de juros.'); }
+    finally { setMpSavingRate(false); }
+  };
 
   const saveMpToken = async () => {
     if (!mpToken.trim()) return;
     setMpSaving(true);
     try {
       await api.post('/mercadopago/config', { token: mpToken.trim() });
-      setMpConfig({ configured: true, enabled: true });
+      setMpConfig(prev => ({ ...prev, configured: true, enabled: true }));
       setMpToken('');
       pushToast('success', 'Mercado Pago conectado com sucesso!');
     } catch { pushToast('error', 'Erro ao salvar token do Mercado Pago.'); }
@@ -185,7 +201,7 @@ export const Settings: React.FC = () => {
     setMpSaving(true);
     try {
       await api.post('/mercadopago/config', { token: '' });
-      setMpConfig({ configured: false, enabled: false });
+      setMpConfig(prev => ({ ...prev, configured: false, enabled: false }));
       setMpToken('');
       pushToast('success', 'Mercado Pago desconectado.');
     } catch { pushToast('error', 'Erro ao desconectar.'); }
@@ -892,6 +908,27 @@ export const Settings: React.FC = () => {
                             </button>
                           </div>
                         )}
+                        <div className="pt-2 border-t border-slate-100 space-y-2">
+                          <p className="text-xs font-bold text-slate-600">Juros no parcelamento (cartão de crédito)</p>
+                          <p className="text-[11px] text-slate-400">Taxa ao mês aplicada sobre o valor parcelado. O paciente verá o valor com juros e um aviso no Portal. Pix e débito nunca têm juros.</p>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={mpInterestRate}
+                                onChange={e => setMpInterestRate(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                placeholder="0"
+                                className="w-full pr-8 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">% a.m.</span>
+                            </div>
+                            <button onClick={saveMpInterestRate} disabled={mpSavingRate}
+                              className="px-4 py-2 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-50">
+                              {mpSavingRate ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
+                            </button>
+                          </div>
+                        </div>
                         <button onClick={disconnectMp} disabled={mpSaving}
                           className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
                           <Unplug size={12} /> Desconectar Mercado Pago

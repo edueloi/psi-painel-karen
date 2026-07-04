@@ -1581,32 +1581,63 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
 
   // ── Mercado Pago ─────────────────────────────────────────────────────────
   const [mpAvailable, setMpAvailable] = useState(false);
+  const [mpInterestRate, setMpInterestRate] = useState(0); // % ao mês, definido pelo psicólogo
   const [showMpForm, setShowMpForm] = useState(false);
   const [mpAmount, setMpAmount] = useState("");
   const [mpInstallments, setMpInstallments] = useState(1);
   const [mpLoading, setMpLoading] = useState(false);
   const [mpCharge, setMpCharge] = useState<any>(null);
   const [mpCopied, setMpCopied] = useState(false);
+  const [mpPolling, setMpPolling] = useState(false);
 
   useEffect(() => {
     portalFetch("/mercadopago/available")
       .then(r => r.json())
-      .then((d: any) => setMpAvailable(d.available))
+      .then((d: any) => { setMpAvailable(d.available); setMpInterestRate(Number(d.interest_rate) || 0); })
       .catch(() => {});
   }, []);
+
+  // Calcula o valor total com juros compostos para n parcelas (juros só incide a partir de 2x)
+  const mpInstallmentTotal = (baseAmount: number, n: number) => {
+    if (n <= 1 || !mpInterestRate) return baseAmount;
+    return baseAmount * Math.pow(1 + mpInterestRate / 100, n);
+  };
+
+  // Polling: verifica se o PIX gerado foi confirmado, para atualizar a tela sem precisar de F5
+  useEffect(() => {
+    if (!mpCharge || !mpPolling) return;
+    const paymentId = mpCharge.pix_payment_id;
+    if (!paymentId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await portalFetch(`/mercadopago/charge/${paymentId}`);
+        const d = await res.json();
+        if (["approved", "paid"].includes((d?.status || "").toLowerCase())) {
+          setMpPolling(false);
+          setMpCharge((prev: any) => prev ? { ...prev, status: "approved" } : null);
+          showToast("Pagamento confirmado! 🎉", "success");
+          onRefresh();
+        }
+      } catch { /* ignora */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [mpCharge, mpPolling]);
 
   const createMpCharge = async () => {
     if (!mpAmount) return showToast("Informe o valor.", "error");
     setMpLoading(true);
     try {
+      const baseAmount = parseFloat(mpAmount.replace(",", "."));
+      const finalAmount = mpInstallmentTotal(baseAmount, mpInstallments);
       const res = await portalFetch("/mercadopago/charge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parseFloat(mpAmount.replace(",", ".")), installments: mpInstallments }),
+        body: JSON.stringify({ amount: finalAmount, installments: mpInstallments }),
       });
       const data = await res.json();
       if (!res.ok) { showToast(data.error || "Erro ao gerar cobrança.", "error"); return; }
       setMpCharge(data);
+      setMpPolling(true);
     } catch (e: any) {
       showToast(e?.message || "Erro ao gerar cobrança.", "error");
     } finally { setMpLoading(false); }
@@ -1753,20 +1784,31 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Parcelamento</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Parcelamento (só no cartão de crédito)</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {[1,2,3,4,5,6].map(n => (
+                      {[1,2,3,4,5,6].map(n => {
+                        const base = parseFloat(mpAmount.replace(",", ".")) || 0;
+                        const total = mpInstallmentTotal(base, n);
+                        return (
                         <button key={n} onClick={() => setMpInstallments(n)}
                           className={`py-2 rounded-xl text-xs font-bold border transition-all ${mpInstallments === n ? "bg-sky-600 text-white border-sky-500" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
                           {n === 1 ? "À vista" : `${n}x`}
                           {n > 1 && mpAmount && (
                             <span className="block text-[8px] opacity-80">
-                              R$ {(parseFloat(mpAmount.replace(",", ".")) / n).toFixed(2).replace(".", ",")}
+                              R$ {(total / n).toFixed(2).replace(".", ",")}
                             </span>
                           )}
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
+                    {mpInstallments > 1 && mpInterestRate > 0 ? (
+                      <p className="text-[11px] text-amber-600 font-bold mt-2 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
+                        ⚠️ Parcelamento com juros de {mpInterestRate}% ao mês. Total com juros: R$ {mpInstallmentTotal(parseFloat(mpAmount.replace(",", ".")) || 0, mpInstallments).toFixed(2).replace(".", ",")}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-emerald-600 font-bold mt-2">✓ Sem juros{mpInstallments > 1 ? " (parcelamento gratuito)" : ""}</p>
+                    )}
                   </div>
                   <button onClick={createMpCharge} disabled={mpLoading || !mpAmount}
                     className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
@@ -1775,6 +1817,16 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                       : <><CreditCard size={15} /> Gerar cobrança</>}
                   </button>
                 </>
+              ) : mpCharge.status === "approved" ? (
+                <div className="flex flex-col items-center gap-2 p-6 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <CheckCircle size={32} className="text-emerald-600" />
+                  <p className="text-sm font-black text-emerald-700">Pagamento confirmado!</p>
+                  <p className="text-[11px] text-emerald-600 text-center">Seu psicólogo já foi notificado.</p>
+                  <button onClick={() => { setMpCharge(null); setMpAmount(""); }}
+                    className="mt-2 text-xs font-bold text-emerald-700 hover:text-emerald-900 py-1">
+                    Fazer novo pagamento
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {/* QR Code PIX */}
@@ -1788,6 +1840,11 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                           📋 {mpCopied ? "Copiado!" : "Copiar código PIX"}
                         </button>
                       )}
+                      {mpPolling && (
+                        <p className="text-[10px] text-sky-500 flex items-center gap-1">
+                          <span className="animate-spin inline-block w-3 h-3 border-2 border-sky-400 border-t-transparent rounded-full" /> Aguardando confirmação...
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1800,7 +1857,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                   )}
 
                   <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
-                  <button onClick={() => { setMpCharge(null); setMpAmount(""); }}
+                  <button onClick={() => { setMpCharge(null); setMpAmount(""); setMpPolling(false); }}
                     className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 py-1">
                     Gerar nova cobrança
                   </button>

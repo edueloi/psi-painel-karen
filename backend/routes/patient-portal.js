@@ -2480,17 +2480,30 @@ function mpDecrypt(encrypted) {
   return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8');
 }
 
+// Monta o filtro de métodos de pagamento excluídos para a preference do MP,
+// a partir das flags configuradas em tenants.portal_settings
+function mpBuildExcludedPaymentTypes(portalSettings) {
+  const excluded = [];
+  if (portalSettings?.payment_pix_enabled === false) excluded.push({ id: 'bank_transfer' });
+  if (portalSettings?.payment_credit_enabled === false) excluded.push({ id: 'credit_card' });
+  if (portalSettings?.payment_debit_enabled === false) excluded.push({ id: 'debit_card' });
+  return excluded;
+}
+
 // GET /patient-portal/mercadopago/available
 router.get('/mercadopago/available', portalAuth, async (req, res) => {
   try {
     const { psychologist_id } = req.portalSession;
     if (!psychologist_id) return res.json({ available: false });
     const [rows] = await db.query(
-      'SELECT mercadopago_enabled, mercadopago_token FROM users WHERE id = ?',
+      'SELECT mercadopago_enabled, mercadopago_token, mercadopago_interest_rate FROM users WHERE id = ?',
       [psychologist_id]
     );
     const u = rows[0];
-    res.json({ available: !!(u && u.mercadopago_enabled && u.mercadopago_token) });
+    res.json({
+      available: !!(u && u.mercadopago_enabled && u.mercadopago_token),
+      interest_rate: Number(u?.mercadopago_interest_rate) || 0,
+    });
   } catch { res.json({ available: false }); }
 });
 
@@ -2525,9 +2538,17 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
       patient_name: patientName,
     });
 
-    // Gera PIX
+    // Lê portal_settings do tenant para filtrar métodos habilitados pelo psicólogo
+    const [[tenantRow]] = await db.query('SELECT portal_settings FROM tenants WHERE id = ? LIMIT 1', [session.tenant_id]);
+    const rawSettings = tenantRow?.portal_settings;
+    const portalSettings = rawSettings ? (typeof rawSettings === 'string' ? JSON.parse(rawSettings) : rawSettings) : {};
+    const excludedPaymentTypes = mpBuildExcludedPaymentTypes(portalSettings);
+    const pixEnabled = portalSettings.payment_pix_enabled !== false;
+
+    // Gera PIX (só se habilitado nas configs do portal)
     let pixData = null;
     try {
+      if (!pixEnabled) throw new Error('pix desabilitado');
       const pixRes = await fetch('https://api.mercadopago.com/v1/payments', {
         method: 'POST',
         headers: {
@@ -2565,7 +2586,10 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
         notification_url: `${baseUrl}/api/mercadopago/webhook`,
         back_urls: { success: `${baseUrl}/portal`, failure: `${baseUrl}/portal`, pending: `${baseUrl}/portal` },
         auto_return: 'approved',
-        payment_methods: { installments: installments || 1 },
+        payment_methods: {
+          installments: installments || 1,
+          excluded_payment_types: excludedPaymentTypes,
+        },
       }),
     });
     const prefData = await prefRes.json();
@@ -2583,6 +2607,34 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
   } catch (err) {
     console.error('[Portal MP] Erro:', err);
     res.status(500).json({ error: 'Erro interno ao gerar cobrança' });
+  }
+});
+
+// GET /patient-portal/mercadopago/charge/:paymentId — paciente consulta status da cobrança
+router.get('/mercadopago/charge/:paymentId', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    if (!session.psychologist_id) return res.status(400).json({ error: 'Sem psicólogo responsável configurado' });
+
+    const [rows] = await db.query(
+      'SELECT mercadopago_enabled, mercadopago_token FROM users WHERE id = ?',
+      [session.psychologist_id]
+    );
+    const u = rows[0];
+    if (!u || !u.mercadopago_enabled || !u.mercadopago_token) {
+      return res.status(400).json({ error: 'Pagamento online não disponível para este profissional.' });
+    }
+
+    const token = mpDecrypt(u.mercadopago_token);
+    const r = await fetch(`https://api.mercadopago.com/v1/payments/${req.params.paymentId}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: 'Erro ao consultar pagamento' });
+
+    res.json({ payment_id: data.id, status: data.status, amount: data.transaction_amount });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao consultar pagamento' });
   }
 });
 

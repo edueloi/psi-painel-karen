@@ -316,6 +316,21 @@ function templatePasswordReset({ name, link }) {
   return baseTemplate('🔐 Redefinir Senha', content, 'Solicitação de redefinição de senha.');
 }
 
+/** 8. Pagamento recebido (Mercado Pago) */
+function templatePaymentReceived({ patientName, amount, paymentMethod, comandaId }) {
+  const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+  const methodLabel = { pix: 'Pix', credito: 'Cartão de Crédito', debito: 'Cartão de Débito' }[paymentMethod] || paymentMethod;
+  const content = `
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;">Você recebeu um novo pagamento pelo <strong style="color:#4f46e5;">Portal do Paciente</strong>! 💰</p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:24px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#16a34a;">✔️ Pagamento aprovado</p>
+      <p style="margin:8px 0 0;font-size:24px;font-weight:900;color:#15803d;">${fmt(amount)}</p>
+      <p style="margin:4px 0 0;font-size:14px;color:#475569;">${patientName} · ${methodLabel}${comandaId ? ` · Comanda #${comandaId}` : ''}</p>
+    </div>
+    <p style="margin:0;font-size:12px;color:#94a3b8;">O valor já foi lançado automaticamente no seu Livro Caixa.</p>`;
+  return baseTemplate('💰 Pagamento Recebido', content, 'Notificação automática do Mercado Pago.');
+}
+
 module.exports = {
   sendMail,
   templates: {
@@ -326,5 +341,6 @@ module.exports = {
     monthlyReport: templateMonthlyReport,
     welcome: templateWelcome,
     passwordReset: templatePasswordReset,
+    paymentReceived: templatePaymentReceived,
   }
 };

@@ -3,12 +3,14 @@ const router = express.Router();
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
+const { sendMail } = require('../services/emailService');
 
 // ── Auto-migrate ──────────────────────────────────────────────────────────────
 async function ensureMPColumns() {
   const stmts = [
     "ALTER TABLE users ADD COLUMN mercadopago_token TEXT NULL",
     "ALTER TABLE users ADD COLUMN mercadopago_enabled TINYINT(1) DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN mercadopago_interest_rate DECIMAL(5,2) DEFAULT 0",
     "ALTER TABLE financial_transactions ADD COLUMN mp_payment_id VARCHAR(255) NULL",
     "ALTER TABLE financial_transactions ADD COLUMN mp_status VARCHAR(50) NULL",
     "ALTER TABLE financial_transactions ADD COLUMN mp_payment_url TEXT NULL",
@@ -20,6 +22,16 @@ async function ensureMPColumns() {
   }
 }
 ensureMPColumns();
+
+// Monta o filtro de métodos de pagamento excluídos para a preference do MP,
+// a partir das flags configuradas em tenants.portal_settings
+function buildExcludedPaymentTypes(portalSettings) {
+  const excluded = [];
+  if (portalSettings?.payment_pix_enabled === false) excluded.push({ id: 'bank_transfer' });
+  if (portalSettings?.payment_credit_enabled === false) excluded.push({ id: 'credit_card' });
+  if (portalSettings?.payment_debit_enabled === false) excluded.push({ id: 'debit_card' });
+  return excluded;
+}
 
 // ── Cripto ────────────────────────────────────────────────────────────────────
 function encrypt(text) {
@@ -46,9 +58,13 @@ async function getUserToken(userId) {
 // ── GET /mercadopago/config ───────────────────────────────────────────────────
 router.get('/config', authMiddleware, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT mercadopago_enabled, mercadopago_token FROM users WHERE id = ?', [req.user.id]);
-    if (!rows.length) return res.json({ configured: false, enabled: false });
-    res.json({ configured: !!rows[0].mercadopago_token, enabled: !!rows[0].mercadopago_enabled });
+    const [rows] = await db.query('SELECT mercadopago_enabled, mercadopago_token, mercadopago_interest_rate FROM users WHERE id = ?', [req.user.id]);
+    if (!rows.length) return res.json({ configured: false, enabled: false, interest_rate: 0 });
+    res.json({
+      configured: !!rows[0].mercadopago_token,
+      enabled: !!rows[0].mercadopago_enabled,
+      interest_rate: Number(rows[0].mercadopago_interest_rate) || 0,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao buscar configuração' });
   }
@@ -57,7 +73,7 @@ router.get('/config', authMiddleware, async (req, res) => {
 // ── POST /mercadopago/config — Salva o Access Token ──────────────────────────
 router.post('/config', authMiddleware, async (req, res) => {
   try {
-    const { token, enabled } = req.body;
+    const { token, enabled, interest_rate } = req.body;
     const updates = [];
     const values = [];
 
@@ -72,6 +88,11 @@ router.post('/config', authMiddleware, async (req, res) => {
     if (enabled !== undefined && token === undefined) {
       updates.push('mercadopago_enabled = ?');
       values.push(enabled ? 1 : 0);
+    }
+    if (interest_rate !== undefined) {
+      const rate = Math.max(0, Math.min(100, Number(interest_rate) || 0));
+      updates.push('mercadopago_interest_rate = ?');
+      values.push(rate);
     }
     if (!updates.length) return res.status(400).json({ error: 'Nada para atualizar' });
 
@@ -338,6 +359,34 @@ router.post('/webhook', express.json(), async (req, res) => {
     }
 
     console.log(`[MP Webhook] ✅ R$ ${amountBRL} | TX #${txResult.insertId} | Comanda: ${comandaId} | Método: ${paymentMethod}`);
+
+    // ── Notifica o psicólogo: sino in-app + e-mail ─────────────────────────────
+    try {
+      const methodLabel = { pix: 'Pix', credito: 'cartão de crédito', debito: 'cartão de débito' }[paymentMethod] || paymentMethod;
+      const amountFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amountBRL);
+      await db.query(
+        `INSERT INTO system_alerts (tenant_id, title, message, type, link)
+         VALUES (?, ?, ?, 'success', ?)`,
+        [finalTenantId, 'Pagamento recebido 💰',
+         `${patientName} pagou ${amountFmt} via ${methodLabel} pelo Portal do Paciente.`,
+         comandaId ? '/financeiro' : '/financeiro']
+      );
+
+      if (finalUserId) {
+        const [[professional]] = await db.query('SELECT email, name FROM users WHERE id = ?', [finalUserId]);
+        if (professional?.email) {
+          const { templates } = require('../services/emailService');
+          await sendMail(
+            professional.email,
+            '💰 Pagamento Recebido — PsiFlux',
+            templates.paymentReceived({ patientName, amount: amountBRL, paymentMethod, comandaId })
+          );
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('[MP Webhook] Erro ao notificar psicólogo:', notifyErr.message);
+    }
+
     res.status(200).json({ received: true, action: 'processed', transaction_id: txResult.insertId });
   } catch (err) {
     console.error('[MP Webhook] Erro:', err);
