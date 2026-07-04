@@ -146,58 +146,56 @@ export const Settings: React.FC = () => {
     finally { setTestSending(false); }
   };
 
-  // ── InfinitePay ──────────────────────────────────────────────────────────
-  const [ipConfig, setIpConfig] = useState({ configured: false, enabled: false });
-  const [ipToken, setIpToken] = useState('');           // Client ID
-  const [ipClientSecret, setIpClientSecret] = useState(''); // Client Secret
-  const [ipSaving, setIpSaving] = useState(false);
-  const [ipTesting, setIpTesting] = useState(false);
-  const [ipShowToken, setIpShowToken] = useState(false);
+  // ── Mercado Pago ─────────────────────────────────────────────────────────
+  const [mpConfig, setMpConfig] = useState({ configured: false, enabled: false });
+  const [mpToken, setMpToken] = useState('');
+  const [mpSaving, setMpSaving] = useState(false);
+  const [mpTesting, setMpTesting] = useState(false);
+  const [mpShowToken, setMpShowToken] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'integracoes') return;
-    api.get<any>('/infinitepay/config').then((d: any) => setIpConfig(d)).catch(() => {});
+    api.get<any>('/mercadopago/config').then((d: any) => setMpConfig(d)).catch(() => {});
   }, [activeTab]);
 
-  const saveIpToken = async () => {
-    if (!ipToken.trim() || !ipClientSecret.trim()) return;
-    setIpSaving(true);
+  const saveMpToken = async () => {
+    if (!mpToken.trim()) return;
+    setMpSaving(true);
     try {
-      await api.post('/infinitepay/config', { client_id: ipToken.trim(), client_secret: ipClientSecret.trim() });
-      setIpConfig({ configured: true, enabled: true });
-      setIpToken('');
-      setIpClientSecret('');
-      pushToast('success', 'InfinitePay conectada com sucesso!');
-    } catch { pushToast('error', 'Erro ao salvar credenciais da InfinitePay.'); }
-    finally { setIpSaving(false); }
+      await api.post('/mercadopago/config', { token: mpToken.trim() });
+      setMpConfig({ configured: true, enabled: true });
+      setMpToken('');
+      pushToast('success', 'Mercado Pago conectado com sucesso!');
+    } catch { pushToast('error', 'Erro ao salvar token do Mercado Pago.'); }
+    finally { setMpSaving(false); }
   };
 
-  const testIpToken = async () => {
-    if (!ipToken.trim() || !ipClientSecret.trim()) return;
-    setIpTesting(true);
+  const testMpToken = async () => {
+    if (!mpToken.trim()) return;
+    setMpTesting(true);
     try {
-      await api.post('/infinitepay/config/test', { client_id: ipToken.trim(), client_secret: ipClientSecret.trim() });
-      pushToast('success', 'Credenciais válidas! Conexão com InfinitePay OK.');
+      await api.post('/mercadopago/config/test', { token: mpToken.trim() });
+      pushToast('success', 'Token válido! Conexão com Mercado Pago OK.');
     } catch (e: any) {
-      pushToast('error', e?.message || 'Credenciais inválidas ou sem permissão.');
-    } finally { setIpTesting(false); }
+      pushToast('error', e?.message || 'Token inválido ou sem permissão.');
+    } finally { setMpTesting(false); }
   };
 
-  const disconnectIp = async () => {
-    setIpSaving(true);
+  const disconnectMp = async () => {
+    setMpSaving(true);
     try {
-      await api.post('/infinitepay/config', { token: '' });
-      setIpConfig({ configured: false, enabled: false });
-      setIpToken('');
-      pushToast('success', 'InfinitePay desconectada.');
+      await api.post('/mercadopago/config', { token: '' });
+      setMpConfig({ configured: false, enabled: false });
+      setMpToken('');
+      pushToast('success', 'Mercado Pago desconectado.');
     } catch { pushToast('error', 'Erro ao desconectar.'); }
-    finally { setIpSaving(false); }
+    finally { setMpSaving(false); }
   };
 
-  const toggleIpEnabled = async () => {
+  const toggleMpEnabled = async () => {
     try {
-      await api.post('/infinitepay/config', { enabled: !ipConfig.enabled });
-      setIpConfig(prev => ({ ...prev, enabled: !prev.enabled }));
+      await api.post('/mercadopago/config', { enabled: !mpConfig.enabled });
+      setMpConfig(prev => ({ ...prev, enabled: !prev.enabled }));
     } catch { pushToast('error', 'Erro ao alterar status.'); }
   };
 
@@ -833,121 +831,105 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
-              {/* ── InfinitePay ─────────────────────────────────────────────── */}
+              {/* ── Mercado Pago ─────────────────────────────────────────────── */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Pagamentos</p>
                 <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                  {/* Header da integração */}
                   <div className="flex items-center gap-4 p-4 border-b border-slate-100">
-                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-600 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-sky-100 text-sky-600 shrink-0">
                       <CreditCard size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-slate-800 text-sm">InfinitePay</p>
-                        {ipConfig.configured && (
+                        <p className="font-semibold text-slate-800 text-sm">Mercado Pago</p>
+                        {mpConfig.configured && (
                           <span className={cx(
                             'px-2 py-0.5 rounded-full text-[10px] font-bold border',
-                            ipConfig.enabled
+                            mpConfig.enabled
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                               : 'bg-slate-100 text-slate-500 border-slate-200'
                           )}>
-                            {ipConfig.enabled ? 'Ativo' : 'Pausado'}
+                            {mpConfig.enabled ? 'Ativo' : 'Pausado'}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">Receba via cartão, débito e PIX — lançamento automático no Livro Caixa</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Receba PIX, cartão e débito — lançamento automático no Livro Caixa</p>
                     </div>
-                    {ipConfig.configured && (
-                      <ToggleSwitch checked={ipConfig.enabled} onChange={toggleIpEnabled} />
+                    {mpConfig.configured && (
+                      <ToggleSwitch checked={mpConfig.enabled} onChange={toggleMpEnabled} />
                     )}
                   </div>
 
                   <div className="p-4 space-y-3">
-                    {ipConfig.configured ? (
-                      /* Já configurado */
+                    {mpConfig.configured ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                           <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                          <p className="text-xs text-emerald-700 font-medium">Credenciais InfinitePay configuradas e criptografadas.</p>
+                          <p className="text-xs text-emerald-700 font-medium">Access Token do Mercado Pago configurado e criptografado.</p>
                         </div>
-                        <p className="text-[11px] text-slate-400">Para trocar as credenciais, cole as novas abaixo:</p>
-                        <div className="space-y-2">
+                        <p className="text-[11px] text-slate-400">Para trocar o token, cole o novo abaixo:</p>
+                        <div className="relative">
                           <input
-                            type="text"
-                            value={ipToken}
-                            onChange={e => setIpToken(e.target.value)}
-                            placeholder="Novo Client ID (opcional)"
-                            className="w-full pl-3 pr-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                            type={mpShowToken ? 'text' : 'password'}
+                            value={mpToken}
+                            onChange={e => setMpToken(e.target.value)}
+                            placeholder="Novo Access Token (opcional)"
+                            className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
                           />
-                          <div className="relative">
-                            <input
-                              type={ipShowToken ? 'text' : 'password'}
-                              value={ipClientSecret}
-                              onChange={e => setIpClientSecret(e.target.value)}
-                              placeholder="Novo Client Secret (opcional)"
-                              className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
-                            />
-                            <button onClick={() => setIpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              {ipShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
+                          <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
                         </div>
-                        {(ipToken || ipClientSecret) && (
+                        {mpToken && (
                           <div className="flex gap-2">
-                            <button onClick={testIpToken} disabled={ipTesting || !ipToken.trim() || !ipClientSecret.trim()}
-                              className="flex-1 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-50">
-                              {ipTesting ? <Loader2 size={13} className="animate-spin inline" /> : 'Testar'}
+                            <button onClick={testMpToken} disabled={mpTesting || !mpToken.trim()}
+                              className="flex-1 py-2 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-50">
+                              {mpTesting ? <Loader2 size={13} className="animate-spin inline" /> : 'Testar'}
                             </button>
-                            <button onClick={saveIpToken} disabled={ipSaving || !ipToken.trim() || !ipClientSecret.trim()}
-                              className="flex-1 py-2 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50">
-                              {ipSaving ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
+                            <button onClick={saveMpToken} disabled={mpSaving || !mpToken.trim()}
+                              className="flex-1 py-2 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-50">
+                              {mpSaving ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
                             </button>
                           </div>
                         )}
-                        <button onClick={disconnectIp} disabled={ipSaving}
+                        <button onClick={disconnectMp} disabled={mpSaving}
                           className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
-                          <Unplug size={12} /> Desconectar InfinitePay
+                          <Unplug size={12} /> Desconectar Mercado Pago
                         </button>
                       </div>
                     ) : (
-                      /* Não configurado */
                       <div className="space-y-3">
-                        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                          <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-700">
-                            Abra o app <strong>InfinitePay</strong> → menu lateral → <strong>Configurações → Credenciais</strong>. Copie o <strong>Client ID</strong> e o <strong>Client Secret</strong>.
-                          </p>
+                        {/* Guia passo a passo */}
+                        <div className="p-3 bg-sky-50 rounded-xl border border-sky-100 space-y-1.5">
+                          <p className="text-xs font-bold text-sky-700">Como obter o Access Token:</p>
+                          <ol className="text-xs text-sky-800 space-y-1 pl-3 list-decimal">
+                            <li>Acesse <strong>mercadopago.com.br</strong> e faça login</li>
+                            <li>Clique em <strong>Seu negócio → Configurações</strong></li>
+                            <li>Vá em <strong>Credenciais de produção</strong></li>
+                            <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-sky-100 px-1 rounded">APP_USR-</code>)</li>
+                            <li>Cole abaixo e clique em <strong>Conectar</strong></li>
+                          </ol>
                         </div>
-                        <div className="space-y-2">
+                        <div className="relative">
                           <input
-                            type="text"
-                            value={ipToken}
-                            onChange={e => setIpToken(e.target.value)}
-                            placeholder="Client ID"
-                            className="w-full pl-3 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
+                            type={mpShowToken ? 'text' : 'password'}
+                            value={mpToken}
+                            onChange={e => setMpToken(e.target.value)}
+                            placeholder="Access Token (APP_USR-...)"
+                            className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
                           />
-                          <div className="relative">
-                            <input
-                              type={ipShowToken ? 'text' : 'password'}
-                              value={ipClientSecret}
-                              onChange={e => setIpClientSecret(e.target.value)}
-                              placeholder="Client Secret"
-                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-emerald-400 font-mono"
-                            />
-                            <button onClick={() => setIpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              {ipShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
+                          <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={testIpToken} disabled={!ipToken.trim() || !ipClientSecret.trim() || ipTesting}
-                            className="flex-1 py-2.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-all disabled:opacity-40">
-                            {ipTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
+                          <button onClick={testMpToken} disabled={!mpToken.trim() || mpTesting}
+                            className="flex-1 py-2.5 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-40">
+                            {mpTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
                           </button>
-                          <button onClick={saveIpToken} disabled={!ipToken.trim() || !ipClientSecret.trim() || ipSaving}
-                            className="flex-1 py-2.5 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-40">
-                            {ipSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar InfinitePay'}
+                          <button onClick={saveMpToken} disabled={!mpToken.trim() || mpSaving}
+                            className="flex-1 py-2.5 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-40">
+                            {mpSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar Mercado Pago'}
                           </button>
                         </div>
                       </div>

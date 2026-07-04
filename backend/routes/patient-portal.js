@@ -2470,110 +2470,118 @@ router.post('/messages', portalAuth, async (req, res) => {
   }
 });
 
-// ─── InfinitePay: paciente gera cobrança via portal ──────────────────────────
+// ─── Mercado Pago: paciente gera cobrança via portal ─────────────────────────
 
-// Helpers de criptografia (idênticos ao infinitepay.js)
-function ipDecryptData(encrypted) {
+function mpDecrypt(encrypted) {
   const cryptoLib = require('crypto');
-  const key = Buffer.from(process.env.INFINITEPAY_ENCRYPTION_KEY || 'psiflux-default-key-32chars!!!!!!', 'utf8').slice(0, 32);
+  const key = Buffer.from(process.env.MP_ENCRYPTION_KEY || process.env.INFINITEPAY_ENCRYPTION_KEY || 'psiflux-default-key-32chars!!!!!!', 'utf8').slice(0, 32);
   const [ivHex, encHex] = encrypted.split(':');
-  const iv = Buffer.from(ivHex, 'hex');
-  const enc = Buffer.from(encHex, 'hex');
-  const decipher = cryptoLib.createDecipheriv('aes-256-cbc', key, iv);
-  return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  const decipher = cryptoLib.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
+  return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8');
 }
 
-async function ipGetAccessToken(encryptedData) {
-  const decrypted = ipDecryptData(encryptedData);
-  const [clientId, clientSecret] = decrypted.split('||');
-  const body = new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret });
-  const res = await fetch('https://api.infinitepay.io/v2/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-  if (!res.ok) throw new Error('Credenciais InfinitePay inválidas');
-  const data = await res.json();
-  return data.access_token;
-}
-
-// GET /patient-portal/infinitepay/available — verifica se o psicólogo tem InfinitePay
-router.get('/infinitepay/available', portalAuth, async (req, res) => {
+// GET /patient-portal/mercadopago/available
+router.get('/mercadopago/available', portalAuth, async (req, res) => {
   try {
-    const session = req.portalSession;
-    if (!session.psychologist_id) return res.json({ available: false });
+    const { psychologist_id } = req.portalSession;
+    if (!psychologist_id) return res.json({ available: false });
     const [rows] = await db.query(
-      'SELECT infinitepay_enabled, infinitepay_token FROM users WHERE id = ?',
-      [session.psychologist_id]
+      'SELECT mercadopago_enabled, mercadopago_token FROM users WHERE id = ?',
+      [psychologist_id]
     );
     const u = rows[0];
-    res.json({ available: !!(u && u.infinitepay_enabled && u.infinitepay_token) });
-  } catch (err) {
-    console.error('[Portal InfinitePay] Erro:', err);
-    res.json({ available: false });
-  }
+    res.json({ available: !!(u && u.mercadopago_enabled && u.mercadopago_token) });
+  } catch { res.json({ available: false }); }
 });
 
-// POST /patient-portal/infinitepay/charge — paciente cria cobrança
-router.post('/infinitepay/charge', portalAuth, async (req, res) => {
+// POST /patient-portal/mercadopago/charge — paciente cria cobrança PIX + link
+router.post('/mercadopago/charge', portalAuth, async (req, res) => {
   try {
     const session = req.portalSession;
     if (!session.psychologist_id) return res.status(400).json({ error: 'Sem psicólogo responsável configurado' });
 
     const [rows] = await db.query(
-      'SELECT infinitepay_enabled, infinitepay_token FROM users WHERE id = ?',
+      'SELECT mercadopago_enabled, mercadopago_token FROM users WHERE id = ?',
       [session.psychologist_id]
     );
     const u = rows[0];
-    if (!u || !u.infinitepay_enabled || !u.infinitepay_token) {
+    if (!u || !u.mercadopago_enabled || !u.mercadopago_token) {
       return res.status(400).json({ error: 'Pagamento online não disponível para este profissional.' });
     }
 
-    const token = await ipGetAccessToken(u.infinitepay_token);
+    const token = mpDecrypt(u.mercadopago_token);
     const { amount, appointment_id, comanda_id, installments } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
 
-    const amountInCents = Math.round(Number(amount) * 100);
     const baseUrl = process.env.APP_BASE_URL || 'https://app.psiflux.com.br';
     const patientName = session.full_name || 'Paciente';
+    const patientEmail = session.email || 'pagamento@psiflux.com.br';
 
-    const payload = {
-      amount: amountInCents,
-      capture_method: 'link',
-      description: `Consulta — ${patientName}`,
-      installments: installments || 1,
-      webhook_url: `${baseUrl}/api/infinitepay/webhook`,
-      metadata: {
-        user_id: String(session.psychologist_id),
-        tenant_id: String(session.tenant_id),
-        comanda_id: comanda_id ? String(comanda_id) : null,
-        appointment_id: appointment_id ? String(appointment_id) : null,
-        patient_name: patientName,
-      },
-    };
+    const external_reference = JSON.stringify({
+      user_id: session.psychologist_id,
+      tenant_id: session.tenant_id,
+      comanda_id: comanda_id || null,
+      appointment_id: appointment_id || null,
+      patient_name: patientName,
+    });
 
-    const ipRes = await fetch('https://api.infinitepay.io/v2/charges', {
+    // Gera PIX
+    let pixData = null;
+    try {
+      const pixRes = await fetch('https://api.mercadopago.com/v1/payments', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': `portal-pix-${session.patient_id}-${Date.now()}`,
+        },
+        body: JSON.stringify({
+          transaction_amount: Number(amount),
+          description: `Consulta — ${patientName}`,
+          payment_method_id: 'pix',
+          payer: { email: patientEmail },
+          external_reference,
+          notification_url: `${baseUrl}/api/mercadopago/webhook`,
+        }),
+      });
+      const pd = await pixRes.json();
+      if (pixRes.ok && pd.point_of_interaction?.transaction_data) {
+        pixData = {
+          payment_id: pd.id,
+          qr_code: pd.point_of_interaction.transaction_data.qr_code,
+          qr_code_base64: pd.point_of_interaction.transaction_data.qr_code_base64,
+        };
+      }
+    } catch (e) { console.warn('[Portal MP] PIX não gerado:', e.message); }
+
+    // Gera link de pagamento (checkout preference)
+    const prefRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        items: [{ title: `Consulta — ${patientName}`, quantity: 1, unit_price: Number(amount), currency_id: 'BRL' }],
+        payer: { email: patientEmail },
+        external_reference,
+        notification_url: `${baseUrl}/api/mercadopago/webhook`,
+        back_urls: { success: `${baseUrl}/portal`, failure: `${baseUrl}/portal`, pending: `${baseUrl}/portal` },
+        auto_return: 'approved',
+        payment_methods: { installments: installments || 1 },
+      }),
     });
-    const ipData = await ipRes.json();
-
-    if (!ipRes.ok) {
-      console.error('[Portal InfinitePay] Erro ao criar cobrança:', ipData);
-      return res.status(ipRes.status).json({ error: ipData.message || 'Erro ao gerar cobrança' });
-    }
+    const prefData = await prefRes.json();
+    if (!prefRes.ok) return res.status(prefRes.status).json({ error: prefData.message || 'Erro ao gerar cobrança' });
 
     res.json({
-      charge_id: ipData.id,
-      payment_url: ipData.payment_url || ipData.checkout_url,
-      pix_qr_code: ipData.pix?.qr_code || null,
-      pix_qr_code_base64: ipData.pix?.qr_code_base64 || null,
-      status: ipData.status,
+      preference_id: prefData.id,
+      payment_url: prefData.init_point,
+      pix_qr_code: pixData?.qr_code || null,
+      pix_qr_code_base64: pixData ? `data:image/png;base64,${pixData.qr_code_base64}` : null,
+      pix_payment_id: pixData?.payment_id || null,
+      status: 'pending',
       amount: Number(amount),
     });
   } catch (err) {
-    console.error('[Portal InfinitePay] Erro:', err);
+    console.error('[Portal MP] Erro:', err);
     res.status(500).json({ error: 'Erro interno ao gerar cobrança' });
   }
 });

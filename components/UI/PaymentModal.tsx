@@ -17,8 +17,9 @@ interface PaymentModalProps {
   patientName?: string;
 }
 
-interface IpCharge {
-  charge_id: string;
+interface MpCharge {
+  preference_id?: string;
+  pix_payment_id?: string | null;
   payment_url: string | null;
   pix_qr_code: string | null;
   pix_qr_code_base64: string | null;
@@ -60,13 +61,13 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
   ]);
   const [loading, setLoading] = useState(false);
 
-  // ── InfinitePay ────────────────────────────────────────────────────────────
-  const [ipAvailable, setIpAvailable] = useState(false);
-  const [useInfinitePay, setUseInfinitePay] = useState(false);
-  const [ipCharge, setIpCharge] = useState<IpCharge | null>(null);
-  const [ipLoading, setIpLoading] = useState(false);
-  const [ipCopied, setIpCopied] = useState(false);
-  const [ipPolling, setIpPolling] = useState(false);
+  // ── Mercado Pago ──────────────────────────────────────────────────────────
+  const [mpAvailable, setMpAvailable] = useState(false);
+  const [useMp, setUseMp] = useState(false);
+  const [mpCharge, setMpCharge] = useState<MpCharge | null>(null);
+  const [mpLoading, setMpLoading] = useState(false);
+  const [mpCopied, setMpCopied] = useState(false);
+  const [mpPolling, setMpPolling] = useState(false);
 
   const total      = comanda ? Number(comanda.total)       : 0;
   const alreadyPaid = comanda ? Number(comanda.paidAmount || 0) : 0;
@@ -79,56 +80,58 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
       setSingleInstallments(1);
       setSingleAmount("");
       setEntries([{ method: "cash", amount: "" }, { method: "pix", amount: "" }]);
-      setUseInfinitePay(false);
-      setIpCharge(null);
-      setIpCopied(false);
-      // Verifica se o psicólogo tem InfinitePay configurada
-      api.get<any>('/infinitepay/config').then((d: any) => {
-        setIpAvailable(d.configured && d.enabled);
-      }).catch(() => setIpAvailable(false));
+      setUseMp(false);
+      setMpCharge(null);
+      setMpCopied(false);
+      // Verifica se o psicólogo tem Mercado Pago configurado
+      api.get<any>('/mercadopago/config').then((d: any) => {
+        setMpAvailable(d.configured && d.enabled);
+      }).catch(() => setMpAvailable(false));
     }
   }, [isOpen]);
 
   // Polling para verificar se pagamento foi confirmado
   useEffect(() => {
-    if (!ipCharge || !ipPolling) return;
+    if (!mpCharge || !mpPolling) return;
+    const paymentId = mpCharge.pix_payment_id;
+    if (!paymentId) return;
     const interval = setInterval(async () => {
       try {
-        const d = await api.get<any>(`/infinitepay/charge/${ipCharge.charge_id}`);
-        if (['approved', 'paid', 'captured', 'succeeded'].includes((d as any).status?.toLowerCase())) {
-          setIpPolling(false);
-          setIpCharge(prev => prev ? { ...prev, status: 'paid' } : null);
+        const d = await api.get<any>(`/mercadopago/charge/${paymentId}`);
+        if (['approved', 'paid'].includes((d as any).status?.toLowerCase())) {
+          setMpPolling(false);
+          setMpCharge(prev => prev ? { ...prev, status: 'approved' } : null);
         }
       } catch { /* ignora */ }
     }, 4000);
     return () => clearInterval(interval);
-  }, [ipCharge, ipPolling]);
+  }, [mpCharge, mpPolling]);
 
-  const createIpCharge = async () => {
-    setIpLoading(true);
+  const createMpCharge = async () => {
+    setMpLoading(true);
     try {
       const amount = singleAmount ? parseBRL(singleAmount) : remaining;
-      const charge = await api.post<any>('/infinitepay/charge', {
+      const charge = await api.post<any>('/mercadopago/charge', {
         amount,
         patient_name: patientName || comanda?.client?.name || 'Paciente',
         comanda_id: comanda?.id,
         installments: singleMethod === 'card' ? singleInstallments : 1,
-        description: `Consulta — ${patientName || comanda?.client?.name || 'Paciente'}`,
+        payment_type: singleMethod,
       });
-      setIpCharge(charge as any);
-      setIpPolling(true);
+      setMpCharge(charge as any);
+      setMpPolling(true);
     } catch (e: any) {
-      alert(e?.message || 'Erro ao criar cobrança na InfinitePay');
+      alert(e?.message || 'Erro ao criar cobrança no Mercado Pago');
     } finally {
-      setIpLoading(false);
+      setMpLoading(false);
     }
   };
 
-  const copyIpLink = () => {
-    if (!ipCharge?.payment_url) return;
-    navigator.clipboard.writeText(ipCharge.payment_url);
-    setIpCopied(true);
-    setTimeout(() => setIpCopied(false), 2000);
+  const copyMpLink = () => {
+    if (!mpCharge?.payment_url) return;
+    navigator.clipboard.writeText(mpCharge.payment_url);
+    setMpCopied(true);
+    setTimeout(() => setMpCopied(false), 2000);
   };
 
   // ── Cálculos modo único ──────────────────────────────────────────────────────
@@ -281,43 +284,43 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                 </div>
               </div>
 
-              {/* ── InfinitePay toggle ── */}
-              {ipAvailable && (singleMethod === "card" || singleMethod === "pix") && (
+              {/* ── Mercado Pago toggle ── */}
+              {mpAvailable && (singleMethod === "card" || singleMethod === "pix") && (
                 <div className={cn(
                   "rounded-2xl border-2 p-3 transition-all",
-                  useInfinitePay ? "border-emerald-300 bg-emerald-50" : "border-zinc-100 bg-zinc-50"
+                  useMp ? "border-sky-300 bg-sky-50" : "border-zinc-100 bg-zinc-50"
                 )}>
                   <button
-                    onClick={() => { setUseInfinitePay(v => !v); setIpCharge(null); setIpPolling(false); }}
+                    onClick={() => { setUseMp(v => !v); setMpCharge(null); setMpPolling(false); }}
                     className="w-full flex items-center gap-3"
                   >
-                    <div className={cn("p-1.5 rounded-lg shrink-0", useInfinitePay ? "bg-emerald-500 text-white" : "bg-zinc-200 text-zinc-400")}>
+                    <div className={cn("p-1.5 rounded-lg shrink-0", useMp ? "bg-sky-500 text-white" : "bg-zinc-200 text-zinc-400")}>
                       <Zap size={13} />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className={cn("text-xs font-black", useInfinitePay ? "text-emerald-800" : "text-zinc-600")}>
-                        Cobrar via InfinitePay
+                      <p className={cn("text-xs font-black", useMp ? "text-sky-800" : "text-zinc-600")}>
+                        Cobrar via Mercado Pago
                       </p>
-                      <p className="text-[10px] text-zinc-400">Gera link/QR Code — lança automaticamente no Livro Caixa</p>
+                      <p className="text-[10px] text-zinc-400">Gera link/QR Code PIX — lança automaticamente no Livro Caixa</p>
                     </div>
                     <div className={cn(
                       "w-10 h-5 rounded-full transition-colors shrink-0",
-                      useInfinitePay ? "bg-emerald-500" : "bg-zinc-200"
+                      useMp ? "bg-sky-500" : "bg-zinc-200"
                     )}>
-                      <div className={cn("w-4 h-4 mt-0.5 mx-0.5 bg-white rounded-full shadow transition-transform", useInfinitePay ? "translate-x-5" : "translate-x-0")} />
+                      <div className={cn("w-4 h-4 mt-0.5 mx-0.5 bg-white rounded-full shadow transition-transform", useMp ? "translate-x-5" : "translate-x-0")} />
                     </div>
                   </button>
 
-                  {/* Painel de cobrança InfinitePay */}
-                  {useInfinitePay && (
+                  {/* Painel de cobrança Mercado Pago */}
+                  {useMp && (
                     <div className="mt-3 space-y-2">
-                      {!ipCharge ? (
+                      {!mpCharge ? (
                         <button
-                          onClick={createIpCharge}
-                          disabled={ipLoading}
-                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                          onClick={createMpCharge}
+                          disabled={mpLoading}
+                          className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                         >
-                          {ipLoading
+                          {mpLoading
                             ? <><Loader2 size={13} className="animate-spin" /> Gerando cobrança...</>
                             : <><Zap size={13} /> Gerar cobrança ({fmtBRL(singleAmount ? parseBRL(singleAmount) : remaining)})</>}
                         </button>
@@ -326,37 +329,37 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                           {/* Status */}
                           <div className={cn(
                             "flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold",
-                            ipCharge.status === 'paid' || ipCharge.status === 'approved'
+                            mpCharge.status === 'approved'
                               ? "bg-emerald-100 text-emerald-800"
                               : "bg-amber-100 text-amber-800"
                           )}>
-                            {ipCharge.status === 'paid' || ipCharge.status === 'approved'
+                            {mpCharge.status === 'approved'
                               ? <><CheckCircle size={13} /> Pagamento confirmado!</>
                               : <><Loader2 size={13} className="animate-spin" /> Aguardando pagamento...</>}
                           </div>
 
                           {/* QR Code PIX */}
-                          {singleMethod === "pix" && ipCharge.pix_qr_code_base64 && (
+                          {mpCharge.pix_qr_code_base64 && (
                             <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-zinc-100">
-                              <img src={ipCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-36 h-36" />
+                              <img src={mpCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-36 h-36" />
                               <p className="text-[10px] text-zinc-500 font-bold text-center">Escaneie o QR Code com o app do banco</p>
-                              {ipCharge.pix_qr_code && (
-                                <button onClick={() => { navigator.clipboard.writeText(ipCharge.pix_qr_code!); setIpCopied(true); setTimeout(() => setIpCopied(false), 2000); }}
+                              {mpCharge.pix_qr_code && (
+                                <button onClick={() => { navigator.clipboard.writeText(mpCharge.pix_qr_code!); setMpCopied(true); setTimeout(() => setMpCopied(false), 2000); }}
                                   className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600 hover:text-violet-800">
-                                  <Copy size={11} /> {ipCopied ? "Copiado!" : "Copiar código PIX"}
+                                  <Copy size={11} /> {mpCopied ? "Copiado!" : "Copiar código PIX"}
                                 </button>
                               )}
                             </div>
                           )}
 
                           {/* Link de pagamento */}
-                          {ipCharge.payment_url && (
+                          {mpCharge.payment_url && (
                             <div className="flex gap-2">
-                              <button onClick={copyIpLink}
+                              <button onClick={copyMpLink}
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
-                                <Copy size={11} /> {ipCopied ? "Copiado!" : "Copiar link"}
+                                <Copy size={11} /> {mpCopied ? "Copiado!" : "Copiar link"}
                               </button>
-                              <a href={ipCharge.payment_url} target="_blank" rel="noreferrer"
+                              <a href={mpCharge.payment_url} target="_blank" rel="noreferrer"
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
                                 <ExternalLink size={11} /> Abrir link
                               </a>
@@ -364,7 +367,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                           )}
 
                           {/* Nova cobrança */}
-                          <button onClick={() => { setIpCharge(null); setIpPolling(false); }}
+                          <button onClick={() => { setMpCharge(null); setMpPolling(false); }}
                             className="w-full text-[10px] font-bold text-zinc-400 hover:text-zinc-600 py-1">
                             Gerar nova cobrança
                           </button>
@@ -375,8 +378,8 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                 </div>
               )}
 
-              {/* Campo de valor + Parcelamento (oculto quando InfinitePay ativo) */}
-              {!useInfinitePay && (<>
+              {/* Campo de valor + Parcelamento (oculto quando Mercado Pago ativo) */}
+              {!useMp && (<>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Valor a Pagar</p>
@@ -469,7 +472,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                   </div>
                 </div>
               )}
-              </>)} {/* fim !useInfinitePay */}
+              </>)} {/* fim !useMp */}
             </div>
           )}
 
@@ -567,9 +570,9 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
           >
             Cancelar
           </button>
-          {useInfinitePay && ipCharge ? (
-            /* InfinitePay: mostra botão de fechar quando pagamento confirmado */
-            (ipCharge.status === 'paid' || ipCharge.status === 'approved') ? (
+          {useMp && mpCharge ? (
+            /* Mercado Pago: mostra botão de fechar quando pagamento confirmado */
+            mpCharge.status === 'approved' ? (
               <button onClick={onClose}
                 className="flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-500 text-white shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-all">
                 <CheckCircle size={14} /> Pagamento Confirmado!
@@ -583,10 +586,10 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
           ) : (
           <button
             onClick={handleConfirm}
-            disabled={loading || (mode === "single" && (!canConfirmSingle || useInfinitePay)) || (mode === "mixed" && !canConfirmMixed)}
+            disabled={loading || (mode === "single" && (!canConfirmSingle || useMp)) || (mode === "mixed" && !canConfirmMixed)}
             className={cn(
               "flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg",
-              loading || (mode === "single" && (!canConfirmSingle || useInfinitePay)) || (mode === "mixed" && !canConfirmMixed)
+              loading || (mode === "single" && (!canConfirmSingle || useMp)) || (mode === "mixed" && !canConfirmMixed)
                 ? "bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none"
                 : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20 active:scale-95"
             )}
