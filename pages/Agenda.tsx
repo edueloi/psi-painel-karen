@@ -1630,56 +1630,56 @@ export const Agenda: React.FC = () => {
       />
 
       {/* STATS BAR — sempre visível, não faz parte do sticky */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 shrink-0">
-            <CalendarRange size={14} className="text-blue-600" />
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-2 py-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3">
+          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 shrink-0">
+            <CalendarRange size={13} className="text-blue-600" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Sessões hoje</p>
-            <p className="text-xl font-black text-zinc-900 leading-none">{stats.todayCount}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 shrink-0">
-            <UserCheck size={14} className="text-emerald-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Confirmados</p>
-            <p className="text-xl font-black text-zinc-900 leading-none">{stats.confirmedCount}</p>
+          <div className="min-w-0 text-center sm:text-left">
+            <p className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Sessões</p>
+            <p className="text-lg sm:text-xl font-black text-zinc-900 leading-none">{stats.todayCount}</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-4 py-3 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-yellow-50 border border-yellow-100 shrink-0">
-            <Video size={14} className="text-yellow-600" />
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-2 py-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3">
+          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 shrink-0">
+            <UserCheck size={13} className="text-emerald-600" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Online hoje</p>
-            <p className="text-xl font-black text-zinc-900 leading-none">{stats.onlineCount}</p>
+          <div className="min-w-0 text-center sm:text-left">
+            <p className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Confirm.</p>
+            <p className="text-lg sm:text-xl font-black text-zinc-900 leading-none">{stats.confirmedCount}</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-2 py-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3">
+          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-yellow-50 border border-yellow-100 shrink-0">
+            <Video size={13} className="text-yellow-600" />
+          </div>
+          <div className="min-w-0 text-center sm:text-left">
+            <p className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Online</p>
+            <p className="text-lg sm:text-xl font-black text-zinc-900 leading-none">{stats.onlineCount}</p>
           </div>
         </div>
       </div>
 
       {/* FILTERS & NAVIGATION BAR — sticky apenas aqui */}
       <div ref={stickyNavRef} className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-md shadow-slate-200/60' : ''}>
-      <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-zinc-200 shadow-sm flex flex-wrap gap-2 items-center justify-between">
+      <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-zinc-200 shadow-sm flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
 
-          {/* Navegação + label de data */}
+          {/* Linha 1: Navegação + label de data */}
           <div className="flex items-center gap-2 min-w-0">
               <div className="flex bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(-1)}><ChevronLeft size={16}/></IconButton>
                   <button onClick={() => setCurrentDate(new Date())} className="px-3 text-[10px] font-black text-zinc-700 uppercase tracking-widest underline decoration-indigo-300 underline-offset-4">Hoje</button>
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(1)}><ChevronRight size={16}/></IconButton>
               </div>
-              <h2 className="text-sm font-black text-zinc-700 truncate hidden sm:block max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
+              <h2 className="text-sm font-black text-zinc-700 truncate max-w-[160px] sm:max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
               <DatePicker
                 value={currentDate.toISOString().slice(0, 10)}
                 onChange={(val) => val && handleDateChange(val)}
               />
           </div>
 
-          {/* Controles: view switcher + filtros */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Linha 2 mobile / mesma linha desktop: view switcher + filtros + botões */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               {/* View switcher — só mostra views habilitadas nas preferências */}
               {(() => {
                 const enabledViews = preferences.agenda.enabledViews ?? ['day','week','month'];
@@ -1694,11 +1694,11 @@ export const Agenda: React.FC = () => {
               })()}
 
               {/* Filtros */}
-              <select className="bg-white border border-zinc-200 rounded-xl px-3 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[80px] max-w-[120px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
+              <select className="flex-1 sm:flex-none bg-white border border-zinc-200 rounded-xl px-2 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-0 sm:min-w-[80px] sm:max-w-[120px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
                   <option value="">Status</option>
                   {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
-              <select className="bg-white border border-zinc-200 rounded-xl px-3 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-[90px] max-w-[140px]" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
+              <select className="flex-1 sm:flex-none bg-white border border-zinc-200 rounded-xl px-2 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-0 sm:min-w-[90px] sm:max-w-[140px]" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
                   <option value="">Profissional</option>
                   {professionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
               </select>
