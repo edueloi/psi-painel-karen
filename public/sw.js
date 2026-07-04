@@ -1,4 +1,4 @@
-const CACHE_NAME = 'psiflux-v3';
+const CACHE_NAME = 'psiflux-v4';
 const STATIC_ASSETS = ['/', '/index.html', '/app_psiflux.png', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

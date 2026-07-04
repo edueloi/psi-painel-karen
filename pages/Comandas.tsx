@@ -1686,6 +1686,111 @@ export const Comandas: React.FC = () => {
               onRowClick={(c) => { setHistoryComanda(c); setIsHistoryOpen(true); }}
               emptyMessage="Nenhuma comanda encontrada."
               tableMinWidth={960}
+              mobileBreakpoint="lg"
+              renderMobileAvatar={(c: any) => (
+                <div className="w-8 h-8 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs shrink-0 rotate-2 shadow-sm border border-primary-200">
+                  {String(c.patientName || c.patient_name || 'P').charAt(0)}
+                </div>
+              )}
+              renderMobileItem={(c: any) => (
+                <div className="space-y-3 pr-2 w-full">
+                  {/* Top line: ID + Patient Name and Status */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-slate-400 font-mono text-xs shrink-0">#{c.id}</span>
+                      <span className="font-bold text-slate-800 truncate text-sm">{c.patientName || c.patient_name}</span>
+                    </div>
+                    <StatusBadge status={c.status} />
+                  </div>
+
+                  {/* Second line: Service / Package */}
+                  <div className="text-slate-600 text-xs font-semibold bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Serviço / Pacote</span>
+                    {c.items?.[0]?.name || c.description || '—'}
+                  </div>
+
+                  {/* Third line: Info Grid */}
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Sessões</span>
+                      <span className={`font-bold text-xs ${
+                        (Number(c.sessions_used || 0)) > (Number(c.sessions_total || 0)) ? 'text-red-600' :
+                        (Number(c.sessions_used || 0)) === (Number(c.sessions_total || 0)) ? 'text-emerald-600' : 'text-slate-700'
+                      }`}>
+                        {c.sessions_used || 0} / {c.sessions_total || 1}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Valor Total</span>
+                      <span className="font-bold text-xs text-slate-800">{formatCurrency(getComandaTotal(c))}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Recebido</span>
+                      <span className="font-bold text-xs text-emerald-600">{formatCurrency(getComandaPaid(c))}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Pendente</span>
+                      <span className="font-bold text-xs text-amber-600">{formatCurrency(getComandaPending(c))}</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom line: Created by + Actions */}
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-1 gap-4">
+                    <div className="text-[10px] text-slate-400 min-w-0">
+                      {c.created_at && (
+                        <span>
+                          Criado em {new Date(c.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                          {c.created_by_name && ` por ${c.created_by_name}`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {hasPermission('manage_payments') && (
+                        <>
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleIncrementSessions(c)}
+                            title="Marcar Realizado (+1)"
+                            className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl"
+                          >
+                            <UserCheck size={14} />
+                          </IconButton>
+                          <IconButton
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenModal(c)}
+                            title="Editar"
+                            className="rounded-xl"
+                          >
+                            <Edit3 size={14} />
+                          </IconButton>
+                        </>
+                      )}
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }}
+                        title="Histórico"
+                        className="rounded-xl"
+                      >
+                        <List size={14} />
+                      </IconButton>
+                      {hasPermission('manage_payments') && (
+                        <IconButton
+                          variant="danger"
+                          size="sm"
+                          onClick={() => setDeleteConfirmId(String(c.id))}
+                          title="Excluir"
+                          className="rounded-xl"
+                        >
+                          <Trash2 size={14} />
+                        </IconButton>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               columns={[
                 {
                   header: 'ID',

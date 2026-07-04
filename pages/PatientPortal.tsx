@@ -1814,7 +1814,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
       {/* Botão declarar / form */}
       {!showForm ? (
         <button
-          onClick={() => { setShowForm(true); setShowIpForm(false); }}
+          onClick={() => setShowForm(true)}
           className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 text-white text-sm font-bold rounded-2xl hover:bg-emerald-700 shadow-md transition-all"
         >
           <Plus size={16} /> Declarar Pagamento Manual

@@ -1597,7 +1597,7 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
       {/* ── HUMOR ── */}
       {sub === 'humor' && (
         <PanelCard>
-          <SectionTitle icon={<Smile size={14} />} label="Histórico de Humor" />
+          <SectionTitle icon={Smile} title="Histórico de Humor" />
           {mood.length === 0 ? (
             <EmptyState icon={<Smile size={28} />} label="Nenhum registro de humor ainda" />
           ) : (
@@ -1648,7 +1648,7 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
       {/* ── DIÁRIO ── */}
       {sub === 'diario' && (
         <PanelCard>
-          <SectionTitle icon={<BookOpen size={14} />} label={`Diário — ${diary.length} entrada(s)`} />
+          <SectionTitle icon={BookOpen} title={`Diário — ${diary.length} entrada(s)`} />
           {diary.length === 0 ? (
             <EmptyState icon={<BookOpen size={28} />} label="Nenhuma entrada no diário ainda" />
           ) : (
@@ -1695,7 +1695,7 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
       {/* ── ATIVIDADES ── */}
       {sub === 'atividades' && (
         <PanelCard>
-          <SectionTitle icon={<Dumbbell size={14} />} label={`Atividades — ${acts.length} registro(s)`} />
+          <SectionTitle icon={Dumbbell} title={`Atividades — ${acts.length} registro(s)`} />
           {acts.length === 0 ? (
             <EmptyState icon={<Dumbbell size={28} />} label="Nenhuma atividade registrada ainda" />
           ) : (
