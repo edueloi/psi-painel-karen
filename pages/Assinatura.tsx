@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../lib/api';
+import { api } from '../services/api';
 import {
   CheckCircle, Zap, Crown, Clock, Copy, ExternalLink,
   Loader2, AlertTriangle, RefreshCw, Star, Check, X,
