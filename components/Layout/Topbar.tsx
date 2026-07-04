@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Menu, Bell, Search, Settings, LogOut, User as UserIcon, ChevronDown, HelpCircle, Shield } from 'lucide-react';
+import { Menu, Bell, Search, Settings, LogOut, User as UserIcon, ChevronDown, HelpCircle, Shield, Crown } from 'lucide-react';
 import { User } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -116,6 +116,11 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
                     <button onClick={() => handleNavigate('/perfil')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
                        <UserIcon size={16} /> {t('topbar.profile')}
                     </button>
+                    {user?.role !== 'super_admin' && (
+                      <button onClick={() => handleNavigate('/assinatura')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-violet-700 hover:bg-violet-50 transition-colors">
+                        <Crown size={16} /> Minha Assinatura
+                      </button>
+                    )}
                     <button onClick={() => handleNavigate('/configuracoes')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors">
                        <Settings size={16} /> {t('topbar.settings')}
                     </button>

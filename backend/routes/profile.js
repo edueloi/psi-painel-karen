@@ -56,8 +56,8 @@ router.get('/me', async (req, res) => {
               u.two_factor_enabled, u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme,
               u.gender, u.cpf, u.cnpj,
               p.permissions as profile_permissions, p.slug as profile_slug,
-              pl.features as plan_features,
-              t.trial_ends_at
+              pl.features as plan_features, pl.id as plan_id, pl.name as plan_name, pl.price as plan_price,
+              t.trial_ends_at, t.expires_at as subscription_expires_at, t.status as tenant_status
        FROM users u
        LEFT JOIN tenant_permission_profiles p ON u.tenant_profile_id = p.id
        LEFT JOIN tenants t ON u.tenant_id = t.id

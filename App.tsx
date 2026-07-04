@@ -88,6 +88,7 @@ import { Profile } from './pages/Profile';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 import { Help } from './pages/Help';
+import { Assinatura } from './pages/Assinatura';
 import logoUrl from './images/logo-psiflux.png';
 import logoDarkUrl from './images/logopsiflux-para-fundo-escuro.png';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
@@ -341,6 +342,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/configuracoes" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><Settings /></ProtectedRoute>} />
       <Route path="/portal-paciente" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><PortalPaciente /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/assinatura" element={<ProtectedRoute><Assinatura /></ProtectedRoute>} />
       <Route path="/privacidade" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
       <Route path="/termos" element={<ProtectedRoute><Terms /></ProtectedRoute>} />
       <Route path="/ajuda" element={<ProtectedRoute><Help /></ProtectedRoute>} />
