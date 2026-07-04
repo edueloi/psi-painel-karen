@@ -238,7 +238,7 @@ router.post('/bdi-ii/:patientId', async (req, res) => {
       const [[patient]] = await db.query('SELECT name FROM patients WHERE id = ?', [patientId]);
       await db.query(
         'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
-        [user.tenant_id, '📊 BDI-II Respondido', `${patient?.name || 'Paciente'} preencheu o Inventário de Depressão de Beck (BDI-II).`, 'info', `/pacientes/${patientId}`]
+        [user.tenant_id, '📊 BDI-II Respondido', `${patient?.name || 'Paciente'} preencheu o Inventário de Depressão de Beck (BDI-II).`, 'info', `/caixa-ferramentas/bdi-ii?patient_id=${patientId}`]
       );
     } catch (alertErr) { console.error('Erro ao criar alerta de BDI-II:', alertErr); }
 
@@ -291,7 +291,7 @@ router.post('/bai/:patientId', async (req, res) => {
       const [[patient]] = await db.query('SELECT name FROM patients WHERE id = ?', [patientId]);
       await db.query(
         'INSERT INTO system_alerts (tenant_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
-        [user.tenant_id, '📊 BAI Respondido', `${patient?.name || 'Paciente'} preencheu o Inventário de Ansiedade de Beck (BAI).`, 'info', `/pacientes/${patientId}`]
+        [user.tenant_id, '📊 BAI Respondido', `${patient?.name || 'Paciente'} preencheu o Inventário de Ansiedade de Beck (BAI).`, 'info', `/caixa-ferramentas/bai?patient_id=${patientId}`]
       );
     } catch (alertErr) { console.error('Erro ao criar alerta de BAI:', alertErr); }
 

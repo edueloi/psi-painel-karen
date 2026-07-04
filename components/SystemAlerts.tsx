@@ -99,7 +99,7 @@ export const SystemAlerts: React.FC = () => {
       </button>
  
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-slideIn">
+        <div className="fixed left-1/2 -translate-x-1/2 top-16 w-[calc(100vw-24px)] max-w-sm md:absolute md:left-auto md:right-0 md:top-auto md:translate-x-0 md:mt-2 md:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-slideIn">
             <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                 <Bell size={14} className="text-indigo-600" /> Alertas do Sistema
