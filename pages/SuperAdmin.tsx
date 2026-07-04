@@ -89,7 +89,7 @@ const AVATAR_COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#ec4899','#8b5cf
 const avatarColor = (name: string) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 const initials = (name: string) => name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
 
-type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'whatsapp';
+type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'whatsapp' | 'pagamentos';
 const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'dashboard',   label: 'Dashboard',  Icon: LayoutDashboard },
   { id: 'clients',     label: 'Parceiros',  Icon: Building2 },
@@ -97,6 +97,7 @@ const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'permissions', label: 'Permissões', Icon: Lock },
   { id: 'plans',       label: 'Planos',     Icon: Package },
   { id: 'whatsapp',    label: 'WhatsApp Bot', Icon: Phone },
+  { id: 'pagamentos',  label: 'Pagamentos', Icon: DollarSign },
 ];
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -198,7 +199,7 @@ const StatusBadge = ({ active, status, expires_at }: { active: boolean; status?:
 // ═════════════════════════════════════════════════════════════════════════════
 const TAB_SLUGS: Record<Tab, string> = {
   dashboard: 'dashboard', clients: 'parceiros', team: 'equipe',
-  permissions: 'permissoes', plans: 'planos', whatsapp: 'whatsapp',
+  permissions: 'permissoes', plans: 'planos', whatsapp: 'whatsapp', pagamentos: 'pagamentos',
 };
 const SLUG_TO_TAB: Record<string, Tab> = Object.fromEntries(
   Object.entries(TAB_SLUGS).map(([k, v]) => [v, k as Tab])
@@ -321,6 +322,57 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const teamFileRef = useRef<HTMLInputElement>(null);
   const [uploadingTeamPhoto, setUploadingTeamPhoto] = useState(false);
+
+  // ── Pagamentos (MP do super_admin) ───────────────────────────────────────────
+  const [mpConfig, setMpConfig] = useState({ configured: false, enabled: false });
+  const [mpToken, setMpToken] = useState('');
+  const [mpShowToken, setMpShowToken] = useState(false);
+  const [mpSaving, setMpSaving] = useState(false);
+  const [mpTesting, setMpTesting] = useState(false);
+
+  useEffect(() => {
+    if (tab !== 'pagamentos') return;
+    api.get<any>('/mercadopago/config').then((d: any) => setMpConfig(d)).catch(() => {});
+  }, [tab]);
+
+  const saveMpToken = async () => {
+    if (!mpToken.trim()) return;
+    setMpSaving(true);
+    try {
+      await api.post('/mercadopago/config', { token: mpToken.trim() });
+      setMpConfig({ configured: true, enabled: true });
+      setMpToken('');
+      toast('Mercado Pago configurado para receber assinaturas!', 'success');
+    } catch { toast('Erro ao salvar token.', 'error'); }
+    finally { setMpSaving(false); }
+  };
+
+  const testMpToken = async () => {
+    if (!mpToken.trim()) return;
+    setMpTesting(true);
+    try {
+      await api.post('/mercadopago/config/test', { token: mpToken.trim() });
+      toast('Token válido! Conexão com Mercado Pago OK.', 'success');
+    } catch { toast('Token inválido.', 'error'); }
+    finally { setMpTesting(false); }
+  };
+
+  const disconnectMp = async () => {
+    setMpSaving(true);
+    try {
+      await api.post('/mercadopago/config', { token: '' });
+      setMpConfig({ configured: false, enabled: false });
+      toast('Mercado Pago desconectado.', 'success');
+    } catch { toast('Erro ao desconectar.', 'error'); }
+    finally { setMpSaving(false); }
+  };
+
+  const toggleMpEnabled = async () => {
+    try {
+      await api.post('/mercadopago/config', { enabled: !mpConfig.enabled });
+      setMpConfig(prev => ({ ...prev, enabled: !prev.enabled }));
+    } catch { toast('Erro ao alterar status.', 'error'); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -1225,6 +1277,115 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               )}
 
               {/* ══ WHATSAPP BOT ══ */}
+              {/* ══ PAGAMENTOS ══ */}
+              {tab === 'pagamentos' && (
+                <div className="max-w-2xl space-y-6">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-800">Recebimento de Assinaturas</h2>
+                    <p className="text-sm text-slate-500 mt-1">Configure o Mercado Pago da plataforma para receber os pagamentos dos consultórios. Este token é exclusivo da plataforma — separado do token que cada psicólogo usa para receber dos pacientes.</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-4 p-4 border-b border-slate-100">
+                      <div className="p-2.5 rounded-xl bg-sky-100 text-sky-600 shrink-0">
+                        <DollarSign size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-800 text-sm">Mercado Pago — Plataforma</p>
+                          {mpConfig.configured && (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${mpConfig.enabled ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                              {mpConfig.enabled ? 'Ativo' : 'Pausado'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">Access Token da sua conta MP para receber assinaturas dos consultórios</p>
+                      </div>
+                      {mpConfig.configured && (
+                        <button onClick={toggleMpEnabled} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${mpConfig.enabled ? 'bg-sky-500' : 'bg-slate-200'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${mpConfig.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      {mpConfig.configured ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+                            <p className="text-xs text-emerald-700 font-medium">Token Mercado Pago configurado. Assinaturas serão recebidas na sua conta.</p>
+                          </div>
+                          <p className="text-[11px] text-slate-400">Para trocar o token, cole o novo abaixo:</p>
+                          <div className="relative">
+                            <input
+                              type={mpShowToken ? 'text' : 'password'}
+                              value={mpToken}
+                              onChange={e => setMpToken(e.target.value)}
+                              placeholder="Novo Access Token (APP_USR-...)"
+                              className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
+                            />
+                            <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          {mpToken && (
+                            <div className="flex gap-2">
+                              <button onClick={testMpToken} disabled={mpTesting || !mpToken.trim()} className="flex-1 py-2 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-50">
+                                {mpTesting ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Testar
+                              </button>
+                              <button onClick={saveMpToken} disabled={mpSaving || !mpToken.trim()} className="flex-1 py-2 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-50">
+                                {mpSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Salvar
+                              </button>
+                            </div>
+                          )}
+                          <button onClick={disconnectMp} disabled={mpSaving} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
+                            <X size={12} /> Desconectar Mercado Pago
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="p-3 bg-sky-50 rounded-xl border border-sky-100 space-y-1.5">
+                            <p className="text-xs font-bold text-sky-700">Como configurar:</p>
+                            <ol className="text-xs text-sky-800 space-y-1 pl-3 list-decimal">
+                              <li>Acesse <strong>mercadopago.com.br</strong> com a conta da plataforma PsiFlux</li>
+                              <li>Vá em <strong>Seu negócio → Configurações → Credenciais de produção</strong></li>
+                              <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-sky-100 px-1 rounded">APP_USR-</code>)</li>
+                              <li>Cole abaixo e clique em <strong>Conectar</strong></li>
+                            </ol>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type={mpShowToken ? 'text' : 'password'}
+                              value={mpToken}
+                              onChange={e => setMpToken(e.target.value)}
+                              placeholder="Access Token (APP_USR-...)"
+                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
+                            />
+                            <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={testMpToken} disabled={!mpToken.trim() || mpTesting} className="flex-1 py-2.5 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-40">
+                              {mpTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
+                            </button>
+                            <button onClick={saveMpToken} disabled={!mpToken.trim() || mpSaving} className="flex-1 py-2.5 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-40">
+                              {mpSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl text-xs text-amber-800 space-y-1">
+                    <p className="font-bold">Dois tokens, dois fluxos — nunca se misturam:</p>
+                    <p>• <strong>Este token (super_admin)</strong> → recebe as assinaturas mensais dos consultórios</p>
+                    <p>• <strong>Token do psicólogo</strong> (em Configurações → Integrações) → recebe pagamentos de pacientes</p>
+                  </div>
+                </div>
+              )}
+
               {tab === 'whatsapp' && canAccessWpp && (
                 <div className="max-w-3xl space-y-4">
                   {/* Status card */}

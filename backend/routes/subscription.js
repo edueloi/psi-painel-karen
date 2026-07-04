@@ -29,18 +29,16 @@ function decrypt(encrypted) {
   return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]).toString('utf8');
 }
 
-// Busca o token MP do admin do tenant (quem configurou o MP para cobranças do sistema)
-// OU usa o token global de cobrança da plataforma definido em MP_PLATFORM_TOKEN
-async function getPlatformToken(tenantId) {
-  // Prioridade 1: token global da plataforma (dono do SaaS)
+// Busca o token MP do super_admin para cobrar assinaturas dos consultórios.
+// O super_admin tem role='super_admin' e tenant_id IS NULL.
+// Prioridade: variável de ambiente MP_PLATFORM_TOKEN > token cadastrado no usuário super_admin.
+async function getPlatformToken() {
   if (process.env.MP_PLATFORM_TOKEN) return process.env.MP_PLATFORM_TOKEN;
 
-  // Prioridade 2: token do admin do tenant (self-payment)
   const [rows] = await db.query(
-    `SELECT u.mercadopago_token FROM users u
-     WHERE u.tenant_id = ? AND u.role = 'admin' AND u.mercadopago_enabled = 1 AND u.mercadopago_token IS NOT NULL
-     LIMIT 1`,
-    [tenantId]
+    `SELECT mercadopago_token FROM users
+     WHERE role = 'super_admin' AND mercadopago_enabled = 1 AND mercadopago_token IS NOT NULL
+     ORDER BY id ASC LIMIT 1`
   );
   if (rows.length && rows[0].mercadopago_token) {
     try { return decrypt(rows[0].mercadopago_token); } catch { return null; }
@@ -89,10 +87,9 @@ router.get('/status', authMiddleware, async (req, res) => {
       isActive = trialEndsAt > now;
     }
 
-    // Verifica se MP está configurado para o admin do tenant
+    // Verifica se super_admin tem MP configurado para cobrar assinaturas
     const [mpRows] = await db.query(
-      `SELECT COUNT(*) as cnt FROM users WHERE tenant_id = ? AND role = 'admin' AND mercadopago_enabled = 1 AND mercadopago_token IS NOT NULL`,
-      [req.user.tenant_id]
+      `SELECT COUNT(*) as cnt FROM users WHERE role = 'super_admin' AND mercadopago_enabled = 1 AND mercadopago_token IS NOT NULL`
     );
     const hasPlatformToken = !!(process.env.MP_PLATFORM_TOKEN || mpRows[0]?.cnt > 0);
 
@@ -122,7 +119,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     const { plan_id, period } = req.body; // period: 'monthly' | 'annual'
     if (!plan_id) return res.status(400).json({ error: 'Plano obrigatório' });
 
-    const token = await getPlatformToken(req.user.tenant_id);
+    const token = await getPlatformToken();
     if (!token) {
       return res.status(400).json({
         error: 'Pagamento online não configurado. Configure o Mercado Pago em Configurações → Integrações, ou entre em contato com o suporte.',
@@ -223,7 +220,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
 // ── GET /subscription/check-payment/:paymentId — Verifica status do PIX ──────
 router.get('/check-payment/:paymentId', authMiddleware, async (req, res) => {
   try {
-    const token = await getPlatformToken(req.user.tenant_id);
+    const token = await getPlatformToken();
     if (!token) return res.status(400).json({ error: 'Sem token configurado' });
 
     const r = await fetch(`https://api.mercadopago.com/v1/payments/${req.params.paymentId}`, {
@@ -250,29 +247,13 @@ router.post('/webhook', express.json(), async (req, res) => {
     const paymentId = data?.id;
     if (!paymentId) return res.status(200).json({ received: true, action: 'no_id' });
 
-    // Busca token de qualquer admin com MP configurado para consultar o pagamento
-    const [mpUsers] = await db.query(
-      `SELECT u.id, u.tenant_id, u.mercadopago_token
-       FROM users u
-       WHERE u.mercadopago_enabled = 1 AND u.mercadopago_token IS NOT NULL AND u.role = 'admin'`
-    );
-
+    // Usa token do super_admin para consultar o pagamento
+    const token = await getPlatformToken();
     let paymentData = null;
-    for (const u of mpUsers) {
-      try {
-        const tk = process.env.MP_PLATFORM_TOKEN || decrypt(u.mercadopago_token);
-        const r = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-          headers: { 'Authorization': `Bearer ${tk}` },
-        });
-        if (r.ok) { paymentData = await r.json(); break; }
-      } catch { /* tenta próximo */ }
-    }
-
-    // Se tiver token de plataforma, tenta com ele também
-    if (!paymentData && process.env.MP_PLATFORM_TOKEN) {
+    if (token) {
       try {
         const r = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-          headers: { 'Authorization': `Bearer ${process.env.MP_PLATFORM_TOKEN}` },
+          headers: { 'Authorization': `Bearer ${token}` },
         });
         if (r.ok) paymentData = await r.json();
       } catch {}
