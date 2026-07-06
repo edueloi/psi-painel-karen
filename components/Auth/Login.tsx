@@ -309,26 +309,6 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           </div>
         </div>
 
-        {/* Bottom stats */}
-        <div className="relative z-10 flex items-center justify-center gap-3 p-10 pt-6">
-          {[
-            { value: '14 dias', label: 'Teste grátis' },
-            { value: 'Pix', label: 'ou assinatura' },
-          ].map(({ value, label }) => (
-            <div
-              key={label}
-              className="text-center px-6 py-3.5 rounded-2xl flex-1"
-              style={{
-                background: 'rgba(99,85,216,0.15)',
-                border: '1px solid rgba(99,85,216,0.25)',
-              }}
-            >
-              <p className="font-extrabold text-xl leading-none text-white">{value}</p>
-              <p className="text-xs mt-1.5 font-medium" style={{ color: 'rgba(167,139,250,0.7)' }}>{label}</p>
-            </div>
-          ))}
-        </div>
-
         {/* Subtle grid overlay */}
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.025]"
