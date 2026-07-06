@@ -497,6 +497,44 @@ app.get('/portal/entrar/:token', async (req, res) => {
   }
 });
 
+// ---- Rota pública /sitemap.xml — ajuda o Google a indexar perfis públicos ----
+app.get('/sitemap.xml', async (req, res) => {
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+  try {
+    const [profiles] = await db.query(
+      `SELECT public_slug FROM users
+       WHERE public_profile_enabled = true AND public_slug IS NOT NULL AND public_slug != ''`
+    );
+
+    const staticUrls = [
+      { loc: `${FRONTEND_URL}/`, priority: '1.0' },
+      { loc: `${FRONTEND_URL}/encontrar-psicologo`, priority: '0.9' },
+    ];
+
+    const profileUrls = profiles.map(p => ({
+      loc: `${FRONTEND_URL}/p/${p.public_slug}`,
+      priority: '0.8',
+    }));
+
+    const urlEntries = [...staticUrls, ...profileUrls].map(u => `  <url>
+    <loc>${u.loc}</loc>
+    <priority>${u.priority}</priority>
+  </url>`).join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urlEntries}
+</urlset>`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.send(xml);
+  } catch (err) {
+    console.error('sitemap.xml error:', err);
+    return res.status(500).send('Erro ao gerar sitemap.');
+  }
+});
+
 // Aceita deploys com e sem prefixo /api no proxy reverso.
 mountApiRoutes('/api');
 mountApiRoutes('');

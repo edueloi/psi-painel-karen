@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /$
+Allow: /encontrar-psicologo
+Allow: /p/
+Allow: /f/
+
+Disallow: /login
+Disallow: /cadastro
+Disallow: /dashboard
+Disallow: /pacientes
+Disallow: /agenda
+Disallow: /financeiro
+Disallow: /configuracoes
+Disallow: /portal
+Disallow: /painel-master
+Disallow: /perfil
+Disallow: /assinatura
+Disallow: /sala
+Disallow: /api/
+
+Sitemap: https://psiflux.com.br/sitemap.xml
