@@ -184,7 +184,6 @@ const SkeletonCard: React.FC = () => (
 
 /* ─── Card de psicólogo ─── */
 const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) => {
-  const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
 
   const specialties: string[] = p.profile_theme?.specialties_list?.length
@@ -195,10 +194,11 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
   const accentColor = p.profile_theme?.accent_color || C.accent;
 
   return (
-    <a
-      href={`/p/${p.public_slug}`}
-      target="_blank"
-      rel="noopener noreferrer"
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => window.open(`/p/${p.public_slug}`, '_blank', 'noopener,noreferrer')}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') window.open(`/p/${p.public_slug}`, '_blank', 'noopener,noreferrer'); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -354,7 +354,7 @@ const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) =
           </span>
         </div>
       </div>
-    </a>
+    </div>
   );
 };
 
@@ -877,38 +877,37 @@ export const PsychologistDirectory: React.FC = () => {
       {/* ── CONTEÚDO ── */}
       <div style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(24px,4vw,48px) clamp(16px,4vw,24px) 80px' }}>
 
-        {/* ── FILTROS TOGGLE (mobile) ── */}
-        {isMobile && (
-          <div style={{ marginBottom: 16 }}>
-            <button
-              onClick={() => setFiltersOpen(v => !v)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                background: hasActiveFilters ? `${C.accent}10` : '#fff',
-                border: `1.5px solid ${hasActiveFilters ? C.accent + '40' : C.border}`,
-                borderRadius: 12, padding: '10px 18px',
-                fontSize: 14, fontWeight: 700,
-                color: hasActiveFilters ? C.accent : C.text,
-                cursor: 'pointer', transition: 'all .15s',
-                fontFamily: 'inherit',
-              }}
-            >
-              <SlidersHorizontal size={16} strokeWidth={2} />
-              Filtros
-              {activeFilterCount > 0 && (
-                <span style={{
-                  background: C.accent, color: '#fff',
-                  fontSize: 11, fontWeight: 800,
-                  width: 20, height: 20, borderRadius: '50%',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  lineHeight: 1,
-                }}>
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-          </div>
-        )}
+        {/* ── FILTROS TOGGLE ── */}
+        <div style={{ marginBottom: 16 }}>
+          <button
+            onClick={() => setFiltersOpen(v => !v)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: hasActiveFilters ? `${C.accent}10` : '#fff',
+              border: `1.5px solid ${hasActiveFilters ? C.accent + '40' : C.border}`,
+              borderRadius: 12, padding: '10px 18px',
+              fontSize: 14, fontWeight: 700,
+              color: hasActiveFilters ? C.accent : C.text,
+              cursor: 'pointer', transition: 'all .15s',
+              fontFamily: 'inherit',
+            }}
+          >
+            <SlidersHorizontal size={16} strokeWidth={2} />
+            Filtros
+            {activeFilterCount > 0 && (
+              <span style={{
+                background: C.accent, color: '#fff',
+                fontSize: 11, fontWeight: 800,
+                width: 20, height: 20, borderRadius: '50%',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                lineHeight: 1,
+              }}>
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronDown size={14} strokeWidth={2} style={{ transition: 'transform .2s', transform: filtersOpen && !isMobile ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+          </button>
+        </div>
 
         {/* ── FILTER PANEL (desktop inline / mobile bottom sheet) ── */}
         {(() => {
@@ -1103,6 +1102,7 @@ export const PsychologistDirectory: React.FC = () => {
             );
           }
 
+          if (!filtersOpen) return null;
           return (
             <div style={{
               background: '#fff', border: `1.5px solid ${C.border}`,

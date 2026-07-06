@@ -312,9 +312,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
         {/* Bottom stats */}
         <div className="relative z-10 flex items-center justify-center gap-3 p-10 pt-6">
           {[
-            { value: '98%', label: 'Satisfação' },
-            { value: '2k+', label: 'Psicólogos' },
-            { value: '4.9 ★', label: 'Avaliação' },
+            { value: '14 dias', label: 'Teste grátis' },
+            { value: 'Pix', label: 'ou assinatura' },
           ].map(({ value, label }) => (
             <div
               key={label}
