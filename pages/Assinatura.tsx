@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
 import {
   CheckCircle, Zap, Crown, Clock, Copy, ExternalLink,
@@ -60,6 +61,7 @@ function ProgressBar({ value, total, color = 'emerald', warning = false }: { val
 
 export function Assinatura() {
   const { user } = useAuth();
+  const { pushToast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -125,7 +127,7 @@ export function Assinatura() {
       setCheckout(data);
       setPolling(true);
     } catch (e: any) {
-      alert(e?.message || 'Erro ao gerar cobrança. Configure o Mercado Pago em Configurações → Integrações.');
+      pushToast('error', e?.message || 'Erro ao gerar cobrança. Entre em contato com o suporte.');
     } finally {
       setCheckoutLoading(false);
     }
