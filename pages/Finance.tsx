@@ -905,7 +905,7 @@ export const Finance: React.FC = () => {
                 </Button>
               </>
             )}
-            {hasPermission('view_financial_reports') && (
+            {hasPermission('view_financial_reports') && hasPermission('access_ai_features') && (
               <Button
                 variant="secondary"
                 onClick={() => setIsAuraOpen(true)}

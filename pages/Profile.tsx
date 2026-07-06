@@ -121,7 +121,7 @@ const buildHolidayPresets = (year: number): ClosedDatePreset[] => [
 export const Profile: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { updateUser } = useAuth();
+  const { updateUser, hasPermission } = useAuth();
 
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
@@ -1121,26 +1121,28 @@ Gere o seguinte JSON:
                     </div>
 
                     {/* Aurora Builder */}
-                    <div className="pt-8 border-t border-slate-100">
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
-                          <Sparkles size={18} className="text-white" />
+                    {hasPermission('access_ai_features') && (
+                      <div className="pt-8 border-t border-slate-100">
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
+                            <Sparkles size={18} className="text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-black text-slate-800 text-sm">Aurora monta sua página por você</p>
+                            <p className="text-xs text-slate-500 mt-0.5">Responda perguntas rápidas e a IA preenche o conteúdo automaticamente.</p>
+                          </div>
+                          <Button
+                            onClick={() => { setAuroraOpen(true); setAuroraStep(0); setAuroraAnswers({}); }}
+                            variant="primary"
+                            size="sm"
+                            iconLeft={<Sparkles size={13} />}
+                            elevation="sm"
+                          >
+                            Gerar com IA
+                          </Button>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-black text-slate-800 text-sm">Aurora monta sua página por você</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Responda perguntas rápidas e a IA preenche o conteúdo automaticamente.</p>
-                        </div>
-                        <Button
-                          onClick={() => { setAuroraOpen(true); setAuroraStep(0); setAuroraAnswers({}); }}
-                          variant="primary"
-                          size="sm"
-                          iconLeft={<Sparkles size={13} />}
-                          elevation="sm"
-                        >
-                          Gerar com IA
-                        </Button>
                       </div>
-                    </div>
+                    )}
 
                     {/* Site Content Management */}
                     <div className="pt-8 border-t border-slate-100">

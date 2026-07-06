@@ -183,7 +183,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   return (
     <MainLayout>
       {children}
-      {user?.plan_features?.includes('aurora_ai') && <AuroraAssistant />}
+      {user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && <AuroraAssistant />}
       {user && <OnboardingController userId={user.id} userName={user.name || ''} />}
     </MainLayout>
   );
@@ -343,7 +343,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/desempenho" element={<ProtectedRoute requiredPermission="view_performance_reports"><Performance /></ProtectedRoute>} />
       <Route path="/mensagens" element={<ProtectedRoute requiredPermission="access_messages"><Messages /></ProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><Settings /></ProtectedRoute>} />
-      <Route path="/portal-paciente" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><PortalPaciente /></ProtectedRoute>} />
+      <Route path="/portal-paciente" element={<ProtectedRoute requiredPermission="manage_patient_portal"><PortalPaciente /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/assinatura" element={<ProtectedRoute><Assinatura /></ProtectedRoute>} />
       <Route path="/privacidade" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />

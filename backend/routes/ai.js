@@ -5,6 +5,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const pdfParse = require('pdf-parse');
 const db = require('../db');
+const { checkPermission } = require('../middleware/auth');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -366,7 +367,7 @@ async function bulkCreatePatients(tenantId, patientsList) {
   return results;
 }
 
-router.post('/chat', upload.single('file'), async (req, res) => {
+router.post('/chat', checkPermission('access_ai_features'), upload.single('file'), async (req, res) => {
   try {
     let { messages } = req.body;
     if (typeof messages === 'string') messages = JSON.parse(messages);
@@ -762,7 +763,7 @@ Responda sempre em Portugues-BR.`
   }
 });
 
-router.post('/analyze-form', async (req, res) => {
+router.post('/analyze-form', checkPermission('access_ai_features'), async (req, res) => {
   try {
     const { formTitle, respondentName, answers, score, interpretations, patientData } = req.body;
     
@@ -811,7 +812,7 @@ RESPONDA SEMPRE EM PORTUGUES-BR.`;
   }
 });
 
-router.post('/analyze-disc', async (req, res) => {
+router.post('/analyze-disc', checkPermission('access_ai_features'), async (req, res) => {
   try {
     const { respondentName, patientData, scores, dominantFactor, secondFactor, dominantLabel, secondLabel, combinedKey, combinedProfile, factorDetails } = req.body;
 
@@ -961,7 +962,7 @@ async function getFullFinancialContext(tenantId) {
 }
 
 // POST /ai/aura-contabil — Chat especializado em contabilidade/fiscal
-router.post('/aura-contabil', async (req, res) => {
+router.post('/aura-contabil', checkPermission('access_ai_features'), async (req, res) => {
   try {
     let { messages } = req.body;
     if (typeof messages === 'string') messages = JSON.parse(messages);
@@ -1087,7 +1088,7 @@ Data atual: ${new Date().toLocaleDateString('pt-BR')}`;
   }
 });
 
-router.post('/save-analysis', async (req, res) => {
+router.post('/save-analysis', checkPermission('access_ai_features'), async (req, res) => {
   try {
     const { patientId, formTitle, analysis } = req.body;
     if (!patientId || !analysis) return res.status(400).json({ error: 'Dados incompletos' });
@@ -1107,7 +1108,7 @@ router.post('/save-analysis', async (req, res) => {
   }
 });
 
-router.post('/complete', async (req, res) => {
+router.post('/complete', checkPermission('access_ai_features'), async (req, res) => {
   try {
     const { system, prompt, max_tokens, temperature } = req.body;
     
@@ -1128,7 +1129,7 @@ router.post('/complete', async (req, res) => {
   }
 });
 
-router.post('/analyze-clinical-tool', async (req, res) => {
+router.post('/analyze-clinical-tool', checkPermission('access_ai_features'), async (req, res) => {
   try {
     const { toolName, patientId, data } = req.body;
     
@@ -1193,9 +1194,7 @@ const transcribeUpload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB — limite do Whisper
 });
 
-const { authMiddleware } = require('../middleware/auth');
-
-router.post('/transcribe-audio', authMiddleware, transcribeUpload.single('audio'), async (req, res) => {
+router.post('/transcribe-audio', checkPermission('access_ai_features'), transcribeUpload.single('audio'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo de áudio não enviado' });
 

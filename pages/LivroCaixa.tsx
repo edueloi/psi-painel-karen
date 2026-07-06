@@ -3000,7 +3000,9 @@ export const LivroCaixa: React.FC = () => {
       </Modal>
 
       {/* ── Aura Contábil Chat ───────────────────────────────────────────────── */}
-      <AuraContabil isOpen={isAuraContabilOpen} onClose={() => setIsAuraContabilOpen(false)} />
+      {hasPermission('access_ai_features') && (
+        <AuraContabil isOpen={isAuraContabilOpen} onClose={() => setIsAuraContabilOpen(false)} />
+      )}
 
       {/* ── Delete Month Confirm Modal ─────────────────────────────────────────── */}
       <Modal

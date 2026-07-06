@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const { generateShareToken } = require('../utils/shareToken');
+const { checkPermission } = require('../middleware/auth');
 
 // Add extra profile columns if they don't exist (safe migration)
 const ensureColumns = async () => {
@@ -463,7 +464,7 @@ router.post('/2fa/disable', async (req, res) => {
 });
 
 // POST /profile/generate-aurora — Gera perfil com a IA Aurora
-router.post('/generate-aurora', async (req, res) => {
+router.post('/generate-aurora', checkPermission('access_ai_features'), async (req, res) => {
   try {
     const { system, prompt, max_tokens, temperature } = req.body;
     

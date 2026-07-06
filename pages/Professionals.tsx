@@ -13,10 +13,10 @@ const maskCpf = (v: string) => {
 };
 import { useNavigate, Link } from 'react-router-dom';
 import { 
-  UserCheck, Plus, Edit3, Trash2, Shield, 
-  Briefcase, CheckCircle, X, DollarSign, Users, Lock, Key, 
+  UserCheck, Plus, Edit3, Trash2, Shield,
+  Briefcase, CheckCircle, X, DollarSign, Users, Lock, Key,
   Loader2, Phone, Mail, ShieldAlert, UserPlus, Power, Eye, EyeOff, ChevronRight, AlertCircle,
-  Layout, Settings, FileText, Smartphone, Tablet, Calendar, Check
+  Layout, Settings, FileText, Smartphone, Tablet, Calendar, Check, Sparkles
 } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -102,6 +102,14 @@ export const Professionals: React.FC = () => {
         { key: 'create_medical_record', label: 'Evoluir', description: 'Anotar novas sessões e registrar andamento' },
         { key: 'edit_medical_record', label: 'Editar Prontuário', description: 'Corrigir e assinar registros antigos' },
         { key: 'manage_clinical_tools', label: 'Ferramentas Clínicas', description: 'Acesso a ACT, DBT, EMDR, Sistêmica e Avaliações' },
+        { key: 'manage_patient_portal', label: 'Portal do Paciente', description: 'Gerar/revogar acesso do paciente ao portal e ver aba Portal (humor, diário, mensagens)' },
+      ]
+    },
+    {
+      category: 'Inteligência Artificial',
+      icon: <Sparkles size={16} />,
+      permissions: [
+        { key: 'access_ai_features', label: 'Usar Recursos de IA', description: 'Aura Fiscal, análise de prontuário por IA, gerador de página com IA e demais assistentes de IA' },
       ]
     },
     {

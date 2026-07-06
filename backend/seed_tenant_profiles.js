@@ -23,7 +23,8 @@ async function seed() {
         view_agenda: true, create_appointment: true, edit_appointment: true, delete_appointment: true, manage_agenda_settings: true,
         view_patients: true, create_patient: true, edit_patient: true, delete_patient: true, view_medical_records: true, manage_medical_records: true, manage_clinical_tools: true,
         view_comandas: true, create_comanda: true, edit_comanda: true, delete_comanda: true, manage_payments: true, view_financial_reports: true,
-        manage_services: true, manage_professionals: true, manage_clinic_settings: true, manage_documents: true
+        manage_services: true, manage_professionals: true, manage_clinic_settings: true, manage_documents: true,
+        manage_patient_portal: true, access_ai_features: true
       }
     },
     {
@@ -34,7 +35,8 @@ async function seed() {
         view_agenda: true, create_appointment: true, edit_appointment: true, delete_appointment: false, manage_agenda_settings: false,
         view_patients: true, create_patient: true, edit_patient: true, delete_patient: false, view_medical_records: true, manage_medical_records: true, manage_clinical_tools: true,
         view_comandas: true, create_comanda: true, edit_comanda: true, delete_comanda: false, manage_payments: false, view_financial_reports: false,
-        manage_services: false, manage_professionals: false, manage_clinic_settings: false, manage_documents: true
+        manage_services: false, manage_professionals: false, manage_clinic_settings: false, manage_documents: true,
+        manage_patient_portal: true, access_ai_features: true
       }
     },
     {
@@ -45,7 +47,8 @@ async function seed() {
         view_agenda: true, create_appointment: true, edit_appointment: true, delete_appointment: true, manage_agenda_settings: false,
         view_patients: true, create_patient: true, edit_patient: true, delete_patient: false, view_medical_records: false, manage_medical_records: false, manage_clinical_tools: false,
         view_comandas: true, create_comanda: true, edit_comanda: true, delete_comanda: false, manage_payments: true, view_financial_reports: false,
-        manage_services: false, manage_professionals: false, manage_clinic_settings: false, manage_documents: false
+        manage_services: false, manage_professionals: false, manage_clinic_settings: false, manage_documents: false,
+        manage_patient_portal: false, access_ai_features: false
       }
     },
     {
@@ -56,7 +59,8 @@ async function seed() {
           view_agenda: true, create_appointment: false, edit_appointment: false, delete_appointment: false, manage_agenda_settings: false,
           view_patients: true, create_patient: false, edit_patient: false, delete_patient: false, view_medical_records: false, manage_medical_records: false, manage_clinical_tools: false,
           view_comandas: true, create_comanda: true, edit_comanda: true, delete_comanda: true, manage_payments: true, view_financial_reports: true,
-          manage_services: false, manage_professionals: false, manage_clinic_settings: false, manage_documents: false
+          manage_services: false, manage_professionals: false, manage_clinic_settings: false, manage_documents: false,
+          manage_patient_portal: false, access_ai_features: false
         }
     }
   ];

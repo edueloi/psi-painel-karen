@@ -330,15 +330,17 @@ export const PatientDetail: React.FC = () => {
                 >
                   <History size={16} />
                 </IconButton>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={openPortalModal}
-                  iconLeft={<Smartphone size={13} />}
-                >
-                  Portal
-                </Button>
+                {hasPermission('manage_patient_portal') && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={openPortalModal}
+                    iconLeft={<Smartphone size={13} />}
+                  >
+                    Portal
+                  </Button>
+                )}
                 {hasPermission('edit_patient') && (
                   <Button
                     type="button"
@@ -416,6 +418,7 @@ export const PatientDetail: React.FC = () => {
             if (tab.key === 'ferramentas') return hasPermission('manage_clinical_tools');
             if (tab.key === 'documentos') return hasPermission('manage_documents');
             if (tab.key === 'formularios') return hasPermission('manage_forms');
+            if (tab.key === 'portal') return hasPermission('manage_patient_portal');
             return true;
           }).map(tab => (
             <button

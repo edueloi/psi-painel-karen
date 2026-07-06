@@ -2210,6 +2210,7 @@ const AnamnesisResponseModal: React.FC<{
   const [convertLoading, setConvertLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const { pushToast } = useToast();
+  const { hasPermission } = useAuth();
 
   useEffect(() => {
     api.get<any>(`/anamnesis-send/${sendId}`)
@@ -2448,7 +2449,7 @@ const AnamnesisResponseModal: React.FC<{
                 </div>
               )}
             </div>
-          ) : (
+          ) : hasPermission('access_ai_features') ? (
             <button
               onClick={generateAI}
               disabled={aiLoading}
@@ -2457,7 +2458,7 @@ const AnamnesisResponseModal: React.FC<{
               {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
               {aiLoading ? 'Gerando análise IA...' : 'Gerar Análise com Aurora IA'}
             </button>
-          )}
+          ) : null}
 
           {/* Respostas Detalhadas */}
           <div className="space-y-4">
