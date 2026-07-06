@@ -7,6 +7,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+const { checkPermission } = require('../middleware/auth');
 
 // ─── Fuso de Brasília (UTC-3) ─────────────────────────────────────────────────
 // O servidor roda em UTC. Para agendamentos do portal usamos o horário civil de
@@ -67,6 +68,20 @@ async function ensurePortalPatientColumns() {
     name VARCHAR(255) NOT NULL, phone VARCHAR(20) NULL, relationship VARCHAR(100) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_pec_patient (patient_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  // Pacotes liberados individualmente por token de convite (opt-in — por padrão
+  // nenhum pacote aparece no portal até o psicólogo liberar explicitamente).
+  await db.query(`CREATE TABLE IF NOT EXISTS portal_token_packages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    token_id INT NOT NULL,
+    package_id INT NOT NULL,
+    custom_price DECIMAL(10,2) NULL,
+    active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_token_package (token_id, package_id),
+    INDEX idx_ptp_tenant (tenant_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
   portalSchemaReady = true;
@@ -1604,50 +1619,32 @@ router.get('/comandas', portalAuth, async (req, res) => {
   }
 });
 
-// GET /patient-portal/packages — lista pacotes disponíveis para o paciente
-// Se o token tem pacotes configurados, retorna apenas esses com preço customizado
-// Caso contrário retorna todos os ativos do tenant
+// GET /patient-portal/packages — lista pacotes liberados pelo psicólogo para este paciente
+// Por padrão NENHUM pacote aparece — o psicólogo precisa liberar explicitamente
+// quais pacotes aquele paciente pode ver/contratar pelo portal (opt-in).
 // Nunca expõe desconto/acréscimo — apenas o preço final (display_price)
 router.get('/packages', portalAuth, async (req, res) => {
   try {
     const { tenant_id, token_id } = req.portalSession;
+    if (!token_id) return res.json([]);
 
-    // Verifica se o token tem pacotes configurados individualmente
-    let tokenPackages = [];
-    if (token_id) {
-      const [tp] = await db.query(
-        `SELECT ptp.package_id, ptp.custom_price, ptp.active,
-                pkg.name, pkg.description, pkg.sessions_count, pkg.totalPrice
-         FROM portal_token_packages ptp
-         JOIN packages pkg ON pkg.id = ptp.package_id
-         WHERE ptp.token_id = ? AND ptp.tenant_id = ?`,
-        [token_id, tenant_id]
-      );
-      tokenPackages = tp;
-    }
-
-    if (tokenPackages.length > 0) {
-      // Usa configuração individual: só pacotes ativos no token
-      const rows = tokenPackages
-        .filter(r => r.active)
-        .map(r => ({
-          id: r.package_id,
-          name: r.name,
-          description: r.description,
-          sessions_count: r.sessions_count,
-          // Preço final: custom_price se definido, senão totalPrice do pacote
-          display_price: r.custom_price !== null ? parseFloat(r.custom_price) : parseFloat(r.totalPrice || 0),
-        }));
-      return res.json(rows);
-    }
-
-    // Sem configuração individual: todos os pacotes ativos, preço padrão
-    const [rows] = await db.query(
-      `SELECT id, name, description, sessions_count,
-              totalPrice AS display_price
-       FROM packages WHERE tenant_id = ? AND active = 1 ORDER BY sessions_count ASC, totalPrice ASC`,
-      [tenant_id]
+    const [tp] = await db.query(
+      `SELECT ptp.package_id, ptp.custom_price, ptp.active,
+              pkg.name, pkg.description, pkg.sessions_count, pkg.totalPrice
+       FROM portal_token_packages ptp
+       JOIN packages pkg ON pkg.id = ptp.package_id
+       WHERE ptp.token_id = ? AND ptp.tenant_id = ? AND ptp.active = 1`,
+      [token_id, tenant_id]
     );
+
+    const rows = tp.map(r => ({
+      id: r.package_id,
+      name: r.name,
+      description: r.description,
+      sessions_count: r.sessions_count,
+      // Preço final: custom_price se definido, senão totalPrice do pacote
+      display_price: r.custom_price !== null ? parseFloat(r.custom_price) : parseFloat(r.totalPrice || 0),
+    }));
     res.json(rows);
   } catch (e) {
     console.error('[portal packages]', e?.message);
@@ -1705,7 +1702,7 @@ router.post('/comandas', portalAuth, async (req, res) => {
 // ─── ADMIN: configurações do portal (portal_settings no tenant) ──────────────
 
 // GET /patient-portal/settings — lê configurações do portal do tenant
-router.get('/settings', async (req, res) => {
+router.get('/settings', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     // Auto-migra coluna se não existir
@@ -1722,7 +1719,7 @@ router.get('/settings', async (req, res) => {
 });
 
 // POST /patient-portal/settings — salva configurações do portal do tenant
-router.post('/settings', async (req, res) => {
+router.post('/settings', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     await db.query('UPDATE tenants SET portal_settings = ? WHERE id = ?', [JSON.stringify(req.body), req.user.tenant_id]);
@@ -1733,7 +1730,7 @@ router.post('/settings', async (req, res) => {
 });
 
 // GET /patient-portal/tokens/all — listar TODOS os tokens do tenant (admin)
-router.get('/tokens/all', async (req, res) => {
+router.get('/tokens/all', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     const [rows] = await db.query(
@@ -1753,9 +1750,10 @@ router.get('/tokens/all', async (req, res) => {
 // ─── ADMIN: pacotes por token ─────────────────────────────────────────────────
 
 // GET /patient-portal/token-packages/:tokenId — lê config de pacotes do token
-router.get('/token-packages/:tokenId', async (req, res) => {
+router.get('/token-packages/:tokenId', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
+    await ensurePortalPatientColumns();
     const { tokenId } = req.params;
     const tenant_id = req.user.tenant_id;
     // Todos os pacotes ativos do tenant
@@ -1776,7 +1774,7 @@ router.get('/token-packages/:tokenId', async (req, res) => {
       sessions_count: p.sessions_count,
       default_price: parseFloat(p.totalPrice || 0),
       custom_price: map[p.id]?.custom_price !== undefined ? parseFloat(map[p.id].custom_price) : null,
-      active: map[p.id] ? (map[p.id].active ? true : false) : true, // default: todos ativos
+      active: map[p.id] ? (map[p.id].active ? true : false) : false, // default: nada visível até o psicólogo liberar
       configured: !!map[p.id],
     }));
     res.json(result);
@@ -1788,9 +1786,10 @@ router.get('/token-packages/:tokenId', async (req, res) => {
 
 // POST /patient-portal/token-packages/:tokenId — salva config de pacotes do token
 // body: [{ package_id, active, custom_price }]
-router.post('/token-packages/:tokenId', async (req, res) => {
+router.post('/token-packages/:tokenId', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
+    await ensurePortalPatientColumns();
     const { tokenId } = req.params;
     const tenant_id = req.user.tenant_id;
     const items = Array.isArray(req.body) ? req.body : [];
@@ -1821,7 +1820,7 @@ router.post('/token-packages/:tokenId', async (req, res) => {
 // Todas as rotas abaixo exigem o JWT do profissional (authMiddleware já aplicado antes de /patient-portal)
 
 // POST /patient-portal/tokens — gerar link de convite para paciente
-router.post('/tokens', async (req, res) => {
+router.post('/tokens', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     const { patient_id, label, expires_in_days, self_register,
@@ -1856,7 +1855,7 @@ router.post('/tokens', async (req, res) => {
 });
 
 // GET /patient-portal/tokens — listar tokens do paciente
-router.get('/tokens', async (req, res) => {
+router.get('/tokens', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     const { patient_id } = req.query;
@@ -1876,7 +1875,7 @@ router.get('/tokens', async (req, res) => {
 });
 
 // DELETE /patient-portal/tokens/:id — revogar token
-router.delete('/tokens/:id', async (req, res) => {
+router.delete('/tokens/:id', checkPermission('manage_patient_portal'), async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autorizado.' });
   try {
     const [result] = await db.query(

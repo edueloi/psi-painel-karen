@@ -435,6 +435,68 @@ app.get('/p/:slug', async (req, res) => {
   }
 });
 
+// ---- Rota pública /portal/entrar/:token — OG meta tags do Portal do Paciente ----
+// Evita que o preview no WhatsApp/redes sociais mostre a propaganda genérica do
+// PsiFlux; mostra em vez disso "Portal do Paciente — <nome da clínica>", sem
+// nenhum dado clínico sensível na meta tag (só nome do paciente/clínica).
+app.get('/portal/entrar/:token', async (req, res) => {
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+  const distIndexPath = path.join(__dirname, '../dist/index.html');
+
+  try {
+    const [rows] = await db.query(
+      `SELECT p.name as patient_name, u.name as professional_name, u.company_name
+       FROM patient_portal_tokens ppt
+       LEFT JOIN patients p ON p.id = ppt.patient_id
+       LEFT JOIN users u ON u.id = ppt.professional_id
+       WHERE ppt.token = ?`,
+      [req.params.token]
+    );
+
+    if (rows.length === 0 || !fs.existsSync(distIndexPath)) {
+      return res.sendFile(distIndexPath);
+    }
+
+    const r = rows[0];
+    const clinic = r.company_name || r.professional_name || 'seu psicólogo(a)';
+    const portalUrl = `${FRONTEND_URL}/portal/entrar/${req.params.token}`;
+
+    const ogTitle = `Portal do Paciente — ${clinic}`;
+    const ogDesc = r.patient_name
+      ? `Acesse sua área exclusiva com ${clinic} para agendar consultas e acompanhar seu atendimento.`
+      : `Área exclusiva para pacientes de ${clinic} agendarem consultas e acompanharem seu atendimento.`;
+
+    const ogTags = `
+    <title>${ogTitle}</title>
+    <meta name="description" content="${ogDesc}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${portalUrl}" />
+    <meta property="og:title" content="${ogTitle}" />
+    <meta property="og:description" content="${ogDesc}" />
+    <meta property="og:site_name" content="${clinic}" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="${ogTitle}" />
+    <meta name="twitter:description" content="${ogDesc}" />`;
+
+    let html = fs.readFileSync(distIndexPath, 'utf8');
+    html = html.replace(/<title>.*?<\/title>/is, '');
+    html = html.replace(/<meta\s+[^>]*name=["']description["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*property=["']og:[^"']*["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*name=["']twitter:[^"']*["'][^>]*>/gi, '');
+    html = html.replace(/<meta\s+[^>]*property=["']twitter:[^"']*["'][^>]*>/gi, '');
+    html = html.replace('<head>', `<head>${ogTags}`);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    return res.send(html);
+  } catch (err) {
+    console.error('OG /portal/entrar/:token error:', err);
+    if (fs.existsSync(distIndexPath)) return res.sendFile(distIndexPath);
+    return res.status(500).send('Erro ao carregar portal.');
+  }
+});
+
 // Aceita deploys com e sem prefixo /api no proxy reverso.
 mountApiRoutes('/api');
 mountApiRoutes('');

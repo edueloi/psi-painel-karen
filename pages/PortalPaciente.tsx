@@ -454,9 +454,10 @@ export const PortalPaciente: React.FC = () => {
                   {/* Painel de configuração de pacotes */}
                   {expandedTokenId === t.id && tokenPackages[t.id] && (
                     <div className="border-t border-indigo-100 bg-indigo-50/40 px-4 py-3">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-2 flex items-center gap-1">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Package size={11} /> Pacotes disponíveis para {name}
                       </p>
+                      <p className="text-[10px] text-slate-400 mb-2">Marque os pacotes que {name} pode ver e contratar pelo portal. Por padrão, nenhum aparece.</p>
                       {tokenPackages[t.id].length === 0 ? (
                         <p className="text-xs text-slate-400">Nenhum pacote cadastrado ainda.</p>
                       ) : (

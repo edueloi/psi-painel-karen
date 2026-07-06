@@ -883,8 +883,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         ) : availablePackages.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
             <Gem size={28} className="text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-500 font-bold">Nenhum pacote disponível</p>
-            <p className="text-xs text-slate-400 mt-1">Entre em contato com seu terapeuta para mais informações.</p>
+            <p className="text-sm text-slate-500 font-bold">Nenhum pacote disponível para contratação online</p>
+            <p className="text-xs text-slate-400 mt-1">Solicite ao seu psicólogo para liberar um pacote aqui no portal.</p>
           </div>
         ) : (
           <div className="space-y-2">
