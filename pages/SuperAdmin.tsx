@@ -182,9 +182,15 @@ const mkC = (v: string) => {
   return v.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2").substring(0, 18);
 };
 
-const StatusBadge = ({ active, status, expires_at }: { active: boolean; status?: string; expires_at?: string }) => {
+const StatusBadge = ({ active, status, expires_at, trial_ends_at }: { active: boolean; status?: string; expires_at?: string; trial_ends_at?: string }) => {
   if (status === 'blocked') return <span className="inline-flex items-center gap-1.5 text-red-700 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><Lock size={10} />Bloqueado</span>;
-  
+
+  if (trial_ends_at) {
+    const trialDays = Math.ceil((new Date(trial_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    if (trialDays < 0) return <span className="inline-flex items-center gap-1.5 text-red-600 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><AlertCircle size={10} />Teste Expirado</span>;
+    return <span className="inline-flex items-center gap-1.5 text-sky-700 text-[10px] font-bold bg-sky-50 border border-sky-100 px-2.5 py-1 rounded-full uppercase"><Clock size={10} />Teste — {trialDays}d</span>;
+  }
+
   if (expires_at) {
     const days = Math.ceil((new Date(expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     if (days < 0) return <span className="inline-flex items-center gap-1.5 text-red-600 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><AlertCircle size={10} />Vencido</span>;
@@ -283,8 +289,8 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [clientModal, setClientModal] = useState(false);
   const [editClient, setEditClient]   = useState<any>(null);
   const [showPass, setShowPass]       = useState(false);
-  const [clientForm, setClientForm]   = useState({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active' });
-  const openClientModal = () => { setError(''); setEditClient(null); setClientForm({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active' }); setClientModal(true); };
+  const [clientForm, setClientForm]   = useState({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active', trial_ends_at: '' });
+  const openClientModal = () => { setError(''); setEditClient(null); setClientForm({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active', trial_ends_at: '' }); setClientModal(true); };
   const openEditClient = (t: any) => {
     setError('');
     setEditClient(t);
@@ -297,9 +303,26 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       password: '',
       plan_id: String(t.plan_id || ''),
       expires_at: t.expires_at ? t.expires_at.split('T')[0] : '',
-      status: t.status || 'active'
+      status: t.status || 'active',
+      trial_ends_at: t.trial_ends_at ? t.trial_ends_at.split('T')[0] : ''
     });
     setClientModal(true);
+  };
+
+  // Converter trial em assinatura ativa
+  const [convertingTrial, setConvertingTrial] = useState(false);
+  const convertTrialToActive = async () => {
+    if (!editClient) return;
+    if (!clientForm.plan_id) { toast('Selecione um plano antes de converter.', 'error'); return; }
+    setConvertingTrial(true);
+    try {
+      const updated = await api.post<any>(`/tenants/${editClient.id}/convert-trial`, { plan_id: clientForm.plan_id, months: 1 });
+      toast('Cliente convertido para assinatura ativa!', 'success');
+      setClientModal(false);
+      setTenants(prev => prev.map(t => t.id === editClient.id ? { ...t, ...updated } : t));
+    } catch (e: any) {
+      toast(e?.message || 'Erro ao converter trial.', 'error');
+    } finally { setConvertingTrial(false); }
   };
 
   const [clientFilter, setClientFilter] = useState<'all' | 'active' | 'expiring' | 'expired' | 'blocked'>('all');
@@ -473,7 +496,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     }
     setSaving(true);
     try {
-      const payload = { ...clientForm, plan_id: clientForm.plan_id || undefined };
+      const payload = { ...clientForm, plan_id: clientForm.plan_id || undefined, trial_ends_at: clientForm.trial_ends_at || null };
       if (editClient) {
         await api.put(`/tenants/${editClient.id}`, payload);
         toast(`Clínica "${clientForm.company_name}" atualizada!`);
@@ -859,7 +882,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                     <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><Calendar size={9} /> Desde {new Date(t.created_at).toLocaleDateString('pt-BR')}</p>
                                   </div>
                                 </div>
-                                <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} />
+                                <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} trial_ends_at={t.trial_ends_at} />
                               </div>
 
                               {/* Info row */}
@@ -872,10 +895,12 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Valor</p>
                                   <p className="text-xs font-bold text-emerald-600">{t.plan_price ? `R$${Number(t.plan_price).toFixed(0)}` : '—'}</p>
                                 </div>
-                                <div className={`border rounded-xl p-2.5 text-center ${isExpired ? 'bg-red-50 border-red-100' : isExpiring ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
-                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Vencimento</p>
-                                  <p className={`text-xs font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : 'text-slate-700'}`}>
-                                    {t.expires_at ? new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
+                                <div className={`border rounded-xl p-2.5 text-center ${isExpired ? 'bg-red-50 border-red-100' : isExpiring ? 'bg-amber-50 border-amber-100' : t.trial_ends_at ? 'bg-sky-50 border-sky-100' : 'bg-slate-50 border-slate-100'}`}>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t.trial_ends_at ? 'Fim do Teste' : 'Vencimento'}</p>
+                                  <p className={`text-xs font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : t.trial_ends_at ? 'text-sky-700' : 'text-slate-700'}`}>
+                                    {t.trial_ends_at
+                                      ? new Date(t.trial_ends_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                                      : t.expires_at ? new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
                                   </p>
                                 </div>
                               </div>
@@ -1557,7 +1582,25 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     <option value="blocked">Bloqueado</option>
                   </select>
                 </div>
+                <div>
+                  {lbl('Fim do Teste Grátis')}
+                  <input type="date" className={inp} value={clientForm.trial_ends_at} onChange={e => setClientForm({ ...clientForm, trial_ends_at: e.target.value })} />
+                  <p className="text-[10px] text-slate-400 mt-1 normal-case font-normal">Deixe em branco se não estiver em teste.</p>
+                </div>
               </div>
+
+              {editClient && clientForm.trial_ends_at && (
+                <div className="mt-4 p-3.5 bg-sky-50 border border-sky-100 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-xs font-bold text-sky-800">Cliente em período de teste</p>
+                    <p className="text-[11px] text-sky-600 normal-case font-normal">Converta agora para assinatura ativa usando o plano selecionado acima, sem esperar pagamento via Mercado Pago.</p>
+                  </div>
+                  <button type="button" onClick={convertTrialToActive} disabled={convertingTrial || !clientForm.plan_id}
+                    className="px-4 py-2 text-xs font-bold text-white bg-sky-600 rounded-lg hover:bg-sky-700 transition-all disabled:opacity-50 whitespace-nowrap">
+                    {convertingTrial ? <Loader2 size={13} className="animate-spin inline" /> : 'Converter em assinatura ativa'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

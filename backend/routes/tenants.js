@@ -54,7 +54,7 @@ router.get('/', async (req, res) => {
     const [tenants] = await db.query(`
       SELECT
         t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone,
-        t.active, t.created_at, t.expires_at, t.status, t.last_billing_at,
+        t.active, t.created_at, t.expires_at, t.status, t.last_billing_at, t.trial_ends_at,
         p.id as plan_id, p.name as plan_name, p.price as plan_price,
         p.max_users, p.max_patients,
         COUNT(DISTINCT u.id) as user_count,
@@ -227,9 +227,11 @@ router.post('/', async (req, res) => {
 // PUT /tenants/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { company_name, cnpj_cpf, phone, plan_id, active, admin_email, admin_name, expires_at, status } = req.body;
+    const { company_name, cnpj_cpf, phone, plan_id, active, admin_email, admin_name, expires_at, status, trial_ends_at } = req.body;
 
     // Update tenant basic data
+    // trial_ends_at é tratado à parte pois precisa suportar ser explicitamente
+    // limpo (null) ao converter um trial em assinatura ativa — COALESCE não permite isso.
     await db.query(
       `UPDATE tenants SET
         name = COALESCE(?, name),
@@ -243,6 +245,10 @@ router.put('/:id', async (req, res) => {
       [company_name, cnpj_cpf, phone, plan_id, active !== undefined ? active : undefined, expires_at, status, req.params.id]
     );
 
+    if (trial_ends_at !== undefined) {
+      await db.query('UPDATE tenants SET trial_ends_at = ? WHERE id = ?', [trial_ends_at || null, req.params.id]);
+    }
+
     // Update admin user if provided
     if (admin_email || admin_name) {
       await db.query(
@@ -252,7 +258,7 @@ router.put('/:id', async (req, res) => {
     }
 
     const [updated] = await db.query(`
-      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status,
+      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status, t.trial_ends_at,
              p.name as plan_name, p.price as plan_price,
              MAX(u.name) as admin_name, MAX(u.email) as admin_email
       FROM tenants t
@@ -266,6 +272,49 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar tenant' });
+  }
+});
+
+// POST /tenants/:id/convert-trial — converte manualmente um tenant em trial para assinatura ativa
+router.post('/:id/convert-trial', async (req, res) => {
+  try {
+    const { plan_id, months } = req.body;
+    if (!plan_id) return res.status(400).json({ error: 'Selecione um plano.' });
+
+    const monthsToAdd = Math.max(1, parseInt(months) || 1);
+    const [[tenant]] = await db.query('SELECT expires_at FROM tenants WHERE id = ?', [req.params.id]);
+    if (!tenant) return res.status(404).json({ error: 'Tenant não encontrado' });
+
+    const baseDate = tenant.expires_at && new Date(tenant.expires_at) > new Date() ? new Date(tenant.expires_at) : new Date();
+    const newExpiresAt = new Date(baseDate);
+    newExpiresAt.setMonth(newExpiresAt.getMonth() + monthsToAdd);
+
+    await db.query(
+      `UPDATE tenants SET
+        plan_id = ?,
+        trial_ends_at = NULL,
+        status = 'active',
+        expires_at = ?,
+        last_billing_at = NOW()
+       WHERE id = ?`,
+      [plan_id, newExpiresAt, req.params.id]
+    );
+
+    const [updated] = await db.query(`
+      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status, t.trial_ends_at,
+             p.name as plan_name, p.price as plan_price,
+             MAX(u.name) as admin_name, MAX(u.email) as admin_email
+      FROM tenants t
+      LEFT JOIN plans p ON p.id = t.plan_id
+      LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'admin'
+      WHERE t.id = ?
+      GROUP BY t.id
+    `, [req.params.id]);
+
+    res.json(updated[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao converter trial em assinatura' });
   }
 });
 
