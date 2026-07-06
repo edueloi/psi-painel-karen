@@ -663,7 +663,7 @@ export const LandingPage: React.FC = () => {
           <Logo size={30} />
           <p style={{ fontSize: 13, color: 'var(--muted)' }}>© {new Date().getFullYear()} PsiFlux. Todos os direitos reservados.</p>
           <div style={{ display: 'flex', gap: 24 }}>
-            {[['Privacidade', '/privacidade'], ['Suporte', '/ajuda']].map(([label, href]) => (
+            {[['Termos de Uso', '/termos-de-uso'], ['Privacidade', '/politica-privacidade'], ['Suporte', '/ajuda']].map(([label, href]) => (
               <a key={href as string} href={href as string} style={{ fontSize: 13, color: 'var(--muted)', textDecoration: 'none', transition: 'color .15s' }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}>

@@ -40,6 +40,9 @@ async function ensureTenantSchema() {
     if (!hasCol('last_billing_at')) {
       await db.query('ALTER TABLE tenants ADD COLUMN last_billing_at DATETIME AFTER status');
     }
+    if (!hasCol('billing_exempt')) {
+      await db.query('ALTER TABLE tenants ADD COLUMN billing_exempt TINYINT(1) NOT NULL DEFAULT 0 AFTER last_billing_at');
+    }
   } catch (err) {
     console.error('Error ensuring tenant schema:', err.message);
   }
@@ -54,7 +57,7 @@ router.get('/', async (req, res) => {
     const [tenants] = await db.query(`
       SELECT
         t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone,
-        t.active, t.created_at, t.expires_at, t.status, t.last_billing_at, t.trial_ends_at,
+        t.active, t.created_at, t.expires_at, t.status, t.last_billing_at, t.trial_ends_at, t.billing_exempt,
         p.id as plan_id, p.name as plan_name, p.price as plan_price,
         p.max_users, p.max_patients,
         COUNT(DISTINCT u.id) as user_count,
@@ -83,7 +86,7 @@ router.get('/mrr-history', async (req, res) => {
         SUM(p.price) as mrr
       FROM tenants t
       JOIN plans p ON p.id = t.plan_id
-      WHERE t.id != 1 AND t.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+      WHERE t.id != 1 AND t.billing_exempt = 0 AND t.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
       GROUP BY DATE_FORMAT(t.created_at, '%Y-%m')
       ORDER BY month ASC
     `);
@@ -109,35 +112,43 @@ router.get('/mrr-history', async (req, res) => {
 // GET /tenants/stats - métricas para dashboard
 router.get('/stats', async (req, res) => {
   try {
+    // Contagem de tenants/usuários/pacientes separada da agregação de receita:
+    // fazer LEFT JOIN com users E patients na mesma query gera produto cartesiano
+    // (cada linha de tenants é multiplicada por usuários × pacientes), inflando
+    // qualquer SUM/contagem não-DISTINCT sobre colunas de tenants (ex: t.active).
     const [[counts]] = await db.query(`
       SELECT
-        COUNT(DISTINCT t.id) as total_tenants,
-        SUM(t.active) as active_tenants,
-        COUNT(DISTINCT u.id) as total_users,
-        COUNT(DISTINCT pt.id) as total_patients
-      FROM tenants t
-      LEFT JOIN users u ON u.tenant_id = t.id AND u.role != 'super_admin'
-      LEFT JOIN patients pt ON pt.tenant_id = t.id
-      WHERE t.id != 1
+        COUNT(*) as total_tenants,
+        SUM(active) as active_tenants
+      FROM tenants
+      WHERE id != 1
+    `);
+    const [[userCounts]] = await db.query(`
+      SELECT COUNT(*) as total_users FROM users WHERE tenant_id != 1 AND role != 'super_admin'
+    `);
+    const [[patientCounts]] = await db.query(`
+      SELECT COUNT(*) as total_patients FROM patients WHERE tenant_id != 1
     `);
 
     const [[revenue]] = await db.query(`
       SELECT COALESCE(SUM(p.price), 0) as mrr
       FROM tenants t
       JOIN plans p ON p.id = t.plan_id
-      WHERE t.id != 1 AND t.active = true
+      WHERE t.id != 1 AND t.active = true AND t.billing_exempt = 0
     `);
 
     const [byPlan] = await db.query(`
       SELECT p.name as plan_name, COUNT(t.id) as count, p.price
       FROM tenants t
       JOIN plans p ON p.id = t.plan_id
-      WHERE t.id != 1 AND t.active = true
+      WHERE t.id != 1 AND t.active = true AND t.billing_exempt = 0
       GROUP BY p.id
     `);
 
     res.json({
       ...counts,
+      ...userCounts,
+      ...patientCounts,
       mrr: parseFloat(revenue.mrr),
       by_plan: byPlan,
     });
@@ -152,6 +163,7 @@ router.get('/:id', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT t.id, t.name, t.slug, t.cnpj_cpf, t.phone, t.plan_id, t.active, t.created_at,
+             t.expires_at, t.status, t.trial_ends_at, t.billing_exempt,
              p.name as plan_name, p.price as plan_price, p.max_users, p.max_patients,
              MAX(u.name) as admin_name, MAX(u.email) as admin_email
       FROM tenants t
@@ -159,6 +171,7 @@ router.get('/:id', async (req, res) => {
       LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'admin'
       WHERE t.id = ?
       GROUP BY t.id, t.name, t.slug, t.cnpj_cpf, t.phone, t.plan_id, t.active, t.created_at,
+               t.expires_at, t.status, t.trial_ends_at, t.billing_exempt,
                p.name, p.price, p.max_users, p.max_patients
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Tenant não encontrado' });
@@ -227,7 +240,7 @@ router.post('/', async (req, res) => {
 // PUT /tenants/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { company_name, cnpj_cpf, phone, plan_id, active, admin_email, admin_name, expires_at, status, trial_ends_at } = req.body;
+    const { company_name, cnpj_cpf, phone, plan_id, active, admin_email, admin_name, expires_at, status, trial_ends_at, billing_exempt } = req.body;
 
     // Update tenant basic data
     // trial_ends_at é tratado à parte pois precisa suportar ser explicitamente
@@ -249,6 +262,10 @@ router.put('/:id', async (req, res) => {
       await db.query('UPDATE tenants SET trial_ends_at = ? WHERE id = ?', [trial_ends_at || null, req.params.id]);
     }
 
+    if (billing_exempt !== undefined) {
+      await db.query('UPDATE tenants SET billing_exempt = ? WHERE id = ?', [billing_exempt ? 1 : 0, req.params.id]);
+    }
+
     // Update admin user if provided
     if (admin_email || admin_name) {
       await db.query(
@@ -258,7 +275,7 @@ router.put('/:id', async (req, res) => {
     }
 
     const [updated] = await db.query(`
-      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status, t.trial_ends_at,
+      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status, t.trial_ends_at, t.billing_exempt,
              p.name as plan_name, p.price as plan_price,
              MAX(u.name) as admin_name, MAX(u.email) as admin_email
       FROM tenants t
@@ -301,7 +318,7 @@ router.post('/:id/convert-trial', async (req, res) => {
     );
 
     const [updated] = await db.query(`
-      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status, t.trial_ends_at,
+      SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active, t.expires_at, t.status, t.trial_ends_at, t.billing_exempt,
              p.name as plan_name, p.price as plan_price,
              MAX(u.name) as admin_name, MAX(u.email) as admin_email
       FROM tenants t

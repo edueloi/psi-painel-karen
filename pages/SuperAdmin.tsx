@@ -182,8 +182,10 @@ const mkC = (v: string) => {
   return v.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d)/, "$1-$2").substring(0, 18);
 };
 
-const StatusBadge = ({ active, status, expires_at, trial_ends_at }: { active: boolean; status?: string; expires_at?: string; trial_ends_at?: string }) => {
+const StatusBadge = ({ active, status, expires_at, trial_ends_at, billing_exempt }: { active: boolean; status?: string; expires_at?: string; trial_ends_at?: string; billing_exempt?: boolean }) => {
   if (status === 'blocked') return <span className="inline-flex items-center gap-1.5 text-red-700 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><Lock size={10} />Bloqueado</span>;
+
+  if (billing_exempt) return <span className="inline-flex items-center gap-1.5 text-violet-700 text-[10px] font-bold bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full uppercase"><CheckCircle size={10} />Isenta</span>;
 
   if (trial_ends_at) {
     const trialDays = Math.ceil((new Date(trial_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -289,8 +291,8 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [clientModal, setClientModal] = useState(false);
   const [editClient, setEditClient]   = useState<any>(null);
   const [showPass, setShowPass]       = useState(false);
-  const [clientForm, setClientForm]   = useState({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active', trial_ends_at: '' });
-  const openClientModal = () => { setError(''); setEditClient(null); setClientForm({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active', trial_ends_at: '' }); setClientModal(true); };
+  const [clientForm, setClientForm]   = useState({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active', trial_ends_at: '', billing_exempt: false });
+  const openClientModal = () => { setError(''); setEditClient(null); setClientForm({ company_name: '', cnpj_cpf: '', phone: '', admin_name: '', admin_email: '', password: '', plan_id: '', expires_at: '', status: 'active', trial_ends_at: '', billing_exempt: false }); setClientModal(true); };
   const openEditClient = (t: any) => {
     setError('');
     setEditClient(t);
@@ -304,7 +306,8 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       plan_id: String(t.plan_id || ''),
       expires_at: t.expires_at ? t.expires_at.split('T')[0] : '',
       status: t.status || 'active',
-      trial_ends_at: t.trial_ends_at ? t.trial_ends_at.split('T')[0] : ''
+      trial_ends_at: t.trial_ends_at ? t.trial_ends_at.split('T')[0] : '',
+      billing_exempt: !!t.billing_exempt
     });
     setClientModal(true);
   };
@@ -882,7 +885,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                     <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><Calendar size={9} /> Desde {new Date(t.created_at).toLocaleDateString('pt-BR')}</p>
                                   </div>
                                 </div>
-                                <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} trial_ends_at={t.trial_ends_at} />
+                                <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} trial_ends_at={t.trial_ends_at} billing_exempt={t.billing_exempt} />
                               </div>
 
                               {/* Info row */}
@@ -891,14 +894,18 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Plano</p>
                                   <p className="text-xs font-bold text-slate-700 truncate">{t.plan_name || '—'}</p>
                                 </div>
-                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
+                                <div className={`border rounded-xl p-2.5 text-center ${t.billing_exempt ? 'bg-violet-50 border-violet-100' : 'bg-slate-50 border-slate-100'}`}>
                                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Valor</p>
-                                  <p className="text-xs font-bold text-emerald-600">{t.plan_price ? `R$${Number(t.plan_price).toFixed(0)}` : '—'}</p>
+                                  <p className={`text-xs font-bold ${t.billing_exempt ? 'text-violet-700' : 'text-emerald-600'}`}>
+                                    {t.billing_exempt ? 'Isento' : t.plan_price ? `R$${Number(t.plan_price).toFixed(0)}` : '—'}
+                                  </p>
                                 </div>
                                 <div className={`border rounded-xl p-2.5 text-center ${isExpired ? 'bg-red-50 border-red-100' : isExpiring ? 'bg-amber-50 border-amber-100' : t.trial_ends_at ? 'bg-sky-50 border-sky-100' : 'bg-slate-50 border-slate-100'}`}>
                                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t.trial_ends_at ? 'Fim do Teste' : 'Vencimento'}</p>
                                   <p className={`text-xs font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : t.trial_ends_at ? 'text-sky-700' : 'text-slate-700'}`}>
-                                    {t.trial_ends_at
+                                    {t.billing_exempt
+                                      ? '—'
+                                      : t.trial_ends_at
                                       ? new Date(t.trial_ends_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
                                       : t.expires_at ? new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
                                   </p>
@@ -1589,7 +1596,20 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                 </div>
               </div>
 
-              {editClient && clientForm.trial_ends_at && (
+              <label className="mt-4 flex items-center gap-3 p-3.5 bg-violet-50 border border-violet-100 rounded-xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={clientForm.billing_exempt}
+                  onChange={e => setClientForm({ ...clientForm, billing_exempt: e.target.checked })}
+                  className="w-4 h-4 accent-violet-600"
+                />
+                <div>
+                  <p className="text-xs font-bold text-violet-800">Isenta de cobrança</p>
+                  <p className="text-[11px] text-violet-600 normal-case font-normal">Clínica nunca é bloqueada por vencimento/teste expirado, não pode gerar cobrança e fica fora do MRR e das métricas de receita.</p>
+                </div>
+              </label>
+
+              {editClient && clientForm.trial_ends_at && !clientForm.billing_exempt && (
                 <div className="mt-4 p-3.5 bg-sky-50 border border-sky-100 rounded-xl flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <p className="text-xs font-bold text-sky-800">Cliente em período de teste</p>

@@ -61,7 +61,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     const [users] = await db.query(
       `SELECT u.*, t.name as tenant_name, t.slug as tenant_slug, t.active as tenant_active,
-              t.trial_ends_at, t.expires_at as tenant_expires_at, t.status as tenant_status
+              t.trial_ends_at, t.expires_at as tenant_expires_at, t.status as tenant_status, t.billing_exempt as tenant_billing_exempt
        FROM users u
        LEFT JOIN tenants t ON t.id = u.tenant_id
        WHERE (u.email = ? OR u.name = ?) AND u.active = true`,
@@ -87,25 +87,28 @@ router.post('/login', loginLimiter, async (req, res) => {
       });
     }
 
-    // Bloqueia se assinatura venceu (só para não-super_admin, só se tiver expires_at definido)
-    if (user.role !== 'super_admin' && user.tenant_expires_at) {
-      const expired = new Date(user.tenant_expires_at) < new Date();
-      if (expired) {
-        return res.status(403).json({
-          error: 'A assinatura desta clínica está vencida. Renove para continuar acessando.',
-          subscription_expired: true,
-        });
+    // Clínicas isentas de cobrança nunca são bloqueadas por vencimento/trial expirado
+    if (user.role !== 'super_admin' && !user.tenant_billing_exempt) {
+      // Bloqueia se assinatura venceu (só se tiver expires_at definido)
+      if (user.tenant_expires_at) {
+        const expired = new Date(user.tenant_expires_at) < new Date();
+        if (expired) {
+          return res.status(403).json({
+            error: 'A assinatura desta clínica está vencida. Renove para continuar acessando.',
+            subscription_expired: true,
+          });
+        }
       }
-    }
 
-    // Bloqueia se trial expirou (só para não-super_admin)
-    if (user.role !== 'super_admin' && user.trial_ends_at) {
-      const trialExpired = new Date(user.trial_ends_at) < new Date();
-      if (trialExpired) {
-        return res.status(403).json({
-          error: 'Seu período de teste gratuito de 14 dias expirou. Entre em contato para continuar usando o PsiFlux.',
-          trial_expired: true,
-        });
+      // Bloqueia se trial expirou
+      if (user.trial_ends_at) {
+        const trialExpired = new Date(user.trial_ends_at) < new Date();
+        if (trialExpired) {
+          return res.status(403).json({
+            error: 'Seu período de teste gratuito de 14 dias expirou. Entre em contato para continuar usando o PsiFlux.',
+            trial_expired: true,
+          });
+        }
       }
     }
 

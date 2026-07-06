@@ -87,6 +87,7 @@ import { Instruments } from './pages/Instruments';
 import { Profile } from './pages/Profile';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Help } from './pages/Help';
 import { Assinatura } from './pages/Assinatura';
 import logoUrl from './images/logo-psiflux.png';
@@ -249,6 +250,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/login" element={<Login onLogin={() => {}} />} />
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/cadastro" element={<Register />} />
+      <Route path="/termos-de-uso" element={<Terms />} />
+      <Route path="/politica-privacidade" element={<PrivacyPolicy />} />
       <Route path="/f/dass-21" element={<DASS21Public />} />
       <Route path="/f/disc" element={<DISCPublic />} />
       <Route path="/f/bdi-ii" element={<BDIPublic />} />

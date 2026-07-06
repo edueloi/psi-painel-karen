@@ -50,7 +50,7 @@ async function getPlatformToken() {
 router.get('/status', authMiddleware, async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT t.id, t.name, t.trial_ends_at, t.expires_at, t.status, t.last_billing_at,
+      `SELECT t.id, t.name, t.trial_ends_at, t.expires_at, t.status, t.last_billing_at, t.billing_exempt,
               t.plan_id, p.name as plan_name, p.price as plan_price, p.features as plan_features
        FROM tenants t
        LEFT JOIN plans p ON p.id = t.plan_id
@@ -61,6 +61,25 @@ router.get('/status', authMiddleware, async (req, res) => {
 
     const t = rows[0];
     try { t.plan_features = typeof t.plan_features === 'string' ? JSON.parse(t.plan_features) : t.plan_features || []; } catch { t.plan_features = []; }
+
+    // Clínica isenta de cobrança: sempre ativa, independente de trial/vencimento
+    if (t.billing_exempt) {
+      return res.json({
+        subscription_type: 'exempt',
+        is_active: true,
+        days_left: null,
+        total_days: null,
+        trial_ends_at: t.trial_ends_at,
+        expires_at: t.expires_at,
+        last_billing_at: t.last_billing_at,
+        plan_id: t.plan_id,
+        plan_name: t.plan_name,
+        plan_price: t.plan_price,
+        plan_features: t.plan_features,
+        has_payment_configured: false,
+        billing_exempt: true,
+      });
+    }
 
     const now = new Date();
     const trialEndsAt = t.trial_ends_at ? new Date(t.trial_ends_at) : null;
@@ -118,6 +137,11 @@ router.post('/checkout', authMiddleware, async (req, res) => {
   try {
     const { plan_id, period } = req.body; // period: 'monthly' | 'annual'
     if (!plan_id) return res.status(400).json({ error: 'Plano obrigatório' });
+
+    const [[exemptCheck]] = await db.query('SELECT billing_exempt FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    if (exemptCheck?.billing_exempt) {
+      return res.status(400).json({ error: 'Esta clínica está isenta de cobrança e não precisa assinar um plano.' });
+    }
 
     const token = await getPlatformToken();
     if (!token) {

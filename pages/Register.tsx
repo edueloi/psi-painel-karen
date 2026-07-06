@@ -182,8 +182,18 @@ interface PillGroupProps {
   onToggle: (item: string) => void;
 }
 const PillGroup: React.FC<PillGroupProps> = ({ label, items, selected, onToggle }) => (
-  <div>
-    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">{label}</p>
+  <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+    <div className="flex items-center gap-2 mb-3">
+      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</p>
+      {selected.length > 0 && (
+        <span
+          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+          style={{ background: 'rgba(99,85,216,0.12)', color: '#6355D8' }}
+        >
+          {selected.length}
+        </span>
+      )}
+    </div>
     <div className="flex flex-wrap gap-2">
       {items.map(item => {
         const active = selected.includes(item);
@@ -203,7 +213,7 @@ const PillGroup: React.FC<PillGroupProps> = ({ label, items, selected, onToggle 
                     focusRingColor: '#6355D8',
                   }
                 : {
-                    background: '#F8FAFC',
+                    background: '#fff',
                     borderColor: '#E2E8F0',
                     color: '#64748B',
                   }
@@ -278,7 +288,6 @@ export const Register: React.FC = () => {
       return;
     }
     if (step === 1) {
-      if (!crp.trim())   return setError('Digite seu CRP.');
       if (!phone.trim()) return setError('Digite seu telefone.');
       setStep(2);
       return;
@@ -331,11 +340,11 @@ export const Register: React.FC = () => {
   const firstName = name.split(' ')[0];
 
   return (
-    <div className="min-h-screen w-full flex font-sans overflow-hidden">
+    <div className="h-screen w-full flex font-sans overflow-hidden">
 
-      {/* ── LEFT PANEL — dark ───────────────────────────────────────────────── */}
+      {/* ── LEFT PANEL — dark, fixo (não rola) ───────────────────────────────── */}
       <div
-        className="hidden lg:flex flex-col justify-between w-[48%] flex-shrink-0 relative overflow-hidden"
+        className="hidden lg:flex flex-col justify-between w-[48%] flex-shrink-0 h-full relative overflow-hidden"
         style={{ background: '#0C0B1A' }}
       >
         {/* Glow layers */}
@@ -400,8 +409,8 @@ export const Register: React.FC = () => {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL — form ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white overflow-y-auto">
+      {/* ── RIGHT PANEL — form, único painel com scroll ──────────────────────── */}
+      <div className="flex-1 h-full flex flex-col bg-white overflow-y-auto">
         <div className="w-full max-w-[480px] mx-auto px-6 sm:px-8 py-10 flex-1 flex flex-col justify-center">
 
           {/* Mobile logo */}
@@ -736,15 +745,15 @@ export const Register: React.FC = () => {
 
               <p className="text-xs text-slate-400 mt-6 leading-relaxed">
                 Ao criar sua conta você concorda com os{' '}
-                <button type="button" onClick={() => navigate('/termos-publicos')}
+                <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer"
                   className="hover:underline transition-colors" style={{ color: '#6355D8' }}>
                   Termos de Uso
-                </button>{' '}
+                </a>{' '}
                 e a{' '}
-                <button type="button" onClick={() => navigate('/privacidade')}
+                <a href="/politica-privacidade" target="_blank" rel="noopener noreferrer"
                   className="hover:underline transition-colors" style={{ color: '#6355D8' }}>
                   Política de Privacidade
-                </button>.
+                </a>.
               </p>
 
               <button
