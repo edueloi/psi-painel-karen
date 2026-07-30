@@ -76,6 +76,7 @@ import { Services } from './pages/Services';
 import { Products } from './pages/Products';
 import { Comandas } from './pages/Comandas';
 import { LivroCaixa } from './pages/LivroCaixa';
+import { NotaFiscal } from './pages/NotaFiscal';
 import { Finance } from './pages/Finance';
 import { BestClients } from './pages/BestClients';
 import { Performance } from './pages/Performance';
@@ -338,6 +339,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/produtos" element={<ProtectedRoute requiredPermission="manage_products"><Products /></ProtectedRoute>} />
       <Route path="/comandas" element={<ProtectedRoute requiredPermission="view_all_comandas"><Comandas /></ProtectedRoute>} />
       <Route path="/livro-caixa" element={<ProtectedRoute requiredPermission="view_financial_reports"><LivroCaixa /></ProtectedRoute>} />
+      <Route path="/nota-fiscal" element={<ProtectedRoute requiredPermission="view_financial_reports"><NotaFiscal /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute requiredPermission="view_financial_reports"><Finance /></ProtectedRoute>} />
       <Route path="/melhores-clientes" element={<ProtectedRoute requiredPermission="view_performance_reports"><BestClients /></ProtectedRoute>} />
       <Route path="/desempenho" element={<ProtectedRoute requiredPermission="view_performance_reports"><Performance /></ProtectedRoute>} />

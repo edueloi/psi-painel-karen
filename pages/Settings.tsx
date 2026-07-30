@@ -215,6 +215,69 @@ export const Settings: React.FC = () => {
     } catch { pushToast('error', 'Erro ao alterar status.'); }
   };
 
+  // ── NFS-e (Dados Fiscais) ────────────────────────────────────────────────
+  const [nfseConfig, setNfseConfig] = useState<any>({
+    razao_social: '', cnpj_cpf: '', inscricao_municipal: '', codigo_municipio: '',
+    codigo_tributacao_nacional: '', regime_tributario: 'simples_nacional',
+    environment: 'homologacao', certificate_configured: false,
+  });
+  const [nfseSaving, setNfseSaving] = useState(false);
+  const [nfseCertFile, setNfseCertFile] = useState<File | null>(null);
+  const [nfseCertPassword, setNfseCertPassword] = useState('');
+  const [nfseUploadingCert, setNfseUploadingCert] = useState(false);
+  const [nfseTesting, setNfseTesting] = useState(false);
+  const nfseCertInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'integracoes') return;
+    api.get<any>('/nfse/config').then((d: any) => setNfseConfig(d)).catch(() => {});
+  }, [activeTab]);
+
+  const saveNfseConfig = async () => {
+    setNfseSaving(true);
+    try {
+      await api.post('/nfse/config', {
+        razao_social: nfseConfig.razao_social,
+        inscricao_municipal: nfseConfig.inscricao_municipal,
+        codigo_municipio: nfseConfig.codigo_municipio,
+        codigo_tributacao_nacional: nfseConfig.codigo_tributacao_nacional,
+        regime_tributario: nfseConfig.regime_tributario,
+        environment: nfseConfig.environment,
+      });
+      pushToast('success', 'Dados fiscais salvos!');
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao salvar dados fiscais.'); }
+    finally { setNfseSaving(false); }
+  };
+
+  const uploadNfseCert = async () => {
+    if (!nfseCertFile || !nfseCertPassword) return;
+    setNfseUploadingCert(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', nfseCertFile);
+      fd.append('password', nfseCertPassword);
+      await api.post('/nfse/config/certificate', fd);
+      setNfseConfig((prev: any) => ({ ...prev, certificate_configured: true }));
+      setNfseCertFile(null);
+      setNfseCertPassword('');
+      pushToast('success', 'Certificado digital salvo com sucesso!');
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao salvar certificado.'); }
+    finally { setNfseUploadingCert(false); }
+  };
+
+  const testNfseEmission = async () => {
+    setNfseTesting(true);
+    try {
+      const result = await api.post<any>('/nfse/config/test', {});
+      if (result.success) {
+        pushToast('success', 'Emissão de teste autorizada em homologação! Configuração OK.');
+      } else {
+        pushToast('error', result.rejection_reason || `Emissão de teste não autorizada (status: ${result.status}).`);
+      }
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao testar emissão.'); }
+    finally { setNfseTesting(false); }
+  };
+
   // ── Theme colors ─────────────────────────────────────────────────────────
   const THEME_COLORS = [
     { name: 'Indigo',   label: 'Moderno',  gradient: 'from-indigo-500 to-violet-600' },
@@ -971,6 +1034,169 @@ export const Settings: React.FC = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Dados Fiscais / NFS-e ────────────────────────────────────── */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Nota Fiscal</p>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="flex items-center gap-4 p-4 border-b border-slate-100">
+                    <div className="p-2.5 rounded-xl bg-violet-100 text-violet-600 shrink-0">
+                      <FileText size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-800 text-sm">NFS-e (Nota Fiscal de Serviço)</p>
+                        {nfseConfig.certificate_configured && (
+                          <span className={cx(
+                            'px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            nfseConfig.environment === 'producao'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-amber-50 text-amber-700 border-amber-100'
+                          )}>
+                            {nfseConfig.environment === 'producao' ? 'Produção' : 'Homologação'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Emita a Nota Fiscal de Serviço Eletrônica municipal direto do Livro Caixa</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    {/* Dados fiscais */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Razão social / Nome completo</label>
+                        <input
+                          type="text"
+                          value={nfseConfig.razao_social || ''}
+                          onChange={e => setNfseConfig((p: any) => ({ ...p, razao_social: e.target.value }))}
+                          placeholder="Ex: João da Silva Psicologia"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">CNPJ/CPF</label>
+                        <input
+                          type="text"
+                          value={nfseConfig.cnpj_cpf || ''}
+                          disabled
+                          title="Alterado em Perfil > Dados pessoais"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Inscrição municipal</label>
+                        <input
+                          type="text"
+                          value={nfseConfig.inscricao_municipal || ''}
+                          onChange={e => setNfseConfig((p: any) => ({ ...p, inscricao_municipal: e.target.value }))}
+                          placeholder="Opcional"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Código do município (IBGE)</label>
+                        <input
+                          type="text"
+                          value={nfseConfig.codigo_municipio || ''}
+                          onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_municipio: e.target.value.replace(/\D/g, '') }))}
+                          placeholder="Ex: 3554003 (Tatuí/SP)"
+                          maxLength={7}
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Código de tributação (LC 116/03)</label>
+                        <input
+                          type="text"
+                          value={nfseConfig.codigo_tributacao_nacional || ''}
+                          onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_tributacao_nacional: e.target.value }))}
+                          placeholder="Ex: 1401 (psicologia)"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Regime tributário</label>
+                        <select
+                          value={nfseConfig.regime_tributario || 'simples_nacional'}
+                          onChange={e => setNfseConfig((p: any) => ({ ...p, regime_tributario: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 bg-white"
+                        >
+                          <option value="simples_nacional">Simples Nacional</option>
+                          <option value="lucro_presumido">Lucro Presumido</option>
+                          <option value="lucro_real">Lucro Real</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Ambiente de emissão</label>
+                        <select
+                          value={nfseConfig.environment || 'homologacao'}
+                          onChange={e => setNfseConfig((p: any) => ({ ...p, environment: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 bg-white"
+                        >
+                          <option value="homologacao">Homologação (testes, sem valor fiscal)</option>
+                          <option value="producao">Produção</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button onClick={saveNfseConfig} disabled={nfseSaving}
+                      className="w-full py-2.5 text-xs font-bold text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all disabled:opacity-40">
+                      {nfseSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Salvar dados fiscais'}
+                    </button>
+
+                    {/* Certificado digital */}
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      <p className="text-xs font-bold text-slate-600">Certificado digital A1 (.pfx/.p12)</p>
+                      {nfseConfig.certificate_configured ? (
+                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                          <p className="text-xs text-emerald-700 font-medium">Certificado digital configurado.</p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                          <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+                          <p className="text-xs text-amber-700 font-medium">Nenhum certificado enviado ainda.</p>
+                        </div>
+                      )}
+                      <p className="text-[11px] text-slate-400">Para trocar o certificado, selecione o novo arquivo e informe a senha:</p>
+                      <input
+                        ref={nfseCertInputRef}
+                        type="file"
+                        accept=".pfx,.p12"
+                        className="hidden"
+                        onChange={e => setNfseCertFile(e.target.files?.[0] || null)}
+                      />
+                      <button
+                        onClick={() => nfseCertInputRef.current?.click()}
+                        className="w-full py-2 text-xs font-bold text-violet-700 bg-violet-50 border border-dashed border-violet-200 rounded-xl hover:bg-violet-100 transition-all"
+                      >
+                        {nfseCertFile ? nfseCertFile.name : 'Selecionar arquivo .pfx/.p12'}
+                      </button>
+                      <input
+                        type="password"
+                        value={nfseCertPassword}
+                        onChange={e => setNfseCertPassword(e.target.value)}
+                        placeholder="Senha do certificado"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                      />
+                      <button onClick={uploadNfseCert} disabled={!nfseCertFile || !nfseCertPassword || nfseUploadingCert}
+                        className="w-full py-2.5 text-xs font-bold text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all disabled:opacity-40">
+                        {nfseUploadingCert ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Enviando...</span> : 'Salvar certificado'}
+                      </button>
+                    </div>
+
+                    {/* Testar emissão em homologação */}
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      <p className="text-xs font-bold text-slate-600">Validar configuração</p>
+                      <p className="text-[11px] text-slate-400">Emite uma NFS-e de teste em ambiente de homologação (sem valor fiscal) para confirmar que o certificado, o município e a comunicação com o Sistema Nacional NFS-e estão corretos.</p>
+                      <button onClick={testNfseEmission} disabled={nfseTesting || !nfseConfig.certificate_configured}
+                        className="w-full py-2.5 text-xs font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition-all disabled:opacity-40">
+                        {nfseTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando emissão...</span> : 'Testar emissão em homologação'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

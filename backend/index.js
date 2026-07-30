@@ -47,6 +47,7 @@ const livekitTokenRoutes = require('./routes/livekit-token');
 const infinitePayRoutes = require('./routes/infinitepay');
 const mercadoPagoRoutes = require('./routes/mercadopago');
 const subscriptionRoutes = require('./routes/subscription');
+const nfseRoutes = require('./routes/nfse');
 const { startCronJobs } = require('./services/cronJobs');
 const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
@@ -152,6 +153,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/infinitepay`, infinitePayRoutes);
   app.use(`${prefix}/mercadopago`, mercadoPagoRoutes);
   app.use(`${prefix}/subscription`, subscriptionRoutes);
+  app.use(`${prefix}/nfse`, nfseRoutes);
 }
 
 // ---- Middlewares globais ----

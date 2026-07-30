@@ -67,6 +67,22 @@ interface Transaction {
   rs_receipt_file?: string | null;
 }
 
+interface NfseInvoice {
+  id: number;
+  financial_transaction_id: number;
+  status: 'pending' | 'processing' | 'authorized' | 'rejected' | 'error' | 'cancelled';
+  environment: string;
+  serie: number;
+  numero: number;
+  chave_acesso?: string | null;
+  valor_servico: number;
+  descricao_servico?: string | null;
+  codigo_tributacao_nacional?: string | null;
+  authorized_at?: string | null;
+  rejection_reason?: string | null;
+  attempts: number;
+}
+
 interface MonthSummary {
   month: number;
   year: number;
@@ -896,6 +912,80 @@ export const LivroCaixa: React.FC = () => {
     }
   };
 
+  // ── NFS-e (Nota Fiscal de Serviço) ───────────────────────────────────────────
+  const [nfseModalTx, setNfseModalTx] = useState<Transaction | null>(null);
+  const [nfseInvoice, setNfseInvoice] = useState<NfseInvoice | null>(null);
+  const [nfseLoading, setNfseLoading] = useState<number | null>(null);
+  const [nfseModalLoading, setNfseModalLoading] = useState(false);
+  const [nfseCodigoTributacao, setNfseCodigoTributacao] = useState('');
+  const [nfseDescricao, setNfseDescricao] = useState('');
+  const [nfseValor, setNfseValor] = useState('');
+  const [nfseSubmitting, setNfseSubmitting] = useState(false);
+
+  const openNfseModal = async (tx: Transaction) => {
+    setNfseModalTx(tx);
+    setNfseInvoice(null);
+    setNfseDescricao(tx.description || '');
+    setNfseValor(String(tx.amount ?? ''));
+    setNfseModalLoading(true);
+    try {
+      const invoice = await api.get<NfseInvoice>(`/nfse/${tx.id}`);
+      setNfseInvoice(invoice);
+      setNfseCodigoTributacao(invoice.codigo_tributacao_nacional || '');
+    } catch {
+      setNfseInvoice(null);
+      try {
+        const cfg = await api.get<any>('/nfse/config');
+        setNfseCodigoTributacao(cfg.codigo_tributacao_nacional || '');
+      } catch { /* ignora — usuário digita manualmente */ }
+    } finally {
+      setNfseModalLoading(false);
+    }
+  };
+
+  const closeNfseModal = () => {
+    setNfseModalTx(null);
+    setNfseInvoice(null);
+    setNfseCodigoTributacao('');
+    setNfseDescricao('');
+    setNfseValor('');
+  };
+
+  const handleEmitNfse = async () => {
+    if (!nfseModalTx) return;
+    if (!nfseCodigoTributacao.trim()) { pushToast('error', 'Informe o código de tributação nacional do serviço'); return; }
+    setNfseSubmitting(true);
+    setNfseLoading(nfseModalTx.id);
+    try {
+      const invoice = await api.post<NfseInvoice>(`/nfse/${nfseModalTx.id}/emit`, {
+        codigo_tributacao_nacional: nfseCodigoTributacao.trim(),
+        descricao_servico: nfseDescricao.trim(),
+        valor_servico: parseFloat(nfseValor) || nfseModalTx.amount,
+      });
+      setNfseInvoice(invoice);
+      pushToast('success', 'Emissão da NFS-e iniciada! Acompanhe o status em instantes.');
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao emitir NFS-e');
+    } finally {
+      setNfseSubmitting(false);
+      setNfseLoading(null);
+    }
+  };
+
+  const handleRetryNfse = async () => {
+    if (!nfseModalTx) return;
+    setNfseSubmitting(true);
+    try {
+      await api.post(`/nfse/${nfseModalTx.id}/retry`, {});
+      pushToast('success', 'Nova tentativa de emissão iniciada.');
+      setTimeout(() => openNfseModal(nfseModalTx), 1500);
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao tentar novamente');
+    } finally {
+      setNfseSubmitting(false);
+    }
+  };
+
   const handleDeleteRsFile = async (tx: Transaction) => {
     setRsFileDeleting(true);
     try {
@@ -1716,6 +1806,38 @@ export const LivroCaixa: React.FC = () => {
                 }`}
               >
                 {issued ? <Receipt size={14} /> : <CircleDashed size={14} />}
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      header: 'NFS-e',
+      headerClassName: 'text-center w-[90px]',
+      render: (tx) => {
+        const eligible = isRsEligible(tx);
+        const isLoading = nfseLoading === tx.id;
+
+        if (!eligible) {
+          return (
+            <div className="flex justify-center">
+              <span title="Este lançamento não se aplica a NFS-e" className="text-slate-200 cursor-default select-none text-lg leading-none">—</span>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex justify-center">
+            {isLoading ? (
+              <Loader2 size={18} className="animate-spin text-slate-300" />
+            ) : (
+              <button
+                title="Nota Fiscal de Serviço (NFS-e)"
+                onClick={(e) => { e.stopPropagation(); openNfseModal(tx); }}
+                className="w-8 h-8 flex items-center justify-center rounded-xl border transition-all bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100"
+              >
+                <FileText size={14} />
               </button>
             )}
           </div>
@@ -2995,6 +3117,136 @@ export const LivroCaixa: React.FC = () => {
           {/* File management when already issued (no file yet) */}
           {rsConfirm?.tx?.rs_receipt_issued && !rsConfirm?.newValue && !rsConfirm?.tx?.rs_receipt_file && (
             <p className="text-[11px] text-slate-400 text-center">Nenhum arquivo anexado</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* ── NFS-e Modal ──────────────────────────────────────────────────────── */}
+      <Modal
+        isOpen={nfseModalTx !== null}
+        onClose={closeNfseModal}
+        title="Nota Fiscal de Serviço (NFS-e)"
+        size="sm"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" onClick={closeNfseModal}>Fechar</Button>
+            {(!nfseInvoice || ['rejected', 'error'].includes(nfseInvoice.status)) && (
+              <Button
+                variant="primary"
+                iconLeft={<FileText size={14} />}
+                disabled={nfseSubmitting || nfseModalLoading}
+                onClick={nfseInvoice ? handleRetryNfse : handleEmitNfse}
+              >
+                {nfseSubmitting ? <Loader2 size={14} className="animate-spin" /> : (nfseInvoice ? 'Tentar novamente' : 'Emitir NFS-e')}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4 py-2">
+          {nfseModalLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={22} className="animate-spin text-slate-300" />
+            </div>
+          ) : (
+            <>
+              {nfseModalTx && (
+                <div className="px-4 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lançamento:</p>
+                  <p className="text-sm font-black text-slate-700">{nfseModalTx.description}</p>
+                  <p className="text-[10px] font-bold text-slate-400">{nfseModalTx.patient_name || nfseModalTx.payer_name} · {formatCurrency(nfseModalTx.amount)}</p>
+                </div>
+              )}
+
+              {nfseInvoice ? (
+                <div className={`px-4 py-3 rounded-2xl border-2 ${
+                  nfseInvoice.status === 'authorized' ? 'bg-emerald-50/40 border-emerald-100'
+                  : ['rejected', 'error'].includes(nfseInvoice.status) ? 'bg-rose-50/40 border-rose-100'
+                  : 'bg-amber-50/40 border-amber-100'
+                }`}>
+                  <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${
+                    nfseInvoice.status === 'authorized' ? 'text-emerald-600'
+                    : ['rejected', 'error'].includes(nfseInvoice.status) ? 'text-rose-600'
+                    : 'text-amber-600'
+                  }`}>
+                    {{
+                      pending: 'Aguardando emissão',
+                      processing: 'Processando na prefeitura...',
+                      authorized: 'Nota autorizada',
+                      rejected: 'Nota rejeitada',
+                      error: 'Erro ao emitir',
+                      cancelled: 'Nota cancelada',
+                    }[nfseInvoice.status]}
+                  </p>
+
+                  {nfseInvoice.status === 'authorized' && (
+                    <>
+                      <p className="text-xs font-bold text-slate-500 mb-1">NFS-e nº {nfseInvoice.numero} · Série {nfseInvoice.serie}</p>
+                      {nfseInvoice.authorized_at && (
+                        <p className="text-xs font-bold text-slate-500 mb-2">
+                          Autorizada em: {new Date(nfseInvoice.authorized_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`${API_BASE_URL}/nfse/${nfseModalTx?.id}/xml`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-all"
+                        >
+                          <Download size={12} /> XML
+                        </a>
+                        <a
+                          href={`${API_BASE_URL}/nfse/${nfseModalTx?.id}/pdf`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-all"
+                        >
+                          <Download size={12} /> PDF
+                        </a>
+                      </div>
+                    </>
+                  )}
+
+                  {['rejected', 'error'].includes(nfseInvoice.status) && nfseInvoice.rejection_reason && (
+                    <p className="text-xs text-rose-700">{nfseInvoice.rejection_reason}</p>
+                  )}
+                  {nfseInvoice.status === 'processing' && (
+                    <p className="text-xs text-amber-700">A prefeitura pode levar alguns instantes para autorizar. Feche e reabra este modal para atualizar o status.</p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Código de tributação nacional (LC 116/03)</label>
+                    <input
+                      type="text"
+                      value={nfseCodigoTributacao}
+                      onChange={e => setNfseCodigoTributacao(e.target.value)}
+                      placeholder="Ex: 1401 (psicologia)"
+                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Descrição do serviço</label>
+                    <textarea
+                      value={nfseDescricao}
+                      onChange={e => setNfseDescricao(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-violet-400 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Valor do serviço</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={nfseValor}
+                      onChange={e => setNfseValor(e.target.value.replace(/[^0-9.,]/g, ''))}
+                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-violet-400"
+                    />
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
       </Modal>
