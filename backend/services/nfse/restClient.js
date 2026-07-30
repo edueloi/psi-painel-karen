@@ -1,7 +1,7 @@
-const fs = require('fs');
 const https = require('https');
 const zlib = require('zlib');
 const axios = require('axios');
+const { loadPfx } = require('./signer');
 
 // Sistema Nacional NFS-e (Sefin Nacional) — comunicação REST+JSON, autenticação mTLS
 // (o certificado do contribuinte identifica quem está conectando na própria camada TLS).
@@ -22,18 +22,21 @@ function ungzipBase64(gzipB64) {
 async function callNfseRest({ environment, method, path, body, pfxPath, pfxPassword, timeoutMs }) {
   const url = `${BASE_URLS[environment]}${path}`;
 
-  let pfx;
+  // mTLS: o certificado do contribuinte autentica a própria conexão TLS, exigido
+  // pelo Sistema Nacional NFS-e além da assinatura do XML. Extraímos chave/cert em
+  // PEM via node-forge (em vez de passar pfx/passphrase brutos ao https.Agent) porque
+  // o parser PKCS12 nativo do OpenSSL do Node rejeita alguns certificados A1 emitidos
+  // com PBES2/AES-256 ("Unsupported PKCS12 PFX data"), que o node-forge lê sem problema.
+  let cert;
   try {
-    pfx = fs.readFileSync(pfxPath);
-  } catch {
-    return { ok: false, statusCode: 0, data: null, raw: '', error: `Certificado não encontrado: ${pfxPath}` };
+    cert = loadPfx(pfxPath, pfxPassword);
+  } catch (e) {
+    return { ok: false, statusCode: 0, data: null, raw: '', error: `Certificado inválido: ${e.message}` };
   }
 
-  // mTLS: o certificado do contribuinte autentica a própria conexão TLS, exigido
-  // pelo Sistema Nacional NFS-e além da assinatura do XML.
   const httpsAgent = new https.Agent({
-    pfx,
-    passphrase: pfxPassword,
+    key: cert.privateKeyPem,
+    cert: cert.certificatePem,
     rejectUnauthorized: true,
   });
 
