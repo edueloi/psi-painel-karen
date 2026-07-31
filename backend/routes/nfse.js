@@ -461,9 +461,11 @@ router.get('/', authMiddleware, async (req, res) => {
     const whereSql = where.join(' AND ');
 
     const [invoices] = await db.query(
-      `SELECT ni.*, ft.description AS transaction_description, ft.date AS transaction_date
+      `SELECT ni.*, ft.description AS transaction_description, ft.date AS transaction_date,
+              p.name AS patient_name
          FROM nfse_invoices ni
          LEFT JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
+         LEFT JOIN patients p ON p.id = ft.patient_id
         WHERE ${whereSql}
         ORDER BY ni.created_at DESC
         LIMIT ? OFFSET ?`,

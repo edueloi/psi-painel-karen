@@ -34,6 +34,7 @@ interface NfseInvoiceRow {
   created_at: string;
   transaction_description?: string | null;
   transaction_date?: string | null;
+  patient_name?: string | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -198,6 +199,14 @@ export const NotaFiscal: React.FC = () => {
           <p className="text-xs font-bold text-slate-700">nº {inv.numero} · Série {inv.serie}</p>
           {inv.chave_acesso && <p className="text-[10px] text-slate-400 truncate max-w-[160px]" title={inv.chave_acesso}>{inv.chave_acesso}</p>}
         </div>
+      ),
+    },
+    {
+      header: 'Paciente',
+      render: (inv) => (
+        <p className="text-xs font-bold text-slate-700 max-w-[160px] truncate" title={inv.patient_name || undefined}>
+          {inv.patient_name || '—'}
+        </p>
       ),
     },
     {
