@@ -13,10 +13,6 @@ function formatCpfCnpj(v) {
   return v || '';
 }
 
-function formatChave(chave) {
-  return String(chave || '').replace(/(\d{4})/g, '$1 ').trim();
-}
-
 function formatPhone(v) {
   const d = String(v || '').replace(/\D/g, '');
   if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
@@ -179,7 +175,7 @@ async function generateNfsePdf({
       { label: 'Código de verificação', value: codigoVerificacao || '—' },
     ]);
     doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text('CHAVE DE ACESSO', 36, doc.y, { characterSpacing: 0.3 });
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(formatChave(chaveAcesso), 36, doc.y + 1, { width: pageWidth });
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(chaveAcesso || '', 36, doc.y + 1, { width: pageWidth });
     doc.moveDown(0.8);
 
     // ── Rodapé: QR Code + código de barras ─────────────────────────────────
@@ -193,7 +189,7 @@ async function generateNfsePdf({
     const barcodeWidth = pageWidth - qrSize - 16;
     doc.image(barcodePng, barcodeX, footerY + 24, { width: barcodeWidth, height: 32 });
     doc.font('Helvetica').fontSize(6.5).fillColor(colorMuted)
-      .text(formatChave(chaveAcesso), barcodeX, footerY + 58, { width: barcodeWidth, align: 'center' });
+      .text(chaveAcesso || '', barcodeX, footerY + 58, { width: barcodeWidth, align: 'center' });
 
     doc.font('Helvetica').fontSize(7).fillColor(colorMuted)
       .text('Consulte a autenticidade desta NFS-e no portal do Sistema Nacional NFS-e (nfse.gov.br) utilizando a chave de acesso acima.',
