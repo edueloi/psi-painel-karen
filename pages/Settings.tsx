@@ -6,7 +6,7 @@ import {
   Save, AlertTriangle, Clock, Send, Loader2, Calendar,
   BarChart2, FileText, UserCheck, Users2, ExternalLink, Zap, ClipboardList,
   MessageSquare, Video, FileCode, Plug, ArrowRight, Users, Shield,
-  Phone, Briefcase, CreditCard, Eye, EyeOff, Unplug, CheckCircle2, XCircle
+  Phone, Briefcase, CreditCard, Eye, EyeOff, Unplug, CheckCircle2, XCircle, Receipt
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { PageHeader } from '../components/UI/PageHeader';
@@ -90,7 +90,7 @@ const SectionHeader = ({ icon, title, desc }: { icon: React.ReactNode; title: st
 // ─── Component ───────────────────────────────────────────────────────────────
 export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, updateUser } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('aparencia');
   const { mode: selectedMode, setMode, primaryColor: selectedColor, setPrimaryColor: setSelectedColor } = useTheme();
@@ -226,12 +226,38 @@ export const Settings: React.FC = () => {
   const [nfseCertPassword, setNfseCertPassword] = useState('');
   const [nfseUploadingCert, setNfseUploadingCert] = useState(false);
   const [nfseTesting, setNfseTesting] = useState(false);
+  const [nfseToggleSaving, setNfseToggleSaving] = useState(false);
+  const [rsToggleSaving, setRsToggleSaving] = useState(false);
   const nfseCertInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (activeTab !== 'dados-fiscais') return;
     api.get<any>('/nfse/config').then((d: any) => setNfseConfig(d)).catch(() => {});
   }, [activeTab]);
+
+  const toggleNfseEnabled = async () => {
+    setNfseToggleSaving(true);
+    try {
+      const next = !nfseConfig.nfse_enabled;
+      await api.post('/nfse/toggles', { nfse_enabled: next });
+      setNfseConfig((p: any) => ({ ...p, nfse_enabled: next }));
+      updateUser({ nfseEnabled: next });
+      pushToast('success', next ? 'NFS-e ativada para a clínica.' : 'NFS-e desativada para a clínica.');
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao atualizar configuração.'); }
+    finally { setNfseToggleSaving(false); }
+  };
+
+  const toggleRsReceiptEnabled = async () => {
+    setRsToggleSaving(true);
+    try {
+      const next = !nfseConfig.rs_receipt_enabled;
+      await api.post('/nfse/toggles', { rs_receipt_enabled: next });
+      setNfseConfig((p: any) => ({ ...p, rs_receipt_enabled: next }));
+      updateUser({ rsReceiptEnabled: next });
+      pushToast('success', next ? 'Recibo Receita Saúde ativado.' : 'Recibo Receita Saúde desativado.');
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao atualizar configuração.'); }
+    finally { setRsToggleSaving(false); }
+  };
 
   const saveNfseConfig = async () => {
     setNfseSaving(true);
@@ -873,7 +899,15 @@ export const Settings: React.FC = () => {
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">Emita a Nota Fiscal de Serviço Eletrônica municipal direto do Livro Caixa</p>
                     </div>
+                    <ToggleSwitch checked={!!nfseConfig.nfse_enabled} onChange={toggleNfseEnabled} />
                   </div>
+                  {nfseToggleSaving && <div className="px-4 pt-2 text-[11px] text-slate-400">Salvando...</div>}
+                  {!nfseConfig.nfse_enabled && (
+                    <div className="mx-4 mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
+                      <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700">NFS-e desativada — o botão de emitir e a página "Nota Fiscal" ficam ocultos para todos os profissionais da clínica até você ativar aqui.</p>
+                    </div>
+                  )}
 
                   <div className="p-4 space-y-4">
                     {/* Dados fiscais */}
@@ -1009,6 +1043,29 @@ export const Settings: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* ── Recibo Receita Saúde ────────────────────────────────────── */}
+              <div>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="flex items-center gap-4 p-4">
+                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-600 shrink-0">
+                      <Receipt size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm">Recibo Receita Saúde</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Controle manual de recibo para dedução no Imposto de Renda (independente da NFS-e)</p>
+                    </div>
+                    <ToggleSwitch checked={!!nfseConfig.rs_receipt_enabled} onChange={toggleRsReceiptEnabled} />
+                  </div>
+                  {rsToggleSaving && <div className="px-4 pb-2 text-[11px] text-slate-400">Salvando...</div>}
+                  {!nfseConfig.rs_receipt_enabled && (
+                    <div className="mx-4 mb-4 p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
+                      <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700">Recibo RS desativado — a coluna "Recibo RS" fica oculta no Livro Caixa até você ativar aqui.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,65 +1,207 @@
 const PDFDocument = require('pdfkit');
+const QRCode = require('qrcode');
+const bwipjs = require('bwip-js');
 
 function formatMoney(v) {
   return `R$ ${Number(v).toFixed(2).replace('.', ',')}`;
 }
 
+function formatCpfCnpj(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  return v || '';
+}
+
+function formatChave(chave) {
+  return String(chave || '').replace(/(\d{4})/g, '$1 ').trim();
+}
+
+function formatPhone(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  return v || '';
+}
+
 /**
- * Gera um PDF simples de representação da NFS-e (não é um DANFE — NFS-e não tem
- * documento auxiliar padronizado nesse formato; aqui é um recibo A4 legível com
- * os dados da nota, para o paciente imprimir/guardar).
+ * Gera o PDF de representação da NFS-e (não é um DANFE — NFS-e não tem documento
+ * auxiliar padronizado nesse formato; aqui é um documento A4 completo com os dados
+ * da nota, logo da clínica, QR Code e código de barras da chave de acesso, para o
+ * paciente/prestador imprimir ou guardar).
  */
-function generateNfsePdf({
-  emitterName, emitterDocument, emitterAddress,
+async function generateNfsePdf({
+  logoBuffer,
+  emitterName, emitterDocument, emitterIM, emitterRegime,
+  emitterAddress, emitterEmail, emitterPhone,
   tomadorNome, tomadorDocumento,
   numero, serie, environment,
-  chaveAcesso, authorizedAt,
-  descricaoServico, valorServico, aliquotaIss,
+  chaveAcesso, authorizedAt, codigoVerificacao,
+  codigoTributacao, descricaoTributacao,
+  descricaoServico, valorServico, aliquotaIss, valorIss,
 }) {
+  const qrPng = await QRCode.toBuffer(chaveAcesso || 'SEM-CHAVE', { margin: 1, scale: 6 });
+  const barcodePng = await bwipjs.toBuffer({
+    bcid: 'code128',
+    text: chaveAcesso || '00000000000000000000000000000000000000000000000',
+    scale: 2,
+    height: 12,
+    includetext: false,
+  });
+
   return new Promise((resolve, reject) => {
     const chunks = [];
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const doc = new PDFDocument({ size: 'A4', margin: 36 });
     doc.on('data', (c) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.font('Helvetica-Bold').fontSize(14).text('Nota Fiscal de Serviços Eletrônica (NFS-e)', { align: 'center' });
-    doc.moveDown(0.3);
-    if (environment !== 'producao') {
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('red')
-        .text('EMISSÃO EM AMBIENTE DE HOMOLOGAÇÃO — SEM VALOR FISCAL', { align: 'center' });
-      doc.fillColor('black');
+    const pageWidth = doc.page.width - 72;
+    const colorPrimary = '#5b21b6'; // violet-800
+    const colorPrimaryLight = '#f5f3ff'; // violet-50
+    const colorText = '#1e293b'; // slate-800
+    const colorMuted = '#64748b'; // slate-500
+    const colorBorder = '#e2e8f0'; // slate-200
+
+    // ── Cabeçalho ──────────────────────────────────────────────────────────
+    const headerTop = doc.y;
+    if (logoBuffer) {
+      doc.image(logoBuffer, 36, headerTop, { fit: [64, 64] });
+    } else {
+      doc.roundedRect(36, headerTop, 64, 64, 8).fill(colorPrimaryLight);
+      doc.fillColor(colorPrimary).font('Helvetica-Bold').fontSize(22)
+        .text((emitterName || '?').charAt(0).toUpperCase(), 36, headerTop + 18, { width: 64, align: 'center' });
     }
-    doc.moveDown();
 
-    doc.font('Helvetica-Bold').fontSize(10).text('Prestador do serviço');
-    doc.font('Helvetica').fontSize(10).text(emitterName || '');
-    if (emitterDocument) doc.text(emitterDocument);
-    if (emitterAddress) doc.text(emitterAddress);
-    doc.moveDown();
+    const textX = 36 + 64 + 14;
+    const textWidth = pageWidth - 64 - 14 - 170;
+    doc.fillColor(colorText).font('Helvetica-Bold').fontSize(13)
+      .text(emitterName || '', textX, headerTop, { width: textWidth });
+    doc.font('Helvetica').fontSize(8.5).fillColor(colorMuted);
+    doc.text(`CNPJ/CPF: ${formatCpfCnpj(emitterDocument)}${emitterIM ? `   IM: ${emitterIM}` : ''}`, textX, doc.y + 2, { width: textWidth });
+    if (emitterAddress) doc.text(emitterAddress, textX, doc.y + 1, { width: textWidth });
+    const contactLine = [emitterPhone ? formatPhone(emitterPhone) : null, emitterEmail].filter(Boolean).join('   ');
+    if (contactLine) doc.text(contactLine, textX, doc.y + 1, { width: textWidth });
 
-    doc.font('Helvetica-Bold').text('Tomador do serviço');
-    doc.font('Helvetica').text(tomadorNome || 'Consumidor final');
-    if (tomadorDocumento) doc.text(tomadorDocumento);
-    doc.moveDown();
+    // Badge no canto direito
+    const badgeX = doc.page.width - 36 - 160;
+    doc.roundedRect(badgeX, headerTop, 160, 64, 8).fillAndStroke(colorPrimaryLight, colorBorder);
+    doc.fillColor(colorPrimary).font('Helvetica-Bold').fontSize(9)
+      .text('NFS-e', badgeX, headerTop + 10, { width: 160, align: 'center' });
+    doc.fontSize(7.5).font('Helvetica').fillColor(colorMuted)
+      .text('Nota Fiscal de Serviço Eletrônica', badgeX, doc.y + 1, { width: 160, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(colorText)
+      .text(`Nº ${numero}  •  Série ${serie}`, badgeX, headerTop + 38, { width: 160, align: 'center' });
+    if (environment !== 'producao') {
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#b45309')
+        .text('HOMOLOGAÇÃO — SEM VALOR FISCAL', badgeX, headerTop + 52, { width: 160, align: 'center' });
+    }
 
-    doc.font('Helvetica-Bold').text(`NFS-e nº ${numero}  Série ${serie}`);
-    if (chaveAcesso) doc.font('Helvetica').text(`Chave de acesso: ${chaveAcesso}`);
-    if (authorizedAt) doc.text(`Autorizada em: ${new Date(authorizedAt).toLocaleString('pt-BR')}`);
-    doc.moveDown();
+    doc.y = headerTop + 74;
+    doc.moveTo(36, doc.y).lineTo(doc.page.width - 36, doc.y).lineWidth(1.5).strokeColor(colorPrimary).stroke();
+    doc.moveDown(0.8);
 
-    doc.font('Helvetica-Bold').text('Discriminação do serviço');
-    doc.font('Helvetica').text(descricaoServico || '');
-    doc.moveDown(0.5);
+    function sectionTitle(label) {
+      doc.moveDown(0.6);
+      const y = doc.y;
+      doc.rect(36, y, 3, 12).fill(colorPrimary);
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(colorPrimary)
+        .text(label.toUpperCase(), 44, y, { characterSpacing: 0.5 });
+      doc.moveDown(0.35);
+      doc.fillColor(colorText);
+    }
 
-    doc.font('Helvetica-Bold').text(`Valor do serviço: ${formatMoney(valorServico)}`);
-    if (aliquotaIss != null) doc.font('Helvetica').text(`Alíquota ISS: ${Number(aliquotaIss).toFixed(2)}%`);
-    doc.moveDown(2);
+    function fieldRow(fields) {
+      const colWidth = pageWidth / fields.length;
+      const y = doc.y;
+      fields.forEach((f, i) => {
+        const x = 36 + i * colWidth;
+        doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text(f.label.toUpperCase(), x, y, { width: colWidth - 8, characterSpacing: 0.3 });
+        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(f.value || '—', x, doc.y + 1, { width: colWidth - 8 });
+      });
+      doc.moveDown(0.9);
+    }
 
-    doc.fontSize(8).fillColor('gray').text(
-      'Documento gerado a partir dos dados da DPS/NFS-e do Sistema Nacional NFS-e. Não substitui a consulta oficial pela chave de acesso.',
-      { align: 'center' }
-    );
+    // ── Prestador ──────────────────────────────────────────────────────────
+    sectionTitle('Prestador do serviço');
+    fieldRow([
+      { label: 'Razão social', value: emitterName },
+      { label: 'CNPJ/CPF', value: formatCpfCnpj(emitterDocument) },
+    ]);
+    fieldRow([
+      { label: 'Inscrição municipal', value: emitterIM || 'Não informada' },
+      { label: 'Regime tributário', value: emitterRegime },
+    ]);
+    if (emitterAddress) {
+      doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text('ENDEREÇO', 36, doc.y, { characterSpacing: 0.3 });
+      doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(emitterAddress, 36, doc.y + 1, { width: pageWidth });
+      doc.moveDown(0.6);
+    }
+
+    // ── Tomador ────────────────────────────────────────────────────────────
+    sectionTitle('Tomador do serviço');
+    fieldRow([
+      { label: 'Nome / Razão social', value: tomadorNome || 'Consumidor final' },
+      { label: 'CPF/CNPJ', value: tomadorDocumento ? formatCpfCnpj(tomadorDocumento) : 'Não informado' },
+    ]);
+
+    // ── Discriminação do serviço ───────────────────────────────────────────
+    sectionTitle('Discriminação do serviço');
+    fieldRow([
+      { label: 'Código de tributação (LC 116/03)', value: `${codigoTributacao}${descricaoTributacao ? ` — ${descricaoTributacao}` : ''}` },
+    ]);
+    doc.font('Helvetica').fontSize(9).fillColor(colorText)
+      .text(descricaoServico || '', 36, doc.y, { width: pageWidth });
+    doc.moveDown(0.6);
+
+    // ── Valores ────────────────────────────────────────────────────────────
+    sectionTitle('Valores');
+    const boxY = doc.y;
+    const boxH = 54;
+    doc.roundedRect(36, boxY, pageWidth, boxH, 8).fillAndStroke('#f8fafc', colorBorder);
+    const valCols = [
+      { label: 'Valor do serviço', value: formatMoney(valorServico) },
+      { label: 'Alíquota ISS', value: aliquotaIss != null ? `${Number(aliquotaIss).toFixed(2)}%` : 'Apurado pelo Simples Nacional' },
+      { label: 'Valor aprox. ISS', value: valorIss != null ? formatMoney(valorIss) : '—' },
+    ];
+    const vw = pageWidth / valCols.length;
+    valCols.forEach((v, i) => {
+      const x = 36 + i * vw;
+      doc.font('Helvetica').fontSize(7.5).fillColor(colorMuted).text(v.label.toUpperCase(), x + 14, boxY + 10, { width: vw - 28, characterSpacing: 0.3 });
+      doc.font('Helvetica-Bold').fontSize(14).fillColor(i === 0 ? colorPrimary : colorText).text(v.value, x + 14, boxY + 24, { width: vw - 28 });
+    });
+    doc.y = boxY + boxH + 10;
+
+    // ── Identificação da NFS-e ─────────────────────────────────────────────
+    sectionTitle('Identificação da NFS-e');
+    fieldRow([
+      { label: 'Data/hora de autorização', value: authorizedAt ? new Date(authorizedAt).toLocaleString('pt-BR') : '—' },
+      { label: 'Código de verificação', value: codigoVerificacao || '—' },
+    ]);
+    doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text('CHAVE DE ACESSO', 36, doc.y, { characterSpacing: 0.3 });
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(formatChave(chaveAcesso), 36, doc.y + 1, { width: pageWidth });
+    doc.moveDown(0.8);
+
+    // ── Rodapé: QR Code + código de barras ─────────────────────────────────
+    const footerY = doc.y + 6;
+    doc.moveTo(36, footerY).lineTo(doc.page.width - 36, footerY).strokeColor(colorBorder).lineWidth(1).stroke();
+
+    const qrSize = 78;
+    doc.image(qrPng, 36, footerY + 12, { width: qrSize, height: qrSize });
+
+    const barcodeX = 36 + qrSize + 16;
+    const barcodeWidth = pageWidth - qrSize - 16;
+    doc.image(barcodePng, barcodeX, footerY + 24, { width: barcodeWidth, height: 32 });
+    doc.font('Helvetica').fontSize(6.5).fillColor(colorMuted)
+      .text(formatChave(chaveAcesso), barcodeX, footerY + 58, { width: barcodeWidth, align: 'center' });
+
+    doc.font('Helvetica').fontSize(7).fillColor(colorMuted)
+      .text('Consulte a autenticidade desta NFS-e no portal do Sistema Nacional NFS-e (nfse.gov.br) utilizando a chave de acesso acima.',
+        barcodeX, footerY + 68, { width: barcodeWidth });
+
+    doc.font('Helvetica-Oblique').fontSize(6.5).fillColor(colorMuted)
+      .text('Documento gerado a partir dos dados da DPS/NFS-e do Sistema Nacional NFS-e. Não substitui a consulta oficial pela chave de acesso.',
+        36, doc.page.height - 50, { width: pageWidth, align: 'center' });
 
     doc.end();
   });

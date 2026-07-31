@@ -19,6 +19,22 @@ function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+// Bloqueia emissão/retry quando a clínica desativou a NFS-e em Configurações — a
+// tela já esconde os botões, isso é a garantia de servidor caso a rota seja chamada
+// diretamente (ex: request antiga em cache, chamada manual).
+async function requireNfseEnabled(req, res, next) {
+  try {
+    const [[tenant]] = await db.query('SELECT nfse_enabled FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    if (!tenant?.nfse_enabled) {
+      return res.status(403).json({ error: 'A emissão de NFS-e não está ativada para esta clínica (Configurações > Dados Fiscais).' });
+    }
+    next();
+  } catch (err) {
+    console.error('[NFS-e] Erro ao verificar toggle:', err);
+    res.status(500).json({ error: 'Erro ao verificar configuração da clínica' });
+  }
+}
+
 // ── GET /nfse/config — configuração fiscal do profissional logado ───────────
 router.get('/config', authMiddleware, async (req, res) => {
   try {
@@ -32,6 +48,11 @@ router.get('/config', authMiddleware, async (req, res) => {
     );
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
 
+    const [[tenant]] = await db.query(
+      'SELECT nfse_enabled, rs_receipt_enabled FROM tenants WHERE id = ?',
+      [req.user.tenant_id]
+    );
+
     res.json({
       razao_social: user.nfse_razao_social,
       cnpj_cpf: user.cnpj || user.cpf || null,
@@ -44,10 +65,33 @@ router.get('/config', authMiddleware, async (req, res) => {
       next_number: user.nfse_next_number,
       certificate_configured: !!user.nfse_cert_path,
       certificate_uploaded_at: user.nfse_cert_uploaded_at,
+      nfse_enabled: !!tenant?.nfse_enabled,
+      rs_receipt_enabled: !!tenant?.rs_receipt_enabled,
     });
   } catch (err) {
     console.error('[NFS-e] Erro ao buscar config:', err);
     res.status(500).json({ error: 'Erro ao buscar configuração fiscal' });
+  }
+});
+
+// ── POST /nfse/toggles — liga/desliga NFS-e e Recibo RS para a clínica ──────
+router.post('/toggles', authMiddleware, checkPermission('manage_clinic_settings'), async (req, res) => {
+  try {
+    const { nfse_enabled, rs_receipt_enabled } = req.body;
+    const updates = [];
+    const values = [];
+    if (nfse_enabled !== undefined) { updates.push('nfse_enabled = ?'); values.push(nfse_enabled ? 1 : 0); }
+    if (rs_receipt_enabled !== undefined) { updates.push('rs_receipt_enabled = ?'); values.push(rs_receipt_enabled ? 1 : 0); }
+    if (!updates.length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+    values.push(req.user.tenant_id);
+    await db.query(`UPDATE tenants SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    const [[tenant]] = await db.query('SELECT nfse_enabled, rs_receipt_enabled FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    res.json({ nfse_enabled: !!tenant.nfse_enabled, rs_receipt_enabled: !!tenant.rs_receipt_enabled });
+  } catch (err) {
+    console.error('[NFS-e] Erro ao atualizar toggles:', err);
+    res.status(500).json({ error: 'Erro ao atualizar configuração' });
   }
 });
 
@@ -191,7 +235,7 @@ router.post('/config/test', authMiddleware, checkPermission('manage_payments'), 
 });
 
 // ── POST /nfse/batch/retry — reenvia várias notas (erro/rejeitada) de uma vez ─
-router.post('/batch/retry', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+router.post('/batch/retry', authMiddleware, checkPermission('manage_payments'), requireNfseEnabled, async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
@@ -258,7 +302,7 @@ async function downloadBatchZip(req, res, column, ext) {
 }
 
 // ── POST /nfse/:transactionId/emit — cria/reaproveita e dispara emissão ─────
-router.post('/:transactionId/emit', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+router.post('/:transactionId/emit', authMiddleware, checkPermission('manage_payments'), requireNfseEnabled, async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const transactionId = Number(req.params.transactionId);
@@ -323,7 +367,7 @@ router.post('/:transactionId/emit', authMiddleware, checkPermission('manage_paym
 });
 
 // ── POST /nfse/:transactionId/retry ──────────────────────────────────────────
-router.post('/:transactionId/retry', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+router.post('/:transactionId/retry', authMiddleware, checkPermission('manage_payments'), requireNfseEnabled, async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const transactionId = Number(req.params.transactionId);

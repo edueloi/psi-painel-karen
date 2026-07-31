@@ -77,6 +77,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
     });
   }, []);
 
+  // Item "Nota Fiscal" só aparece se a clínica ativou a NFS-e em Configurações > Dados
+  // Fiscais — evitamos poluir NAV_SECTIONS (array estático) com esse caso especial.
+  const isNavItemVisible = React.useCallback((item: any) => {
+    if (item.path === '/nota-fiscal' && !user?.nfseEnabled) return false;
+    return true;
+  }, [user]);
+
   // All permitted nav items (path → meta)
   const allNavMeta = React.useMemo(() => {
     const map: Record<string, { label: string; icon: React.ReactNode; path: string }> = {};
@@ -84,11 +91,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
       for (const item of section.items as any[]) {
         if (item.requiredFeature && !user?.plan_features?.includes(item.requiredFeature)) continue;
         if (item.requiredPermission && typeof hasPermission === 'function' && !hasPermission(item.requiredPermission)) continue;
+        if (!isNavItemVisible(item)) continue;
         map[item.path] = { label: item.label, icon: item.icon, path: item.path };
       }
     }
     return map;
-  }, [user, hasPermission]);
+  }, [user, hasPermission, isNavItemVisible]);
 
   // Default sections (no custom layout active)
   const defaultSections = React.useMemo(() => {
@@ -96,6 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
       ...section,
       items: section.items.filter((item: any) => {
         if (item.requiredFeature && !user?.plan_features?.includes(item.requiredFeature)) return false;
+        if (!isNavItemVisible(item)) return false;
         if (!item.requiredPermission) return true;
         return typeof hasPermission === 'function' ? hasPermission(item.requiredPermission) : true;
       })
@@ -105,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
       if (isRestricted && !isAdmin) return false;
       return section.items.length > 0;
     });
-  }, [user, isAdmin, hasPermission]);
+  }, [user, isAdmin, hasPermission, isNavItemVisible]);
 
   // Active custom layout sections (if set)
   const activeLayout = React.useMemo(() => {

@@ -8,6 +8,41 @@ const { consultarAliquotaServico } = require('./parametrosMunicipais');
 const { decryptCertPassword } = require('./certCrypto');
 const { generateNfsePdf } = require('./pdf');
 
+// Extrai um valor simples de tag XML sem depender de parser completo (o XML de
+// retorno do governo é bem estruturado e sem CDATA nesses campos).
+function extractTag(xml, tag) {
+  const m = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+  return m ? m[1] : null;
+}
+
+// O XML de retorno do governo traz nome/endereço em CAIXA ALTA — deixamos em Title
+// Case para o PDF ficar mais legível, preservando siglas curtas (LTDA, ME/EPP, UF...).
+function titleCase(v) {
+  if (!v) return v;
+  return v.toLowerCase().replace(/\b([a-zà-ú])/gi, (c) => c.toUpperCase())
+    .replace(/\b(Ltda|Me|Epp|Sp|Rj|Mg|Pr|Rs|Sc|Ba|Pe|Ce|Go|Df|Es)\b/gi, (m) => m.toUpperCase());
+}
+
+// Monta o endereço legível do prestador a partir do grupo <enderNac> do XML de
+// retorno da NFS-e — mais confiável que o campo livre users.address, pois é
+// exatamente o endereço que consta no certificado/CNC usado para emitir.
+function extractEnderecoFromNfseXml(nfseXml) {
+  const xLgr = extractTag(nfseXml, 'xLgr');
+  if (!xLgr) return null;
+  const nro = extractTag(nfseXml, 'nro');
+  const xBairro = extractTag(nfseXml, 'xBairro');
+  const uf = extractTag(nfseXml, 'UF');
+  const cep = extractTag(nfseXml, 'CEP');
+  const xLocEmi = extractTag(nfseXml, 'xLocEmi');
+  const cepFmt = cep ? cep.replace(/(\d{5})(\d{3})/, '$1-$2') : null;
+  return [
+    [xLgr, nro].filter(Boolean).join(', '),
+    xBairro,
+    [xLocEmi, uf].filter(Boolean).join('/'),
+    cepFmt ? `CEP ${cepFmt}` : null,
+  ].filter(Boolean).join(' — ');
+}
+
 const NFSE_TIMEOUT_MS = Number(process.env.NFSE_TIMEOUT_MS) || 30000;
 const NFSE_XML_DIR = process.env.NFSE_XML_DIR || path.join(__dirname, '../../private_storage/nfse_xml');
 
@@ -150,10 +185,27 @@ async function emitirNfse(invoiceId) {
     const nfsePath = path.join(dir, `${idDPS}-nfse.xml`);
     fs.writeFileSync(nfsePath, nfseXml, 'utf-8');
 
+    let logoBuffer = null;
+    if (emitter.clinic_logo_url) {
+      try {
+        const logoPath = path.join(__dirname, '../../public', emitter.clinic_logo_url.replace('/uploads-static/', 'uploads/'));
+        if (fs.existsSync(logoPath)) logoBuffer = fs.readFileSync(logoPath);
+      } catch { /* segue sem logo */ }
+    }
+
+    const xTribNac = extractTag(nfseXml, 'xTribNac'); // descrição oficial do código de tributação, vinda do governo
+    const codigoVerificacao = extractTag(nfseXml, 'nDFSe');
+    const emitterEnderecoNfse = extractEnderecoFromNfseXml(nfseXml);
+
     const pdfBuffer = await generateNfsePdf({
+      logoBuffer,
       emitterName: emitter.nfse_razao_social || emitter.company_name || emitter.name,
       emitterDocument: emitter.cnpj || emitter.cpf || '',
-      emitterAddress: emitter.address || '',
+      emitterIM: emitter.nfse_inscricao_municipal || null,
+      emitterRegime: emitter.nfse_regime_tributario === 'simples_nacional' ? 'Simples Nacional (ME/EPP)' : 'Não optante do Simples Nacional',
+      emitterAddress: emitterEnderecoNfse ? titleCase(emitterEnderecoNfse) : (emitter.address || ''),
+      emitterEmail: emitter.email || null,
+      emitterPhone: emitter.whatsapp || emitter.phone || null,
       tomadorNome: tomador?.nome,
       tomadorDocumento: tomador?.cpf || tomador?.cnpj,
       numero: invoice.numero,
@@ -161,9 +213,16 @@ async function emitirNfse(invoiceId) {
       environment,
       chaveAcesso,
       authorizedAt: new Date(),
+      codigoVerificacao,
+      codigoTributacao: invoice.codigo_tributacao_nacional,
+      descricaoTributacao: xTribNac ? xTribNac.replace(/\.$/, '') : null,
       descricaoServico: invoice.descricao_servico,
       valorServico: Number(invoice.valor_servico),
-      aliquotaIss,
+      // Alíquota só é exibida como percentual do ISS quando o regime não é Simples
+      // Nacional — para opSimpNac=3, o mesmo número é só a estimativa usada em
+      // pTotTribSN (não é a alíquota do ISS em si, que é apurada pelo SN).
+      aliquotaIss: emitter.nfse_regime_tributario === 'simples_nacional' ? null : aliquotaIss,
+      valorIss: null,
     });
     const pdfPath = path.join(dir, `${idDPS}-nfse.pdf`);
     fs.writeFileSync(pdfPath, pdfBuffer);

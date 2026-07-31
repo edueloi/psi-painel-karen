@@ -21,6 +21,8 @@ interface AuthUser {
   plan_features?: string[];
   uiPreferences?: Record<string, any>;
   trialEndsAt?: string | null;
+  nfseEnabled?: boolean;
+  rsReceiptEnabled?: boolean;
 }
 
 interface AuthContextType {
@@ -93,6 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         plan_features: (data as any).plan_features || [],
         uiPreferences: (data as any).ui_preferences || {},
         trialEndsAt: (data as any).trial_ends_at || null,
+        nfseEnabled: !!(data as any).nfse_enabled,
+        rsReceiptEnabled: !!(data as any).rs_receipt_enabled,
       });
     } catch (e) {
       setUser(decoded); // fallback só com id/role

@@ -13,6 +13,7 @@ import {
 } from '../components/UI/FilterLine';
 import { api, API_BASE_URL } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ const formatDateTime = (v?: string | null) => v ? new Date(v).toLocaleString('pt
 
 export const NotaFiscal: React.FC = () => {
   const { pushToast } = useToast();
+  const { user } = useAuth();
 
   const [invoices, setInvoices] = useState<NfseInvoiceRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -260,6 +262,21 @@ export const NotaFiscal: React.FC = () => {
       ),
     },
   ];
+
+  if (!user?.nfseEnabled) {
+    return (
+      <PageWrapper className="space-y-4 sm:space-y-6">
+        <SectionTitle icon={FileText} title="Nota Fiscal" description="Acompanhe as NFS-e emitidas, veja erros e baixe XML/PDF" />
+        <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
+          <EmptyState
+            icon={FileText}
+            title="NFS-e desativada para esta clínica"
+            description='Ative em Configurações > Dados Fiscais para começar a emitir notas fiscais.'
+          />
+        </div>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper className="space-y-4 sm:space-y-6">

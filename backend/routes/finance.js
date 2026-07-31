@@ -489,10 +489,12 @@ router.get('/', authMiddleware, checkPermission('view_financial_reports'), async
       SELECT t.*, p.name as patient_name,
              COALESCE(t.comanda_id, t.origin_id, c.id) as comanda_id,
              c.total as comanda_total, c.paid_value as comanda_paid_value, c.status as comanda_status,
-             t.rs_receipt_issued, t.rs_receipt_issued_at, t.rs_receipt_issued_by, t.rs_receipt_note, t.rs_receipt_file
+             t.rs_receipt_issued, t.rs_receipt_issued_at, t.rs_receipt_issued_by, t.rs_receipt_note, t.rs_receipt_file,
+             ni.status as nfse_status, ni.chave_acesso as nfse_chave_acesso, ni.rejection_reason as nfse_rejection_reason
       FROM financial_transactions t
       LEFT JOIN patients p ON p.id = t.patient_id
       LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.id = t.origin_id OR c.livrocaixa_tx_id = t.id)
+      LEFT JOIN nfse_invoices ni ON ni.financial_transaction_id = t.id
       WHERE t.tenant_id = ?
         AND (
           t.origin_module IS NOT NULL

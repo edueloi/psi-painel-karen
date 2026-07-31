@@ -13,7 +13,7 @@ import {
   Lock as LockIcon, Unlock as UnlockIcon,
   Receipt, CircleDashed,
   CalendarCheck, CalendarClock, UserCheck,
-  ExternalLink,
+  ExternalLink, XCircle,
 } from 'lucide-react';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { Modal } from '../components/UI/Modal';
@@ -65,6 +65,10 @@ interface Transaction {
   rs_receipt_issued_by?: number | null;
   rs_receipt_note?: string | null;
   rs_receipt_file?: string | null;
+  // NFS-e — status já embutido na listagem para colorir a coluna sem abrir o modal
+  nfse_status?: 'pending' | 'processing' | 'authorized' | 'rejected' | 'error' | 'cancelled' | null;
+  nfse_chave_acesso?: string | null;
+  nfse_rejection_reason?: string | null;
 }
 
 interface NfseInvoice {
@@ -648,7 +652,7 @@ export const LivroCaixa: React.FC = () => {
   const stickyStats = preferences.livroCaixa.stickyStats ?? false;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission, isAdmin, user } = useAuth();
 
   // ── View ─────────────────────────────────────────────────────────────────────
   const [view, setView]               = useState<'archive' | 'detail'>('archive');
@@ -1795,10 +1799,10 @@ export const LivroCaixa: React.FC = () => {
         </div>
       ),
     },
-    {
+    ...(user?.rsReceiptEnabled ? [{
       header: 'Recibo RS',
       headerClassName: 'text-center w-[90px]',
-      render: (tx) => {
+      render: (tx: Transaction) => {
         const eligible = isRsEligible(tx);
         const issued = !!tx.rs_receipt_issued;
         const isLoading = rsLoading === tx.id;
@@ -1835,11 +1839,11 @@ export const LivroCaixa: React.FC = () => {
           </div>
         );
       },
-    },
-    {
+    }] : []),
+    ...(user?.nfseEnabled ? [{
       header: 'NFS-e',
       headerClassName: 'text-center w-[90px]',
-      render: (tx) => {
+      render: (tx: Transaction) => {
         const eligible = isRsEligible(tx);
         const isLoading = nfseLoading === tx.id;
 
@@ -1851,23 +1855,33 @@ export const LivroCaixa: React.FC = () => {
           );
         }
 
+        const status = tx.nfse_status;
+        const styleByStatus: Record<string, { cls: string; icon: React.ReactNode; title: string }> = {
+          authorized: { cls: 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100', icon: <CheckCircle2 size={14} />, title: 'NFS-e autorizada — clique para ver' },
+          processing: { cls: 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100', icon: <Loader2 size={14} className="animate-spin" />, title: 'NFS-e em processamento' },
+          pending: { cls: 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100', icon: <Clock size={14} />, title: 'NFS-e pendente' },
+          rejected: { cls: 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100', icon: <XCircle size={14} />, title: tx.nfse_rejection_reason || 'NFS-e rejeitada — clique para tentar novamente' },
+          error: { cls: 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100', icon: <XCircle size={14} />, title: tx.nfse_rejection_reason || 'Erro ao emitir NFS-e — clique para tentar novamente' },
+        };
+        const s = status ? styleByStatus[status] : null;
+
         return (
           <div className="flex justify-center">
             {isLoading ? (
               <Loader2 size={18} className="animate-spin text-slate-300" />
             ) : (
               <button
-                title="Nota Fiscal de Serviço (NFS-e)"
+                title={s?.title || 'Emitir Nota Fiscal de Serviço (NFS-e)'}
                 onClick={(e) => { e.stopPropagation(); openNfseModal(tx); }}
-                className="w-8 h-8 flex items-center justify-center rounded-xl border transition-all bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100"
+                className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all ${s?.cls || 'bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100'}`}
               >
-                <FileText size={14} />
+                {s?.icon || <FileText size={14} />}
               </button>
             )}
           </div>
         );
       },
-    },
+    }] : []),
     {
       header: '',
       headerClassName: 'w-[180px] text-right',
@@ -2220,17 +2234,19 @@ export const LivroCaixa: React.FC = () => {
                 { value: 'expense', label: 'Saídas' },
               ]}
             />
-            <FilterLineSegmented
-              value={rsFilter}
-              onChange={v => setRsFilter(v as 'all' | 'issued' | 'pending' | 'na')}
-              options={[
-                { value: 'all',     label: 'RS: Todos' },
-                { value: 'pending', label: 'Pendente' },
-                { value: 'issued',  label: 'Emitido' },
-                { value: 'na',      label: 'N/A' },
-              ]}
-              size="sm"
-            />
+            {user?.rsReceiptEnabled && (
+              <FilterLineSegmented
+                value={rsFilter}
+                onChange={v => setRsFilter(v as 'all' | 'issued' | 'pending' | 'na')}
+                options={[
+                  { value: 'all',     label: 'RS: Todos' },
+                  { value: 'pending', label: 'Pendente' },
+                  { value: 'issued',  label: 'Emitido' },
+                  { value: 'na',      label: 'N/A' },
+                ]}
+                size="sm"
+              />
+            )}
             <IconButton
               variant={stickyStats ? 'success' : 'outline'}
               size="sm"
