@@ -28,7 +28,7 @@ function formatPhone(v) {
  */
 async function generateNfsePdf({
   logoBuffer,
-  emitterName, emitterDocument, emitterIM, emitterRegime,
+  emitterName, emitterDisplayName, emitterDocument, emitterIM, emitterRegime,
   emitterAddress, emitterEmail, emitterPhone,
   tomadorNome, tomadorDocumento,
   numero, serie, environment,
@@ -36,7 +36,13 @@ async function generateNfsePdf({
   codigoTributacao, descricaoTributacao,
   descricaoServico, valorServico, aliquotaIss, valorIss,
 }) {
-  const qrPng = await QRCode.toBuffer(chaveAcesso || 'SEM-CHAVE', { margin: 1, scale: 6 });
+  // O QR code aponta para a consulta pública oficial já com a chave preenchida —
+  // um texto solto com a chave não abre nada ao ser escaneado pela câmera do celular.
+  // URL no padrão da NT 008/2026 do Sistema Nacional NFS-e (ConsultaPublica?tpc=1&chave=...).
+  const qrUrl = chaveAcesso
+    ? `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave=${chaveAcesso}`
+    : 'https://www.nfse.gov.br/consultapublica';
+  const qrPng = await QRCode.toBuffer(qrUrl, { margin: 1, scale: 6 });
   const barcodePng = await bwipjs.toBuffer({
     bcid: 'code128',
     text: chaveAcesso || '00000000000000000000000000000000000000000000000',
@@ -61,18 +67,19 @@ async function generateNfsePdf({
 
     // ── Cabeçalho ──────────────────────────────────────────────────────────
     const headerTop = doc.y;
+    const headerName = emitterDisplayName || emitterName;
     if (logoBuffer) {
       doc.image(logoBuffer, 36, headerTop, { fit: [64, 64] });
     } else {
       doc.roundedRect(36, headerTop, 64, 64, 8).fill(colorPrimaryLight);
       doc.fillColor(colorPrimary).font('Helvetica-Bold').fontSize(22)
-        .text((emitterName || '?').charAt(0).toUpperCase(), 36, headerTop + 18, { width: 64, align: 'center' });
+        .text((headerName || '?').charAt(0).toUpperCase(), 36, headerTop + 18, { width: 64, align: 'center' });
     }
 
     const textX = 36 + 64 + 14;
     const textWidth = pageWidth - 64 - 14 - 170;
     doc.fillColor(colorText).font('Helvetica-Bold').fontSize(13)
-      .text(emitterName || '', textX, headerTop, { width: textWidth });
+      .text(headerName || '', textX, headerTop, { width: textWidth });
     doc.font('Helvetica').fontSize(8.5).fillColor(colorMuted);
     doc.text(`CNPJ/CPF: ${formatCpfCnpj(emitterDocument)}${emitterIM ? `   IM: ${emitterIM}` : ''}`, textX, doc.y + 2, { width: textWidth });
     if (emitterAddress) doc.text(emitterAddress, textX, doc.y + 1, { width: textWidth });

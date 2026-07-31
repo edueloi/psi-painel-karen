@@ -200,6 +200,7 @@ async function emitirNfse(invoiceId) {
     const pdfBuffer = await generateNfsePdf({
       logoBuffer,
       emitterName: emitter.nfse_razao_social || emitter.company_name || emitter.name,
+      emitterDisplayName: emitter.company_name || emitter.nfse_razao_social || emitter.name,
       emitterDocument: emitter.cnpj || emitter.cpf || '',
       emitterIM: emitter.nfse_inscricao_municipal || null,
       emitterRegime: emitter.nfse_regime_tributario === 'simples_nacional' ? 'Simples Nacional (ME/EPP)' : 'Não optante do Simples Nacional',
