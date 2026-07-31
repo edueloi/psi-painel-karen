@@ -789,8 +789,8 @@ async function migrate() {
   let basicPlanId, proPlanId, enterprisePlanId;
   if (existingPlans.length === 0) {
     const basicFeatures = JSON.stringify(['agenda','pacientes','prontuario','formularios']);
-    const proFeatures = JSON.stringify(['agenda','pacientes','prontuario','formularios','salas_virtuais','pei','ferramentas_clinicas','estudos_de_caso','financeiro','documentos']);
-    const entFeatures = JSON.stringify(['agenda','pacientes','prontuario','formularios','salas_virtuais','pei','ferramentas_clinicas','estudos_de_caso','financeiro','documentos','relatorios','api_acesso','suporte_prioritario']);
+    const proFeatures = JSON.stringify(['agenda','pacientes','prontuario','formularios','salas_virtuais','pei','ferramentas_clinicas','estudos_de_caso','financeiro','nota_fiscal','documentos']);
+    const entFeatures = JSON.stringify(['agenda','pacientes','prontuario','formularios','salas_virtuais','pei','ferramentas_clinicas','estudos_de_caso','financeiro','nota_fiscal','documentos','relatorios','api_acesso','suporte_prioritario']);
 
     const [r1] = await conn.query('INSERT INTO plans (name, description, price, max_users, max_patients, features) VALUES (?, ?, ?, ?, ?, ?)',
       ['Básico', 'Ideal para profissionais autônomos', 79.90, 2, 50, basicFeatures]);

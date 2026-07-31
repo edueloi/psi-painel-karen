@@ -46,6 +46,7 @@ const FEATURES_OPTIONS = [
   { key: 'comandas',             label: 'Comandas',                         group: 'Gestão' },
   // ── Financeiro ───────────────────────────────────────────────────────────
   { key: 'financeiro',           label: 'Financeiro & Livro Caixa',         group: 'Financeiro', premium: true },
+  { key: 'nota_fiscal',          label: 'Nota Fiscal (NFS-e)',              group: 'Financeiro', premium: true },
   { key: 'relatorios',           label: 'Relatórios & Desempenho',          group: 'Financeiro', premium: true },
   // ── Comunicação ───────────────────────────────────────────────────────────
   { key: 'mensagens',            label: 'Mensagens Internas',               group: 'Comunicação' },

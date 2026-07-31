@@ -57,7 +57,7 @@ export const NAV_SECTIONS = [
     icon: <TrendingUp size={13}/>,
     items: [
       { label: 'nav.livroCaixa',  path: '/livro-caixa',      icon: <BookOpen size={18} />, requiredPermission: 'view_financial_reports',   requiredFeature: 'financeiro' },
-      { label: 'nav.notaFiscal',  path: '/nota-fiscal',      icon: <FileText size={18} />, requiredPermission: 'view_financial_reports',   requiredFeature: 'financeiro' },
+      { label: 'nav.notaFiscal',  path: '/nota-fiscal',      icon: <FileText size={18} />, requiredPermission: 'view_financial_reports',   requiredFeature: 'nota_fiscal' },
       { label: 'nav.finance',     path: '/financeiro',       icon: <DollarSign size={18} />,requiredPermission: 'view_financial_reports',  requiredFeature: 'financeiro' },
       { label: 'nav.bestClients', path: '/melhores-clientes',icon: <Trophy size={18} />,   requiredPermission: 'view_performance_reports', requiredFeature: 'relatorios' },
       { label: 'nav.performance', path: '/desempenho',       icon: <BarChart2 size={18} />, requiredPermission: 'view_performance_reports', requiredFeature: 'relatorios' },
