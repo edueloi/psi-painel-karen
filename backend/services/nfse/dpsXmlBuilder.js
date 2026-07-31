@@ -1,6 +1,26 @@
 const { create } = require('xmlbuilder2');
 const { gerarIdDPS, onlyDigits } = require('./dpsId');
 
+// Monta "AAAA-MM-DDTHH:mm:ss±HH:mm" na hora LOCAL do processo (America/Sao_Paulo em
+// produção), exigido pelo tipo TSDateTimeUTC do layout nacional — que, apesar do nome,
+// rejeita timestamps em UTC puro com sufixo "Z".
+function formatDateTimeWithOffset(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const mo = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const h = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  const s = pad(date.getSeconds());
+
+  const offsetMin = -date.getTimezoneOffset();
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const absMin = Math.abs(offsetMin);
+  const offsetStr = `${sign}${pad(Math.floor(absMin / 60))}:${pad(absMin % 60)}`;
+
+  return `${y}-${mo}-${d}T${h}:${mi}:${s}${offsetStr}`;
+}
+
 // Campos mínimos obrigatórios do layout nacional da DPS (AnexoI-SEFIN_ADN-DPS_NFSe-SNNFSe).
 // Grupos opcionais fora do escopo de um consultório comum (comExt, obra, intermediário,
 // deduções) não são emitidos — servem só para cenários que não se aplicam a serviço de
@@ -35,11 +55,17 @@ function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNaci
   });
 
   const now = new Date();
-  const dhEmi = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const dCompet = now.toISOString().slice(0, 10);
+  // dhEmi exige data/hora LOCAL com offset de fuso explícito (ex: -03:00), não UTC
+  // com "Z" — o layout nacional rejeita UTC puro apesar do nome do tipo TSDateTimeUTC.
+  const dhEmi = formatDateTimeWithOffset(now);
+  // dCompet precisa usar a mesma data LOCAL de dhEmi (não UTC) — perto da meia-noite,
+  // a data UTC pode cair um dia à frente da local e o servidor rejeita "competência
+  // posterior à emissão".
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const dCompet = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 
-  const doc = create({ version: '1.0', encoding: 'UTF-8' }).ele('DPS', { xmlns: 'http://www.sped.fazenda.gov.br/nfse' });
-  const infDPS = doc.ele('infDPS', { Id: idDPS, versao: '1.00' });
+  const doc = create({ version: '1.0', encoding: 'UTF-8' }).ele('DPS', { xmlns: 'http://www.sped.fazenda.gov.br/nfse', versao: '1.00' });
+  const infDPS = doc.ele('infDPS', { Id: idDPS });
 
   infDPS.ele('tpAmb').txt(emitter.nfse_environment === 'producao' ? '1' : '2');
   infDPS.ele('dhEmi').txt(dhEmi);
@@ -53,17 +79,24 @@ function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNaci
   const prest = infDPS.ele('prest');
   if (isCnpj) prest.ele('CNPJ').txt(cnpjDigits);
   else prest.ele('CPF').txt(cnpjDigits || cpfDigits);
-  if (emitter.nfse_inscricao_municipal) prest.ele('IM').txt(emitter.nfse_inscricao_municipal);
-  prest.ele('xNome').txt(emitter.nfse_razao_social || emitter.company_name || emitter.name);
+  // <IM> só pode ser enviado se o município tiver informações complementares
+  // registradas no CNC NFS-e (confirmado via erro E0120 do próprio servidor) — como
+  // não consultamos o CNC hoje, omitimos por padrão para não quebrar a emissão.
+  // <xNome> também é omitido quando o emitente é o próprio prestador (tpEmit=1,
+  // caso comum aqui) — o servidor rejeita com E0121 porque o nome já vem do CNC.
 
-  if (emitter.address) {
-    prest.ele('end').ele('xLgr').txt(emitter.address);
-  }
+  // Grupo <end> é opcional no layout nacional e exige estrutura (endNac com cMun/CEP)
+  // que o psi-painel não coleta hoje (só um campo de endereço livre em texto) — omitido
+  // de propósito em vez de enviar malformado.
 
   const regTrib = prest.ele('regTrib');
   // opSimpNac: 1 Não Optante | 2 MEI | 3 ME/EPP
   const opSimpNac = emitter.nfse_regime_tributario === 'simples_nacional' ? 3 : 1;
   regTrib.ele('opSimpNac').txt(String(opSimpNac));
+  // regApTribSN é obrigatório quando opSimpNac=3 (erro E0166 do próprio servidor):
+  // 1 = tributos federais e municipal apurados pelo SN (caso padrão, sem retenção/
+  // substituição tributária de ISS por fora do Simples).
+  if (opSimpNac === 3) regTrib.ele('regApTribSN').txt('1');
   regTrib.ele('regEspTrib').txt('0'); // 0 = Nenhum regime especial
 
   if (tomador && (tomador.nome || tomador.cpf || tomador.cnpj)) {
@@ -90,7 +123,20 @@ function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNaci
   const tribMun = trib.ele('tribMun');
   tribMun.ele('tribISSQN').txt('1'); // 1 = Operação tributável
   tribMun.ele('tpRetISSQN').txt('1'); // 1 = Não retido
-  tribMun.ele('pAliq').txt(aliquotaIss.toFixed(2));
+  // pAliq não pode ser informado quando o prestador apura o ISSQN pelo próprio Simples
+  // Nacional (regApTribSN=1) — o servidor calcula a alíquota pela tabela do SN (erro
+  // E0625 do próprio servidor real quando enviado nesse cenário).
+  if (opSimpNac !== 3) tribMun.ele('pAliq').txt(aliquotaIss.toFixed(2));
+
+  // tribFed é opcional (sem retenção de PIS/COFINS/INSS/IRRF/CSLL para autônomo) — omitido.
+  // totTrib é obrigatório (XSD TCInfoTributacao). Para ME/EPP (opSimpNac=3) o servidor
+  // exige pTotTribSN (percentual aprox. da alíquota do Simples Nacional) em vez de
+  // indTotTrib=0 (erro E0712 do próprio servidor quando indTotTrib é usado por ME/EPP).
+  if (opSimpNac === 3) {
+    trib.ele('totTrib').ele('pTotTribSN').txt(aliquotaIss.toFixed(2));
+  } else {
+    trib.ele('totTrib').ele('indTotTrib').txt('0');
+  }
 
   return { idDPS, xml: doc.up().end() };
 }

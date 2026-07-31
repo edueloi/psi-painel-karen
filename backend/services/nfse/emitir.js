@@ -3,7 +3,7 @@ const path = require('path');
 const db = require('../../db');
 const { buildDpsXml } = require('./dpsXmlBuilder');
 const { loadPfx, assinarDPS } = require('./signer');
-const { callNfseRest, gzipBase64 } = require('./restClient');
+const { callNfseRest, gzipBase64, ungzipBase64 } = require('./restClient');
 const { consultarAliquotaServico } = require('./parametrosMunicipais');
 const { decryptCertPassword } = require('./certCrypto');
 const { generateNfsePdf } = require('./pdf');
@@ -86,6 +86,23 @@ async function emitirNfse(invoiceId) {
     });
 
     const cert = loadPfx(emitter.nfse_cert_path, certPassword);
+
+    // O Sistema Nacional NFS-e exige que a assinatura seja feita com o certificado do
+    // próprio emitente da DPS (erro E0718 quando não bate) — validamos aqui para dar
+    // uma mensagem clara em vez do erro genérico do governo.
+    const emitterCnpjDigits = (emitter.cnpj || '').replace(/\D/g, '');
+    const emitterCpfDigits = (emitter.cpf || '').replace(/\D/g, '');
+    const isEmitterCnpj = emitterCnpjDigits.length === 14;
+    if (isEmitterCnpj && cert.titularCnpj && cert.titularCnpj !== emitterCnpjDigits) {
+      throw new Error('O certificado digital enviado não corresponde ao CNPJ cadastrado como emitente. Para emitir em nome do CNPJ, é necessário um certificado e-CNPJ da empresa (o e-CPF pessoal não é aceito pelo Sistema Nacional NFS-e para assinar em nome do CNPJ).');
+    }
+    if (isEmitterCnpj && !cert.titularCnpj && cert.titularCpf) {
+      throw new Error('O certificado enviado é um e-CPF (pessoa física), mas o emitente está cadastrado com CNPJ. É necessário um certificado e-CNPJ da empresa para emitir NFS-e em nome do CNPJ.');
+    }
+    if (!isEmitterCnpj && cert.titularCpf && cert.titularCpf !== emitterCpfDigits) {
+      throw new Error('O certificado digital enviado não corresponde ao CPF cadastrado como emitente.');
+    }
+
     const signedXml = assinarDPS(xml, idDPS, cert);
 
     const result = await callNfseRest({
@@ -99,22 +116,29 @@ async function emitirNfse(invoiceId) {
     });
 
     if (!result.ok) {
+      // Schema real (NFSePostResponseErro): { erros: [{ Codigo, Descricao, Complemento }] }
+      // (a resposta real vem com maiúscula inicial, diferente do swagger documentado em minúsculo)
       const data = result.data || {};
-      const mensagens = Array.isArray(data.mensagens) ? data.mensagens : [];
-      const primeira = mensagens[0];
+      const erros = Array.isArray(data.erros) ? data.erros : [];
+      const primeiro = erros[0];
+      const codigo = primeiro?.Codigo ?? primeiro?.codigo;
+      const descricao = primeiro?.Descricao ?? primeiro?.descricao;
+      const complemento = primeiro?.Complemento ?? primeiro?.complemento;
       await db.query(
         `UPDATE nfse_invoices SET status = 'rejected', rejection_code = ?, rejection_reason = ? WHERE id = ?`,
         [
-          primeira ? String(primeira.codigo ?? 'sem-codigo') : String(result.statusCode),
-          primeira ? String(primeira.descricao ?? '') : (result.error || result.raw || 'Falha na comunicação com o Sistema Nacional NFS-e'),
+          codigo ? String(codigo) : String(result.statusCode),
+          codigo ? [descricao, complemento].filter(Boolean).join(' — ') : (result.error || result.raw || 'Falha na comunicação com o Sistema Nacional NFS-e'),
           invoiceId,
         ]
       );
       return;
     }
 
+    // Schema real (NFSePostResponseSucesso): { chaveAcesso, idDps, nfseXmlGZipB64, ... }
     const responseData = result.data || {};
     const chaveAcesso = responseData.chaveAcesso ?? null;
+    const nfseXml = responseData.nfseXmlGZipB64 ? ungzipBase64(responseData.nfseXmlGZipB64) : result.raw;
 
     const monthDir = `${transaction.date ? new Date(transaction.date).getFullYear() : new Date().getFullYear()}${String((transaction.date ? new Date(transaction.date).getMonth() : new Date().getMonth()) + 1).padStart(2, '0')}`;
     const dir = path.join(NFSE_XML_DIR, String(invoice.tenant_id), monthDir);
@@ -124,7 +148,7 @@ async function emitirNfse(invoiceId) {
     fs.writeFileSync(dpsPath, signedXml, 'utf-8');
 
     const nfsePath = path.join(dir, `${idDPS}-nfse.xml`);
-    fs.writeFileSync(nfsePath, result.raw, 'utf-8');
+    fs.writeFileSync(nfsePath, nfseXml, 'utf-8');
 
     const pdfBuffer = await generateNfsePdf({
       emitterName: emitter.nfse_razao_social || emitter.company_name || emitter.name,

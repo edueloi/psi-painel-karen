@@ -94,10 +94,25 @@ router.post('/config/certificate', authMiddleware, checkPermission('manage_payme
     if (!password) return res.status(400).json({ error: 'Senha do certificado é obrigatória' });
 
     // Valida o certificado antes de gravar qualquer coisa em disco/banco.
+    let certInfo;
     try {
-      parsePfx(req.file.buffer.toString('binary'), password);
+      certInfo = parsePfx(req.file.buffer.toString('binary'), password);
     } catch (e) {
       return res.status(422).json({ error: `Certificado inválido: ${e.message}` });
+    }
+
+    // Avisa já no upload se o certificado não bate com o CNPJ/CPF cadastrado do
+    // profissional — evita descobrir isso só na hora de emitir (erro E0718 do governo).
+    const [[user]] = await db.query('SELECT cnpj, cpf FROM users WHERE id = ?', [req.user.id]);
+    const userCnpjDigits = (user?.cnpj || '').replace(/\D/g, '');
+    const isUserCnpj = userCnpjDigits.length === 14;
+    if (isUserCnpj && certInfo.titularCpf && !certInfo.titularCnpj) {
+      return res.status(422).json({
+        error: 'Este é um certificado e-CPF (pessoa física), mas seu cadastro usa CNPJ. Para emitir NFS-e em nome do CNPJ, é necessário um certificado e-CNPJ da empresa.',
+      });
+    }
+    if (isUserCnpj && certInfo.titularCnpj && certInfo.titularCnpj !== userCnpjDigits) {
+      return res.status(422).json({ error: 'O CNPJ do certificado não corresponde ao CNPJ cadastrado no seu perfil.' });
     }
 
     const userDir = path.join(CERTS_DIR, `user_${req.user.id}`);
