@@ -112,7 +112,7 @@ function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNaci
   const locPrest = serv.ele('locPrest');
   locPrest.ele('cLocPrestacao').txt(onlyDigits(emitter.nfse_codigo_municipio));
   const cServ = serv.ele('cServ');
-  cServ.ele('cTribNac').txt(codigoTributacaoNacional);
+  cServ.ele('cTribNac').txt(String(codigoTributacaoNacional).trim());
   cServ.ele('xDescServ').txt(descricaoServico.slice(0, 1000));
 
   const valores = infDPS.ele('valores');

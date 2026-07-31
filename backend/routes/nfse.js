@@ -59,6 +59,11 @@ router.post('/config', authMiddleware, checkPermission('manage_payments'), async
       codigo_tributacao_nacional, regime_tributario, environment,
     } = req.body;
 
+    // trim() em todos os campos de texto — espaços extras (comuns em copy-paste de
+    // PDF/planilha) quebram a validação de schema do governo (ex: cTribNac com espaço
+    // à direita é rejeitado com "Pattern constraint failed").
+    const trimOrNull = (v) => (typeof v === 'string' && v.trim()) || null;
+
     await db.query(
       `UPDATE users SET
          nfse_razao_social = ?,
@@ -69,10 +74,10 @@ router.post('/config', authMiddleware, checkPermission('manage_payments'), async
          nfse_environment = ?
        WHERE id = ?`,
       [
-        razao_social || null,
-        inscricao_municipal || null,
-        codigo_municipio || null,
-        codigo_tributacao_nacional || null,
+        trimOrNull(razao_social),
+        trimOrNull(inscricao_municipal),
+        trimOrNull(codigo_municipio),
+        trimOrNull(codigo_tributacao_nacional),
         regime_tributario || 'simples_nacional',
         environment === 'producao' ? 'producao' : 'homologacao',
         req.user.id,

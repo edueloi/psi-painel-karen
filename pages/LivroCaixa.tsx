@@ -986,6 +986,30 @@ export const LivroCaixa: React.FC = () => {
     }
   };
 
+  // Downloads de XML/PDF exigem o header Authorization — um <a href> aberto direto no
+  // navegador não envia o token, por isso baixamos via fetch e criamos um blob local.
+  const downloadNfseFile = async (path: string, filename: string) => {
+    try {
+      const token = localStorage.getItem('psi_token');
+      const res = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Arquivo não disponível');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao baixar arquivo');
+    }
+  };
+
   const handleDeleteRsFile = async (tx: Transaction) => {
     setRsFileDeleting(true);
     try {
@@ -3188,20 +3212,18 @@ export const LivroCaixa: React.FC = () => {
                         </p>
                       )}
                       <div className="flex items-center gap-2">
-                        <a
-                          href={`${API_BASE_URL}/nfse/${nfseModalTx?.id}/xml`}
-                          target="_blank" rel="noopener noreferrer"
+                        <button
+                          onClick={() => nfseModalTx && downloadNfseFile(`/nfse/${nfseModalTx.id}/xml`, `nfse-${nfseInvoice.chave_acesso || nfseModalTx.id}.xml`)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-all"
                         >
                           <Download size={12} /> XML
-                        </a>
-                        <a
-                          href={`${API_BASE_URL}/nfse/${nfseModalTx?.id}/pdf`}
-                          target="_blank" rel="noopener noreferrer"
+                        </button>
+                        <button
+                          onClick={() => nfseModalTx && downloadNfseFile(`/nfse/${nfseModalTx.id}/pdf`, `nfse-${nfseInvoice.chave_acesso || nfseModalTx.id}.pdf`)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-all"
                         >
                           <Download size={12} /> PDF
-                        </a>
+                        </button>
                       </div>
                     </>
                   )}

@@ -155,6 +155,30 @@ export const NotaFiscal: React.FC = () => {
     }
   };
 
+  // Downloads de XML/PDF exigem o header Authorization — um <a href> aberto direto no
+  // navegador não envia o token, por isso baixamos via fetch e criamos um blob local.
+  const downloadFile = async (path: string, filename: string) => {
+    try {
+      const token = localStorage.getItem('psi_token');
+      const res = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Arquivo não disponível');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao baixar arquivo');
+    }
+  };
+
   const columns: Column<NfseInvoiceRow>[] = [
     {
       header: 'Emitida em',
@@ -218,14 +242,16 @@ export const NotaFiscal: React.FC = () => {
         <div className="flex items-center justify-center gap-1.5">
           {inv.status === 'authorized' ? (
             <>
-              <a href={`${API_BASE_URL}/nfse/${inv.financial_transaction_id}/xml`} target="_blank" rel="noopener noreferrer"
+              <button
+                onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/xml`, `nfse-${inv.chave_acesso || inv.numero}.xml`)}
                 title="Baixar XML" className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all">
                 <Download size={12} />
-              </a>
-              <a href={`${API_BASE_URL}/nfse/${inv.financial_transaction_id}/pdf`} target="_blank" rel="noopener noreferrer"
+              </button>
+              <button
+                onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/pdf`, `nfse-${inv.chave_acesso || inv.numero}.pdf`)}
                 title="Baixar PDF" className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all">
                 <FileText size={12} />
-              </a>
+              </button>
             </>
           ) : (
             <span className="text-slate-200 text-lg leading-none select-none">—</span>

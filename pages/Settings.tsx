@@ -229,7 +229,7 @@ export const Settings: React.FC = () => {
   const nfseCertInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (activeTab !== 'integracoes') return;
+    if (activeTab !== 'dados-fiscais') return;
     api.get<any>('/nfse/config').then((d: any) => setNfseConfig(d)).catch(() => {});
   }, [activeTab]);
 
