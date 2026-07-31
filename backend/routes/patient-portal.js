@@ -1569,6 +1569,83 @@ router.get('/documents', portalAuth, async (req, res) => {
   }
 });
 
+// ─── NOTAS FISCAIS (NFS-e) DO PACIENTE ────────────────────────────────────────
+// Regra de segurança: só retorna notas cujo lançamento financeiro (financial_transactions)
+// tenha ft.patient_id vinculado exatamente ao paciente da sessão — nunca por
+// payer_name/beneficiary_name (texto livre, não garante que a nota é dele). Uma
+// nota emitida só com pagador avulso (sem patient_id) nunca aparece no portal.
+router.get('/nfse', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [invoices] = await db.query(
+      `SELECT ni.id, ni.financial_transaction_id, ni.numero, ni.serie, ni.status,
+              ni.valor_servico, ni.descricao_servico, ni.authorized_at, ni.chave_acesso,
+              ni.rejection_reason,
+              (ni.nfse_pdf_path IS NOT NULL) AS has_pdf,
+              (ni.nfse_xml_path IS NOT NULL) AS has_xml
+         FROM nfse_invoices ni
+         JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
+        WHERE ft.patient_id = ? AND ni.tenant_id = ? AND ni.status = 'authorized'
+        ORDER BY ni.authorized_at DESC`,
+      [patient_id, tenant_id]
+    );
+    res.json({ invoices });
+  } catch (e) {
+    console.error('[portal nfse]', e?.message);
+    res.status(500).json({ error: 'Erro ao buscar notas fiscais.' });
+  }
+});
+
+// GET /patient-portal/nfse/:transactionId/pdf — download do PDF de representação
+router.get('/nfse/:transactionId/pdf', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const transactionId = Number(req.params.transactionId);
+    const [[invoice]] = await db.query(
+      `SELECT ni.nfse_pdf_path, ni.chave_acesso
+         FROM nfse_invoices ni
+         JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
+        WHERE ni.financial_transaction_id = ? AND ft.patient_id = ? AND ni.tenant_id = ?
+          AND ni.status = 'authorized'`,
+      [transactionId, patient_id, tenant_id]
+    );
+    if (!invoice?.nfse_pdf_path || !fs.existsSync(invoice.nfse_pdf_path)) {
+      return res.status(404).json({ error: 'PDF não disponível' });
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="nfse-${invoice.chave_acesso || transactionId}.pdf"`);
+    fs.createReadStream(invoice.nfse_pdf_path).pipe(res);
+  } catch (e) {
+    console.error('[portal nfse pdf]', e?.message);
+    res.status(500).json({ error: 'Erro ao buscar PDF da NFS-e' });
+  }
+});
+
+// GET /patient-portal/nfse/:transactionId/xml — download do XML autorizado
+router.get('/nfse/:transactionId/xml', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const transactionId = Number(req.params.transactionId);
+    const [[invoice]] = await db.query(
+      `SELECT ni.nfse_xml_path, ni.chave_acesso
+         FROM nfse_invoices ni
+         JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
+        WHERE ni.financial_transaction_id = ? AND ft.patient_id = ? AND ni.tenant_id = ?
+          AND ni.status = 'authorized'`,
+      [transactionId, patient_id, tenant_id]
+    );
+    if (!invoice?.nfse_xml_path || !fs.existsSync(invoice.nfse_xml_path)) {
+      return res.status(404).json({ error: 'XML não disponível' });
+    }
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Content-Disposition', `attachment; filename="nfse-${invoice.chave_acesso || transactionId}.xml"`);
+    fs.createReadStream(invoice.nfse_xml_path).pipe(res);
+  } catch (e) {
+    console.error('[portal nfse xml]', e?.message);
+    res.status(500).json({ error: 'Erro ao buscar XML da NFS-e' });
+  }
+});
+
 // ─── COMANDAS DO PACIENTE ─────────────────────────────────────────────────────
 
 // GET /patient-portal/comandas — lista comandas abertas do paciente com sessões restantes

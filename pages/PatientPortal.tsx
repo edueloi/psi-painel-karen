@@ -7,7 +7,7 @@ import {
   Check, Send, Loader2, ExternalLink, Edit3, Save, Lock, Copy, QrCode,
   Eye as EyeIcon, EyeOff, Shield, ChevronRight, Bell, FolderOpen, Download,
   ChevronLeft, Heart, Users,
-  Mail, Cake, Briefcase, Sparkles, Stethoscope, GraduationCap, Gem,
+  Mail, Cake, Briefcase, Sparkles, Stethoscope, GraduationCap, Gem, Receipt,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
 import { Input, Select, Textarea } from "../components/UI/Input";
@@ -2649,16 +2649,102 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
   );
 }
 
+// ─── Tab: Notas Fiscais (NFS-e) ────────────────────────────────────────────────
+interface PortalNfseInvoice {
+  id: number;
+  financial_transaction_id: number;
+  numero: number;
+  serie: number;
+  status: string;
+  valor_servico: number;
+  descricao_servico?: string | null;
+  authorized_at?: string | null;
+  chave_acesso?: string | null;
+  has_pdf: number | boolean;
+  has_xml: number | boolean;
+}
+
+function formatCurrencyBR(v: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+}
+
+function NfseTab({ invoices }: { invoices: PortalNfseInvoice[] }) {
+  const downloadNfseFile = async (transactionId: number, kind: "pdf" | "xml", chave?: string | null) => {
+    const session = getSession();
+    const res = await fetch(`${API_BASE_URL}/patient-portal/nfse/${transactionId}/${kind}`, {
+      headers: session ? { "X-Portal-Token": session.token } : {},
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nfse-${chave || transactionId}.${kind}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-3 pb-6">
+      <div className="pt-1">
+        <h2 className="text-base font-black text-slate-800">Notas Fiscais</h2>
+        <p className="text-xs text-slate-400">NFS-e emitidas em seu nome pelo profissional</p>
+      </div>
+
+      {invoices.length === 0 && (
+        <EmptyState icon={Receipt} title="Nenhuma nota fiscal ainda" description="Notas fiscais emitidas para você aparecerão aqui" />
+      )}
+
+      {invoices.map((inv) => (
+        <div key={inv.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50">
+            <Receipt size={16} className="text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-700 truncate">
+              NFS-e nº {inv.numero} · Série {inv.serie}
+            </p>
+            <p className="text-xs text-slate-400 truncate">
+              {inv.authorized_at ? fmtDate(inv.authorized_at) : "—"} · {formatCurrencyBR(Number(inv.valor_servico))}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!!inv.has_pdf && (
+              <button
+                onClick={() => downloadNfseFile(inv.financial_transaction_id, "pdf", inv.chave_acesso)}
+                className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+              >
+                <Download size={12} /> PDF
+              </button>
+            )}
+            {!!inv.has_xml && (
+              <button
+                onClick={() => downloadNfseFile(inv.financial_transaction_id, "xml", inv.chave_acesso)}
+                className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <Download size={12} /> XML
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export const PatientPortal: React.FC = () => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"home" | "agenda" | "documents" | "payments" | "profile">("home");
+  const [tab, setTab] = useState<"home" | "agenda" | "documents" | "nfse" | "payments" | "profile">("home");
   const [patient, setPatient] = useState<PortalPatient | null>(null);
   const [appointments, setAppointments] = useState<PortalAppointment[]>([]);
   const [payments, setPayments] = useState<PortalPayment[]>([]);
   const [requests, setRequests] = useState<ScheduleRequest[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [documents, setDocuments] = useState<{ documents: any[]; uploads: any[] }>({ documents: [], uploads: [] });
+  const [nfseInvoices, setNfseInvoices] = useState<PortalNfseInvoice[]>([]);
   const [portalSettings, setPortalSettings] = useState<PortalSettings>({});
   const [comandas, setComandas] = useState<PortalComanda[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2675,7 +2761,7 @@ export const PatientPortal: React.FC = () => {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [meRes, apptRes, payRes, reqRes, profRes, docsRes, settingsRes, comandasRes] = await Promise.all([
+      const [meRes, apptRes, payRes, reqRes, profRes, docsRes, settingsRes, comandasRes, nfseRes] = await Promise.all([
         portalFetch("/me"),
         portalFetch("/appointments"),
         portalFetch("/payments"),
@@ -2684,6 +2770,7 @@ export const PatientPortal: React.FC = () => {
         portalFetch("/documents"),
         portalFetch("/portal-settings"),
         portalFetch("/comandas"),
+        portalFetch("/nfse"),
       ]);
       if (meRes.ok) setPatient(await meRes.json());
       if (apptRes.ok) setAppointments(await apptRes.json());
@@ -2693,6 +2780,7 @@ export const PatientPortal: React.FC = () => {
       if (docsRes.ok) setDocuments(await docsRes.json());
       if (settingsRes.ok) setPortalSettings(await settingsRes.json());
       if (comandasRes.ok) setComandas(await comandasRes.json());
+      if (nfseRes.ok) setNfseInvoices((await nfseRes.json()).invoices || []);
     } finally { setLoading(false); }
   }, []);
 
@@ -2715,6 +2803,7 @@ export const PatientPortal: React.FC = () => {
     { id: "home",      icon: Home,       label: "Início"    },
     { id: "agenda",    icon: Calendar,   label: "Agenda"    },
     { id: "documents", icon: FolderOpen, label: "Docs"      },
+    { id: "nfse",      icon: Receipt,    label: "Notas"     },
     { id: "payments",  icon: CreditCard, label: "Financeiro"},
     { id: "profile",   icon: User,       label: "Perfil"    },
   ] as const;
@@ -2813,6 +2902,7 @@ export const PatientPortal: React.FC = () => {
             {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
             {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} />}
             {tab === "documents" && <DocumentsTab data={documents} />}
+            {tab === "nfse"      && <NfseTab invoices={nfseInvoices} />}
             {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} comandas={comandas} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
             {tab === "profile"   && <ProfileTab patient={patient} onLogout={handleLogout} onPatientUpdate={loadAll} showToast={globalToast.show} />}
           </div>
