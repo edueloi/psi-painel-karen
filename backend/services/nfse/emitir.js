@@ -80,7 +80,7 @@ async function emitirNfse(invoiceId) {
   if (!invoice) return;
 
   await db.query(
-    "UPDATE nfse_invoices SET status = 'processing', attempts = attempts + 1, last_attempt_at = NOW() WHERE id = ?",
+    "UPDATE nfse_invoices SET status = 'processing', attempts = attempts + 1, last_attempt_at = UTC_TIMESTAMP() WHERE id = ?",
     [invoiceId]
   );
 
@@ -229,7 +229,7 @@ async function emitirNfse(invoiceId) {
 
     await db.query(
       `UPDATE nfse_invoices
-         SET status = 'authorized', chave_acesso = ?, authorized_at = NOW(),
+         SET status = 'authorized', chave_acesso = ?, authorized_at = UTC_TIMESTAMP(),
              dps_xml_path = ?, nfse_xml_path = ?, nfse_pdf_path = ?, rejection_code = NULL, rejection_reason = NULL
        WHERE id = ?`,
       [chaveAcesso, dpsPath, nfsePath, pdfPath, invoiceId]

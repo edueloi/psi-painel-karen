@@ -176,7 +176,7 @@ router.post('/config/certificate', authMiddleware, checkPermission('manage_payme
     fs.writeFileSync(certPath, req.file.buffer);
 
     await db.query(
-      `UPDATE users SET nfse_cert_path = ?, nfse_cert_password_enc = ?, nfse_cert_uploaded_at = NOW() WHERE id = ?`,
+      `UPDATE users SET nfse_cert_path = ?, nfse_cert_password_enc = ?, nfse_cert_uploaded_at = UTC_TIMESTAMP() WHERE id = ?`,
       [certPath, encryptCertPassword(password), req.user.id]
     );
 
