@@ -130,12 +130,15 @@ router.get('/comandas/:id/payments', authMiddleware, async (req, res) => {
       return res.json(cpRows);
     }
 
+    // status = 'paid' explícito — o fallback é só para dados legados, e um lançamento
+    // pending/cancelled não é um pagamento recebido de fato (bug real: lançamentos
+    // pending apareciam na tela como "Recebido" só por existirem vinculados à comanda).
     const [rows] = await db.query(
       `SELECT t.id, t.amount, t.date as payment_date, t.payment_method, t.observation as notes,
               t.created_at, t.source, u.name as created_by_name
        FROM financial_transactions t
        LEFT JOIN users u ON u.id = t.created_by
-       WHERE t.comanda_id = ? AND t.tenant_id = ? AND t.type = 'income' AND t.status != 'cancelled'
+       WHERE t.comanda_id = ? AND t.tenant_id = ? AND t.type = 'income' AND t.status = 'paid'
          AND t.id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ? LIMIT 1), -1)
        ORDER BY t.created_at DESC`,
       [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id]
@@ -192,7 +195,7 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
       ) + (
         SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
         WHERE comanda_id = ? AND origin_payment_id IS NULL 
-          AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          AND type = 'income' AND status = 'paid' AND tenant_id = ?
           AND id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ?), -1)
       ) as total`,
       [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id, req.params.id]
@@ -307,7 +310,7 @@ router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission(
       ) + (
         SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
         WHERE comanda_id = ? AND origin_payment_id IS NULL 
-          AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          AND type = 'income' AND status = 'paid' AND tenant_id = ?
           AND id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ?), -1)
       ) as total`,
       [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id, req.params.id]
@@ -416,7 +419,7 @@ router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermissi
       ) + (
         SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
         WHERE comanda_id = ? AND origin_payment_id IS NULL 
-          AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          AND type = 'income' AND status = 'paid' AND tenant_id = ?
           AND id != COALESCE((SELECT livrocaixa_tx_id FROM comandas WHERE id = ?), -1)
       ) as total`,
       [req.params.id, req.user.tenant_id, req.params.id, req.user.tenant_id, req.params.id]
@@ -743,7 +746,7 @@ router.post('/', authMiddleware, checkPermission('manage_payments'), async (req,
           SELECT COALESCE(SUM(amount), 0) FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?
         ) + (
           SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
-          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status = 'paid' AND tenant_id = ?
         ) as total`,
         [comanda_id, req.user.tenant_id, comanda_id, req.user.tenant_id]
       );
@@ -836,7 +839,7 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
           SELECT COALESCE(SUM(amount), 0) FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?
         ) + (
           SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
-          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status = 'paid' AND tenant_id = ?
         ) as total`,
         [finalCid, req.user.tenant_id, finalCid, req.user.tenant_id]
       );
@@ -906,7 +909,7 @@ router.delete('/:id', authMiddleware, checkPermission('manage_payments'), async 
           SELECT COALESCE(SUM(amount), 0) FROM comanda_payments WHERE comanda_id = ? AND tenant_id = ?
         ) + (
           SELECT COALESCE(SUM(amount), 0) FROM financial_transactions 
-          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status != 'cancelled' AND tenant_id = ?
+          WHERE comanda_id = ? AND origin_payment_id IS NULL AND type = 'income' AND status = 'paid' AND tenant_id = ?
         ) as total`,
         [finalCid, req.user.tenant_id, finalCid, req.user.tenant_id]
       );

@@ -2933,24 +2933,46 @@ export const Comandas: React.FC = () => {
         )}
       </div>
 
-      {(historyComanda as any).items?.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Itens</p>
-          <div className="space-y-2">
-            {(historyComanda as any).items.map((item: any, index: number) => (
-              <div key={item.id || index} className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-medium text-slate-700">{item.name}</p>
-                  <p className="text-[11px] text-slate-400">{item.qty} × {formatCurrency(item.price)}</p>
+      {(historyComanda as any).items?.length > 0 && (() => {
+        // Mesmo cálculo de pages/Agenda.tsx: aplica o desconto proporcionalmente a cada
+        // item ao exibir, senão o valor por item some sem desconto (ex: 4×R$130=R$520)
+        // enquanto o "Valor total" acima já mostra o valor líquido (R$440), confundindo
+        // quem está lançando pagamentos manualmente.
+        const items = (historyComanda as any).items;
+        const grossTotal = items.reduce((s: number, it: any) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
+        const discountVal = Number((historyComanda as any).discount_value || 0);
+        const discountAmt = (historyComanda as any).discount_type === 'percentage' ? (grossTotal * discountVal) / 100 : discountVal;
+        const ratio = grossTotal > 0 ? (grossTotal - discountAmt) / grossTotal : 1;
+
+        return (
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Itens</p>
+            <div className="space-y-2">
+              {items.map((item: any, index: number) => {
+                const lineGross = Number(item.qty || 0) * Number(item.price || 0);
+                const lineNet = lineGross * ratio;
+                return (
+                  <div key={item.id || index} className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium text-slate-700">{item.name}</p>
+                      <p className="text-[11px] text-slate-400">{item.qty} × {formatCurrency(item.price)}</p>
+                    </div>
+                    <span className="shrink-0 text-xs font-semibold text-slate-700">
+                      {formatCurrency(lineNet)}
+                    </span>
+                  </div>
+                );
+              })}
+              {discountAmt > 0 && (
+                <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-emerald-600">
+                  <span>Desconto{(historyComanda as any).discount_type === 'percentage' ? ` (${discountVal}%)` : ''}</span>
+                  <span className="font-bold">− {formatCurrency(discountAmt)}</span>
                 </div>
-                <span className="shrink-0 text-xs font-semibold text-slate-700">
-                  {formatCurrency(Number(item.qty || 0) * Number(item.price || 0))}
-                </span>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </aside>
   </div>
 )}

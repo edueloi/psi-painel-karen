@@ -768,11 +768,22 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
               if (pRows.length > 0) amount = parseFloat(pRows[0].totalPrice);
             }
 
-            // Se for pacote e recorrência, lançar no livro caixa apenas no primeiro (i=0)
-            // Se não for pacote mas for recorrência, o usuário pode querer lançar todos (pagamento por sessão)
-            if (package_id && freq && i > 0) {
-              // pula lançamentos subsequentes para pacotes recorrentes (cobrança única)
-              console.log(`[finance] Pulando sync i=${i} para pacote id=${package_id} (cobrança única no i=0)`);
+            // Sessão pertence a uma comanda de pacote (múltiplas sessões) quando comanda_id
+            // aponta para uma comanda com sessions_total > 1 — o package_id do próprio
+            // agendamento costuma vir null nesse fluxo (o vínculo é feito via comanda_id),
+            // então checar só `package_id` deixava passar um lançamento de R$ por sessão
+            // a cada agendamento criado, duplicando o valor já cobrado uma vez na comanda.
+            let comandaIsPackage = false;
+            if (comanda_id) {
+              const [cRows] = await db.query('SELECT sessions_total, package_id FROM comandas WHERE id = ?', [comanda_id]);
+              comandaIsPackage = !!cRows.length && (Number(cRows[0].sessions_total) > 1 || !!cRows[0].package_id);
+            }
+
+            // Pacote (via package_id do agendamento OU via comanda de pacote): nunca lança
+            // automaticamente por sessão — o pagamento do pacote é sempre lançado manualmente
+            // uma única vez na própria Comanda.
+            if (package_id || comandaIsPackage) {
+              console.log(`[finance] Pulando sync automático para agendamento de pacote (comanda_id=${comanda_id || 'n/a'}, package_id=${package_id || 'n/a'}) — pagamento do pacote é lançado manualmente na Comanda`);
             } else {
               // Buscar dados do paciente para popular pagador/beneficiário
               let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
@@ -1168,7 +1179,15 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     const currentLcTxId = currentApt[0]?.livrocaixa_tx_id;
     const newSync = req.body.sync_to_livrocaixa !== undefined ? (req.body.sync_to_livrocaixa ? 1 : 0) : currentSync;
 
-    if (newSync && !currentLcTxId && type !== 'bloqueio') {
+    // Mesma checagem do POST: sessão de comanda de pacote nunca lança automaticamente
+    // (o pagamento do pacote é sempre manual, uma única vez, na própria Comanda).
+    let currentComandaIsPackage = false;
+    if (finalComandaId) {
+      const [ccRows] = await db.query('SELECT sessions_total, package_id FROM comandas WHERE id = ?', [finalComandaId]);
+      currentComandaIsPackage = !!ccRows.length && (Number(ccRows[0].sessions_total) > 1 || !!ccRows[0].package_id);
+    }
+
+    if (newSync && !currentLcTxId && type !== 'bloqueio' && !package_id && !currentComandaIsPackage) {
         // Ativar sync: criar lançamento
         try {
             // Preço do serviço ou pacote
