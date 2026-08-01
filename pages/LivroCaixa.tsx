@@ -3543,7 +3543,7 @@ export const LivroCaixa: React.FC = () => {
             </div>
 
             {/* Price Box */}
-            <div className="p-6 rounded-[2rem] bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
+            <div className="p-6 rounded-3xl bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
                   <Wallet size={120} />
                </div>
@@ -3552,7 +3552,7 @@ export const LivroCaixa: React.FC = () => {
                  {selectedTxForDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTxForDetails.amount)}
                </h2>
                {selectedTxForDetails.comanda_id && (
-                  <div className="mt-2 text-[10px] font-bold text-indigo-500 italic">
+                  <div className="mt-2 text-[10px] font-bold text-primary-600 italic">
                      Vinculado à Comanda #{selectedTxForDetails.comanda_id}
                   </div>
                )}
@@ -3560,23 +3560,29 @@ export const LivroCaixa: React.FC = () => {
 
             {/* Grid Infos */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                 <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Data do Fluxo</p>
                 <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.date)}</p>
               </div>
-              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                 <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><CreditCard size={12} /> Forma de Pagto</p>
                 <p className="text-sm font-black text-slate-700">{METHOD_LABEL[selectedTxForDetails.payment_method] || selectedTxForDetails.payment_method || '—'}</p>
               </div>
+              {selectedTxForDetails.due_date && selectedTxForDetails.due_date.slice(0, 10) !== selectedTxForDetails.date.slice(0, 10) && (
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm col-span-2">
+                  <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Vencimento</p>
+                  <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.due_date)}</p>
+                </div>
+              )}
             </div>
 
             {/* Patient/Payer Section */}
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-5">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-5">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-3">Envolvidos na Transação</p>
-              
+
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center border border-slate-100 shrink-0">
-                  <User size={20} />
+                <div className="w-10 h-10 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100 shrink-0 font-black text-sm">
+                  {(selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
                 </div>
                 <div>
                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Pagador Original</p>
@@ -3585,13 +3591,13 @@ export const LivroCaixa: React.FC = () => {
                 </div>
               </div>
 
-              {selectedTxForDetails.beneficiary_name && (
+              {selectedTxForDetails.beneficiary_name && selectedTxForDetails.beneficiary_name !== selectedTxForDetails.payer_name && (
                 <div className="flex items-start gap-4 pt-4 border-t border-slate-50">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center border border-indigo-100 shrink-0">
-                    <User size={20} />
+                  <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-500 flex items-center justify-center border border-sky-100 shrink-0 font-black text-sm">
+                    {(selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest leading-none mb-1.5">Paciente Beneficiário</p>
+                    <p className="text-[9px] font-black text-sky-500 uppercase tracking-widest leading-none mb-1.5">Paciente Beneficiário</p>
                     <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name}</p>
                     {selectedTxForDetails.beneficiary_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.beneficiary_cpf)}</p>}
                   </div>
@@ -3601,7 +3607,7 @@ export const LivroCaixa: React.FC = () => {
 
             {/* Observations */}
             {selectedTxForDetails.observation && (
-              <div className="bg-amber-50/50 p-6 rounded-[2rem] border border-amber-100/50">
+              <div className="bg-amber-50/50 p-6 rounded-3xl border border-amber-100/50">
                  <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2"><FileText size={12}/> Observações</p>
                  <p className="text-sm font-medium text-amber-700/80 leading-relaxed italic">{selectedTxForDetails.observation}</p>
               </div>
@@ -3609,7 +3615,7 @@ export const LivroCaixa: React.FC = () => {
 
             {/* ── Sessões do Pacote ───────────────────────────────────────────── */}
             {pkgSessionsLoading && (
-              <div className="flex items-center gap-3 py-4 px-5 rounded-[2rem] bg-slate-50 border border-slate-100">
+              <div className="flex items-center gap-3 py-4 px-5 rounded-3xl bg-slate-50 border border-slate-100">
                 <Loader2 size={16} className="animate-spin text-slate-400 shrink-0" />
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Carregando sessões do pacote...</span>
               </div>
@@ -3626,7 +3632,7 @@ export const LivroCaixa: React.FC = () => {
                 : '—';
 
               return (
-                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                   {/* Header da seção */}
                   <div className="px-5 pt-5 pb-4 border-b border-slate-50">
                     <div className="flex items-center justify-between gap-2 mb-3">

@@ -30,7 +30,7 @@ export function PanelCard({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm",
+        "min-w-0 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm",
         className
       )}
       {...props}
