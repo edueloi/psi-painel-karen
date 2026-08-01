@@ -15,7 +15,7 @@ import {
   CalendarCheck, CalendarClock, UserCheck,
   ExternalLink, XCircle,
 } from 'lucide-react';
-import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
+import { PageWrapper, SectionTitle, StatGrid } from '../components/UI/PageWrapper';
 import { Modal } from '../components/UI/Modal';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { Input, Select, Textarea } from '../components/UI/Input';
@@ -1956,9 +1956,9 @@ export const LivroCaixa: React.FC = () => {
         title="Arquivo Financeiro"
         description="Gestão de períodos consolidados"
         action={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
             {/* Year selector */}
-            <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-9">
+            <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-9 shrink-0">
               <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
                 <ChevronLeft size={14} />
               </button>
@@ -1979,7 +1979,7 @@ export const LivroCaixa: React.FC = () => {
         }
       />
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
+      <div className="space-y-4 sm:space-y-6">
 
       {/* Month Cards */}
       {isLoadingArchive ? (
@@ -2134,18 +2134,18 @@ export const LivroCaixa: React.FC = () => {
           title="Livro Caixa"
           description={displayMonth}
           action={
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
               <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()}>
                 Voltar
               </Button>
 
               {/* Export dropdown */}
-              <div className="relative" ref={exportRef}>
+              <div className="relative shrink-0" ref={exportRef}>
                 <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => setShowExportMenu(v => !v)}>
                   Exportar
                 </Button>
                 {showExportMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden" onMouseLeave={() => setShowExportMenu(false)}>
+                  <div className="absolute right-0 top-full mt-2 w-44 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden" onMouseLeave={() => setShowExportMenu(false)}>
                     {[
                       { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
                       { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
@@ -2204,18 +2204,18 @@ export const LivroCaixa: React.FC = () => {
           }
         />
 
-        <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-6">
 
         {/* KPI + Search — sticky wrapper */}
         <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-4 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-3 sm:px-5 lg:px-6 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-4'}>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatGrid cols={4}>
           <StatCard title="Entradas" value={formatCurrency(summary.income)} icon={TrendingUp} color="success" delay={0} />
           <StatCard title="Saídas" value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" delay={1} />
           <StatCard title="Pendente" value={formatCurrency(summary.pending)} icon={Clock} color="warning" delay={2} />
           <StatCard title="Saldo Líquido" value={formatCurrency(summary.balance)} icon={Wallet} color={summary.balance >= 0 ? 'info' : 'danger'} delay={3} />
-        </div>
+        </StatGrid>
 
         {/* Filtros */}
         <FilterLine>

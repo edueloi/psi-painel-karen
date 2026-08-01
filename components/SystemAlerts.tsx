@@ -99,13 +99,13 @@ export const SystemAlerts: React.FC = () => {
       </button>
  
       {isOpen && (
-        <div className="fixed left-1/2 -translate-x-1/2 top-16 w-[calc(100vw-24px)] max-w-sm md:absolute md:left-auto md:right-0 md:top-auto md:translate-x-0 md:mt-2 md:w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-slideIn">
-            <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed left-1/2 -translate-x-1/2 top-16 w-[calc(100vw-24px)] max-w-[340px] md:absolute md:left-auto md:right-0 md:top-auto md:translate-x-0 md:mt-2 md:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-slideIn">
+            <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                 <Bell size={14} className="text-indigo-600" /> Alertas do Sistema
               </h3>
               {alerts.length > 0 && (
-                <button 
+                <button
                   onClick={dismissAll}
                   className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
                 >
@@ -116,15 +116,15 @@ export const SystemAlerts: React.FC = () => {
 
             <div className="max-h-[400px] overflow-y-auto p-2 space-y-2 custom-scrollbar">
               {alerts.length === 0 ? (
-                <div className="py-12 text-center">
-                  <Bell size={32} className="mx-auto text-slate-200 mb-3" />
+                <div className="py-6 text-center">
+                  <Bell size={24} className="mx-auto text-slate-200 mb-2" />
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nenhum alerta pendente</p>
                 </div>
               ) : (
                 alerts.map(alert => (
-                  <div 
+                  <div
                     key={alert.id}
-                    className={`p-4 rounded-2xl border ${getTypeStyle(alert.type)} group relative`}
+                    className={`p-3 rounded-xl border ${getTypeStyle(alert.type)} group relative`}
                   >
                     <button 
                       onClick={() => dismissAlert(alert.id)}
@@ -157,7 +157,7 @@ export const SystemAlerts: React.FC = () => {
               )}
             </div>
             
-            <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
+            <div className="p-2 bg-slate-50 border-t border-slate-100 text-center">
                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Psiflux Analytics & Intelligence</p>
             </div>
           </div>

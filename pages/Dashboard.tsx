@@ -1019,44 +1019,57 @@ export const Dashboard: React.FC = () => {
                 {upcomingFiltered.slice(0, 10).map((appointment) => (
                   <div
                     key={appointment.id}
-                    className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-zinc-50/70 sm:px-6 sm:py-5 lg:flex-row lg:items-center"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-zinc-50/70 sm:px-6 sm:py-4 lg:gap-4"
                   >
-                    <div className="flex w-full items-center gap-3 lg:w-[122px] lg:flex-none">
-                      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl border border-sky-100 bg-sky-50 text-sky-700">
-                        <span className="text-[11px] font-black uppercase">
-                          {appointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
-                            day: '2-digit',
-                            month: 'short',
-                          })}
-                        </span>
-                        <span className="text-[10px] font-bold text-sky-600">
-                          {appointment.start.toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-
-                      <div className="lg:hidden">
-                        {renderAppointmentStatus(appointment.status)}
-                      </div>
+                    <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-700 sm:h-14 sm:w-14 lg:h-[52px] lg:w-[68px]">
+                      <span className="text-[10px] font-black uppercase sm:text-[11px]">
+                        {appointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+                          day: '2-digit',
+                          month: 'short',
+                        })}
+                      </span>
+                      <span className="text-[9px] font-bold text-sky-600 sm:text-[10px]">
+                        {appointment.start.toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <h4 className="truncate text-sm font-black text-zinc-900 sm:text-base">
                           {appointment.patient_name || 'Consulta'}
                         </h4>
-                        <div className="hidden lg:block">{renderAppointmentStatus(appointment.status)}</div>
+                        {renderAppointmentStatus(appointment.status)}
                       </div>
 
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
                         <Badge color="info">{appointment.type || 'consulta'}</Badge>
                         <Badge color="teal">{appointment.modality || 'presencial'}</Badge>
                       </div>
+
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 lg:hidden">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/pacientes?search=${encodeURIComponent(appointment.patient_name || '')}`)
+                          }
+                          className="text-xs font-bold text-[#295b85] transition-colors hover:text-[#143a59]"
+                        >
+                          Ver paciente
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/agenda?appointmentId=${appointment.id}`)}
+                          className="text-xs font-bold text-zinc-500 transition-colors hover:text-zinc-900"
+                        >
+                          Abrir agenda
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <div className="hidden shrink-0 items-center gap-2 lg:flex">
                       <button
                         type="button"
                         onClick={() =>
