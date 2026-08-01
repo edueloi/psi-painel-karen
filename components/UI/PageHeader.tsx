@@ -23,10 +23,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
   containerClassName = "mb-6",
   maxWidth = "max-w-none",
-  iconGradient = "from-primary-600 to-violet-600",
+  // Default alinhado ao ícone do SectionTitle (fundo pastel âmbar, sem
+  // gradiente saturado) — mantém o mesmo "ar" visual entre as duas variantes
+  // de cabeçalho que coexistem no design system. Passe iconGradient para
+  // sobrescrever quando fizer sentido (ex: destaque de uma ação específica).
+  iconGradient,
   showBackButton = false,
   onBackClick,
 }) => {
+  const hasCustomGradient = !!iconGradient;
   return (
     <div className={cx("w-full", containerClassName)}>
       <div className={cx("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", maxWidth)}>
@@ -43,8 +48,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
           <div
             className={cx(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-sm",
-              iconGradient
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
+              hasCustomGradient
+                ? cx("bg-gradient-to-br text-white shadow-sm", iconGradient)
+                : "border border-amber-100 bg-amber-50 text-amber-600"
             )}
           >
             {React.isValidElement(icon)

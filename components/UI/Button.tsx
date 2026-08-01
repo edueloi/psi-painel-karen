@@ -62,9 +62,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       secondary:
         "bg-primary-800 border-primary-900 text-white hover:bg-primary-900 hover:border-primary-900",
       success:
-        "bg-[#4f8d67] border-[#3d6c50] text-white hover:bg-[#3d6c50] hover:border-[#325641]",
+        "bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700 hover:border-emerald-800",
       danger:
-        "bg-[#aa403d] border-[#7f3431] text-white hover:bg-[#7f3431] hover:border-[#642d2a]",
+        "bg-rose-600 border-rose-700 text-white hover:bg-rose-700 hover:border-rose-800",
       outline:
         "bg-white border-primary-600 text-primary-700 hover:bg-primary-50 hover:border-primary-700 hover:text-primary-800",
       ghost:
@@ -195,9 +195,9 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       secondary:
         "bg-primary-800 border-primary-900 text-white hover:bg-primary-900 hover:border-primary-900",
       success:
-        "bg-[#4f8d67] border-[#3d6c50] text-white hover:bg-[#3d6c50] hover:border-[#325641]",
+        "bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700 hover:border-emerald-800",
       danger:
-        "bg-[#aa403d] border-[#7f3431] text-white hover:bg-[#7f3431] hover:border-[#642d2a]",
+        "bg-rose-600 border-rose-700 text-white hover:bg-rose-700 hover:border-rose-800",
       outline:
         "bg-white border-primary-600 text-primary-700 hover:bg-primary-50 hover:border-primary-700 hover:text-primary-800",
       ghost:

@@ -2,18 +2,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   DollarSign, TrendingUp, TrendingDown, Calendar, CreditCard,
-  Wallet, PieChart, ArrowUpRight, ArrowDownRight, Filter, Download,
+  Wallet, PieChart, ArrowUpRight, ArrowDownRight, ArrowLeft, Filter, Download,
   Calculator, AlertCircle, Trash2, Loader2,
   Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles,
   Inbox, CheckCircle, XCircle, Clock, Eye, Paperclip
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { PageHeader } from '../components/UI/PageHeader';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { FinancialTransaction, Patient } from '../types';
-import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
+import {
+  Button, ConfirmModal, Modal, ModalFooter, PageWrapper, SectionTitle,
+  StatGrid, StatCard, FilterLineSegmented,
+} from '../components/UI';
 import { Input, Select, Textarea } from '../components/UI/Input';
 import { useToast } from '../contexts/ToastContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -876,17 +878,37 @@ export const Finance: React.FC = () => {
     </div>
   );
 
+  const financeTabs = [
+    { value: 'dashboard' as const, label: t('finance.dashboard'), icon: <PieChart size={14} /> },
+    { value: 'daily' as const, label: t('finance.daily'), icon: <ListIcon size={14} /> },
+    { value: 'tax' as const, label: t('finance.fiscal'), icon: <Calculator size={14} /> },
+    {
+      value: 'portal' as const,
+      label: 'Portal',
+      icon: (
+        <span className="relative inline-flex">
+          <Inbox size={14} />
+          {portalPayments.filter(p => p.status === 'pending').length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-amber-500 text-white text-[8px] font-black flex items-center justify-center">
+              {portalPayments.filter(p => p.status === 'pending').length}
+            </span>
+          )}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
-      <PageHeader
-        icon={<DollarSign />}
+      <SectionTitle
+        icon={DollarSign}
         title={t('finance.title')}
-        subtitle={t('finance.subtitle')}
-        containerClassName="mb-0"
-        showBackButton
-        onBackClick={() => navigate('/')}
-        actions={
-          <div className="flex flex-wrap gap-2">
+        description={t('finance.subtitle')}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/')}>
+              Voltar
+            </Button>
             {hasPermission('manage_payments') && (
               <>
                 <Button
@@ -918,62 +940,22 @@ export const Finance: React.FC = () => {
         }
       />
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6">
-      {/* STATS BAR (KPIs Restyled) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                  <TrendingUp size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">{t('finance.totalRevenue')}</p>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(summary.income)}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-rose-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 group-hover:bg-rose-500 group-hover:text-white transition-all">
-                  <TrendingDown size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-rose-500">{t('finance.expenses')}</p>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(summary.expense)}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <Wallet size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-indigo-500">{t('finance.netProfit')}</p>
-                  <p className="text-xl font-black text-slate-800">{formatCurrency(summary.balance)}</p>
-              </div>
-          </div>
-      </div>
+      <div className="space-y-4 sm:space-y-6">
+      {/* STATS BAR */}
+      <StatGrid cols={3}>
+        <StatCard title={t('finance.totalRevenue')} value={formatCurrency(summary.income)} icon={TrendingUp} color="success" />
+        <StatCard title={t('finance.expenses')} value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" />
+        <StatCard title={t('finance.netProfit')} value={formatCurrency(summary.balance)} icon={Wallet} color="info" />
+      </StatGrid>
 
       {/* FILTERS & TABS BAR */}
       <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center z-40">
-           <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full lg:w-auto">
-               {[
-                   { id: 'dashboard', label: t('finance.dashboard'), icon: <PieChart size={14}/> },
-                   { id: 'daily', label: t('finance.daily'), icon: <ListIcon size={14}/> },
-                   { id: 'tax', label: t('finance.fiscal'), icon: <Calculator size={14}/> },
-                   { id: 'portal', label: 'Portal', icon: <Inbox size={14}/>, badge: portalPayments.filter(p => p.status === 'pending').length }
-               ].map(tab => (
-                   <button
-                       key={tab.id}
-                       onClick={() => setActiveTab(tab.id as any)}
-                       className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 flex-1 lg:flex-none justify-center relative ${activeTab === tab.id ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-indigo-400'}`}
-                   >
-                       {tab.icon}
-                       {tab.label}
-                       {(tab as any).badge > 0 && (
-                         <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center">
-                           {(tab as any).badge}
-                         </span>
-                       )}
-                   </button>
-               ))}
-           </div>
+           <FilterLineSegmented<'dashboard' | 'daily' | 'tax' | 'portal'>
+             value={activeTab}
+             onChange={setActiveTab}
+             options={financeTabs}
+             className="w-full lg:w-auto"
+           />
 
            <div className={`flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100 ${activeTab === 'portal' ? 'invisible' : ''}`}>
                 <button
@@ -983,10 +965,10 @@ export const Finance: React.FC = () => {
                     <ArrowUpRight className="rotate-[225deg]" size={16}/>
                 </button>
                 <div className="flex items-center gap-2 px-3 text-sm font-black text-slate-700 uppercase tracking-tighter text-center">
-                   <Calendar size={16} className="text-indigo-500"/>
+                   <Calendar size={16} className="text-primary-500"/>
                    {currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
                 </div>
-                <button 
+                <button
                     onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
                     className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-slate-400 transition-all"
                 >
@@ -998,7 +980,7 @@ export const Finance: React.FC = () => {
       {/* Content Switch */}
       <div className="opacity-100 transition-opacity duration-300">
           {isLoading && activeTab !== 'portal' ? (
-            <div className="flex flex-col items-center justify-center p-40 gap-6 text-indigo-500">
+            <div className="flex flex-col items-center justify-center p-40 gap-6 text-primary-500">
                 <div className="relative">
                     <Loader2 className="animate-spin" size={64} />
                     <div className="absolute inset-0 flex items-center justify-center">
