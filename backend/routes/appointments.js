@@ -876,7 +876,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
 
         // Busca profissional com preferências
         const [[prof]] = await db.query(
-          'SELECT id, email, tenant_id, email_preferences FROM users WHERE id = ? LIMIT 1',
+          'SELECT id, email, phone, tenant_id, email_preferences FROM users WHERE id = ? LIMIT 1',
           [apt.professional_id]
         ).catch(() => [[null]]);
         if (!prof) return;
@@ -920,6 +920,24 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
           });
           await sendMail(prof.email, `📅 Novo agendamento — ${apt.patient_name}`, html);
         }
+
+        // Aviso via WhatsApp (Master Bot) ao profissional, respeitando os 2 toggles
+        try {
+          const { enqueueProfessionalWpp, getMasterTenantId } = require('../services/cronJobs');
+          const masterTenantId = await getMasterTenantId();
+          if (masterTenantId && prof.phone) {
+            const wppMsg = `📅 *Novo agendamento!*\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+            await enqueueProfessionalWpp({
+              masterTenantId,
+              professional: prof,
+              masterKey: 'new_appointment_professional_enabled',
+              profKey: 'wpp_new_appointment',
+              content: wppMsg,
+              aptId: apt.id,
+              type: 'new-appointment-professional',
+            });
+          }
+        } catch { /* silencioso */ }
       } catch (e) { /* silencioso */ }
     });
   } catch (err) {
@@ -1028,6 +1046,40 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
       if (msg) {
         sendPushToPatient(apt.patient_id, msg.title, msg.body, { type: 'appointment', status: dbStatus }).catch(() => {});
       }
+    }
+
+    // Aviso via WhatsApp (Master Bot) ao profissional quando a consulta é cancelada
+    if (apt && dbStatus === 'cancelled' && dbStatus !== existing[0].old_status) {
+      setImmediate(async () => {
+        try {
+          const [[prof]] = await db.query(
+            'SELECT id, phone, email_preferences FROM users WHERE id = ? LIMIT 1',
+            [apt.professional_id]
+          ).catch(() => [[null]]);
+          if (!prof || !prof.phone) return;
+
+          const { enqueueProfessionalWpp, getMasterTenantId } = require('../services/cronJobs');
+          const masterTenantId = await getMasterTenantId();
+          if (!masterTenantId) return;
+
+          const dateStr = apt.start_time
+            ? new Date(apt.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
+            : '';
+          const timeStr = apt.start_time
+            ? new Date(apt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+            : '';
+          const wppMsg = `❌ *Consulta cancelada*\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+          await enqueueProfessionalWpp({
+            masterTenantId,
+            professional: prof,
+            masterKey: 'cancelled_appointment_professional_enabled',
+            profKey: 'wpp_cancelled_appointment',
+            content: wppMsg,
+            aptId: apt.id,
+            type: 'cancelled-appointment-professional',
+          });
+        } catch { /* silencioso */ }
+      });
     }
 
     res.json(updated[0]);
@@ -1141,11 +1193,51 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     );
 
     // Se o horário mudou, reseta as flags de lembrete para reenviar
+    const oldStartFormattedForReset = existing[0].old_start
+      ? new Date(existing[0].old_start).toISOString().slice(0, 19).replace('T', ' ')
+      : null;
+    const startTimeActuallyChanged = !!formattedStart && formattedStart !== oldStartFormattedForReset;
     if (start_time) {
       await db.query(
-        `UPDATE appointments SET whatsapp_reminder_1h_sent = 0, whatsapp_reminder_24h_sent = 0, whatsapp_reminder_professional_sent = 0 WHERE id = ? AND tenant_id = ?`,
+        `UPDATE appointments SET whatsapp_reminder_1h_sent = 0, whatsapp_reminder_24h_sent = 0, whatsapp_reminder_professional_sent = 0, whatsapp_reminder_professional_24h_sent = 0 WHERE id = ? AND tenant_id = ?`,
         [req.params.id, req.user.tenant_id]
       );
+    }
+
+    // Aviso via WhatsApp (Master Bot) ao profissional quando a consulta é remarcada de fato
+    if (startTimeActuallyChanged) {
+      setImmediate(async () => {
+        try {
+          const [[apt]] = await db.query(
+            `SELECT a.*, p.name as patient_name FROM appointments a
+             LEFT JOIN patients p ON p.id = a.patient_id WHERE a.id = ?`,
+            [req.params.id]
+          );
+          if (!apt) return;
+          const [[prof]] = await db.query(
+            'SELECT id, phone, email_preferences FROM users WHERE id = ? LIMIT 1',
+            [apt.professional_id]
+          ).catch(() => [[null]]);
+          if (!prof || !prof.phone) return;
+
+          const { enqueueProfessionalWpp, getMasterTenantId } = require('../services/cronJobs');
+          const masterTenantId = await getMasterTenantId();
+          if (!masterTenantId) return;
+
+          const dateStr = new Date(apt.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' });
+          const timeStr = new Date(apt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+          const wppMsg = `🔄 *Consulta remarcada*\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n📆 *Novo horário:* ${dateStr} às ${timeStr}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+          await enqueueProfessionalWpp({
+            masterTenantId,
+            professional: prof,
+            masterKey: 'rescheduled_appointment_professional_enabled',
+            profKey: 'wpp_rescheduled_appointment',
+            content: wppMsg,
+            aptId: apt.id,
+            type: 'rescheduled-appointment-professional',
+          });
+        } catch { /* silencioso */ }
+      });
     }
 
     // Sync sessions_used if status changed

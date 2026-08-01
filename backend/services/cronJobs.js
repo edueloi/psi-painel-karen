@@ -69,6 +69,11 @@ const DEFAULT_PREFS = {
   weekly_report: false,
   monthly_report: false,
   form_response: false,
+  wpp_reminder_60min: true,
+  wpp_reminder_24h: true,
+  wpp_new_appointment: true,
+  wpp_cancelled_appointment: true,
+  wpp_rescheduled_appointment: true,
 };
 
 function getPrefs(user) {
@@ -78,6 +83,67 @@ function getPrefs(user) {
     // Padrão: enabled: true se não existir nada salvo (para novos profissionais)
     return { ...DEFAULT_PREFS, enabled: true, ...parsed };
   } catch { return { ...DEFAULT_PREFS, enabled: true }; }
+}
+
+// ─── Toggle mestre do Super Admin (liga/desliga por tipo, plataforma toda) ───
+const DEFAULT_MASTER_WPP_PREFS = {
+  reminder_60min_enabled: true,
+  reminder_24h_professional_enabled: true,
+  new_appointment_professional_enabled: true,
+  cancelled_appointment_professional_enabled: true,
+  rescheduled_appointment_professional_enabled: true,
+};
+
+let _masterWppPrefsCache = null;
+let _masterWppPrefsCacheTs = 0;
+async function getMasterWppPrefs() {
+  if (_masterWppPrefsCache && (Date.now() - _masterWppPrefsCacheTs) < 30000) return _masterWppPrefsCache;
+  try {
+    const [[row]] = await db.query(
+      `SELECT t.master_whatsapp_preferences FROM tenants t
+       JOIN users u ON u.tenant_id = t.id AND u.role = 'super_admin'
+       LIMIT 1`
+    );
+    const raw = row?.master_whatsapp_preferences;
+    const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    const prefs = { ...DEFAULT_MASTER_WPP_PREFS, ...parsed };
+    _masterWppPrefsCache = prefs;
+    _masterWppPrefsCacheTs = Date.now();
+    return prefs;
+  } catch { return DEFAULT_MASTER_WPP_PREFS; }
+}
+
+// Checa as DUAS camadas antes de enfileirar um aviso de WhatsApp ao profissional:
+// 1) toggle global do Super Admin (kill-switch por tipo, vale para toda a plataforma)
+// 2) toggle individual do profissional (users.email_preferences)
+// masterKey e profKey identificam o mesmo tipo de evento em cada camada.
+async function professionalWppAllowed(professionalUser, masterKey, profKey) {
+  const masterPrefs = await getMasterWppPrefs();
+  if (masterPrefs[masterKey] === false) return false;
+  const profPrefs = getPrefs(professionalUser);
+  return profPrefs[profKey] !== false;
+}
+
+// Helper compartilhado: enfileira um aviso de WhatsApp ao profissional via Master Bot,
+// já validando as duas camadas de toggle. Usado tanto pelo cron de lembretes quanto
+// pelas rotas de appointments (novo agendamento, cancelamento, remarcação).
+async function enqueueProfessionalWpp({ masterTenantId, professional, masterKey, profKey, content, aptId, type, expiresAt }) {
+  if (!professional || !professional.phone) return false;
+  const allowed = await professionalWppAllowed(professional, masterKey, profKey);
+  if (!allowed) return false;
+  await notificationService.enqueue({
+    tenant_id: masterTenantId,
+    recipient_phone: professional.phone,
+    content,
+    expires_at: expiresAt || new Date(Date.now() + 2 * 60 * 60000).toISOString().slice(0, 19).replace('T', ' '),
+    metadata: { apt_id: aptId, type, professional_id: professional.id },
+  });
+  return true;
+}
+
+async function getMasterTenantId() {
+  const [[row]] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
+  return row?.tenant_id || null;
 }
 
 // Busca usuários ativos com email de um tenant (com preferências)
@@ -138,6 +204,7 @@ async function checkAppointmentReminders() {
          c.sessions_total, c.sessions_used, c.description as package_name,
          t.whatsapp_status, t.whatsapp_preferences, t.name as clinic_name,
          a.whatsapp_reminder_1h_sent, a.whatsapp_reminder_24h_sent, a.whatsapp_reminder_professional_sent,
+         COALESCE(a.whatsapp_reminder_professional_24h_sent, 0) as whatsapp_reminder_professional_24h_sent,
          COALESCE(a.whatsapp_reminder_personal_24h_sent, 0) as whatsapp_reminder_personal_24h_sent,
          COALESCE(a.whatsapp_reminder_personal_1h_sent,  0) as whatsapp_reminder_personal_1h_sent
        FROM appointments a
@@ -156,6 +223,9 @@ async function checkAppointmentReminders() {
            OR
            -- lembrete profissional: próximas 2h
            (a.whatsapp_reminder_professional_sent = 0 AND a.start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR))
+           OR
+           -- lembrete profissional 24h: dia seguinte em SP
+           (COALESCE(a.whatsapp_reminder_professional_24h_sent, 0) = 0 AND DATE(CONVERT_TZ(a.start_time, '+00:00', '-03:00')) = DATE(CONVERT_TZ(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '+00:00', '-03:00')))
            OR
            -- eventos pessoais 1h
            (COALESCE(a.whatsapp_reminder_personal_1h_sent, 0) = 0 AND a.start_time >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE) AND a.start_time < DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR))
@@ -304,26 +374,53 @@ async function checkAppointmentReminders() {
         const reminderMinutes = profPrefs.appointment_reminder_minutes || 60;
 
         if (diffMinutes >= reminderMinutes - 25 && diffMinutes <= reminderMinutes + 25 && !apt.whatsapp_reminder_professional_sent) {
-          const timeStr = fmtTime(apt.start_time);
-          const label   = reminderMinutes === 30 ? '30min' : '1h';
+          const allowed = await professionalWppAllowed({ email_preferences: apt.email_preferences }, 'reminder_60min_enabled', 'wpp_reminder_60min');
+          if (allowed) {
+            const timeStr = fmtTime(apt.start_time);
+            const label   = reminderMinutes === 30 ? '30min' : '1h';
 
-          let sessaoInfo = '';
-          if (apt.sessions_total > 1) {
-            sessaoInfo = `\n📊 *Sessão:* ${(apt.sessions_used || 0) + 1}/${apt.sessions_total}`;
+            let sessaoInfo = '';
+            if (apt.sessions_total > 1) {
+              sessaoInfo = `\n📊 *Sessão:* ${(apt.sessions_used || 0) + 1}/${apt.sessions_total}`;
+            }
+
+            const phrase  = getRandomPhrase();
+            const wppMsg  = `🩺 *${greeting}, ${apt.professional_name}!*\n\nPassando para lembrar do seu próximo atendimento:\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}${sessaoInfo}\n🏢 *Clínica:* ${apt.clinic_name || 'PsiFlux'}\n\n${phrase}\n\nBom trabalho! 🚀\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+
+            await notificationService.enqueue({
+              tenant_id: masterTenantId,
+              recipient_phone: apt.professional_phone,
+              content: wppMsg,
+              expires_at: expiresAt,
+              metadata: { apt_id: apt.id, type: 'reminder-professional', professional_id: apt.professional_id }
+            });
+            console.log(`[CRON-QUEUE Profissional ${label}] ${apt.professional_name} | Paciente: ${apt.patient_name}`);
           }
-
-          const phrase  = getRandomPhrase();
-          const wppMsg  = `🩺 *${greeting}, ${apt.professional_name}!*\n\nPassando para lembrar do seu próximo atendimento:\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}${sessaoInfo}\n🏢 *Clínica:* ${apt.clinic_name || 'PsiFlux'}\n\n${phrase}\n\nBom trabalho! 🚀\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
-
-          await notificationService.enqueue({
-            tenant_id: masterTenantId,
-            recipient_phone: apt.professional_phone,
-            content: wppMsg,
-            expires_at: expiresAt,
-            metadata: { apt_id: apt.id, type: 'reminder-professional', professional_id: apt.professional_id }
-          });
           await db.query('UPDATE appointments SET whatsapp_reminder_professional_sent = 1 WHERE id = ?', [apt.id]);
-          console.log(`[CRON-QUEUE Profissional ${label}] ${apt.professional_name} | Paciente: ${apt.patient_name}`);
+        }
+
+        // Lembrete 24h antes (mesma janela usada para pacientes): dia seguinte, 8h-22h
+        const _profDateSP = aptStart.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const _profNowSP  = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const [_py, _pm, _pd] = _profNowSP.split('-').map(Number);
+        const _profTomorrowSP = new Date(Date.UTC(_py, _pm - 1, _pd + 1, 12, 0, 0)).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        const _profHourSP = parseInt(now.toLocaleString('pt-BR', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }));
+        if (_profDateSP === _profTomorrowSP && _profHourSP >= 8 && _profHourSP < 22 && !apt.whatsapp_reminder_professional_24h_sent) {
+          const allowed24h = await professionalWppAllowed({ email_preferences: apt.email_preferences }, 'reminder_24h_professional_enabled', 'wpp_reminder_24h');
+          if (allowed24h) {
+            const timeStr = fmtTime(apt.start_time);
+            const dateStr = fmtDate(apt.start_time);
+            const wppMsg24h = `📅 *${greeting}, ${apt.professional_name}!*\n\nLembrete: você tem um atendimento amanhã.\n\n👤 *Paciente:* ${apt.patient_name || '—'}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}\n🔹 *Serviço:* ${apt.service_name || 'Consulta'}\n🏢 *Clínica:* ${apt.clinic_name || 'PsiFlux'}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+            await notificationService.enqueue({
+              tenant_id: masterTenantId,
+              recipient_phone: apt.professional_phone,
+              content: wppMsg24h,
+              expires_at: expiresAt24h,
+              metadata: { apt_id: apt.id, type: 'reminder-professional-24h', professional_id: apt.professional_id }
+            });
+            console.log(`[CRON-QUEUE Profissional 24h] ${apt.professional_name} | Paciente: ${apt.patient_name}`);
+          }
+          await db.query('UPDATE appointments SET whatsapp_reminder_professional_24h_sent = 1 WHERE id = ?', [apt.id]);
         }
       }
 
@@ -705,11 +802,12 @@ async function autoConfirmAppointments() {
 // ─── Garante que as colunas de tracking WhatsApp existam na tabela appointments ──
 async function ensureAppointmentSchema() {
   const cols = [
-    ['whatsapp_reminder_1h_sent',           'TINYINT(1) NOT NULL DEFAULT 0'],
-    ['whatsapp_reminder_24h_sent',          'TINYINT(1) NOT NULL DEFAULT 0'],
-    ['whatsapp_reminder_professional_sent', 'TINYINT(1) NOT NULL DEFAULT 0'],
-    ['whatsapp_reminder_personal_1h_sent',  'TINYINT(1) NOT NULL DEFAULT 0'],
-    ['whatsapp_reminder_personal_24h_sent', 'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_1h_sent',              'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_24h_sent',              'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_professional_sent',     'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_professional_24h_sent', 'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_personal_1h_sent',      'TINYINT(1) NOT NULL DEFAULT 0'],
+    ['whatsapp_reminder_personal_24h_sent',     'TINYINT(1) NOT NULL DEFAULT 0'],
   ];
   for (const [col, def] of cols) {
     try {
@@ -725,6 +823,19 @@ async function ensureAppointmentSchema() {
     } catch (e) {
       console.warn(`[Schema] Aviso ao verificar/criar coluna ${col}:`, e.message);
     }
+  }
+
+  try {
+    const [rows] = await db.query(
+      `SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tenants' AND COLUMN_NAME = 'master_whatsapp_preferences'`
+    );
+    if (rows[0].cnt === 0) {
+      await db.query(`ALTER TABLE tenants ADD COLUMN master_whatsapp_preferences JSON NULL`);
+      console.log('[Schema] ✅ Coluna tenants.master_whatsapp_preferences criada.');
+    }
+  } catch (e) {
+    console.warn('[Schema] Aviso ao verificar/criar master_whatsapp_preferences:', e.message);
   }
 }
 
@@ -1062,4 +1173,8 @@ function getRandomPhrase() {
   return `_"${MOTIVATIONAL_PHRASES[idx]}"_`;
 }
 
-module.exports = { startCronJobs, checkAppointmentReminders, checkDailyTasks, sendWeeklyReport, sendMonthlyReport, autoConfirmAppointments, checkClinicalScaleResends };
+module.exports = {
+  startCronJobs, checkAppointmentReminders, checkDailyTasks, sendWeeklyReport, sendMonthlyReport,
+  autoConfirmAppointments, checkClinicalScaleResends,
+  enqueueProfessionalWpp, getMasterTenantId, getMasterWppPrefs, DEFAULT_MASTER_WPP_PREFS,
+};

@@ -31,6 +31,11 @@ type EmailPrefs = {
   weekly_report: boolean;
   monthly_report: boolean;
   form_response: boolean;
+  wpp_reminder_60min: boolean;
+  wpp_reminder_24h: boolean;
+  wpp_new_appointment: boolean;
+  wpp_cancelled_appointment: boolean;
+  wpp_rescheduled_appointment: boolean;
 };
 
 const DEFAULT_EMAIL_PREFS: EmailPrefs = {
@@ -43,6 +48,11 @@ const DEFAULT_EMAIL_PREFS: EmailPrefs = {
   weekly_report: false,
   monthly_report: false,
   form_response: false,
+  wpp_reminder_60min: true,
+  wpp_reminder_24h: true,
+  wpp_new_appointment: true,
+  wpp_cancelled_appointment: true,
+  wpp_rescheduled_appointment: true,
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -755,6 +765,65 @@ export const Settings: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* WhatsApp (Master Bot) — avisos ao próprio profissional. Independente do
+                      toggle de email acima: fica sempre visível, controlado só pelos toggles abaixo. */}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">WhatsApp (avisos para mim)</p>
+                    <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg"><Calendar size={16} /></div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">Novo agendamento</p>
+                            <p className="text-xs text-slate-400">Aviso quando uma consulta for criada (sistema ou Portal do Paciente)</p>
+                          </div>
+                        </div>
+                        <ToggleSwitch checked={emailPrefs.wpp_new_appointment} onChange={() => setEmailPrefs(p => ({ ...p, wpp_new_appointment: !p.wpp_new_appointment }))} />
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Clock size={16} /></div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">Lembrete 60 minutos antes</p>
+                            <p className="text-xs text-slate-400">Aviso da sua próxima consulta 1h antes</p>
+                          </div>
+                        </div>
+                        <ToggleSwitch checked={emailPrefs.wpp_reminder_60min} onChange={() => setEmailPrefs(p => ({ ...p, wpp_reminder_60min: !p.wpp_reminder_60min }))} />
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-sky-100 text-sky-600 rounded-lg"><Calendar size={16} /></div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">Lembrete 24 horas antes</p>
+                            <p className="text-xs text-slate-400">Aviso no dia anterior da consulta</p>
+                          </div>
+                        </div>
+                        <ToggleSwitch checked={emailPrefs.wpp_reminder_24h} onChange={() => setEmailPrefs(p => ({ ...p, wpp_reminder_24h: !p.wpp_reminder_24h }))} />
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-red-100 text-red-600 rounded-lg"><XCircle size={16} /></div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">Cancelamento</p>
+                            <p className="text-xs text-slate-400">Aviso quando uma consulta sua for cancelada</p>
+                          </div>
+                        </div>
+                        <ToggleSwitch checked={emailPrefs.wpp_cancelled_appointment} onChange={() => setEmailPrefs(p => ({ ...p, wpp_cancelled_appointment: !p.wpp_cancelled_appointment }))} />
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="p-1.5 bg-amber-100 text-amber-600 rounded-lg"><Clock size={16} /></div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">Remarcação</p>
+                            <p className="text-xs text-slate-400">Aviso quando o horário de uma consulta sua mudar</p>
+                          </div>
+                        </div>
+                        <ToggleSwitch checked={emailPrefs.wpp_rescheduled_appointment} onChange={() => setEmailPrefs(p => ({ ...p, wpp_rescheduled_appointment: !p.wpp_rescheduled_appointment }))} />
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-2 pl-1">Esses avisos usam o número de WhatsApp cadastrado no seu perfil. O Super Admin também pode desativar cada tipo globalmente.</p>
                   </div>
 
                   {/* Ações */}

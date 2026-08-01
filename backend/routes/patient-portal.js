@@ -869,6 +869,40 @@ router.patch('/appointments/:id/cancel', portalAuth, async (req, res) => {
       [req.params.id]
     );
     res.json({ ok: true });
+
+    // Aviso via WhatsApp (Master Bot) ao profissional — cancelamento feito pelo paciente no Portal
+    setImmediate(async () => {
+      try {
+        const [[full]] = await db.query(
+          `SELECT a.professional_id, a.start_time, p.name as patient_name
+           FROM appointments a LEFT JOIN patients p ON p.id = a.patient_id WHERE a.id = ?`,
+          [req.params.id]
+        );
+        if (!full || !full.professional_id) return;
+        const [[prof]] = await db.query(
+          'SELECT id, phone, email_preferences FROM users WHERE id = ? LIMIT 1',
+          [full.professional_id]
+        ).catch(() => [[null]]);
+        if (!prof || !prof.phone) return;
+
+        const { enqueueProfessionalWpp, getMasterTenantId } = require('../services/cronJobs');
+        const masterTenantId = await getMasterTenantId();
+        if (!masterTenantId) return;
+
+        const dateStr = new Date(full.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' });
+        const timeStr = new Date(full.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+        const wppMsg = `❌ *Consulta cancelada pelo paciente*\n\n👤 *Paciente:* ${full.patient_name || '—'}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+        await enqueueProfessionalWpp({
+          masterTenantId,
+          professional: prof,
+          masterKey: 'cancelled_appointment_professional_enabled',
+          profKey: 'wpp_cancelled_appointment',
+          content: wppMsg,
+          aptId: req.params.id,
+          type: 'cancelled-appointment-professional',
+        });
+      } catch { /* silencioso */ }
+    });
   } catch (e) {
     res.status(500).json({ error: 'Erro interno.' });
   }
@@ -919,7 +953,9 @@ router.patch('/appointments/:id/reschedule', portalAuth, async (req, res) => {
       return res.status(409).json({ error: 'Este horário não está disponível. Escolha outro.' });
 
     await db.query(
-      `UPDATE appointments SET start_time = ?, end_time = ?, status = 'scheduled', updated_at = NOW()
+      `UPDATE appointments SET start_time = ?, end_time = ?, status = 'scheduled', updated_at = NOW(),
+        whatsapp_reminder_1h_sent = 0, whatsapp_reminder_24h_sent = 0,
+        whatsapp_reminder_professional_sent = 0, whatsapp_reminder_professional_24h_sent = 0
        WHERE id = ?`,
       [sStr, eStr, req.params.id]
     );
@@ -929,6 +965,33 @@ router.patch('/appointments/:id/reschedule', portalAuth, async (req, res) => {
       `Nova data: ${dd}/${mm}/${yyyy} às ${time}`, { type: 'appointment' }).catch(() => {});
 
     res.json({ ok: true, start_time: sStr });
+
+    // Aviso via WhatsApp (Master Bot) ao profissional — remarcação feita pelo paciente no Portal
+    setImmediate(async () => {
+      try {
+        const [[patientRow]] = await db.query('SELECT name FROM patients WHERE id = ?', [patient_id]);
+        const [[prof]] = await db.query(
+          'SELECT id, phone, email_preferences FROM users WHERE id = ? LIMIT 1',
+          [appt.professional_id]
+        ).catch(() => [[null]]);
+        if (!prof || !prof.phone) return;
+
+        const { enqueueProfessionalWpp, getMasterTenantId } = require('../services/cronJobs');
+        const masterTenantId = await getMasterTenantId();
+        if (!masterTenantId) return;
+
+        const wppMsg = `🔄 *Consulta remarcada pelo paciente*\n\n👤 *Paciente:* ${patientRow?.name || '—'}\n📆 *Novo horário:* ${dd}/${mm}/${yyyy} às ${time}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+        await enqueueProfessionalWpp({
+          masterTenantId,
+          professional: prof,
+          masterKey: 'rescheduled_appointment_professional_enabled',
+          profKey: 'wpp_rescheduled_appointment',
+          content: wppMsg,
+          aptId: req.params.id,
+          type: 'rescheduled-appointment-professional',
+        });
+      } catch { /* silencioso */ }
+    });
   } catch (e) {
     console.error('[portal reschedule]', e?.message);
     res.status(500).json({ error: 'Erro ao reagendar.' });
@@ -1499,6 +1562,37 @@ router.post('/appointments', portalAuth, async (req, res) => {
     } catch (alertErr) {
       console.error('[portal] falha ao criar alerta de agendamento:', alertErr.message);
     }
+
+    // Aviso via WhatsApp (Master Bot) ao profissional — agendamento feito pelo paciente no Portal
+    setImmediate(async () => {
+      try {
+        const [[prof]] = await db.query(
+          'SELECT id, phone, email_preferences FROM users WHERE id = ? LIMIT 1',
+          [professional_id]
+        ).catch(() => [[null]]);
+        if (!prof || !prof.phone) return;
+
+        const { enqueueProfessionalWpp, getMasterTenantId } = require('../services/cronJobs');
+        const masterTenantId = await getMasterTenantId();
+        if (!masterTenantId) return;
+
+        const firstAppt = created[0];
+        const apptDate = new Date(firstAppt.start_time + 'Z');
+        const dateBRT = apptDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeBRT = apptDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+        const sessionInfo = created.length > 1 ? ` (${created.length} sessões)` : '';
+        const wppMsg = `📅 *Novo agendamento pelo Portal!*\n\n👤 *Paciente:* ${patientName}\n📆 *Data:* ${dateBRT}\n🕒 *Horário:* ${timeBRT}${sessionInfo}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+        await enqueueProfessionalWpp({
+          masterTenantId,
+          professional: prof,
+          masterKey: 'new_appointment_professional_enabled',
+          profKey: 'wpp_new_appointment',
+          content: wppMsg,
+          aptId: firstAppt.id,
+          type: 'new-appointment-professional',
+        });
+      } catch { /* silencioso */ }
+    });
 
     // Push de pacote esgotado: se vinculou a uma comanda existente, verifica sessões restantes
     if (comandaId && provided_comanda_id) {

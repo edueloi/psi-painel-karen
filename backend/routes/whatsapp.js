@@ -62,6 +62,31 @@ router.post('/preferences', async (req, res) => {
   }
 });
 
+// GET /whatsapp/master-preferences - Toggles globais do Master Bot (avisos a profissionais)
+router.get('/master-preferences', async (req, res) => {
+  if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Acesso negado' });
+  try {
+    const { getMasterWppPrefs } = require('../services/cronJobs');
+    const prefs = await getMasterWppPrefs();
+    res.json(prefs);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar preferências do Master Bot' });
+  }
+});
+
+// POST /whatsapp/master-preferences - Salva os toggles globais do Master Bot
+router.post('/master-preferences', async (req, res) => {
+  if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Acesso negado' });
+  try {
+    const { DEFAULT_MASTER_WPP_PREFS } = require('../services/cronJobs');
+    const prefs = { ...DEFAULT_MASTER_WPP_PREFS, ...req.body };
+    await db.query('UPDATE tenants SET master_whatsapp_preferences = ? WHERE id = ?', [JSON.stringify(prefs), req.user.tenant_id]);
+    res.json({ success: true, ...prefs });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar preferências do Master Bot' });
+  }
+});
+
 // POST /whatsapp/connect - Inicia conexão ou gera QR Code (Real)
 router.post('/connect', async (req, res) => {
   if (!isTenantAdmin(req.user)) return res.status(403).json({ error: 'Acesso negado' });

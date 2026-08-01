@@ -26,6 +26,13 @@ const DEFAULT_PREFS = {
   weekly_report: false,
   monthly_report: false,
   form_response: false,
+  // WhatsApp (Master Bot) — avisos ao profissional. true por padrão: já era o
+  // comportamento fixo antes de existir este toggle, não pode virar regressão silenciosa.
+  wpp_reminder_60min: true,
+  wpp_reminder_24h: true,
+  wpp_new_appointment: true,
+  wpp_cancelled_appointment: true,
+  wpp_rescheduled_appointment: true,
 };
 
 // GET /notifications/preferences — preferências do usuário logado

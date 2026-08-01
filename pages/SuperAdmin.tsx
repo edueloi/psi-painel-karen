@@ -386,6 +386,35 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     loadInvoices();
   }, [tab, loadInvoices]);
 
+  // ── Toggles mestres do WhatsApp Bot (avisos a profissionais, plataforma toda) ──
+  const [masterWppPrefs, setMasterWppPrefs] = useState({
+    reminder_60min_enabled: true,
+    reminder_24h_professional_enabled: true,
+    new_appointment_professional_enabled: true,
+    cancelled_appointment_professional_enabled: true,
+    rescheduled_appointment_professional_enabled: true,
+  });
+  const [masterWppSaving, setMasterWppSaving] = useState(false);
+
+  useEffect(() => {
+    if (tab !== 'whatsapp') return;
+    api.get<any>('/whatsapp/master-preferences').then(d => setMasterWppPrefs(p => ({ ...p, ...d }))).catch(() => {});
+  }, [tab]);
+
+  const toggleMasterWppPref = async (key: string) => {
+    const updated = { ...masterWppPrefs, [key]: !(masterWppPrefs as any)[key] };
+    setMasterWppPrefs(updated);
+    setMasterWppSaving(true);
+    try {
+      await api.post('/whatsapp/master-preferences', updated);
+    } catch {
+      setMasterWppPrefs(masterWppPrefs); // reverte em caso de erro
+      toast('Erro ao salvar preferência.', 'error');
+    } finally {
+      setMasterWppSaving(false);
+    }
+  };
+
   const saveMpToken = async () => {
     if (!mpToken.trim()) return;
     setMpSaving(true);
@@ -1619,23 +1648,39 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                       </div>
                     </div>
                   </div>
-                  {/* Info cards */}
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { Icon: Calendar, color: '#6366f1', bg: '#eef2ff', title: 'Antecedência', value: '60 min' },
-                      { Icon: Users, color: '#0284c7', bg: '#f0f9ff', title: 'Destinatários', value: 'Profissionais' },
-                      { Icon: Check, color: '#059669', bg: '#f0fdf4', title: 'Sistema', value: 'Ativo' },
-                    ].map(c => (
-                      <div key={c.title} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.bg }}>
-                            <c.Icon size={13} style={{ color: c.color }} />
+                  {/* Toggles mestres — liga/desliga cada tipo de aviso ao profissional,
+                      plataforma inteira. Cada profissional ainda pode desativar o que
+                      quiser individualmente em Configurações → Notificações. */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Avisos aos profissionais (kill-switch geral)</p>
+                      {masterWppSaving && <Loader2 size={12} className="animate-spin text-slate-300" />}
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden shadow-sm">
+                      {[
+                        { key: 'new_appointment_professional_enabled', Icon: Calendar, color: '#059669', bg: '#f0fdf4', title: 'Novo agendamento', desc: 'Sistema ou Portal do Paciente' },
+                        { key: 'reminder_60min_enabled', Icon: Clock, color: '#2563eb', bg: '#eff6ff', title: 'Lembrete 60 min antes', desc: 'Aviso de consulta próxima' },
+                        { key: 'reminder_24h_professional_enabled', Icon: Calendar, color: '#0284c7', bg: '#f0f9ff', title: 'Lembrete 24h antes', desc: 'Aviso no dia anterior' },
+                        { key: 'cancelled_appointment_professional_enabled', Icon: X, color: '#dc2626', bg: '#fef2f2', title: 'Cancelamento', desc: 'Sistema ou Portal do Paciente' },
+                        { key: 'rescheduled_appointment_professional_enabled', Icon: RefreshCw, color: '#d97706', bg: '#fffbeb', title: 'Remarcação', desc: 'Sistema ou Portal do Paciente' },
+                      ].map(item => (
+                        <div key={item.key} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: item.bg }}>
+                              <item.Icon size={14} style={{ color: item.color }} />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                              <p className="text-xs text-slate-400">{item.desc}</p>
+                            </div>
                           </div>
-                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{c.title}</p>
+                          <button onClick={() => toggleMasterWppPref(item.key)} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${(masterWppPrefs as any)[item.key] ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${(masterWppPrefs as any)[item.key] ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
                         </div>
-                        <p className="text-sm font-bold text-slate-700">{c.value}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-2 pl-1">Desligar aqui bloqueia o tipo de aviso para TODOS os profissionais da plataforma. Cada profissional também controla individualmente em Configurações → Notificações.</p>
                   </div>
                 </div>
               )}
