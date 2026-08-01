@@ -212,7 +212,7 @@ export function Assinatura() {
   const isUrgent = !isInGrace && daysLeft <= 3;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8 space-y-6">
+    <div className="max-w-full 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
 
       {/* ── Voltar ── */}
       <button
@@ -246,9 +246,9 @@ export function Assinatura() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6 items-start">
         {/* ── Coluna principal ── */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 min-w-0">
           {/* ── Card: Status da Assinatura ── */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <div className={`p-5 sm:p-6 ${isExempt ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' : isInGrace ? 'bg-gradient-to-r from-red-600 to-rose-600' : isPaid ? 'bg-gradient-to-r from-violet-600 to-indigo-600' : isUrgent ? 'bg-gradient-to-r from-red-600 to-rose-600' : 'bg-gradient-to-r from-slate-700 to-slate-800'}`}>
@@ -402,7 +402,7 @@ export function Assinatura() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
                 {plans.map(plan => {
                   const isSelected = selectedPlan?.id === plan.id;
                   const monthlyPrice = period === 'annual' ? plan.price * 0.85 : plan.price;
