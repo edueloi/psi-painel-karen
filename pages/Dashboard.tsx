@@ -57,6 +57,7 @@ import {
   Badge,
   Button,
   EmptyState,
+  FilterLineSegmented,
   Input,
   Modal,
   ModalFooter,
@@ -844,50 +845,50 @@ export const Dashboard: React.FC = () => {
       />
 
       <PanelCard
-        className="overflow-hidden border-[#1f496d]/10 bg-gradient-to-br from-[#143a59] via-[#295b85] to-[#2a74ac] text-white shadow-[0_24px_60px_rgba(20,58,89,0.22)]"
-        contentClassName="relative p-5 sm:p-6 lg:p-8"
+        className="overflow-hidden border-[#1f496d]/10 bg-gradient-to-br from-[#143a59] via-[#295b85] to-[#2a74ac] text-white shadow-[0_16px_40px_rgba(20,58,89,0.18)]"
+        contentClassName="relative p-4 sm:p-5"
       >
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.24),transparent_60%)]" />
-        <div className="pointer-events-none absolute -right-12 top-0 h-48 w-48 rounded-full bg-cyan-300/15 blur-3xl" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_60%)]" />
+        <div className="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-cyan-300/10 blur-3xl" />
 
-        <div className="relative z-10 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-4">
-            <span className="inline-flex w-fit items-center rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm backdrop-blur-sm">
+        <div className="relative z-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <span className="inline-flex w-fit items-center rounded-full border border-white/30 bg-white/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm backdrop-blur-sm">
               {formattedDate}
             </span>
 
-            <div className="space-y-2">
-              <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
+            <div className="space-y-1.5">
+              <h2 className="font-display text-xl font-black tracking-tight sm:text-2xl">
                 {greeting}, {greetingName}
               </h2>
-              <p className="max-w-2xl text-sm leading-relaxed text-white/80 sm:text-base">
+              <p className="max-w-2xl text-xs leading-relaxed text-white/80 sm:text-sm">
                 Sua clínica está pronta para o dia. Você tem {todaysAppointments.length}{' '}
                 atendimento{todaysAppointments.length === 1 ? '' : 's'} programado
                 {todaysAppointments.length === 1 ? '' : 's'} para hoje.
               </p>
             </div>
 
-            <div className="rounded-[1.75rem] border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10">
-                  <Sparkles size={18} className="text-cyan-100" />
+            <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10">
+                  <Sparkles size={15} className="text-cyan-100" />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/90">
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/90">
                     Insights do dia
                   </p>
-                  <p className="text-sm leading-relaxed text-white/90">{insightMessage}</p>
+                  <p className="text-xs leading-relaxed text-white/90">{insightMessage}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:w-[360px]">
-            <div className="rounded-[1.5rem] border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/90">
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:w-[320px]">
+            <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/90">
                 Próximo atendimento
               </p>
-              <p className="mt-2 text-base font-black leading-tight text-white">
+              <p className="mt-1.5 text-sm font-black leading-tight text-white truncate">
                 {nextAppointment?.patient_name || 'Agenda livre'}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-white/75">
@@ -900,11 +901,11 @@ export const Dashboard: React.FC = () => {
               </p>
             </div>
 
-            <div className="rounded-[1.5rem] border border-white/12 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/90">
+            <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/90">
                 Pendências
               </p>
-              <p className="mt-2 text-3xl font-black leading-none text-white">{pendingTodosCount}</p>
+              <p className="mt-1.5 text-xl font-black leading-none text-white">{pendingTodosCount}</p>
               <p className="mt-1 text-xs leading-relaxed text-white/75">
                 {pendingTodosCount === 0
                   ? 'Sua lista está em dia.'
@@ -960,22 +961,15 @@ export const Dashboard: React.FC = () => {
             iconClassName="text-sky-600"
             action={
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {(Object.keys(UPCOMING_FILTER_LABELS) as UpcomingFilter[]).map((filter) => (
-                    <button
-                      key={filter}
-                      type="button"
-                      onClick={() => setUpcomingFilter(filter)}
-                      className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide transition-colors ${
-                        upcomingFilter === filter
-                          ? 'border-[#295b85] bg-[#295b85] text-white'
-                          : 'border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
-                      }`}
-                    >
-                      {UPCOMING_FILTER_LABELS[filter]}
-                    </button>
-                  ))}
-                </div>
+                <FilterLineSegmented<UpcomingFilter>
+                  size="sm"
+                  value={upcomingFilter}
+                  onChange={setUpcomingFilter}
+                  options={(Object.keys(UPCOMING_FILTER_LABELS) as UpcomingFilter[]).map((filter) => ({
+                    value: filter,
+                    label: UPCOMING_FILTER_LABELS[filter],
+                  }))}
+                />
 
                 <Button
                   variant="ghost"
@@ -1243,27 +1237,27 @@ export const Dashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowFinance((current) => !current)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
               >
-                {showFinance ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showFinance ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             }
-            contentClassName="space-y-4"
+            contentClassName="space-y-3"
           >
             <div className="space-y-1">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                 Entradas acumuladas
               </p>
               {isLoading ? (
-                <div className="h-10 w-40 animate-pulse rounded-2xl bg-slate-800" />
+                <div className="h-8 w-32 animate-pulse rounded-xl bg-slate-800" />
               ) : (
-                <p className="text-3xl font-black tracking-tight text-white">
+                <p className="text-xl font-black tracking-tight text-white">
                   {showFinance ? formatCurrency(financeData.current) : 'R$ ••••••'}
                 </p>
               )}
             </div>
 
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-bold text-slate-300">Variação mensal</span>
                 {isLoading ? (
@@ -1336,7 +1330,7 @@ export const Dashboard: React.FC = () => {
                   return (
                     <div
                       key={patient.id}
-                      className={`flex items-center justify-between gap-3 rounded-[1.5rem] border p-3.5 transition-colors ${
+                      className={`flex items-center justify-between gap-3 rounded-3xl border p-3.5 transition-colors ${
                         isToday
                           ? 'border-amber-200 bg-amber-50'
                           : 'border-zinc-100 bg-zinc-50/80 hover:bg-white'
@@ -1406,7 +1400,7 @@ export const Dashboard: React.FC = () => {
                 todosList.map((todo) => (
                   <div
                     key={todo.id}
-                    className="group flex items-start gap-3 rounded-[1.5rem] border border-zinc-100 bg-zinc-50/70 p-3.5 transition-colors hover:bg-white"
+                    className="group flex items-start gap-3 rounded-3xl border border-zinc-100 bg-zinc-50/70 p-3.5 transition-colors hover:bg-white"
                   >
                     <button
                       type="button"
@@ -1474,7 +1468,7 @@ export const Dashboard: React.FC = () => {
                   href={shortcut.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group/shortcut relative flex min-h-[118px] flex-col items-center justify-center rounded-[1.5rem] border border-zinc-100 bg-zinc-50/70 p-3 text-center transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+                  className="group/shortcut relative flex min-h-[118px] flex-col items-center justify-center rounded-3xl border border-zinc-100 bg-zinc-50/70 p-3 text-center transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
                 >
                   {!shortcut.isSystem && (
                     <div className="absolute right-2 top-2 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/shortcut:opacity-100">
