@@ -89,10 +89,14 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     // Clínicas isentas de cobrança nunca são bloqueadas por vencimento/trial expirado
     if (user.role !== 'super_admin' && !user.tenant_billing_exempt) {
-      // Bloqueia se assinatura venceu (só se tiver expires_at definido)
+      // Bloqueia se assinatura venceu — com 3 dias de carência após o vencimento
+      // (dá tempo do Pix compensar sem cortar o acesso na hora).
+      const SUBSCRIPTION_GRACE_DAYS = 3;
       if (user.tenant_expires_at) {
-        const expired = new Date(user.tenant_expires_at) < new Date();
-        if (expired) {
+        const graceDeadline = new Date(user.tenant_expires_at);
+        graceDeadline.setDate(graceDeadline.getDate() + SUBSCRIPTION_GRACE_DAYS);
+        const graceExpired = graceDeadline < new Date();
+        if (graceExpired) {
           return res.status(403).json({
             error: 'A assinatura desta clínica está vencida. Renove para continuar acessando.',
             subscription_expired: true,
@@ -397,8 +401,10 @@ router.post('/register', registerLimiter, async (req, res) => {
       return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
     }
 
+    // Trial de 14 dias libera o plano mais completo (Enterprise) para o cliente
+    // experimentar tudo antes de decidir — depois do trial, escolhe o plano que quiser.
     const [[defaultPlan]] = await conn.query(
-      'SELECT id FROM plans WHERE active = true ORDER BY price ASC LIMIT 1'
+      'SELECT id FROM plans WHERE active = true ORDER BY price DESC LIMIT 1'
     );
     const planId = defaultPlan?.id || null;
 

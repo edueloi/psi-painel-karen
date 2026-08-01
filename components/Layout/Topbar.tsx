@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getStaticUrl } from '../../services/api';
 import { SystemAlerts } from '../SystemAlerts';
+import { SubscriptionAlert } from '../SubscriptionAlert';
 
 
 interface TopbarProps {
@@ -53,6 +54,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
 
       {/* Right Area: Actions & Profile */}
       <div className="flex items-center gap-2 md:gap-4">
+
+        {/* Assinatura vencendo/vencida */}
+        <SubscriptionAlert />
 
         {/* Notifications */}
         <SystemAlerts />

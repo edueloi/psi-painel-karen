@@ -108,11 +108,14 @@ router.get('/status', authMiddleware, async (req, res) => {
     const now = new Date();
     const trialEndsAt = t.trial_ends_at ? new Date(t.trial_ends_at) : null;
     const expiresAt = t.expires_at ? new Date(t.expires_at) : null;
+    const SUBSCRIPTION_GRACE_DAYS = 3;
 
     let subscriptionType = 'free';
     let daysLeft = null;
     let totalDays = null;
     let isActive = true;
+    let isInGrace = false;
+    let graceDaysLeft = null;
 
     if (expiresAt && expiresAt > now) {
       // Tem assinatura ativa paga
@@ -120,8 +123,18 @@ router.get('/status', authMiddleware, async (req, res) => {
       daysLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
       totalDays = 30; // mês corrente
       isActive = true;
+    } else if (expiresAt) {
+      // Assinatura venceu — checa se ainda está dentro da carência de 3 dias
+      const graceDeadline = new Date(expiresAt);
+      graceDeadline.setDate(graceDeadline.getDate() + SUBSCRIPTION_GRACE_DAYS);
+      subscriptionType = 'paid';
+      daysLeft = 0;
+      totalDays = 30;
+      isActive = graceDeadline > now;
+      isInGrace = isActive;
+      if (isInGrace) graceDaysLeft = Math.max(0, Math.ceil((graceDeadline - now) / (1000 * 60 * 60 * 24)));
     } else if (trialEndsAt) {
-      // Está no trial ou trial expirou
+      // Está no trial ou trial expirou (sem carência — trial já é gratuito)
       subscriptionType = 'trial';
       const trialStart = new Date(trialEndsAt);
       trialStart.setDate(trialStart.getDate() - 14);
@@ -141,6 +154,8 @@ router.get('/status', authMiddleware, async (req, res) => {
       is_active: isActive,
       days_left: daysLeft,
       total_days: totalDays,
+      is_in_grace: isInGrace,
+      grace_days_left: graceDaysLeft,
       trial_ends_at: t.trial_ends_at,
       expires_at: t.expires_at,
       last_billing_at: t.last_billing_at,
@@ -275,6 +290,50 @@ router.post('/checkout', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('[Sub] Erro ao criar checkout:', err);
     res.status(500).json({ error: 'Erro interno ao gerar cobrança' });
+  }
+});
+
+// ── GET /subscription/my-invoices — Extrato de faturas do próprio tenant ─────
+router.get('/my-invoices', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, plan_id, plan_name, period, amount, method, status,
+              mp_payment_id, paid_at, created_at
+       FROM subscription_invoices
+       WHERE tenant_id = ?
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[Sub] Erro ao buscar extrato:', err);
+    res.status(500).json({ error: 'Erro ao buscar extrato' });
+  }
+});
+
+// ── GET /subscription/invoices/:id/receipt — PDF de comprovante de pagamento ──
+router.get('/invoices/:id/receipt', authMiddleware, async (req, res) => {
+  try {
+    const [[invoice]] = await db.query(
+      `SELECT si.*, t.name as tenant_name, t.cnpj_cpf as tenant_document
+       FROM subscription_invoices si
+       JOIN tenants t ON t.id = si.tenant_id
+       WHERE si.id = ? AND si.tenant_id = ?`,
+      [req.params.id, req.user.tenant_id]
+    );
+    if (!invoice) return res.status(404).json({ error: 'Fatura não encontrada' });
+    if (invoice.status !== 'approved') return res.status(400).json({ error: 'Comprovante disponível apenas para faturas pagas' });
+
+    const { generateReceiptPdf } = require('../services/subscriptionReceipt');
+    const pdfBuffer = await generateReceiptPdf(invoice);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="comprovante-${invoice.id}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('[Sub] Erro ao gerar comprovante:', err);
+    res.status(500).json({ error: 'Erro ao gerar comprovante' });
   }
 });
 
