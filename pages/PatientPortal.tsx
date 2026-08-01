@@ -277,13 +277,13 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
         <p className="text-slate-400 text-sm font-medium mb-1">{greeting}, <span className="font-black text-slate-700">{firstName}</span> 👋</p>
       </div>
 
-      {/* Grid responsivo: próxima consulta + listas */}
-      <div className="md:grid md:grid-cols-2 md:gap-5 space-y-4 md:space-y-0">
+      {/* Grid responsivo: próxima consulta + listas — escala até 3 colunas em telas largas */}
+      <div className="md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-5 space-y-4 md:space-y-0">
 
-        {/* Coluna esquerda: próxima consulta */}
+        {/* Coluna 1: próxima consulta + profissional */}
         <div className="space-y-4">
           {next ? (
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 xl:p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
               <div className="absolute -right-4 -top-4 w-28 h-28 bg-white/5 rounded-full pointer-events-none" />
               <div className="absolute -right-2 -bottom-6 w-20 h-20 bg-white/5 rounded-full pointer-events-none" />
               <div className="flex items-center gap-1.5 mb-3">
@@ -338,10 +338,9 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
           )}
         </div>
 
-        {/* Coluna direita: listas */}
+        {/* Coluna 2: em breve */}
         <div className="space-y-4">
-          {/* Em breve */}
-          {upcoming.length > 0 && (
+          {upcoming.length > 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-1.5">
                 <Clock size={12} className="text-slate-400" />
@@ -362,10 +361,22 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="hidden xl:flex bg-white rounded-2xl border border-slate-100 p-5 items-center gap-3 shadow-sm h-full">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
+                <Clock size={18} className="text-slate-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-600">Nada agendado</p>
+                <p className="text-xs text-slate-400 mt-0.5">Suas próximas consultas aparecerão aqui</p>
+              </div>
+            </div>
           )}
+        </div>
 
-          {/* Histórico */}
-          {recent.length > 0 && (
+        {/* Coluna 3: histórico */}
+        <div className="space-y-4">
+          {recent.length > 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-1.5">
                 <CheckCircle size={12} className="text-slate-400" />
@@ -381,16 +392,14 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
                 </div>
               ))}
             </div>
-          )}
-
-          {upcoming.length === 0 && recent.length === 0 && (
-            <div className="hidden md:flex bg-white rounded-2xl border border-slate-100 p-5 items-center gap-3 shadow-sm">
+          ) : (
+            <div className="hidden xl:flex bg-white rounded-2xl border border-slate-100 p-5 items-center gap-3 shadow-sm h-full">
               <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                <Clock size={18} className="text-slate-400" />
+                <CheckCircle size={18} className="text-slate-400" />
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-600">Nenhum histórico ainda</p>
-                <p className="text-xs text-slate-400 mt-0.5">Suas consultas aparecerão aqui</p>
+                <p className="text-xs text-slate-400 mt-0.5">Suas consultas realizadas aparecerão aqui</p>
               </div>
             </div>
           )}
@@ -1395,6 +1404,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         </div>
       )}
 
+      <div className="xl:grid xl:grid-cols-2 xl:gap-5 xl:items-start space-y-4 xl:space-y-0">
       {upcoming.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-4 py-2.5 border-b border-slate-50">
@@ -1480,6 +1490,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           ))}
         </div>
       )}
+      </div>
 
       {upcoming.length === 0 && past.length === 0 && requests.length === 0 && (
         <EmptyState icon={Calendar} title="Nenhuma consulta" description="Suas consultas aparecerão aqui." />
@@ -1732,7 +1743,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
       )}
 
       {/* Resumo total */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total confirmado</p>
           <p className="text-xl font-black text-emerald-600">{fmtCurrency(totalConfirmed)}</p>
@@ -2019,9 +2030,9 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
             <p className="text-xs text-slate-400">Nenhum pagamento em {MONTHS[filterMonth]}/{filterYear}</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-50">
+          <div className="xl:grid xl:grid-cols-2 divide-y xl:divide-y-0 divide-slate-50">
             {filtered.map(p => (
-              <div key={p.id} className="px-4 py-3">
+              <div key={p.id} className="px-4 py-3 border-b border-slate-50 xl:odd:border-r xl:border-slate-100 last:border-b-0">
                 <div className="flex items-start justify-between gap-3 mb-0.5">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[10px] font-black ${
@@ -2450,131 +2461,141 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
           /* ── MODO VISUALIZAÇÃO ── */
           <div>
             <SubLabel>Básico</SubLabel>
-            <Field label="Nome completo" value={form.name} />
-            <Field label="Email" value={form.email} />
-            <Field label="WhatsApp / Telefone" value={form.phone} />
-            {form.phone2 && <Field label="Telefone 2" value={form.phone2} />}
-            {form.cpf_cnpj && <Field label="CPF / CNPJ" value={form.cpf_cnpj} />}
-            <Field label="Data de nascimento" value={fmtBirth(form.birth_date)} />
-            <Field label="Gênero" value={form.gender} />
-            <Field label="Plano de saúde" value={form.health_plan} />
-            {form.notes && <Field label="Observações" value={form.notes} />}
+            <div className="lg:grid lg:grid-cols-2">
+              <Field label="Nome completo" value={form.name} />
+              <Field label="Email" value={form.email} />
+              <Field label="WhatsApp / Telefone" value={form.phone} />
+              {form.phone2 && <Field label="Telefone 2" value={form.phone2} />}
+              {form.cpf_cnpj && <Field label="CPF / CNPJ" value={form.cpf_cnpj} />}
+              <Field label="Data de nascimento" value={fmtBirth(form.birth_date)} />
+              <Field label="Gênero" value={form.gender} />
+              <Field label="Plano de saúde" value={form.health_plan} />
+              {form.notes && <Field label="Observações" value={form.notes} />}
+            </div>
 
             {(form.street || form.city || form.address_zip) && (
               <>
                 <SubLabel>Endereço</SubLabel>
-                {form.address_zip && <Field label="CEP" value={form.address_zip} />}
-                {form.street && <Field label="Logradouro" value={[form.street, form.house_number].filter(Boolean).join(", ")} />}
-                {form.neighborhood && <Field label="Bairro" value={form.neighborhood} />}
-                {form.city && <Field label="Cidade / Estado" value={[form.city, form.state].filter(Boolean).join(" — ")} />}
+                <div className="lg:grid lg:grid-cols-2">
+                  {form.address_zip && <Field label="CEP" value={form.address_zip} />}
+                  {form.street && <Field label="Logradouro" value={[form.street, form.house_number].filter(Boolean).join(", ")} />}
+                  {form.neighborhood && <Field label="Bairro" value={form.neighborhood} />}
+                  {form.city && <Field label="Cidade / Estado" value={[form.city, form.state].filter(Boolean).join(" — ")} />}
+                </div>
               </>
             )}
 
             {(form.marital_status || form.education || form.profession || form.nationality) && (
               <>
                 <SubLabel>Social</SubLabel>
-                {form.marital_status && <Field label="Estado civil" value={MARITAL_OPTIONS.find(o => o.value === form.marital_status)?.label} />}
-                {form.education && <Field label="Escolaridade" value={EDUCATION_OPTIONS.find(o => o.value === form.education)?.label} />}
-                {form.profession && <Field label="Profissão" value={form.profession} />}
-                {form.nationality && <Field label="Nacionalidade" value={form.nationality} />}
+                <div className="lg:grid lg:grid-cols-2">
+                  {form.marital_status && <Field label="Estado civil" value={MARITAL_OPTIONS.find(o => o.value === form.marital_status)?.label} />}
+                  {form.education && <Field label="Escolaridade" value={EDUCATION_OPTIONS.find(o => o.value === form.education)?.label} />}
+                  {form.profession && <Field label="Profissão" value={form.profession} />}
+                  {form.nationality && <Field label="Nacionalidade" value={form.nationality} />}
+                </div>
               </>
             )}
 
             {(form.has_children || form.spouse_name || form.emergency_contacts.length > 0) && (
               <>
                 <SubLabel>Família</SubLabel>
-                {form.has_children && (
-                  <Field label="Filhos" value={`${form.children_count} total · ${form.minor_children_count} menor(es)`} />
-                )}
-                {form.spouse_name && <Field label="Cônjuge" value={form.spouse_name} />}
-                {form.emergency_contacts.map((c, i) => (
-                  <div key={c.id} className="px-5 py-3.5 border-b border-slate-50 last:border-0">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Emergência {i + 1}</p>
-                    <p className="text-sm text-slate-700 font-semibold">{c.name || "—"}</p>
-                    {c.relationship && <p className="text-xs text-slate-400">{RELATIONSHIP_OPTIONS.find(r => r.value === c.relationship)?.label || c.relationship}</p>}
-                    {c.phone && <p className="text-xs text-slate-500">{c.phone}</p>}
-                  </div>
-                ))}
+                <div className="lg:grid lg:grid-cols-2">
+                  {form.has_children && (
+                    <Field label="Filhos" value={`${form.children_count} total · ${form.minor_children_count} menor(es)`} />
+                  )}
+                  {form.spouse_name && <Field label="Cônjuge" value={form.spouse_name} />}
+                  {form.emergency_contacts.map((c, i) => (
+                    <div key={c.id} className="px-5 py-3.5 border-b border-slate-50 last:border-0">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Emergência {i + 1}</p>
+                      <p className="text-sm text-slate-700 font-semibold">{c.name || "—"}</p>
+                      {c.relationship && <p className="text-xs text-slate-400">{RELATIONSHIP_OPTIONS.find(r => r.value === c.relationship)?.label || c.relationship}</p>}
+                      {c.phone && <p className="text-xs text-slate-500">{c.phone}</p>}
+                    </div>
+                  ))}
+                </div>
               </>
             )}
           </div>
         )}
       </div>
 
-      {/* Meu profissional */}
-      {patient.professional_name && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <SectionHead icon={Stethoscope} label="Meu Profissional" />
-          <div className="px-5 py-4 flex items-center gap-3.5">
-            <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 shadow-md shadow-indigo-500/25">
-              {patient.professional_name.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-black text-slate-800 leading-tight">{patient.professional_name}</p>
-              {patient.specialty && <p className="text-sm text-slate-500 mt-0.5">{patient.specialty}</p>}
-              {patient.crp && (
-                <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">
-                  <Gem size={9} /> CRP {patient.crp}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Segurança */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <button onClick={() => setShowPassSection(v => !v)}
-          className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl flex items-center justify-center shrink-0">
-              <Shield size={17} className="text-indigo-600" />
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-black text-slate-700">Segurança da conta</p>
-              <p className="text-xs text-slate-400 flex items-center gap-1">
-                {patient.portal_password_set
-                  ? <><CheckCircle size={11} className="text-emerald-500" /> Senha definida</>
-                  : <><AlertCircle size={11} className="text-amber-500" /> Senha não configurada</>}
-              </p>
-            </div>
-          </div>
-          <ChevronRight size={16} className={`text-slate-400 transition-transform ${showPassSection ? "rotate-90" : ""}`} />
-        </button>
-
-        {showPassSection && (
-          <div className="px-5 pb-5 space-y-3 border-t border-slate-50 pt-4">
-            {patient.portal_password_set && (
-              <Input label="Senha atual" type={showPass ? "text" : "password"} placeholder="••••••••"
-                value={passForm.current_password}
-                onChange={e => setPassForm(f => ({ ...f, current_password: e.target.value }))}
-                iconLeft={<Lock size={14} />} />
-            )}
-            <Input label="Nova senha" type={showPass ? "text" : "password"} placeholder="Mínimo 6 caracteres"
-              value={passForm.new_password}
-              onChange={e => setPassForm(f => ({ ...f, new_password: e.target.value }))}
-              iconLeft={<Lock size={14} />}
-              iconRight={
-                <button onClick={() => setShowPass(v => !v)} type="button" className="text-zinc-400 hover:text-zinc-600">
-                  {showPass ? <EyeOff size={14} /> : <EyeIcon size={14} />}
-                </button>
-              } />
-            <Input label="Confirme a nova senha" type={showPass ? "text" : "password"} placeholder="Repita a senha"
-              value={passForm.confirm}
-              onChange={e => setPassForm(f => ({ ...f, confirm: e.target.value }))}
-              iconLeft={<Lock size={14} />} />
-            {passError && (
-              <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-2xl px-3 py-2.5 border border-red-200">
-                <AlertCircle size={12} />{passError}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+        {/* Meu profissional */}
+        {patient.professional_name && (
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <SectionHead icon={Stethoscope} label="Meu Profissional" />
+            <div className="px-5 py-4 flex items-center gap-3.5">
+              <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 shadow-md shadow-indigo-500/25">
+                {patient.professional_name.charAt(0)}
               </div>
-            )}
-            <Button variant="primary" className="w-full"
-              iconLeft={savingPass ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
-              onClick={savePassword} disabled={savingPass || !passForm.new_password}>
-              {savingPass ? "Salvando..." : "Salvar nova senha"}
-            </Button>
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-slate-800 leading-tight">{patient.professional_name}</p>
+                {patient.specialty && <p className="text-sm text-slate-500 mt-0.5">{patient.specialty}</p>}
+                {patient.crp && (
+                  <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">
+                    <Gem size={9} /> CRP {patient.crp}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         )}
+
+        {/* Segurança */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <button onClick={() => setShowPassSection(v => !v)}
+            className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl flex items-center justify-center shrink-0">
+                <Shield size={17} className="text-indigo-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-black text-slate-700">Segurança da conta</p>
+                <p className="text-xs text-slate-400 flex items-center gap-1">
+                  {patient.portal_password_set
+                    ? <><CheckCircle size={11} className="text-emerald-500" /> Senha definida</>
+                    : <><AlertCircle size={11} className="text-amber-500" /> Senha não configurada</>}
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={16} className={`text-slate-400 transition-transform ${showPassSection ? "rotate-90" : ""}`} />
+          </button>
+
+          {showPassSection && (
+            <div className="px-5 pb-5 space-y-3 border-t border-slate-50 pt-4">
+              {patient.portal_password_set && (
+                <Input label="Senha atual" type={showPass ? "text" : "password"} placeholder="••••••••"
+                  value={passForm.current_password}
+                  onChange={e => setPassForm(f => ({ ...f, current_password: e.target.value }))}
+                  iconLeft={<Lock size={14} />} />
+              )}
+              <Input label="Nova senha" type={showPass ? "text" : "password"} placeholder="Mínimo 6 caracteres"
+                value={passForm.new_password}
+                onChange={e => setPassForm(f => ({ ...f, new_password: e.target.value }))}
+                iconLeft={<Lock size={14} />}
+                iconRight={
+                  <button onClick={() => setShowPass(v => !v)} type="button" className="text-zinc-400 hover:text-zinc-600">
+                    {showPass ? <EyeOff size={14} /> : <EyeIcon size={14} />}
+                  </button>
+                } />
+              <Input label="Confirme a nova senha" type={showPass ? "text" : "password"} placeholder="Repita a senha"
+                value={passForm.confirm}
+                onChange={e => setPassForm(f => ({ ...f, confirm: e.target.value }))}
+                iconLeft={<Lock size={14} />} />
+              {passError && (
+                <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-2xl px-3 py-2.5 border border-red-200">
+                  <AlertCircle size={12} />{passError}
+                </div>
+              )}
+              <Button variant="primary" className="w-full"
+                iconLeft={savingPass ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
+                onClick={savePassword} disabled={savingPass || !passForm.new_password}>
+                {savingPass ? "Salvando..." : "Salvar nova senha"}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Sair */}
@@ -2621,30 +2642,32 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
         <EmptyState icon={FolderOpen} title="Nenhum documento ainda" description="Documentos enviados pelo profissional aparecerão aqui" />
       )}
 
-      {allItems.map((item, i) => (
-        <div key={`${item.kind}-${item.id}`}
-          className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.kind === "doc" ? "bg-indigo-50" : "bg-slate-100"}`}>
-            {item.kind === "doc"
-              ? <FileText size={16} className="text-indigo-500" />
-              : <Paperclip size={16} className="text-slate-500" />}
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+        {allItems.map((item, i) => (
+          <div key={`${item.kind}-${item.id}`}
+            className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.kind === "doc" ? "bg-indigo-50" : "bg-slate-100"}`}>
+              {item.kind === "doc"
+                ? <FileText size={16} className="text-indigo-500" />
+                : <Paperclip size={16} className="text-slate-500" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-700 truncate">{item.title || "Documento"}</p>
+              <p className="text-xs text-slate-400">{fmtDate(item.created_at)}</p>
+            </div>
+            {item.kind === "doc" ? (
+              <Button variant="ghost" size="sm" onClick={() => setViewDoc(item)} className="text-indigo-600 shrink-0">
+                <Eye size={12} /> Ver
+              </Button>
+            ) : item.file_url && !item.file_url.startsWith("data:") ? (
+              <a href={item.file_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors shrink-0">
+                <Download size={12} /> Baixar
+              </a>
+            ) : null}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-700 truncate">{item.title || "Documento"}</p>
-            <p className="text-xs text-slate-400">{fmtDate(item.created_at)}</p>
-          </div>
-          {item.kind === "doc" ? (
-            <Button variant="ghost" size="sm" onClick={() => setViewDoc(item)} className="text-indigo-600 shrink-0">
-              <Eye size={12} /> Ver
-            </Button>
-          ) : item.file_url && !item.file_url.startsWith("data:") ? (
-            <a href={item.file_url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors shrink-0">
-              <Download size={12} /> Baixar
-            </a>
-          ) : null}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -2697,39 +2720,41 @@ function NfseTab({ invoices }: { invoices: PortalNfseInvoice[] }) {
         <EmptyState icon={Receipt} title="Nenhuma nota fiscal ainda" description="Notas fiscais emitidas para você aparecerão aqui" />
       )}
 
-      {invoices.map((inv) => (
-        <div key={inv.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50">
-            <Receipt size={16} className="text-emerald-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+        {invoices.map((inv) => (
+          <div key={inv.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50">
+              <Receipt size={16} className="text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-700 truncate">
+                NFS-e nº {inv.numero} · Série {inv.serie}
+              </p>
+              <p className="text-xs text-slate-400 truncate">
+                {inv.authorized_at ? fmtDate(inv.authorized_at) : "—"} · {formatCurrencyBR(Number(inv.valor_servico))}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {!!inv.has_pdf && (
+                <button
+                  onClick={() => downloadNfseFile(inv.financial_transaction_id, "pdf", inv.chave_acesso)}
+                  className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+                >
+                  <Download size={12} /> PDF
+                </button>
+              )}
+              {!!inv.has_xml && (
+                <button
+                  onClick={() => downloadNfseFile(inv.financial_transaction_id, "xml", inv.chave_acesso)}
+                  className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  <Download size={12} /> XML
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-700 truncate">
-              NFS-e nº {inv.numero} · Série {inv.serie}
-            </p>
-            <p className="text-xs text-slate-400 truncate">
-              {inv.authorized_at ? fmtDate(inv.authorized_at) : "—"} · {formatCurrencyBR(Number(inv.valor_servico))}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {!!inv.has_pdf && (
-              <button
-                onClick={() => downloadNfseFile(inv.financial_transaction_id, "pdf", inv.chave_acesso)}
-                className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
-              >
-                <Download size={12} /> PDF
-              </button>
-            )}
-            {!!inv.has_xml && (
-              <button
-                onClick={() => downloadNfseFile(inv.financial_transaction_id, "xml", inv.chave_acesso)}
-                className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                <Download size={12} /> XML
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -2898,7 +2923,7 @@ export const PatientPortal: React.FC = () => {
 
         {/* Content */}
         <main className="flex-1 px-4 md:px-8 pt-4 pb-6 overflow-y-auto">
-          <div className="max-w-4xl w-full">
+          <div className="max-w-full 2xl:max-w-[1400px] w-full mx-auto">
             {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
             {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} />}
             {tab === "documents" && <DocumentsTab data={documents} />}
