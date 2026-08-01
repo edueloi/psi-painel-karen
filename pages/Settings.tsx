@@ -11,7 +11,8 @@ import {
 import { Button } from '../components/UI/Button';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Select } from '../components/UI/Input';
-import { PageWrapper } from '../components/UI';
+import { PageWrapper, SectionTitle, StatGrid, StatCard } from '../components/UI';
+import { Switch } from '../components/UI/Switch';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Language } from '../translations';
@@ -63,7 +64,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const ROLE_COLOR: Record<string, string> = {
-  admin: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+  admin: 'bg-primary-50 text-primary-700 border-primary-100',
   profissional: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   secretaria: 'bg-amber-50 text-amber-700 border-amber-100',
   super_admin: 'bg-red-50 text-red-700 border-red-100',
@@ -73,28 +74,16 @@ const ROLE_COLOR: Record<string, string> = {
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
 
 const ToggleSwitch = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-  <button
-    onClick={onChange}
-    className={cx(
-      'relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1 shrink-0',
-      checked ? 'bg-indigo-600' : 'bg-slate-200'
-    )}
-  >
-    <div className={cx(
-      'absolute top-0.5 left-0.5 bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-300',
-      checked ? 'translate-x-6' : 'translate-x-0'
-    )} />
-  </button>
+  <Switch checked={checked} onCheckedChange={onChange} />
 );
 
 const SectionHeader = ({ icon, title, desc }: { icon: React.ReactNode; title: string; desc?: string }) => (
-  <div className="flex items-start gap-3 mb-8">
-    <div className="p-2.5 bg-slate-100 rounded-xl text-slate-600 shrink-0">{icon}</div>
-    <div>
-      <h2 className="text-xl font-bold text-slate-800">{title}</h2>
-      {desc && <p className="text-slate-500 text-sm mt-0.5">{desc}</p>}
-    </div>
-  </div>
+  <SectionTitle
+    icon={() => <>{icon}</>}
+    title={title}
+    description={desc}
+    className="mb-8"
+  />
 );
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -350,47 +339,46 @@ export const Settings: React.FC = () => {
         }
       />
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
 
         {/* Sidebar */}
         <div className="w-full lg:w-64 flex-shrink-0">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-row overflow-x-auto lg:flex-col lg:overflow-visible">
             {MENU_ITEMS.map((item, idx) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={cx(
-                  'w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all relative',
-                  idx < MENU_ITEMS.length - 1 && 'border-b border-slate-100',
+                  'flex shrink-0 items-center gap-3 px-4 py-3.5 text-left transition-all relative lg:w-full',
+                  idx < MENU_ITEMS.length - 1 && 'border-b-0 lg:border-b border-slate-100 border-r lg:border-r-0',
                   activeTab === item.id
-                    ? 'bg-indigo-50 text-indigo-700'
+                    ? 'bg-primary-50 text-primary-700'
                     : 'text-slate-600 hover:bg-slate-50'
                 )}
               >
                 {activeTab === item.id && (
-                  <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-600 rounded-r" />
+                  <div className="absolute left-0 right-0 lg:right-auto bottom-0 lg:top-0 h-0.5 lg:h-auto lg:w-0.5 bg-primary-600 rounded-t lg:rounded-t-none lg:rounded-r" />
                 )}
                 <div className={cx(
                   'p-1.5 rounded-lg shrink-0 transition-colors',
-                  activeTab === item.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'
+                  activeTab === item.id ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-400'
                 )}>
                   {item.icon}
                 </div>
                 <div className="min-w-0">
-                  <p className={cx('text-sm font-semibold', activeTab === item.id ? 'text-indigo-800' : 'text-slate-700')}>
+                  <p className={cx('text-sm font-semibold whitespace-nowrap lg:whitespace-normal', activeTab === item.id ? 'text-primary-800' : 'text-slate-700')}>
                     {item.label}
                   </p>
-                  <p className="text-[10px] text-slate-400 truncate">{item.desc}</p>
+                  <p className="text-[10px] text-slate-400 truncate hidden lg:block">{item.desc}</p>
                 </div>
-                {activeTab === item.id && <ChevronRight size={14} className="ml-auto text-indigo-400 shrink-0" />}
+                {activeTab === item.id && <ChevronRight size={14} className="ml-auto text-primary-400 shrink-0 hidden lg:block" />}
               </button>
             ))}
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8 min-h-[560px]">
+        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8">
 
           {/* ── APARÊNCIA ────────────────────────────────────────────────── */}
           {activeTab === 'aparencia' && (
@@ -409,7 +397,7 @@ export const Settings: React.FC = () => {
                     >
                       <div className={cx(
                         `w-12 h-12 rounded-2xl bg-gradient-to-br ${color.gradient} shadow-md flex items-center justify-center transition-all duration-200 group-hover:scale-110`,
-                        selectedColor === color.name ? 'ring-4 ring-offset-2 ring-indigo-400 scale-110' : ''
+                        selectedColor === color.name ? 'ring-4 ring-offset-2 ring-primary-400 scale-110' : ''
                       )}>
                         {selectedColor === color.name && <Check size={20} className="text-white" strokeWidth={3} />}
                       </div>
@@ -422,7 +410,7 @@ export const Settings: React.FC = () => {
               {/* Modo */}
               <section>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4">{t('settings.appearance.mode')}</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   {[
                     { id: 'light', label: t('settings.appearance.light'), icon: <Monitor size={22} /> },
                     { id: 'dark',  label: t('settings.appearance.dark'),  icon: <Moon size={22} /> },
@@ -432,23 +420,23 @@ export const Settings: React.FC = () => {
                       key={mode.id}
                       onClick={() => setMode(mode.id as any)}
                       className={cx(
-                        'flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all duration-200',
+                        'flex flex-col items-center gap-2 sm:gap-3 p-3 sm:p-5 rounded-2xl border-2 transition-all duration-200',
                         selectedMode === mode.id
-                          ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
+                          ? 'border-primary-500 bg-primary-50 shadow-md shadow-primary-100'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       )}
                     >
                       <div className={cx(
-                        'p-3 rounded-xl',
-                        selectedMode === mode.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
+                        'p-2 sm:p-3 rounded-xl',
+                        selectedMode === mode.id ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-500'
                       )}>
                         {mode.icon}
                       </div>
-                      <span className={cx('text-xs font-bold', selectedMode === mode.id ? 'text-indigo-700' : 'text-slate-600')}>
+                      <span className={cx('text-xs font-bold', selectedMode === mode.id ? 'text-primary-700' : 'text-slate-600')}>
                         {mode.label}
                       </span>
                       {selectedMode === mode.id && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
                       )}
                     </button>
                   ))}
@@ -469,29 +457,25 @@ export const Settings: React.FC = () => {
                   <p className="text-xs text-slate-500 mt-0.5">O áudio da sessão é gravado no seu navegador e enviado ao servidor ao encerrar.</p>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  <div className="flex items-center justify-between px-6 py-4">
-                    <div>
+                  <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-800">Gravar áudio automaticamente</p>
                       <p className="text-xs text-slate-500 mt-0.5">Inicia a gravação assim que você entrar na sala virtual</p>
                     </div>
-                    <button
-                      onClick={() => updatePreference('sessions', { autoRecord: !preferences.sessions?.autoRecord })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${preferences.sessions?.autoRecord ? 'bg-indigo-600' : 'bg-slate-200'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${preferences.sessions?.autoRecord ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
+                    <Switch
+                      checked={!!preferences.sessions?.autoRecord}
+                      onCheckedChange={(next) => updatePreference('sessions', { autoRecord: next })}
+                    />
                   </div>
-                  <div className="flex items-center justify-between px-6 py-4">
-                    <div>
+                  <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-800">Transcrever automaticamente ao encerrar</p>
                       <p className="text-xs text-slate-500 mt-0.5">Usa OpenAI Whisper para gerar a transcrição da sessão após o encerramento</p>
                     </div>
-                    <button
-                      onClick={() => updatePreference('sessions', { autoTranscribe: !preferences.sessions?.autoTranscribe })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${preferences.sessions?.autoTranscribe ? 'bg-indigo-600' : 'bg-slate-200'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${preferences.sessions?.autoTranscribe ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
+                    <Switch
+                      checked={!!preferences.sessions?.autoTranscribe}
+                      onCheckedChange={(next) => updatePreference('sessions', { autoTranscribe: next })}
+                    />
                   </div>
                 </div>
               </div>
@@ -570,11 +554,11 @@ export const Settings: React.FC = () => {
                   </Select>
                 </div>
 
-                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-3">
-                  <Clock size={16} className="text-indigo-500 mt-0.5 shrink-0" />
+                <div className="p-4 bg-primary-50 border border-primary-100 rounded-2xl flex items-start gap-3">
+                  <Clock size={16} className="text-primary-500 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-indigo-800">Fuso horário ativo</p>
-                    <p className="text-xs text-indigo-600 mt-0.5">
+                    <p className="text-xs font-bold text-primary-800">Fuso horário ativo</p>
+                    <p className="text-xs text-primary-600 mt-0.5">
                       Todas as datas e horários do sistema — incluindo respostas de formulários, agendamentos e registros — serão exibidos no fuso selecionado: <strong>{preferences.general?.timezone || 'America/Sao_Paulo'}</strong>
                     </p>
                   </div>
@@ -632,14 +616,14 @@ export const Settings: React.FC = () => {
 
                   {/* Master */}
                   <div className={cx(
-                    'flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300',
-                    emailPrefs.enabled ? 'border-indigo-200 bg-indigo-50/60' : 'border-slate-200 bg-slate-50'
+                    'flex items-center justify-between gap-3 p-4 rounded-2xl border-2 transition-all duration-300',
+                    emailPrefs.enabled ? 'border-primary-200 bg-primary-50/60' : 'border-slate-200 bg-slate-50'
                   )}>
-                    <div className="flex items-center gap-3">
-                      <div className={cx('p-2.5 rounded-xl transition-colors', emailPrefs.enabled ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400')}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cx('p-2.5 rounded-xl transition-colors shrink-0', emailPrefs.enabled ? 'bg-primary-600 text-white' : 'bg-slate-200 text-slate-400')}>
                         <Mail size={18} />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold text-slate-800 text-sm">Emails habilitados</p>
                         <p className="text-xs text-slate-500">{emailPrefs.enabled ? 'Recebendo notificações por email' : 'Todos os emails estão desativados'}</p>
                       </div>
@@ -682,8 +666,8 @@ export const Settings: React.FC = () => {
                                 <button key={min} onClick={() => setEmailPrefs(p => ({ ...p, appointment_reminder_minutes: min }))}
                                   className={cx('px-3 py-1 rounded-lg text-xs font-bold border transition-all',
                                     emailPrefs.appointment_reminder_minutes === min
-                                      ? 'bg-indigo-600 text-white border-indigo-600'
-                                      : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'
+                                      ? 'bg-primary-600 text-white border-primary-600'
+                                      : 'bg-white text-slate-500 border-slate-200 hover:border-primary-300'
                                   )}>
                                   {min === 30 ? '30 min' : '1 hora'}
                                 </button>
@@ -871,32 +855,13 @@ export const Settings: React.FC = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    {[
-                      { label: 'Total', value: team.length, icon: <Users size={16} />, color: 'indigo' },
-                      { label: 'Admins', value: team.filter(u => u.role === 'admin').length, icon: <Shield size={16} />, color: 'amber' },
-                      { label: 'Ativos', value: team.filter(u => u.is_active !== false).length, icon: <UserCheck size={16} />, color: 'emerald' },
-                    ].map(stat => (
-                      <div key={stat.label} className={cx(
-                        'flex items-center gap-3 p-3 rounded-xl border',
-                        stat.color === 'indigo' ? 'bg-indigo-50 border-indigo-100' :
-                        stat.color === 'amber'  ? 'bg-amber-50 border-amber-100' :
-                        'bg-emerald-50 border-emerald-100'
-                      )}>
-                        <span className={cx(
-                          stat.color === 'indigo' ? 'text-indigo-600' :
-                          stat.color === 'amber'  ? 'text-amber-600' :
-                          'text-emerald-600'
-                        )}>{stat.icon}</span>
-                        <div>
-                          <p className="text-lg font-bold text-slate-800">{stat.value}</p>
-                          <p className="text-[10px] font-semibold text-slate-500">{stat.label}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <StatGrid cols={3}>
+                    <StatCard title="Total" value={team.length} icon={Users} color="info" />
+                    <StatCard title="Admins" value={team.filter(u => u.role === 'admin').length} icon={Shield} color="default" />
+                    <StatCard title="Ativos" value={team.filter(u => u.is_active !== false).length} icon={UserCheck} color="success" />
+                  </StatGrid>
 
                   {/* List */}
                   <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
@@ -909,7 +874,7 @@ export const Settings: React.FC = () => {
                           {member.avatar_url ? (
                             <img src={getStaticUrl(member.avatar_url)} alt={member.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
                           ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
                               {initials}
                             </div>
                           )}
@@ -932,7 +897,7 @@ export const Settings: React.FC = () => {
 
                   <button
                     onClick={() => navigate('/profissionais')}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 hover:border-indigo-200 hover:text-indigo-600 transition-all"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 hover:border-primary-200 hover:text-primary-600 transition-all"
                   >
                     Ver todos no módulo de Profissionais <ArrowRight size={14} />
                   </button>
@@ -948,12 +913,12 @@ export const Settings: React.FC = () => {
 
               <div>
                 <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="flex items-center gap-4 p-4 border-b border-slate-100">
-                    <div className="p-2.5 rounded-xl bg-violet-100 text-violet-600 shrink-0">
+                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
+                    <div className="p-2.5 rounded-xl bg-primary-100 text-primary-600 shrink-0">
                       <FileText size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-slate-800 text-sm">NFS-e (Nota Fiscal de Serviço)</p>
                         {nfseConfig.certificate_configured && (
                           <span className={cx(
@@ -988,7 +953,7 @@ export const Settings: React.FC = () => {
                           value={nfseConfig.razao_social || ''}
                           onChange={e => setNfseConfig((p: any) => ({ ...p, razao_social: e.target.value }))}
                           placeholder="Ex: João da Silva Psicologia"
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
                         />
                       </div>
                       <div>
@@ -1008,7 +973,7 @@ export const Settings: React.FC = () => {
                           value={nfseConfig.inscricao_municipal || ''}
                           onChange={e => setNfseConfig((p: any) => ({ ...p, inscricao_municipal: e.target.value }))}
                           placeholder="Opcional"
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
                         />
                       </div>
                       <div>
@@ -1019,7 +984,7 @@ export const Settings: React.FC = () => {
                           onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_municipio: e.target.value.replace(/\D/g, '') }))}
                           placeholder="Ex: 3554003 (Tatuí/SP)"
                           maxLength={7}
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
                         />
                       </div>
                       <div>
@@ -1029,7 +994,7 @@ export const Settings: React.FC = () => {
                           value={nfseConfig.codigo_tributacao_nacional || ''}
                           onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_tributacao_nacional: e.target.value }))}
                           placeholder="Ex: 1401 (psicologia)"
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
                         />
                       </div>
                       <div>
@@ -1037,7 +1002,7 @@ export const Settings: React.FC = () => {
                         <select
                           value={nfseConfig.regime_tributario || 'simples_nacional'}
                           onChange={e => setNfseConfig((p: any) => ({ ...p, regime_tributario: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 bg-white"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 bg-white"
                         >
                           <option value="simples_nacional">Simples Nacional</option>
                           <option value="lucro_presumido">Lucro Presumido</option>
@@ -1049,7 +1014,7 @@ export const Settings: React.FC = () => {
                         <select
                           value={nfseConfig.environment || 'homologacao'}
                           onChange={e => setNfseConfig((p: any) => ({ ...p, environment: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 bg-white"
+                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 bg-white"
                         >
                           <option value="homologacao">Homologação (testes, sem valor fiscal)</option>
                           <option value="producao">Produção</option>
@@ -1057,7 +1022,7 @@ export const Settings: React.FC = () => {
                       </div>
                     </div>
                     <button onClick={saveNfseConfig} disabled={nfseSaving}
-                      className="w-full py-2.5 text-xs font-bold text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all disabled:opacity-40">
+                      className="w-full py-2.5 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-40">
                       {nfseSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Salvar dados fiscais'}
                     </button>
 
@@ -1085,7 +1050,7 @@ export const Settings: React.FC = () => {
                       />
                       <button
                         onClick={() => nfseCertInputRef.current?.click()}
-                        className="w-full py-2 text-xs font-bold text-violet-700 bg-violet-50 border border-dashed border-violet-200 rounded-xl hover:bg-violet-100 transition-all"
+                        className="w-full py-2 text-xs font-bold text-primary-700 bg-primary-50 border border-dashed border-primary-200 rounded-xl hover:bg-primary-100 transition-all"
                       >
                         {nfseCertFile ? nfseCertFile.name : 'Selecionar arquivo .pfx/.p12'}
                       </button>
@@ -1094,10 +1059,10 @@ export const Settings: React.FC = () => {
                         value={nfseCertPassword}
                         onChange={e => setNfseCertPassword(e.target.value)}
                         placeholder="Senha do certificado"
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
                       />
                       <button onClick={uploadNfseCert} disabled={!nfseCertFile || !nfseCertPassword || nfseUploadingCert}
-                        className="w-full py-2.5 text-xs font-bold text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-all disabled:opacity-40">
+                        className="w-full py-2.5 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-40">
                         {nfseUploadingCert ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Enviando...</span> : 'Salvar certificado'}
                       </button>
                     </div>
@@ -1107,7 +1072,7 @@ export const Settings: React.FC = () => {
                       <p className="text-xs font-bold text-slate-600">Validar configuração</p>
                       <p className="text-[11px] text-slate-400">Emite uma NFS-e de teste em ambiente de homologação (sem valor fiscal) para confirmar que o certificado, o município e a comunicação com o Sistema Nacional NFS-e estão corretos.</p>
                       <button onClick={testNfseEmission} disabled={nfseTesting || !nfseConfig.certificate_configured}
-                        className="w-full py-2.5 text-xs font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition-all disabled:opacity-40">
+                        className="w-full py-2.5 text-xs font-bold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-all disabled:opacity-40">
                         {nfseTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando emissão...</span> : 'Testar emissão em homologação'}
                       </button>
                     </div>
@@ -1188,17 +1153,17 @@ export const Settings: React.FC = () => {
                     },
                   ].map(item => (
                     <button key={item.title} onClick={item.onClick}
-                      className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm transition-all text-left group">
+                      className="w-full flex items-center gap-3 sm:gap-4 p-4 rounded-2xl border border-slate-200 bg-white hover:border-primary-200 hover:shadow-sm transition-all text-left group">
                       <div className={cx('p-2.5 rounded-xl shrink-0', item.color)}>{item.icon}</div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
                         <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={cx('px-2 py-0.5 rounded-full text-[10px] font-bold border', item.badgeColor)}>
+                        <span className={cx('px-2 py-0.5 rounded-full text-[10px] font-bold border hidden sm:inline-flex', item.badgeColor)}>
                           {item.badge}
                         </span>
-                        <ArrowRight size={14} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                        <ArrowRight size={14} className="text-slate-300 group-hover:text-primary-400 transition-colors" />
                       </div>
                     </button>
                   ))}
@@ -1209,12 +1174,12 @@ export const Settings: React.FC = () => {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Pagamentos</p>
                 <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="flex items-center gap-4 p-4 border-b border-slate-100">
-                    <div className="p-2.5 rounded-xl bg-sky-100 text-sky-600 shrink-0">
+                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
+                    <div className="p-2.5 rounded-xl bg-primary-100 text-primary-600 shrink-0">
                       <CreditCard size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-slate-800 text-sm">Mercado Pago</p>
                         {mpConfig.configured && (
                           <span className={cx(
@@ -1248,7 +1213,7 @@ export const Settings: React.FC = () => {
                             value={mpToken}
                             onChange={e => setMpToken(e.target.value)}
                             placeholder="Novo Access Token (opcional)"
-                            className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
+                            className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 font-mono"
                           />
                           <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                             {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -1257,11 +1222,11 @@ export const Settings: React.FC = () => {
                         {mpToken && (
                           <div className="flex gap-2">
                             <button onClick={testMpToken} disabled={mpTesting || !mpToken.trim()}
-                              className="flex-1 py-2 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-50">
+                              className="flex-1 py-2 text-xs font-bold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-all disabled:opacity-50">
                               {mpTesting ? <Loader2 size={13} className="animate-spin inline" /> : 'Testar'}
                             </button>
                             <button onClick={saveMpToken} disabled={mpSaving || !mpToken.trim()}
-                              className="flex-1 py-2 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-50">
+                              className="flex-1 py-2 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-50">
                               {mpSaving ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
                             </button>
                           </div>
@@ -1277,12 +1242,12 @@ export const Settings: React.FC = () => {
                                 value={mpInterestRate}
                                 onChange={e => setMpInterestRate(e.target.value.replace(/[^0-9.,]/g, ''))}
                                 placeholder="0"
-                                className="w-full pr-8 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400"
+                                className="w-full pr-8 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
                               />
                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">% a.m.</span>
                             </div>
                             <button onClick={saveMpInterestRate} disabled={mpSavingRate}
-                              className="px-4 py-2 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-50">
+                              className="px-4 py-2 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-50">
                               {mpSavingRate ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
                             </button>
                           </div>
@@ -1295,13 +1260,13 @@ export const Settings: React.FC = () => {
                     ) : (
                       <div className="space-y-3">
                         {/* Guia passo a passo */}
-                        <div className="p-3 bg-sky-50 rounded-xl border border-sky-100 space-y-1.5">
-                          <p className="text-xs font-bold text-sky-700">Como obter o Access Token:</p>
-                          <ol className="text-xs text-sky-800 space-y-1 pl-3 list-decimal">
+                        <div className="p-3 bg-primary-50 rounded-xl border border-primary-100 space-y-1.5">
+                          <p className="text-xs font-bold text-primary-700">Como obter o Access Token:</p>
+                          <ol className="text-xs text-primary-800 space-y-1 pl-3 list-decimal">
                             <li>Acesse <strong>mercadopago.com.br</strong> e faça login</li>
                             <li>Clique em <strong>Seu negócio → Configurações</strong></li>
                             <li>Vá em <strong>Credenciais de produção</strong></li>
-                            <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-sky-100 px-1 rounded">APP_USR-</code>)</li>
+                            <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-primary-100 px-1 rounded">APP_USR-</code>)</li>
                             <li>Cole abaixo e clique em <strong>Conectar</strong></li>
                           </ol>
                         </div>
@@ -1311,19 +1276,19 @@ export const Settings: React.FC = () => {
                             value={mpToken}
                             onChange={e => setMpToken(e.target.value)}
                             placeholder="Access Token (APP_USR-...)"
-                            className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
+                            className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 font-mono"
                           />
                           <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                             {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <button onClick={testMpToken} disabled={!mpToken.trim() || mpTesting}
-                            className="flex-1 py-2.5 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-40">
+                            className="flex-1 py-2.5 text-xs font-bold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-all disabled:opacity-40">
                             {mpTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
                           </button>
                           <button onClick={saveMpToken} disabled={!mpToken.trim() || mpSaving}
-                            className="flex-1 py-2.5 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-40">
+                            className="flex-1 py-2.5 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-40">
                             {mpSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar Mercado Pago'}
                           </button>
                         </div>
@@ -1375,7 +1340,6 @@ export const Settings: React.FC = () => {
           )}
 
         </div>
-      </div>
       </div>
     </PageWrapper>
   );
