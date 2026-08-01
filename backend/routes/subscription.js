@@ -86,6 +86,19 @@ router.get('/status', authMiddleware, async (req, res) => {
     const t = rows[0];
     try { t.plan_features = typeof t.plan_features === 'string' ? JSON.parse(t.plan_features) : t.plan_features || []; } catch { t.plan_features = []; }
 
+    // O "valor" exibido deve ser o que a clínica realmente pagou na última
+    // fatura aprovada, não o preço ATUAL do plano — que pode ter mudado
+    // (ex: promoção/teste) depois do pagamento já ter sido feito.
+    // Só cai para o preço do plano quando não há nenhuma fatura paga ainda
+    // (ex: clínica só em trial, nunca pagou nada).
+    const [[lastPaidInvoice]] = await db.query(
+      `SELECT amount FROM subscription_invoices
+       WHERE tenant_id = ? AND status = 'approved'
+       ORDER BY paid_at DESC LIMIT 1`,
+      [req.user.tenant_id]
+    );
+    if (lastPaidInvoice) t.plan_price = parseFloat(lastPaidInvoice.amount);
+
     // Clínica isenta de cobrança: sempre ativa, independente de trial/vencimento
     if (t.billing_exempt) {
       return res.json({
