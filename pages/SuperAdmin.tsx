@@ -771,27 +771,27 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               {/* ══ DASHBOARD ══ */}
               {tab === 'dashboard' && stats && (
                 <div className="space-y-5 max-w-full 2xl:max-w-[1600px]">
-                  <div className="rounded-2xl p-6 mb-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
-                    <div>
-                      <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">Visão Geral</p>
-                      <h2 className="text-white text-xl font-bold">Painel Master PsiFlux</h2>
-                      <p className="text-white/50 text-xs mt-1">Administração centralizada de todas as clínicas</p>
+                  <div className="rounded-2xl p-4 sm:p-6 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
+                    <div className="min-w-0">
+                      <p className="text-white/60 text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-1">Visão Geral</p>
+                      <h2 className="text-white text-lg sm:text-xl font-bold truncate">Painel Master PsiFlux</h2>
+                      <p className="text-white/50 text-[11px] sm:text-xs mt-1">Administração centralizada de todas as clínicas</p>
                     </div>
-                    <div className="hidden md:flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-white/50 text-[10px] uppercase tracking-widest">Receita ({statsDays}d)</p>
-                        <p className="text-white text-2xl font-bold">{fmt(stats.mrr || 0)}</p>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right min-w-0">
+                        <p className="text-white/50 text-[10px] uppercase tracking-widest whitespace-nowrap">Receita ({statsDays}d)</p>
+                        <p className="text-white text-lg sm:text-2xl font-bold break-all sm:break-normal">{fmt(stats.mrr || 0)}</p>
                       </div>
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.5)' }}>
+                      <div className="hidden sm:flex w-12 h-12 rounded-2xl items-center justify-center shrink-0" style={{ background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.5)' }}>
                         <TrendingUp size={22} className="text-indigo-300" />
                       </div>
                     </div>
                   </div>
 
                   {/* Filtro de período — afeta MRR, Ticket Médio e Performance por Plano */}
-                  <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Período dos indicadores</p>
-                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 overflow-x-auto">
                       {[
                         { label: '7 dias', days: 7 },
                         { label: '30 dias', days: 30 },
@@ -799,41 +799,41 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                         { label: '1 ano', days: 365 },
                       ].map(opt => (
                         <button key={opt.days} onClick={() => setStatsDays(opt.days)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${statsDays === opt.days ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+                          className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0 ${statsDays === opt.days ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
                           {opt.label}
                         </button>
                       ))}
-                      {statsLoading && <Loader2 size={13} className="animate-spin text-slate-300 mx-1.5" />}
+                      {statsLoading && <Loader2 size={13} className="animate-spin text-slate-300 mx-1.5 shrink-0" />}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     {[
                       { label: 'Receita no Período', value: fmt(stats.mrr || 0), Icon: DollarSign, grad: 'linear-gradient(135deg, #059669, #10b981)', sub: `Últimos ${statsDays} dias` },
                       { label: 'Clínicas Ativas', value: String(stats.active_tenants || 0), Icon: Building2, grad: 'linear-gradient(135deg, #4f46e5, #6366f1)', sub: `${stats.total_tenants || 0} total` },
                       { label: 'Usuários Totais', value: String(stats.total_users || 0), Icon: Users, grad: 'linear-gradient(135deg, #0284c7, #38bdf8)', sub: 'Em todas as clínicas' },
                       { label: 'Ticket Médio', value: fmt(ticketMedio), Icon: TrendingUp, grad: 'linear-gradient(135deg, #d97706, #f59e0b)', sub: `Por clínica, ${statsDays}d` },
                     ].map(c => (
-                      <div key={c.label} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow overflow-hidden relative">
+                      <div key={c.label} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow overflow-hidden relative min-w-0">
                         <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.06]" style={{ background: c.grad, transform: 'translate(30%, -30%)' }} />
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{ background: c.grad }}>
-                            <c.Icon size={18} className="text-white" />
+                        <div className="flex items-start justify-between mb-3 sm:mb-4">
+                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0" style={{ background: c.grad }}>
+                            <c.Icon size={17} className="text-white" />
                           </div>
-                          <ArrowUpRight size={14} className="text-slate-300" />
+                          <ArrowUpRight size={14} className="text-slate-300 shrink-0" />
                         </div>
-                        <p className="text-xs font-semibold text-slate-400 mb-1">{c.label}</p>
-                        <p className="text-2xl font-bold text-slate-800 mb-1">{c.value}</p>
-                        <p className="text-xs text-slate-400">{c.sub}</p>
+                        <p className="text-xs font-semibold text-slate-400 mb-1 truncate">{c.label}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-slate-800 mb-1 truncate" title={c.value}>{c.value}</p>
+                        <p className="text-xs text-slate-400 truncate">{c.sub}</p>
                       </div>
                     ))}
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm min-w-0">
                       <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
-                        <div><p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Activity size={14} className="text-indigo-500" /> Evolução de Receita</p><p className="text-xs text-slate-400 mt-0.5">Últimos {historyMonths} meses</p></div>
+                        <div className="min-w-0"><p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Activity size={14} className="text-indigo-500 shrink-0" /> Evolução de Receita</p><p className="text-xs text-slate-400 mt-0.5">Últimos {historyMonths} meses</p></div>
                         <select value={historyMonths} onChange={e => setHistoryMonths(Number(e.target.value))}
-                          className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg border-0 outline-none cursor-pointer">
+                          className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg border-0 outline-none cursor-pointer shrink-0">
                           <option value={3}>3 meses</option>
                           <option value={6}>6 meses</option>
                           <option value={12}>12 meses</option>
@@ -855,8 +855,8 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                         ) : <div className="h-full flex items-center justify-center text-slate-400 text-sm">Sem dados ainda</div>}
                       </div>
                     </div>
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                      <p className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-0.5"><BarChart3 size={14} className="text-indigo-500" /> Distribuição</p>
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-0.5"><BarChart3 size={14} className="text-indigo-500 shrink-0" /> Distribuição</p>
                       <p className="text-xs text-slate-400 mb-4">Clínicas por plano</p>
                       {stats.by_plan?.length > 0 ? (
                         <>
@@ -869,9 +869,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                           </div>
                           <div className="space-y-2 mt-2">
                             {stats.by_plan.map((p: any, i: number) => (
-                              <div key={p.plan_name} className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-slate-500">{p.plan_name}</span></div>
-                                <span className="text-slate-700 font-semibold">{p.count}</span>
+                              <div key={p.plan_name} className="flex items-center justify-between text-xs gap-2">
+                                <div className="flex items-center gap-2 min-w-0"><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-slate-500 truncate">{p.plan_name}</span></div>
+                                <span className="text-slate-700 font-semibold shrink-0">{p.count}</span>
                               </div>
                             ))}
                           </div>
@@ -881,9 +881,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                   </div>
                   {stats.by_plan?.length > 0 && (
                     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                        <p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><BarChart3 size={14} className="text-amber-500" /> Performance por Plano</p>
-                        <button onClick={() => changeTab('plans')} className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1">Ver planos <ArrowUpRight size={11} /></button>
+                      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100 gap-2">
+                        <p className="text-sm font-semibold text-slate-700 flex items-center gap-2 min-w-0"><BarChart3 size={14} className="text-amber-500 shrink-0" /> <span className="truncate">Performance por Plano</span></p>
+                        <button onClick={() => changeTab('plans')} className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 shrink-0">Ver planos <ArrowUpRight size={11} /></button>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[480px]">
