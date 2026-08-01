@@ -7,7 +7,7 @@ import {
   Eye, EyeOff, ChevronRight, ArrowUpRight, Clock, Star,
   DollarSign, Activity, BarChart3, Shield, Lock, Phone, Mail,
   Calendar, Check, AlertTriangle, Info, Copy, RefreshCw, Link,
-  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase
+  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase, FileText
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -90,7 +90,7 @@ const AVATAR_COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#ec4899','#8b5cf
 const avatarColor = (name: string) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 const initials = (name: string) => name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
 
-type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'whatsapp' | 'pagamentos';
+type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'whatsapp' | 'pagamentos' | 'faturas';
 const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'dashboard',   label: 'Dashboard',  Icon: LayoutDashboard },
   { id: 'clients',     label: 'Parceiros',  Icon: Building2 },
@@ -99,6 +99,7 @@ const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'plans',       label: 'Planos',     Icon: Package },
   { id: 'whatsapp',    label: 'WhatsApp Bot', Icon: Phone },
   { id: 'pagamentos',  label: 'Pagamentos', Icon: DollarSign },
+  { id: 'faturas',     label: 'Faturas',    Icon: FileText },
 ];
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -209,6 +210,7 @@ const StatusBadge = ({ active, status, expires_at, trial_ends_at, billing_exempt
 const TAB_SLUGS: Record<Tab, string> = {
   dashboard: 'dashboard', clients: 'parceiros', team: 'equipe',
   permissions: 'permissoes', plans: 'planos', whatsapp: 'whatsapp', pagamentos: 'pagamentos',
+  faturas: 'faturas',
 };
 const SLUG_TO_TAB: Record<string, Tab> = Object.fromEntries(
   Object.entries(TAB_SLUGS).map(([k, v]) => [v, k as Tab])
@@ -361,6 +363,28 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     if (tab !== 'pagamentos') return;
     api.get<any>('/mercadopago/config').then((d: any) => setMpConfig(d)).catch(() => {});
   }, [tab]);
+
+  // ── Faturas de assinatura ──────────────────────────────────────────────────
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoicesSummary, setInvoicesSummary] = useState({ total_approved: 0, total_pending: 0, count_approved: 0, count_pending: 0 });
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('');
+
+  const loadInvoices = useCallback(async () => {
+    setInvoicesLoading(true);
+    try {
+      const qs = invoiceStatusFilter ? `?status=${invoiceStatusFilter}` : '';
+      const d: any = await api.get(`/subscription/admin/invoices${qs}`);
+      setInvoices(d.invoices || []);
+      setInvoicesSummary(d.summary || { total_approved: 0, total_pending: 0, count_approved: 0, count_pending: 0 });
+    } catch { /* silencioso — tela de faturas não é crítica */ }
+    finally { setInvoicesLoading(false); }
+  }, [invoiceStatusFilter]);
+
+  useEffect(() => {
+    if (tab !== 'faturas') return;
+    loadInvoices();
+  }, [tab, loadInvoices]);
 
   const saveMpToken = async () => {
     if (!mpToken.trim()) return;
@@ -606,7 +630,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const ticketMedio = useMemo(() => stats?.active_tenants > 0 ? (stats.mrr / stats.active_tenants) : 0, [stats]);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
-  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', whatsapp: 'WhatsApp Bot' };
+  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', whatsapp: 'WhatsApp Bot', pagamentos: 'Pagamentos', faturas: 'Faturas' };
 
   const finalNav = NAV.filter(n => n.id !== 'whatsapp' || canAccessWpp);
 
@@ -1415,6 +1439,85 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     <p className="font-bold">Dois tokens, dois fluxos — nunca se misturam:</p>
                     <p>• <strong>Este token (super_admin)</strong> → recebe as assinaturas mensais dos consultórios</p>
                     <p>• <strong>Token do psicólogo</strong> (em Configurações → Integrações) → recebe pagamentos de pacientes</p>
+                  </div>
+                </div>
+              )}
+
+              {tab === 'faturas' && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <h2 className="text-lg font-black text-slate-800">Faturas de Assinatura</h2>
+                      <p className="text-sm text-slate-500 mt-1">Histórico de cobranças geradas para os consultórios pagarem a assinatura da plataforma.</p>
+                    </div>
+                    <select value={invoiceStatusFilter} onChange={e => setInvoiceStatusFilter(e.target.value)} className={sel + ' w-auto'}>
+                      <option value="">Todos os status</option>
+                      <option value="approved">Aprovadas</option>
+                      <option value="pending">Pendentes</option>
+                      <option value="rejected">Rejeitadas</option>
+                      <option value="cancelled">Canceladas</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Recebido</p>
+                      <p className="font-black text-emerald-600 text-lg mt-0.5">{fmt(Number(invoicesSummary.total_approved) || 0)}</p>
+                    </div>
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Faturas pagas</p>
+                      <p className="font-black text-slate-800 text-lg mt-0.5">{invoicesSummary.count_approved}</p>
+                    </div>
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Aguardando</p>
+                      <p className="font-black text-amber-600 text-lg mt-0.5">{fmt(Number(invoicesSummary.total_pending) || 0)}</p>
+                    </div>
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Faturas pendentes</p>
+                      <p className="font-black text-slate-800 text-lg mt-0.5">{invoicesSummary.count_pending}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    {invoicesLoading ? (
+                      <div className="flex items-center justify-center py-16"><Loader2 size={22} className="animate-spin text-slate-300" /></div>
+                    ) : invoices.length === 0 ? (
+                      <div className="text-center py-16 text-slate-400 text-sm">Nenhuma fatura encontrada.</div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-100 text-left text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                              <th className="px-4 py-3">Clínica</th>
+                              <th className="px-4 py-3">Plano</th>
+                              <th className="px-4 py-3">Período</th>
+                              <th className="px-4 py-3">Valor</th>
+                              <th className="px-4 py-3">Método</th>
+                              <th className="px-4 py-3">Status</th>
+                              <th className="px-4 py-3">Data</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {invoices.map(inv => (
+                              <tr key={inv.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition">
+                                <td className="px-4 py-3 font-semibold text-slate-700">{inv.tenant_name || '—'}</td>
+                                <td className="px-4 py-3 text-slate-500">{inv.plan_name || '—'}</td>
+                                <td className="px-4 py-3 text-slate-500 capitalize">{inv.period === 'annual' ? 'Anual' : 'Mensal'}</td>
+                                <td className="px-4 py-3 font-bold text-slate-800">{fmt(Number(inv.amount) || 0)}</td>
+                                <td className="px-4 py-3 text-slate-500">{inv.method === 'pix' ? 'Pix' : inv.method === 'card' ? 'Cartão' : '—'}</td>
+                                <td className="px-4 py-3">
+                                  {inv.status === 'approved' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full uppercase"><CheckCircle size={9} />Paga</span>}
+                                  {inv.status === 'pending' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full uppercase"><Clock size={9} />Pendente</span>}
+                                  {inv.status === 'rejected' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase"><X size={9} />Rejeitada</span>}
+                                  {inv.status === 'cancelled' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full uppercase">Cancelada</span>}
+                                </td>
+                                <td className="px-4 py-3 text-slate-400 text-xs">{fmtDate(inv.paid_at || inv.created_at)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

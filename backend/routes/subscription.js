@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, authorize } = require('../middleware/auth');
 const crypto = require('crypto');
 
 // ── Auto-migrate: colunas de assinatura ──────────────────────────────────────
@@ -18,6 +18,30 @@ async function ensureSubscriptionSchema() {
   for (const sql of stmts) {
     try { await db.query(sql); } catch { /* coluna já existe */ }
   }
+
+  // Histórico de faturas de assinatura (uma linha por cobrança gerada) —
+  // tenants.subscription_mp_payment_id só guarda a última, sem histórico.
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS subscription_invoices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        plan_id INT NULL,
+        plan_name VARCHAR(100) NULL,
+        period ENUM('monthly','annual') NOT NULL DEFAULT 'monthly',
+        amount DECIMAL(10,2) NOT NULL,
+        method ENUM('pix','card') NULL,
+        status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+        mp_payment_id VARCHAR(255) NULL,
+        mp_preference_id VARCHAR(255) NULL,
+        paid_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_tenant (tenant_id),
+        INDEX idx_mp_payment (mp_payment_id),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      )
+    `);
+  } catch { /* tabela já existe */ }
 }
 ensureSubscriptionSchema();
 
@@ -225,6 +249,19 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     // Salva preference_id no tenant para rastreamento
     await db.query('UPDATE tenants SET subscription_mp_preference_id = ? WHERE id = ?', [prefData.id, req.user.tenant_id]);
 
+    // Registra a fatura no histórico (pendente até o webhook confirmar).
+    // Uma linha por checkout gerado — se o tenant gerar Pix e depois pagar
+    // pelo link de cartão (ou vice-versa), o webhook casa pelo mp_payment_id
+    // do que for efetivamente pago; a(s) outra(s) linha(s) pendente(s) desse
+    // checkout ficam como estão (não há retry automático de reconciliação).
+    await db.query(
+      `INSERT INTO subscription_invoices
+        (tenant_id, plan_id, plan_name, period, amount, method, status, mp_payment_id, mp_preference_id)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      [req.user.tenant_id, plan_id, plan.name, isAnnual ? 'annual' : 'monthly', amount,
+       pixData ? 'pix' : 'card', pixData?.payment_id ? String(pixData.payment_id) : null, prefData.id]
+    );
+
     res.json({
       preference_id: prefData.id,
       payment_url: prefData.init_point,
@@ -256,6 +293,53 @@ router.get('/check-payment/:paymentId', authMiddleware, async (req, res) => {
     res.json({ payment_id: data.id, status: data.status, amount: data.transaction_amount });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao consultar pagamento' });
+  }
+});
+
+// ── GET /subscription/admin/invoices — histórico de faturas (Super Admin) ────
+router.get('/admin/invoices', authMiddleware, authorize('super_admin'), async (req, res) => {
+  try {
+    const { tenant_id, status, page = 1, limit = 30 } = req.query;
+    const conditions = [];
+    const params = [];
+
+    if (tenant_id) { conditions.push('si.tenant_id = ?'); params.push(tenant_id); }
+    if (status) { conditions.push('si.status = ?'); params.push(status); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const [rows] = await db.query(
+      `SELECT si.id, si.tenant_id, t.name as tenant_name, si.plan_id, si.plan_name,
+              si.period, si.amount, si.method, si.status,
+              si.mp_payment_id, si.mp_preference_id, si.paid_at, si.created_at
+       FROM subscription_invoices si
+       LEFT JOIN tenants t ON t.id = si.tenant_id
+       ${where}
+       ORDER BY si.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, parseInt(limit), offset]
+    );
+
+    const [[{ total }]] = await db.query(
+      `SELECT COUNT(*) as total FROM subscription_invoices si ${where}`,
+      params
+    );
+
+    const [[summary]] = await db.query(
+      `SELECT
+        COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as total_approved,
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as total_pending,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as count_approved,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as count_pending
+       FROM subscription_invoices si ${where}`,
+      params
+    );
+
+    res.json({ invoices: rows, total, page: parseInt(page), limit: parseInt(limit), summary });
+  } catch (err) {
+    console.error('[Sub] Erro ao listar faturas:', err);
+    res.status(500).json({ error: 'Erro ao buscar faturas' });
   }
 });
 
@@ -325,6 +409,29 @@ router.post('/webhook', express.json(), async (req, res) => {
        WHERE id = ?`,
       [newExpiresAt, plan_id || tenantRows[0]?.plan_id, String(paymentId), tenant_id]
     );
+
+    // Marca a fatura correspondente como aprovada. O checkout grava o
+    // payment_id do PIX (se gerado); pagamentos por link de cartão chegam
+    // aqui com um payment_id novo que não bate com nenhuma linha — nesse
+    // caso insere a fatura diretamente como aprovada (não dá pra saber o
+    // amount original com certeza, então usa o valor do próprio pagamento).
+    const [invoiceUpdate] = await db.query(
+      `UPDATE subscription_invoices SET status = 'approved', paid_at = NOW(), mp_payment_id = ?
+       WHERE tenant_id = ? AND status = 'pending' AND (mp_payment_id = ? OR mp_preference_id IS NOT NULL)
+       ORDER BY created_at DESC LIMIT 1`,
+      [String(paymentId), tenant_id, String(paymentId)]
+    );
+    if (!invoiceUpdate.affectedRows) {
+      const [planRow] = await db.query('SELECT name FROM plans WHERE id = ?', [plan_id || tenantRows[0]?.plan_id]);
+      await db.query(
+        `INSERT INTO subscription_invoices
+          (tenant_id, plan_id, plan_name, period, amount, method, status, mp_payment_id, paid_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, NOW())`,
+        [tenant_id, plan_id || tenantRows[0]?.plan_id, planRow[0]?.name || null,
+         months == 12 ? 'annual' : 'monthly', paymentData.transaction_amount || 0,
+         paymentData.payment_method_id === 'pix' ? 'pix' : 'card', String(paymentId)]
+      );
+    }
 
     console.log(`[Sub Webhook] ✅ Tenant #${tenant_id} assinatura ativa até ${newExpiresAt} | Plano #${plan_id} | Payment #${paymentId}`);
     res.status(200).json({ received: true, action: 'activated', expires_at: newExpiresAt });
