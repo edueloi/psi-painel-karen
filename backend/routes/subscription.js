@@ -338,6 +338,10 @@ router.get('/invoices/:id/receipt', authMiddleware, async (req, res) => {
 });
 
 // ── GET /subscription/check-payment/:paymentId — Verifica status do PIX ──────
+// Ativa a assinatura na hora se o pagamento já estiver aprovado, sem esperar
+// o webhook do Mercado Pago (que pode demorar ou, em ambientes com proxy/CDN,
+// falhar em chegar) — o frontend faz polling nessa rota a cada poucos segundos
+// enquanto o QR code está na tela.
 router.get('/check-payment/:paymentId', authMiddleware, async (req, res) => {
   try {
     const token = await getPlatformToken();
@@ -348,6 +352,10 @@ router.get('/check-payment/:paymentId', authMiddleware, async (req, res) => {
     });
     const data = await r.json();
     if (!r.ok) return res.status(r.status).json({ error: 'Erro ao consultar pagamento' });
+
+    if (data.status === 'approved') {
+      try { await activateFromPayment(data); } catch (e) { console.error('[Sub] Erro ao ativar via check-payment:', e.message); }
+    }
 
     res.json({ payment_id: data.id, status: data.status, amount: data.transaction_amount });
   } catch (err) {
@@ -402,8 +410,78 @@ router.get('/admin/invoices', authMiddleware, authorize('super_admin'), async (r
   }
 });
 
+// Ativa a assinatura do tenant a partir de um pagamento já confirmado como
+// aprovado na API do Mercado Pago. Usada tanto pelo webhook quanto pelo
+// polling de check-payment (Pix) — idempotente via subscription_mp_payment_id,
+// então pode ser chamada mais de uma vez pro mesmo pagamento sem duplicar.
+async function activateFromPayment(paymentData) {
+  const paymentId = paymentData.id;
+  let meta = {};
+  try { meta = JSON.parse(paymentData.external_reference || '{}'); } catch {}
+
+  if (meta.type !== 'subscription') return { action: 'not_subscription' };
+
+  const { tenant_id, plan_id, months } = meta;
+  if (!tenant_id || !months) return { action: 'missing_meta' };
+
+  // Idempotência
+  const [existing] = await db.query(
+    'SELECT id FROM tenants WHERE id = ? AND subscription_mp_payment_id = ?',
+    [tenant_id, String(paymentId)]
+  );
+  if (existing.length > 0) return { action: 'duplicate' };
+
+  // Calcula nova data de expiração
+  const [tenantRows] = await db.query('SELECT expires_at FROM tenants WHERE id = ?', [tenant_id]);
+  const currentExpires = tenantRows[0]?.expires_at ? new Date(tenantRows[0].expires_at) : new Date();
+  const base = currentExpires > new Date() ? currentExpires : new Date();
+  base.setMonth(base.getMonth() + parseInt(months));
+  const newExpiresAt = base.toISOString().slice(0, 19).replace('T', ' ');
+
+  // Ativa assinatura
+  await db.query(
+    `UPDATE tenants SET
+      expires_at = ?,
+      trial_ends_at = NULL,
+      status = 'active',
+      plan_id = ?,
+      last_billing_at = NOW(),
+      subscription_mp_payment_id = ?
+     WHERE id = ?`,
+    [newExpiresAt, plan_id || tenantRows[0]?.plan_id, String(paymentId), tenant_id]
+  );
+
+  // Marca a fatura correspondente como aprovada. O checkout grava o
+  // payment_id do PIX (se gerado); pagamentos por link de cartão chegam
+  // aqui com um payment_id novo que não bate com nenhuma linha — nesse
+  // caso insere a fatura diretamente como aprovada (não dá pra saber o
+  // amount original com certeza, então usa o valor do próprio pagamento).
+  const [invoiceUpdate] = await db.query(
+    `UPDATE subscription_invoices SET status = 'approved', paid_at = NOW(), mp_payment_id = ?
+     WHERE tenant_id = ? AND status = 'pending' AND (mp_payment_id = ? OR mp_preference_id IS NOT NULL)
+     ORDER BY created_at DESC LIMIT 1`,
+    [String(paymentId), tenant_id, String(paymentId)]
+  );
+  if (!invoiceUpdate.affectedRows) {
+    const [planRow] = await db.query('SELECT name FROM plans WHERE id = ?', [plan_id || tenantRows[0]?.plan_id]);
+    await db.query(
+      `INSERT INTO subscription_invoices
+        (tenant_id, plan_id, plan_name, period, amount, method, status, mp_payment_id, paid_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, NOW())`,
+      [tenant_id, plan_id || tenantRows[0]?.plan_id, planRow[0]?.name || null,
+       months == 12 ? 'annual' : 'monthly', paymentData.transaction_amount || 0,
+       paymentData.payment_method_id === 'pix' ? 'pix' : 'card', String(paymentId)]
+    );
+  }
+
+  console.log(`[Sub] ✅ Tenant #${tenant_id} assinatura ativa até ${newExpiresAt} | Plano #${plan_id} | Payment #${paymentId}`);
+  return { action: 'activated', expires_at: newExpiresAt };
+}
+
 // ── POST /subscription/webhook — MP notifica pagamento aprovado ───────────────
-// Rota PÚBLICA — chamada pelo Mercado Pago
+// Rota PÚBLICA — chamada pelo Mercado Pago. Serve de reforço/backup: a
+// ativação "no calor da hora" acontece via check-payment (polling do Pix na
+// tela), então esse webhook é redundante-idempotente, não o único caminho.
 router.post('/webhook', express.json(), async (req, res) => {
   try {
     const { type, data, action } = req.body;
@@ -414,7 +492,6 @@ router.post('/webhook', express.json(), async (req, res) => {
     const paymentId = data?.id;
     if (!paymentId) return res.status(200).json({ received: true, action: 'no_id' });
 
-    // Usa token do super_admin para consultar o pagamento
     const token = await getPlatformToken();
     let paymentData = null;
     if (token) {
@@ -430,70 +507,8 @@ router.post('/webhook', express.json(), async (req, res) => {
       return res.status(200).json({ received: true, action: paymentData ? 'not_approved' : 'token_not_found' });
     }
 
-    let meta = {};
-    try { meta = JSON.parse(paymentData.external_reference || '{}'); } catch {}
-
-    if (meta.type !== 'subscription') {
-      return res.status(200).json({ received: true, action: 'not_subscription' });
-    }
-
-    const { tenant_id, plan_id, months } = meta;
-    if (!tenant_id || !months) {
-      return res.status(200).json({ received: true, action: 'missing_meta' });
-    }
-
-    // Idempotência
-    const [existing] = await db.query(
-      'SELECT id FROM tenants WHERE id = ? AND subscription_mp_payment_id = ?',
-      [tenant_id, String(paymentId)]
-    );
-    if (existing.length > 0) return res.status(200).json({ received: true, action: 'duplicate' });
-
-    // Calcula nova data de expiração
-    const [tenantRows] = await db.query('SELECT expires_at FROM tenants WHERE id = ?', [tenant_id]);
-    const currentExpires = tenantRows[0]?.expires_at ? new Date(tenantRows[0].expires_at) : new Date();
-    const base = currentExpires > new Date() ? currentExpires : new Date();
-    base.setMonth(base.getMonth() + parseInt(months));
-    const newExpiresAt = base.toISOString().slice(0, 19).replace('T', ' ');
-
-    // Ativa assinatura
-    await db.query(
-      `UPDATE tenants SET
-        expires_at = ?,
-        trial_ends_at = NULL,
-        status = 'active',
-        plan_id = ?,
-        last_billing_at = NOW(),
-        subscription_mp_payment_id = ?
-       WHERE id = ?`,
-      [newExpiresAt, plan_id || tenantRows[0]?.plan_id, String(paymentId), tenant_id]
-    );
-
-    // Marca a fatura correspondente como aprovada. O checkout grava o
-    // payment_id do PIX (se gerado); pagamentos por link de cartão chegam
-    // aqui com um payment_id novo que não bate com nenhuma linha — nesse
-    // caso insere a fatura diretamente como aprovada (não dá pra saber o
-    // amount original com certeza, então usa o valor do próprio pagamento).
-    const [invoiceUpdate] = await db.query(
-      `UPDATE subscription_invoices SET status = 'approved', paid_at = NOW(), mp_payment_id = ?
-       WHERE tenant_id = ? AND status = 'pending' AND (mp_payment_id = ? OR mp_preference_id IS NOT NULL)
-       ORDER BY created_at DESC LIMIT 1`,
-      [String(paymentId), tenant_id, String(paymentId)]
-    );
-    if (!invoiceUpdate.affectedRows) {
-      const [planRow] = await db.query('SELECT name FROM plans WHERE id = ?', [plan_id || tenantRows[0]?.plan_id]);
-      await db.query(
-        `INSERT INTO subscription_invoices
-          (tenant_id, plan_id, plan_name, period, amount, method, status, mp_payment_id, paid_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, NOW())`,
-        [tenant_id, plan_id || tenantRows[0]?.plan_id, planRow[0]?.name || null,
-         months == 12 ? 'annual' : 'monthly', paymentData.transaction_amount || 0,
-         paymentData.payment_method_id === 'pix' ? 'pix' : 'card', String(paymentId)]
-      );
-    }
-
-    console.log(`[Sub Webhook] ✅ Tenant #${tenant_id} assinatura ativa até ${newExpiresAt} | Plano #${plan_id} | Payment #${paymentId}`);
-    res.status(200).json({ received: true, action: 'activated', expires_at: newExpiresAt });
+    const result = await activateFromPayment(paymentData);
+    res.status(200).json({ received: true, ...result });
   } catch (err) {
     console.error('[Sub Webhook] Erro:', err);
     res.status(200).json({ received: true, action: 'error', message: err.message });

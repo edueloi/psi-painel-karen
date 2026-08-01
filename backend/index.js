@@ -68,7 +68,10 @@ function mountApiRoutes(prefix = '') {
   // ---- Rotas publicas (sem auth) ----
   app.use(`${prefix}/infinitepay/webhook`, infinitePayRoutes);
   app.use(`${prefix}/mercadopago/webhook`, mercadoPagoRoutes);
-  app.use(`${prefix}/subscription/webhook`, subscriptionRoutes);
+  // subscriptionRoutes define a rota do webhook como POST /webhook (relativo) —
+  // montar aqui em /subscription (não /subscription/webhook) para o path final
+  // bater com o notification_url real enviado ao Mercado Pago (/subscription/webhook).
+  app.use(`${prefix}/subscription`, subscriptionRoutes);
   app.use(`${prefix}/auth`, authRoutes);
   app.use(`${prefix}/forms`, formsRoutes);
   app.use(`${prefix}/disc`, discRoutes);
@@ -152,7 +155,8 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/livekit`, livekitTokenRoutes);
   app.use(`${prefix}/infinitepay`, infinitePayRoutes);
   app.use(`${prefix}/mercadopago`, mercadoPagoRoutes);
-  app.use(`${prefix}/subscription`, subscriptionRoutes);
+  // subscriptionRoutes já montado na seção de rotas públicas acima (cada rota
+  // interna se protege com authMiddleware individualmente, exceto o webhook).
   app.use(`${prefix}/nfse`, nfseRoutes);
 }
 
