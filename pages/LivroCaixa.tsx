@@ -3509,7 +3509,7 @@ export const LivroCaixa: React.FC = () => {
         onClose={() => { setSelectedTxForDetails(null); setPkgSessions(null); }}
         title="Detalhes do Lançamento"
         subtitle={selectedTxForDetails?.description?.toUpperCase() || 'RESUMO DA TRANSAÇÃO'}
-        size="md"
+        size="lg"
       >
         {selectedTxForDetails && (
           <div className="p-6 space-y-8 animate-fadeIn font-sans">
@@ -3542,67 +3542,74 @@ export const LivroCaixa: React.FC = () => {
               </div>
             </div>
 
-            {/* Price Box */}
-            <div className="p-6 rounded-3xl bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
-                  <Wallet size={120} />
-               </div>
-               <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 leading-none">VALOR REGISTRADO</p>
-               <h2 className={`text-4xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                 {selectedTxForDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTxForDetails.amount)}
-               </h2>
-               {selectedTxForDetails.comanda_id && (
-                  <div className="mt-2 text-[10px] font-bold text-primary-600 italic">
-                     Vinculado à Comanda #{selectedTxForDetails.comanda_id}
+            {/* Valor + Grid Infos + Envolvidos — 2 colunas em telas largas para
+                aproveitar melhor o espaço do drawer (antes ficava tudo empilhado
+                em coluna única, com bastante área vazia sobrando abaixo). */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-5 items-start">
+              <div className="space-y-5">
+                {/* Price Box */}
+                <div className="p-6 rounded-3xl bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
+                   <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                      <Wallet size={120} />
+                   </div>
+                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 leading-none">VALOR REGISTRADO</p>
+                   <h2 className={`text-4xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                     {selectedTxForDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTxForDetails.amount)}
+                   </h2>
+                   {selectedTxForDetails.comanda_id && (
+                      <div className="mt-2 text-[10px] font-bold text-primary-600 italic">
+                         Vinculado à Comanda #{selectedTxForDetails.comanda_id}
+                      </div>
+                   )}
+                </div>
+
+                {/* Grid Infos */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Data do Fluxo</p>
+                    <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.date)}</p>
                   </div>
-               )}
-            </div>
-
-            {/* Grid Infos */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Data do Fluxo</p>
-                <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.date)}</p>
-              </div>
-              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><CreditCard size={12} /> Forma de Pagto</p>
-                <p className="text-sm font-black text-slate-700">{METHOD_LABEL[selectedTxForDetails.payment_method] || selectedTxForDetails.payment_method || '—'}</p>
-              </div>
-              {selectedTxForDetails.due_date && selectedTxForDetails.due_date.slice(0, 10) !== selectedTxForDetails.date.slice(0, 10) && (
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm col-span-2">
-                  <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Vencimento</p>
-                  <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.due_date)}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Patient/Payer Section */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-5">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-3">Envolvidos na Transação</p>
-
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100 shrink-0 font-black text-sm">
-                  {(selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
-                </div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Pagador Original</p>
-                   <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || 'Não identificado'}</p>
-                   {selectedTxForDetails.payer_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.payer_cpf)}</p>}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><CreditCard size={12} /> Forma de Pagto</p>
+                    <p className="text-sm font-black text-slate-700">{METHOD_LABEL[selectedTxForDetails.payment_method] || selectedTxForDetails.payment_method || '—'}</p>
+                  </div>
+                  {selectedTxForDetails.due_date && selectedTxForDetails.due_date.slice(0, 10) !== selectedTxForDetails.date.slice(0, 10) && (
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm col-span-2">
+                      <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Vencimento</p>
+                      <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.due_date)}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {selectedTxForDetails.beneficiary_name && selectedTxForDetails.beneficiary_name !== selectedTxForDetails.payer_name && (
-                <div className="flex items-start gap-4 pt-4 border-t border-slate-50">
-                  <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-500 flex items-center justify-center border border-sky-100 shrink-0 font-black text-sm">
-                    {(selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
+              {/* Patient/Payer Section */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-5 h-full">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-3">Envolvidos na Transação</p>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100 shrink-0 font-black text-sm">
+                    {(selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-[9px] font-black text-sky-500 uppercase tracking-widest leading-none mb-1.5">Paciente Beneficiário</p>
-                    <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name}</p>
-                    {selectedTxForDetails.beneficiary_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.beneficiary_cpf)}</p>}
+                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Pagador Original</p>
+                     <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || 'Não identificado'}</p>
+                     {selectedTxForDetails.payer_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.payer_cpf)}</p>}
                   </div>
                 </div>
-              )}
+
+                {selectedTxForDetails.beneficiary_name && selectedTxForDetails.beneficiary_name !== selectedTxForDetails.payer_name && (
+                  <div className="flex items-start gap-4 pt-4 border-t border-slate-50">
+                    <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-500 flex items-center justify-center border border-sky-100 shrink-0 font-black text-sm">
+                      {(selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-sky-500 uppercase tracking-widest leading-none mb-1.5">Paciente Beneficiário</p>
+                      <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name}</p>
+                      {selectedTxForDetails.beneficiary_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.beneficiary_cpf)}</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Observations */}
