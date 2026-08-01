@@ -240,6 +240,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [masterUsers, setMasterUsers]   = useState<any[]>([]);
   const [mrrHistory, setMrrHistory]     = useState<any[]>([]);
   const [permProfiles, setPermProfiles] = useState<any[]>([]);
+  const [statsDays, setStatsDays]       = useState(30);
+  const [historyMonths, setHistoryMonths] = useState(6);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // WhatsApp state
   const [wppStatus, setWppStatus] = useState<{ status: string; qrcode: string | null; phone: string | null }>({ status: 'disconnected', qrcode: null, phone: null });
@@ -460,9 +463,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       const [t, p, s, mu, mrr, pp] = await Promise.all([
         api.get<any[]>('/tenants'),
         api.get<any[]>('/plans/all'),
-        api.get<any>('/tenants/stats'),
+        api.get<any>(`/tenants/stats?days=${statsDays}`),
         api.get<any[]>('/master-users'),
-        api.get<any[]>('/tenants/mrr-history'),
+        api.get<any[]>(`/tenants/mrr-history?months=${historyMonths}`),
         api.get<any[]>('/master-permissions'),
       ]);
       setTenants(t); setPlans(p); setStats(s); setMasterUsers(mu); setMrrHistory(mrr); setPermProfiles(pp);
@@ -476,6 +479,24 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       loadWppStatus();
     }
   }, []);
+
+  // Recarrega só o card de stats quando o filtro de período muda (sem recarregar tudo)
+  useEffect(() => {
+    if (loading) return; // evita duplicar com o load() inicial
+    setStatsLoading(true);
+    api.get<any>(`/tenants/stats?days=${statsDays}`)
+      .then(setStats)
+      .catch(() => toast('Erro ao atualizar estatísticas.', 'error'))
+      .finally(() => setStatsLoading(false));
+  }, [statsDays]);
+
+  // Recarrega só o gráfico de evolução quando o filtro de meses muda
+  useEffect(() => {
+    if (loading) return;
+    api.get<any[]>(`/tenants/mrr-history?months=${historyMonths}`)
+      .then(setMrrHistory)
+      .catch(() => toast('Erro ao atualizar histórico.', 'error'));
+  }, [historyMonths]);
 
   const loadWppStatus = async () => {
     try {
@@ -749,7 +770,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
             <>
               {/* ══ DASHBOARD ══ */}
               {tab === 'dashboard' && stats && (
-                <div className="space-y-5 max-w-6xl">
+                <div className="space-y-5 max-w-full 2xl:max-w-[1600px]">
                   <div className="rounded-2xl p-6 mb-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
                     <div>
                       <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">Visão Geral</p>
@@ -758,7 +779,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     </div>
                     <div className="hidden md:flex items-center gap-3">
                       <div className="text-right">
-                        <p className="text-white/50 text-[10px] uppercase tracking-widest">MRR Total</p>
+                        <p className="text-white/50 text-[10px] uppercase tracking-widest">Receita ({statsDays}d)</p>
                         <p className="text-white text-2xl font-bold">{fmt(stats.mrr || 0)}</p>
                       </div>
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.5)' }}>
@@ -766,12 +787,32 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                       </div>
                     </div>
                   </div>
+
+                  {/* Filtro de período — afeta MRR, Ticket Médio e Performance por Plano */}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Período dos indicadores</p>
+                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1">
+                      {[
+                        { label: '7 dias', days: 7 },
+                        { label: '30 dias', days: 30 },
+                        { label: '90 dias', days: 90 },
+                        { label: '1 ano', days: 365 },
+                      ].map(opt => (
+                        <button key={opt.days} onClick={() => setStatsDays(opt.days)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${statsDays === opt.days ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                      {statsLoading && <Loader2 size={13} className="animate-spin text-slate-300 mx-1.5" />}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                     {[
-                      { label: 'Receita Mensal (MRR)', value: fmt(stats.mrr || 0), Icon: DollarSign, grad: 'linear-gradient(135deg, #059669, #10b981)', sub: `${stats.active_tenants || 0} clínicas ativas` },
+                      { label: 'Receita no Período', value: fmt(stats.mrr || 0), Icon: DollarSign, grad: 'linear-gradient(135deg, #059669, #10b981)', sub: `Últimos ${statsDays} dias` },
                       { label: 'Clínicas Ativas', value: String(stats.active_tenants || 0), Icon: Building2, grad: 'linear-gradient(135deg, #4f46e5, #6366f1)', sub: `${stats.total_tenants || 0} total` },
                       { label: 'Usuários Totais', value: String(stats.total_users || 0), Icon: Users, grad: 'linear-gradient(135deg, #0284c7, #38bdf8)', sub: 'Em todas as clínicas' },
-                      { label: 'Ticket Médio', value: fmt(ticketMedio), Icon: TrendingUp, grad: 'linear-gradient(135deg, #d97706, #f59e0b)', sub: 'Por clínica / mês' },
+                      { label: 'Ticket Médio', value: fmt(ticketMedio), Icon: TrendingUp, grad: 'linear-gradient(135deg, #d97706, #f59e0b)', sub: `Por clínica, ${statsDays}d` },
                     ].map(c => (
                       <div key={c.label} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow overflow-hidden relative">
                         <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.06]" style={{ background: c.grad, transform: 'translate(30%, -30%)' }} />
@@ -789,9 +830,15 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-start justify-between mb-4">
-                        <div><p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Activity size={14} className="text-indigo-500" /> Evolução de Receita</p><p className="text-xs text-slate-400 mt-0.5">Últimos 6 meses</p></div>
-                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">6 meses</span>
+                      <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
+                        <div><p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Activity size={14} className="text-indigo-500" /> Evolução de Receita</p><p className="text-xs text-slate-400 mt-0.5">Últimos {historyMonths} meses</p></div>
+                        <select value={historyMonths} onChange={e => setHistoryMonths(Number(e.target.value))}
+                          className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg border-0 outline-none cursor-pointer">
+                          <option value={3}>3 meses</option>
+                          <option value={6}>6 meses</option>
+                          <option value={12}>12 meses</option>
+                          <option value={24}>24 meses</option>
+                        </select>
                       </div>
                       <div className="h-48 w-full relative">
                         {mrrHistory.length > 0 ? (
@@ -843,12 +890,12 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                           <thead><tr className="bg-slate-50 border-b border-slate-100">
                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Plano</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Clínicas</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Receita/mês</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Receita ({statsDays}d)</th>
                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">% MRR</th>
                           </tr></thead>
                           <tbody>
                             {stats.by_plan.map((p: any, i: number) => {
-                              const planMrr = p.price * p.count;
+                              const planMrr = p.price; // já é a receita real do plano (soma de faturas aprovadas), não preço unitário
                               const pct = stats.mrr > 0 ? Math.round(planMrr / stats.mrr * 100) : 0;
                               return (
                                 <tr key={p.plan_name} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition">

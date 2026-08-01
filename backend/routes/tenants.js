@@ -77,28 +77,31 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /tenants/mrr-history - evolução MRR últimos 6 meses
+// GET /tenants/mrr-history?months=6 - evolução MRR nos últimos N meses (padrão 6)
+// MRR real: soma das faturas de assinatura efetivamente pagas (subscription_invoices,
+// status='approved'), não o preço cadastrado do plano — que pode estar com valor de
+// teste/promocional e não reflete o que realmente entrou.
 router.get('/mrr-history', async (req, res) => {
   try {
+    const monthsCount = Math.min(24, Math.max(1, parseInt(req.query.months) || 6));
     const [rows] = await db.query(`
       SELECT
-        DATE_FORMAT(t.created_at, '%Y-%m') as month,
-        SUM(p.price) as mrr
-      FROM tenants t
-      JOIN plans p ON p.id = t.plan_id
-      WHERE t.id != 1 AND t.billing_exempt = 0 AND t.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-      GROUP BY DATE_FORMAT(t.created_at, '%Y-%m')
+        DATE_FORMAT(paid_at, '%Y-%m') as month,
+        SUM(amount) as mrr
+      FROM subscription_invoices
+      WHERE status = 'approved' AND paid_at >= DATE_SUB(NOW(), INTERVAL ? MONTH)
+      GROUP BY DATE_FORMAT(paid_at, '%Y-%m')
       ORDER BY month ASC
-    `);
-    // Gera array dos últimos 6 meses com MRR acumulado
+    `, [monthsCount]);
+    // Gera array dos últimos N meses com MRR real (0 nos meses sem fatura aprovada)
     const months = [];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = monthsCount - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(1);
       d.setMonth(d.getMonth() - i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const shortNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      const label = `${shortNames[d.getMonth()]}`;
+      const label = `${shortNames[d.getMonth()]}${monthsCount > 12 ? `/${String(d.getFullYear()).slice(2)}` : ''}`;
       const found = rows.find((r) => r.month === key);
       months.push({ month: label, mrr: found ? parseFloat(found.mrr) : 0 });
     }
@@ -109,9 +112,11 @@ router.get('/mrr-history', async (req, res) => {
   }
 });
 
-// GET /tenants/stats - métricas para dashboard
+// GET /tenants/stats?days=30 - métricas para dashboard (padrão: últimos 30 dias)
 router.get('/stats', async (req, res) => {
   try {
+    const daysCount = Math.min(730, Math.max(1, parseInt(req.query.days) || 30));
+
     // Contagem de tenants/usuários/pacientes separada da agregação de receita:
     // fazer LEFT JOIN com users E patients na mesma query gera produto cartesiano
     // (cada linha de tenants é multiplicada por usuários × pacientes), inflando
@@ -130,20 +135,33 @@ router.get('/stats', async (req, res) => {
       SELECT COUNT(*) as total_patients FROM patients WHERE tenant_id != 1
     `);
 
+    // MRR real: soma das faturas aprovadas no período (o que de fato entrou),
+    // não o preço cadastrado do plano de cada tenant — que pode estar com
+    // valor de teste/promocional e distorceria a receita mostrada aqui.
     const [[revenue]] = await db.query(`
-      SELECT COALESCE(SUM(p.price), 0) as mrr
-      FROM tenants t
-      JOIN plans p ON p.id = t.plan_id
-      WHERE t.id != 1 AND t.active = true AND t.billing_exempt = 0
-    `);
+      SELECT COALESCE(SUM(amount), 0) as mrr
+      FROM subscription_invoices
+      WHERE status = 'approved' AND paid_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+    `, [daysCount]);
 
-    const [byPlan] = await db.query(`
-      SELECT p.name as plan_name, COUNT(t.id) as count, p.price
+    // Contagem de clínicas por plano (quantidade atual, não é receita)
+    const [byPlanCount] = await db.query(`
+      SELECT p.id as plan_id, p.name as plan_name, COUNT(t.id) as count
       FROM tenants t
       JOIN plans p ON p.id = t.plan_id
       WHERE t.id != 1 AND t.active = true AND t.billing_exempt = 0
       GROUP BY p.id
     `);
+
+    // Receita real por plano no período (faturas aprovadas)
+    const [revenueByPlan] = await db.query(`
+      SELECT plan_id, COALESCE(SUM(amount), 0) as revenue
+      FROM subscription_invoices
+      WHERE status = 'approved' AND paid_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+      GROUP BY plan_id
+    `, [daysCount]);
+    const revenueMap = Object.fromEntries(revenueByPlan.map(r => [r.plan_id, parseFloat(r.revenue)]));
+    const byPlan = byPlanCount.map(p => ({ ...p, price: revenueMap[p.plan_id] || 0 }));
 
     res.json({
       ...counts,
@@ -151,6 +169,7 @@ router.get('/stats', async (req, res) => {
       ...patientCounts,
       mrr: parseFloat(revenue.mrr),
       by_plan: byPlan,
+      period_days: daysCount,
     });
   } catch (err) {
     console.error(err);

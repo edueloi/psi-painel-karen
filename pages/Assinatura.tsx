@@ -95,6 +95,8 @@ export function Assinatura() {
   const [polling, setPolling] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [planChangedTo, setPlanChangedTo] = useState<string | null>(null);
+  const [reloadCountdown, setReloadCountdown] = useState<number | null>(null);
 
   const returnStatus = searchParams.get('status');
 
@@ -125,18 +127,38 @@ export function Assinatura() {
   // Polling quando tem PIX pendente
   useEffect(() => {
     if (!checkout?.pix_payment_id || !polling) return;
+    const planBeforePayment = status?.plan_id;
     const interval = setInterval(async () => {
       try {
         const d = await api.get<any>(`/subscription/check-payment/${checkout.pix_payment_id}`);
         if (d.status === 'approved') {
           setPolling(false);
           setPaymentDone(true);
-          setTimeout(() => { loadData(); setCheckout(null); }, 2000);
+          setTimeout(async () => {
+            const newSub = await api.get<SubStatus>('/subscription/status').catch(() => null);
+            if (newSub && planBeforePayment != null && newSub.plan_id !== planBeforePayment) {
+              // Plano mudou de verdade — o menu/permissões/features do usuário (carregados
+              // no login) ficam desatualizados até um reload completo da página.
+              setPlanChangedTo(newSub.plan_name || 'novo plano');
+              setReloadCountdown(5);
+            } else {
+              loadData();
+              setCheckout(null);
+            }
+          }, 2000);
         }
       } catch {}
     }, 4000);
     return () => clearInterval(interval);
-  }, [checkout, polling, loadData]);
+  }, [checkout, polling, loadData, status]);
+
+  // Contagem regressiva de reload automático após mudança de plano confirmada
+  useEffect(() => {
+    if (reloadCountdown === null) return;
+    if (reloadCountdown <= 0) { window.location.reload(); return; }
+    const t = setTimeout(() => setReloadCountdown(c => (c ?? 1) - 1), 1000);
+    return () => clearTimeout(t);
+  }, [reloadCountdown]);
 
   const handleCheckout = async () => {
     if (!selectedPlan) return;
@@ -222,8 +244,19 @@ export function Assinatura() {
         <ArrowLeft size={16} /> Voltar
       </button>
 
-      {/* ── Sucesso de pagamento ── */}
-      {(returnStatus === 'success' || paymentDone) && (
+      {/* ── Plano mudou: avisa e recarrega a página para atualizar menu/permissões ── */}
+      {planChangedTo && (
+        <div className="flex items-center gap-3 p-4 bg-violet-50 border border-violet-200 rounded-2xl">
+          <Loader2 size={20} className="text-violet-600 shrink-0 animate-spin" />
+          <div>
+            <p className="font-bold text-violet-800 text-sm">Pagamento confirmado — plano atualizado para {planChangedTo}!</p>
+            <p className="text-xs text-violet-600">Atualizando sua tela para liberar os novos recursos... ({reloadCountdown}s)</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sucesso de pagamento (sem mudança de plano — ex: renovação do mesmo plano) ── */}
+      {!planChangedTo && (returnStatus === 'success' || paymentDone) && (
         <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
           <CheckCircle size={20} className="text-emerald-600 shrink-0" />
           <div>
