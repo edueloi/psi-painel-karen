@@ -68,6 +68,7 @@ export const NAV_SECTIONS = [
     icon: <Cog size={13}/>,
     items: [
       { label: 'nav.settings',      path: '/configuracoes',  icon: <Settings size={18} />,   requiredPermission: 'manage_clinic_settings' },
+      { label: 'nav.subscription',  path: '/assinatura',     icon: <DollarSign size={18} />, requiredPermission: 'manage_clinic_settings' },
       { label: 'WhatsApp',          path: '/bot',            icon: <Smartphone size={18} />, requiredPermission: 'manage_bot_integration', requiredFeature: 'whatsapp_bot' },
       { label: 'Portal do Paciente',path: '/portal-paciente',icon: <Globe size={18} />,      requiredPermission: 'manage_clinic_settings' },
     ]
