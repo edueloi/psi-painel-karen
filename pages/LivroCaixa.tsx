@@ -1956,25 +1956,29 @@ export const LivroCaixa: React.FC = () => {
         title="Arquivo Financeiro"
         description="Gestão de períodos consolidados"
         action={
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
-            {/* Year selector */}
-            <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-9 shrink-0">
-              <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
-                <ChevronLeft size={14} />
-              </button>
-              <span className="mx-2">{selectedYear}</span>
-              <button onClick={() => setSelectedYear(y => y + 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
-                <ChevronRight size={14} />
-              </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="flex items-center justify-between gap-2 sm:contents">
+              {/* Year selector */}
+              <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-9 shrink-0">
+                <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="mx-2">{selectedYear}</span>
+                <button onClick={() => setSelectedYear(y => y + 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+              <FilterLineViewToggle value={archiveLayout} onChange={v => { setArchiveLayout(v as 'grid' | 'list'); localStorage.setItem('livrocaixa_layout', v as string); }} gridValue="grid" listValue="list" />
             </div>
-            <FilterLineViewToggle value={archiveLayout} onChange={v => { setArchiveLayout(v as 'grid' | 'list'); localStorage.setItem('livrocaixa_layout', v as string); }} gridValue="grid" listValue="list" />
-            <Button variant="outline" size="sm" iconLeft={<Upload size={14} />}
-              onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}>
-              Importar
-            </Button>
-            <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()}>
-              Novo Lançamento
-            </Button>
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} className="w-full sm:w-auto"
+                onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}>
+                Importar
+              </Button>
+              <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()} className="w-full sm:w-auto">
+                Novo Lançamento
+              </Button>
+            </div>
           </div>
         }
       />
@@ -2134,72 +2138,75 @@ export const LivroCaixa: React.FC = () => {
           title="Livro Caixa"
           description={displayMonth}
           action={
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
-              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()}>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()} className="w-full sm:w-auto">
                 Voltar
               </Button>
 
-              {/* Export dropdown */}
-              <div className="relative shrink-0" ref={exportRef}>
-                <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => setShowExportMenu(v => !v)}>
-                  Exportar
-                </Button>
-                {showExportMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-44 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden" onMouseLeave={() => setShowExportMenu(false)}>
-                    {[
-                      { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
-                      { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
-                      { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
-                    ].map(item => (
-                      <button key={item.label} onClick={item.action}
-                        className="w-full text-left px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-colors">
-                        {item.label}
+              <div className="grid grid-cols-2 gap-2 sm:contents">
+                {/* Export dropdown */}
+                <div className="relative" ref={exportRef}>
+                  <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => setShowExportMenu(v => !v)} className="w-full sm:w-auto">
+                    Exportar
+                  </Button>
+                  {showExportMenu && (
+                    <div className="absolute left-0 right-0 sm:left-auto sm:right-0 sm:w-44 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden" onMouseLeave={() => setShowExportMenu(false)}>
+                      {[
+                        { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
+                        { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
+                        { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
+                      ].map(item => (
+                        <button key={item.label} onClick={item.action}
+                          className="w-full text-left px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-colors">
+                          {item.label}
+                        </button>
+                      ))}
+                      <div className="border-t border-slate-100" />
+                      <button
+                        onClick={() => {
+                          if (selectedMonth) {
+                            setCarneleaoMode('month');
+                            setCarneleaoMonth(selectedMonth.month);
+                            setCarneleaoYear(selectedMonth.year);
+                          } else {
+                            setCarneleaoMode('year');
+                            setCarneleaoYear(selectedYear);
+                          }
+                          setShowExportMenu(false);
+                          setShowCarneleaoModal(true);
+                        }}
+                        className="w-full text-left px-4 py-3 text-[11px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-colors flex items-center gap-2 text-emerald-700"
+                      >
+                        <Receipt size={13} /> Carnê-Leão (gov.br)
                       </button>
-                    ))}
-                    <div className="border-t border-slate-100" />
-                    <button
-                      onClick={() => {
-                        if (selectedMonth) {
-                          setCarneleaoMode('month');
-                          setCarneleaoMonth(selectedMonth.month);
-                          setCarneleaoYear(selectedMonth.year);
-                        } else {
-                          setCarneleaoMode('year');
-                          setCarneleaoYear(selectedYear);
-                        }
-                        setShowExportMenu(false);
-                        setShowCarneleaoModal(true);
-                      }}
-                      className="w-full text-left px-4 py-3 text-[11px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-colors flex items-center gap-2 text-emerald-700"
-                    >
-                      <Receipt size={13} /> Carnê-Leão (gov.br)
-                    </button>
-                  </div>
+                    </div>
+                  )}
+                </div>
+
+                {isAdmin && (
+                  <Button
+                    variant={isMonthLocked ? 'danger' : 'success'}
+                    size="sm"
+                    iconLeft={isMonthLocked ? <LockIcon size={14} /> : <UnlockIcon size={14} />}
+                    onClick={() => handleToggleLock(currentMonthKey)}
+                    className="w-full sm:w-auto"
+                  >
+                    {isMonthLocked ? 'Fechado' : 'Aberto'}
+                  </Button>
+                )}
+
+                {hasPermission('view_financial_reports') && (
+                  <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto">
+                    Importar
+                  </Button>
+                )}
+
+                {hasPermission('manage_payments') && (
+                  <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenNewTxFromArchive()} className="w-full sm:w-auto">
+                    Novo
+                  </Button>
                 )}
               </div>
-
-              {isAdmin && (
-                <Button
-                  variant={isMonthLocked ? 'danger' : 'success'}
-                  size="sm"
-                  iconLeft={isMonthLocked ? <LockIcon size={14} /> : <UnlockIcon size={14} />}
-                  onClick={() => handleToggleLock(currentMonthKey)}
-                >
-                  {isMonthLocked ? 'Fechado' : 'Aberto'}
-                </Button>
-              )}
-
-              {hasPermission('view_financial_reports') && (
-                <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} onClick={() => setIsImportOpen(true)}>
-                  Importar
-                </Button>
-              )}
-
-              {hasPermission('manage_payments') && (
-                <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenNewTxFromArchive()}>
-                  Novo
-                </Button>
-              )}
             </div>
           }
         />
