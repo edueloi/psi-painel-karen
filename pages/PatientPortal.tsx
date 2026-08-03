@@ -6,7 +6,7 @@ import {
   Upload, Trash2, Eye, X, Phone, Home, FileText, ArrowLeft,
   Check, Send, Loader2, ExternalLink, Edit3, Save, Lock, Copy, QrCode,
   Eye as EyeIcon, EyeOff, Shield, ChevronRight, Bell, FolderOpen, Download,
-  ChevronLeft, Heart, Users,
+  ChevronLeft, Heart, Users, MessageCircle,
   Mail, Cake, Briefcase, Sparkles, Stethoscope, GraduationCap, Gem, Receipt,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
@@ -2763,10 +2763,133 @@ function NfseTab({ invoices }: { invoices: PortalNfseInvoice[] }) {
   );
 }
 
+// ─── Mensagens ────────────────────────────────────────────────────────────────
+const MSG_POLL = 8000;
+
+function fmtMsgTime(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString())
+    return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " +
+         d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function MessagesTab({ professionalName }: { professionalName?: string }) {
+  const [msgs, setMsgs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadMsgs = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await portalFetch("/messages");
+      if (res.ok) setMsgs(await res.json());
+    } catch {}
+    if (!silent) setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadMsgs();
+    pollRef.current = setInterval(() => loadMsgs(true), MSG_POLL);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [loadMsgs]);
+
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [msgs]);
+
+  const send = async () => {
+    const content = text.trim();
+    if (!content || sending) return;
+    setText("");
+    setSending(true);
+    try {
+      const res = await portalFetch("/messages", { method: "POST", body: JSON.stringify({ content }) });
+      if (res.ok) await loadMsgs(true);
+      else setText(content);
+    } catch { setText(content); }
+    setSending(false);
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-160px)] min-h-[420px] flex-col rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-slate-100 bg-white shrink-0">
+        <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
+          <MessageCircle size={16} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-slate-800 truncate">{professionalName || "Seu profissional"}</p>
+          <p className="text-[11px] text-slate-400">Converse diretamente com seu profissional</p>
+        </div>
+      </div>
+
+      {/* Mensagens */}
+      <div ref={listRef} className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-slate-50/60">
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 size={20} className="animate-spin text-primary-300" />
+          </div>
+        ) : msgs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-2">
+            <MessageCircle size={24} className="text-slate-200" />
+            <p className="text-xs text-slate-400">Nenhuma mensagem ainda. Envie a primeira!</p>
+          </div>
+        ) : msgs.map((m) => {
+          const isMine = m.sender_type === "patient";
+          return (
+            <div key={m.id} className={`flex gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+              {!isMine && (
+                <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <User size={11} className="text-primary-500" />
+                </div>
+              )}
+              <div className={`max-w-[78%] sm:max-w-[68%] rounded-2xl px-3.5 py-2.5 ${
+                isMine
+                  ? "bg-primary-600 text-white rounded-br-sm"
+                  : "bg-white text-slate-700 rounded-bl-sm border border-slate-100 shadow-sm"
+              }`}>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.content}</p>
+                <p className={`text-[10px] mt-1 ${isMine ? "text-primary-100 text-right" : "text-slate-400"}`}>
+                  {fmtMsgTime(m.created_at)}
+                  {isMine && m.read_at && <Check size={9} className="inline ml-1" />}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Input */}
+      <div className="flex items-end gap-2 px-3 sm:px-4 py-3 border-t border-slate-100 bg-white shrink-0">
+        <textarea
+          className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm
+                     text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-300
+                     max-h-28 min-h-[42px]"
+          rows={1}
+          placeholder="Escreva uma mensagem..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          disabled={sending}
+        />
+        <IconButton variant="primary" onClick={send} disabled={!text.trim() || sending} title="Enviar">
+          {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+        </IconButton>
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export const PatientPortal: React.FC = () => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"home" | "agenda" | "documents" | "nfse" | "payments" | "profile">("home");
+  const [tab, setTab] = useState<"home" | "agenda" | "documents" | "nfse" | "payments" | "messages" | "profile">("home");
+  const [unreadMsgs, setUnreadMsgs] = useState(0);
   const [patient, setPatient] = useState<PortalPatient | null>(null);
   const [appointments, setAppointments] = useState<PortalAppointment[]>([]);
   const [payments, setPayments] = useState<PortalPayment[]>([]);
@@ -2813,6 +2936,28 @@ export const PatientPortal: React.FC = () => {
     } finally { setLoading(false); }
   }, []);
 
+  // Sonda de mensagens não lidas — roda só enquanto o paciente NÃO está na aba
+  // Mensagens (que já marca tudo como lido ao abrir), evitando "gastar" a
+  // marcação de leitura do backend antes da hora.
+  useEffect(() => {
+    if (!session || tab === "messages") return;
+    let cancelled = false;
+    const checkUnread = async () => {
+      try {
+        const res = await portalFetch("/messages");
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const count = Array.isArray(data)
+          ? data.filter((m: any) => m.sender_type === "professional" && !m.read_at).length
+          : 0;
+        if (!cancelled) setUnreadMsgs(count);
+      } catch {}
+    };
+    checkUnread();
+    const id = setInterval(checkUnread, MSG_POLL);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [tab]);
+
   const handleLogout = () => { localStorage.removeItem(SESSION_KEY); navigate("/portal"); };
 
   if (loading || !patient) {
@@ -2829,17 +2974,19 @@ export const PatientPortal: React.FC = () => {
   }
 
   const TABS = [
-    { id: "home",      icon: Home,       label: "Início"    },
-    { id: "agenda",    icon: Calendar,   label: "Agenda"    },
-    { id: "documents", icon: FolderOpen, label: "Docs"      },
-    { id: "nfse",      icon: Receipt,    label: "Notas"     },
-    { id: "payments",  icon: CreditCard, label: "Financeiro"},
-    { id: "profile",   icon: User,       label: "Perfil"    },
+    { id: "home",      icon: Home,          label: "Início"    },
+    { id: "agenda",    icon: Calendar,      label: "Agenda"    },
+    { id: "messages",  icon: MessageCircle, label: "Mensagens" },
+    { id: "documents", icon: FolderOpen,    label: "Docs"      },
+    { id: "nfse",      icon: Receipt,       label: "Notas"     },
+    { id: "payments",  icon: CreditCard,    label: "Financeiro"},
+    { id: "profile",   icon: User,          label: "Perfil"    },
   ] as const;
 
   const pendingBadge = {
     agenda: requests.filter(r => r.status === "pending").length,
     payments: payments.filter(p => p.status === "pending").length,
+    messages: unreadMsgs,
   };
 
   return (
@@ -2865,7 +3012,7 @@ export const PatientPortal: React.FC = () => {
         <nav className="flex-1 px-3 py-4 space-y-0.5">
           {TABS.map(t => {
             const isActive = tab === t.id;
-            const badge = t.id === "agenda" ? pendingBadge.agenda : t.id === "payments" ? pendingBadge.payments : 0;
+            const badge = t.id === "agenda" ? pendingBadge.agenda : t.id === "payments" ? pendingBadge.payments : t.id === "messages" ? pendingBadge.messages : 0;
             const Icon = t.icon;
             return (
               <button key={t.id} onClick={() => setTab(t.id)}
@@ -2930,6 +3077,7 @@ export const PatientPortal: React.FC = () => {
           <div className="max-w-full 2xl:max-w-[1400px] w-full mx-auto">
             {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
             {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} />}
+            {tab === "messages"  && <MessagesTab professionalName={professionals[0]?.name} />}
             {tab === "documents" && <DocumentsTab data={documents} />}
             {tab === "nfse"      && <NfseTab invoices={nfseInvoices} />}
             {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} comandas={comandas} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
@@ -2942,7 +3090,7 @@ export const PatientPortal: React.FC = () => {
           <div className="flex items-center justify-around px-2 py-1">
             {TABS.map(t => {
               const isActive = tab === t.id;
-              const badge = t.id === "agenda" ? pendingBadge.agenda : t.id === "payments" ? pendingBadge.payments : 0;
+              const badge = t.id === "agenda" ? pendingBadge.agenda : t.id === "payments" ? pendingBadge.payments : t.id === "messages" ? pendingBadge.messages : 0;
               const Icon = t.icon;
               return (
                 <button key={t.id} onClick={() => setTab(t.id)}
