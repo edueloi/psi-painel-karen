@@ -13,6 +13,7 @@ import {
 } from '../components/UI';
 import { Switch } from '../components/UI/Switch';
 import { Select, Input, Textarea } from '../components/UI/Input';
+import { Combobox } from '../components/UI/Combobox';
 
 interface PortalToken {
   id: number;
@@ -289,15 +290,13 @@ export const PortalPaciente: React.FC = () => {
               <p className="text-xs font-black text-primary-700 mb-2">Novo link de acesso</p>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
                 <div className="col-span-2 md:col-span-1">
-                  <Select
+                  <Combobox
+                    placeholder="Paciente *"
+                    searchPlaceholder="Buscar paciente..."
                     value={form.patient_id}
-                    onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))}
-                  >
-                    <option value="">Paciente *</option>
-                    {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.full_name || p.name}</option>
-                    ))}
-                  </Select>
+                    onChange={(v) => setForm(f => ({ ...f, patient_id: v as string }))}
+                    options={patients.map(p => ({ value: String(p.id), label: p.full_name || p.name || `Paciente #${p.id}` }))}
+                  />
                 </div>
                 <div>
                   <Select
@@ -506,13 +505,12 @@ export const PortalPaciente: React.FC = () => {
                   <span className="text-xs font-black text-slate-700">Configurações de PIX</span>
                 </div>
                 <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  <Select
+                  <Combobox
                     label="Tipo de chave"
                     value={settings.pix_key_type || 'cpf'}
-                    onChange={e => setSettings(s => ({ ...s, pix_key_type: e.target.value }))}
-                  >
-                    {PIX_KEY_TYPES.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
-                  </Select>
+                    onChange={(v) => setSettings(s => ({ ...s, pix_key_type: v as string }))}
+                    options={PIX_KEY_TYPES}
+                  />
                   <Input
                     label="Chave PIX"
                     type="text"
