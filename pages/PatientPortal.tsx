@@ -15,6 +15,7 @@ import { Button, IconButton } from "../components/UI";
 import { Combobox } from "../components/UI/Combobox";
 import { Badge } from "../components/UI/Badge";
 import { EmptyState } from "../components/UI/EmptyState";
+import { Switch } from "../components/UI/Switch";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 interface EmergencyContact {
@@ -209,7 +210,7 @@ function Toast({ msg, type = "success", onClose }: { msg: string; type?: ToastTy
   const styles: Record<ToastType, { bg: string; icon: React.ReactNode }> = {
     success: { bg: "bg-emerald-600", icon: <CheckCircle size={16} className="shrink-0" /> },
     error:   { bg: "bg-red-600",     icon: <XCircle    size={16} className="shrink-0" /> },
-    info:    { bg: "bg-indigo-600",  icon: <AlertCircle size={16} className="shrink-0" /> },
+    info:    { bg: "bg-primary-600",  icon: <AlertCircle size={16} className="shrink-0" /> },
   };
   const s = styles[type];
   return (
@@ -261,7 +262,7 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
         </div>
         {patient.professional_name && (
           <div className="flex items-center gap-2 bg-white border border-slate-100 rounded-2xl px-3 py-2 shadow-sm">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-primary-500 to-primary-800 flex items-center justify-center text-white font-bold text-xs shrink-0">
               {patient.professional_name.charAt(0)}
             </div>
             <div className="min-w-0">
@@ -283,7 +284,7 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
         {/* Coluna 1: próxima consulta + profissional */}
         <div className="space-y-4">
           {next ? (
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-5 xl:p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl p-5 xl:p-6 text-white shadow-lg shadow-primary-200 relative overflow-hidden">
               <div className="absolute -right-4 -top-4 w-28 h-28 bg-white/5 rounded-full pointer-events-none" />
               <div className="absolute -right-2 -bottom-6 w-20 h-20 bg-white/5 rounded-full pointer-events-none" />
               <div className="flex items-center gap-1.5 mb-3">
@@ -326,7 +327,7 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
           {/* Profissional card (desktop only) */}
           {patient.professional_name && (
             <div className="hidden md:flex items-center gap-3 bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-base shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-800 flex items-center justify-center text-white font-black text-base shrink-0">
                 {patient.professional_name.charAt(0)}
               </div>
               <div className="min-w-0">
@@ -349,8 +350,8 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
               {upcoming.map((a, i) => (
                 <div key={a.id} className={`px-4 py-3 flex items-center justify-between ${i < upcoming.length - 1 ? "border-b border-slate-50" : ""}`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-                      <Calendar size={13} className="text-indigo-500" />
+                    <div className="w-8 h-8 bg-primary-50 rounded-xl flex items-center justify-center shrink-0">
+                      <Calendar size={13} className="text-primary-500" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-700">{fmtDate(a.start_date, { day: "numeric", month: "short" })}</p>
@@ -410,7 +411,7 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
   );
 }
 
-// ─── Portal Calendar (baseado no Calendar.tsx do projeto, cores indigo) ───────
+// ─── Portal Calendar (baseado no Calendar.tsx do projeto, cores do tema) ───────
 // dayAvailability: date → { total: number; available: number } | undefined
 // booked: datas com consulta já marcada pelo paciente
 function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonthChange }: {
@@ -444,7 +445,7 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
 
   // Determina classe de disponibilidade do dia (dot colorido)
   const getDayDot = (dateStr: string): { color: string; label: string } | null => {
-    if (bookedSet.has(dateStr)) return { color: "bg-indigo-500", label: "agendado" };
+    if (bookedSet.has(dateStr)) return { color: "bg-primary-500", label: "agendado" };
     const av = dayAvailability?.[dateStr];
     if (!av) return null; // ainda carregando — neutro
     if (av.total === 0) return { color: "", label: "fechado" }; // não atende
@@ -496,10 +497,10 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
           let cls = "h-11 rounded-xl text-sm font-bold transition-all w-full relative flex flex-col items-center justify-center gap-0 ";
           if (isPast) cls += "text-slate-200 cursor-default";
           else if (isClosed) cls += "text-slate-300 cursor-not-allowed line-through decoration-slate-300";
-          else if (isSelected) cls += "bg-indigo-600 text-white shadow-md cursor-pointer";
+          else if (isSelected) cls += "bg-primary-600 text-white shadow-md cursor-pointer";
           else if (isFull) cls += "text-slate-300 cursor-not-allowed";
-          else if (isToday) cls += "border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 cursor-pointer";
-          else cls += "border border-transparent bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer";
+          else if (isToday) cls += "border border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100 cursor-pointer";
+          else cls += "border border-transparent bg-white text-slate-600 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 cursor-pointer";
 
           return (
             <button key={dateStr} type="button"
@@ -519,7 +520,7 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Livre</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> Poucos horários</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Sem vagas</span>
-        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block" /> Agendado</span>
+        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary-500 inline-block" /> Agendado</span>
         <span className="flex items-center gap-1 line-through decoration-slate-300">Sem atend.</span>
       </div>
     </div>
@@ -903,10 +904,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               const pricePerSession = pkg.sessions_count ? finalPrice / pkg.sessions_count : 0;
               return (
                 <button key={pkg.id} onClick={() => setSelectedPackageId(isSelected ? null : pkg.id)}
-                  className={`w-full text-left rounded-2xl border transition-all overflow-hidden ${isSelected ? "border-indigo-400 bg-indigo-50 shadow-md" : "border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm"}`}>
+                  className={`w-full text-left rounded-2xl border transition-all overflow-hidden ${isSelected ? "border-primary-400 bg-primary-50 shadow-md" : "border-slate-200 bg-white hover:border-primary-300 hover:shadow-sm"}`}>
                   <div className="px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-sm ${isSelected ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-600"}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-sm ${isSelected ? "bg-primary-600 text-white" : "bg-primary-100 text-primary-600"}`}>
                         {pkg.sessions_count}
                       </div>
                       <div className="min-w-0">
@@ -919,11 +920,11 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-base font-black text-indigo-600">{fmtCurrency(finalPrice)}</p>
+                      <p className="text-base font-black text-primary-600">{fmtCurrency(finalPrice)}</p>
                     </div>
                   </div>
                   {isSelected && (
-                    <div className="px-4 pb-3 flex items-center gap-1.5 text-xs text-indigo-600 font-bold">
+                    <div className="px-4 pb-3 flex items-center gap-1.5 text-xs text-primary-600 font-bold">
                       <Check size={12} /> Selecionado
                     </div>
                   )}
@@ -934,13 +935,13 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         )}
 
         {selectedPkg && (
-          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3 space-y-1">
-            <p className="text-xs font-black text-indigo-700">{selectedPkg.name}</p>
-            <div className="flex justify-between text-xs text-indigo-600">
+          <div className="bg-primary-50 border border-primary-200 rounded-2xl px-4 py-3 space-y-1">
+            <p className="text-xs font-black text-primary-700">{selectedPkg.name}</p>
+            <div className="flex justify-between text-xs text-primary-600">
               <span>{selectedPkg.sessions_count} sessões</span>
               <span className="font-bold">{fmtCurrency(selectedPkg.display_price ?? selectedPkg.totalPrice ?? 0)}</span>
             </div>
-            <p className="text-[11px] text-indigo-500">Após confirmar, agende cada sessão individualmente na sua agenda.</p>
+            <p className="text-[11px] text-primary-500">Após confirmar, agende cada sessão individualmente na sua agenda.</p>
           </div>
         )}
 
@@ -948,7 +949,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           disabled={!selectedPkg || creatingComanda}
           loading={creatingComanda} loadingText="Criando..."
           iconLeft={<Check size={16} />}
-          className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+          className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700 disabled:opacity-50">
           {selectedPkg ? `Contratar: ${selectedPkg.name}` : "Selecione um pacote acima"}
         </Button>
       </div>
@@ -991,7 +992,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         {/* Profissional único — mostra com quem será a consulta */}
         {professionals.length === 1 && selectedProf && (
           <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shrink-0 shadow-md shadow-indigo-500/20">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-800 flex items-center justify-center text-white font-black shrink-0 shadow-md shadow-primary-500/20">
               {selectedProf.name.charAt(0)}
             </div>
             <div className="min-w-0">
@@ -1028,10 +1029,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                     schedForm.professional_id === p.id.toString()
-                      ? "border-indigo-300 bg-indigo-50"
+                      ? "border-primary-300 bg-primary-50"
                       : "border-slate-100 hover:border-slate-200"
                   }`}>
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-black text-sm shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-400 to-primary-800 flex items-center justify-center text-white font-black text-sm shrink-0">
                     {p.name.charAt(0)}
                   </div>
                   <div>
@@ -1039,7 +1040,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                     {p.specialty && <p className="text-xs text-slate-400">{p.specialty}</p>}
                   </div>
                   {schedForm.professional_id === p.id.toString() && (
-                    <CheckCircle size={16} className="text-indigo-500 ml-auto" />
+                    <CheckCircle size={16} className="text-primary-500 ml-auto" />
                   )}
                 </button>
               ))}
@@ -1080,7 +1081,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               <p className="text-xs font-black text-slate-400 uppercase tracking-wider">
                 {schedForm.date ? new Date(schedForm.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) : ""}
               </p>
-              <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="text-indigo-600">
+              <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="text-primary-600">
                 ← Mudar data
               </Button>
             </div>
@@ -1088,7 +1089,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               <div className="text-center py-6">
                 <p className="text-slate-500 font-bold text-sm">Nenhum horário disponível</p>
                 <p className="text-slate-400 text-xs mt-1">Escolha outra data</p>
-                <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="mt-3 text-indigo-600">← Voltar ao calendário</Button>
+                <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="mt-3 text-primary-600">← Voltar ao calendário</Button>
               </div>
             ) : (
               <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
@@ -1098,7 +1099,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                     className={`py-2.5 rounded-xl text-sm font-bold border transition-all ${
                       !s.available
                         ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through"
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700"
                     }`}>
                     {s.time}
                   </button>
@@ -1111,21 +1112,21 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         {/* Step: Confirmar */}
         {step === "confirm" && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-            <div className="bg-indigo-50 rounded-xl p-4 space-y-2">
+            <div className="bg-primary-50 rounded-xl p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <Calendar size={14} className="text-indigo-500" />
-                <span className="text-sm font-black text-indigo-700">
+                <Calendar size={14} className="text-primary-500" />
+                <span className="text-sm font-black text-primary-700">
                   {new Date(schedForm.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-indigo-500" />
-                <span className="text-sm font-bold text-indigo-700">{schedForm.time} · {duration}min</span>
+                <Clock size={14} className="text-primary-500" />
+                <span className="text-sm font-bold text-primary-700">{schedForm.time} · {duration}min</span>
               </div>
               {selectedProf && (
                 <div className="flex items-center gap-2">
-                  <User size={14} className="text-indigo-500" />
-                  <span className="text-sm font-bold text-indigo-700">{selectedProf.name}</span>
+                  <User size={14} className="text-primary-500" />
+                  <span className="text-sm font-bold text-primary-700">{selectedProf.name}</span>
                 </div>
               )}
             </div>
@@ -1136,7 +1137,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 {["online", "presencial"].map(m => (
                   <button key={m} onClick={() => setSchedForm(f => ({ ...f, modality: m }))}
                     className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                      schedForm.modality === m ? "bg-indigo-600 text-white border-indigo-500" : "bg-slate-50 text-slate-600 border-slate-200"
+                      schedForm.modality === m ? "bg-primary-600 text-white border-primary-500" : "bg-slate-50 text-slate-600 border-slate-200"
                     }`}>
                     {m === "online" ? <Video size={13} /> : <MapPin size={13} />}
                     {m === "online" ? "Online" : "Presencial"}
@@ -1155,8 +1156,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                       onClick={() => setSchedForm(f => ({ ...f, recurrence_freq: opt.value }))}
                       className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
                         schedForm.recurrence_freq === opt.value
-                          ? "bg-indigo-600 text-white border-indigo-500"
-                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-200"
+                          ? "bg-primary-600 text-white border-primary-500"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-primary-200"
                       }`}>
                       {opt.value === "" ? <Calendar size={13} /> : <Clock size={13} />}
                       {opt.label}
@@ -1164,7 +1165,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   ))}
                 </div>
                 {schedForm.recurrence_freq && (
-                  <div className="mt-2.5 flex items-center gap-2 bg-indigo-50/60 rounded-xl px-3 py-2.5 border border-indigo-100">
+                  <div className="mt-2.5 flex items-center gap-2 bg-primary-50/60 rounded-xl px-3 py-2.5 border border-primary-100">
                     <span className="text-xs font-bold text-slate-600">Quantas sessões?</span>
                     <div className="flex items-center gap-1 ml-auto">
                       {[2, 4, 8, 12].map(n => (
@@ -1172,8 +1173,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                           onClick={() => setSchedForm(f => ({ ...f, recurrence_count: n }))}
                           className={`w-8 h-8 rounded-lg text-xs font-black border transition-all ${
                             schedForm.recurrence_count === n
-                              ? "bg-indigo-600 text-white border-indigo-500"
-                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                              ? "bg-primary-600 text-white border-primary-500"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-primary-300"
                           }`}>{n}</button>
                       ))}
                     </div>
@@ -1212,7 +1213,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
             <div className="space-y-2">
               {isReschedule ? (
-                <Button variant="primary" onClick={submitReschedule} loading={loading} loadingText="Reagendando..." iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+                <Button variant="primary" onClick={submitReschedule} loading={loading} loadingText="Reagendando..." iconLeft={<Check size={15} />} className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
                   Confirmar Reagendamento
                 </Button>
               ) : (
@@ -1220,7 +1221,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   <Button variant="primary"
                     onClick={() => schedForm.recurrence_freq ? goToReviewOrConfirm() : submitDirect()}
                     loading={loading} loadingText="Agendando..."
-                    iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+                    iconLeft={<Check size={15} />} className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
                     {schedForm.recurrence_freq ? `Revisar e confirmar ${schedForm.recurrence_count} sessões` : "Confirmar Agendamento"}
                   </Button>
                   <Button variant="ghost" onClick={submitRequest} disabled={loading || reviewLoading} className="w-full">
@@ -1245,7 +1246,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   <div key={idx} className={`rounded-xl border p-3 transition-all ${occ.conflict ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${occ.conflict ? "bg-red-400 text-white" : "bg-indigo-500 text-white"}`}>{idx + 1}</span>
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${occ.conflict ? "bg-red-400 text-white" : "bg-primary-500 text-white"}`}>{idx + 1}</span>
                         <div>
                           <p className={`text-sm font-bold ${occ.conflict ? "text-red-700" : "text-slate-700"}`}>{dateLabel}</p>
                           <p className={`text-xs ${occ.conflict ? "text-red-500" : "text-slate-400"}`}>{occ.time} · {duration}min {occ.conflict ? "— horário ocupado" : ""}</p>
@@ -1270,14 +1271,14 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                         ) : (
                           <>
                             <p className="text-xs font-bold text-slate-500 mb-2">Horários disponíveis em {dateLabel}:</p>
-                            <div className="grid grid-cols-4 gap-1.5">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
                               {(occ.editingSlots || []).filter(s => s.available).map(s => (
                                 <button key={s.time} type="button"
                                   onClick={() => {
                                     setReviewOccurrences(prev => prev.map((o, i) => i === idx ? { ...o, time: s.time, conflict: false, editingSlots: undefined } : o));
                                     setEditingSessionIdx(null);
                                   }}
-                                  className="py-1.5 rounded-lg text-xs font-bold border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50">
+                                  className="py-1.5 rounded-lg text-xs font-bold border border-primary-200 bg-white text-primary-700 hover:bg-primary-50">
                                   {s.time}
                                 </button>
                               ))}
@@ -1301,7 +1302,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 onClick={() => submitDirect(reviewOccurrences.map(o => ({ date: o.date, time: o.time })))}
                 disabled={reviewOccurrences.some(o => o.conflict)}
                 loading={loading} loadingText="Agendando..."
-                iconLeft={<Check size={15} />} className="w-full bg-indigo-600 border-indigo-600 hover:bg-indigo-700">
+                iconLeft={<Check size={15} />} className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
                 Confirmar {reviewOccurrences.length} Sessões
               </Button>
             </div>
@@ -1318,15 +1319,15 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
       {/* Banner do pacote ativo */}
       {activeComanda && (
-        <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
-          <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-2.5 flex items-center justify-between">
+        <div className="bg-white rounded-2xl border border-primary-200 shadow-sm overflow-hidden">
+          <div className="bg-primary-50 border-b border-primary-100 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-lg bg-primary-600 flex items-center justify-center shrink-0">
                 <Sparkles size={12} className="text-white" />
               </div>
-              <span className="text-xs font-black text-indigo-700">Seu Pacote Ativo</span>
+              <span className="text-xs font-black text-primary-700">Seu Pacote Ativo</span>
             </div>
-            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">ABERTO</span>
+            <span className="text-[10px] font-bold text-primary-500 bg-primary-100 px-2 py-0.5 rounded-full">ABERTO</span>
           </div>
           <div className="px-4 py-3">
             <p className="text-xs font-bold text-slate-600 mb-2 truncate">{activeComanda.description}</p>
@@ -1334,7 +1335,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-2 bg-indigo-500 rounded-full transition-all"
+                  className="h-2 bg-primary-500 rounded-full transition-all"
                   style={{ width: `${Math.min(100, (activeComanda.sessions_done / activeComanda.sessions_total) * 100)}%` }}
                 />
               </div>
@@ -1351,13 +1352,13 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 <p className="text-base font-black text-emerald-600">{activeComanda.sessions_done}</p>
                 <p className="text-[10px] text-slate-400">Realizadas</p>
               </div>
-              <div className="bg-indigo-50 rounded-xl py-2">
-                <p className="text-base font-black text-indigo-600">{activeComanda.sessions_remaining}</p>
+              <div className="bg-primary-50 rounded-xl py-2">
+                <p className="text-base font-black text-primary-600">{activeComanda.sessions_remaining}</p>
                 <p className="text-[10px] text-slate-400">Restantes</p>
               </div>
             </div>
             {slotsLeft !== null && slotsLeft > 0 && (
-              <p className="text-xs text-indigo-600 font-bold mt-2 text-center">
+              <p className="text-xs text-primary-600 font-bold mt-2 text-center">
                 Você pode agendar mais {slotsLeft} sessão{slotsLeft !== 1 ? "ões" : ""}
               </p>
             )}
@@ -1376,16 +1377,18 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           <Button variant="primary"
             disabled={slotsLeft === 0 && !!activeComanda}
             onClick={() => { setMode("schedule"); setStep("calendar"); setSchedForm(f => ({ ...f, date: "", time: "" })); }}
-            className="flex-1 bg-indigo-600 border-indigo-600 hover:bg-indigo-700 shadow-lg disabled:opacity-50">
+            className="flex-1 bg-primary-600 border-primary-600 hover:bg-primary-700 shadow-lg disabled:opacity-50">
             <Plus size={16} /> {activeComanda ? "Usar sessão do pacote" : "Agendar Consulta"}
           </Button>
-          <button
+          <Button
+            variant="outline"
             onClick={() => setMode("new-comanda")}
-            className="flex items-center gap-1.5 px-3 py-2 border border-indigo-200 text-indigo-600 text-xs font-bold rounded-xl hover:bg-indigo-50 transition-all shrink-0"
+            className="shrink-0"
             title="Criar pacote de sessões"
+            iconLeft={<Gem size={14} />}
           >
-            <Gem size={14} /> Pacote
-          </button>
+            Pacote
+          </Button>
         </div>
       )}
 
@@ -1417,19 +1420,19 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               <div key={a.id} className="px-4 py-4 border-b border-slate-50 last:border-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center shrink-0">
-                      <Calendar size={16} className="text-indigo-600" />
+                    <div className="w-10 h-10 bg-primary-50 rounded-2xl flex items-center justify-center shrink-0">
+                      <Calendar size={16} className="text-primary-600" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-800">{fmtDate(a.start_date, { weekday: "short", day: "numeric", month: "short" })}</p>
                       <p className="text-xs text-slate-500">{fmtTime(a.start_date)}{a.duration_minutes ? ` · ${a.duration_minutes}min` : ""}</p>
                       <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
-                        {a.modality === "online" ? <Video size={10} className="text-indigo-400" /> : <MapPin size={10} />}
+                        {a.modality === "online" ? <Video size={10} className="text-primary-400" /> : <MapPin size={10} />}
                         {MODALITY_LABELS[a.modality] || a.modality}
                       </div>
                       {a.modality === "online" && a.meeting_url && (
                         <a href={a.meeting_url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 mt-1.5 text-xs font-bold text-indigo-600 hover:underline">
+                          className="inline-flex items-center gap-1 mt-1.5 text-xs font-bold text-primary-600 hover:underline">
                           <ExternalLink size={10} />Entrar na sala
                         </a>
                       )}
@@ -1448,7 +1451,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                         </div>
                       ) : isOpen ? (
                         <div className="flex flex-col items-end gap-1.5 animate-fadeIn">
-                          <Button size="sm" variant="outline" onClick={() => startReschedule(a)} className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 gap-1">
+                          <Button size="sm" variant="outline" onClick={() => startReschedule(a)} className="text-primary-600 border-primary-200 hover:bg-primary-50 gap-1">
                             <Calendar size={11} /> Reagendar
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => { setCancelId(a.id); setActionApptId(null); }} className="text-red-400 hover:text-red-600 gap-1">
@@ -1761,23 +1764,23 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
 
       {/* ── Pagar Online via Mercado Pago ── */}
       {mpAvailable && (
-        <div className="bg-white rounded-2xl border border-sky-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-primary-100 shadow-sm overflow-hidden">
           <button
             onClick={() => { setShowMpForm(v => !v); setMpCharge(null); setShowForm(false); }}
             className="w-full flex items-center gap-3 p-4 text-left"
           >
-            <div className="p-2 rounded-xl bg-sky-100 text-sky-600 shrink-0">
+            <div className="p-2 rounded-xl bg-primary-100 text-primary-600 shrink-0">
               <CreditCard size={18} />
             </div>
             <div className="flex-1">
-              <p className="font-black text-sm text-sky-800">Pagar Online</p>
+              <p className="font-black text-sm text-primary-800">Pagar Online</p>
               <p className="text-[11px] text-slate-400">PIX gratuito ou cartão via Mercado Pago</p>
             </div>
-            <span className="text-[10px] font-bold bg-sky-100 text-sky-700 px-2 py-1 rounded-full">Disponível</span>
+            <span className="text-[10px] font-bold bg-primary-100 text-primary-700 px-2 py-1 rounded-full">Disponível</span>
           </button>
 
           {showMpForm && (
-            <div className="border-t border-sky-100 p-4 space-y-3">
+            <div className="border-t border-primary-100 p-4 space-y-3">
               {!mpCharge ? (
                 <>
                   <div>
@@ -1790,7 +1793,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                         value={mpAmount}
                         onChange={e => setMpAmount(e.target.value.replace(/[^0-9,\.]/g, ""))}
                         placeholder="0,00"
-                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-lg font-black text-slate-900 outline-none focus:border-sky-400"
+                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-lg font-black text-slate-900 outline-none focus:border-primary-400"
                       />
                     </div>
                   </div>
@@ -1802,7 +1805,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                         const total = mpInstallmentTotal(base, n);
                         return (
                         <button key={n} onClick={() => setMpInstallments(n)}
-                          className={`py-2 rounded-xl text-xs font-bold border transition-all ${mpInstallments === n ? "bg-sky-600 text-white border-sky-500" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
+                          className={`py-2 rounded-xl text-xs font-bold border transition-all ${mpInstallments === n ? "bg-primary-600 text-white border-primary-500" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
                           {n === 1 ? "À vista" : `${n}x`}
                           {n > 1 && mpAmount && (
                             <span className="block text-[8px] opacity-80">
@@ -1822,7 +1825,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                     )}
                   </div>
                   <button onClick={createMpCharge} disabled={mpLoading || !mpAmount}
-                    className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                     {mpLoading
                       ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Gerando...</>
                       : <><CreditCard size={15} /> Gerar cobrança</>}
@@ -1847,13 +1850,13 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                       <p className="text-xs text-slate-500 font-bold text-center">Escaneie com o app do banco</p>
                       {mpCharge.pix_qr_code && (
                         <button onClick={() => { navigator.clipboard.writeText(mpCharge.pix_qr_code); setMpCopied(true); setTimeout(() => setMpCopied(false), 2000); }}
-                          className="text-xs font-bold text-sky-700 flex items-center gap-1">
+                          className="text-xs font-bold text-primary-700 flex items-center gap-1">
                           📋 {mpCopied ? "Copiado!" : "Copiar código PIX"}
                         </button>
                       )}
                       {mpPolling && (
-                        <p className="text-[10px] text-sky-500 flex items-center gap-1">
-                          <span className="animate-spin inline-block w-3 h-3 border-2 border-sky-400 border-t-transparent rounded-full" /> Aguardando confirmação...
+                        <p className="text-[10px] text-primary-500 flex items-center gap-1">
+                          <span className="animate-spin inline-block w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full" /> Aguardando confirmação...
                         </p>
                       )}
                     </div>
@@ -1862,7 +1865,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                   {/* Link de pagamento */}
                   {mpCharge.payment_url && (
                     <a href={mpCharge.payment_url} target="_blank" rel="noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-sky-600 text-white text-sm font-bold rounded-xl hover:bg-sky-700 transition-all">
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 text-white text-sm font-bold rounded-xl hover:bg-primary-700 transition-all">
                       Pagar agora (cartão)
                     </a>
                   )}
@@ -1955,7 +1958,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
             </div>
             <div>
               <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Forma de pagamento</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {enabledMethods.map(m => (
                   <button key={m.key} onClick={() => setForm(f => ({ ...f, payment_method: m.key }))}
                     className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all ${form.payment_method === m.key ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
@@ -1999,7 +2002,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
           <div className="flex gap-1.5 mb-2 overflow-x-auto pb-0.5">
             {years.map(y => (
               <button key={y} onClick={() => setFilterYear(y)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all ${filterYear === y ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all ${filterYear === y ? "bg-primary-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
                 {y}
               </button>
             ))}
@@ -2058,7 +2061,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                   <div className="flex flex-wrap gap-1.5 ml-10 mt-1.5">
                     {p.attachments.map(att => (
                       <button key={att.id} onClick={() => setPreview(`${API_BASE_URL}${att.file_url}`)}
-                        className="flex items-center gap-1 text-[11px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                        className="flex items-center gap-1 text-[11px] text-primary-600 bg-primary-50 px-2 py-1 rounded-lg border border-primary-100 hover:bg-primary-100 transition-colors">
                         <Eye size={10} />{att.file_name.slice(0, 16)}{att.file_name.length > 16 ? "…" : ""}
                       </button>
                     ))}
@@ -2258,8 +2261,8 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
   const SectionHead = ({ icon: Icon, label, action }: { icon: any; label: string; action?: React.ReactNode }) => (
     <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="w-7 h-7 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-          <Icon size={14} className="text-indigo-600" />
+        <div className="w-7 h-7 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+          <Icon size={14} className="text-primary-600" />
         </div>
         <span className="text-xs font-black text-slate-600 uppercase tracking-wider truncate">{label}</span>
       </div>
@@ -2269,7 +2272,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
   // Sub-cabeçalho dentro de uma seção (Básico / Endereço / etc.)
   const SubLabel = ({ children }: { children: React.ReactNode }) => (
-    <p className="px-5 pt-4 pb-1 text-[10px] font-black text-indigo-400/80 uppercase tracking-widest">{children}</p>
+    <p className="px-5 pt-4 pb-1 text-[10px] font-black text-primary-400/80 uppercase tracking-widest">{children}</p>
   );
 
   const addContact = () =>
@@ -2290,7 +2293,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
   return (
     <div className="space-y-4 pb-6">
       {/* ── HERO ── */}
-      <div className="relative rounded-[28px] overflow-hidden bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 shadow-xl shadow-indigo-500/20">
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 shadow-xl shadow-primary-500/20">
         {/* brilhos decorativos */}
         <div className="absolute -right-10 -top-12 w-44 h-44 bg-white/10 rounded-full blur-2xl" />
         <div className="absolute -left-8 bottom-0 w-32 h-32 bg-fuchsia-400/20 rounded-full blur-2xl" />
@@ -2300,7 +2303,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
           <div className="flex items-center gap-4">
             {/* avatar com anel gradiente */}
             <div className="shrink-0 rounded-3xl p-[3px] bg-gradient-to-br from-white/80 via-white/30 to-white/10 shadow-lg">
-              <div className="w-[68px] h-[68px] rounded-[20px] bg-white/15 backdrop-blur-md flex items-center justify-center text-[28px] font-black text-white">
+              <div className="w-[68px] h-[68px] rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-[28px] font-black text-white">
                 {patient.full_name.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -2407,11 +2410,12 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
             {/* ─ Família ─ */}
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Família</p>
-            <label className="flex items-center gap-3 cursor-pointer bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-              <input type="checkbox" className="h-4 w-4 rounded accent-indigo-600"
-                checked={form.has_children}
-                onChange={e => sf("has_children", e.target.checked)} />
+            <label className="flex items-center justify-between gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
               <span className="text-sm font-semibold text-slate-600">Possui filhos?</span>
+              <Switch
+                checked={!!form.has_children}
+                onCheckedChange={(next) => sf("has_children", next)}
+              />
             </label>
             {form.has_children && (
               <>
@@ -2526,14 +2530,14 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <SectionHead icon={Stethoscope} label="Meu Profissional" />
             <div className="px-5 py-4 flex items-center gap-3.5">
-              <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 shadow-md shadow-indigo-500/25">
+              <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-primary-800 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 shadow-md shadow-primary-500/25">
                 {patient.professional_name.charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-slate-800 leading-tight">{patient.professional_name}</p>
                 {patient.specialty && <p className="text-sm text-slate-500 mt-0.5">{patient.specialty}</p>}
                 {patient.crp && (
-                  <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">
+                  <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-primary-600 bg-primary-50 rounded-full px-2 py-0.5">
                     <Gem size={9} /> CRP {patient.crp}
                   </span>
                 )}
@@ -2547,8 +2551,8 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
           <button onClick={() => setShowPassSection(v => !v)}
             className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl flex items-center justify-center shrink-0">
-                <Shield size={17} className="text-indigo-600" />
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-50 to-primary-800 rounded-2xl flex items-center justify-center shrink-0">
+                <Shield size={17} className="text-primary-600" />
               </div>
               <div className="text-left">
                 <p className="text-sm font-black text-slate-700">Segurança da conta</p>
@@ -2618,7 +2622,7 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
   if (viewDoc) {
     return (
       <div className="pb-6">
-        <Button variant="ghost" size="sm" onClick={() => setViewDoc(null)} className="mb-4 text-indigo-600">
+        <Button variant="ghost" size="sm" onClick={() => setViewDoc(null)} className="mb-4 text-primary-600">
           <ArrowLeft size={15} /> Voltar
         </Button>
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
@@ -2646,9 +2650,9 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
         {allItems.map((item, i) => (
           <div key={`${item.kind}-${item.id}`}
             className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.kind === "doc" ? "bg-indigo-50" : "bg-slate-100"}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.kind === "doc" ? "bg-primary-50" : "bg-slate-100"}`}>
               {item.kind === "doc"
-                ? <FileText size={16} className="text-indigo-500" />
+                ? <FileText size={16} className="text-primary-500" />
                 : <Paperclip size={16} className="text-slate-500" />}
             </div>
             <div className="flex-1 min-w-0">
@@ -2656,7 +2660,7 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
               <p className="text-xs text-slate-400">{fmtDate(item.created_at)}</p>
             </div>
             {item.kind === "doc" ? (
-              <Button variant="ghost" size="sm" onClick={() => setViewDoc(item)} className="text-indigo-600 shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => setViewDoc(item)} className="text-primary-600 shrink-0">
                 <Eye size={12} /> Ver
               </Button>
             ) : item.file_url && !item.file_url.startsWith("data:") ? (
@@ -2815,7 +2819,7 @@ export const PatientPortal: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
+          <div className="w-16 h-16 bg-primary-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
             <User size={28} className="text-white" />
           </div>
           <p className="text-slate-500 text-sm">Carregando portal...</p>
@@ -2845,7 +2849,7 @@ export const PatientPortal: React.FC = () => {
       <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r border-slate-100 sticky top-0 h-screen">
         {/* Logo / brand */}
         <div className="px-5 py-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-md shrink-0">
+          <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center shadow-md shrink-0">
             <span className="text-white font-black text-base">{patient.full_name.charAt(0)}</span>
           </div>
           <div className="min-w-0">
@@ -2867,10 +2871,10 @@ export const PatientPortal: React.FC = () => {
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all relative ${
                   isActive
-                    ? "bg-indigo-50 text-indigo-700"
+                    ? "bg-primary-50 text-primary-700"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                 }`}>
-                <Icon size={17} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+                <Icon size={17} className={isActive ? "text-primary-600" : "text-slate-400"} />
                 {t.label}
                 {badge > 0 && (
                   <span className="ml-auto min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1">
@@ -2898,7 +2902,7 @@ export const PatientPortal: React.FC = () => {
         {/* Mobile header only */}
         <header className="md:hidden sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-sm shrink-0">
+            <div className="w-7 h-7 bg-gradient-to-br from-primary-600 to-primary-800 rounded-lg flex items-center justify-center shadow-sm shrink-0">
               <span className="text-white text-xs font-black">{patient.full_name.charAt(0)}</span>
             </div>
             <div className="leading-none">
@@ -2943,10 +2947,10 @@ export const PatientPortal: React.FC = () => {
               return (
                 <button key={t.id} onClick={() => setTab(t.id)}
                   className="flex flex-col items-center gap-0.5 px-2 py-2 relative transition-all">
-                  <div className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${isActive ? "bg-indigo-50" : ""}`}>
-                    <Icon size={18} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+                  <div className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${isActive ? "bg-primary-50" : ""}`}>
+                    <Icon size={18} className={isActive ? "text-primary-600" : "text-slate-400"} />
                   </div>
-                  <span className={`text-[9px] font-bold transition-colors ${isActive ? "text-indigo-600" : "text-slate-400"}`}>
+                  <span className={`text-[9px] font-bold transition-colors ${isActive ? "text-primary-600" : "text-slate-400"}`}>
                     {t.label}
                   </span>
                   {badge > 0 && (
