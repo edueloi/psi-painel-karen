@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Globe, Users, Link2, Copy, Check, Trash2, Plus, RefreshCw,
-  Send, Clock, Settings, QrCode, CreditCard, Wallet, ChevronRight,
-  ToggleLeft, ToggleRight, ExternalLink, Shield, AlertCircle, Package, ChevronDown, ChevronUp, Loader2,
+  Globe, Users, Copy, Check, Trash2, Plus, RefreshCw,
+  Send, Settings, QrCode, CreditCard, ExternalLink, Shield, Package, Loader2,
   FileSignature,
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
 import { ContractTemplateEditor } from '../components/Contract/ContractTemplateEditor';
+import {
+  PageWrapper, SectionTitle, StatGrid, StatCard, FilterLineSegmented,
+  Button, IconButton, EmptyState,
+} from '../components/UI';
+import { Switch } from '../components/UI/Switch';
+import { Select, Input, Textarea } from '../components/UI/Input';
 
 interface PortalToken {
   id: number;
@@ -246,112 +251,90 @@ export const PortalPaciente: React.FC = () => {
   const pendingCount = tokens.filter(t => !t.is_used).length;
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-            <Globe size={16} className="text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-base font-black text-slate-800 leading-none">Portal do Paciente</h1>
-            <p className="text-[11px] text-slate-400 mt-0.5">Gerencie acessos e configurações do portal</p>
-          </div>
-        </div>
-        {tab === 'pacientes' && (
-          <button
-            onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
-          >
-            <Plus size={13} /> Novo link
-          </button>
-        )}
-      </div>
+    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
+      <SectionTitle
+        icon={Globe}
+        title="Portal do Paciente"
+        description="Gerencie acessos e configurações do portal"
+        action={
+          tab === 'pacientes' && (
+            <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => setShowForm(v => !v)}>
+              Novo link
+            </Button>
+          )
+        }
+      />
 
-      {/* Stats — compact row */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {[
-          { label: 'Total', value: tokens.length, color: 'text-slate-700', bg: 'bg-slate-50' },
-          { label: 'Com acesso', value: activeCount, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Pendentes', value: pendingCount, color: 'text-amber-600', bg: 'bg-amber-50' },
-        ].map(s => (
-          <div key={s.label} className={`${s.bg} rounded-xl px-3 py-2 flex items-center gap-2`}>
-            <span className={`text-lg font-black ${s.color}`}>{s.value}</span>
-            <span className="text-[11px] text-slate-400 font-medium">{s.label}</span>
-          </div>
-        ))}
-      </div>
+      <StatGrid cols={3}>
+        <StatCard title="Total" value={tokens.length} icon={Users} color="default" />
+        <StatCard title="Com acesso" value={activeCount} icon={Check} color="success" />
+        <StatCard title="Pendentes" value={pendingCount} icon={Package} color="warning" />
+      </StatGrid>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-3 w-fit">
-        {(['pacientes', 'configuracoes'] as Tab[]).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-              tab === t ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {t === 'pacientes' ? <><Users size={12} /> Pacientes</> : <><Settings size={12} /> Configurações</>}
-          </button>
-        ))}
-      </div>
+      <FilterLineSegmented<Tab>
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'pacientes', label: 'Pacientes', icon: <Users size={13} /> },
+          { value: 'configuracoes', label: 'Configurações', icon: <Settings size={13} /> },
+        ]}
+      />
 
       {/* ── TAB: PACIENTES ── */}
       {tab === 'pacientes' && (
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           {/* Inline create form */}
           {showForm && (
-            <div className="px-4 py-3 bg-indigo-50/60 border-b border-indigo-100">
-              <p className="text-xs font-black text-indigo-700 mb-2">Novo link de acesso</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="px-4 py-3 bg-primary-50/60 border-b border-primary-100">
+              <p className="text-xs font-black text-primary-700 mb-2">Novo link de acesso</p>
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
                 <div className="col-span-2 md:col-span-1">
-                  <select
+                  <Select
                     value={form.patient_id}
                     onChange={e => setForm(f => ({ ...f, patient_id: e.target.value }))}
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                   >
                     <option value="">Paciente *</option>
                     {patients.map(p => (
                       <option key={p.id} value={p.id}>{p.full_name || p.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
-                  <select
+                  <Select
                     value={form.expires_in_days}
                     onChange={e => setForm(f => ({ ...f, expires_in_days: parseInt(e.target.value) }))}
-                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                   >
                     <option value={30}>30 dias</option>
                     <option value={90}>3 meses</option>
                     <option value={365}>1 ano</option>
                     <option value={3650}>Sem expiração</option>
-                  </select>
+                  </Select>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={form.allow_self_schedule}
-                      onChange={e => setForm(f => ({ ...f, allow_self_schedule: e.target.checked }))}
-                      className="rounded accent-indigo-600 w-3 h-3" />
-                    <span className="text-[11px] text-slate-600">Auto-agend.</span>
+                <div className="flex items-center gap-4 col-span-2 md:col-span-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Switch
+                      size="sm"
+                      checked={form.allow_self_schedule}
+                      onCheckedChange={(next) => setForm(f => ({ ...f, allow_self_schedule: next }))}
+                    />
+                    <span className="text-[11px] text-slate-600 font-semibold">Auto-agend.</span>
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={form.require_approval}
-                      onChange={e => setForm(f => ({ ...f, require_approval: e.target.checked }))}
-                      className="rounded accent-indigo-600 w-3 h-3" />
-                    <span className="text-[11px] text-slate-600">Aprovação</span>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Switch
+                      size="sm"
+                      checked={form.require_approval}
+                      onCheckedChange={(next) => setForm(f => ({ ...f, require_approval: next }))}
+                    />
+                    <span className="text-[11px] text-slate-600 font-semibold">Aprovação</span>
                   </label>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setShowForm(false)}
-                    className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium rounded-lg">
+                <div className="flex gap-2 col-span-2 md:col-span-1">
+                  <Button variant="ghost" size="sm" onClick={() => setShowForm(false)}>
                     Cancelar
-                  </button>
-                  <button onClick={createToken} disabled={creating}
-                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all">
-                    {creating ? '...' : 'Criar'}
-                  </button>
+                  </Button>
+                  <Button variant="primary" size="sm" onClick={createToken} loading={creating} loadingText="...">
+                    Criar
+                  </Button>
                 </div>
               </div>
             </div>
@@ -363,19 +346,20 @@ export const PortalPaciente: React.FC = () => {
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status</span>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide hidden md:block">Criado</span>
             <div className="flex items-center justify-end gap-1">
-              <button onClick={fetchTokens} className="p-1 text-slate-400 hover:text-indigo-500">
+              <IconButton variant="ghost" size="xs" onClick={fetchTokens} title="Atualizar">
                 <RefreshCw size={12} />
-              </button>
+              </IconButton>
             </div>
           </div>
 
           {loading ? (
             <div className="p-6 text-center text-slate-400 text-xs">Carregando...</div>
           ) : tokens.length === 0 ? (
-            <div className="p-8 text-center">
-              <Globe size={28} className="text-slate-200 mx-auto mb-2" />
-              <p className="text-slate-400 text-xs">Nenhum link de acesso criado.</p>
-            </div>
+            <EmptyState
+              icon={Globe}
+              title="Nenhum link de acesso criado"
+              className="border-0 rounded-none"
+            />
           ) : (
             <div className="divide-y divide-slate-50">
               {tokens.map(t => {
@@ -401,7 +385,7 @@ export const PortalPaciente: React.FC = () => {
                         <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           {t.allow_self_schedule ? (
-                            <span className="text-[10px] text-indigo-400 font-medium">Auto-agend.</span>
+                            <span className="text-[10px] text-primary-400 font-medium">Auto-agend.</span>
                           ) : (
                             <span className="text-[10px] text-slate-300 font-medium">Só consulta</span>
                           )}
@@ -419,42 +403,42 @@ export const PortalPaciente: React.FC = () => {
                     <span className="text-[10px] text-slate-400 hidden md:block whitespace-nowrap">{createdAt}</span>
 
                     <div className="flex items-center gap-0.5">
-                      <button onClick={() => copyLink(t.token, t.id)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"
+                      <IconButton variant="ghost" size="xs" onClick={() => copyLink(t.token, t.id)}
+                        className="hover:bg-primary-50 hover:text-primary-500"
                         title="Copiar link">
                         {copiedId === t.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                      </button>
-                      <button onClick={() => sendWhatsApp(t)}
-                        className="p-1.5 text-slate-400 hover:text-emerald-500 transition-colors rounded-lg hover:bg-emerald-50"
+                      </IconButton>
+                      <IconButton variant="ghost" size="xs" onClick={() => sendWhatsApp(t)}
+                        className="hover:bg-emerald-50 hover:text-emerald-500"
                         title="Enviar WhatsApp">
                         <Send size={13} />
-                      </button>
-                      <button
+                      </IconButton>
+                      <IconButton variant="ghost" size="xs"
                         onClick={() => window.open(`${baseUrl}/portal/entrar/${t.token}`, '_blank')}
-                        className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
+                        className="hover:bg-blue-50 hover:text-blue-500"
                         title="Abrir link">
                         <ExternalLink size={13} />
-                      </button>
-                      <button
+                      </IconButton>
+                      <IconButton variant="ghost" size="xs"
                         onClick={() => toggleExpandToken(t.id)}
-                        className={`p-1.5 transition-colors rounded-lg ${expandedTokenId === t.id ? 'text-indigo-500 bg-indigo-50' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                        className={expandedTokenId === t.id ? 'text-primary-500 bg-primary-50' : 'hover:bg-primary-50 hover:text-primary-500'}
                         title="Configurar pacotes">
                         {loadingTokenPkgs === t.id
                           ? <Loader2 size={13} className="animate-spin" />
                           : <Package size={13} />}
-                      </button>
-                      <button onClick={() => revokeToken(t.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                      </IconButton>
+                      <IconButton variant="ghost" size="xs" onClick={() => revokeToken(t.id)}
+                        className="hover:bg-red-50 hover:text-red-500"
                         title="Revogar">
                         <Trash2 size={13} />
-                      </button>
+                      </IconButton>
                     </div>
                   </div>
 
                   {/* Painel de configuração de pacotes */}
                   {expandedTokenId === t.id && tokenPackages[t.id] && (
-                    <div className="border-t border-indigo-100 bg-indigo-50/40 px-4 py-3">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <div className="border-t border-primary-100 bg-primary-50/40 px-4 py-3">
+                      <p className="text-[10px] font-black text-primary-600 uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Package size={11} /> Pacotes disponíveis para {name}
                       </p>
                       <p className="text-[10px] text-slate-400 mb-2">Marque os pacotes que {name} pode ver e contratar pelo portal. Por padrão, nenhum aparece.</p>
@@ -464,9 +448,11 @@ export const PortalPaciente: React.FC = () => {
                         <div className="space-y-2">
                           {tokenPackages[t.id].map(pkg => (
                             <div key={pkg.package_id} className="bg-white rounded-xl border border-slate-200 px-3 py-2 flex items-center gap-3">
-                              <input type="checkbox" checked={pkg.active}
-                                onChange={e => updateTokenPackage(t.id, pkg.package_id, 'active', e.target.checked)}
-                                className="rounded accent-indigo-600 w-3.5 h-3.5 shrink-0" />
+                              <Switch
+                                size="sm"
+                                checked={pkg.active}
+                                onCheckedChange={(next) => updateTokenPackage(t.id, pkg.package_id, 'active', next)}
+                              />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-xs font-bold truncate ${pkg.active ? 'text-slate-700' : 'text-slate-300'}`}>{pkg.name}</p>
                                 <p className="text-[10px] text-slate-400">{pkg.sessions_count} sessões · padrão: R$ {Number(pkg.default_price).toFixed(2)}</p>
@@ -478,19 +464,21 @@ export const PortalPaciente: React.FC = () => {
                                   value={pkg.custom_price !== null && pkg.custom_price !== undefined ? String(pkg.custom_price) : ''}
                                   onChange={e => updateTokenPackage(t.id, pkg.package_id, 'custom_price', e.target.value === '' ? null : parseFloat(e.target.value))}
                                   placeholder={String(Number(pkg.default_price).toFixed(2))}
-                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-300"
                                 />
                               </div>
                             </div>
                           ))}
                           <div className="flex justify-end pt-1">
-                            <button
+                            <Button
+                              variant="primary"
+                              size="sm"
                               onClick={() => saveTokenPackages(t.id)}
-                              disabled={savingTokenPkgs === t.id}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all">
-                              {savingTokenPkgs === t.id ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                              loading={savingTokenPkgs === t.id}
+                              iconLeft={<Check size={11} />}
+                            >
                               Salvar
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -514,48 +502,38 @@ export const PortalPaciente: React.FC = () => {
               {/* PIX */}
               <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <QrCode size={14} className="text-indigo-500" />
+                  <QrCode size={14} className="text-primary-500" />
                   <span className="text-xs font-black text-slate-700">Configurações de PIX</span>
                 </div>
-                <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Tipo de chave</label>
-                    <select
-                      value={settings.pix_key_type || 'cpf'}
-                      onChange={e => setSettings(s => ({ ...s, pix_key_type: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                    >
-                      {PIX_KEY_TYPES.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Chave PIX</label>
-                    <input
-                      type="text"
-                      value={settings.pix_key || ''}
-                      onChange={e => setSettings(s => ({ ...s, pix_key: e.target.value }))}
-                      placeholder="Ex.: 123.456.789-00"
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Nome do titular</label>
-                    <input
-                      type="text"
-                      value={settings.pix_owner_name || ''}
-                      onChange={e => setSettings(s => ({ ...s, pix_owner_name: e.target.value }))}
-                      placeholder="Ex.: Karen Gomes"
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                    />
-                  </div>
-                  <div className="md:col-span-3">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Instruções de pagamento (visível ao paciente)</label>
-                    <textarea
+                <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <Select
+                    label="Tipo de chave"
+                    value={settings.pix_key_type || 'cpf'}
+                    onChange={e => setSettings(s => ({ ...s, pix_key_type: e.target.value }))}
+                  >
+                    {PIX_KEY_TYPES.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+                  </Select>
+                  <Input
+                    label="Chave PIX"
+                    type="text"
+                    value={settings.pix_key || ''}
+                    onChange={e => setSettings(s => ({ ...s, pix_key: e.target.value }))}
+                    placeholder="Ex.: 123.456.789-00"
+                  />
+                  <Input
+                    label="Nome do titular"
+                    type="text"
+                    value={settings.pix_owner_name || ''}
+                    onChange={e => setSettings(s => ({ ...s, pix_owner_name: e.target.value }))}
+                    placeholder="Ex.: Karen Gomes"
+                  />
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <Textarea
+                      label="Instruções de pagamento (visível ao paciente)"
                       value={settings.pix_instructions || ''}
                       onChange={e => setSettings(s => ({ ...s, pix_instructions: e.target.value }))}
                       rows={2}
                       placeholder="Ex.: Realize o pagamento antes da sessão e envie o comprovante via WhatsApp."
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
                     />
                   </div>
                 </div>
@@ -564,7 +542,7 @@ export const PortalPaciente: React.FC = () => {
               {/* Formas de pagamento */}
               <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <CreditCard size={14} className="text-indigo-500" />
+                  <CreditCard size={14} className="text-primary-500" />
                   <span className="text-xs font-black text-slate-700">Formas de pagamento aceitas</span>
                 </div>
                 <div className="px-4 py-3 space-y-2">
@@ -579,14 +557,10 @@ export const PortalPaciente: React.FC = () => {
                         <p className="text-xs font-bold text-slate-700">{item.label}</p>
                         <p className="text-[11px] text-slate-400">{item.desc}</p>
                       </div>
-                      <button
-                        onClick={() => setSettings(s => ({ ...s, [item.key]: !s[item.key] }))}
-                        className="transition-colors"
-                      >
-                        {settings[item.key]
-                          ? <ToggleRight size={22} className="text-indigo-500" />
-                          : <ToggleLeft size={22} className="text-slate-300" />}
-                      </button>
+                      <Switch
+                        checked={!!settings[item.key]}
+                        onCheckedChange={(next) => setSettings(s => ({ ...s, [item.key]: next }))}
+                      />
                     </div>
                   ))}
                 </div>
@@ -595,7 +569,7 @@ export const PortalPaciente: React.FC = () => {
               {/* Opções adicionais */}
               <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <Shield size={14} className="text-indigo-500" />
+                  <Shield size={14} className="text-primary-500" />
                   <span className="text-xs font-black text-slate-700">Opções do portal</span>
                 </div>
                 <div className="px-4 py-3">
@@ -604,11 +578,10 @@ export const PortalPaciente: React.FC = () => {
                       <p className="text-xs font-bold text-slate-700">Exigir pagamento antes da sessão</p>
                       <p className="text-[11px] text-slate-400">Paciente precisa confirmar pagamento para o agendamento ser aceito</p>
                     </div>
-                    <button onClick={() => setSettings(s => ({ ...s, require_payment_before_session: !s.require_payment_before_session }))}>
-                      {settings.require_payment_before_session
-                        ? <ToggleRight size={22} className="text-indigo-500" />
-                        : <ToggleLeft size={22} className="text-slate-300" />}
-                    </button>
+                    <Switch
+                      checked={!!settings.require_payment_before_session}
+                      onCheckedChange={(next) => setSettings(s => ({ ...s, require_payment_before_session: next }))}
+                    />
                   </div>
                 </div>
               </div>
@@ -616,37 +589,41 @@ export const PortalPaciente: React.FC = () => {
               {/* Editor de Contrato */}
               <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <FileSignature size={14} className="text-indigo-500" />
+                  <FileSignature size={14} className="text-primary-500" />
                   <span className="text-xs font-black text-slate-700">Contrato de Prestação de Serviços</span>
                 </div>
                 <div className="px-4 py-3 flex items-center justify-between gap-3">
                   <p className="text-[11px] text-slate-400">
                     Edite o texto do contrato que o paciente lê e assina no portal (modelos separados para atendimento online e presencial).
                   </p>
-                  <button
+                  <Button
+                    variant="soft"
+                    size="sm"
+                    className="shrink-0"
                     onClick={() => setIsContractModalOpen(true)}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-colors"
+                    iconLeft={<Settings size={13} />}
                   >
-                    <Settings size={13} /> Editar contrato
-                  </button>
+                    Editar contrato
+                  </Button>
                 </div>
               </div>
 
               {/* Save button */}
               <div className="flex justify-end">
-                <button
+                <Button
+                  variant="primary"
                   onClick={saveSettings}
-                  disabled={savingSettings}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-all shadow-sm"
+                  loading={savingSettings}
+                  loadingText="Salvando..."
                 >
-                  {savingSettings ? 'Salvando...' : 'Salvar configurações'}
-                </button>
+                  Salvar configurações
+                </Button>
               </div>
             </>
           )}
           <ContractTemplateEditor isOpen={isContractModalOpen} onClose={() => setIsContractModalOpen(false)} />
         </div>
       )}
-    </div>
+    </PageWrapper>
   );
 };
