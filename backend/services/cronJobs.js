@@ -92,6 +92,10 @@ const DEFAULT_MASTER_WPP_PREFS = {
   new_appointment_professional_enabled: true,
   cancelled_appointment_professional_enabled: true,
   rescheduled_appointment_professional_enabled: true,
+  // Bot conversacional (menu de atendimento via chat) do número master —
+  // separado dos avisos automáticos acima, que continuam funcionando
+  // mesmo com a conversa desativada.
+  conversation_enabled: true,
 };
 
 let _masterWppPrefsCache = null;

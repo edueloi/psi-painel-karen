@@ -147,6 +147,9 @@ class WhatsAppManager {
       sendText: async (dest, text) => {
         await this.sendTextInternal(data, dest, text);
       },
+      showTyping: async (dest, ms) => {
+        await this.showTypingInternal(data, dest, ms);
+      },
       logout: async () => {
         if (data.sock?.logout) {
           await data.sock.logout();
@@ -195,6 +198,23 @@ class WhatsAppManager {
         this.sendingLocks.delete(lockKey);
       }
     }
+  }
+
+  // Mostra "digitando..." por `ms` antes do próximo envio, simulando uma
+  // resposta humana em vez de instantânea. Silencioso em qualquer falha
+  // (não deve nunca bloquear o envio real da mensagem).
+  async showTypingInternal(data, dest, ms) {
+    if (!data.sock || data.status !== 'connected') return;
+
+    const jid = normalizeDestination(dest);
+    if (!jid) return;
+
+    try {
+      await data.sock.presenceSubscribe(jid);
+      await data.sock.sendPresenceUpdate('composing', jid);
+      await new Promise((resolve) => setTimeout(resolve, ms || 1200));
+      await data.sock.sendPresenceUpdate('paused', jid);
+    } catch {}
   }
 
   async updateTenantConnected(tenantId, data) {

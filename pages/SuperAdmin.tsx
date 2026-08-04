@@ -7,7 +7,7 @@ import {
   Eye, EyeOff, ChevronRight, ArrowUpRight, Clock, Star,
   DollarSign, Activity, BarChart3, Shield, Lock, Phone, Mail,
   Calendar, Check, AlertTriangle, Info, Copy, RefreshCw, Link,
-  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase, FileText
+  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase, FileText, MessageSquare
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -396,6 +396,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     new_appointment_professional_enabled: true,
     cancelled_appointment_professional_enabled: true,
     rescheduled_appointment_professional_enabled: true,
+    conversation_enabled: true,
   });
   const [masterWppSaving, setMasterWppSaving] = useState(false);
 
@@ -1728,6 +1729,30 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                       ))}
                     </div>
                     <p className="text-[11px] text-slate-400 mt-2 pl-1">Desligar aqui bloqueia o tipo de aviso para TODOS os profissionais da plataforma. Cada profissional também controla individualmente em Configurações → Notificações.</p>
+                  </div>
+
+                  {/* Bot conversacional — separado dos avisos acima. Desligar aqui NÃO
+                      afeta os lembretes/avisos automáticos, só o menu de atendimento
+                      via chat (quem escrever para o número não recebe resposta). */}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 px-1">Bot conversacional</p>
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                      <div className="flex items-center justify-between px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#f5f3ff' }}>
+                            <MessageSquare size={14} style={{ color: '#7c3aed' }} />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">Responder mensagens automaticamente</p>
+                            <p className="text-xs text-slate-400">Menu de atendimento (agenda, reagendar, etc.) para quem escrever no número master</p>
+                          </div>
+                        </div>
+                        <button onClick={() => toggleMasterWppPref('conversation_enabled')} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${masterWppPrefs.conversation_enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${masterWppPrefs.conversation_enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-2 pl-1">Desligado, o número master só envia os avisos automáticos de cima — não responde quem mandar mensagem pra ele.</p>
                   </div>
                 </div>
               )}

@@ -510,6 +510,16 @@ function getWppService() {
   return _wppService;
 }
 
+// Tempo de "digitando..." proporcional ao tamanho da mensagem, para a
+// resposta não sair instantânea (parece mais humano). Limitado a uma
+// janela curta para não deixar o atendimento lento.
+function typingDelayFor(text) {
+  const MIN_MS = 900;
+  const MAX_MS = 2800;
+  const perChar = 18;
+  return Math.min(MAX_MS, Math.max(MIN_MS, String(text || '').length * perChar));
+}
+
 async function sendMessage(tenantId, to, text) {
   try {
     const wpp = getWppService();
@@ -524,6 +534,7 @@ async function sendMessage(tenantId, to, text) {
       const phone = String(to).replace(/\D/g, '');
       dest = `${phone}@c.us`;
     }
+    await data.client.showTyping?.(dest, typingDelayFor(text));
     await data.client.sendText(dest, text);
   } catch (e) {
     console.error('[Bot] Erro ao enviar mensagem:', e.message);
@@ -546,6 +557,17 @@ async function handleMessage(tenantId, message) {
     if (message.broadcast) return;
     if (message.type === 'e2e_notification' || message.type === 'notification_template') return;
     if (!message.from || message.from === 'status@broadcast') return;
+
+    // Kill-switch do Super Admin: com a conversa desativada, o número master
+    // só dispara avisos automáticos (lembretes/confirmações) e não responde
+    // quem escrever para ele.
+    try {
+      const { getMasterWppPrefs } = require('./cronJobs');
+      const prefs = await getMasterWppPrefs();
+      if (prefs.conversation_enabled === false) return;
+    } catch (e) {
+      console.error('[Bot] Erro ao checar conversation_enabled:', e.message);
+    }
 
     const phone = formatPhone(message.from);
     if (!phone) return;
