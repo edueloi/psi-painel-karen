@@ -14,6 +14,7 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
+import { ProfessionalAreasTab } from '../components/SuperAdmin/ProfessionalAreasTab';
 
 // ── formatters ────────────────────────────────────────────────────────────────
 const _fmtCurrency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -90,13 +91,14 @@ const AVATAR_COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#ec4899','#8b5cf
 const avatarColor = (name: string) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 const initials = (name: string) => name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
 
-type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'whatsapp' | 'pagamentos' | 'faturas';
+type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'areas' | 'whatsapp' | 'pagamentos' | 'faturas';
 const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'dashboard',   label: 'Dashboard',  Icon: LayoutDashboard },
   { id: 'clients',     label: 'Parceiros',  Icon: Building2 },
   { id: 'team',        label: 'Equipe',     Icon: Users },
   { id: 'permissions', label: 'Permissões', Icon: Lock },
   { id: 'plans',       label: 'Planos',     Icon: Package },
+  { id: 'areas',       label: 'Áreas de Atuação', Icon: Briefcase },
   { id: 'whatsapp',    label: 'WhatsApp Bot', Icon: Phone },
   { id: 'pagamentos',  label: 'Pagamentos', Icon: DollarSign },
   { id: 'faturas',     label: 'Faturas',    Icon: FileText },
@@ -209,7 +211,7 @@ const StatusBadge = ({ active, status, expires_at, trial_ends_at, billing_exempt
 // ═════════════════════════════════════════════════════════════════════════════
 const TAB_SLUGS: Record<Tab, string> = {
   dashboard: 'dashboard', clients: 'parceiros', team: 'equipe',
-  permissions: 'permissoes', plans: 'planos', whatsapp: 'whatsapp', pagamentos: 'pagamentos',
+  permissions: 'permissoes', plans: 'planos', areas: 'areas-de-atuacao', whatsapp: 'whatsapp', pagamentos: 'pagamentos',
   faturas: 'faturas',
 };
 const SLUG_TO_TAB: Record<string, Tab> = Object.fromEntries(
@@ -681,7 +683,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const ticketMedio = useMemo(() => stats?.active_tenants > 0 ? (stats.mrr / stats.active_tenants) : 0, [stats]);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
-  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', whatsapp: 'WhatsApp Bot', pagamentos: 'Pagamentos', faturas: 'Faturas' };
+  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', areas: 'Áreas de Atuação', whatsapp: 'WhatsApp Bot', pagamentos: 'Pagamentos', faturas: 'Faturas' };
 
   const finalNav = NAV.filter(n => n.id !== 'whatsapp' || canAccessWpp);
 
@@ -1597,6 +1599,10 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     )}
                   </div>
                 </div>
+              )}
+
+              {tab === 'areas' && (
+                <ProfessionalAreasTab />
               )}
 
               {tab === 'whatsapp' && canAccessWpp && (

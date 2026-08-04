@@ -382,6 +382,9 @@ router.post('/register', registerLimiter, async (req, res) => {
   const {
     name, email, password, phone, specialty, crp, company_name,
     gender, bio, abordagens, disponibilidade, modalidade,
+    professional_area_id, registry_number, account_type, cnpj_cpf,
+    cep, address, address_number, address_complement, neighborhood, city, state,
+    schedule,
   } = req.body;
 
   if (!name || !email || !password) {
@@ -421,9 +424,16 @@ router.post('/register', registerLimiter, async (req, res) => {
     const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
     const [tenantResult] = await conn.query(
-      `INSERT INTO tenants (name, slug, phone, plan_id, active, trial_ends_at)
-       VALUES (?, ?, ?, ?, true, ?)`,
-      [company_name || name, tenantSlug, phone || null, planId, trialEndsAt]
+      `INSERT INTO tenants
+         (name, slug, phone, plan_id, active, trial_ends_at, cnpj_cpf, account_type,
+          cep, address, address_number, address_complement, neighborhood, city, state)
+       VALUES (?, ?, ?, ?, true, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        company_name || name, tenantSlug, phone || null, planId, trialEndsAt,
+        cnpj_cpf || null, account_type === 'clinica' ? 'clinica' : 'autonomo',
+        cep || null, address || null, address_number || null, address_complement || null,
+        neighborhood || null, city || null, state || null,
+      ]
     );
     const tenantId = tenantResult.insertId;
 
@@ -449,16 +459,21 @@ router.post('/register', registerLimiter, async (req, res) => {
       modalidade: Array.isArray(modalidadeVal) ? modalidadeVal : (modalidadeVal ? [modalidadeVal] : []),
     });
 
+    let scheduleJson = null;
+    try { scheduleJson = schedule ? JSON.stringify(JSON.parse(schedule)) : null; } catch { scheduleJson = null; }
+
     await conn.query(
       `INSERT INTO users
          (tenant_id, name, email, password, role, specialty, crp, phone,
-          company_name, gender, bio, public_slug, profile_theme, active)
-       VALUES (?, ?, ?, ?, 'admin', ?, ?, ?, ?, ?, ?, ?, ?, true)`,
+          company_name, gender, bio, public_slug, profile_theme, active,
+          professional_area_id, registry_number, schedule)
+       VALUES (?, ?, ?, ?, 'admin', ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?)`,
       [
         tenantId, name, email, hashedPassword,
         specialtiesList[0] || null,
         crp || null, phone || null, company_name || null,
         gender || null, bio || null, profSlug, profileTheme,
+        professional_area_id || null, registry_number || null, scheduleJson,
       ]
     );
 

@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Mail, Lock, Eye, EyeOff, Loader2, User, Phone,
   ChevronLeft, CheckCircle2, Building2, Hash, UserCircle2,
-  FileText,
+  FileText, MapPin, Home, Briefcase, Stethoscope,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logoUrl from '../images/logo-psiflux.png';
 import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
+import { Combobox } from '../components/UI/Combobox';
+import { fetchAddressByCep, applyCepMask } from '@/src/lib/cep';
+import { WeeklyScheduleEditor, DEFAULT_WEEKLY_SCHEDULE, ScheduleDay } from '../components/Forms/WeeklyScheduleEditor';
+
+interface ProfessionalArea {
+  id: number;
+  name: string;
+  category: string;
+  registry_label: string | null;
+  registry_mask: string | null;
+}
+
+const PSYCHOLOGY_CATEGORY = 'Núcleo Principal - Diagnóstico e Tratamento';
 
 // ── SVG Brain/Nodes Illustration (dark panel) ──────────────────────────────────
 const BrainIllustration = () => (
@@ -124,7 +137,7 @@ const BrainIllustration = () => (
 );
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const STEPS = ['Acesso', 'Perfil', 'Especialidades', 'Boas-vindas'] as const;
+const STEPS = ['Acesso', 'Área', 'Perfil', 'Endereço', 'Rotina', 'Boas-vindas'] as const;
 
 const SPECIALTIES = [
   'Ansiedade', 'Depressão', 'TDAH', 'Relacionamentos', 'Trauma e TEPT',
@@ -172,6 +185,39 @@ function applyCrpMask(raw: string): string {
   if (digits.length === 0) return '';
   if (digits.length <= 2) return digits;
   return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+// Aplica a máscara de registro profissional (registry_mask) trocando cada "0" pelo
+// próximo dígito digitado e preservando os separadores literais (ex: "00000/UF").
+function applyRegistryMask(raw: string, mask?: string | null): string {
+  if (!mask) return raw;
+  const digits = raw.replace(/[^A-Za-z0-9]/g, '');
+  let result = '';
+  let di = 0;
+  for (let i = 0; i < mask.length && di < digits.length; i++) {
+    if (mask[i] === '0') {
+      result += digits[di];
+      di++;
+    } else {
+      result += mask[i];
+    }
+  }
+  return result;
+}
+
+function applyCpfCnpjMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 14);
+  if (digits.length <= 11) {
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  }
+  return digits
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
 }
 
 // ── Multi-select Pill ──────────────────────────────────────────────────────────
@@ -245,18 +291,64 @@ export const Register: React.FC = () => {
   const [showPass, setShowPass] = useState(false);
   const [showConf, setShowConf] = useState(false);
 
-  // Step 1 — Perfil
-  const [crp, setCrp]             = useState('');
+  // Step 1 — Área de atuação
+  const [areas, setAreas] = useState<ProfessionalArea[]>([]);
+  const [areasLoading, setAreasLoading] = useState(true);
+  const [professionalAreaId, setProfessionalAreaId] = useState('');
+  const [accountType, setAccountType] = useState<'autonomo' | 'clinica'>('autonomo');
+
+  const selectedArea = areas.find(a => String(a.id) === professionalAreaId) || null;
+  const isPsychologyArea = selectedArea?.category === PSYCHOLOGY_CATEGORY;
+
+  useEffect(() => {
+    api.get<ProfessionalArea[]>('/professional-areas')
+      .then(data => setAreas(data || []))
+      .catch(() => setAreas([]))
+      .finally(() => setAreasLoading(false));
+  }, []);
+
+  // Step 2 — Perfil
+  const [registryNumber, setRegistryNumber] = useState('');
+  const [cnpjCpf, setCnpjCpf]     = useState('');
   const [phone, setPhone]         = useState('');
   const [companyName, setCompanyName] = useState('');
   const [gender, setGender]       = useState('');
   const [bio, setBio]             = useState('');
 
-  // Step 2 — Especialidades
+  // Step 3 — Endereço
+  const [cep, setCep] = useState('');
+  const [cepLoading, setCepLoading] = useState(false);
+  const [address, setAddress] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [addressComplement, setAddressComplement] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+
+  // Step 4 — Rotina
+  const [schedule, setSchedule] = useState<ScheduleDay[]>(DEFAULT_WEEKLY_SCHEDULE);
+
+  // Step 4 — Especialidades (temas clínicos, só para área de psicologia)
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [selectedAbordagens, setSelectedAbordagens]   = useState<string[]>([]);
   const [selectedDisp, setSelectedDisp]               = useState<string[]>([]);
   const [selectedModal, setSelectedModal]             = useState<string[]>([]);
+
+  const handleCepChange = (raw: string) => {
+    const masked = applyCepMask(raw);
+    setCep(masked);
+    if (masked.replace(/\D/g, '').length === 8) {
+      setCepLoading(true);
+      fetchAddressByCep(masked).then(result => {
+        if (result) {
+          setAddress(result.street);
+          setNeighborhood(result.neighborhood);
+          setCity(result.city);
+          setState(result.state);
+        }
+      }).finally(() => setCepLoading(false));
+    }
+  };
 
   // ── Password strength ──────────────────────────────────────────────────────
   const passwordStrength = (() => {
@@ -288,11 +380,21 @@ export const Register: React.FC = () => {
       return;
     }
     if (step === 1) {
-      if (!phone.trim()) return setError('Digite seu telefone.');
+      if (!professionalAreaId) return setError('Selecione sua área de atuação.');
+      if (accountType === 'clinica' && !companyName.trim()) return setError('Digite o nome da clínica.');
       setStep(2);
       return;
     }
     if (step === 2) {
+      if (!phone.trim()) return setError('Digite seu telefone.');
+      setStep(3);
+      return;
+    }
+    if (step === 3) {
+      setStep(4);
+      return;
+    }
+    if (step === 4) {
       handleSubmit();
     }
   };
@@ -312,16 +414,28 @@ export const Register: React.FC = () => {
         email,
         password,
         phone,
-        crp,
+        crp: registryNumber || undefined,
         specialty: selectedSpecialties.join(', '),
-        company_name: companyName,
+        company_name: accountType === 'clinica' ? companyName : (companyName || undefined),
         gender,
         bio,
         abordagens: JSON.stringify(selectedAbordagens),
         disponibilidade: JSON.stringify(selectedDisp),
         modalidade: JSON.stringify(selectedModal),
+        professional_area_id: professionalAreaId || undefined,
+        registry_number: registryNumber || undefined,
+        account_type: accountType,
+        cnpj_cpf: cnpjCpf || undefined,
+        cep: cep || undefined,
+        address: address || undefined,
+        address_number: addressNumber || undefined,
+        address_complement: addressComplement || undefined,
+        neighborhood: neighborhood || undefined,
+        city: city || undefined,
+        state: state || undefined,
+        schedule: JSON.stringify(schedule),
       });
-      setStep(3);
+      setStep(5);
     } catch (err: any) {
       setError(err.message || 'Erro ao criar conta. Tente novamente.');
     } finally {
@@ -427,12 +541,12 @@ export const Register: React.FC = () => {
             </div>
           </div>
 
-          {/* Stepper (steps 0-2) */}
-          {step < 3 && (
-            <div className="flex items-center gap-2 mb-8">
-              {STEPS.slice(0, 3).map((label, i) => (
+          {/* Stepper (steps 0-4) */}
+          {step < 5 && (
+            <div className="flex items-center gap-1.5 mb-8">
+              {STEPS.slice(0, 5).map((label, i) => (
                 <React.Fragment key={label}>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" title={label}>
                     <div
                       className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300"
                       style={
@@ -446,13 +560,13 @@ export const Register: React.FC = () => {
                       {i < step ? <CheckCircle2 size={14} /> : i + 1}
                     </div>
                     <span
-                      className="text-xs font-semibold hidden sm:block transition-colors"
+                      className="text-xs font-semibold hidden lg:block transition-colors"
                       style={{ color: i === step ? '#1E293B' : '#94A3B8' }}
                     >
                       {label}
                     </span>
                   </div>
-                  {i < 2 && (
+                  {i < 4 && (
                     <div
                       className="flex-1 h-0.5 rounded-full transition-all duration-500"
                       style={{ background: i < step ? '#6355D8' : '#E2E8F0' }}
@@ -583,9 +697,89 @@ export const Register: React.FC = () => {
             </div>
           )}
 
-          {/* ── Step 1: Perfil ─────────────────────────────────────────────── */}
+          {/* ── Step 1: Área de atuação ────────────────────────────────────── */}
           {step === 1 && (
             <div key="step-1" className="animate-[fadeIn_.35s_ease-out]">
+              <button onClick={goBack} type="button"
+                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-7 transition-colors">
+                <ChevronLeft size={15} /> Voltar
+              </button>
+
+              <div className="mb-7">
+                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Sua área de atuação</h2>
+                <p className="text-slate-400 text-sm">Isso ajuda a personalizar o sistema para o seu dia a dia.</p>
+              </div>
+
+              {error && <ErrorBanner msg={error} />}
+
+              <div className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Área de atuação</label>
+                  <Combobox
+                    options={areas.map(a => ({ value: String(a.id), label: a.name, group: a.category }))}
+                    value={professionalAreaId}
+                    onChange={v => setProfessionalAreaId(v as string)}
+                    placeholder={areasLoading ? 'Carregando áreas…' : 'Selecione sua área'}
+                    disabled={areasLoading}
+                    icon={<Stethoscope size={15} />}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo de conta</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { value: 'autonomo' as const, label: 'Autônomo', icon: <User size={18} /> },
+                      { value: 'clinica' as const, label: 'Clínica', icon: <Briefcase size={18} /> },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setAccountType(opt.value)}
+                        className="flex flex-col items-center gap-2 rounded-xl border py-4 transition-all duration-150"
+                        style={
+                          accountType === opt.value
+                            ? { background: 'rgba(99,85,216,0.06)', borderColor: '#6355D8', color: '#6355D8' }
+                            : { background: '#fff', borderColor: '#E2E8F0', color: '#64748B' }
+                        }
+                      >
+                        {opt.icon}
+                        <span className="text-sm font-semibold">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {accountType === 'clinica' && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome da clínica</label>
+                    <div className="relative">
+                      <Building2 size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
+                        placeholder="Ex: Clínica Vida Plena"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={goNext}
+                className={`${accentBtn} mt-7 shadow-lg`}
+                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+              >
+                Continuar
+              </button>
+            </div>
+          )}
+
+          {/* ── Step 2: Perfil ─────────────────────────────────────────────── */}
+          {step === 2 && (
+            <div key="step-2" className="animate-[fadeIn_.35s_ease-out]">
               <button onClick={goBack} type="button"
                 className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-7 transition-colors">
                 <ChevronLeft size={15} /> Voltar
@@ -599,21 +793,38 @@ export const Register: React.FC = () => {
               {error && <ErrorBanner msg={error} />}
 
               <div className="space-y-4">
-                {/* CRP */}
+                {/* Registro profissional (dinâmico conforme a área escolhida) */}
+                {selectedArea?.registry_label && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{selectedArea.registry_label}</label>
+                    <div className="relative">
+                      <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text" value={registryNumber}
+                        onChange={e => setRegistryNumber(applyRegistryMask(e.target.value, selectedArea.registry_mask))}
+                        placeholder={selectedArea.registry_mask || ''}
+                        className={inputCls}
+                      />
+                    </div>
+                    {selectedArea.registry_mask && (
+                      <p className="text-[11px] text-slate-400">Formato: {selectedArea.registry_mask}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* CPF / CNPJ */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">CRP</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">CPF ou CNPJ</label>
                   <div className="relative">
-                    <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <FileText size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
-                      type="text" value={crp}
-                      onChange={e => setCrp(applyCrpMask(e.target.value))}
-                      placeholder="06/123456"
-                      maxLength={9}
+                      type="text" value={cnpjCpf}
+                      onChange={e => setCnpjCpf(applyCpfCnpjMask(e.target.value))}
+                      placeholder="000.000.000-00"
                       className={inputCls}
                       inputMode="numeric"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-400">Formato: região/número (ex: 06/123456)</p>
                 </div>
 
                 {/* Telefone */}
@@ -628,22 +839,6 @@ export const Register: React.FC = () => {
                       maxLength={16}
                       className={inputCls}
                       inputMode="numeric"
-                    />
-                  </div>
-                </div>
-
-                {/* Nome do consultório */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Nome do consultório{' '}
-                    <span className="text-slate-300 font-normal normal-case">(opcional)</span>
-                  </label>
-                  <div className="relative">
-                    <Building2 size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
-                      placeholder="Ex: Consultório Ana Silva"
-                      className={inputCls}
                     />
                   </div>
                 </div>
@@ -687,6 +882,36 @@ export const Register: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* Temas clínicos e abordagens — só para área de psicologia */}
+                {isPsychologyArea && (
+                  <div className="space-y-7 pt-3">
+                    <PillGroup
+                      label="Especialidades"
+                      items={SPECIALTIES}
+                      selected={selectedSpecialties}
+                      onToggle={item => toggle(selectedSpecialties, setSelectedSpecialties, item)}
+                    />
+                    <PillGroup
+                      label="Abordagens"
+                      items={ABORDAGENS}
+                      selected={selectedAbordagens}
+                      onToggle={item => toggle(selectedAbordagens, setSelectedAbordagens, item)}
+                    />
+                    <PillGroup
+                      label="Disponibilidade"
+                      items={DISPONIBILIDADE}
+                      selected={selectedDisp}
+                      onToggle={item => toggle(selectedDisp, setSelectedDisp, item)}
+                    />
+                    <PillGroup
+                      label="Modalidade"
+                      items={MODALIDADE}
+                      selected={selectedModal}
+                      onToggle={item => toggle(selectedModal, setSelectedModal, item)}
+                    />
+                  </div>
+                )}
               </div>
 
               <button
@@ -701,47 +926,132 @@ export const Register: React.FC = () => {
             </div>
           )}
 
-          {/* ── Step 2: Especialidades ─────────────────────────────────────── */}
-          {step === 2 && (
-            <div key="step-2" className="animate-[fadeIn_.35s_ease-out]">
+          {/* ── Step 3: Endereço ───────────────────────────────────────────── */}
+          {step === 3 && (
+            <div key="step-3" className="animate-[fadeIn_.35s_ease-out]">
               <button onClick={goBack} type="button"
                 className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-7 transition-colors">
                 <ChevronLeft size={15} /> Voltar
               </button>
 
               <div className="mb-7">
-                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Especialidades</h2>
-                <p className="text-slate-400 text-sm">Selecione tudo que se aplica. Você pode alterar depois.</p>
+                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Endereço</h2>
+                <p className="text-slate-400 text-sm">Onde você atende ou onde fica sua clínica.</p>
               </div>
 
               {error && <ErrorBanner msg={error} />}
 
-              <div className="space-y-7">
-                <PillGroup
-                  label="Especialidades"
-                  items={SPECIALTIES}
-                  selected={selectedSpecialties}
-                  onToggle={item => toggle(selectedSpecialties, setSelectedSpecialties, item)}
-                />
-                <PillGroup
-                  label="Abordagens"
-                  items={ABORDAGENS}
-                  selected={selectedAbordagens}
-                  onToggle={item => toggle(selectedAbordagens, setSelectedAbordagens, item)}
-                />
-                <PillGroup
-                  label="Disponibilidade"
-                  items={DISPONIBILIDADE}
-                  selected={selectedDisp}
-                  onToggle={item => toggle(selectedDisp, setSelectedDisp, item)}
-                />
-                <PillGroup
-                  label="Modalidade"
-                  items={MODALIDADE}
-                  selected={selectedModal}
-                  onToggle={item => toggle(selectedModal, setSelectedModal, item)}
-                />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">CEP</label>
+                    <div className="relative">
+                      <MapPin size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text" value={cep}
+                        onChange={e => handleCepChange(e.target.value)}
+                        placeholder="00000-000"
+                        maxLength={9}
+                        className={inputCls}
+                        inputMode="numeric"
+                      />
+                      {cepLoading && (
+                        <Loader2 size={15} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</label>
+                    <input
+                      type="text" value={state} onChange={e => setState(e.target.value.toUpperCase().slice(0, 2))}
+                      placeholder="UF"
+                      className={`${inputCls} pl-4`}
+                      maxLength={2}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Rua / Logradouro</label>
+                  <div className="relative">
+                    <Home size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text" value={address} onChange={e => setAddress(e.target.value)}
+                      placeholder="Rua, avenida..."
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Número</label>
+                    <input
+                      type="text" value={addressNumber} onChange={e => setAddressNumber(e.target.value)}
+                      placeholder="Nº"
+                      className={`${inputCls} pl-4`}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Complemento <span className="text-slate-300 font-normal normal-case">(opcional)</span>
+                    </label>
+                    <input
+                      type="text" value={addressComplement} onChange={e => setAddressComplement(e.target.value)}
+                      placeholder="Sala, bloco..."
+                      className={`${inputCls} pl-4`}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Bairro</label>
+                    <input
+                      type="text" value={neighborhood} onChange={e => setNeighborhood(e.target.value)}
+                      placeholder="Bairro"
+                      className={`${inputCls} pl-4`}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cidade</label>
+                    <input
+                      type="text" value={city} onChange={e => setCity(e.target.value)}
+                      placeholder="Cidade"
+                      className={`${inputCls} pl-4`}
+                    />
+                  </div>
+                </div>
               </div>
+
+              <button
+                onClick={goNext}
+                className={`${accentBtn} mt-7 shadow-lg`}
+                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+              >
+                Continuar
+              </button>
+            </div>
+          )}
+
+          {/* ── Step 4: Rotina semanal ─────────────────────────────────────── */}
+          {step === 4 && (
+            <div key="step-4" className="animate-[fadeIn_.35s_ease-out]">
+              <button onClick={goBack} type="button"
+                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-7 transition-colors">
+                <ChevronLeft size={15} /> Voltar
+              </button>
+
+              <div className="mb-7">
+                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Rotina semanal</h2>
+                <p className="text-slate-400 text-sm">Defina seus horários de atendimento. Você pode ajustar isso depois.</p>
+              </div>
+
+              {error && <ErrorBanner msg={error} />}
+
+              <WeeklyScheduleEditor schedule={schedule} onChange={setSchedule} />
 
               <p className="text-xs text-slate-400 mt-6 leading-relaxed">
                 Ao criar sua conta você concorda com os{' '}
@@ -771,9 +1081,9 @@ export const Register: React.FC = () => {
             </div>
           )}
 
-          {/* ── Step 3: Boas-vindas ────────────────────────────────────────── */}
-          {step === 3 && (
-            <div key="step-3" className="flex flex-col items-center text-center py-8 animate-[fadeIn_.5s_ease-out]">
+          {/* ── Step 5: Boas-vindas ────────────────────────────────────────── */}
+          {step === 5 && (
+            <div key="step-5" className="flex flex-col items-center text-center py-8 animate-[fadeIn_.5s_ease-out]">
               {/* Confetti decoration */}
               <div className="flex items-center justify-center gap-1 text-3xl mb-4 select-none" aria-hidden="true">
                 <span className="animate-bounce" style={{ animationDelay: '0ms' }}>🎉</span>

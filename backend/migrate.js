@@ -689,6 +689,65 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // ---- PROFESSIONAL AREAS (áreas de atuação da saúde mental) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS professional_areas (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(150) NOT NULL,
+      slug VARCHAR(100) UNIQUE NOT NULL,
+      category VARCHAR(100) NOT NULL,
+      registry_label VARCHAR(50) NULL,
+      registry_mask VARCHAR(50) NULL,
+      description TEXT NULL,
+      icon VARCHAR(50) NULL,
+      active BOOLEAN DEFAULT true,
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Seed inicial das áreas de atuação da saúde mental (idempotente por slug)
+  const CATEGORIES = {
+    nucleo: 'Núcleo Principal - Diagnóstico e Tratamento',
+    neuro: 'Neurologia e Cognição',
+    enfermagem: 'Enfermagem e Cuidado',
+    terapias: 'Terapias e Reabilitação',
+    social: 'Apoio Social e Familiar',
+    outras: 'Outras Áreas da Saúde Mental',
+  };
+  const AREA_SEEDS = [
+    { slug: 'psiquiatra', name: 'Psiquiatra', category: CATEGORIES.nucleo, registry_label: 'CRM', registry_mask: '00000/UF', icon: 'Stethoscope', sort_order: 1, description: 'Médico especialista em saúde mental. É o único que pode prescrever remédios psiquiátricos.' },
+    { slug: 'psicologo', name: 'Psicólogo', category: CATEGORIES.nucleo, registry_label: 'CRP', registry_mask: '00/00000', icon: 'Brain', sort_order: 2, description: 'Faz psicoterapia, avaliações psicológicas e testes. Não receita remédio.' },
+    { slug: 'psicanalista', name: 'Psicanalista', category: CATEGORIES.nucleo, registry_label: null, registry_mask: null, icon: 'Brain', sort_order: 3, description: 'Faz psicanálise. Pode ser psicólogo, médico ou ter formação específica em psicanálise.' },
+    { slug: 'neurologista', name: 'Neurologista', category: CATEGORIES.neuro, registry_label: 'CRM', registry_mask: '00000/UF', icon: 'Activity', sort_order: 4, description: 'Médico do cérebro e sistema nervoso. Trata TDAH, autismo, epilepsia, Alzheimer quando tem base neurológica.' },
+    { slug: 'neuropsicologo', name: 'Neuropsicólogo', category: CATEGORIES.neuro, registry_label: 'CRP', registry_mask: '00/00000', icon: 'BrainCircuit', sort_order: 5, description: 'Avalia memória, atenção, funções executivas. Faz laudos de TDAH, autismo, demência.' },
+    { slug: 'neuropsicopedagogo', name: 'Neuropsicopedagogo', category: CATEGORIES.neuro, registry_label: null, registry_mask: null, icon: 'BookOpen', sort_order: 6, description: 'Liga a neurociência e pedagogia. Atua com dificuldades de aprendizagem, TDAH, dislexia.' },
+    { slug: 'enfermeiro-saude-mental', name: 'Enfermeiro de Saúde Mental', category: CATEGORIES.enfermagem, registry_label: 'COREN', registry_mask: '000000-UF', icon: 'HeartPulse', sort_order: 7, description: 'Cuida de pacientes em crise, aplica medicação, faz acolhimento.' },
+    { slug: 'tecnico-enfermagem', name: 'Técnico de Enfermagem', category: CATEGORIES.enfermagem, registry_label: 'COREN', registry_mask: '000000-UF', icon: 'HeartPulse', sort_order: 8, description: 'Apoio direto em hospitais psiquiátricos e CAPS.' },
+    { slug: 'terapeuta-ocupacional', name: 'Terapeuta Ocupacional', category: CATEGORIES.terapias, registry_label: 'CREFITO', registry_mask: '000000-F', icon: 'Hand', sort_order: 9, description: 'Reabilita para atividades do dia a dia. Muito usado em autismo, esquizofrenia, depressão.' },
+    { slug: 'fonoaudiologo', name: 'Fonoaudiólogo', category: CATEGORIES.terapias, registry_label: 'CRFa', registry_mask: '00000-UF', icon: 'AudioLines', sort_order: 10, description: 'Trabalha comunicação, fala, linguagem. Fundamental no autismo.' },
+    { slug: 'fisioterapeuta', name: 'Fisioterapeuta', category: CATEGORIES.terapias, registry_label: 'CREFITO', registry_mask: '000000-F', icon: 'Dumbbell', sort_order: 11, description: 'Na saúde mental atua com psicomotricidade, dor psicossomática e reabilitação.' },
+    { slug: 'arteterapeuta', name: 'Arteterapeuta', category: CATEGORIES.terapias, registry_label: null, registry_mask: null, icon: 'Palette', sort_order: 12, description: 'Usa arte, pintura, música como terapia.' },
+    { slug: 'musicoterapeuta', name: 'Musicoterapeuta', category: CATEGORIES.terapias, registry_label: null, registry_mask: null, icon: 'Music', sort_order: 13, description: 'Usa música como tratamento.' },
+    { slug: 'dancaterapeuta', name: 'Dançaterapeuta / Corporal', category: CATEGORIES.terapias, registry_label: null, registry_mask: null, icon: 'PersonStanding', sort_order: 14, description: 'Trabalha corpo e emoção.' },
+    { slug: 'assistente-social', name: 'Assistente Social', category: CATEGORIES.social, registry_label: 'CRESS', registry_mask: '00000', icon: 'HandHeart', sort_order: 15, description: 'Garante direitos, benefícios, BPC, rede de apoio. Muito forte em CAPS.' },
+    { slug: 'pedagogo', name: 'Pedagogo', category: CATEGORIES.social, registry_label: null, registry_mask: null, icon: 'BookOpen', sort_order: 16, description: 'Apoio escolar para crianças com transtornos.' },
+    { slug: 'orientador-educacional', name: 'Orientador Educacional', category: CATEGORIES.social, registry_label: null, registry_mask: null, icon: 'Compass', sort_order: 17, description: 'Na escola, lida com comportamento e aprendizagem.' },
+    { slug: 'medico-familia', name: 'Médico de Família / Clínico Geral', category: CATEGORIES.outras, registry_label: 'CRM', registry_mask: '00000/UF', icon: 'Stethoscope', sort_order: 18, description: 'Porta de entrada, receita antidepressivo básico.' },
+    { slug: 'geriatra', name: 'Geriatra', category: CATEGORIES.outras, registry_label: 'CRM', registry_mask: '00000/UF', icon: 'Stethoscope', sort_order: 19, description: 'Saúde mental do idoso — depressão, demência.' },
+    { slug: 'nutricionista', name: 'Nutricionista', category: CATEGORIES.outras, registry_label: 'CRN', registry_mask: '00000-UF', icon: 'Apple', sort_order: 20, description: 'Nutrição e saúde mental estão ligadas. Ansiedade, compulsão, ortorexia.' },
+    { slug: 'educador-fisico', name: 'Educador Físico', category: CATEGORIES.outras, registry_label: 'CREF', registry_mask: '000000-G/UF', icon: 'Dumbbell', sort_order: 21, description: 'Atividade física é prescrição pra depressão e ansiedade.' },
+    { slug: 'coach-vida', name: 'Aconselhador / Coach de Vida', category: CATEGORIES.outras, registry_label: null, registry_mask: null, icon: 'Compass', sort_order: 22, description: 'Não é da área da saúde regulamentada, mas atua com desenvolvimento.' },
+  ];
+  for (const area of AREA_SEEDS) {
+    await conn.query(
+      `INSERT INTO professional_areas (name, slug, category, registry_label, registry_mask, description, icon, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = name`,
+      [area.name, area.slug, area.category, area.registry_label, area.registry_mask, area.description, area.icon, area.sort_order]
+    );
+  }
+
   // ---- Adicionar colunas que podem estar faltando em tabelas existentes ----
   const alterStatements = [
     "ALTER TABLE tenants ADD COLUMN slug VARCHAR(100) UNIQUE",
@@ -750,7 +809,17 @@ async function migrate() {
     "ALTER TABLE appointments ADD COLUMN session_fraction DECIMAL(3,2) DEFAULT 1.00",
     "ALTER TABLE users ADD COLUMN cpf VARCHAR(20) NULL",
     "ALTER TABLE users ADD COLUMN cnpj VARCHAR(20) NULL",
-    "ALTER TABLE appointments MODIFY COLUMN status ENUM('scheduled','confirmed','completed','cancelled','no_show','rescheduled','falta_justificada') DEFAULT 'scheduled'"
+    "ALTER TABLE appointments MODIFY COLUMN status ENUM('scheduled','confirmed','completed','cancelled','no_show','rescheduled','falta_justificada') DEFAULT 'scheduled'",
+    "ALTER TABLE users ADD COLUMN professional_area_id INT NULL",
+    "ALTER TABLE users ADD COLUMN registry_number VARCHAR(50) NULL",
+    "ALTER TABLE tenants ADD COLUMN account_type ENUM('autonomo','clinica') DEFAULT 'autonomo'",
+    "ALTER TABLE tenants ADD COLUMN cep VARCHAR(10) NULL",
+    "ALTER TABLE tenants ADD COLUMN address VARCHAR(255) NULL",
+    "ALTER TABLE tenants ADD COLUMN address_number VARCHAR(20) NULL",
+    "ALTER TABLE tenants ADD COLUMN address_complement VARCHAR(100) NULL",
+    "ALTER TABLE tenants ADD COLUMN neighborhood VARCHAR(100) NULL",
+    "ALTER TABLE tenants ADD COLUMN city VARCHAR(100) NULL",
+    "ALTER TABLE tenants ADD COLUMN state VARCHAR(2) NULL"
   ];
 
   // ---- USER SESSIONS ----

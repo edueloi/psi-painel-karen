@@ -26,6 +26,7 @@ const messagesRoutes = require('./routes/messages');
 const uploadsRoutes = require('./routes/uploads');
 const neuroAssessmentsRoutes = require('./routes/neuro-assessments');
 const plansRoutes = require('./routes/plans');
+const professionalAreasRoutes = require('./routes/professional-areas');
 const masterUsersRoutes = require('./routes/master-users');
 const permissionsRoutes = require('./routes/master-permissions');
 const notesRoutes = require('./routes/notes');
@@ -77,6 +78,18 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/disc`, discRoutes);
   app.use(`${prefix}/public-profile`, require('./routes/public-profile'));
   app.use(`${prefix}/directory`, require('./routes/directory'));
+  // Áreas de atuação públicas para o wizard de cadastro (sem auth)
+  app.get(`${prefix}/professional-areas`, async (req, res) => {
+    try {
+      const db = require('./db');
+      const [areas] = await db.query(
+        'SELECT * FROM professional_areas WHERE active = true ORDER BY category, sort_order, name'
+      );
+      res.json(areas);
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao buscar áreas de atuação' });
+    }
+  });
   // Planos públicos para landing page (sem auth)
   app.get(`${prefix}/plans`, async (req, res) => {
     try {
@@ -133,6 +146,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/uploads`, uploadsRoutes);
   app.use(`${prefix}/neuro-assessments`, neuroAssessmentsRoutes);
   app.use(`${prefix}/plans`, plansRoutes);
+  app.use(`${prefix}/professional-areas`, professionalAreasRoutes);
   app.use(`${prefix}/master-users`, masterUsersRoutes);
   app.use(`${prefix}/master-permissions`, permissionsRoutes);
   app.use(`${prefix}/notes`, notesRoutes);
