@@ -12,7 +12,7 @@ import {
   useRoomContext,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, LocalVideoTrack, LocalAudioTrack, type LocalParticipant, type RemoteParticipant } from "livekit-client";
+import { Track, RoomEvent, LocalVideoTrack, LocalAudioTrack, type LocalParticipant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication, type Participant } from "livekit-client";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
@@ -204,7 +204,7 @@ const Lobby: React.FC<{
           {/* ── Câmera grande ── */}
           <div style={{ flex: "0 0 auto", width: "min(520px, 55vw)", aspectRatio: "16/10", borderRadius: 20, overflow: "hidden", background: "#0d0f18", position: "relative", boxShadow: "0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }} className="host-cam-wrap">
             <video ref={videoRef} autoPlay muted playsInline
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: camOn ? "block" : "none" }} />
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: camOn ? "block" : "none", transform: "scaleX(-1)" }} />
             {!camOn && (
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
                 <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 800, color: "#fff", boxShadow: "0 12px 32px rgba(99,102,241,0.4)" }}>
@@ -346,7 +346,7 @@ const Lobby: React.FC<{
         {/* ── Câmera ── */}
         <div style={{ position: "relative", background: "#0a0c12", minHeight: 320, display: "flex", flexDirection: "column" }} className="lobby-cam-col">
           <video ref={videoRef} autoPlay muted playsInline
-            style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn ? "block" : "none", minHeight: 320 }} className="lobby-cam-video" />
+            style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn ? "block" : "none", minHeight: 320, transform: "scaleX(-1)" }} className="lobby-cam-video" />
           {!camOn && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#0a0c12" }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#0284c7,#0369a1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, color: "#fff", boxShadow: "0 8px 24px rgba(2,132,199,0.35)" }}>
@@ -656,10 +656,15 @@ const ParticipantVideo: React.FC<{
   const initials = (participant.name || participant.identity)?.charAt(0).toUpperCase() || "?";
   const avatarSize = objectFit === "contain" ? 80 : 52;
 
+  // Espelha só a própria câmera local (convenção de todo app de chamada — a
+  // pessoa se vê como num espelho); nunca a câmera remota nem screen share,
+  // que trocaria a lateralidade de quem aponta pra algo ou viraria texto ilegível.
+  const shouldMirror = isLocal && activeTrack?.source === Track.Source.Camera;
+
   return (
     <div style={{ position: "relative", overflow: "hidden", background: "#111827", ...style }}>
       {isCamOn && activeTrack
-        ? <VideoTrack trackRef={activeTrack} style={{ width: "100%", height: "100%", objectFit }} />
+        ? <VideoTrack trackRef={activeTrack} style={{ width: "100%", height: "100%", objectFit, transform: shouldMirror ? "scaleX(-1)" : undefined }} />
         : (
           <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <div style={{ width: avatarSize, height: avatarSize, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0284c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: avatarSize * 0.4, fontWeight: 800, color: "#fff" }}>
@@ -844,6 +849,7 @@ const RoomInner: React.FC<{
 }> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId, lobbyStream }) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
+  const room = useRoomContext();
   const { preferences } = useUserPreferences();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | null>(null);
@@ -889,15 +895,39 @@ const RoomInner: React.FC<{
   const sessionKeyRef = useRef<string>(`sess-${Date.now()}`);
   const recordingAudioCtxRef = useRef<AudioContext | null>(null);
   const localMicStreamRef = useRef<MediaStream | null>(null);
+  const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const connectedRemoteTrackIdsRef = useRef<Set<string>>(new Set());
+
+  const connectRemoteTrackToRecording = useCallback((mediaTrack: MediaStreamTrack) => {
+    const ctx = recordingAudioCtxRef.current;
+    const destination = recordingDestinationRef.current;
+    if (!ctx || !destination || connectedRemoteTrackIdsRef.current.has(mediaTrack.id)) return;
+    connectedRemoteTrackIdsRef.current.add(mediaTrack.id);
+    ctx.createMediaStreamSource(new MediaStream([mediaTrack])).connect(destination);
+  }, []);
+
+  // Conecta qualquer áudio remoto que chegue DURANTE a gravação (participante
+  // entrou depois de já estar gravando, ou a subscrição do track demorou).
+  useEffect(() => {
+    if (!room) return;
+    const onSubscribed = (track: RemoteTrack, _pub: RemoteTrackPublication, _participant: Participant) => {
+      if (track.kind === Track.Kind.Audio && recording) connectRemoteTrackToRecording(track.mediaStreamTrack);
+    };
+    room.on(RoomEvent.TrackSubscribed, onSubscribed);
+    return () => { room.off(RoomEvent.TrackSubscribed, onSubscribed); };
+  }, [room, recording, connectRemoteTrackToRecording]);
 
   // getUserMedia só captura o microfone local — sem mixar os tracks de áudio
   // remotos (LiveKit) a gravação nunca incluía a voz do paciente. Aqui os dois
-  // são somados num destino comum via Web Audio API antes de gravar.
+  // são somados num destino comum via Web Audio API antes de gravar, incluindo
+  // participantes que ainda vão entrar (ver listener de TrackSubscribed acima).
   const startRecording = useCallback(async () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       recordingAudioCtxRef.current = ctx;
       const destination = ctx.createMediaStreamDestination();
+      recordingDestinationRef.current = destination;
+      connectedRemoteTrackIdsRef.current = new Set();
 
       const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localMicStreamRef.current = localStream;
@@ -906,7 +936,7 @@ const RoomInner: React.FC<{
       for (const participant of remoteParticipants) {
         participant.audioTrackPublications.forEach(pub => {
           const mediaTrack = pub.track?.mediaStreamTrack;
-          if (mediaTrack) ctx.createMediaStreamSource(new MediaStream([mediaTrack])).connect(destination);
+          if (mediaTrack) connectRemoteTrackToRecording(mediaTrack);
         });
       }
 
@@ -929,6 +959,8 @@ const RoomInner: React.FC<{
     localMicStreamRef.current = null;
     recordingAudioCtxRef.current?.close().catch(() => {});
     recordingAudioCtxRef.current = null;
+    recordingDestinationRef.current = null;
+    connectedRemoteTrackIdsRef.current = new Set();
     setRecording(false);
 
     const shouldTranscribe = preferences.sessions?.autoTranscribe;
@@ -988,7 +1020,6 @@ const RoomInner: React.FC<{
 
   const micOn = isMicrophoneEnabled;
   const camOn = isCameraEnabled;
-  const room = useRoomContext();
 
   // Publica tracks ao montar: tenta usar o stream do lobby (evita getUserMedia duplo no Android)
   const publishedLobbyStreamRef = useRef(false);

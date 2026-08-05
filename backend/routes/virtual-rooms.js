@@ -10,6 +10,24 @@ const notificationService = require('../services/notificationService');
 
 const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
+// Monta a mensagem de envio do link da sala a partir do template salvo pelo
+// tenant em Configurações > Bot (whatsapp_preferences.virtual_room_link_msg),
+// com fallback para um texto padrão quando não há template customizado.
+async function buildRoomLinkMessage(tenantId, { patientName, professionalName, roomUrl }) {
+  const DEFAULT_TEMPLATE = 'Olá, {patient_name}! Sua sala de atendimento com {professional_name} já está disponível.\n\nAcesse pelo link: {room_link}';
+  let template = DEFAULT_TEMPLATE;
+  try {
+    const [[tenant]] = await db.query('SELECT whatsapp_preferences FROM tenants WHERE id = ?', [tenantId]);
+    const prefsRaw = tenant?.whatsapp_preferences;
+    const prefs = prefsRaw ? (typeof prefsRaw === 'string' ? JSON.parse(prefsRaw) : prefsRaw) : {};
+    if (prefs.virtual_room_link_msg) template = prefs.virtual_room_link_msg;
+  } catch (_) {}
+  return template
+    .replace(/\{patient_name\}/g, patientName || 'Paciente')
+    .replace(/\{professional_name\}/g, professionalName || 'seu profissional')
+    .replace(/\{room_link\}/g, roomUrl);
+}
+
 // ── Multer para upload de áudio ───────────────────────────────────────────────
 const audioUploadDir = path.join(__dirname, '../public/uploads/room-recordings');
 
@@ -292,7 +310,9 @@ router.post('/', async (req, res) => {
           const sendAt = new Date(new Date(scheduled_start).getTime() - 60000);
           const publicUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
           const roomUrl = `${publicUrl}/sala/${roomCode}`;
-          const content = `Olá, ${patient.name}! Sua sala de atendimento com ${req.user.name || 'seu profissional'} já está disponível.\n\nAcesse pelo link: ${roomUrl}`;
+          const content = await buildRoomLinkMessage(req.user.tenant_id, {
+            patientName: patient.name, professionalName: req.user.name, roomUrl,
+          });
           await notificationService.enqueue({
             tenant_id: req.user.tenant_id,
             recipient_phone: patient.phone,
@@ -1121,8 +1141,9 @@ router.post('/:id/notify-patient', async (req, res) => {
 
     const publicUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
     const roomUrl = `${publicUrl}/sala/${room.code || room.hash}`;
-    const message = req.body?.message ||
-      `Olá, ${room.patient_name}! Sua sala de atendimento com ${room.host_name || 'o profissional'} está pronta.\n\nAcesse pelo link: ${roomUrl}`;
+    const message = req.body?.message || await buildRoomLinkMessage(tenantId, {
+      patientName: room.patient_name, professionalName: room.host_name, roomUrl,
+    });
 
     const response = await axios.post(`${BOT_URL}/test/${tenantId}`, {
       phone: room.patient_phone,

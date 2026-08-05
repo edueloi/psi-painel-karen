@@ -3,7 +3,7 @@ import {
   Smartphone, CheckCircle2, AlertCircle, Clock, Calendar,
   Gift, Loader2, Save, Send, Wifi, WifiOff, Zap,
   MessageSquare, DollarSign, Bell, RefreshCw, X,
-  History, User, Eye
+  History, User, Eye, Video
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -35,6 +35,11 @@ const PAYMENT_VARS = [
   { key: 'patient_name', label: 'Nome Paciente' },
   { key: 'amount',       label: 'Valor' },
   { key: 'clinic_name',  label: 'Clínica' },
+];
+const ROOM_LINK_VARS = [
+  { key: 'patient_name',      label: 'Nome Paciente' },
+  { key: 'professional_name', label: 'Nome Profissional' },
+  { key: 'room_link',         label: 'Link da Sala' },
 ];
 
 const VAR_COLORS: Record<string, string> = {
@@ -305,6 +310,8 @@ export const BotIntegration: React.FC = () => {
     payment_enabled: true,
     payment_time: '10:00',
     payment_msg: `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje.`,
+    virtual_room_link_enabled: true,
+    virtual_room_link_msg: `Olá, {patient_name}! Sua sala de atendimento com {professional_name} já está disponível.\n\nAcesse pelo link: {room_link}`,
   });
 
   const fetchQueue = async (status?: string, date?: string) => {
@@ -701,6 +708,32 @@ export const BotIntegration: React.FC = () => {
                     value={prefs.payment_msg}
                     onChange={v => set('payment_msg', v)}
                     variables={PAYMENT_VARS}
+                  />
+                </DispatchBlock>
+              </div>
+            </PanelCard>
+
+            {/* Link de Sala Virtual */}
+            <PanelCard
+              icon={Video}
+              title="Link de Sala Virtual"
+              description="Mensagem enviada ao paciente com o link de acesso à sala"
+              iconWrapClassName="bg-sky-50 border-sky-100"
+              iconClassName="text-sky-600"
+            >
+              <div className="space-y-3">
+                <DispatchBlock
+                  icon={Video}
+                  label="Envio do Link da Sala"
+                  description="Enviado ao confirmar na criação da sala, ou 1min antes se agendada"
+                  color="bg-sky-50 text-sky-600"
+                  enabled={prefs.virtual_room_link_enabled}
+                  onToggle={() => set('virtual_room_link_enabled', !prefs.virtual_room_link_enabled)}
+                >
+                  <BadgeEditor
+                    value={prefs.virtual_room_link_msg}
+                    onChange={v => set('virtual_room_link_msg', v)}
+                    variables={ROOM_LINK_VARS}
                   />
                 </DispatchBlock>
               </div>
