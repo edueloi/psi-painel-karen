@@ -23,6 +23,10 @@ interface AuthUser {
   trialEndsAt?: string | null;
   nfseEnabled?: boolean;
   rsReceiptEnabled?: boolean;
+  areaSlug?: string | null;
+  areaName?: string | null;
+  doesPsychotherapy?: boolean;
+  canPrescribeMedication?: boolean;
 }
 
 interface AuthContextType {
@@ -97,6 +101,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         trialEndsAt: (data as any).trial_ends_at || null,
         nfseEnabled: !!(data as any).nfse_enabled,
         rsReceiptEnabled: !!(data as any).rs_receipt_enabled,
+        areaSlug: (data as any).area_slug || null,
+        areaName: (data as any).area_name || null,
+        doesPsychotherapy: !!(data as any).does_psychotherapy,
+        canPrescribeMedication: !!(data as any).can_prescribe_medication,
       });
     } catch (e) {
       setUser(decoded); // fallback só com id/role

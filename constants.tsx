@@ -18,7 +18,7 @@ export const NAV_SECTIONS = [
       { label: 'nav.patients',  path: '/pacientes',        icon: <Users size={18} />,    requiredPermission: 'view_patients',        requiredFeature: 'pacientes' },
       { label: 'nav.records',   path: '/prontuario',       icon: <FileText size={18} />, requiredPermission: 'view_medical_records', requiredFeature: 'prontuario' },
       { label: 'nav.boards',    path: '/quadros',           icon: <Layout size={18} />,   requiredPermission: 'view_medical_records', requiredFeature: 'estudos_de_caso' },
-      { label: 'nav.tools',     path: '/caixa-ferramentas',icon: <Briefcase size={18} />,requiredPermission: 'manage_clinical_tools',requiredFeature: 'ferramentas_clinicas' },
+      { label: 'nav.tools',     path: '/caixa-ferramentas',icon: <Briefcase size={18} />,requiredPermission: 'manage_clinical_tools',requiredFeature: 'ferramentas_clinicas', requiredCapability: 'does_psychotherapy' },
     ]
   },
   {
@@ -26,8 +26,8 @@ export const NAV_SECTIONS = [
     icon: <GraduationCap size={13}/>,
     items: [
       { label: 'nav.forms',       path: '/formularios',   icon: <PenLine size={18} />,  requiredPermission: 'manage_forms',          requiredFeature: 'formularios' },
-      { label: 'nav.instruments', path: '/instrumentos',  icon: <Radar size={18} />,    requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas' },
-      { label: 'nav.approaches',  path: '/abordagens',    icon: <Layers size={18} />,   requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas' },
+      { label: 'nav.instruments', path: '/instrumentos',  icon: <Radar size={18} />,    requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas', requiredCapability: 'does_psychotherapy' },
+      { label: 'nav.approaches',  path: '/abordagens',    icon: <Layers size={18} />,   requiredPermission: 'manage_clinical_tools', requiredFeature: 'ferramentas_clinicas', requiredCapability: 'does_psychotherapy' },
     ]
   },
   {

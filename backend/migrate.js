@@ -819,7 +819,10 @@ async function migrate() {
     "ALTER TABLE tenants ADD COLUMN address_complement VARCHAR(100) NULL",
     "ALTER TABLE tenants ADD COLUMN neighborhood VARCHAR(100) NULL",
     "ALTER TABLE tenants ADD COLUMN city VARCHAR(100) NULL",
-    "ALTER TABLE tenants ADD COLUMN state VARCHAR(2) NULL"
+    "ALTER TABLE tenants ADD COLUMN state VARCHAR(2) NULL",
+    "ALTER TABLE professional_areas ADD COLUMN can_prescribe_medication BOOLEAN DEFAULT false",
+    "ALTER TABLE professional_areas ADD COLUMN does_psychotherapy BOOLEAN DEFAULT false",
+    "ALTER TABLE professional_areas ADD COLUMN uses_clinical_instruments BOOLEAN DEFAULT false"
   ];
 
   // ---- USER SESSIONS ----
@@ -844,6 +847,24 @@ async function migrate() {
     } catch (e) {
       // Ignorar erros de ALTER (coluna já existe em versões sem IF NOT EXISTS)
     }
+  }
+
+  // Popular capacidades das áreas de atuação (idempotente, por slug).
+  // uses_clinical_instruments existe na tabela mas não é usada em nenhum filtro
+  // ainda — instrumentos hoje usam a mesma capacidade de does_psychotherapy.
+  const PSYCHOTHERAPY_AREA_SLUGS = ['psicologo', 'psicanalista', 'neuropsicologo'];
+  const PRESCRIBER_AREA_SLUGS = ['psiquiatra', 'neurologista', 'medico-familia', 'geriatra'];
+  try {
+    await conn.query(
+      `UPDATE professional_areas SET does_psychotherapy = true WHERE slug IN (?)`,
+      [PSYCHOTHERAPY_AREA_SLUGS]
+    );
+    await conn.query(
+      `UPDATE professional_areas SET can_prescribe_medication = true WHERE slug IN (?)`,
+      [PRESCRIBER_AREA_SLUGS]
+    );
+  } catch (e) {
+    console.error('Erro ao popular capacidades de professional_areas:', e.message);
   }
 
   // Garantir que todos os tenants existentes tenham um slug

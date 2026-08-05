@@ -467,7 +467,7 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
     const patCPF = patient?.cpf ? `, CPF ${patient.cpf},` : ',';
     const profName = prof.name || record.professional_name || 'o(a) profissional';
 
-    const bodyText = `Atesto para os devidos fins que o(a) paciente ${patName}${patCPF} esteve sob meus cuidados psicológicos.`;
+    const bodyText = `Atesto para os devidos fins que o(a) paciente ${patName}${patCPF} esteve sob meus cuidados profissionais.`;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
     doc.setTextColor(30, 40, 60);

@@ -166,7 +166,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[]; requiredPermission?: string }> = ({ children, allowedRoles, requiredPermission }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[]; requiredPermission?: string; requiredCapability?: 'does_psychotherapy' }> = ({ children, allowedRoles, requiredPermission, requiredCapability }) => {
   const { isAuthenticated, user, isAdmin, hasPermission } = useAuth();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -178,6 +178,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Bloqueia acesso direto por URL a conteúdo específico de uma área de atuação
+  // (ex: psicoterapia) para quem não tem essa capacidade — admin sempre passa.
+  if (requiredCapability === 'does_psychotherapy' && !isAdmin && !user?.doesPsychotherapy) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -293,28 +299,28 @@ const AppRoutes: React.FC = () => {
 
       {/* Rotas clinicas avancadas */}
       <Route path="/neurodesenvolvimento" element={<ProtectedRoute requiredPermission="neuro_access"><PEI /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ClinicalTools /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/tcc" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><TCCPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/esquemas" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><SchemaPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/psicanalise" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><PsychoanalysisPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/humanista" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><HumanismPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/act" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ACTPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/dbt" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><DBTPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/emdr" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><EMDRPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/sistemica" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><SistemicaPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/junguiana" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><JunguianaPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><ClinicalTools /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/tcc" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><TCCPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/esquemas" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><SchemaPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/psicanalise" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><PsychoanalysisPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/humanista" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><HumanismPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/act" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><ACTPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/dbt" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><DBTPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/emdr" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><EMDRPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/sistemica" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><SistemicaPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/junguiana" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><JunguianaPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/comportamental" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ComportamentalPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/integrativa" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><IntegrativaPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/fap" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><FAPPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/integrativa" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><IntegrativaPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/fap" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><FAPPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/mindfulness" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><MindfulnessPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/positiva" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><PositivePsychologyPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/infantil" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><PlayTherapyPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/casal" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><CoupleTherapyPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/casal" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><CoupleTherapyPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/pais" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><ParentingGuidancePage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/dass-21" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><DASS21Page /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/disc-avaliativo" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><DISCProfessionalPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/bdi-ii" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><BDIPage /></ProtectedRoute>} />
-      <Route path="/caixa-ferramentas/bai" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><BAIPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/dass-21" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><DASS21Page /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/disc-avaliativo" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><DISCProfessionalPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/bdi-ii" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><BDIPage /></ProtectedRoute>} />
+      <Route path="/caixa-ferramentas/bai" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><BAIPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/snap-iv" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><SNAPIVPage /></ProtectedRoute>} />
       <Route path="/caixa-ferramentas/m-chat-r" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><MCHATPage /></ProtectedRoute>} />
       <Route path="/prontuario" element={<ProtectedRoute requiredPermission="view_medical_records"><Records /></ProtectedRoute>} />
@@ -329,10 +335,10 @@ const AppRoutes: React.FC = () => {
       <Route path="/formularios/respostas" element={<ProtectedRoute requiredPermission="manage_forms"><FormResponses /></ProtectedRoute>} />
       <Route path="/formularios/:id/respostas" element={<ProtectedRoute requiredPermission="manage_forms"><FormResponses /></ProtectedRoute>} />
       <Route path="/formularios/:id" element={<ProtectedRoute requiredPermission="manage_forms"><FormEditor /></ProtectedRoute>} />
-      <Route path="/instrumentos" element={<ProtectedRoute requiredPermission="manage_clinical_tools"><Instruments /></ProtectedRoute>} />
+      <Route path="/instrumentos" element={<ProtectedRoute requiredPermission="manage_clinical_tools" requiredCapability="does_psychotherapy"><Instruments /></ProtectedRoute>} />
       <Route path="/disc" element={<ProtectedRoute><Disc /></ProtectedRoute>} />
       <Route path="/termos" element={<ProtectedRoute requiredPermission="manage_documents"><DocumentVault /></ProtectedRoute>} />
-      <Route path="/abordagens" element={<ProtectedRoute><Approaches /></ProtectedRoute>} />
+      <Route path="/abordagens" element={<ProtectedRoute requiredCapability="does_psychotherapy"><Approaches /></ProtectedRoute>} />
       <Route path="/gerador-documentos" element={<ProtectedRoute requiredPermission="manage_documents"><DocGenerator /></ProtectedRoute>} />
       <Route path="/profissionais" element={<ProtectedRoute requiredPermission="manage_professionals"><Professionals /></ProtectedRoute>} />
       <Route path="/servicos" element={<ProtectedRoute requiredPermission="manage_services"><Services /></ProtectedRoute>} />

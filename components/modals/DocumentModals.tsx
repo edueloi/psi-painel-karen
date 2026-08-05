@@ -381,7 +381,7 @@ export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, 
       const lines = [
         `ATESTADO DE ${form.tipo.toUpperCase()}`,
         '',
-        `Atesto que o(a) paciente ${patient.full_name}${patient.cpf ? `, CPF ${patient.cpf}` : ''}, esteve sob meus cuidados psicológicos.`,
+        `Atesto que o(a) paciente ${patient.full_name}${patient.cpf ? `, CPF ${patient.cpf}` : ''}, esteve sob meus cuidados profissionais.`,
         '',
         `TIPO: ${form.tipo}`,
         `DATA DE EMISSÃO: ${dateStr}`,

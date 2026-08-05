@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Calendar,
@@ -22,7 +21,6 @@ import {
   Video,
   X,
   Zap,
-  Radio,
 } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
 import { api } from '../services/api';
@@ -31,16 +29,20 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { DatePicker } from '../components/UI/DatePicker';
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import {
   Button,
   Combobox,
   ConfirmModal,
+  EmptyState,
+  FilterLineDateRange,
+  FilterLineSearch,
+  FilterLineSegmented,
   Input,
   Modal,
   ModalFooter,
-  PageWrapper,
   Select,
+  StatCard,
   Textarea,
 } from '../components/UI';
 
@@ -95,7 +97,6 @@ const resolveRecordingUrl = (fileUrl?: string) => {
 
 export const VirtualRooms: React.FC = () => {
   const { t } = useLanguage();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
 
@@ -555,95 +556,53 @@ export const VirtualRooms: React.FC = () => {
   };
 
   return (
-    <PageWrapper className="pb-10">
-      {/* Hero header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 px-4 pb-8 pt-6 sm:px-6 lg:px-8">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/5 blur-3xl" />
-          <div className="absolute -bottom-10 -left-10 h-56 w-56 rounded-full bg-violet-400/10 blur-2xl" />
-        </div>
+    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
 
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/')}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/80 backdrop-blur transition hover:bg-white/20"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <Video size={20} className="text-white/80" />
-                <h1 className="text-xl font-bold text-white sm:text-2xl">Atendimento Online</h1>
-              </div>
-              <p className="mt-0.5 text-sm text-indigo-200">Salas seguras com criptografia ponta-a-ponta</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
-            <button
-              onClick={handleInstantMeeting}
-              disabled={isCreatingInstant}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-indigo-700 shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-50 disabled:opacity-70"
-            >
-              {isCreatingInstant
-                ? <Loader2 size={16} className="animate-spin" />
-                : <Zap size={16} className="fill-current" />}
-              Sala Instantânea
-            </button>
-            <button
+      <SectionTitle
+        icon={Video}
+        title="Atendimento Online"
+        description="Salas seguras com criptografia ponta-a-ponta"
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              iconLeft={<Plus size={14} />}
               onClick={() => openCreateModal()}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20"
             >
-              <Plus size={16} /> Agendar Sala
-            </button>
+              Agendar Sala
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={<Zap size={14} className="fill-current" />}
+              loading={isCreatingInstant}
+              onClick={handleInstantMeeting}
+            >
+              Sala Instantânea
+            </Button>
           </div>
+        }
+      />
+
+      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <StatCard title="Salas ativas" value={roomStats.total} icon={Video} color="default" delay={0} />
+          <StatCard title="Agendadas" value={roomStats.upcoming} icon={Calendar} color="info" delay={1} />
+          <StatCard title="Permanentes" value={roomStats.persistent} icon={ShieldCheck} color="purple" delay={2} />
         </div>
 
-        {/* Stats chips */}
-        <div className="relative mt-6 flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 backdrop-blur">
-            <Radio size={14} className="text-emerald-300" />
-            <span className="text-sm font-bold text-white">{roomStats.total}</span>
-            <span className="text-xs text-indigo-200">salas ativas</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 backdrop-blur">
-            <Calendar size={14} className="text-sky-300" />
-            <span className="text-sm font-bold text-white">{roomStats.upcoming}</span>
-            <span className="text-xs text-indigo-200">agendadas</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 backdrop-blur">
-            <ShieldCheck size={14} className="text-violet-300" />
-            <span className="text-sm font-bold text-white">{roomStats.persistent}</span>
-            <span className="text-xs text-indigo-200">permanentes</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 sm:px-6 lg:px-8">
         {/* Tab switcher */}
-        <div className="-mt-4 mb-6 flex gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-md w-fit">
-          <button
-            onClick={() => setActiveTab('rooms')}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-              activeTab === 'rooms'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Video size={14} /> Salas
-          </button>
-          <button
-            onClick={() => setActiveTab('transcricoes')}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-              activeTab === 'transcricoes'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <FileText size={14} /> Transcrições
-          </button>
-        </div>
+        <FilterLineSegmented
+          value={activeTab}
+          onChange={v => setActiveTab(v as 'rooms' | 'transcricoes')}
+          options={[
+            { value: 'rooms', label: 'Salas' },
+            { value: 'transcricoes', label: 'Transcrições' },
+          ]}
+        />
 
         {/* ── SALAS TAB ── */}
         {activeTab === 'rooms' && (
@@ -655,22 +614,17 @@ export const VirtualRooms: React.FC = () => {
               </h2>
               <p className="mb-4 text-sm text-slate-400">Cole o código da sala para entrar direto</p>
               <form onSubmit={handleJoinByCode} className="flex flex-col gap-2 sm:flex-row">
-                <div className="relative flex-1">
-                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-700 placeholder-slate-400 transition focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-400/20"
+                <div className="flex-1">
+                  <Input
+                    addonLeft={<Search size={15} />}
                     placeholder="Ex: abc-123-xyz"
                     value={meetingCode}
                     onChange={(e) => setMeetingCode(e.target.value)}
                   />
                 </div>
-                <button
-                  type="submit"
-                  disabled={!meetingCode}
-                  className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-sm font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-700 disabled:opacity-40"
-                >
-                  Acessar Sala <ArrowRight size={15} />
-                </button>
+                <Button type="submit" variant="primary" disabled={!meetingCode} iconRight={<ArrowRight size={15} />}>
+                  Acessar Sala
+                </Button>
               </form>
             </div>
 
@@ -688,13 +642,11 @@ export const VirtualRooms: React.FC = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                      <input
-                        className="h-8 w-44 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs text-slate-600 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                        placeholder="Buscar sala..."
+                    <div className="w-44">
+                      <FilterLineSearch
                         value={roomSearch}
-                        onChange={(e) => setRoomSearch(e.target.value)}
+                        onChange={setRoomSearch}
+                        placeholder="Buscar sala..."
                       />
                     </div>
                     <span className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -709,13 +661,12 @@ export const VirtualRooms: React.FC = () => {
                       <Loader2 className="animate-spin text-slate-300" />
                     </div>
                   ) : persistentRooms.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-14 text-slate-400">
-                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                        <Video size={24} className="opacity-30" />
-                      </div>
-                      <p className="text-sm font-medium">Nenhuma sala permanente</p>
-                      <p className="mt-1 text-xs text-slate-300">Crie uma sala para atender quando quiser</p>
-                    </div>
+                    <EmptyState
+                      icon={Video}
+                      title="Nenhuma sala permanente"
+                      description="Crie uma sala para atender quando quiser"
+                      className="border-none bg-transparent py-14"
+                    />
                   ) : (
                     persistentRooms.map((room) => (
                       <div key={room.id} className="group flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50">
@@ -797,18 +748,16 @@ export const VirtualRooms: React.FC = () => {
                       <Loader2 className="animate-spin text-slate-300" size={28} />
                     </div>
                   ) : upcomingRooms.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-14 text-slate-400">
-                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                        <Calendar size={24} className="opacity-30" />
-                      </div>
-                      <p className="text-sm font-medium">Sem consultas agendadas</p>
-                      <button
-                        onClick={() => openCreateModal()}
-                        className="mt-3 flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700"
-                      >
-                        <Plus size={13} /> Agendar agora
-                      </button>
-                    </div>
+                    <EmptyState
+                      icon={Calendar}
+                      title="Sem consultas agendadas"
+                      className="border-none bg-transparent py-14"
+                      action={
+                        <Button variant="primary" size="sm" iconLeft={<Plus size={13} />} onClick={() => openCreateModal()}>
+                          Agendar agora
+                        </Button>
+                      }
+                    />
                   ) : (
                     upcomingRooms.map((room) => {
                       const start = room.scheduled_start ? new Date(room.scheduled_start) : null;
@@ -893,29 +842,18 @@ export const VirtualRooms: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <div className="relative min-w-[150px] flex-1">
-                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
+                  <div className="min-w-[150px] flex-1">
+                    <FilterLineSearch
                       value={sessionSearch}
-                      onChange={e => setSessionSearch(e.target.value)}
+                      onChange={setSessionSearch}
                       placeholder="Buscar sala ou sessão..."
-                      className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
                     />
                   </div>
-                  <input
-                    type="date"
-                    value={filterDateFrom}
-                    onChange={e => setFilterDateFrom(e.target.value)}
-                    title="De"
-                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
-                  />
-                  <input
-                    type="date"
-                    value={filterDateTo}
-                    onChange={e => setFilterDateTo(e.target.value)}
-                    title="Até"
-                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/20"
+                  <FilterLineDateRange
+                    from={filterDateFrom || null}
+                    to={filterDateTo || null}
+                    onFromChange={v => setFilterDateFrom(v || '')}
+                    onToChange={v => setFilterDateTo(v || '')}
                   />
                   <button
                     onClick={() => setFilterHasRecording(v => v === true ? null : true)}
@@ -951,16 +889,15 @@ export const VirtualRooms: React.FC = () => {
                   <Loader2 className="animate-spin text-slate-300" size={32} />
                 </div>
               ) : filteredSessions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-                    <FileText size={28} className="opacity-30" />
-                  </div>
-                  <p className="font-medium">{sessions.length === 0 ? 'Nenhuma sessão registrada ainda.' : 'Nenhuma sessão encontrada.'}</p>
-                  <p className="mt-1 text-sm">{sessions.length === 0 ? 'As transcrições aparecem aqui após encerrar uma sessão.' : 'Tente ajustar os filtros.'}</p>
-                  {hasActiveFilters && (
-                    <button onClick={clearFilters} className="mt-3 text-xs text-indigo-600 hover:underline">Limpar filtros</button>
+                <EmptyState
+                  icon={FileText}
+                  title={sessions.length === 0 ? 'Nenhuma sessão registrada ainda.' : 'Nenhuma sessão encontrada.'}
+                  description={sessions.length === 0 ? 'As transcrições aparecem aqui após encerrar uma sessão.' : 'Tente ajustar os filtros.'}
+                  className="border-none bg-transparent py-16"
+                  action={hasActiveFilters && (
+                    <button onClick={clearFilters} className="text-xs text-indigo-600 hover:underline">Limpar filtros</button>
                   )}
-                </div>
+                />
               ) : (
                 <div className="divide-y divide-slate-100">
                   {filteredSessions.map((session) => {

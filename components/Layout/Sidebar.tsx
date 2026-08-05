@@ -79,10 +79,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
 
   // Item "Nota Fiscal" só aparece se a clínica ativou a NFS-e em Configurações > Dados
   // Fiscais — evitamos poluir NAV_SECTIONS (array estático) com esse caso especial.
+  //
+  // requiredCapability restringe itens de conteúdo específico de uma área de atuação
+  // (ex: psicoterapia) — só vale para quem não é admin, que continua vendo tudo.
   const isNavItemVisible = React.useCallback((item: any) => {
     if (item.path === '/nota-fiscal' && !user?.nfseEnabled) return false;
+    if (item.requiredCapability === 'does_psychotherapy' && !isAdmin && !user?.doesPsychotherapy) return false;
     return true;
-  }, [user]);
+  }, [user, isAdmin]);
 
   // All permitted nav items (path → meta)
   const allNavMeta = React.useMemo(() => {

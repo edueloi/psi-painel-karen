@@ -30,15 +30,23 @@ router.get('/all', authorize('super_admin'), async (req, res) => {
 // POST /professional-areas
 router.post('/', authorize('super_admin'), async (req, res) => {
   try {
-    const { name, slug, category, registry_label, registry_mask, description, icon, sort_order } = req.body;
+    const {
+      name, slug, category, registry_label, registry_mask, description, icon, sort_order,
+      can_prescribe_medication, does_psychotherapy, uses_clinical_instruments,
+    } = req.body;
     if (!name || !slug || !category) {
       return res.status(400).json({ error: 'Nome, slug e categoria são obrigatórios' });
     }
 
     const [result] = await db.query(
-      `INSERT INTO professional_areas (name, slug, category, registry_label, registry_mask, description, icon, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, slug, category, registry_label || null, registry_mask || null, description || null, icon || null, sort_order || 0]
+      `INSERT INTO professional_areas
+         (name, slug, category, registry_label, registry_mask, description, icon, sort_order,
+          can_prescribe_medication, does_psychotherapy, uses_clinical_instruments)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name, slug, category, registry_label || null, registry_mask || null, description || null, icon || null, sort_order || 0,
+        !!can_prescribe_medication, !!does_psychotherapy, !!uses_clinical_instruments,
+      ]
     );
 
     const [area] = await db.query('SELECT * FROM professional_areas WHERE id = ?', [result.insertId]);
@@ -55,7 +63,10 @@ router.post('/', authorize('super_admin'), async (req, res) => {
 // PUT /professional-areas/:id
 router.put('/:id', authorize('super_admin'), async (req, res) => {
   try {
-    const { name, slug, category, registry_label, registry_mask, description, icon, active, sort_order } = req.body;
+    const {
+      name, slug, category, registry_label, registry_mask, description, icon, active, sort_order,
+      can_prescribe_medication, does_psychotherapy, uses_clinical_instruments,
+    } = req.body;
 
     await db.query(
       `UPDATE professional_areas SET
@@ -67,7 +78,10 @@ router.put('/:id', authorize('super_admin'), async (req, res) => {
         description = COALESCE(?, description),
         icon = COALESCE(?, icon),
         active = COALESCE(?, active),
-        sort_order = COALESCE(?, sort_order)
+        sort_order = COALESCE(?, sort_order),
+        can_prescribe_medication = COALESCE(?, can_prescribe_medication),
+        does_psychotherapy = COALESCE(?, does_psychotherapy),
+        uses_clinical_instruments = COALESCE(?, uses_clinical_instruments)
        WHERE id = ?`,
       [
         name, slug, category,
@@ -76,6 +90,9 @@ router.put('/:id', authorize('super_admin'), async (req, res) => {
         description, icon,
         active !== undefined ? active : undefined,
         sort_order,
+        can_prescribe_medication !== undefined ? !!can_prescribe_medication : undefined,
+        does_psychotherapy !== undefined ? !!does_psychotherapy : undefined,
+        uses_clinical_instruments !== undefined ? !!uses_clinical_instruments : undefined,
         req.params.id,
       ]
     );

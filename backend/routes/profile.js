@@ -59,11 +59,14 @@ router.get('/me', async (req, res) => {
               p.permissions as profile_permissions, p.slug as profile_slug,
               pl.features as plan_features, pl.id as plan_id, pl.name as plan_name, pl.price as plan_price,
               t.trial_ends_at, t.expires_at as subscription_expires_at, t.status as tenant_status,
-              t.nfse_enabled, t.rs_receipt_enabled
+              t.nfse_enabled, t.rs_receipt_enabled,
+              pa.slug as area_slug, pa.name as area_name,
+              pa.can_prescribe_medication, pa.does_psychotherapy
        FROM users u
        LEFT JOIN tenant_permission_profiles p ON u.tenant_profile_id = p.id
        LEFT JOIN tenants t ON u.tenant_id = t.id
        LEFT JOIN plans pl ON t.plan_id = pl.id
+       LEFT JOIN professional_areas pa ON u.professional_area_id = pa.id
        WHERE u.id = ?`,
       [req.user.id]
     );
