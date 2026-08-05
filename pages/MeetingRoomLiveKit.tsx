@@ -16,7 +16,7 @@ import { Track, RoomEvent, LocalVideoTrack, LocalAudioTrack, type LocalParticipa
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
-  ChevronDown, Settings, Circle, Loader2, FileText,
+  ChevronDown, Settings, Circle, Loader2, FileText, SwitchCamera,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -115,6 +115,7 @@ const Lobby: React.FC<{
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [deviceError, setDeviceError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"link" | "devices" | "recording" | null>("link");
   const [guestDevicesOpen, setGuestDevicesOpen] = useState(false);
   const [roomInfo, setRoomInfo] = useState<RoomInfo>({});
@@ -125,6 +126,8 @@ const Lobby: React.FC<{
   const [selectedAudio, setSelectedAudio] = useState("");
   const [selectedVideo, setSelectedVideo] = useState("");
   const [selectedAudioOut, setSelectedAudioOut] = useState("");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const guestUrl = `${PUBLIC_BASE_URL}/sala/${roomCode}`;
 
@@ -134,11 +137,15 @@ const Lobby: React.FC<{
       .then(r => r.json()).then(d => setRoomInfo(d)).catch(() => {});
   }, [roomCode]);
 
-  const startPreview = useCallback(async (audioId?: string, videoId?: string) => {
+  const startPreview = useCallback(async (audioId?: string, videoId?: string, facing?: "user" | "environment") => {
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setDeviceError("Este navegador não tem suporte a câmera/microfone. Use uma versão recente de Chrome, Firefox, Edge ou Safari, acessando por HTTPS.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoId ? { deviceId: { exact: videoId } } : true,
+        video: videoId ? { deviceId: { exact: videoId } } : { facingMode: facing || "user" },
         audio: audioId ? { deviceId: { exact: audioId } } : true,
       });
       streamRef.current = stream;
@@ -146,8 +153,29 @@ const Lobby: React.FC<{
       stream.getVideoTracks().forEach(t => { t.enabled = camOn; });
       stream.getAudioTracks().forEach(t => { t.enabled = micOn; });
       onStreamReady?.(stream);
-    } catch {}
+      setDeviceError(null);
+    } catch (err: any) {
+      const name = err?.name || '';
+      const msg = name === 'NotAllowedError'
+        ? 'Permissão de câmera/microfone negada. Verifique as permissões do site nas configurações do navegador e recarregue a página.'
+        : name === 'NotFoundError'
+        ? 'Nenhuma câmera ou microfone foi encontrado neste dispositivo.'
+        : name === 'NotReadableError'
+        ? 'A câmera/microfone já está em uso por outro programa ou aba.'
+        : 'Não foi possível acessar a câmera/microfone. Tente outro navegador ou dispositivo.';
+      setDeviceError(msg);
+    }
   }, []);
+
+  // No celular alterna entre câmera frontal/traseira; troca o device explícito
+  // do LiveKit quando já publicado (mesmo padrão usado pela lista de dispositivos).
+  const flipCamera = () => {
+    const next = facingMode === "user" ? "environment" : "user";
+    setFacingMode(next);
+    setSelectedVideo("");
+    onDeviceChange?.("", selectedAudio);
+    startPreview(selectedAudio || undefined, undefined, next);
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -204,8 +232,14 @@ const Lobby: React.FC<{
           {/* ── Câmera grande ── */}
           <div style={{ flex: "0 0 auto", width: "min(520px, 55vw)", aspectRatio: "16/10", borderRadius: 20, overflow: "hidden", background: "#0d0f18", position: "relative", boxShadow: "0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }} className="host-cam-wrap">
             <video ref={videoRef} autoPlay muted playsInline
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: camOn ? "block" : "none", transform: "scaleX(-1)" }} />
-            {!camOn && (
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: camOn && !deviceError ? "block" : "none", transform: "scaleX(-1)" }} />
+            {deviceError ? (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 24, textAlign: "center" }}>
+                <Shield size={36} color="#f87171" />
+                <span style={{ fontSize: 13, color: "#fca5a5", fontWeight: 600, maxWidth: 320 }}>{deviceError}</span>
+                <span style={{ fontSize: 12, color: "#64748b" }}>Você ainda pode entrar na sala sem câmera/microfone.</span>
+              </div>
+            ) : !camOn && (
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
                 <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 800, color: "#fff", boxShadow: "0 12px 32px rgba(99,102,241,0.4)" }}>
                   {displayName.charAt(0).toUpperCase()}
@@ -229,6 +263,12 @@ const Lobby: React.FC<{
                 style={{ width: 46, height: 46, borderRadius: "50%", border: camOn ? "none" : "1.5px solid rgba(239,68,68,0.6)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: camOn ? "rgba(255,255,255,0.15)" : "rgba(220,38,38,0.85)", backdropFilter: "blur(12px)", color: "#fff", transition: "all .15s", flexShrink: 0 }}>
                 {camOn ? <Video size={18} /> : <VideoOff size={18} />}
               </button>
+              {isMobile && camOn && (
+                <button onClick={flipCamera} title="Virar câmera"
+                  style={{ width: 46, height: 46, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", color: "#fff", transition: "all .15s", flexShrink: 0 }}>
+                  <SwitchCamera size={18} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -346,8 +386,14 @@ const Lobby: React.FC<{
         {/* ── Câmera ── */}
         <div style={{ position: "relative", background: "#0a0c12", minHeight: 320, display: "flex", flexDirection: "column" }} className="lobby-cam-col">
           <video ref={videoRef} autoPlay muted playsInline
-            style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn ? "block" : "none", minHeight: 320, transform: "scaleX(-1)" }} className="lobby-cam-video" />
-          {!camOn && (
+            style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn && !deviceError ? "block" : "none", minHeight: 320, transform: "scaleX(-1)" }} className="lobby-cam-video" />
+          {deviceError ? (
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "#0a0c12", padding: 20, textAlign: "center" }}>
+              <Shield size={30} color="#f87171" />
+              <span style={{ fontSize: 12, color: "#fca5a5", fontWeight: 600, maxWidth: 260 }}>{deviceError}</span>
+              <span style={{ fontSize: 11, color: "#64748b" }}>Você ainda pode entrar na sala sem câmera/microfone.</span>
+            </div>
+          ) : !camOn && (
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#0a0c12" }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#0284c7,#0369a1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, color: "#fff", boxShadow: "0 8px 24px rgba(2,132,199,0.35)" }}>
                 {displayName.charAt(0).toUpperCase()}
@@ -368,6 +414,12 @@ const Lobby: React.FC<{
               style={{ width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: camOn ? "rgba(255,255,255,0.18)" : "rgba(220,38,38,0.9)", backdropFilter: "blur(8px)", color: "#fff", transition: "all .15s" }}>
               {camOn ? <Video size={17} /> : <VideoOff size={17} />}
             </button>
+            {isMobile && camOn && (
+              <button onClick={flipCamera} title="Virar câmera"
+                style={{ width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)", color: "#fff", transition: "all .15s" }}>
+                <SwitchCamera size={17} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -641,7 +693,8 @@ const ParticipantVideo: React.FC<{
   objectFit?: "cover" | "contain";
   hideName?: boolean;
   forceSource?: Track.Source.Camera | Track.Source.ScreenShare;
-}> = ({ participant, isLocal, style, objectFit = "cover", hideName = false, forceSource }) => {
+  isFrontCamera?: boolean;
+}> = ({ participant, isLocal, style, objectFit = "cover", hideName = false, forceSource, isFrontCamera = true }) => {
   const tracks = useParticipantTracks(
     [Track.Source.Camera, Track.Source.ScreenShare],
     participant.identity
@@ -659,7 +712,7 @@ const ParticipantVideo: React.FC<{
   // Espelha só a própria câmera local (convenção de todo app de chamada — a
   // pessoa se vê como num espelho); nunca a câmera remota nem screen share,
   // que trocaria a lateralidade de quem aponta pra algo ou viraria texto ilegível.
-  const shouldMirror = isLocal && activeTrack?.source === Track.Source.Camera;
+  const shouldMirror = isLocal && isFrontCamera && activeTrack?.source === Track.Source.Camera;
 
   return (
     <div style={{ position: "relative", overflow: "hidden", background: "#111827", ...style }}>
@@ -1147,6 +1200,16 @@ const RoomInner: React.FC<{
     finally { camTogglingRef.current = false; }
   }, [localParticipant, camOn, videoDeviceId]);
 
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const flipCamera = useCallback(async () => {
+    const next = facingMode === "user" ? "environment" : "user";
+    try {
+      await localParticipant.setCameraEnabled(true, { facingMode: next } as any);
+      setFacingMode(next);
+    } catch {}
+  }, [localParticipant, facingMode]);
+
   const toggleScreen = useCallback(async () => {
     try { await localParticipant.setScreenShareEnabled(!localHasScreen); } catch {}
   }, [localParticipant, localHasScreen]);
@@ -1224,6 +1287,7 @@ const RoomInner: React.FC<{
                 <ParticipantVideo
                   participant={localParticipant}
                   isLocal={true}
+                  isFrontCamera={facingMode === "user"}
                   style={{ width: "100%", height: "100%", borderRadius: 0 }}
                   objectFit="cover"
                   forceSource={Track.Source.Camera}
@@ -1255,6 +1319,7 @@ const RoomInner: React.FC<{
             <ParticipantVideo
               participant={mainParticipant}
               isLocal={mainIsLocal}
+              isFrontCamera={facingMode === "user"}
               style={{ width: "100%", height: "100%", borderRadius: 0 }}
               objectFit="contain"
             />
@@ -1277,6 +1342,7 @@ const RoomInner: React.FC<{
                 <ParticipantVideo
                   participant={pipParticipant}
                   isLocal={pipParticipant.identity === localParticipant.identity}
+                  isFrontCamera={facingMode === "user"}
                   style={{ width: "100%", height: "100%", borderRadius: 0 }}
                   objectFit="cover"
                   hideName
@@ -1337,6 +1403,16 @@ const RoomInner: React.FC<{
             </button>
             <span style={{ fontSize: 10, color: camOn ? "#94a3b8" : "#f87171", letterSpacing: ".3px" }}>{camOn ? "Câmera" : "Deslig."}</span>
           </div>
+
+          {/* Virar câmera (só mobile, câmera ligada) */}
+          {isMobile && camOn && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <button onClick={flipCamera} style={btn(true)}>
+                <SwitchCamera size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Virar</span>
+            </div>
+          )}
 
           {/* Compartilhar tela — esconde em mobile */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
