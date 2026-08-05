@@ -398,7 +398,8 @@ async function getAuthorizedInvoiceForDelivery(tenantId, transactionId) {
             COALESCE(p.whatsapp, p.phone) AS patient_whatsapp
        FROM nfse_invoices ni
        LEFT JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
-       LEFT JOIN patients p ON p.id = ft.patient_id
+       LEFT JOIN patients p ON p.tenant_id = ft.tenant_id
+            AND (p.id = ft.patient_id OR (ft.patient_id IS NULL AND p.name = ft.payer_name))
       WHERE ni.financial_transaction_id = ? AND ni.tenant_id = ?`,
     [transactionId, tenantId]
   );
@@ -524,7 +525,8 @@ router.get('/', authMiddleware, async (req, res) => {
               p.email AS patient_email, COALESCE(p.whatsapp, p.phone) AS patient_whatsapp
          FROM nfse_invoices ni
          LEFT JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
-         LEFT JOIN patients p ON p.id = ft.patient_id
+         LEFT JOIN patients p ON p.tenant_id = ft.tenant_id
+              AND (p.id = ft.patient_id OR (ft.patient_id IS NULL AND p.name = ft.payer_name))
         WHERE ${whereSql}
         ORDER BY ni.created_at DESC
         LIMIT ? OFFSET ?`,
