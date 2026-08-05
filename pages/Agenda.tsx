@@ -2199,10 +2199,12 @@ export const Agenda: React.FC = () => {
                                                     {(() => {
                                                       const disp = patientComandas.filter(c => {
                                                         const total = Number(c.sessions_total ?? 0);
-                                                        const agendadas = appointments.filter(a =>
-                                                          String(a.comanda_id) === String(c.id) && a.status !== 'cancelled' &&
-                                                          (!formData.id || String(a.id) !== String(formData.id))
-                                                        ).length;
+                                                        // sessions_scheduled vem fresco do backend a cada troca de paciente —
+                                                        // conta vagas ocupadas por qualquer agendamento não cancelado, sem
+                                                        // depender da lista local de appointments (que pode estar obsoleta
+                                                        // se a sessão foi criada em outra aba/pelo bot desde o último fetchData).
+                                                        const isEditingThisComanda = formData.id && String(formData.comanda_id) === String(c.id);
+                                                        const agendadas = Math.max(0, Number(c.sessions_scheduled ?? 0) - (isEditingThisComanda ? 1 : 0));
                                                         return total === 0 || agendadas < total;
                                                       }).length;
                                                       const esg = patientComandas.length - disp;
@@ -2219,10 +2221,8 @@ export const Agenda: React.FC = () => {
                                                     {patientComandas.map(c => {
                                                       const tot = c.sessions_total ?? 0;
                                                       const used = c.sessions_used ?? 0;
-                                                      const agendadas = appointments.filter(a =>
-                                                        String(a.comanda_id) === String(c.id) && a.status !== 'cancelled' &&
-                                                        (!formData.id || String(a.id) !== String(formData.id))
-                                                      ).length;
+                                                      const isEditingThisComanda = formData.id && String(formData.comanda_id) === String(c.id);
+                                                      const agendadas = Math.max(0, Number(c.sessions_scheduled ?? 0) - (isEditingThisComanda ? 1 : 0));
                                                       const pct = tot > 0 ? Math.round((Math.min(agendadas, tot) / tot) * 100) : 0;
                                                       const esgotada = tot > 0 && agendadas >= tot;
                                                       if (esgotada) {

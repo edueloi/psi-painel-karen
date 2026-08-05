@@ -1353,12 +1353,16 @@ router.get('/comandas/patient/:patientId', authMiddleware, async (req, res) => {
                     'SELECT id, start_time, status FROM appointments WHERE comanda_id = ?',
                     [c.id]
                 );
-                
-                const usedCount = aptData.filter(a => 
+
+                const usedCount = aptData.filter(a =>
                     ['completed', 'no_show', 'no-show'].includes(a.status)
                 ).length;
-                
+
                 c.sessions_used = usedCount;
+                // Vagas já ocupadas por agendamentos não cancelados (independente do status) —
+                // o frontend usa isso para bloquear a comanda antes de tentar criar sessão extra,
+                // sem depender de recontar a lista local de appointments (que pode estar obsoleta).
+                c.sessions_scheduled = aptData.filter(a => a.status !== 'cancelled').length;
                 const [pymtData] = await db.query(
                     `SELECT id, amount, date as payment_date, payment_method, observation as notes, receipt_code
                      FROM financial_transactions 
