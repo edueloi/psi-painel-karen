@@ -1205,6 +1205,10 @@ const RoomInner: React.FC<{
   const flipCamera = useCallback(async () => {
     const next = facingMode === "user" ? "environment" : "user";
     try {
+      // setCameraEnabled(true, options) ignora `options` e só faz unmute()
+      // quando já existe uma publicação ativa — o facingMode só é respeitado
+      // ao criar uma track nova, por isso é preciso desligar e religar.
+      await localParticipant.setCameraEnabled(false);
       await localParticipant.setCameraEnabled(true, { facingMode: next } as any);
       setFacingMode(next);
     } catch {}
