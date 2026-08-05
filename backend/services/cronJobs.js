@@ -113,8 +113,8 @@ async function checkSubscriptionReminders() {
         ? (daysLeft < 0 ? 'Seu acesso PsiFlux continua aguardando a escolha de um plano' : daysLeft === 0 ? 'Seu período de teste PsiFlux terminou' : `Seu teste PsiFlux termina em ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`)
         : (daysLeft < 0 ? 'Ainda não identificamos a renovação da sua assinatura PsiFlux' : daysLeft === 0 ? 'Sua assinatura PsiFlux venceu — renove para continuar' : `Sua assinatura PsiFlux vence em ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`);
       const html = isTrial
-        ? templates.trialReminder({ name: recipient.name, endsAt: fmtDate(recipient.ends_at), daysLeft, renewalUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/assinatura` })
-        : templates.subscriptionReminder({ name: recipient.name, planName: recipient.plan_name, expiresAt: fmtDate(recipient.ends_at), daysLeft, renewalUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/assinatura` });
+        ? templates.trialReminder({ name: recipient.name, endsAt: fmtDate(recipient.ends_at), daysLeft, renewalUrl: `${process.env.APP_URL || 'https://painel.psiflux.com.br'}/assinatura` })
+        : templates.subscriptionReminder({ name: recipient.name, planName: recipient.plan_name, expiresAt: fmtDate(recipient.ends_at), daysLeft, renewalUrl: `${process.env.APP_URL || 'https://painel.psiflux.com.br'}/assinatura` });
       const sent = await sendMail(recipient.email, subject, html);
 
       if (sent) {
@@ -867,6 +867,40 @@ async function autoConfirmAppointments() {
       `, [now]);
       if (result.affectedRows > 0) {
           console.log(`✅ [Cron] ${result.affectedRows} agendamentos passados marcados como confirmados.`);
+      }
+
+      // Reagendados e confirmados antigos são concluídos após o horário e
+      // consomem a sessão da comanda. O confirmado aguarda 30 minutos para
+      // continuar visível nesse status antes da finalização automática.
+      const [atendimentosFinalizaveis] = await db.query(`
+        SELECT tenant_id, comanda_id, COUNT(*) AS total
+        FROM appointments
+        WHERE (status = 'rescheduled' AND start_time < ?)
+           OR (status = 'confirmed' AND start_time < DATE_SUB(?, INTERVAL 30 MINUTE))
+        GROUP BY tenant_id, comanda_id
+      `, [now, now]);
+      const [finalizadosResult] = await db.query(`
+        UPDATE appointments
+        SET status = 'completed'
+        WHERE (status = 'rescheduled' AND start_time < ?)
+           OR (status = 'confirmed' AND start_time < DATE_SUB(?, INTERVAL 30 MINUTE))
+      `, [now, now]);
+
+      for (const item of atendimentosFinalizaveis) {
+        if (!item.comanda_id) continue;
+        await db.query(
+          'UPDATE comandas SET sessions_used = LEAST(sessions_used + ?, sessions_total) WHERE id = ? AND tenant_id = ?',
+          [Number(item.total) || 0, item.comanda_id, item.tenant_id]
+        );
+        await db.query(
+          `UPDATE comandas
+           SET status = CASE WHEN paid_value >= total AND sessions_used >= sessions_total THEN 'closed' ELSE 'open' END
+           WHERE id = ? AND tenant_id = ?`,
+          [item.comanda_id, item.tenant_id]
+        );
+      }
+      if (finalizadosResult.affectedRows > 0) {
+        console.log(`✅ [Cron] ${finalizadosResult.affectedRows} atendimentos confirmados ou reagendados marcados como realizados.`);
       }
   } catch (err) {
       console.error('❌ Erro no job de confirmação automática:', err.message);

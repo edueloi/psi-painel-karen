@@ -49,6 +49,15 @@ app.post('/bot-api/test/:tenantId', async (req, res) => {
   }
 });
 
+app.post('/bot-api/document/:tenantId', async (req, res) => {
+  const { phone, filePath, fileName, caption } = req.body;
+  try {
+    const result = await wppService.sendDocument(req.params.tenantId, phone, filePath, fileName, caption);
+    if (result === true) return res.json({ success: true });
+    res.status(500).json({ error: typeof result === 'string' ? result : 'Falha no envio' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── STARTUP ───
 
 app.listen(PORT, () => {

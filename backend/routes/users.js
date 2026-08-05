@@ -93,7 +93,7 @@ router.post('/', checkPermission('manage_professionals'), async (req, res) => {
         name,
         email,
         clinicName: req.user.name || 'sua clínica',
-        loginUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/login`,
+        loginUrl: `${process.env.APP_URL || 'https://painel.psiflux.com.br'}/login`,
       })
     ).catch(() => {});
 

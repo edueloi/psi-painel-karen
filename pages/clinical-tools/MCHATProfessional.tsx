@@ -38,6 +38,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { PageHeader } from '../../components/UI/PageHeader';
+import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
 import { Button } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { Patient } from '../../types';
@@ -228,7 +229,7 @@ export const MCHATPage: React.FC = () => {
   }, [selectedPatientId]);
 
   const getShareLink = () => {
-    const baseUrl = window.location.origin;
+    const baseUrl = PUBLIC_BASE_URL;
     return `${baseUrl}/f/m-chat-r?u=${user?.shareToken}&p=${selectedPatientId}`;
   };
 

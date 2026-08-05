@@ -988,7 +988,7 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
           <div className="flex items-center gap-1 shrink-0">
             {doc.file_url && (
               <a
-                href={doc.file_url.startsWith('/') ? `${window.location.origin.replace('3000', '3013')}${doc.file_url}` : doc.file_url}
+                href={getStaticUrl(doc.file_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors"

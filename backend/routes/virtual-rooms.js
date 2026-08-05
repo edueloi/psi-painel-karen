@@ -1004,13 +1004,14 @@ router.get('/public/:id/preview', async (req, res) => {
       return res.send(`<html><head><meta http-equiv="refresh" content="0;url=/sala/${rid}"><script>window.location.href='/sala/${rid}';</script></head><body>Redirecionando...</body></html>`);
     }
 
+    const publicUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
     const room = rooms[0];
     const roomSlug = room.code || room.hash || rid;
-    const roomUrl = `https://psiflux.com.br/sala/${roomSlug}`;
+    const roomUrl = `${publicUrl}/sala/${roomSlug}`;
 
     // Imagem: prefere logo da clínica, depois avatar, depois padrão
-    const rawImage = room.clinic_logo_url || room.avatar_url || 'https://psiflux.com.br/images/logo-psiflux.png';
-    const ogImage = rawImage.startsWith('http') ? rawImage : `https://psiflux.com.br${rawImage}`;
+    const rawImage = room.clinic_logo_url || room.avatar_url || `${publicUrl}/images/logo-psiflux.png`;
+    const ogImage = rawImage.startsWith('http') ? rawImage : `${publicUrl}${rawImage}`;
 
     const company  = room.company_name || room.host_name || 'Consultório';
     const hostName = room.host_name || 'Profissional';

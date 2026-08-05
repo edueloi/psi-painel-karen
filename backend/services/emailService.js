@@ -15,13 +15,13 @@ const transporter = nodemailer.createTransport({
 
 const FROM = `"${process.env.EMAIL_FROM_NAME || 'PsiFlux'}" <${process.env.EMAIL_USER}>`;
 
-async function sendMail(to, subject, html) {
+async function sendMail(to, subject, html, options = {}) {
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn('⚠️  Email não configurado. Adicione EMAIL_HOST, EMAIL_USER e EMAIL_PASS no .env');
     return false;
   }
   try {
-    await transporter.sendMail({ from: FROM, to, subject, html });
+    await transporter.sendMail({ from: FROM, to, subject, html, ...options });
     console.log(`📧 Email enviado → ${to} | ${subject}`);
     return true;
   } catch (err) {
@@ -331,7 +331,7 @@ function templateTeamWelcome({ name, email, clinicName, loginUrl }) {
       <li>Acompanhar pacientes e informações clínicas</li>
       <li>Usar os recursos liberados para o seu perfil</li>
     </ul>
-    <div style="text-align:center;"><a href="${loginUrl || 'https://app.psiflux.com.br/login'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Acessar meu painel</a></div>`;
+    <div style="text-align:center;"><a href="${loginUrl || 'https://painel.psiflux.com.br/login'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Acessar meu painel</a></div>`;
   return baseTemplate('Sua conta no PsiFlux está pronta', content, 'Você está recebendo este e-mail porque uma conta foi criada para você.');
 }
 
@@ -346,7 +346,7 @@ function templateSubscriptionReminder({ name, planName, expiresAt, daysLeft, ren
       <p style="margin:10px 0 0;font-size:14px;color:#475569;">Plano: <strong>${planName || 'PsiFlux'}</strong>${expiresAt ? ` · Vencimento: <strong>${expiresAt}</strong>` : ''}</p>
     </div>
     <p style="margin:0 0 26px;font-size:14px;color:#64748b;">Renove agora para continuar usando todos os recursos do seu painel sem interrupções.</p>
-    <div style="text-align:center;"><a href="${renewalUrl || 'https://app.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Renovar assinatura</a></div>`;
+    <div style="text-align:center;"><a href="${renewalUrl || 'https://painel.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Renovar assinatura</a></div>`;
   return baseTemplate(expired ? 'Sua assinatura venceu' : 'Sua assinatura está perto de vencer', content, 'Lembrete automático de assinatura do PsiFlux.');
 }
 
@@ -361,7 +361,7 @@ function templateTrialReminder({ name, endsAt, daysLeft, renewalUrl }) {
       ${endsAt ? `<p style="margin:10px 0 0;font-size:14px;color:#475569;">Data: <strong>${endsAt}</strong></p>` : ''}
     </div>
     <p style="margin:0 0 26px;font-size:14px;color:#64748b;">Escolha seu plano para continuar aproveitando todos os recursos do PsiFlux.</p>
-    <div style="text-align:center;"><a href="${renewalUrl || 'https://app.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Escolher meu plano</a></div>`;
+    <div style="text-align:center;"><a href="${renewalUrl || 'https://painel.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Escolher meu plano</a></div>`;
   return baseTemplate(expired ? 'Seu teste PsiFlux terminou' : 'Seu teste PsiFlux está perto do fim', content, 'Lembrete automático do seu período de teste no PsiFlux.');
 }
 
@@ -373,6 +373,13 @@ function templatePlatformUpdate({ title, content, buttonText, buttonUrl }) {
     ? `<div style="text-align:center;"><a href="${buttonUrl}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">${buttonText}</a></div>`
     : '';
   return baseTemplate(title, contentHtml + cta, 'Comunicado enviado pela equipe PsiFlux.');
+}
+
+function templateNfseDelivered({ patientName, numero, verificationUrl }) {
+  const content = `<p style="margin:0 0 18px;font-size:15px;color:#475569;">Olá, <strong>${patientName || 'paciente'}</strong>.</p>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.7;color:#475569;">Sua Nota Fiscal de Serviço Eletrônica${numero ? ` nº <strong>${numero}</strong>` : ''} está disponível. O PDF segue anexado a este e-mail.</p>
+    ${verificationUrl ? `<div style="text-align:center;"><a href="${verificationUrl}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:15px 34px;border-radius:14px;text-decoration:none;">Consultar nota fiscal</a></div>` : ''}`;
+  return baseTemplate('Sua Nota Fiscal está disponível', content, 'Mensagem enviada pelo consultório através do PsiFlux.');
 }
 
 /** 8. Pagamento recebido (Mercado Pago) */
@@ -404,6 +411,7 @@ module.exports = {
     subscriptionReminder: templateSubscriptionReminder,
     trialReminder: templateTrialReminder,
     platformUpdate: templatePlatformUpdate,
+    nfseDelivered: templateNfseDelivered,
     paymentReceived: templatePaymentReceived,
   }
 };

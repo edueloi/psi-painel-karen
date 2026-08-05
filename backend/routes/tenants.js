@@ -246,7 +246,7 @@ router.post('/', async (req, res) => {
         name: admin_name || 'Administrador(a)',
         email: admin_email,
         clinicName: company_name,
-        loginUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/login`,
+        loginUrl: `${process.env.APP_URL || 'https://painel.psiflux.com.br'}/login`,
       })
     ).catch(() => {});
 

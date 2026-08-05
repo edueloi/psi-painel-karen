@@ -2707,7 +2707,9 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
     const { amount, appointment_id, comanda_id, installments } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
 
-    const baseUrl = process.env.APP_BASE_URL || 'https://app.psiflux.com.br';
+    // back_urls leva o PACIENTE de volta ao Portal do Paciente após pagar — precisa
+    // ser o domínio do portal, não o do painel do profissional.
+    const baseUrl = process.env.PORTAL_URL || 'https://portal.psiflux.com.br';
     const patientName = session.full_name || 'Paciente';
     const patientEmail = session.email || 'pagamento@psiflux.com.br';
 

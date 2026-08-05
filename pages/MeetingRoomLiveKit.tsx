@@ -24,6 +24,7 @@ import { api, API_BASE_URL } from "../services/api";
 import { useUserPreferences } from "../contexts/UserPreferencesContext";
 import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
 import logoUrl from '../images/logo-psiflux.png';
+import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface MeetingRoomLiveKitProps { isGuest?: boolean; }
@@ -125,7 +126,7 @@ const Lobby: React.FC<{
   const [selectedVideo, setSelectedVideo] = useState("");
   const [selectedAudioOut, setSelectedAudioOut] = useState("");
 
-  const guestUrl = `${window.location.origin}/sala/${roomCode}`;
+  const guestUrl = `${PUBLIC_BASE_URL}/sala/${roomCode}`;
 
   useEffect(() => {
     if (!roomCode) return;
@@ -462,7 +463,7 @@ const Lobby: React.FC<{
 // ── Painel de Convidar ────────────────────────────────────────────────────────
 const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ roomCode, onClose }) => {
   const [copied, setCopied] = useState(false);
-  const guestUrl = `${window.location.origin}/sala/${roomCode}`;
+  const guestUrl = `${PUBLIC_BASE_URL}/sala/${roomCode}`;
 
   const copy = () => {
     navigator.clipboard.writeText(guestUrl);

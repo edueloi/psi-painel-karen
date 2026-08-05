@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
 import { api } from '../services/api';
+import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
 import { Patient, User, VirtualRoom } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -587,14 +588,14 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const handleCopyLink = (room: VirtualRoom) => {
-    const url = `${window.location.origin}/sala/${room.code}`;
+    const url = `${PUBLIC_BASE_URL}/sala/${room.code}`;
     navigator.clipboard.writeText(url);
     setCopiedId(room.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const openWhatsAppShare = (room: VirtualRoom) => {
-    const shareUrl = `${window.location.origin}/api/virtual-rooms/public/${room.code}/preview`;
+    const shareUrl = `${PUBLIC_BASE_URL}/api/virtual-rooms/public/${room.code}/preview`;
     const company = user?.companyName || user?.name || 'seu profissional';
     const message = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
@@ -1283,7 +1284,7 @@ export const VirtualRooms: React.FC = () => {
               <div>
                 <div className="font-semibold text-emerald-700">Sala criada!</div>
                 <div className="break-all text-xs text-emerald-700">
-                  {`${window.location.origin}/sala/${createdRoom.code}`}
+                  {`${PUBLIC_BASE_URL}/sala/${createdRoom.code}`}
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">

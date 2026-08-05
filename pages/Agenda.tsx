@@ -15,6 +15,7 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -239,6 +240,12 @@ export const Agenda: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailQuickStatus, setDetailQuickStatus] = useState<string | null>(null);
   const [detailQuickNotes, setDetailQuickNotes] = useState('');
+  const [isQuickMessageOpen, setIsQuickMessageOpen] = useState(false);
+  const [quickMessage, setQuickMessage] = useState('');
+  const [quickTemplates, setQuickTemplates] = useState<any>({});
+  const [quickCategory, setQuickCategory] = useState('reminder_24h');
+  const [quickMessageContext, setQuickMessageContext] = useState<any>(null);
+  const [isSendingQuickMessage, setIsSendingQuickMessage] = useState(false);
   const [isComandaManagerOpen, setIsComandaManagerOpen] = useState(false);
   const [comandaManagerSourceId, setComandaManagerSourceId] = useState<string | null>(null);
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
@@ -255,6 +262,41 @@ export const Agenda: React.FC = () => {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [editingAptId, setEditingAptId] = useState<string | number | null>(null);
   const [editAptValues, setEditAptValues] = useState<{ date: string; time: string }>({ date: '', time: '' });
+
+
+  const renderQuickMessage = (template: string, context: any) => {
+    const values: Record<string, string> = {
+      patient_name: context?.patient?.name || context?.apt?.patient_name || 'Paciente',
+      professional_name: professionals.find(p => String(p.id) === String(context?.apt?.professional_id))?.name || user?.name || '',
+      date: context?.apt?.start ? new Date(context.apt.start).toLocaleDateString('pt-BR') : '',
+      time: context?.apt?.start ? new Date(context.apt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+      service: context?.service?.name || context?.package?.name || 'Consulta',
+      clinic_name: user?.companyName || user?.name || 'PsiFlux',
+      session_info: context?.apt?.recurrence_index ? `Sessão ${context.apt.recurrence_index} de ${context.apt.recurrence_count || ''}` : '',
+      package_name: context?.package?.name || '',
+      amount: String(context?.comanda?.totalValue || context?.comanda?.total || '').replace('.', ','),
+    };
+    return String(template || '').replace(/\{(\w+)\}/g, (_, key) => values[key] ?? `{${key}}`);
+  };
+  const openQuickMessage = async (context: any) => {
+    const fallback = { reminder_24h_msg: 'Olá {patient_name}! Lembramos do seu atendimento em {date} às {time}.', reminder_1h_msg: 'Olá {patient_name}! Seu atendimento é hoje às {time}.', payment_msg: 'Olá {patient_name}! Temos um lembrete de pagamento para você.' };
+    setQuickMessageContext(context); setQuickTemplates(fallback); setQuickCategory('reminder_24h'); setQuickMessage(renderQuickMessage(fallback.reminder_24h_msg, context)); setIsQuickMessageOpen(true);
+    try {
+      const data: any = await api.get('/whatsapp/preferences');
+      const prefs = data?.preferences || {};
+      const templates = { reminder_24h_msg: prefs.reminder_24h_msg || fallback.reminder_24h_msg, reminder_1h_msg: prefs.reminder_1h_msg || fallback.reminder_1h_msg, birthday_msg: prefs.birthday_msg || '', payment_msg: prefs.payment_msg || fallback.payment_msg };
+      setQuickTemplates(templates); setQuickMessage(renderQuickMessage(templates.reminder_24h_msg, context));
+    } catch { /* mantém mensagens padrão quando o bot não estiver configurado */ }
+  };
+  const sendQuickMessage = async () => {
+    const phone = quickMessageContext?.patient?.whatsapp || quickMessageContext?.patient?.phone;
+    if (!phone) { pushToast('error', 'Paciente sem WhatsApp cadastrado.'); return; }
+    if (!quickMessage.trim()) return;
+    setIsSendingQuickMessage(true);
+    try { await api.post('/whatsapp/test', { phone, message: quickMessage }); pushToast('success', 'Mensagem enviada pelo bot.'); setIsQuickMessageOpen(false); }
+    catch (e: any) { pushToast('error', e?.message || 'Não foi possível enviar pelo bot.'); }
+    finally { setIsSendingQuickMessage(false); }
+  };
 
   const [formData, setFormData] = useState<any>({
       type: 'consulta',
@@ -1211,6 +1253,7 @@ export const Agenda: React.FC = () => {
         ...apt,
         appointment_date: toLocalISO(apt.start),
         _originalDate: toLocalISO(apt.start),
+        patient_id: String(apt.patient_id || ''),
         psychologist_id: apt.professional_id || apt.psychologist_id,
         reschedule_reason: apt.reschedule_reason || '',
         comanda_id: apt.comanda_id || '',
@@ -1295,7 +1338,7 @@ export const Agenda: React.FC = () => {
           const titleText = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
           const roomData = { title: titleText, code: roomCode, patient_id: formData.patient_id, professional_id: formData.psychologist_id || formData.professional_id, appointment_id: savedAppointment.id, scheduled_start: localToUtc2(formData.appointment_date), provider: 'interno' };
           const room = await api.post<any>('/virtual-rooms', roomData);
-          const meetingUrl = `${window.location.origin}/sala/${room.code || roomCode}`;
+          const meetingUrl = `${PUBLIC_BASE_URL}/sala/${room.code || roomCode}`;
           await api.put(`/appointments/${savedAppointment.id}`, { ...payload, meeting_url: meetingUrl });
         } catch (roomError) { console.error('Erro ao criar sala virtual:', roomError); }
       }
@@ -1438,7 +1481,7 @@ export const Agenda: React.FC = () => {
 
     setFormData((prev: any) => ({
         ...prev,
-        comanda_id: c.id,
+        comanda_id: String(c.id),
         service_id: targetServiceId,
         duration_minutes: targetDuration,
         sync_to_livrocaixa: c.sync_to_livrocaixa ? true : prev.sync_to_livrocaixa,
@@ -1723,8 +1766,8 @@ export const Agenda: React.FC = () => {
               <IconButton
                 variant="outline"
                 size="sm"
-                onClick={() => setIsAgendaSettingsOpen(true)}
-                title="Configurações da agenda"
+                onClick={() => navigate('/agenda/configuracoes')}
+                title="Minha agenda: horários, dias e feriados"
               >
                 <Settings size={13} />
               </IconButton>
@@ -2053,12 +2096,15 @@ export const Agenda: React.FC = () => {
                               {/* PAZIENTE COMBOBOX */}
                               <Combobox
                                 label="Paciente"
-                                options={patients.map(p => ({ id: p.id, label: p.full_name || (p as any).name || '' }))}
+                                options={patients.map(p => ({ id: String(p.id), label: p.full_name || (p as any).name || '' }))}
                                 value={formData.patient_id || ''}
                                 icon={<UserIcon size={18} className="text-indigo-400" />}
                                 placeholder="Pesquisar ou adicionar paciente..."
                                 allowCustom={true}
-                                onChange={(val) => setFormData({...formData, patient_id: val})}
+                                onChange={(val) => {
+                                  const patientId = Array.isArray(val) ? val[0] : val;
+                                  setFormData({ ...formData, patient_id: String(patientId || ''), comanda_id: '' });
+                                }}
                               />
                           </div>
 
@@ -2068,7 +2114,7 @@ export const Agenda: React.FC = () => {
                                 {formData.comanda_id ? (
                                     /* ── Comanda selecionada ── */
                                     (() => {
-                                      const cc = patientComandas.find(c => c.id === formData.comanda_id);
+                                      const cc = patientComandas.find(c => String(c.id) === String(formData.comanda_id));
                                       const totalVal = cc?.total_value || cc?.totalValue || 0;
                                       const paidVal = cc?.paid_value || cc?.paidValue || 0;
                                       const pending = totalVal - paidVal;
@@ -2151,7 +2197,14 @@ export const Agenda: React.FC = () => {
                                                   </div>
                                                   <div className="flex items-center gap-1.5">
                                                     {(() => {
-                                                      const disp = patientComandas.filter(c => (c.sessions_total ?? 0) === 0 || (c.sessions_used ?? 0) < (c.sessions_total ?? 0)).length;
+                                                      const disp = patientComandas.filter(c => {
+                                                        const total = Number(c.sessions_total ?? 0);
+                                                        const agendadas = appointments.filter(a =>
+                                                          String(a.comanda_id) === String(c.id) && a.status !== 'cancelled' &&
+                                                          (!formData.id || String(a.id) !== String(formData.id))
+                                                        ).length;
+                                                        return total === 0 || agendadas < total;
+                                                      }).length;
                                                       const esg = patientComandas.length - disp;
                                                       return (
                                                         <>
@@ -2166,8 +2219,12 @@ export const Agenda: React.FC = () => {
                                                     {patientComandas.map(c => {
                                                       const tot = c.sessions_total ?? 0;
                                                       const used = c.sessions_used ?? 0;
-                                                      const pct = tot > 0 ? Math.round((used / tot) * 100) : 0;
-                                                      const esgotada = tot > 0 && used >= tot;
+                                                      const agendadas = appointments.filter(a =>
+                                                        String(a.comanda_id) === String(c.id) && a.status !== 'cancelled' &&
+                                                        (!formData.id || String(a.id) !== String(formData.id))
+                                                      ).length;
+                                                      const pct = tot > 0 ? Math.round((Math.min(agendadas, tot) / tot) * 100) : 0;
+                                                      const esgotada = tot > 0 && agendadas >= tot;
                                                       if (esgotada) {
                                                         return (
                                                           <div key={c.id} className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50/60 opacity-70">
@@ -2180,7 +2237,7 @@ export const Agenda: React.FC = () => {
                                                                 <div className="w-16 h-1 bg-slate-200 rounded-full overflow-hidden">
                                                                   <div className="h-full bg-slate-400 rounded-full w-full" />
                                                                 </div>
-                                                                <span className="text-[9px] font-bold text-slate-400">{used}/{tot} · esgotada</span>
+                                                                <span className="text-[9px] font-bold text-slate-400">{Math.min(agendadas, tot)}/{tot} agendadas</span>
                                                               </div>
                                                             </div>
                                                             <button
@@ -2218,7 +2275,7 @@ export const Agenda: React.FC = () => {
                                                                 <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
                                                                   <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${pct}%` }} />
                                                                 </div>
-                                                                <span className="text-[9px] font-bold text-slate-400">{used}/{tot} sessões</span>
+                                                                <span className="text-[9px] font-bold text-slate-400">{Math.min(agendadas, tot)}/{tot} agendadas · {used} consumida{used === 1 ? '' : 's'}</span>
                                                               </div>
                                                             </div>
                                                             <ChevronRight size={13} className="text-slate-300 group-hover:text-indigo-400 shrink-0 transition-colors" />
@@ -2353,7 +2410,7 @@ export const Agenda: React.FC = () => {
                             {formData.status === 'cancelled' && (
                               <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100 animate-fadeIn">
                                 <AlertCircle size={14} className="text-rose-500 shrink-0" />
-                                <p className="text-[10px] font-bold text-rose-700 leading-tight">Sessão cancelada será contabilizada na comanda.</p>
+                                <p className="text-[10px] font-bold text-rose-700 leading-tight">Sessão cancelada não será contabilizada na comanda e poderá ser reagendada.</p>
                               </div>
                             )}
 
@@ -3537,17 +3594,18 @@ export const Agenda: React.FC = () => {
 
               {/* ── PRÓXIMOS ATENDIMENTOS DO PACIENTE ── */}
               {apt.patient_id && (() => {
-                const now = new Date();
+                const isPackageSession = !!apt.package_id || (!!apt.comanda_id && Number(cmnd?.sessions_total || 0) > 1);
+                if (!isPackageSession) return null;
                 const upcomingApts = appointments
-                  .filter(a => String(a.patient_id) === String(apt.patient_id) && String(a.id) !== String(apt.id) && new Date(a.start) >= now)
+                  .filter(a => String(a.patient_id) === String(apt.patient_id) && (apt.package_id ? String(a.package_id) === String(apt.package_id) : String(a.comanda_id) === String(apt.comanda_id)))
                   .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-                  .slice(0, 5);
+                  .slice(0, 30);
                 if (upcomingApts.length === 0) return null;
                 return (
                   <div className="mx-1 mb-3">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                       <CalendarDays size={10} />
-                      Próximos atendimentos ({upcomingApts.length})
+                      Datas do pacote ({upcomingApts.length})
                     </p>
                     <div className="space-y-1 max-h-[120px] overflow-y-auto custom-scrollbar">
                       {upcomingApts.map(ua => {
@@ -3666,8 +3724,8 @@ export const Agenda: React.FC = () => {
 
               {/* ── ACTION BAR ── */}
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 pt-3 border-t border-slate-100">
-                {patient?.phone && (
-                  <button onClick={() => window.open(`https://wa.me/${patient.phone!.replace(/\D/g, '')}`, '_blank')}
+                {(patient?.whatsapp || patient?.phone) && (
+                  <button onClick={() => openQuickMessage({ apt, patient, service: srv, package: pkg, comanda: cmnd })}
                     className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
                     <MessageSquare size={15} className="text-emerald-600" />
                     <span className="text-[8px] font-black text-emerald-600 uppercase tracking-wider">WhatsApp</span>
@@ -3797,6 +3855,19 @@ export const Agenda: React.FC = () => {
       </Modal>
 
       {/* ── DETAIL RESCHEDULE MODAL (horário button in detail modal) ── */}
+      <Modal isOpen={isQuickMessageOpen} onClose={() => setIsQuickMessageOpen(false)} title="Mensagem rápida" maxWidth="max-w-md">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">Escolha uma mensagem configurada no WhatsApp Bot, revise e envie para <strong>{quickMessageContext?.patient?.name || quickMessageContext?.apt?.patient_name}</strong>.</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[['reminder_24h', 'Lembrete 24h'], ['reminder_1h', 'Lembrete 1h'], ['payment', 'Pagamento'], ['birthday', 'Aniversário']].map(([key, label]) => (
+              <button key={key} type="button" onClick={() => { setQuickCategory(key); setQuickMessage(renderQuickMessage(quickTemplates[`${key}_msg`], quickMessageContext)); }} className={cx('px-3 py-2 rounded-xl border text-xs font-bold transition', quickCategory === key ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300')}>{label}</button>
+            ))}
+          </div>
+          <textarea value={quickMessage} onChange={e => setQuickMessage(e.target.value)} rows={9} className="w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none resize-none" />
+          <button onClick={sendQuickMessage} disabled={isSendingQuickMessage || !quickMessage.trim()} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-center gap-2 disabled:opacity-50">{isSendingQuickMessage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Enviar pelo bot</button>
+        </div>
+      </Modal>
+
       <Modal
         isOpen={isDetailRescheduleOpen}
         onClose={() => setIsDetailRescheduleOpen(false)}
@@ -3971,7 +4042,7 @@ export const Agenda: React.FC = () => {
             .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
           const usedCount = cmndAppointments.filter((a: any) =>
-            ['completed','confirmed','no_show','no-show','cancelled'].includes(a.status)
+            ['completed', 'no_show', 'no-show'].includes(a.status)
           ).length;
           const totalSessions = cmnd.sessions_total || 1;
           const progress = Math.min(100, (usedCount / totalSessions) * 100);
@@ -4226,7 +4297,7 @@ export const Agenda: React.FC = () => {
                                 <div className="w-[130px]">
                                   <Combobox
                                     options={statusOptions}
-                                    value={statusKey === 'no-show' ? 'no_show' : (appointment.status || 'scheduled')}
+                                    value={statusKey}
                                     onChange={(val) => handleUpdateAppointmentStatus(appointment.id, Array.isArray(val) ? val[0] : val)}
                                     placeholder="Status"
                                     className="!h-7 !text-[11px]"

@@ -574,7 +574,7 @@ router.post('/public/:hash/responses', async (req, res) => {
 
           <!-- CTA -->
           <div style="text-align:center;margin:28px 0 8px;">
-            <a href="https://psiflux.com.br${alertLink}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font-weight:900;font-size:14px;padding:16px 40px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">Ver no PsiFlux →</a>
+            <a href="${process.env.APP_URL || 'https://painel.psiflux.com.br'}${alertLink}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font-weight:900;font-size:14px;padding:16px 40px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">Ver no PsiFlux →</a>
           </div>
         </td></tr>
 

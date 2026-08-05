@@ -9,11 +9,14 @@ const { authMiddleware, checkPermission } = require('../middleware/auth');
 const { emitirNfse } = require('../services/nfse/emitir');
 const { parsePfx } = require('../services/nfse/signer');
 const { encryptCertPassword } = require('../services/nfse/certCrypto');
+const { sendMail, templates } = require('../services/emailService');
+const axios = require('axios');
 
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Diretório privado — NUNCA dentro de backend/public (que é servido via express.static).
 const CERTS_DIR = process.env.NFSE_CERTS_DIR || path.join(__dirname, '../private_storage/nfse_certs');
+const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -389,6 +392,61 @@ router.post('/:transactionId/retry', authMiddleware, checkPermission('manage_pay
   }
 });
 
+async function getAuthorizedInvoiceForDelivery(tenantId, transactionId) {
+  const [[invoice]] = await db.query(
+    `SELECT ni.*, p.name AS patient_name, p.email AS patient_email,
+            COALESCE(p.whatsapp, p.phone) AS patient_whatsapp
+       FROM nfse_invoices ni
+       LEFT JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
+       LEFT JOIN patients p ON p.id = ft.patient_id
+      WHERE ni.financial_transaction_id = ? AND ni.tenant_id = ?`,
+    [transactionId, tenantId]
+  );
+  return invoice;
+}
+
+function nfsePublicUrl(invoice) {
+  return invoice?.chave_acesso ? `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave=${encodeURIComponent(invoice.chave_acesso)}` : null;
+}
+
+// Envia o PDF autorizado por e-mail. Só existe ação quando o paciente possui
+// e-mail cadastrado; o servidor reforça essa regra para evitar envio indevido.
+router.post('/:transactionId/send-email', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  try {
+    const invoice = await getAuthorizedInvoiceForDelivery(req.user.tenant_id, Number(req.params.transactionId));
+    if (!invoice || invoice.status !== 'authorized' || !invoice.nfse_pdf_path || !fs.existsSync(invoice.nfse_pdf_path)) return res.status(404).json({ error: 'PDF da NFS-e autorizada não está disponível.' });
+    if (!invoice.patient_email) return res.status(422).json({ error: 'Este paciente não possui e-mail cadastrado.' });
+
+    const sent = await sendMail(
+      invoice.patient_email,
+      `Nota Fiscal de Serviço${invoice.numero ? ` nº ${invoice.numero}` : ''}`,
+      templates.nfseDelivered({ patientName: invoice.patient_name, numero: invoice.numero, verificationUrl: nfsePublicUrl(invoice) }),
+      { attachments: [{ filename: `nfse-${invoice.chave_acesso || invoice.numero}.pdf`, path: invoice.nfse_pdf_path, contentType: 'application/pdf' }] }
+    );
+    if (!sent) return res.status(502).json({ error: 'Não foi possível enviar o e-mail. Verifique a configuração de e-mail.' });
+    res.json({ success: true, email: invoice.patient_email });
+  } catch (err) { console.error('[NFS-e] Erro ao enviar por e-mail:', err); res.status(500).json({ error: 'Erro ao enviar nota por e-mail.' }); }
+});
+
+// Envia o PDF pelo WhatsApp; a mensagem também inclui o link oficial de consulta.
+router.post('/:transactionId/send-whatsapp', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
+  try {
+    const invoice = await getAuthorizedInvoiceForDelivery(req.user.tenant_id, Number(req.params.transactionId));
+    if (!invoice || invoice.status !== 'authorized' || !invoice.nfse_pdf_path || !fs.existsSync(invoice.nfse_pdf_path)) return res.status(404).json({ error: 'PDF da NFS-e autorizada não está disponível.' });
+    if (!invoice.patient_whatsapp) return res.status(422).json({ error: 'Este paciente não possui WhatsApp cadastrado.' });
+    const url = nfsePublicUrl(invoice);
+    const message = `Olá, ${invoice.patient_name || ''}! Sua Nota Fiscal de Serviço${invoice.numero ? ` nº ${invoice.numero}` : ''} está disponível.${url ? `\n\nConsulte a nota oficial: ${url}` : ''}`.trim();
+    const response = await axios.post(`${BOT_URL}/document/${req.user.tenant_id}`, {
+      phone: invoice.patient_whatsapp,
+      filePath: invoice.nfse_pdf_path,
+      fileName: `nota-fiscal-${invoice.chave_acesso || invoice.numero}.pdf`,
+      caption: message,
+    }, { timeout: 30000 });
+    if (response.data?.success === false) throw new Error(response.data?.error || 'Falha no WhatsApp');
+    res.json({ success: true, whatsapp: invoice.patient_whatsapp });
+  } catch (err) { console.error('[NFS-e] Erro ao enviar por WhatsApp:', err.message); res.status(502).json({ error: err.response?.data?.error || err.message || 'Erro ao enviar nota por WhatsApp.' }); }
+});
+
 // ── GET /nfse/:transactionId — status da NFS-e de um lançamento ─────────────
 router.get('/:transactionId', authMiddleware, async (req, res) => {
   try {
@@ -462,7 +520,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
     const [invoices] = await db.query(
       `SELECT ni.*, ft.description AS transaction_description, ft.date AS transaction_date,
-              COALESCE(p.name, ft.beneficiary_name, ft.payer_name) AS patient_name
+              COALESCE(p.name, ft.beneficiary_name, ft.payer_name) AS patient_name,
+              p.email AS patient_email, COALESCE(p.whatsapp, p.phone) AS patient_whatsapp
          FROM nfse_invoices ni
          LEFT JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
          LEFT JOIN patients p ON p.id = ft.patient_id

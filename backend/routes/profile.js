@@ -111,6 +111,15 @@ router.get('/me', async (req, res) => {
 });
 
 // PUT /profile/me
+router.put('/me/schedule', async (req, res) => {
+  try {
+    const { schedule, closed_dates } = req.body;
+    if (!Array.isArray(schedule) || !Array.isArray(closed_dates)) return res.status(400).json({ error: 'Agenda inválida.' });
+    await db.query('UPDATE users SET schedule = ?, closed_dates = ? WHERE id = ?', [JSON.stringify(schedule), JSON.stringify(closed_dates), req.user.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao salvar agenda.' }); }
+});
+
 router.put('/me', async (req, res) => {
   try {
     const {

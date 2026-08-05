@@ -181,7 +181,9 @@ export const Profile: React.FC = () => {
   };
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic' | 'external'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic' | 'external'>(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'schedule' ? 'schedule' : 'info'
+  );
 
   // Aurora profile builder
   const [auroraOpen, setAuroraOpen] = useState(false);

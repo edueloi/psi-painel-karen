@@ -151,7 +151,7 @@ router.post('/charge', authMiddleware, async (req, res) => {
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
 
     const amountInCents = Math.round(amount * 100);
-    const baseUrl = process.env.APP_BASE_URL || 'https://app.psiflux.com.br';
+    const baseUrl = process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
 
     const payload = {
       amount: amountInCents,

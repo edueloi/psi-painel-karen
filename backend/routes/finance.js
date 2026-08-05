@@ -1213,6 +1213,24 @@ router.get('/comandas', authMiddleware, async (req, res) => {
   try {
     await withSchema();
     await withFinanceSchema();
+    // Uma comanda paga só é finalizada quando todas as sessões forem consumidas.
+    // Isso também corrige comandas antigas que foram fechadas apenas pelo pagamento.
+    await db.query(`
+      UPDATE comandas c
+      LEFT JOIN (
+        SELECT comanda_id, COUNT(*) AS used_count
+        FROM appointments
+        WHERE tenant_id = ? AND status IN ('completed', 'no_show', 'no-show')
+        GROUP BY comanda_id
+      ) a ON a.comanda_id = c.id
+      SET c.sessions_used = COALESCE(a.used_count, 0),
+          c.status = CASE
+            WHEN COALESCE(a.used_count, 0) >= COALESCE(c.sessions_total, 1)
+                 AND COALESCE(c.paid_value, 0) >= COALESCE(c.total, 0) THEN 'closed'
+            ELSE 'open'
+          END
+      WHERE c.tenant_id = ?
+    `, [req.user.tenant_id, req.user.tenant_id]);
     const { status } = req.query;
     let query = `
       SELECT c.*, p.name as patient_name, u.name as professional_name,
@@ -1245,7 +1263,7 @@ router.get('/comandas', authMiddleware, async (req, res) => {
 
         // Histórico de sessões (contagem)
         const usedCount = aptData.filter(a =>
-            ['confirmed', 'completed', 'no_show'].includes(a.status)
+            ['completed', 'no_show', 'no-show'].includes(a.status)
         ).length;
         
         c.sessions_used = usedCount;
@@ -1276,8 +1294,10 @@ router.get('/comandas', authMiddleware, async (req, res) => {
         }
         c.paidValue = parseFloat(c.paid_value || 0);
 
-        // Sincroniza sessions_used no banco
-        await db.query('UPDATE comandas SET sessions_used = ? WHERE id = ?', [c.sessions_used, c.id]);
+        // Sincroniza o saldo de sessões, sem fechar uma comanda apenas porque foi paga.
+        const statusAtual = (usedCount >= Number(c.sessions_total || 1) && Number(c.paid_value || 0) >= Number(c.total || 0)) ? 'closed' : 'open';
+        c.status = statusAtual;
+        await db.query('UPDATE comandas SET sessions_used = ?, status = ? WHERE id = ? AND tenant_id = ?', [usedCount, statusAtual, c.id, req.user.tenant_id]);
         
         // Parse Items
         if (typeof c.items === 'string') {
@@ -1300,6 +1320,23 @@ router.get('/comandas/patient/:patientId', authMiddleware, async (req, res) => {
     try {
         await withSchema();
         const { patientId } = req.params;
+        // Reabre automaticamente pacotes que ainda têm sessões, mesmo já pagos.
+        await db.query(`
+          UPDATE comandas c
+          LEFT JOIN (
+            SELECT comanda_id, COUNT(*) AS used_count
+            FROM appointments
+            WHERE tenant_id = ? AND status IN ('completed', 'no_show', 'no-show')
+            GROUP BY comanda_id
+          ) a ON a.comanda_id = c.id
+          SET c.sessions_used = COALESCE(a.used_count, 0),
+              c.status = CASE
+                WHEN COALESCE(a.used_count, 0) >= COALESCE(c.sessions_total, 1)
+                     AND COALESCE(c.paid_value, 0) >= COALESCE(c.total, 0) THEN 'closed'
+                ELSE 'open'
+              END
+          WHERE c.tenant_id = ? AND c.patient_id = ?
+        `, [req.user.tenant_id, req.user.tenant_id, patientId]);
         const [comandas] = await db.query(
             `SELECT c.*, p.name as patient_name, u.name as professional_name
              FROM comandas c 
@@ -1318,7 +1355,7 @@ router.get('/comandas/patient/:patientId', authMiddleware, async (req, res) => {
                 );
                 
                 const usedCount = aptData.filter(a => 
-                    ['confirmed', 'completed', 'no-show'].includes(a.status)
+                    ['completed', 'no_show', 'no-show'].includes(a.status)
                 ).length;
                 
                 c.sessions_used = usedCount;

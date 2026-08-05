@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
+import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
@@ -185,7 +186,7 @@ export const FormsList: React.FC = () => {
 
   const getShareLink = () => {
     if (!selectedForm) return '';
-    let url = `${window.location.origin}/f/${selectedForm.hash}`;
+    let url = `${PUBLIC_BASE_URL}/f/${selectedForm.hash}`;
     const params = new URLSearchParams();
     if (shareTab === 'patient' && selectedPatientId) params.set('p', selectedPatientId);
     if (user?.shareToken) params.set('u', user.shareToken);

@@ -211,7 +211,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     const [tenantRows] = await db.query('SELECT * FROM tenants WHERE id = ?', [req.user.tenant_id]);
     const tenant = tenantRows[0];
 
-    const baseUrl = process.env.APP_BASE_URL || 'https://app.psiflux.com.br';
+    const baseUrl = process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
     const external_reference = JSON.stringify({
       type: 'subscription',
       tenant_id: req.user.tenant_id,

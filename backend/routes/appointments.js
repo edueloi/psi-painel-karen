@@ -468,27 +468,29 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
       ? parsedCount
       : (until ? 365 : (freq ? 12 : 1));
 
-    // Se há comanda vinculada, limita o count ao saldo restante de sessões
-    // sessions_used é recalculado a partir dos agendamentos reais (pode estar defasado no banco)
+    // Se há comanda vinculada, limita pelo total de sessões já alocadas.
+    // Sessão agendada reserva uma vaga do pacote; uma sessão cancelada libera a vaga.
     const requestedCount = count;
     let comandaLimited = false;
-    if (comanda_id && freq) {
+    if (comanda_id) {
       const [cmdRows] = await db.query(
         'SELECT sessions_total FROM comandas WHERE id = ? AND tenant_id = ?',
         [comanda_id, req.user.tenant_id]
       );
       if (cmdRows.length > 0) {
         const sessions_total = cmdRows[0].sessions_total || 0;
-        // Recalcula sessions_used a partir dos agendamentos reais (confirmed/completed/no_show)
+        // Conta sessões consumidas e também as já agendadas para não criar uma sessão extra.
         const [aptRows] = await db.query(
-          `SELECT COUNT(*) as used FROM appointments
+          `SELECT COUNT(*) as allocated FROM appointments
            WHERE comanda_id = ? AND tenant_id = ?
-             AND status IN ('confirmed', 'completed', 'no_show', 'no-show', 'scheduled')
-             AND status NOT IN ('cancelled')`,
+             AND status <> 'cancelled'`,
           [comanda_id, req.user.tenant_id]
         );
-        const sessions_used = aptRows[0]?.used || 0;
-        const remaining = Math.max(0, sessions_total - sessions_used);
+        const allocated = Number(aptRows[0]?.allocated || 0);
+        const remaining = Math.max(0, sessions_total - allocated);
+        if (sessions_total > 0 && remaining <= 0) {
+          return res.status(409).json({ error: 'Todas as sessões desta comanda já estão agendadas. Reagende ou cancele uma sessão existente para liberar uma vaga.' });
+        }
         if (sessions_total > 0 && count > remaining) {
           count = remaining;
           comandaLimited = true;
@@ -1238,31 +1240,6 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
           });
         } catch { /* silencioso */ }
       });
-    }
-
-    // Sync sessions_used if status changed
-    const CONSUMING = ['completed', 'no_show', 'confirmed', 'rescheduled', 'falta_justificada'];
-    const prevStatus = existing[0].old_status;
-    const oldComanda = existing[0].old_comanda;
-
-    if (dbStatus !== prevStatus) {
-      const nowConsuming = CONSUMING.includes(dbStatus);
-      const wasConsuming = CONSUMING.includes(prevStatus);
-      
-      const updateComanda = async (cid, delta) => {
-        try {
-          await db.query(
-            'UPDATE comandas SET sessions_used = GREATEST(sessions_used + ?, 0) WHERE id = ? AND tenant_id = ?',
-            [delta, cid, req.user.tenant_id]
-          );
-        } catch (e) {}
-      };
-
-      if (nowConsuming && !wasConsuming && finalComandaId) {
-        await updateComanda(finalComandaId, 1);
-      } else if (!nowConsuming && wasConsuming && oldComanda) {
-        await updateComanda(oldComanda, -1);
-      }
     }
 
     // Gerenciar sync no livro caixa

@@ -304,8 +304,8 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       [token, expiresStr, user.id]
     );
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
-    const link = `${frontendUrl}/redefinir-senha?token=${token}`;
+    const appUrl = process.env.APP_URL || 'https://painel.psiflux.com.br';
+    const link = `${appUrl}/redefinir-senha?token=${token}`;
     const html = templates.passwordReset({ name: user.name, link });
     await sendMail(user.email, '🔐 Redefinir Senha — PsiFlux', html);
     console.log(`🔑 Link de recuperação enviado para ${user.email}`);
@@ -461,7 +461,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       templates.welcome({
         name,
         email,
-        loginUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/login`,
+        loginUrl: `${process.env.APP_URL || 'https://painel.psiflux.com.br'}/login`,
       })
     ).catch(() => {});
 

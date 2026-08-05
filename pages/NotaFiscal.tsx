@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FileText, Download, RefreshCw, Loader2, CheckCircle2, Clock,
-  AlertCircle, XCircle, Ban, Archive,
+  AlertCircle, XCircle, Ban, Archive, Mail, MessageCircle,
 } from 'lucide-react';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { Button } from '../components/UI/Button';
@@ -35,6 +35,8 @@ interface NfseInvoiceRow {
   transaction_description?: string | null;
   transaction_date?: string | null;
   patient_name?: string | null;
+  patient_email?: string | null;
+  patient_whatsapp?: string | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -182,6 +184,13 @@ export const NotaFiscal: React.FC = () => {
     }
   };
 
+  const sendInvoice = async (inv: NfseInvoiceRow, channel: 'email' | 'whatsapp') => {
+    try {
+      await api.post(`/nfse/${inv.financial_transaction_id}/send-${channel}`, {});
+      pushToast('success', channel === 'email' ? 'Nota fiscal enviada por e-mail.' : 'Nota fiscal enviada por WhatsApp.');
+    } catch (e: any) { pushToast('error', e?.message || `Erro ao enviar por ${channel}.`); }
+  };
+
   const columns: Column<NfseInvoiceRow>[] = [
     {
       header: 'Emitida em',
@@ -263,6 +272,8 @@ export const NotaFiscal: React.FC = () => {
                 title="Baixar PDF" className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all">
                 <FileText size={12} />
               </button>
+              {inv.patient_email && <button onClick={() => sendInvoice(inv, 'email')} title={`Enviar por e-mail: ${inv.patient_email}`} className="w-7 h-7 flex items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-all"><Mail size={12} /></button>}
+              {inv.patient_whatsapp && <button onClick={() => sendInvoice(inv, 'whatsapp')} title="Enviar por WhatsApp" className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all"><MessageCircle size={12} /></button>}
             </>
           ) : (
             <span className="text-slate-200 text-lg leading-none select-none">—</span>

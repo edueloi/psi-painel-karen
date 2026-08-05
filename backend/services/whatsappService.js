@@ -530,6 +530,26 @@ class WhatsAppManager {
     }
   }
 
+  async sendDocument(tenantId, to, filePath, fileName, caption = '') {
+    const data = this.getTenantData(tenantId);
+    if (data.status !== 'connected' || !data.sock) return 'Erro ao enviar via WhatsApp: bot desconectado';
+    if (!filePath || !fs.existsSync(filePath)) return 'Erro ao enviar via WhatsApp: arquivo não encontrado';
+    try {
+      const formattedTo = normalizeDestination(to);
+      if (!formattedTo) return 'Erro ao enviar via WhatsApp: destino inválido';
+      await data.sock.sendMessage(formattedTo, {
+        document: { url: filePath },
+        mimetype: 'application/pdf',
+        fileName: fileName || 'nota-fiscal.pdf',
+        caption: String(caption || ''),
+      });
+      return true;
+    } catch (err) {
+      console.error(`Erro ao enviar documento WhatsApp tenant ${tenantId}:`, err.message);
+      return `Erro ao enviar via WhatsApp: ${err.message}`;
+    }
+  }
+
   async recoverActiveSessions() {
     try {
       const [rows] = await db.query("SELECT id FROM tenants WHERE whatsapp_status = 'connected'");
