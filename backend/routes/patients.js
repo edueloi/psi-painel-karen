@@ -995,7 +995,70 @@ router.get('/:id/history', async (req, res) => {
   }
 });
 
+// GET /patients/:id/room-summary — resumo leve para exibir durante uma
+// teleconsulta (painel lateral da sala virtual): últimas evoluções de
+// prontuário, último resultado de cada teste clínico e pacotes em aberto.
+// Não usa /history (pesado: agenda, financeiro, documentos etc.) porque
+// aqui o objetivo é carregar rápido durante o atendimento.
+router.get('/:id/room-summary', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.user.tenant_id;
 
+    const safeQuery = async (sql, params) => {
+      try { const [rows] = await db.query(sql, params); return rows; } catch { return []; }
+    };
+
+    const [patients, records, clinicalTools, comandas] = await Promise.all([
+      safeQuery(
+        `SELECT id, name, birth_date, phone, whatsapp, email, cpf, diagnosis
+           FROM patients WHERE id = ? AND tenant_id = ?`,
+        [id, tenantId]
+      ),
+      safeQuery(
+        `SELECT r.id, r.created_at as date, r.content, r.type, u.name as professional_name
+           FROM medical_records r
+           LEFT JOIN users u ON u.id = r.professional_id
+          WHERE r.patient_id = ? AND r.tenant_id = ?
+          ORDER BY r.created_at DESC LIMIT 5`,
+        [id, tenantId]
+      ),
+      safeQuery(
+        `SELECT id, created_at as date, tool_type, data
+           FROM clinical_tools
+          WHERE patient_id = ? AND tenant_id = ?
+          ORDER BY created_at DESC LIMIT 30`,
+        [id, tenantId]
+      ),
+      safeQuery(
+        `SELECT id, created_at as date, total as amount, sessions_total, sessions_used, description
+           FROM comandas
+          WHERE patient_id = ? AND tenant_id = ? AND status = 'open'
+          ORDER BY created_at DESC LIMIT 10`,
+        [id, tenantId]
+      ),
+    ]);
+
+    if (patients.length === 0) return res.status(404).json({ error: 'Paciente não encontrado' });
+
+    // Só o resultado mais recente de cada tipo de teste (tool_type já vem
+    // ordenado por data desc, então o primeiro encontrado de cada tipo é o último).
+    const latestByType = new Map();
+    for (const ct of clinicalTools) {
+      if (!latestByType.has(ct.tool_type)) latestByType.set(ct.tool_type, ct);
+    }
+
+    res.json({
+      patient: patients[0],
+      records,
+      tools: Array.from(latestByType.values()),
+      comandas,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar resumo do paciente' });
+  }
+});
 
 // ── Bem-estar do paciente (dados do portal) ───────────────────────
 router.get('/:id/wellbeing/mood', async (req, res) => {

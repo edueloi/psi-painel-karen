@@ -272,7 +272,7 @@ export interface VirtualRoom {
   patient_id?: number;
   professional_id?: number;
   appointment_id?: number;
-  provider?: 'jitsi' | 'zoom' | 'teams' | 'outro';
+  provider?: 'jitsi' | 'zoom' | 'teams' | 'outro' | 'interno';
   link?: string;
   expiration_date?: string;
   created_at: string;

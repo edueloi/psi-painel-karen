@@ -516,6 +516,123 @@ const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ room
   );
 };
 
+// ── Painel de dados do paciente vinculado à sala (só host) ────────────────────
+type RoomSummaryData = {
+  patient: { id: number; name: string; birth_date?: string | null; phone?: string | null; whatsapp?: string | null; email?: string | null; diagnosis?: string | null };
+  records: { id: number; date: string; content: string; type: string; professional_name?: string | null }[];
+  tools: { id: number; date: string; tool_type: string; data: any }[];
+  comandas: { id: number; date: string; amount: number; sessions_total: number; sessions_used: number; description?: string | null }[];
+};
+
+const calcAge = (birthDate?: string | null) => {
+  if (!birthDate) return null;
+  const b = new Date(birthDate);
+  if (Number.isNaN(b.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+  return age;
+};
+
+const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = ({ patientId, onClose }) => {
+  const [tab, setTab] = useState<"dados" | "prontuario" | "testes" | "pacotes">("dados");
+  const [data, setData] = useState<RoomSummaryData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get<RoomSummaryData>(`/patients/${patientId}/room-summary`)
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [patientId]);
+
+  const age = calcAge(data?.patient?.birth_date);
+  const sectionStyle: React.CSSProperties = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 };
+  const labelStyle: React.CSSProperties = { fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 };
+  const tabBtn = (key: typeof tab, label: string) => (
+    <button
+      onClick={() => setTab(key)}
+      style={{
+        flex: 1, padding: "8px 6px", borderRadius: 8, border: "none", cursor: "pointer",
+        fontSize: 11, fontWeight: 700, letterSpacing: ".2px",
+        background: tab === key ? "rgba(99,102,241,0.2)" : "transparent",
+        color: tab === key ? "#a5b4fc" : "#64748b",
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <FileText size={16} color="#6366f1" /> {data?.patient?.name || "Paciente"}
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 4, padding: "10px 12px 0" }}>
+        {tabBtn("dados", "Dados")}
+        {tabBtn("prontuario", "Prontuário")}
+        {tabBtn("testes", "Testes")}
+        {tabBtn("pacotes", "Pacotes")}
+      </div>
+
+      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+        ) : !data ? (
+          <p style={{ fontSize: 13, color: "#64748b" }}>Não foi possível carregar os dados do paciente.</p>
+        ) : tab === "dados" ? (
+          <div style={sectionStyle}>
+            <p style={labelStyle}>Dados cadastrais</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "#cbd5e1" }}>
+              {age != null && <span>Idade: {age} anos</span>}
+              {data.patient.phone && <span>Telefone: {data.patient.phone}</span>}
+              {data.patient.whatsapp && <span>WhatsApp: {data.patient.whatsapp}</span>}
+              {data.patient.email && <span>E-mail: {data.patient.email}</span>}
+              {data.patient.diagnosis && <span>Diagnóstico/Hipótese: {data.patient.diagnosis}</span>}
+            </div>
+          </div>
+        ) : tab === "prontuario" ? (
+          data.records.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhuma anotação de prontuário registrada.</p>
+          ) : data.records.map(r => (
+            <div key={r.id} style={sectionStyle}>
+              <p style={labelStyle}>{new Date(r.date).toLocaleDateString('pt-BR')}{r.professional_name ? ` · ${r.professional_name}` : ''}</p>
+              <p style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>{String(r.content).slice(0, 300)}</p>
+            </div>
+          ))
+        ) : tab === "testes" ? (
+          data.tools.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum teste clínico registrado.</p>
+          ) : data.tools.map(t => (
+            <div key={t.id} style={sectionStyle}>
+              <p style={labelStyle}>{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+              <p style={{ fontSize: 13, color: "#cbd5e1" }}>{t.tool_type}</p>
+            </div>
+          ))
+        ) : (
+          data.comandas.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum pacote em aberto.</p>
+          ) : data.comandas.map(c => (
+            <div key={c.id} style={sectionStyle}>
+              <p style={labelStyle}>{c.description || `Comanda #${c.id}`}</p>
+              <p style={{ fontSize: 13, color: "#cbd5e1" }}>
+                {c.sessions_used}/{c.sessions_total} sessões · R$ {Number(c.amount || 0).toFixed(2)}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Tile de vídeo usando useParticipantTracks (um hook por participante) ──────
 const ParticipantVideo: React.FC<{
   participant: LocalParticipant | RemoteParticipant;
@@ -729,7 +846,17 @@ const RoomInner: React.FC<{
   const remoteParticipants = useRemoteParticipants();
   const { preferences } = useUserPreferences();
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | null>(null);
+  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | null>(null);
+  const [patientId, setPatientId] = useState<number | null>(null);
+
+  // Descobre se a sala tem paciente vinculado, só para o host — o botão
+  // "Paciente" na barra de controles só aparece quando há alguém vinculado.
+  useEffect(() => {
+    if (!isHost || !roomId) return;
+    api.get<any>(`/virtual-rooms/${roomId}`)
+      .then(room => setPatientId(room?.patient_id || null))
+      .catch(() => {});
+  }, [isHost, roomId]);
   const [pinned, setPinned] = useState<"remote" | "local">("remote");
   const [roomNotice, setRoomNotice] = useState<{ msg: string; type: 'enter' | 'leave' } | null>(null);
   const roomNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -760,25 +887,48 @@ const RoomInner: React.FC<{
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const sessionKeyRef = useRef<string>(`sess-${Date.now()}`);
+  const recordingAudioCtxRef = useRef<AudioContext | null>(null);
+  const localMicStreamRef = useRef<MediaStream | null>(null);
 
+  // getUserMedia só captura o microfone local — sem mixar os tracks de áudio
+  // remotos (LiveKit) a gravação nunca incluía a voz do paciente. Aqui os dois
+  // são somados num destino comum via Web Audio API antes de gravar.
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      recordingAudioCtxRef.current = ctx;
+      const destination = ctx.createMediaStreamDestination();
+
+      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localMicStreamRef.current = localStream;
+      ctx.createMediaStreamSource(localStream).connect(destination);
+
+      for (const participant of remoteParticipants) {
+        participant.audioTrackPublications.forEach(pub => {
+          const mediaTrack = pub.track?.mediaStreamTrack;
+          if (mediaTrack) ctx.createMediaStreamSource(new MediaStream([mediaTrack])).connect(destination);
+        });
+      }
+
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-      const mr = new MediaRecorder(stream, { mimeType });
+      const mr = new MediaRecorder(destination.stream, { mimeType });
       audioChunksRef.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mr.start(1000);
       mediaRecorderRef.current = mr;
       setRecording(true);
     } catch {}
-  }, []);
+  }, [remoteParticipants]);
 
   const stopRecordingAndTranscribe = useCallback(async () => {
     const mr = mediaRecorderRef.current;
     if (!mr || mr.state === 'inactive') return;
     mr.stop();
     mr.stream.getTracks().forEach(t => t.stop());
+    localMicStreamRef.current?.getTracks().forEach(t => t.stop());
+    localMicStreamRef.current = null;
+    recordingAudioCtxRef.current?.close().catch(() => {});
+    recordingAudioCtxRef.current = null;
     setRecording(false);
 
     const shouldTranscribe = preferences.sessions?.autoTranscribe;
@@ -975,7 +1125,7 @@ const RoomInner: React.FC<{
     return () => clearInterval(interval);
   }, []);
 
-  const togglePanel = (panel: "chat" | "invite" | "settings") => setSidePanel(prev => prev === panel ? null : panel);
+  const togglePanel = (panel: "chat" | "invite" | "settings" | "patient") => setSidePanel(prev => prev === panel ? null : panel);
 
   const hasRemote = remoteParticipants.length > 0;
   // Quem fica na tela principal
@@ -1124,11 +1274,13 @@ const RoomInner: React.FC<{
 
         {/* Painel lateral */}
         {sidePanel && (
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "min(320px, 100%)", zIndex: 10 }}>
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" ? "min(380px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
               ? <LiveKitChatPanel participantName={participantName} onClose={() => setSidePanel(null)} />
               : sidePanel === "settings"
               ? <SettingsPanel onClose={() => setSidePanel(null)} />
+              : sidePanel === "patient"
+              ? <PatientInfoPanel patientId={patientId!} onClose={() => setSidePanel(null)} />
               : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
             }
           </div>
@@ -1178,6 +1330,16 @@ const RoomInner: React.FC<{
                 <UserPlus size={22} />
               </button>
               <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Convidar</span>
+            </div>
+          )}
+
+          {/* Dados do paciente (só host, só quando a sala tem paciente vinculado) */}
+          {isHost && patientId && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <button onClick={() => togglePanel("patient")} style={btnActive(sidePanel === "patient")}>
+                <FileText size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Paciente</span>
             </div>
           )}
 

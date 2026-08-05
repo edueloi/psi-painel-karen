@@ -5,6 +5,10 @@ const db = require('../db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
+const notificationService = require('../services/notificationService');
+
+const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
 // ── Multer para upload de áudio ───────────────────────────────────────────────
 const audioUploadDir = path.join(__dirname, '../public/uploads/room-recordings');
@@ -275,6 +279,34 @@ router.post('/', async (req, res) => {
       `INSERT INTO virtual_rooms (${cols.join(', ')}) VALUES (${placeholders})`, vals
     );
     const [room] = await db.query('SELECT * FROM virtual_rooms WHERE id = ?', [result.insertId]);
+
+    // Sala agendada com paciente vinculado: enfileira o envio do link para 1 minuto
+    // antes do horário marcado (mesma fila/worker dos lembretes de agendamento).
+    if (patient_id && scheduled_start) {
+      try {
+        const [[patient]] = await db.query(
+          'SELECT name, COALESCE(whatsapp, phone) as phone FROM patients WHERE id = ? AND tenant_id = ?',
+          [patient_id, req.user.tenant_id]
+        );
+        if (patient?.phone) {
+          const sendAt = new Date(new Date(scheduled_start).getTime() - 60000);
+          const publicUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+          const roomUrl = `${publicUrl}/sala/${roomCode}`;
+          const content = `Olá, ${patient.name}! Sua sala de atendimento com ${req.user.name || 'seu profissional'} já está disponível.\n\nAcesse pelo link: ${roomUrl}`;
+          await notificationService.enqueue({
+            tenant_id: req.user.tenant_id,
+            recipient_phone: patient.phone,
+            content,
+            scheduled_at: sendAt,
+            expires_at: new Date(scheduled_start),
+            metadata: { room_id: result.insertId, type: 'virtual-room-link' },
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[VirtualRooms] Erro ao enfileirar notificação da sala:', notifyErr?.message || notifyErr);
+      }
+    }
+
     res.status(201).json(room[0]);
   } catch (err) {
     console.error('[VirtualRooms] Erro ao criar sala:', err?.message || err);
@@ -1060,6 +1092,48 @@ router.get('/public/:id/preview', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.redirect(`/sala/${req.params.id}`);
+  }
+});
+
+// POST /virtual-rooms/:id/notify-patient — envia o link da sala para o
+// WhatsApp do paciente vinculado, usando o bot da própria clínica (nunca o
+// bot mestre do sistema, que só avisa os profissionais).
+router.post('/:id/notify-patient', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { id } = req.params;
+    const numId = Number(id);
+
+    const [rooms] = await db.query(
+      `SELECT r.id, r.title, r.code, r.hash, r.patient_id, p.name as patient_name,
+              COALESCE(p.whatsapp, p.phone) as patient_phone, u.name as host_name
+         FROM virtual_rooms r
+         LEFT JOIN patients p ON p.id = r.patient_id
+         LEFT JOIN users u ON u.id = r.host_id
+        WHERE (r.id = ? OR r.hash = ? OR r.code = ?) AND r.tenant_id = ?`,
+      [numId || 0, id, id, tenantId]
+    );
+    if (rooms.length === 0) return res.status(404).json({ error: 'Sala não encontrada' });
+
+    const room = rooms[0];
+    if (!room.patient_id) return res.status(422).json({ error: 'Esta sala não tem paciente vinculado.' });
+    if (!room.patient_phone) return res.status(422).json({ error: 'Este paciente não possui WhatsApp cadastrado.' });
+
+    const publicUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+    const roomUrl = `${publicUrl}/sala/${room.code || room.hash}`;
+    const message = req.body?.message ||
+      `Olá, ${room.patient_name}! Sua sala de atendimento com ${room.host_name || 'o profissional'} está pronta.\n\nAcesse pelo link: ${roomUrl}`;
+
+    const response = await axios.post(`${BOT_URL}/test/${tenantId}`, {
+      phone: room.patient_phone,
+      message,
+    }, { timeout: 15000 });
+    if (response.data?.success === false) throw new Error(response.data?.error || 'Falha no envio pelo bot');
+
+    res.json({ success: true, phone: room.patient_phone });
+  } catch (err) {
+    console.error('[VirtualRooms] Erro ao notificar paciente:', err?.message || err);
+    res.status(502).json({ error: err.response?.data?.error || err.message || 'Erro ao enviar mensagem pelo bot.' });
   }
 });
 

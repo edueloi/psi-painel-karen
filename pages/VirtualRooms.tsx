@@ -118,6 +118,10 @@ export const VirtualRooms: React.FC = () => {
   const [createdRoom, setCreatedRoom] = useState<VirtualRoom | null>(null);
   const [isCreatingInstant, setIsCreatingInstant] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<VirtualRoom | null>(null);
+  const [isInstantModalOpen, setIsInstantModalOpen] = useState(false);
+  const [instantPatientId, setInstantPatientId] = useState('');
+  const [roomToNotify, setRoomToNotify] = useState<VirtualRoom | null>(null);
+  const [isNotifyingPatient, setIsNotifyingPatient] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'rooms' | 'transcricoes'>('rooms');
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -504,7 +508,12 @@ export const VirtualRooms: React.FC = () => {
     setIsCreateModalOpen(true);
   };
 
-  const handleInstantMeeting = async () => {
+  const handleInstantMeeting = () => {
+    setInstantPatientId('');
+    setIsInstantModalOpen(true);
+  };
+
+  const handleCreateInstantRoom = async () => {
     setIsCreatingInstant(true);
     try {
       const code = generateCode();
@@ -514,13 +523,30 @@ export const VirtualRooms: React.FC = () => {
         description: 'Sessão iniciada via acesso rápido.',
         code,
         provider: 'interno',
+        patient_id: instantPatientId || null,
       });
       const roomCode = room.code || room.hash || code;
+      setIsInstantModalOpen(false);
       window.open(`/sala/${roomCode}`, '_blank');
+      if (instantPatientId) setRoomToNotify(room);
     } catch (error: any) {
       toastError('Erro ao criar sala', error.message || '');
     } finally {
       setIsCreatingInstant(false);
+    }
+  };
+
+  const handleNotifyPatient = async () => {
+    if (!roomToNotify) return;
+    setIsNotifyingPatient(true);
+    try {
+      await api.post(`/virtual-rooms/${roomToNotify.id}/notify-patient`, {});
+      toastSuccess('Mensagem enviada', 'O paciente recebeu o link da sala pelo WhatsApp.');
+      setRoomToNotify(null);
+    } catch (error: any) {
+      toastError('Erro ao enviar mensagem', error.message || '');
+    } finally {
+      setIsNotifyingPatient(false);
     }
   };
 
@@ -564,6 +590,9 @@ export const VirtualRooms: React.FC = () => {
       setCreatedRoom(room);
       setRooms((prev) => [room, ...prev]);
       toastSuccess('Sala criada', 'Sala criada com sucesso.');
+      // Se a sala já tem horário marcado, o backend enfileira o envio para 1min antes —
+      // só pede confirmação de envio imediato quando não há agendamento (envio na hora).
+      if (createForm.patient_id && !createForm.scheduled_start) setRoomToNotify(room);
     } catch (error: any) {
       toastError('Erro ao criar sala', error.message || '');
     } finally {
@@ -1339,6 +1368,44 @@ export const VirtualRooms: React.FC = () => {
         title="Excluir sala"
         message={roomToDelete ? `A sala "${roomToDelete.title || roomToDelete.code}" será removida permanentemente.` : ''}
         confirmLabel="Confirmar exclusão"
+      />
+
+      <Modal
+        isOpen={isInstantModalOpen}
+        onClose={() => setIsInstantModalOpen(false)}
+        title="Sala Instantânea"
+        size="sm"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setIsInstantModalOpen(false)}>Cancelar</Button>
+            <Button variant="primary" onClick={handleCreateInstantRoom} loading={isCreatingInstant}>Criar sala</Button>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">A sala abre em uma nova aba assim que for criada.</p>
+          <Combobox
+            label="Paciente"
+            options={[
+              { value: '', label: 'Sem paciente' },
+              ...patients.map((p) => ({ value: String(p.id), label: p.full_name || p.name || '—' })),
+            ]}
+            value={instantPatientId}
+            onChange={(v) => setInstantPatientId(v as string)}
+            placeholder="Selecionar paciente (opcional)"
+          />
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        isOpen={!!roomToNotify}
+        onClose={() => setRoomToNotify(null)}
+        onConfirm={handleNotifyPatient}
+        title="Enviar link para o paciente?"
+        message="O link desta sala será enviado agora pelo WhatsApp do paciente, pelo bot da sua clínica."
+        confirmLabel="Enviar agora"
+        variant="success"
+        loading={isNotifyingPatient}
       />
 
       <ConfirmModal
