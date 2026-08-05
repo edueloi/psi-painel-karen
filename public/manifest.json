@@ -2,12 +2,12 @@
   "name": "PsiFlux",
   "short_name": "PsiFlux",
   "description": "Sistema completo para psicólogos e clínicas de saúde mental",
-  "start_url": "/",
+  "start_url": "https://painel.psiflux.com.br/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "orientation": "portrait",
-  "scope": "/",
+  "scope": "https://painel.psiflux.com.br/",
   "lang": "pt-BR",
   "icons": [
     {

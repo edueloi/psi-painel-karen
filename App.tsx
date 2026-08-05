@@ -276,6 +276,10 @@ const RedirectToSala: React.FC = () => {
   return <Navigate to={`/sala/${id || ''}`} replace />;
 };
 
+// painel.psiflux.com.br serve o mesmo build de psiflux.com.br — a raiz "/"
+// deve abrir o sistema (dashboard/login) ali, não a landing page do site.
+const IS_PAINEL_HOST = typeof window !== 'undefined' && window.location.hostname === 'painel.psiflux.com.br';
+
 const AppRoutes: React.FC = () => {
   const { user, logout, isInitializing } = useAuth();
   const { resolvedMode } = useTheme();
@@ -319,7 +323,7 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={IS_PAINEL_HOST ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
       <Route path="/login" element={<Login onLogin={() => {}} />} />
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/cadastro" element={<Register />} />
