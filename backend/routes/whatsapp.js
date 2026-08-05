@@ -51,6 +51,20 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// GET /whatsapp/preferences - Retorna so as preferencias/mensagens do robo (sem
+// consultar o status do bot na porta 3014, usado por telas que so precisam dos templates)
+router.get('/preferences', async (req, res) => {
+  if (!isTenantAdmin(req.user)) return res.status(403).json({ error: 'Acesso negado' });
+  try {
+    const [rows] = await db.query('SELECT whatsapp_preferences FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    const prefsRaw = rows[0]?.whatsapp_preferences;
+    const preferences = prefsRaw ? (typeof prefsRaw === 'string' ? JSON.parse(prefsRaw) : prefsRaw) : {};
+    res.json({ preferences });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar preferências' });
+  }
+});
+
 // POST /whatsapp/preferences - Salva as configuracoes e mensagens do robo
 router.post('/preferences', async (req, res) => {
   if (!isTenantAdmin(req.user)) return res.status(403).json({ error: 'Acesso negado' });
