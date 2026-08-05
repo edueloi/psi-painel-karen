@@ -162,7 +162,7 @@ export const VirtualRooms: React.FC = () => {
         api.get<User[]>('/users'),
       ]);
       setRooms(data);
-      setPatients(pts || []);
+      setPatients((pts || []).map((p: any) => ({ ...p, full_name: p.full_name || p.name || 'Sem nome' })));
       setProfessionals((pros || []).filter((professional) => professional.role !== 'secretario'));
     } catch (error) {
       console.error('Erro ao buscar salas:', error);
@@ -465,7 +465,10 @@ export const VirtualRooms: React.FC = () => {
   }, [rooms, roomSearch]);
 
   const persistentRooms = useMemo(
-    () => rooms.filter((room) => !room.scheduled_start).filter(matchesQuery),
+    // Salas instantâneas (provider "interno", criadas pelo botão "Sala Instantânea")
+    // são de uso único e não devem poluir "Minhas Salas" — só as criadas manualmente
+    // (permanentes de verdade, provider "jitsi") ficam listadas aqui.
+    () => rooms.filter((room) => !room.scheduled_start && room.provider !== 'interno').filter(matchesQuery),
     [rooms, roomSearch]
   );
 
