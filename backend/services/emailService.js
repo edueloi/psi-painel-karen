@@ -316,6 +316,65 @@ function templatePasswordReset({ name, link }) {
   return baseTemplate('🔐 Redefinir Senha', content, 'Solicitação de redefinição de senha.');
 }
 
+/** 8. Boas-vindas para conta criada pela clínica */
+function templateTeamWelcome({ name, email, clinicName, loginUrl }) {
+  const content = `
+    <p style="margin:0 0 12px;font-size:16px;color:#475569;">Olá, <strong>${name}</strong>! 👋</p>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;">Uma conta foi criada para você no <strong style="color:#4f46e5;">PsiFlux</strong>. Agora você já pode colaborar com <strong>${clinicName}</strong> em um só lugar.</p>
+    <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:18px;padding:22px;margin-bottom:26px;">
+      <p style="margin:0 0 6px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6366f1;">Seu acesso</p>
+      <p style="margin:0;font-size:14px;font-weight:800;color:#1e293b;">${email}</p>
+    </div>
+    <p style="margin:0 0 14px;font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;">No portal você poderá</p>
+    <ul style="margin:0 0 28px;padding-left:20px;color:#475569;font-size:14px;line-height:1.9;">
+      <li>Organizar atendimentos e agenda</li>
+      <li>Acompanhar pacientes e informações clínicas</li>
+      <li>Usar os recursos liberados para o seu perfil</li>
+    </ul>
+    <div style="text-align:center;"><a href="${loginUrl || 'https://app.psiflux.com.br/login'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Acessar meu painel</a></div>`;
+  return baseTemplate('Sua conta no PsiFlux está pronta', content, 'Você está recebendo este e-mail porque uma conta foi criada para você.');
+}
+
+/** 9. Aviso de vencimento/assinatura vencida */
+function templateSubscriptionReminder({ name, planName, expiresAt, daysLeft, renewalUrl }) {
+  const expired = daysLeft <= 0;
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;">Olá, <strong>${name}</strong>.</p>
+    <div style="background:${expired ? '#fff1f2' : '#fff7ed'};border:1px solid ${expired ? '#fecdd3' : '#fed7aa'};border-radius:18px;padding:24px;margin-bottom:24px;">
+      <p style="margin:0 0 8px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:${expired ? '#be123c' : '#c2410c'};">${expired ? 'Assinatura vencida' : 'Lembrete de renovação'}</p>
+      <p style="margin:0;font-size:18px;font-weight:900;color:#1e293b;">${expired ? 'Seu acesso está limitado à renovação.' : `Sua assinatura vence em ${daysLeft} dia${daysLeft === 1 ? '' : 's'}.`}</p>
+      <p style="margin:10px 0 0;font-size:14px;color:#475569;">Plano: <strong>${planName || 'PsiFlux'}</strong>${expiresAt ? ` · Vencimento: <strong>${expiresAt}</strong>` : ''}</p>
+    </div>
+    <p style="margin:0 0 26px;font-size:14px;color:#64748b;">Renove agora para continuar usando todos os recursos do seu painel sem interrupções.</p>
+    <div style="text-align:center;"><a href="${renewalUrl || 'https://app.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Renovar assinatura</a></div>`;
+  return baseTemplate(expired ? 'Sua assinatura venceu' : 'Sua assinatura está perto de vencer', content, 'Lembrete automático de assinatura do PsiFlux.');
+}
+
+/** 10. Aviso de fim do período de teste */
+function templateTrialReminder({ name, endsAt, daysLeft, renewalUrl }) {
+  const expired = daysLeft <= 0;
+  const content = `
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;">Olá, <strong>${name}</strong>.</p>
+    <div style="background:${expired ? '#fff1f2' : '#fff7ed'};border:1px solid ${expired ? '#fecdd3' : '#fed7aa'};border-radius:18px;padding:24px;margin-bottom:24px;">
+      <p style="margin:0 0 8px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:${expired ? '#be123c' : '#c2410c'};">${expired ? 'Período de teste encerrado' : 'Seu teste está terminando'}</p>
+      <p style="margin:0;font-size:18px;font-weight:900;color:#1e293b;">${expired ? 'Seu acesso está limitado à escolha de um plano.' : `Faltam ${daysLeft} dia${daysLeft === 1 ? '' : 's'} para o fim do seu teste grátis.`}</p>
+      ${endsAt ? `<p style="margin:10px 0 0;font-size:14px;color:#475569;">Data: <strong>${endsAt}</strong></p>` : ''}
+    </div>
+    <p style="margin:0 0 26px;font-size:14px;color:#64748b;">Escolha seu plano para continuar aproveitando todos os recursos do PsiFlux.</p>
+    <div style="text-align:center;"><a href="${renewalUrl || 'https://app.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Escolher meu plano</a></div>`;
+  return baseTemplate(expired ? 'Seu teste PsiFlux terminou' : 'Seu teste PsiFlux está perto do fim', content, 'Lembrete automático do seu período de teste no PsiFlux.');
+}
+
+/** 11. Comunicados e novidades enviados pelo Super Admin */
+function templatePlatformUpdate({ title, content, buttonText, buttonUrl }) {
+  const safeContent = String(content || '').replace(/\n/g, '<br>');
+  const contentHtml = `<p style="margin:0 0 26px;font-size:15px;line-height:1.75;color:#475569;">${safeContent}</p>`;
+  const cta = buttonText && buttonUrl
+    ? `<div style="text-align:center;"><a href="${buttonUrl}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">${buttonText}</a></div>`
+    : '';
+  return baseTemplate(title, contentHtml + cta, 'Comunicado enviado pela equipe PsiFlux.');
+}
+
 /** 8. Pagamento recebido (Mercado Pago) */
 function templatePaymentReceived({ patientName, amount, paymentMethod, comandaId }) {
   const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -341,6 +400,10 @@ module.exports = {
     monthlyReport: templateMonthlyReport,
     welcome: templateWelcome,
     passwordReset: templatePasswordReset,
+    teamWelcome: templateTeamWelcome,
+    subscriptionReminder: templateSubscriptionReminder,
+    trialReminder: templateTrialReminder,
+    platformUpdate: templatePlatformUpdate,
     paymentReceived: templatePaymentReceived,
   }
 };

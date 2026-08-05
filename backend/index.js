@@ -49,6 +49,7 @@ const infinitePayRoutes = require('./routes/infinitepay');
 const mercadoPagoRoutes = require('./routes/mercadopago');
 const subscriptionRoutes = require('./routes/subscription');
 const nfseRoutes = require('./routes/nfse');
+const emailCampaignsRoutes = require('./routes/email-campaigns');
 const { startCronJobs } = require('./services/cronJobs');
 const { provisionFormsForAllTenants } = require('./services/provisionForms');
 const db = require('./db');
@@ -172,6 +173,7 @@ function mountApiRoutes(prefix = '') {
   // subscriptionRoutes já montado na seção de rotas públicas acima (cada rota
   // interna se protege com authMiddleware individualmente, exceto o webhook).
   app.use(`${prefix}/nfse`, nfseRoutes);
+  app.use(`${prefix}/email-campaigns`, emailCampaignsRoutes);
 }
 
 // ---- Middlewares globais ----
@@ -460,7 +462,7 @@ app.get('/p/:slug', async (req, res) => {
 // PsiFlux; mostra em vez disso "Portal do Paciente — <nome da clínica>", sem
 // nenhum dado clínico sensível na meta tag (só nome do paciente/clínica).
 app.get('/portal/entrar/:token', async (req, res) => {
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+  const PORTAL_URL = process.env.PORTAL_URL || 'https://portal.psiflux.com.br';
   const distIndexPath = path.join(__dirname, '../dist/index.html');
 
   try {
@@ -479,7 +481,7 @@ app.get('/portal/entrar/:token', async (req, res) => {
 
     const r = rows[0];
     const clinic = r.company_name || r.professional_name || 'seu psicólogo(a)';
-    const portalUrl = `${FRONTEND_URL}/portal/entrar/${req.params.token}`;
+    const portalUrl = `${PORTAL_URL}/portal/entrar/${req.params.token}`;
 
     const ogTitle = `Portal do Paciente — ${clinic}`;
     const ogDesc = r.patient_name
@@ -506,6 +508,7 @@ app.get('/portal/entrar/:token', async (req, res) => {
     html = html.replace(/<meta\s+[^>]*name=["']twitter:[^"']*["'][^>]*>/gi, '');
     html = html.replace(/<meta\s+[^>]*property=["']twitter:[^"']*["'][^>]*>/gi, '');
     html = html.replace('<head>', `<head>${ogTags}`);
+    html = applyPortalPwaTags(html);
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=30');
@@ -516,6 +519,34 @@ app.get('/portal/entrar/:token', async (req, res) => {
     return res.status(500).send('Erro ao carregar portal.');
   }
 });
+
+// Troca o manifest/identidade de PWA de "PsiFlux" para "Portal do Paciente" ao
+// servir HTML para as rotas /portal* — instalar o portal como app não deve
+// aparecer com o nome/ícone do painel do profissional.
+function applyPortalPwaTags(html) {
+  return html
+    .replace(/<link\s+rel=["']manifest["'][^>]*>/i, '<link rel="manifest" href="/manifest-portal.json" />')
+    .replace(/<meta\s+name=["']apple-mobile-web-app-title["'][^>]*>/i, '<meta name="apple-mobile-web-app-title" content="Portal do Paciente" />')
+    .replace(/<meta\s+name=["']application-name["'][^>]*>/i, '<meta name="application-name" content="Portal do Paciente" />');
+}
+
+// ---- Rotas públicas /portal, /portal/reset-password/:token, /portal/inicio —
+// mesma troca de manifest/PWA acima, para as rotas do portal que não têm OG tags
+// dinâmicas (essas já são cobertas por /portal/entrar/:token).
+for (const portalPath of ['/portal', '/portal/reset-password/:token', '/portal/inicio']) {
+  app.get(portalPath, (req, res) => {
+    const distIndexPath = path.join(__dirname, '../dist/index.html');
+    if (!fs.existsSync(distIndexPath)) return res.status(404).send('Build não encontrado.');
+    try {
+      const html = applyPortalPwaTags(fs.readFileSync(distIndexPath, 'utf8'));
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    } catch (err) {
+      console.error(`Erro ao servir ${portalPath}:`, err);
+      return res.sendFile(distIndexPath);
+    }
+  });
+}
 
 // ---- Rota pública /sitemap.xml — ajuda o Google a indexar perfis públicos ----
 app.get('/sitemap.xml', async (req, res) => {

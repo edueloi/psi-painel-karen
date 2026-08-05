@@ -1,0 +1,26 @@
+{
+  "name": "Portal do Paciente",
+  "short_name": "Portal do Paciente",
+  "description": "Acompanhe suas consultas, pacotes e dados com sua clínica",
+  "start_url": "/portal",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "scope": "/portal",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/app_psiflux.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app_psiflux.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

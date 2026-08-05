@@ -121,8 +121,6 @@ router.get('/status', authMiddleware, async (req, res) => {
     const now = new Date();
     const trialEndsAt = t.trial_ends_at ? new Date(t.trial_ends_at) : null;
     const expiresAt = t.expires_at ? new Date(t.expires_at) : null;
-    const SUBSCRIPTION_GRACE_DAYS = 3;
-
     let subscriptionType = 'free';
     let daysLeft = null;
     let totalDays = null;
@@ -137,15 +135,12 @@ router.get('/status', authMiddleware, async (req, res) => {
       totalDays = 30; // mês corrente
       isActive = true;
     } else if (expiresAt) {
-      // Assinatura venceu — checa se ainda está dentro da carência de 3 dias
-      const graceDeadline = new Date(expiresAt);
-      graceDeadline.setDate(graceDeadline.getDate() + SUBSCRIPTION_GRACE_DAYS);
+      // Assinatura vencida: o login continua disponível, mas o sistema fica
+      // limitado à renovação até que um novo pagamento seja confirmado.
       subscriptionType = 'paid';
       daysLeft = 0;
       totalDays = 30;
-      isActive = graceDeadline > now;
-      isInGrace = isActive;
-      if (isInGrace) graceDaysLeft = Math.max(0, Math.ceil((graceDeadline - now) / (1000 * 60 * 60 * 24)));
+      isActive = false;
     } else if (trialEndsAt) {
       // Está no trial ou trial expirou (sem carência — trial já é gratuito)
       subscriptionType = 'trial';

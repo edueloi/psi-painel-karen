@@ -86,6 +86,7 @@ import Disc from './pages/Disc';
 import { Approaches } from './pages/Approaches';
 import { Instruments } from './pages/Instruments';
 import { Profile } from './pages/Profile';
+import { MenuCustomizer } from './pages/MenuCustomizer';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
@@ -94,6 +95,7 @@ import { Assinatura } from './pages/Assinatura';
 import logoUrl from './images/logo-psiflux.png';
 import logoDarkUrl from './images/logopsiflux-para-fundo-escuro.png';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
+import { api } from './services/api';
 
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 120 minutos
 const WARNING_BEFORE_MS = 5 * 60 * 1000;       // aviso 5 min antes
@@ -166,6 +168,66 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
+interface SubscriptionAccessStatus {
+  is_active: boolean;
+}
+
+// O login continua disponível após o vencimento, porém a conta fica limitada à
+// renovação. A API aplica a mesma regra, impedindo acesso por URL direta.
+const SubscriptionAccessGate: React.FC<{ children: React.ReactNode; afterContent?: React.ReactNode }> = ({ children, afterContent }) => {
+  const { user } = useAuth();
+  const location = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [active, setActive] = useState(true);
+  const wasRestrictedRef = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+    if (user?.role === 'super_admin') {
+      setActive(true);
+      setLoading(false);
+      return () => { mounted = false; };
+    }
+
+    setLoading(true);
+    api.get<SubscriptionAccessStatus>('/subscription/status')
+      .then(status => { if (mounted) setActive(status.is_active); })
+      // Em caso de indisponibilidade temporária, não bloqueia uma conta ativa.
+      .catch(() => { if (mounted) setActive(true); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [user?.tenant_id, user?.role]);
+
+  // Enquanto a tela de pagamento está aberta, detecta a confirmação sem exigir
+  // que a pessoa atualize o navegador manualmente.
+  useEffect(() => {
+    if (active || user?.role === 'super_admin') return;
+    const interval = window.setInterval(() => {
+      api.get<SubscriptionAccessStatus>('/subscription/status')
+        .then(status => setActive(status.is_active))
+        .catch(() => {});
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [active, user?.role]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-sm font-bold">Verificando sua assinatura...</div>;
+  }
+
+  if (!active) {
+    wasRestrictedRef.current = true;
+    if (location.pathname !== '/assinatura') return <Navigate to="/assinatura" replace />;
+    return <>{children}</>;
+  }
+
+  if (wasRestrictedRef.current && location.pathname === '/assinatura') {
+    wasRestrictedRef.current = false;
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <MainLayout>{children}{afterContent}</MainLayout>;
+};
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[]; requiredPermission?: string; requiredCapability?: 'does_psychotherapy' }> = ({ children, allowedRoles, requiredPermission, requiredCapability }) => {
   const { isAuthenticated, user, isAdmin, hasPermission } = useAuth();
 
@@ -188,11 +250,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   }
 
   return (
-    <MainLayout>
+    <SubscriptionAccessGate afterContent={
+      <>
+        {user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && <AuroraAssistant />}
+        {user && <OnboardingController userId={user.id} userName={user.name || ''} />}
+      </>
+    }>
       {children}
-      {user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && <AuroraAssistant />}
-      {user && <OnboardingController userId={user.id} userName={user.name || ''} />}
-    </MainLayout>
+    </SubscriptionAccessGate>
   );
 };
 
@@ -353,6 +418,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/configuracoes" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><Settings /></ProtectedRoute>} />
       <Route path="/portal-paciente" element={<ProtectedRoute requiredPermission="manage_patient_portal"><PortalPaciente /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/personalizar-menu" element={<ProtectedRoute><MenuCustomizer /></ProtectedRoute>} />
       <Route path="/assinatura" element={<ProtectedRoute><Assinatura /></ProtectedRoute>} />
       <Route path="/privacidade" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
       <Route path="/termos" element={<ProtectedRoute><Terms /></ProtectedRoute>} />

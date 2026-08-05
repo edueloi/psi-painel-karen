@@ -14,6 +14,7 @@ import {
 import { Switch } from '../components/UI/Switch';
 import { Select, Input, Textarea } from '../components/UI/Input';
 import { Combobox } from '../components/UI/Combobox';
+import { PORTAL_BASE_URL } from '@/src/lib/portal';
 
 interface PortalToken {
   id: number;
@@ -101,7 +102,7 @@ export const PortalPaciente: React.FC = () => {
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
 
-  const baseUrl = window.location.origin;
+  const baseUrl = PORTAL_BASE_URL;
 
   const fetchTokens = useCallback(async () => {
     setLoading(true);
@@ -182,7 +183,7 @@ export const PortalPaciente: React.FC = () => {
     const phone = t.patient_phone || patient?.phone || '';
     const url = `${baseUrl}/portal/entrar/${t.token}`;
     const msg = encodeURIComponent(
-      `Olá ${name}! Aqui está seu link de acesso ao portal:\n\n${url}\n\nNele você pode agendar consultas e muito mais. 😊`
+      `Olá ${name}! 👋\n\nAqui está o link de acesso ao seu Portal do Paciente:\n\n${url}\n\nPor lá você pode agendar e acompanhar suas consultas, ver os pacotes disponíveis e acessar seus dados com a gente. Qualquer dúvida, estou à disposição! 😊`
     );
     const wa = phone
       ? `https://wa.me/55${phone.replace(/\D/g, '')}?text=${msg}`

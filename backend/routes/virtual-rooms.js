@@ -198,13 +198,14 @@ router.get('/history', async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT rs.*, vr.title AS room_title, vr.code AS room_code,
+              COALESCE(rs.custom_title, vr.title) AS display_title,
               p.name AS patient_name,
               u.name AS professional_name,
               (SELECT COUNT(*) FROM room_transcripts rt WHERE rt.session_key = rs.session_key) AS transcript_count,
               (SELECT COUNT(*) FROM room_recordings rr WHERE rr.session_key = rs.session_key) AS recording_count
        FROM room_sessions rs
        JOIN virtual_rooms vr ON vr.id = rs.room_id
-       LEFT JOIN patients p ON p.id = vr.patient_id
+       LEFT JOIN patients p ON p.id = COALESCE(rs.patient_id, vr.patient_id)
        LEFT JOIN users u ON u.id = vr.professional_id
        WHERE rs.tenant_id = ?
        ORDER BY rs.created_at DESC
@@ -611,6 +612,31 @@ router.delete('/:id/sessions/:sessionKey', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('[DELETE session]', e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// PATCH /virtual-rooms/:id/sessions/:sessionKey — renomear sessão e/ou marcar paciente
+router.patch('/:id/sessions/:sessionKey', async (req, res) => {
+  try {
+    const roomId = parseInt(req.params.id);
+    const sk = req.params.sessionKey;
+    const tenantId = req.user.tenant_id;
+    const { custom_title, patient_id } = req.body || {};
+
+    const [result] = await db.query(
+      `UPDATE room_sessions SET
+        custom_title = ?,
+        patient_id = ?,
+        updated_at = NOW()
+       WHERE room_id = ? AND tenant_id = ? AND session_key = ?`,
+      [custom_title || null, patient_id || null, roomId, tenantId, sk]
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Sessão não encontrada.' });
+
+    res.json({ ok: true, custom_title: custom_title || null, patient_id: patient_id || null });
+  } catch (e) {
+    console.error('[PATCH session]', e);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });

@@ -25,6 +25,7 @@ import {
   SectionTitle,
 } from '../components/UI';
 import { useToast } from '../contexts/ToastContext';
+import { PORTAL_BASE_URL } from '@/src/lib/portal';
 
 const AVATAR_COLORS = [
   'from-primary-500 to-purple-600',
@@ -205,7 +206,7 @@ export const PatientDetail: React.FC = () => {
   };
 
   const copyPortalLink = (token: string, id: number) => {
-    const url = `${window.location.origin}/portal/entrar/${token}`;
+    const url = `${PORTAL_BASE_URL}/portal/entrar/${token}`;
     navigator.clipboard.writeText(url).then(() => {
       setPortalCopiedId(id);
       setTimeout(() => setPortalCopiedId(null), 2000);
@@ -541,7 +542,7 @@ export const PatientDetail: React.FC = () => {
                 <span className="text-[11px] text-slate-400">{portalTokens.filter(t => !t.is_used && !(t.expires_at && new Date(t.expires_at) < new Date())).length} ativo(s)</span>
               </div>
               {portalTokens.map(tk => {
-                const url = `${window.location.origin}/portal/entrar/${tk.token}`;
+                const url = `${PORTAL_BASE_URL}/portal/entrar/${tk.token}`;
                 const expired = tk.expires_at && new Date(tk.expires_at) < new Date();
                 const used = !!tk.is_used;
                 const inactive = expired || used;

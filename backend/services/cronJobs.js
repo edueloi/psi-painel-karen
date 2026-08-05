@@ -59,6 +59,76 @@ function fmtWeek(start, end) {
   return `${fmtDate(start)} a ${fmtDate(end)}`;
 }
 
+// Lembretes da assinatura da plataforma. O registro no banco torna o job
+// idempotente: reinícios do servidor não repetem o mesmo e-mail.
+async function checkSubscriptionReminders() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS subscription_email_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        user_id INT NOT NULL,
+        event_key VARCHAR(80) NOT NULL,
+        sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_subscription_email (tenant_id, user_id, event_key)
+      )
+    `);
+
+    const [recipients] = await db.query(`
+      SELECT t.id AS tenant_id, t.name AS tenant_name,
+             CASE WHEN t.expires_at IS NULL THEN t.trial_ends_at ELSE t.expires_at END AS ends_at,
+             CASE WHEN t.expires_at IS NULL THEN 'trial' ELSE 'subscription' END AS cycle_type,
+             p.name AS plan_name, u.id AS user_id, u.name, u.email,
+             DATEDIFF(DATE(CASE WHEN t.expires_at IS NULL THEN t.trial_ends_at ELSE t.expires_at END), CURDATE()) AS days_left
+      FROM tenants t
+      JOIN users u ON u.tenant_id = t.id AND u.role = 'admin' AND u.active = true
+      LEFT JOIN plans p ON p.id = t.plan_id
+      WHERE COALESCE(t.billing_exempt, 0) = 0
+        AND (
+          (t.expires_at IS NOT NULL AND DATE(t.expires_at) <= DATE_ADD(CURDATE(), INTERVAL 7 DAY))
+          OR (t.expires_at IS NULL AND t.trial_ends_at IS NOT NULL AND DATE(t.trial_ends_at) <= DATE_ADD(CURDATE(), INTERVAL 7 DAY))
+        )
+        AND u.email IS NOT NULL AND u.email <> ''
+    `);
+
+    for (const recipient of recipients) {
+      const daysLeft = Number(recipient.days_left);
+      // Antes do vencimento, avisa em marcos úteis. Se continuar sem pagar,
+      // reforça a renovação após 3, 7, 15 e 30 dias de atraso.
+      if (daysLeft > 0 && ![7, 3, 1].includes(daysLeft)) continue;
+      if (daysLeft <= 0 && ![0, -3, -7, -15, -30].includes(daysLeft)) continue;
+
+      const expiryDate = new Date(recipient.ends_at).toISOString().slice(0, 10);
+      const eventKey = daysLeft <= 0
+        ? `${recipient.cycle_type}-expired-${Math.abs(daysLeft)}-${expiryDate}`
+        : `${recipient.cycle_type}-due-${daysLeft}-${expiryDate}`;
+      const [[alreadySent]] = await db.query(
+        'SELECT id FROM subscription_email_log WHERE tenant_id = ? AND user_id = ? AND event_key = ?',
+        [recipient.tenant_id, recipient.user_id, eventKey]
+      );
+      if (alreadySent) continue;
+
+      const isTrial = recipient.cycle_type === 'trial';
+      const subject = isTrial
+        ? (daysLeft < 0 ? 'Seu acesso PsiFlux continua aguardando a escolha de um plano' : daysLeft === 0 ? 'Seu período de teste PsiFlux terminou' : `Seu teste PsiFlux termina em ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`)
+        : (daysLeft < 0 ? 'Ainda não identificamos a renovação da sua assinatura PsiFlux' : daysLeft === 0 ? 'Sua assinatura PsiFlux venceu — renove para continuar' : `Sua assinatura PsiFlux vence em ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`);
+      const html = isTrial
+        ? templates.trialReminder({ name: recipient.name, endsAt: fmtDate(recipient.ends_at), daysLeft, renewalUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/assinatura` })
+        : templates.subscriptionReminder({ name: recipient.name, planName: recipient.plan_name, expiresAt: fmtDate(recipient.ends_at), daysLeft, renewalUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/assinatura` });
+      const sent = await sendMail(recipient.email, subject, html);
+
+      if (sent) {
+        await db.query(
+          'INSERT IGNORE INTO subscription_email_log (tenant_id, user_id, event_key) VALUES (?, ?, ?)',
+          [recipient.tenant_id, recipient.user_id, eventKey]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('[Cron] Erro nos lembretes de assinatura:', err.message);
+  }
+}
+
 const DEFAULT_PREFS = {
   enabled: false,
   new_appointment: false,
@@ -864,6 +934,8 @@ function startCronJobs() {
 
   cron.schedule('0 7 * * 1', sendWeeklyReport, { timezone: 'America/Sao_Paulo' });
   cron.schedule('0 7 1 * *', sendMonthlyReport, { timezone: 'America/Sao_Paulo' });
+  cron.schedule('0 9 * * *', () => withLock('subscriptionReminders', checkSubscriptionReminders), { timezone: 'America/Sao_Paulo' });
+  checkSubscriptionReminders();
 
   console.log('✅ Cron jobs de email, automação e WhatsApp iniciados');
 }
@@ -1179,6 +1251,6 @@ function getRandomPhrase() {
 
 module.exports = {
   startCronJobs, checkAppointmentReminders, checkDailyTasks, sendWeeklyReport, sendMonthlyReport,
-  autoConfirmAppointments, checkClinicalScaleResends,
+  autoConfirmAppointments, checkClinicalScaleResends, checkSubscriptionReminders,
   enqueueProfessionalWpp, getMasterTenantId, getMasterWppPrefs, DEFAULT_MASTER_WPP_PREFS,
 };

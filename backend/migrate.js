@@ -1226,6 +1226,8 @@ async function migrate() {
       duration_seconds INT,
       transcript_count INT DEFAULT 0,
       recording_count INT DEFAULT 0,
+      custom_title VARCHAR(200) NULL,
+      patient_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_rs_room (room_id),
@@ -1233,6 +1235,15 @@ async function migrate() {
       INDEX idx_rs_session (session_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Patch: adiciona custom_title/patient_id em instalações onde room_sessions já existia
+  {
+    const [rsCols] = await conn.query(`SHOW COLUMNS FROM room_sessions`);
+    const rsColNames = rsCols.map(c => c.Field);
+    if (!rsColNames.includes('custom_title'))
+      await conn.query(`ALTER TABLE room_sessions ADD COLUMN custom_title VARCHAR(200) NULL`).catch(() => {});
+    if (!rsColNames.includes('patient_id'))
+      await conn.query(`ALTER TABLE room_sessions ADD COLUMN patient_id INT NULL`).catch(() => {});
+  }
 
   console.log('✅ Migração concluída com sucesso!');
   await conn.end();

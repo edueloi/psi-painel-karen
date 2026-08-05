@@ -7,6 +7,7 @@ import {
   Clock,
   Copy,
   Download,
+  Edit3,
   FileText,
   History,
   Link as LinkIcon,
@@ -57,6 +58,10 @@ type SessionSummary = {
   recording_count: number;
   room_title?: string;
   room_code?: string;
+  display_title?: string;
+  custom_title?: string | null;
+  patient_id?: number | null;
+  patient_name?: string | null;
 };
 
 type TranscriptLine = {
@@ -121,6 +126,11 @@ export const VirtualRooms: React.FC = () => {
   const [sessionRecordings, setSessionRecordings] = useState<Record<string, RecordingEntry[]>>({});
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+
+  const [sessionToEdit, setSessionToEdit] = useState<SessionSummary | null>(null);
+  const [editSessionTitle, setEditSessionTitle] = useState('');
+  const [editSessionPatientId, setEditSessionPatientId] = useState('');
+  const [isSavingSessionEdit, setIsSavingSessionEdit] = useState(false);
 
   const [sessionSearch, setSessionSearch] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
@@ -285,13 +295,48 @@ export const VirtualRooms: React.FC = () => {
     }
   };
 
+  const openEditSession = (session: SessionSummary) => {
+    setSessionToEdit(session);
+    setEditSessionTitle(session.custom_title || session.display_title || session.room_title || '');
+    setEditSessionPatientId(session.patient_id ? String(session.patient_id) : '');
+  };
+
+  const saveSessionEdit = async () => {
+    if (!sessionToEdit) return;
+    setIsSavingSessionEdit(true);
+    try {
+      await api.patch(`/virtual-rooms/${sessionToEdit.room_id}/sessions/${sessionToEdit.session_key}`, {
+        custom_title: editSessionTitle.trim() || null,
+        patient_id: editSessionPatientId ? Number(editSessionPatientId) : null,
+      });
+      const patient = patients.find((p) => String(p.id) === editSessionPatientId);
+      setSessions((prev) => prev.map((s) => s.session_key === sessionToEdit.session_key
+        ? {
+            ...s,
+            custom_title: editSessionTitle.trim() || null,
+            display_title: editSessionTitle.trim() || s.room_title,
+            patient_id: editSessionPatientId ? Number(editSessionPatientId) : null,
+            patient_name: patient?.full_name || null,
+          }
+        : s
+      ));
+      toastSuccess('Sessão atualizada', 'Nome e paciente salvos com sucesso.');
+      setSessionToEdit(null);
+    } catch {
+      toastError('Erro', 'Não foi possível atualizar a sessão.');
+    } finally {
+      setIsSavingSessionEdit(false);
+    }
+  };
+
   const filteredSessions = sessions.filter((s) => {
     if (sessionSearch.trim()) {
       const q = sessionSearch.trim().toLowerCase();
-      const inTitle = (s.room_title || '').toLowerCase().includes(q);
+      const inTitle = (s.display_title || s.room_title || '').toLowerCase().includes(q);
       const inCode = (s.room_code || '').toLowerCase().includes(q);
       const inKey = s.session_key.toLowerCase().includes(q);
-      if (!inTitle && !inCode && !inKey) return false;
+      const inPatient = (s.patient_name || '').toLowerCase().includes(q);
+      if (!inTitle && !inCode && !inKey && !inPatient) return false;
     }
     if (filterDateFrom) {
       if (new Date(s.started_at) < new Date(filterDateFrom)) return false;
@@ -917,12 +962,15 @@ export const VirtualRooms: React.FC = () => {
                             </div>
                             <div className="min-w-0">
                               <p className="truncate text-sm font-bold text-slate-800">
-                                {session.room_title || `Sala #${session.room_id}`}
+                                {session.display_title || session.room_title || `Sala #${session.room_id}`}
                                 {session.room_code && (
                                   <span className="ml-2 font-mono text-[10px] text-slate-400">{session.room_code}</span>
                                 )}
                               </p>
                               <p className="text-xs text-slate-400">
+                                {session.patient_name && (
+                                  <span className="font-semibold text-slate-500">{session.patient_name} · </span>
+                                )}
                                 {formatSessionDate(session.started_at)}
                                 {session.duration_seconds != null && ` · ${formatDuration(session.duration_seconds)}`}
                               </p>
@@ -937,6 +985,13 @@ export const VirtualRooms: React.FC = () => {
                                 {session.recording_count} áudio{session.recording_count > 1 ? 's' : ''}
                               </span>
                             )}
+                            <button
+                              onClick={() => openEditSession(session)}
+                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 transition hover:border-indigo-200 hover:text-indigo-600"
+                              title="Renomear / marcar paciente"
+                            >
+                              <Edit3 size={13} />
+                            </button>
                             <button
                               onClick={() => deleteSession(session)}
                               className="rounded-lg border border-slate-200 p-1.5 text-slate-300 transition hover:border-red-200 hover:text-red-500"
@@ -1241,6 +1296,35 @@ export const VirtualRooms: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!sessionToEdit}
+        onClose={() => setSessionToEdit(null)}
+        title="Renomear sessão"
+        size="sm"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setSessionToEdit(null)}>Cancelar</Button>
+            <Button variant="primary" onClick={saveSessionEdit} loading={isSavingSessionEdit}>Salvar</Button>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nome da sessão"
+            value={editSessionTitle}
+            onChange={(e) => setEditSessionTitle(e.target.value)}
+            placeholder="Ex: Sessão com Maria Silva"
+          />
+          <Combobox
+            label="Paciente"
+            options={patients.map((p) => ({ value: String(p.id), label: p.full_name }))}
+            value={editSessionPatientId}
+            onChange={(v) => setEditSessionPatientId(v as string)}
+            placeholder="Selecionar paciente (opcional)"
+          />
         </div>
       </Modal>
 

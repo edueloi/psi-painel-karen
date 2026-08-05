@@ -87,34 +87,9 @@ router.post('/login', loginLimiter, async (req, res) => {
       });
     }
 
-    // Clínicas isentas de cobrança nunca são bloqueadas por vencimento/trial expirado
-    if (user.role !== 'super_admin' && !user.tenant_billing_exempt) {
-      // Bloqueia se assinatura venceu — com 3 dias de carência após o vencimento
-      // (dá tempo do Pix compensar sem cortar o acesso na hora).
-      const SUBSCRIPTION_GRACE_DAYS = 3;
-      if (user.tenant_expires_at) {
-        const graceDeadline = new Date(user.tenant_expires_at);
-        graceDeadline.setDate(graceDeadline.getDate() + SUBSCRIPTION_GRACE_DAYS);
-        const graceExpired = graceDeadline < new Date();
-        if (graceExpired) {
-          return res.status(403).json({
-            error: 'A assinatura desta clínica está vencida. Renove para continuar acessando.',
-            subscription_expired: true,
-          });
-        }
-      }
-
-      // Bloqueia se trial expirou
-      if (user.trial_ends_at) {
-        const trialExpired = new Date(user.trial_ends_at) < new Date();
-        if (trialExpired) {
-          return res.status(403).json({
-            error: 'Seu período de teste gratuito de 14 dias expirou. Entre em contato para continuar usando o PsiFlux.',
-            trial_expired: true,
-          });
-        }
-      }
-    }
+    // Uma assinatura ou período de teste vencido não impede mais o login.
+    // Após autenticar, a proteção de assinatura libera apenas a tela/rotas de
+    // pagamento até a regularização. Assim a pessoa consegue renovar sozinha.
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {

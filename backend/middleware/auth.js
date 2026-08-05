@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { subscriptionAccessMiddleware } = require('./subscriptionAccess');
 
 /**
  * Middleware de autenticação JWT
@@ -52,7 +53,10 @@ async function authMiddleware(req, res, next) {
 
   try {
     req.user = await verifyToken(token);
-    next();
+    // As rotas de assinatura permanecem acessíveis para a renovação. Nas
+    // demais rotas autenticadas, aplica a limitação quando a conta venceu.
+    if (req.originalUrl.includes('/subscription/')) return next();
+    return subscriptionAccessMiddleware(req, res, next);
   } catch (err) {
     return res.status(401).json({ error: err.message || 'Token inválido ou expirado' });
   }

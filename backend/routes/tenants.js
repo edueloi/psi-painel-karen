@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { authorize } = require('../middleware/auth');
 const { DEFAULT_FORMS } = require('../default_forms_data');
+const { sendMail, templates } = require('../services/emailService');
 
 async function createDefaultFormsForTenant(tenantId, adminUserId) {
   for (const form of DEFAULT_FORMS) {
@@ -237,6 +238,17 @@ router.post('/', async (req, res) => {
 
     // Cria formulários psicológicos padrão para o novo tenant
     await createDefaultFormsForTenant(tenantId, userResult.insertId);
+
+    sendMail(
+      admin_email,
+      'Boas-vindas ao PsiFlux — sua conta está pronta',
+      templates.teamWelcome({
+        name: admin_name || 'Administrador(a)',
+        email: admin_email,
+        clinicName: company_name,
+        loginUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/login`,
+      })
+    ).catch(() => {});
 
     const [tenant] = await db.query(`
       SELECT t.id, t.name as company_name, t.slug, t.cnpj_cpf, t.phone, t.active,

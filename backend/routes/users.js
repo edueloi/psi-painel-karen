@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db');
+const { sendMail, templates } = require('../services/emailService');
 
 // ── Auto-migrate users table ──────────────────────────────────────────────────
 async function ensureUsersColumns() {
@@ -83,6 +84,18 @@ router.post('/', checkPermission('manage_professionals'), async (req, res) => {
       'SELECT id, name, email, role, specialty, crp, phone, active, created_at FROM users WHERE id = ?',
       [result.insertId]
     );
+
+    // O convite é informativo e não deve impedir a criação do profissional.
+    sendMail(
+      email,
+      'Boas-vindas ao PsiFlux — sua conta está pronta',
+      templates.teamWelcome({
+        name,
+        email,
+        clinicName: req.user.name || 'sua clínica',
+        loginUrl: `${process.env.APP_URL || 'https://app.psiflux.com.br'}/login`,
+      })
+    ).catch(() => {});
 
     res.status(201).json(newUser[0]);
   } catch (err) {

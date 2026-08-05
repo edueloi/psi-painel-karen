@@ -7,7 +7,7 @@ import {
   Eye, EyeOff, ChevronRight, ArrowUpRight, Clock, Star,
   DollarSign, Activity, BarChart3, Shield, Lock, Phone, Mail,
   Calendar, Check, AlertTriangle, Info, Copy, RefreshCw, Link,
-  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase, FileText, MessageSquare
+  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase, FileText, MessageSquare, Send
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -91,7 +91,7 @@ const AVATAR_COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#ec4899','#8b5cf
 const avatarColor = (name: string) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 const initials = (name: string) => name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
 
-type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'areas' | 'whatsapp' | 'pagamentos' | 'faturas';
+type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'areas' | 'whatsapp' | 'pagamentos' | 'faturas' | 'emails';
 const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'dashboard',   label: 'Dashboard',  Icon: LayoutDashboard },
   { id: 'clients',     label: 'Parceiros',  Icon: Building2 },
@@ -102,6 +102,7 @@ const NAV: { id: Tab; label: string; Icon: any }[] = [
   { id: 'whatsapp',    label: 'WhatsApp Bot', Icon: Phone },
   { id: 'pagamentos',  label: 'Pagamentos', Icon: DollarSign },
   { id: 'faturas',     label: 'Faturas',    Icon: FileText },
+  { id: 'emails',      label: 'Central de E-mails', Icon: Mail },
 ];
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -212,7 +213,7 @@ const StatusBadge = ({ active, status, expires_at, trial_ends_at, billing_exempt
 const TAB_SLUGS: Record<Tab, string> = {
   dashboard: 'dashboard', clients: 'parceiros', team: 'equipe',
   permissions: 'permissoes', plans: 'planos', areas: 'areas-de-atuacao', whatsapp: 'whatsapp', pagamentos: 'pagamentos',
-  faturas: 'faturas',
+  faturas: 'faturas', emails: 'emails',
 };
 const SLUG_TO_TAB: Record<string, Tab> = Object.fromEntries(
   Object.entries(TAB_SLUGS).map(([k, v]) => [v, k as Tab])
@@ -374,6 +375,23 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [invoicesSummary, setInvoicesSummary] = useState({ total_approved: 0, total_pending: 0, count_approved: 0, count_pending: 0 });
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('');
+
+  const [emailSummary, setEmailSummary] = useState<any>({ active_recipients: 0, campaigns: [] });
+  const [emailForm, setEmailForm] = useState({ subject: '', title: '', content: '', button_text: 'Conhecer novidade', button_url: '' });
+  const [sendingCampaign, setSendingCampaign] = useState(false);
+  const loadEmailSummary = useCallback(() => api.get<any>('/email-campaigns/summary').then(setEmailSummary).catch(() => toast('Erro ao carregar central de e-mails.', 'error')), [toast]);
+  useEffect(() => { if (tab === 'emails') loadEmailSummary(); }, [tab, loadEmailSummary]);
+  const sendCampaign = async () => {
+    if (!emailForm.subject.trim() || !emailForm.title.trim() || !emailForm.content.trim()) { toast('Preencha assunto, título e mensagem.', 'error'); return; }
+    setSendingCampaign(true);
+    try {
+      const result: any = await api.post('/email-campaigns/send', emailForm);
+      toast(`E-mail enviado para ${result.delivered} de ${result.recipients} usuários ativos.`);
+      setEmailForm({ subject: '', title: '', content: '', button_text: 'Conhecer novidade', button_url: '' });
+      loadEmailSummary();
+    } catch (e: any) { toast(e?.message || 'Erro ao enviar e-mail.', 'error'); }
+    finally { setSendingCampaign(false); }
+  };
 
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
@@ -683,7 +701,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const ticketMedio = useMemo(() => stats?.active_tenants > 0 ? (stats.mrr / stats.active_tenants) : 0, [stats]);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
-  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', areas: 'Áreas de Atuação', whatsapp: 'WhatsApp Bot', pagamentos: 'Pagamentos', faturas: 'Faturas' };
+  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', areas: 'Áreas de Atuação', whatsapp: 'WhatsApp Bot', pagamentos: 'Pagamentos', faturas: 'Faturas', emails: 'Central de E-mails' };
 
   const finalNav = NAV.filter(n => n.id !== 'whatsapp' || canAccessWpp);
 
@@ -1603,6 +1621,28 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
               {tab === 'areas' && (
                 <ProfessionalAreasTab />
+              )}
+
+              {tab === 'emails' && (
+                <div className="max-w-5xl space-y-5">
+                  <div className="rounded-2xl p-6 text-white shadow-sm" style={{ background: 'linear-gradient(135deg,#4338ca,#7c3aed)' }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div><p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">Comunicação</p><h2 className="text-xl font-black mt-1">Central de E-mails</h2><p className="text-sm text-white/75 mt-2">Envie novidades e comunicados para todos os usuários ativos do PsiFlux.</p></div>
+                      <div className="shrink-0 rounded-2xl bg-white/15 px-4 py-3 text-center"><p className="text-2xl font-black">{emailSummary.active_recipients || 0}</p><p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Destinatários ativos</p></div>
+                    </div>
+                  </div>
+                  <div className="grid lg:grid-cols-[1.3fr_.7fr] gap-5">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                      <div><h3 className="font-black text-slate-800">Novo comunicado</h3><p className="text-xs text-slate-500 mt-1">O envio será feito somente para usuários com conta ativa e e-mail cadastrado.</p></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Assunto do e-mail</label><input className={inp} maxLength={180} value={emailForm.subject} onChange={e => setEmailForm({ ...emailForm, subject: e.target.value })} placeholder="Ex.: Novidade no PsiFlux" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Título em destaque</label><input className={inp} maxLength={180} value={emailForm.title} onChange={e => setEmailForm({ ...emailForm, title: e.target.value })} placeholder="Uma nova atualização chegou" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Mensagem</label><textarea className={inp + ' min-h-36 resize-y'} value={emailForm.content} onChange={e => setEmailForm({ ...emailForm, content: e.target.value })} placeholder="Conte o que mudou e como isso ajuda no dia a dia..." /></div>
+                      <div className="grid sm:grid-cols-2 gap-3"><div><label className="block text-xs font-bold text-slate-500 mb-1.5">Texto do botão (opcional)</label><input className={inp} value={emailForm.button_text} onChange={e => setEmailForm({ ...emailForm, button_text: e.target.value })} /></div><div><label className="block text-xs font-bold text-slate-500 mb-1.5">Link do botão (opcional)</label><input className={inp} value={emailForm.button_url} onChange={e => setEmailForm({ ...emailForm, button_url: e.target.value })} placeholder="https://..." /></div></div>
+                      <button onClick={() => doConfirm({ message: `Enviar para ${emailSummary.active_recipients || 0} usuários ativos?`, detail: 'O envio será registrado no histórico.', onConfirm: sendCampaign })} disabled={sendingCampaign || !emailSummary.active_recipients} className="w-full py-3 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition flex items-center justify-center gap-2">{sendingCampaign ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} {sendingCampaign ? 'Enviando...' : 'Disparar e-mail para ativos'}</button>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5"><h3 className="font-black text-slate-800">Últimos disparos</h3><div className="mt-4 space-y-3">{(emailSummary.campaigns || []).length === 0 ? <p className="text-sm text-slate-400 py-8 text-center">Nenhum comunicado enviado ainda.</p> : emailSummary.campaigns.map((campaign: any) => <div key={campaign.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100"><p className="text-sm font-bold text-slate-700 truncate">{campaign.subject}</p><p className="text-[11px] text-slate-400 mt-1">{campaign.delivered_count}/{campaign.recipient_count} enviados · {fmtDate(campaign.sent_at || campaign.created_at)}</p>{campaign.failed_count > 0 && <p className="text-[11px] text-red-500 mt-1">{campaign.failed_count} falharam</p>}</div>)}</div></div>
+                  </div>
+                </div>
               )}
 
               {tab === 'whatsapp' && canAccessWpp && (

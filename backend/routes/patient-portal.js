@@ -1796,19 +1796,30 @@ router.get('/comandas', portalAuth, async (req, res) => {
 // Nunca expõe desconto/acréscimo — apenas o preço final (display_price)
 router.get('/packages', portalAuth, async (req, res) => {
   try {
-    const { tenant_id, token_id } = req.portalSession;
-    if (!token_id) return res.json([]);
+    const { tenant_id, patient_id } = req.portalSession;
 
+    // Considera pacotes liberados em QUALQUER token de convite já usado por este
+    // paciente — não apenas o token da sessão atual. Um paciente que já configurou
+    // senha e loga por email/senha (POST /auth/login) não tem token_id na sessão,
+    // e pode também ter múltiplos tokens de convite ao longo do tempo.
     const [tp] = await db.query(
       `SELECT ptp.package_id, ptp.custom_price, ptp.active,
               pkg.name, pkg.description, pkg.sessions_count, pkg.totalPrice
        FROM portal_token_packages ptp
+       JOIN patient_portal_tokens ppt ON ppt.id = ptp.token_id
        JOIN packages pkg ON pkg.id = ptp.package_id
-       WHERE ptp.token_id = ? AND ptp.tenant_id = ? AND ptp.active = 1`,
-      [token_id, tenant_id]
+       WHERE ppt.patient_id = ? AND ptp.tenant_id = ? AND ptp.active = 1`,
+      [patient_id, tenant_id]
     );
 
-    const rows = tp.map(r => ({
+    // Dedup no código (não em SQL) para não depender do sql_mode do servidor —
+    // o mesmo pacote pode ter sido liberado em mais de um token do mesmo paciente.
+    const byPackageId = new Map();
+    for (const r of tp) {
+      if (!byPackageId.has(r.package_id)) byPackageId.set(r.package_id, r);
+    }
+
+    const rows = Array.from(byPackageId.values()).map(r => ({
       id: r.package_id,
       name: r.name,
       description: r.description,
@@ -2017,7 +2028,7 @@ router.post('/tokens', checkPermission('manage_patient_portal'), async (req, res
        req.user.id]
     );
 
-    const portalUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/portal/entrar/${token}`;
+    const portalUrl = `${process.env.PORTAL_URL || 'https://portal.psiflux.com.br'}/portal/entrar/${token}`;
     res.json({ token, url: portalUrl, expires_at: expiresAt });
   } catch (e) {
     console.error(e);

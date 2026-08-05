@@ -1239,9 +1239,7 @@ router.post('/transcribe-audio', checkPermission('access_ai_features'), transcri
       'Medicamentos: fluoxetina, sertralina, escitalopram, citalopram, paroxetina, venlafaxina, duloxetina, bupropiona, mirtazapina, imipramina, amitriptilina, clomipramina, alprazolam, clonazepam, diazepam, lorazepam, bromazepam, risperidona, olanzapina, quetiapina, aripiprazol, haloperidol, clozapina, lítio, valproato, carbamazepina, lamotrigina, metilfenidato, lisdexanfetamina, atomoxetina, modafinila, topiramato, gabapentina, pregabalina. ' +
 
       // Contexto clínico e plataforma
-      'Contexto: prontuário, anamnese, avaliação psicológica, laudo, relatório, encaminhamento, hipótese diagnóstica, CID, DSM, WISC, Rorschach, HTP, Bender, escala de ansiedade, escala de depressão, BDI, BAI, SNAP-IV, CBCL, sessão terapêutica, plano terapêutico, contrato terapêutico, consentimento informado, sigilo, confidencialidade, ética profissional, supervisão clínica, interconsulta, telepsicologia, teleatendimento, PsiFlux, agendamento, sala virtual, videochamada, transcrição, gravação de sessão. ' +
-
-      'O áudio pode conter pausas, respirações, interrupções e sobreposição de falas. Transcreva fielmente.';
+      'Contexto: prontuário, anamnese, avaliação psicológica, laudo, relatório, encaminhamento, hipótese diagnóstica, CID, DSM, WISC, Rorschach, HTP, Bender, escala de ansiedade, escala de depressão, BDI, BAI, SNAP-IV, CBCL, sessão terapêutica, plano terapêutico, contrato terapêutico, consentimento informado, sigilo, confidencialidade, ética profissional, supervisão clínica, interconsulta, telepsicologia, teleatendimento, PsiFlux, agendamento, sala virtual, videochamada, transcrição, gravação de sessão.';
 
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
@@ -1251,11 +1249,62 @@ router.post('/transcribe-audio', checkPermission('access_ai_features'), transcri
       prompt: whisperPrompt,
     });
 
+    if (isLikelyHallucination(transcription, whisperPrompt)) {
+      console.warn(`[Whisper] Transcrição descartada (provável alucinação/eco do prompt): "${transcription}"`);
+      return res.status(422).json({ error: 'Nenhuma fala detectada no áudio.' });
+    }
+
     res.json({ text: transcription });
   } catch (err) {
     console.error('[Whisper] Erro na transcrição:', err);
     res.status(500).json({ error: 'Erro ao transcrever áudio: ' + (err.message || err) });
   }
 });
+
+// Frases conhecidas que o whisper-1 "aluciona" em áudio silencioso/sem fala — vêm dos
+// dados de treino (legendas de vídeos) e são um padrão documentado do modelo, não têm
+// relação com o prompt enviado.
+const KNOWN_WHISPER_HALLUCINATIONS = [
+  'legendas pela comunidade amara.org',
+  'legendado pela comunidade amara.org',
+  'subtitles by the amara.org community',
+  'obrigado por assistir',
+  'obrigado por ver o vídeo',
+  'inscreva-se no canal',
+  'gostou do vídeo, deixa o like',
+  'thanks for watching',
+  'thank you for watching',
+];
+
+// Whisper-1 pode "alucinar" em áudio sem fala detectável (silêncio, ruído, clipe curto),
+// repetindo/ecoando o prompt de contexto ou produzindo frases padrão de encerramento de
+// vídeo (herdadas dos dados de treino). Detecta esses padrões para não salvar lixo como
+// transcrição válida.
+function isLikelyHallucination(text, prompt) {
+  const normalized = (text || '').trim().toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ');
+  if (!normalized) return false;
+
+  // Caso 1: o texto transcrito é um trecho literal do prompt (eco direto).
+  const normalizedPrompt = (prompt || '').toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ');
+  if (normalized.length > 8 && normalizedPrompt.includes(normalized)) return true;
+
+  // Caso 2: frase conhecida de alucinação em silêncio (não relacionada ao prompt).
+  const normalizeHallucination = (s) => s.toLowerCase().replace(/[.,!?;:]/g, '').replace(/\s+/g, ' ');
+  if (KNOWN_WHISPER_HALLUCINATIONS.some(h => normalized.includes(normalizeHallucination(h)))) return true;
+
+  // Caso 3: um grupo curto de palavras (1 a 6) se repete 2+ vezes consecutivas — padrão
+  // clássico de loop/alucinação (ex.: "transcreva fielmente. transcreva fielmente.").
+  const words = normalized.split(' ').filter(Boolean);
+  for (let groupSize = 1; groupSize <= 6 && groupSize * 2 <= words.length; groupSize++) {
+    const group = words.slice(0, groupSize).join(' ');
+    let repeats = 1;
+    while (words.slice(repeats * groupSize, (repeats + 1) * groupSize).join(' ') === group) {
+      repeats++;
+    }
+    if (repeats >= 2 && repeats * groupSize >= words.length * 0.7) return true;
+  }
+
+  return false;
+}
 
 module.exports = router;

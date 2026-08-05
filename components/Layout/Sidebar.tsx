@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { NAV_SECTIONS } from '../../constants';
 import { LogOut, ShieldAlert, ChevronDown, LayoutGrid } from 'lucide-react';
 import logoUrl from '../../images/logo-psiflux.png';
@@ -7,7 +7,6 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import { MenuCustomizerModal } from './MenuCustomizerModal';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -26,12 +25,12 @@ function saveCollapsed(state: Record<string, boolean>) {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const { user, isAdmin, hasPermission } = useAuth();
   const { resolvedMode } = useTheme();
   const { preferences } = useUserPreferences();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
-  const [customizerOpen, setCustomizerOpen] = useState(false);
 
   // Expand all sections when the guided tour starts
   useEffect(() => {
@@ -262,7 +261,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
         <div className={`p-3 border-t ${headerBorder} ${isDark ? 'bg-slate-950/50' : 'bg-slate-50/50'} space-y-1.5`}>
           {/* Personalizar menu */}
           <button
-            onClick={() => setCustomizerOpen(true)}
+            onClick={() => navigate('/personalizar-menu')}
             className={`w-full flex items-center justify-center gap-2 p-2 rounded-xl text-xs font-bold transition-all duration-200 ${isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 border border-slate-800 hover:border-slate-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 border border-slate-200/60 hover:border-indigo-200'}`}
           >
             <LayoutGrid size={13}/>
@@ -279,8 +278,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
           </button>
         </div>
       </aside>
-
-      <MenuCustomizerModal isOpen={customizerOpen} onClose={() => setCustomizerOpen(false)} />
     </>
   );
 };
