@@ -143,18 +143,41 @@ const Lobby: React.FC<{
       setDeviceError("Este navegador não tem suporte a câmera/microfone. Use uma versão recente de Chrome, Firefox, Edge ou Safari, acessando por HTTPS.");
       return;
     }
+    // "exact" força falha explícita se o dispositivo não tiver a câmera pedida,
+    // em vez do navegador devolver a frontal silenciosamente (o que fazia o
+    // botão "Virar" nunca trocar de fato, só reespelhar a mesma câmera).
+    const videoConstraint = videoId ? { deviceId: { exact: videoId } } : { facingMode: { exact: facing || "user" } };
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoId ? { deviceId: { exact: videoId } } : { facingMode: facing || "user" },
+        video: videoConstraint,
         audio: audioId ? { deviceId: { exact: audioId } } : true,
       });
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
       stream.getVideoTracks().forEach(t => { t.enabled = camOn; });
       stream.getAudioTracks().forEach(t => { t.enabled = micOn; });
+      const actualFacing = stream.getVideoTracks()[0]?.getSettings().facingMode;
+      if (actualFacing === 'environment' || actualFacing === 'user') setFacingMode(actualFacing);
       onStreamReady?.(stream);
       setDeviceError(null);
     } catch (err: any) {
+      // "exact" no facingMode falhou (dispositivo só tem 1 câmera, ou navegador
+      // não reporta facingMode) — tenta de novo sem "exact" antes de desistir.
+      if (!videoId && facing) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facing },
+            audio: audioId ? { deviceId: { exact: audioId } } : true,
+          });
+          streamRef.current = stream;
+          if (videoRef.current) videoRef.current.srcObject = stream;
+          stream.getVideoTracks().forEach(t => { t.enabled = camOn; });
+          stream.getAudioTracks().forEach(t => { t.enabled = micOn; });
+          onStreamReady?.(stream);
+          setDeviceError(null);
+          return;
+        } catch {}
+      }
       const name = err?.name || '';
       const msg = name === 'NotAllowedError'
         ? 'Permissão de câmera/microfone negada. Verifique as permissões do site nas configurações do navegador e recarregue a página.'
@@ -171,7 +194,6 @@ const Lobby: React.FC<{
   // do LiveKit quando já publicado (mesmo padrão usado pela lista de dispositivos).
   const flipCamera = () => {
     const next = facingMode === "user" ? "environment" : "user";
-    setFacingMode(next);
     setSelectedVideo("");
     onDeviceChange?.("", selectedAudio);
     startPreview(selectedAudio || undefined, undefined, next);
@@ -1209,9 +1231,19 @@ const RoomInner: React.FC<{
       // quando já existe uma publicação ativa — o facingMode só é respeitado
       // ao criar uma track nova, por isso é preciso desligar e religar.
       await localParticipant.setCameraEnabled(false);
-      await localParticipant.setCameraEnabled(true, { facingMode: next } as any);
-      setFacingMode(next);
-    } catch {}
+      // exact força falha explícita se o dispositivo não tiver a câmera pedida,
+      // em vez do navegador devolver a frontal silenciosamente e o app achar
+      // que trocou (o que fazia a imagem só continuar espelhada errado).
+      await localParticipant.setCameraEnabled(true, { facingMode: { exact: next } } as any);
+      const pub = localParticipant.getTrackPublication(Track.Source.Camera);
+      const settings = pub?.track?.mediaStreamTrack?.getSettings();
+      const actualFacing = settings?.facingMode === 'environment' ? 'environment' : 'user';
+      setFacingMode(actualFacing);
+    } catch {
+      // "exact" falhou (dispositivo não tem 2ª câmera, ou navegador não suporta) —
+      // religa a câmera anterior em vez de deixar o usuário sem vídeo nenhum.
+      try { await localParticipant.setCameraEnabled(true, { facingMode } as any); } catch {}
+    }
   }, [localParticipant, facingMode]);
 
   const toggleScreen = useCallback(async () => {
