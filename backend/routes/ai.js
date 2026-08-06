@@ -1194,7 +1194,19 @@ const transcribeUpload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB — limite do Whisper
 });
 
-router.post('/transcribe-audio', checkPermission('access_ai_features'), transcribeUpload.single('audio'), async (req, res) => {
+router.post('/transcribe-audio', checkPermission('access_ai_features'), (req, res, next) => {
+  transcribeUpload.single('audio')(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        error: 'Áudio muito grande para transcrição em um único envio. O limite é 25 MB; sessões novas são divididas automaticamente em blocos menores.',
+        code: 'AUDIO_TOO_LARGE',
+        max_bytes: 25 * 1024 * 1024,
+      });
+    }
+    return next(err);
+  });
+}, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo de áudio não enviado' });
 

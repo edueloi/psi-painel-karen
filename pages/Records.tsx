@@ -2555,8 +2555,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [anamnesisResponseModal, setAnamnesisResponseModal] = useState<{ sendId: number; patientName: string } | null>(null);
   const [anamnesisSends, setAnamnesisSends] = useState<any[]>([]);
   const [cancelAnamnesisModal, setCancelAnamnesisModal] = useState<{ sendId: number; patientName: string } | null>(null);
+  const sessionHandoffOpenedRef = useRef(false);
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchAll(); 
     if (selectedPatientId) fetchRecords(selectedPatientId);
     else fetchGlobalRecords();
@@ -2572,6 +2573,33 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         fetchGlobalRecords();
     }
   }, [searchParams]);
+
+  // Retorno da Sala Virtual: abre uma evolução em rascunho com a transcrição.
+  // A organização pela Aurora continua sendo uma ação explícita da profissional.
+  useEffect(() => {
+    if (sessionHandoffOpenedRef.current || searchParams.get('new_session') !== '1') return;
+    const patientId = searchParams.get('patient_id');
+    if (!patientId) return;
+    sessionHandoffOpenedRef.current = true;
+    let draft = '';
+    try {
+      const handoff = JSON.parse(sessionStorage.getItem('psi_session_record_draft') || '{}');
+      if (String(handoff.patientId) === String(patientId)) draft = handoff.draft || '';
+      sessionStorage.removeItem('psi_session_record_draft');
+    } catch {}
+    setSelectedPatientId(patientId);
+    setView('patient');
+    setCurrentRecord({
+      patient_id: patientId,
+      record_type: 'Evolucao',
+      title: `Evolução de sessão — ${new Date().toLocaleDateString('pt-BR')}`,
+      draft_content: draft,
+      status: 'Rascunho',
+    });
+    setEditorMode('new');
+    setEditorOpen(true);
+    setSearchParams({ patient_id: patientId }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (selectedPatientId) fetchRecords(selectedPatientId);

@@ -459,8 +459,8 @@ export const Settings: React.FC = () => {
                 <div className="divide-y divide-slate-100">
                   <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">Gravar áudio automaticamente</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Inicia a gravação assim que você entrar na sala virtual</p>
+                      <p className="text-sm font-medium text-slate-800">Iniciar transcrição automaticamente</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Captura trechos temporários assim que você entrar na sala virtual</p>
                     </div>
                     <Switch
                       checked={!!preferences.sessions?.autoRecord}
@@ -475,6 +475,16 @@ export const Settings: React.FC = () => {
                     <Switch
                       checked={!!preferences.sessions?.autoTranscribe}
                       onCheckedChange={(next) => updatePreference('sessions', { autoTranscribe: next })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-800">Guardar cópia do áudio</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Desligado: o áudio é usado temporariamente para transcrever e não fica salvo no servidor</p>
+                    </div>
+                    <Switch
+                      checked={!!preferences.sessions?.saveAudioRecording}
+                      onCheckedChange={(next) => updatePreference('sessions', { saveAudioRecording: next })}
                     />
                   </div>
                 </div>

@@ -65,6 +65,7 @@ export interface UserPreferences {
   sessions: {
     autoRecord: boolean;      // gravar áudio automaticamente ao entrar na sala
     autoTranscribe: boolean;  // transcrever automaticamente ao encerrar
+    saveAudioRecording: boolean; // manter os arquivos de áudio após transcrever
   };
   menuLayouts: MenuLayout[];
   activeMenuLayoutId: string | null;
@@ -148,7 +149,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
   sessions: {
     autoRecord: false,
-    autoTranscribe: false,
+    autoTranscribe: true,
+    saveAudioRecording: false,
   },
   menuLayouts: [],
   activeMenuLayoutId: null,

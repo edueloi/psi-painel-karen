@@ -12,7 +12,7 @@ import {
   useRoomContext,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, RoomEvent, LocalVideoTrack, LocalAudioTrack, type LocalParticipant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication, type Participant } from "livekit-client";
+import { Track, RoomEvent, ConnectionQuality, LocalVideoTrack, LocalAudioTrack, type LocalParticipant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication, type Participant } from "livekit-client";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
@@ -764,17 +764,62 @@ const ParticipantVideo: React.FC<{
 };
 
 // ── Chat via LiveKit data channel ─────────────────────────────────────────────
-const LiveKitChatPanel: React.FC<{ participantName: string; onClose: () => void }> = ({ participantName, onClose }) => {
+type CachedChatMessage = { id: string; sender: string; senderName?: string; message: string; timestamp: number };
+// Mantém cada envio muito abaixo do limite de 25 MB da API de transcrição,
+// inclusive em celulares que gravam Opus com bitrate mais alto.
+const TRANSCRIPTION_SEGMENT_MS = 8 * 60 * 1000;
+
+const LiveKitChatPanel: React.FC<{ participantName: string; roomId: string; onClose: () => void }> = ({ participantName, roomId, onClose }) => {
   const { chatMessages, send, isSending } = useChat();
   const [newMessage, setNewMessage] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const storageKey = `psi_room_chat_${roomId}`;
+  const [cachedMessages, setCachedMessages] = useState<CachedChatMessage[]>(() => {
+    try { return JSON.parse(sessionStorage.getItem(storageKey) || "[]"); } catch { return []; }
+  });
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+  const messageId = (sender: string, timestamp: number, message: string) => `${sender}:${timestamp}:${message}`;
+  const visibleMessages = (() => {
+    const all = new Map<string, CachedChatMessage>();
+    cachedMessages.forEach(message => all.set(message.id, message));
+    chatMessages.forEach(message => {
+      const sender = message.from?.identity || "participante";
+      const timestamp = message.timestamp || Date.now();
+      const id = messageId(sender, timestamp, message.message);
+      all.set(id, { id, sender, senderName: message.from?.name, message: message.message, timestamp });
+    });
+    return [...all.values()].sort((a, b) => a.timestamp - b.timestamp);
+  })();
+
+  useEffect(() => {
+    if (!chatMessages.length) return;
+    setCachedMessages(previous => {
+      const next = new Map(previous.map(message => [message.id, message]));
+      chatMessages.forEach(message => {
+        const sender = message.from?.identity || "participante";
+        const timestamp = message.timestamp || Date.now();
+        const id = messageId(sender, timestamp, message.message);
+        next.set(id, { id, sender, senderName: message.from?.name, message: message.message, timestamp });
+      });
+      return [...next.values()].slice(-200);
+    });
+  }, [chatMessages]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(storageKey, JSON.stringify(cachedMessages)); } catch {}
+  }, [cachedMessages, storageKey]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [visibleMessages.length]);
 
   const handleSend = () => {
     const text = newMessage.trim();
     if (!text || isSending) return;
     setNewMessage("");
+    const timestamp = Date.now();
+    const id = messageId(participantName, timestamp, text);
+    setCachedMessages(previous => previous.some(message => message.id === id)
+      ? previous
+      : [...previous, { id, sender: participantName, senderName: participantName, message: text, timestamp }].slice(-200));
     send(text);
   };
 
@@ -795,14 +840,14 @@ const LiveKitChatPanel: React.FC<{ participantName: string; onClose: () => void 
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-        {chatMessages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <p style={{ textAlign: "center", fontSize: 12, color: "#334155", marginTop: 20 }}>Nenhuma mensagem ainda</p>
         )}
-        {chatMessages.map((msg, i) => {
-          const isMe = msg.from?.identity === participantName;
+        {visibleMessages.map((msg) => {
+          const isMe = msg.sender === participantName;
           return (
-            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
-              {!isMe && <span style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>{msg.from?.name || msg.from?.identity}</span>}
+            <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+              {!isMe && <span style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>{msg.senderName || msg.sender}</span>}
               <div style={{ maxWidth: "85%", padding: "8px 12px", borderRadius: isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px", background: isMe ? "#4f46e5" : "rgba(255,255,255,0.08)", color: "#e2e8f0", fontSize: 13, lineHeight: 1.5 }}>
                 {msg.message}
               </div>
@@ -839,12 +884,63 @@ const useHasScreenShare = (identity: string) => {
 // ── Painel de configurações de dispositivos ──────────────────────────────────
 const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const room = useRoomContext();
+  const { localParticipant } = useLocalParticipant();
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([]);
   const [selCam, setSelCam] = useState("");
   const [selMic, setSelMic] = useState("");
   const [selSpk, setSelSpk] = useState("");
+  const [micLevel, setMicLevel] = useState(0);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+
+  // Teste de microfone usa o track já publicado: não abre um segundo acesso ao
+  // microfone e funciona também enquanto a profissional está em atendimento.
+  useEffect(() => {
+    const track = localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack;
+    if (!track) return;
+    const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 256;
+    context.createMediaStreamSource(new MediaStream([track])).connect(analyser);
+    const data = new Uint8Array(analyser.fftSize);
+    let frame = 0;
+    const update = () => {
+      analyser.getByteTimeDomainData(data);
+      const volume = data.reduce((sum, value) => sum + Math.abs(value - 128), 0) / data.length;
+      setMicLevel(Math.min(100, Math.round(volume * 3.2)));
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    return () => { cancelAnimationFrame(frame); void context.close(); };
+  }, [localParticipant]);
+
+  useEffect(() => {
+    let active = true;
+    const updateLatency = async () => {
+      try {
+        const manager = (room as any).engine?.pcManager;
+        const reports = await Promise.all([manager?.publisher?.getStats?.(), manager?.subscriber?.getStats?.()]);
+        let roundTrip: number | null = null;
+        for (const report of reports) {
+          if (!report) continue;
+          report.forEach((stat: any) => {
+            if (roundTrip !== null) return;
+            if (stat.type === 'candidate-pair' && stat.nominated && stat.state === 'succeeded' && typeof stat.currentRoundTripTime === 'number') {
+              roundTrip = Math.round(stat.currentRoundTripTime * 1000);
+            }
+            if (stat.type === 'remote-inbound-rtp' && typeof stat.roundTripTime === 'number') {
+              roundTrip = Math.round(stat.roundTripTime * 1000);
+            }
+          });
+        }
+        if (active) setLatencyMs(roundTrip);
+      } catch {}
+    };
+    void updateLatency();
+    const interval = window.setInterval(updateLatency, 2000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [room]);
 
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices().then(devs => {
@@ -884,6 +980,24 @@ const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ padding: 12, borderRadius: 10, background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.22)" }}>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: "#c7d2fe", fontWeight: 800, letterSpacing: ".5px", textTransform: "uppercase" }}>Teste de áudio e conexão</p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: "#cbd5e1" }}>Microfone</span>
+            <div style={{ width: 120, height: 7, borderRadius: 99, overflow: "hidden", background: "rgba(255,255,255,.12)" }}>
+              <div style={{ width: `${micLevel}%`, height: "100%", transition: "width .08s", background: micLevel > 75 ? "#f59e0b" : "#22c55e" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontSize: 12, color: "#cbd5e1" }}>Latência</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: latencyMs === null ? "#94a3b8" : latencyMs > 250 ? "#fbbf24" : "#86efac" }}>
+              {latencyMs === null ? "Medindo…" : `${latencyMs} ms`}
+            </span>
+          </div>
+          <p style={{ margin: "8px 0 0", fontSize: 10, color: "#94a3b8", lineHeight: 1.4 }}>
+            {latencyMs !== null && latencyMs > 250 ? "Latência alta: prefira Wi‑Fi estável ou aproximação do roteador." : "Fale para confirmar que a barra do microfone responde."}
+          </p>
+        </div>
         {cameras.length > 0 && (
           <div>
             <p style={labelStyle}>Câmera</p>
@@ -918,7 +1032,7 @@ const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
 // ── Sala principal ────────────────────────────────────────────────────────────
 const RoomInner: React.FC<{
-  roomId: string; participantName: string; isHost: boolean; onLeave: () => void; roomCode: string;
+  roomId: string; participantName: string; isHost: boolean; onLeave: (handoff?: { transcript?: string; patientId?: number | null }) => void; roomCode: string;
   initialCam: boolean; initialMic: boolean; videoDeviceId?: string; audioDeviceId?: string;
   lobbyStream?: MediaStream | null;
 }> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId, lobbyStream }) => {
@@ -940,6 +1054,8 @@ const RoomInner: React.FC<{
   }, [isHost, roomId]);
   const [pinned, setPinned] = useState<"remote" | "local">("remote");
   const [roomNotice, setRoomNotice] = useState<{ msg: string; type: 'enter' | 'leave' } | null>(null);
+  const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality>(ConnectionQuality.Excellent);
+  const [remoteConnectionQuality, setRemoteConnectionQuality] = useState<ConnectionQuality>(ConnectionQuality.Excellent);
   const roomNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevRemoteCountRef = useRef(0);
 
@@ -961,10 +1077,22 @@ const RoomInner: React.FC<{
     prevRemoteCountRef.current = curr;
   }, [remoteParticipants, showRoomNotice]);
 
+  // Exibe a instabilidade para os dois lados da sessão. O LiveKit atualiza essa
+  // métrica continuamente a partir de perda de pacotes, latência e bitrate.
+  useEffect(() => {
+    const onQualityChanged = (quality: ConnectionQuality, participant: Participant) => {
+      if (participant.identity === localParticipant.identity) setConnectionQuality(quality);
+      else setRemoteConnectionQuality(quality);
+    };
+    room.on(RoomEvent.ConnectionQualityChanged, onQualityChanged);
+    return () => { room.off(RoomEvent.ConnectionQualityChanged, onQualityChanged); };
+  }, [room, localParticipant.identity]);
+
   // ── Gravação de áudio ──────────────────────────────────────────────────────
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptDone, setTranscriptDone] = useState(false);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const sessionKeyRef = useRef<string>(`sess-${Date.now()}`);
@@ -972,6 +1100,9 @@ const RoomInner: React.FC<{
   const localMicStreamRef = useRef<MediaStream | null>(null);
   const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const connectedRemoteTrackIdsRef = useRef<Set<string>>(new Set());
+  const recordingStoppingRef = useRef(false);
+  const transcriptPartsRef = useRef<string[]>([]);
+  const segmentRotationRef = useRef(false);
 
   const connectRemoteTrackToRecording = useCallback((mediaTrack: MediaStreamTrack) => {
     const ctx = recordingAudioCtxRef.current;
@@ -999,6 +1130,7 @@ const RoomInner: React.FC<{
   const startRecording = useCallback(async () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      await ctx.resume();
       recordingAudioCtxRef.current = ctx;
       const destination = ctx.createMediaStreamDestination();
       recordingDestinationRef.current = destination;
@@ -1021,14 +1153,23 @@ const RoomInner: React.FC<{
       mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mr.start(1000);
       mediaRecorderRef.current = mr;
+      setRecordingError(null);
       setRecording(true);
-    } catch {}
+    } catch {
+      setRecordingError('Não foi possível iniciar a gravação. Verifique a permissão do microfone.');
+    }
   }, [remoteParticipants]);
 
   const stopRecordingAndTranscribe = useCallback(async () => {
     const mr = mediaRecorderRef.current;
-    if (!mr || mr.state === 'inactive') return;
-    mr.stop();
+    if (!mr || mr.state === 'inactive' || recordingStoppingRef.current) return '';
+    recordingStoppingRef.current = true;
+    // O último chunk chega apenas após o evento "stop". Antes, o upload podia
+    // receber um arquivo incompleto, sem a voz remota e impossível de transcrever.
+    await new Promise<void>((resolve) => {
+      mr.addEventListener('stop', () => resolve(), { once: true });
+      mr.stop();
+    });
     mr.stream.getTracks().forEach(t => t.stop());
     localMicStreamRef.current?.getTracks().forEach(t => t.stop());
     localMicStreamRef.current = null;
@@ -1038,9 +1179,16 @@ const RoomInner: React.FC<{
     connectedRemoteTrackIdsRef.current = new Set();
     setRecording(false);
 
-    const shouldTranscribe = preferences.sessions?.autoTranscribe;
+    // Ao parar uma gravação, a transcrição é parte do fluxo de encerramento.
+    // Isso evita que uma preferência antiga desabilitada silenciosamente deixe
+    // a sessão sem texto para revisão no prontuário.
+    const shouldTranscribe = true;
     const chunks = audioChunksRef.current;
-    if (!chunks.length) return;
+    if (!chunks.length) {
+      recordingStoppingRef.current = false;
+      setRecordingError('A gravação não gerou áudio. Tente novamente e confirme o microfone.');
+      return '';
+    }
 
     // Usa o mimetype real do gravador para garantir que o Whisper receba o formato correto
     const actualMime = mediaRecorderRef.current?.mimeType || mr.mimeType || 'audio/webm';
@@ -1052,11 +1200,16 @@ const RoomInner: React.FC<{
     formData.append('speaker_role', isHost ? 'host' : 'guest');
     formData.append('speaker_name', participantName);
     formData.append('duration_seconds', String(Math.round(elapsedTime)));
-    try {
-      await api.post<any>(`/virtual-rooms/${roomId}/sessions/${sk}/recordings`, formData);
-    } catch {}
+    if (preferences.sessions?.saveAudioRecording) {
+      try {
+        await api.post<any>(`/virtual-rooms/${roomId}/sessions/${sk}/recordings`, formData);
+      } catch {
+        setRecordingError('Não foi possível salvar a gravação.');
+      }
+    }
 
     // Transcrição via Whisper
+    let transcript = '';
     if (shouldTranscribe) {
       setTranscribing(true);
       try {
@@ -1074,11 +1227,35 @@ const RoomInner: React.FC<{
           });
           setTranscriptDone(true);
           setTimeout(() => setTranscriptDone(false), 5000);
+          transcript = text;
+          transcriptPartsRef.current.push(text);
         }
-      } catch {}
+      } catch {
+        setRecordingError('A gravação foi salva, mas a transcrição não pôde ser concluída.');
+      }
       setTranscribing(false);
     }
-  }, [preferences.sessions?.autoTranscribe, isHost, participantName, roomId, elapsedTime]);
+    recordingStoppingRef.current = false;
+    return transcriptPartsRef.current.length ? transcriptPartsRef.current.join('\n\n') : transcript;
+  }, [preferences.sessions?.saveAudioRecording, isHost, participantName, roomId, elapsedTime]);
+
+  // Uma gravação longa é dividida em arquivos independentes, todos com a mesma
+  // chave de sessão. Assim, o histórico continua agrupado e nenhum POST excede
+  // 25 MB — limite da OpenAI para transcrição de áudio.
+  useEffect(() => {
+    if (!recording || !isHost) return;
+    const timer = window.setTimeout(async () => {
+      if (segmentRotationRef.current || recordingStoppingRef.current) return;
+      segmentRotationRef.current = true;
+      try {
+        await stopRecordingAndTranscribe();
+        await startRecording();
+      } finally {
+        segmentRotationRef.current = false;
+      }
+    }, TRANSCRIPTION_SEGMENT_MS);
+    return () => window.clearTimeout(timer);
+  }, [recording, isHost, startRecording, stopRecordingAndTranscribe]);
 
   // Auto-inicia gravação se configurado
   useEffect(() => {
@@ -1222,29 +1399,104 @@ const RoomInner: React.FC<{
     finally { camTogglingRef.current = false; }
   }, [localParticipant, camOn, videoDeviceId]);
 
+  // Em celulares, uma ligação pode colocar o navegador em segundo plano e o
+  // sistema operacional encerrar somente os tracks de envio. A sala continua
+  // conectada, mas a outra pessoa deixa de ver/ouvir quem recebeu a ligação.
+  // Ao voltar ao app ou após uma reconexão, republicamos apenas os dispositivos
+  // que estavam ligados, respeitando as escolhas de microfone e câmera da pessoa.
+  const mediaRecoveryInProgressRef = useRef(false);
+  const recoverPublishedMedia = useCallback(async () => {
+    if (mediaRecoveryInProgressRef.current) return;
+    const camPublication = localParticipant.getTrackPublication(Track.Source.Camera);
+    const micPublication = localParticipant.getTrackPublication(Track.Source.Microphone);
+    const cameraNeedsRecovery = localParticipant.isCameraEnabled
+      && (!camPublication?.track || camPublication.track.mediaStreamTrack.readyState !== 'live');
+    const microphoneNeedsRecovery = localParticipant.isMicrophoneEnabled
+      && (!micPublication?.track || micPublication.track.mediaStreamTrack.readyState !== 'live');
+    if (!cameraNeedsRecovery && !microphoneNeedsRecovery) return;
+
+    mediaRecoveryInProgressRef.current = true;
+    try {
+      if (microphoneNeedsRecovery) {
+        await localParticipant.setMicrophoneEnabled(false);
+        await localParticipant.setMicrophoneEnabled(true, audioDeviceId ? { deviceId: audioDeviceId } : undefined);
+      }
+      if (cameraNeedsRecovery) {
+        await localParticipant.setCameraEnabled(false);
+        await localParticipant.setCameraEnabled(true, videoDeviceId ? { deviceId: videoDeviceId } : undefined);
+      }
+    } catch {
+      // Caso o SO ainda esteja liberando o dispositivo, a próxima retomada ou
+      // reconexão tentará novamente, sem desligar a chamada para a outra pessoa.
+    } finally {
+      mediaRecoveryInProgressRef.current = false;
+    }
+  }, [localParticipant, audioDeviceId, videoDeviceId]);
+
+  useEffect(() => {
+    let wasHidden = document.hidden;
+    const onVisibilityChange = () => {
+      if (document.hidden) { wasHidden = true; return; }
+      if (wasHidden) {
+        wasHidden = false;
+        window.setTimeout(() => { void recoverPublishedMedia(); }, 800);
+      }
+    };
+    const onFocus = () => window.setTimeout(() => { void recoverPublishedMedia(); }, 800);
+    const onReconnected = () => window.setTimeout(() => { void recoverPublishedMedia(); }, 500);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+    room.on(RoomEvent.Reconnected, onReconnected);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      room.off(RoomEvent.Reconnected, onReconnected);
+    };
+  }, [room, recoverPublishedMedia]);
+
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const flipCamera = useCallback(async () => {
     const next = facingMode === "user" ? "environment" : "user";
+    const currentPublication = localParticipant.getTrackPublication(Track.Source.Camera);
+    const currentDeviceId = currentPublication?.track?.mediaStreamTrack?.getSettings().deviceId;
     try {
       // setCameraEnabled(true, options) ignora `options` e só faz unmute()
       // quando já existe uma publicação ativa — o facingMode só é respeitado
       // ao criar uma track nova, por isso é preciso desligar e religar.
-      await localParticipant.setCameraEnabled(false);
+      const cameras = (await navigator.mediaDevices.enumerateDevices())
+        .filter(device => device.kind === 'videoinput');
+      const nextCamera = cameras.find(device => device.deviceId !== currentDeviceId);
+
+      if (nextCamera) {
+        // No iOS, facingMode pode só espelhar o preview. Trocar o deviceId
+        // seleciona obrigatoriamente o outro sensor físico.
+        const switched = await room.switchActiveDevice('videoinput', nextCamera.deviceId, true);
+        const activeDeviceId = localParticipant
+          .getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack?.getSettings().deviceId;
+        // Tracks publicados a partir do preview do lobby podem não obedecer ao
+        // switchActiveDevice. Nesse caso, recria a publicação com o deviceId.
+        if (!switched || activeDeviceId === currentDeviceId) {
+          await localParticipant.setCameraEnabled(false);
+          await localParticipant.setCameraEnabled(true, { deviceId: { exact: nextCamera.deviceId } } as any);
+        }
+      } else {
+        await localParticipant.setCameraEnabled(false);
       // exact força falha explícita se o dispositivo não tiver a câmera pedida,
       // em vez do navegador devolver a frontal silenciosamente e o app achar
       // que trocou (o que fazia a imagem só continuar espelhada errado).
-      await localParticipant.setCameraEnabled(true, { facingMode: { exact: next } } as any);
+        await localParticipant.setCameraEnabled(true, { facingMode: { exact: next } } as any);
+      }
       const pub = localParticipant.getTrackPublication(Track.Source.Camera);
       const settings = pub?.track?.mediaStreamTrack?.getSettings();
-      const actualFacing = settings?.facingMode === 'environment' ? 'environment' : 'user';
-      setFacingMode(actualFacing);
+      const actualFacing = settings?.facingMode;
+      setFacingMode(actualFacing === 'environment' || actualFacing === 'user' ? actualFacing : next);
     } catch {
       // "exact" falhou (dispositivo não tem 2ª câmera, ou navegador não suporta) —
       // religa a câmera anterior em vez de deixar o usuário sem vídeo nenhum.
-      try { await localParticipant.setCameraEnabled(true, { facingMode } as any); } catch {}
+      try { await localParticipant.setCameraEnabled(true); } catch {}
     }
-  }, [localParticipant, facingMode]);
+  }, [localParticipant, room, facingMode]);
 
   const toggleScreen = useCallback(async () => {
     try { await localParticipant.setScreenShareEnabled(!localHasScreen); } catch {}
@@ -1258,6 +1510,8 @@ const RoomInner: React.FC<{
   const togglePanel = (panel: "chat" | "invite" | "settings" | "patient") => setSidePanel(prev => prev === panel ? null : panel);
 
   const hasRemote = remoteParticipants.length > 0;
+  const poorConnection = connectionQuality === ConnectionQuality.Poor || connectionQuality === ConnectionQuality.Lost
+    || remoteConnectionQuality === ConnectionQuality.Poor || remoteConnectionQuality === ConnectionQuality.Lost;
   // Quem fica na tela principal
   const mainParticipant = !hasRemote
     ? localParticipant
@@ -1405,11 +1659,17 @@ const RoomInner: React.FC<{
           </div>
         </div>
 
+        {poorConnection && (
+          <div style={{ position: "absolute", top: 46, left: "50%", transform: "translateX(-50%)", zIndex: 5, maxWidth: "calc(100% - 32px)", padding: "7px 12px", borderRadius: 10, background: "rgba(180,83,9,0.92)", color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center" }}>
+            Conexão instável. Áudio ou vídeo podem oscilar; verifique sua internet.
+          </div>
+        )}
+
         {/* Painel lateral */}
         {sidePanel && (
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" ? "min(380px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
-              ? <LiveKitChatPanel participantName={participantName} onClose={() => setSidePanel(null)} />
+              ? <LiveKitChatPanel participantName={participantName} roomId={roomId} onClose={() => setSidePanel(null)} />
               : sidePanel === "settings"
               ? <SettingsPanel onClose={() => setSidePanel(null)} />
               : sidePanel === "patient"
@@ -1520,7 +1780,10 @@ const RoomInner: React.FC<{
           {/* Encerrar */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             <button
-              onClick={async () => { await stopRecordingAndTranscribe(); onLeave(); }}
+              onClick={async () => {
+                const transcript = await stopRecordingAndTranscribe();
+                onLeave({ transcript, patientId });
+              }}
               style={{ width: BTN, height: BTN, borderRadius: "50%", background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff" }}
             >
               <PhoneOff size={22} />
@@ -1532,6 +1795,12 @@ const RoomInner: React.FC<{
 
       <RoomAudioRenderer />
       <ConnectionStateToast />
+
+      {recordingError && (
+        <div role="alert" style={{ position: "fixed", right: 16, bottom: 96, zIndex: 30, maxWidth: 340, background: "rgba(185, 28, 28, 0.96)", color: "#fff", padding: "10px 14px", borderRadius: 10, fontSize: 12, fontWeight: 600 }}>
+          {recordingError}
+        </div>
+      )}
 
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -1764,7 +2033,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
     }
   };
 
-  const handleLeave = async () => {
+  const handleLeave = async (handoff?: { transcript?: string; patientId?: number | null }) => {
     if (waitingPollRef.current) clearInterval(waitingPollRef.current);
     if (hostPollRef.current) clearInterval(hostPollRef.current);
 
@@ -1779,6 +2048,19 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
     setToken(null);
     setWaitingToken(null);
     setWaitingStatus("idle");
+    // Ao encerrar uma sessão vinculada, entrega a transcrição ao editor de
+    // prontuário como rascunho. A profissional ainda revisa e aciona a Aurora.
+    if (!isGuest && handoff?.patientId) {
+      try {
+        sessionStorage.setItem('psi_session_record_draft', JSON.stringify({
+          patientId: handoff.patientId,
+          draft: handoff.transcript || '',
+          createdAt: new Date().toISOString(),
+        }));
+      } catch {}
+      navigate(`/prontuario?patient_id=${handoff.patientId}&new_session=1`);
+      return;
+    }
     navigate(-1);
   };
 
@@ -1816,7 +2098,9 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         connect={true}
         video={false}
         audio={false}
-        onDisconnected={handleLeave}
+        // O LiveKit tenta se reconectar automaticamente. Não trate uma queda
+        // temporária (por exemplo, ligação recebida no celular) como saída.
+        onDisconnected={() => setError('Conexão interrompida. Tentando reconectar…')}
         style={{ height: "100vh" }}
         data-lk-theme="default"
       >
