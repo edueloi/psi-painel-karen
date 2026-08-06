@@ -474,10 +474,15 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
     let comandaLimited = false;
     if (comanda_id) {
       const [cmdRows] = await db.query(
-        'SELECT sessions_total FROM comandas WHERE id = ? AND tenant_id = ?',
+        'SELECT sessions_total, patient_id FROM comandas WHERE id = ? AND tenant_id = ?',
         [comanda_id, req.user.tenant_id]
       );
       if (cmdRows.length > 0) {
+        // A comanda pertence a um paciente específico — vincular sessões de outro
+        // paciente a ela quebra o histórico e some do painel dele silenciosamente.
+        if (finalPatientId && String(cmdRows[0].patient_id) !== String(finalPatientId)) {
+          return res.status(409).json({ error: 'Esta comanda pertence a outro paciente e não pode ser vinculada a esta sessão.' });
+        }
         const sessions_total = cmdRows[0].sessions_total || 0;
         // Conta sessões consumidas e também as já agendadas para não criar uma sessão extra.
         const [aptRows] = await db.query(
@@ -1142,7 +1147,22 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     }
 
     const finalProfessionalId = professional_id || psychologist_id || null;
-    const finalComandaId = comanda_id || existing[0].old_comanda || null;
+    const finalPatientId = patient_id || null;
+    let finalComandaId = comanda_id || existing[0].old_comanda || null;
+
+    // A comanda pertence a um paciente específico — se o paciente da sessão muda
+    // (ou a comanda enviada não é a do paciente atual), desvincula em vez de
+    // deixar a sessão presa a uma comanda de outra pessoa (o card "Comanda
+    // Vinculada" some do dono real e aparece preso/errado no painel do outro).
+    if (finalComandaId && finalPatientId) {
+      const [[cmdRow]] = await db.query(
+        'SELECT patient_id FROM comandas WHERE id = ? AND tenant_id = ?',
+        [finalComandaId, req.user.tenant_id]
+      );
+      if (!cmdRow || String(cmdRow.patient_id) !== String(finalPatientId)) {
+        finalComandaId = null;
+      }
+    }
 
     const finalFraction = (session_fraction !== undefined && session_fraction !== null)
       ? parseFloat(session_fraction) : null;
