@@ -49,6 +49,42 @@ app.post('/bot-api/test/:tenantId', async (req, res) => {
   }
 });
 
+// Envio manual de uma resposta pela Central de Conversas (super_admin).
+// Diferente de /test: persiste a mensagem no histórico e pausa o bot de
+// menu automático para este contato, evitando respostas conflitantes.
+app.post('/bot-api/conversations/:tenantId/send', async (req, res) => {
+  const { conversationId, phone, message, sentByUserId } = req.body;
+  if (!conversationId || !phone || !message) {
+    return res.status(400).json({ error: 'conversationId, phone e message são obrigatórios' });
+  }
+  try {
+    const result = await wppService.sendReminder(req.params.tenantId, phone, message);
+    if (result !== true) {
+      return res.status(500).json({ error: typeof result === 'string' ? result : 'Falha no envio' });
+    }
+
+    const convService = require('./services/whatsappConversationService');
+    const saved = await convService.insertMessage(conversationId, {
+      direction: 'out',
+      body: message,
+      sentByUserId: sentByUserId || null,
+      status: 'sent',
+    });
+    await convService.touchConversation(conversationId, { previewText: message.slice(0, 180), direction: 'out' });
+    await convService.pauseBotFor(conversationId, 30);
+    convService.notifyBackend(req.params.tenantId, {
+      type: 'whatsapp_message',
+      conversationId: Number(conversationId),
+      direction: 'out',
+      preview: message.slice(0, 180),
+    });
+
+    res.json({ success: true, message: saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/bot-api/document/:tenantId', async (req, res) => {
   const { phone, filePath, fileName, caption } = req.body;
   try {
@@ -69,6 +105,7 @@ app.listen(PORT, () => {
 
   // Iniciar Cron da Fila de Notificacoes
   notificationService.ensureSchema();
+  require('./services/whatsappConversationService').ensureSchema();
   cron.schedule('* * * * *', () => withLock('processQueue', () => notificationService.processQueue()), { timezone: 'America/Sao_Paulo' });
   console.log('✅ Cron de Processamento da Fila (WhatsApp) iniciado.');
 

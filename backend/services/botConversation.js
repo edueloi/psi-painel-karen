@@ -536,6 +536,28 @@ async function sendMessage(tenantId, to, text) {
     }
     await data.client.showTyping?.(dest, typingDelayFor(text));
     await data.client.sendText(dest, text);
+
+    try {
+      const convService = require('./whatsappConversationService');
+      const phoneDigits = wpp.jidToPhone(dest).replace(/\D/g, '');
+      const conversation = await convService.upsertConversation(tenantId, {
+        phoneDigits,
+        jid: dest.includes('@') ? dest : `${phoneDigits}@s.whatsapp.net`,
+        previewText: text.slice(0, 180),
+        direction: 'out',
+      });
+      await convService.insertMessage(conversation.id, { direction: 'out', body: text, status: 'sent' });
+      convService.notifyBackend(tenantId, {
+        type: 'whatsapp_message',
+        conversationId: conversation.id,
+        direction: 'out',
+        preview: text.slice(0, 180),
+        contactPhone: phoneDigits,
+        contactName: conversation.contact_name,
+      });
+    } catch (e) {
+      console.error('[Bot] Erro ao persistir mensagem enviada:', e.message);
+    }
   } catch (e) {
     console.error('[Bot] Erro ao enviar mensagem:', e.message);
   }

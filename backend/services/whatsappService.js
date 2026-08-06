@@ -442,6 +442,38 @@ class WhatsAppManager {
             continue;
           }
 
+          const convService = require('./whatsappConversationService');
+          const phoneDigits = jidToPhone(remoteJid).replace(/\D/g, '');
+          let conversation = null;
+          try {
+            conversation = await convService.upsertConversation(tenantId, {
+              phoneDigits,
+              jid: remoteJid,
+              previewText: text.slice(0, 180),
+              direction: 'in',
+              pushName: msg.pushName || null,
+            });
+            await convService.insertMessage(conversation.id, {
+              direction: 'in',
+              body: text,
+              waMessageId: msg.key?.id || null,
+              status: 'received',
+            });
+            convService.notifyBackend(tenantId, {
+              type: 'whatsapp_message',
+              conversationId: conversation.id,
+              direction: 'in',
+              preview: text.slice(0, 180),
+              contactPhone: phoneDigits,
+              contactName: conversation.contact_name,
+            });
+          } catch (e) {
+            console.error('[MasterBot] Erro ao persistir mensagem recebida:', e.message);
+          }
+
+          const botPaused = conversation ? await convService.isBotPaused(conversation.id).catch(() => false) : false;
+          if (botPaused) continue;
+
           const { handleMessage } = require('./botConversation');
           await handleMessage(tenantId, {
             body: text,
@@ -563,4 +595,11 @@ class WhatsAppManager {
   }
 }
 
-module.exports = new WhatsAppManager();
+const wppManager = new WhatsAppManager();
+// Utilitários de telefone/JID expostos para reuso por whatsappConversationService.js
+wppManager.jidToPhone = jidToPhone;
+wppManager.normalizePhoneDigits = normalizePhoneDigits;
+wppManager.brazilJidCandidates = brazilJidCandidates;
+wppManager.normalizeDestination = normalizeDestination;
+
+module.exports = wppManager;

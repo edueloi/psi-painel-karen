@@ -126,6 +126,9 @@ function mountApiRoutes(prefix = '') {
     res.json({ status: 'ok', version: '1.0.0', timestamp: new Date().toISOString() });
   });
 
+  // ---- Rota interna (só localhost, chamada pelo processo bot na porta 3014) ----
+  app.use(`${prefix}/internal`, require('./routes/internal'));
+
   // ---- Middleware de autenticacao para tudo abaixo ----
   app.use(prefix || '/', authMiddleware);
 
@@ -623,6 +626,7 @@ httpServer.listen(PORT, () => {
   startCronJobs();
   ensureAlertSchema().catch(e => console.warn('⚠️  system_alerts schema:', e.message));
   provisionFormsForAllTenants().catch(e => console.warn('⚠️  provisionForms:', e.message));
+  require('./services/whatsappConversationService').ensureSchema().catch(e => console.warn('⚠️  whatsapp_conversations schema:', e.message));
 
   console.log('🔄 WPP Bot separado para micro-serviço (porta 3014) ✅');
 });
