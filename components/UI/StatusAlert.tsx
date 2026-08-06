@@ -97,12 +97,12 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
       role="alert"
       aria-live="polite"
     >
-      <div className="flex min-h-[88px]">
+      <div className="flex min-h-[76px] sm:min-h-[88px]">
         {/* Faixa lateral */}
         <div
           className={cx(
             'relative flex w-[54px] shrink-0 items-center justify-center',
-            compact ? 'w-[48px]' : 'w-[54px]',
+            compact ? 'w-[42px] sm:w-[48px]' : 'w-[46px] sm:w-[54px]',
             theme.rail
           )}
         >
@@ -110,7 +110,7 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
             className={cx(
               'flex items-center justify-center rounded-full shadow-sm',
               theme.iconWrap,
-              compact ? 'h-10 w-10' : 'h-12 w-12'
+            compact ? 'h-8 w-8 sm:h-10 sm:w-10' : 'h-9 w-9 sm:h-12 sm:w-12'
             )}
           >
             {theme.icon}
@@ -122,13 +122,13 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
           <div
             className={cx(
               'flex items-start justify-between gap-3',
-              compact ? 'px-4 py-3' : 'px-5 py-4'
+              compact ? 'px-3 py-2.5 sm:px-4 sm:py-3' : 'px-3 py-3 sm:px-5 sm:py-4'
             )}
           >
             <div className="min-w-0 flex-1">
               <h4
                 className={cx(
-                  'font-semibold leading-snug',
+                  'font-semibold leading-snug break-words [overflow-wrap:anywhere]',
                   compact ? 'text-sm' : 'text-[15px]',
                   theme.title
                 )}
@@ -139,7 +139,7 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
               {message && (
                 <p
                   className={cx(
-                    'mt-1 leading-relaxed',
+                  'mt-1 leading-relaxed break-words [overflow-wrap:anywhere]',
                     compact ? 'text-xs' : 'text-sm',
                     theme.text
                   )}
@@ -154,7 +154,7 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
                 <button
                   type="button"
                   onClick={() => setExpanded((prev) => !prev)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  className="inline-flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                   aria-label={expanded ? 'Recolher detalhes' : 'Expandir detalhes'}
                 >
                   <ChevronDown
@@ -168,7 +168,7 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  className="inline-flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                   aria-label="Fechar alerta"
                 >
                   <X size={16} />

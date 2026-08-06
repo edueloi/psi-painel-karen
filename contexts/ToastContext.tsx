@@ -262,7 +262,10 @@ export const ToastProvider: React.FC<{
 
       <div
         className={cx(
-          'fixed z-[9999] flex w-full max-w-[420px] flex-col gap-3 pointer-events-none',
+          'fixed z-[9999] flex w-[calc(100vw-1.5rem)] max-w-[420px] flex-col gap-2 sm:gap-3 pointer-events-none',
+          // Em telas pequenas, todas as posições viram uma pilha na base: não
+          // encobre cabeçalhos e respeita as margens e a área segura do iPhone.
+          'max-sm:bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] max-sm:left-3 max-sm:right-3 max-sm:top-auto max-sm:translate-x-0',
           containerPositionClass
         )}
       >
