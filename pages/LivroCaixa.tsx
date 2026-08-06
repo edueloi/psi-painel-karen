@@ -3370,37 +3370,39 @@ export const LivroCaixa: React.FC = () => {
         onClose={() => setHistoryDrawerOpen(false)}
         title="Histórico de Pagamentos"
         subtitle="DETALHES E VINCULAÇÕES DA COMANDA"
+        size="md"
+        bodyClassName="px-4 py-4 md:px-4 md:py-4"
       >
-        <div className="p-6">
+        <div>
           {historyLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
               <Loader2 size={32} className="animate-spin mb-4 text-indigo-400" />
               <span className="text-[10px] font-black uppercase tracking-widest">Buscando histórico...</span>
             </div>
           ) : historyData?.comanda ? (
-            <div className="space-y-6 animate-fadeIn">
+            <div className="space-y-4 animate-fadeIn">
               {/* Comanda Summary Box */}
-              <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-3xl">
-                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Status Atual</p>
-                <h3 className="text-xl font-black text-indigo-800 mb-4">{historyData.comanda.description || "Comanda #" + historyData.comanda.id}</h3>
+              <div className="bg-indigo-50/70 border border-indigo-100 p-4 rounded-2xl">
+                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wider mb-1">Status Atual</p>
+                <h3 className="text-base font-black text-indigo-800 mb-3 leading-tight line-clamp-2">{historyData.comanda.description || "Comanda #" + historyData.comanda.id}</h3>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white p-3 rounded-2xl border border-indigo-100/50">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor Total</p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="bg-white p-3 rounded-xl border border-indigo-100/50">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Valor Total</p>
                     <p className="text-sm font-black text-slate-700">{formatCurrency(Number(historyData.comanda.total || 0))}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-2xl border border-indigo-100/50">
-                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Recebido (Pago)</p>
+                  <div className="bg-white p-3 rounded-xl border border-indigo-100/50">
+                    <p className="text-[8px] font-black text-emerald-500 uppercase tracking-wider">Recebido</p>
                     <p className="text-sm font-black text-emerald-600">{formatCurrency(Number(historyData.comanda.paid_value || 0))}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-2xl border border-indigo-100/50 col-span-2 shadow-sm shadow-amber-100">
+                  <div className="bg-white p-3 rounded-xl border border-indigo-100/50 col-span-2 shadow-sm shadow-amber-100">
                     <div className="flex items-center justify-between">
-                      <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Saldo Restante (Pendente)</p>
-                      <p className={`text-[10px] font-black px-2 py-0.5 rounded-full ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      <p className="text-[8px] font-black text-amber-500 uppercase tracking-wider">Saldo pendente</p>
+                      <p className={`text-[8px] font-black px-2 py-0.5 rounded-full ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                         {Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'QUITADO' : 'EM ABERTO'}
                       </p>
                     </div>
-                    <p className={`text-xl font-black mt-1 ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    <p className={`text-lg font-black mt-1 ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
                       {formatCurrency(Math.max(0, Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0)))}
                     </p>
                   </div>
@@ -3409,25 +3411,25 @@ export const LivroCaixa: React.FC = () => {
 
               {/* Payments List */}
               <div>
-                <h4 className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                <h4 className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider mb-2.5">
                   <Clock size={12} />
                   Transações Pixadas / Pagas
                 </h4>
                 
                 {historyData.payments && historyData.payments.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {historyData.payments.map((p: any, i: number) => (
-                      <div key={p.id || i} className="bg-white border border-slate-100 p-4 rounded-2xl flex items-center justify-between hover:shadow-md transition-all">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
-                            <CheckCircle2 size={16} />
+                      <div key={p.id || i} className="bg-white border border-slate-100 p-3 rounded-xl flex items-center justify-between hover:shadow-sm transition-all">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                            <CheckCircle2 size={14} />
                           </div>
                           <div>
                             <p className="text-sm font-black text-slate-700">{formatCurrency(Number(p.amount))}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{formatDate(p.payment_date || p.date)}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-tight">{formatDate(p.payment_date || p.date)}</span>
                               <span className="w-1 h-1 rounded-full bg-slate-200" />
-                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">{METHOD_LABEL[p.payment_method] || p.payment_method}</span>
+                              <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight">{METHOD_LABEL[p.payment_method] || p.payment_method}</span>
                             </div>
                           </div>
                         </div>
@@ -3435,8 +3437,8 @@ export const LivroCaixa: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-2xl">
-                    <p className="text-sm font-bold text-slate-400">Nenhum pagamento registrado</p>
+                  <div className="text-center py-4 border border-dashed border-slate-200 rounded-xl">
+                    <p className="text-xs font-bold text-slate-400">Nenhum pagamento registrado</p>
                   </div>
                 )}
               </div>
@@ -3509,21 +3511,48 @@ export const LivroCaixa: React.FC = () => {
         onClose={() => { setSelectedTxForDetails(null); setPkgSessions(null); }}
         title="Detalhes do Lançamento"
         subtitle={selectedTxForDetails?.description?.toUpperCase() || 'RESUMO DA TRANSAÇÃO'}
-        size="lg"
+        size="md"
+        bodyClassName="px-4 py-4 md:px-4 md:py-4"
+        footer={selectedTxForDetails && (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => { setSelectedTxForDetails(null); openEditTx(selectedTxForDetails); }}
+              className="flex items-center justify-center gap-2 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[9px] uppercase tracking-wider transition-all"
+            >
+              <Edit2 size={14} /> Editar
+            </button>
+            {selectedTxForDetails.comanda_id && (
+              <button
+                onClick={() => { setSelectedTxForDetails(null); navigate('/comandas', { state: { openComandaId: String(selectedTxForDetails.comanda_id) } }); }}
+                className="flex items-center justify-center gap-2 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100 font-black text-[9px] uppercase tracking-wider transition-all"
+              >
+                <ShoppingBag size={14} /> Abrir comanda
+              </button>
+            )}
+            {selectedTxForDetails.status !== 'paid' && selectedTxForDetails.status !== 'confirmed' && (
+              <button
+                onClick={() => handleQuickPay(selectedTxForDetails)}
+                className="flex items-center justify-center gap-2 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-wider shadow-sm transition-all"
+              >
+                <Check size={15} /> Efetivar pagamento
+              </button>
+            )}
+          </div>
+        )}
       >
         {selectedTxForDetails && (
-          <div className="p-6 space-y-8 animate-fadeIn font-sans">
+          <div className="space-y-4 animate-fadeIn font-sans">
             {/* Header / Info Badge */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Referência Financeira</p>
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-2xl ${selectedTxForDetails.type === 'income' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-500 border border-rose-100'}`}>
-                    {selectedTxForDetails.type === 'income' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-xl ${selectedTxForDetails.type === 'income' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-500 border border-rose-100'}`}>
+                    {selectedTxForDetails.type === 'income' ? <TrendingUp size={17} /> : <TrendingDown size={17} />}
                   </div>
-                  <div>
-                     <h3 className="text-xl font-black text-slate-800 leading-none">{selectedTxForDetails.description || selectedTxForDetails.category}</h3>
-                     <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{selectedTxForDetails.category}</p>
+                  <div className="min-w-0">
+                     <h3 className="text-base font-black text-slate-800 leading-tight line-clamp-2">{selectedTxForDetails.description || selectedTxForDetails.category}</h3>
+                     <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{selectedTxForDetails.category}</p>
                   </div>
                 </div>
               </div>
@@ -3533,7 +3562,7 @@ export const LivroCaixa: React.FC = () => {
                   const info = STATUS_INFO[status] || STATUS_INFO.pending;
                   const Icon = info.icon;
                   return (
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-xl border text-[10px] font-black uppercase tracking-widest ${info.color}`}>
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wider whitespace-nowrap ${info.color}`}>
                       <Icon size={10} />
                       {info.label}
                     </div>
@@ -3545,15 +3574,15 @@ export const LivroCaixa: React.FC = () => {
             {/* Valor + Grid Infos + Envolvidos — 2 colunas em telas largas para
                 aproveitar melhor o espaço do drawer (antes ficava tudo empilhado
                 em coluna única, com bastante área vazia sobrando abaixo). */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-5 items-start">
-              <div className="space-y-5">
+            <div className="grid grid-cols-1 gap-3 items-start">
+              <div className="space-y-3">
                 {/* Price Box */}
-                <div className="p-6 rounded-3xl bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
-                   <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
-                      <Wallet size={120} />
+                <div className="p-4 rounded-2xl bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
+                   <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
+                      <Wallet size={86} />
                    </div>
-                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 leading-none">VALOR REGISTRADO</p>
-                   <h2 className={`text-4xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.24em] mb-1.5 leading-none">VALOR REGISTRADO</p>
+                   <h2 className={`text-3xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
                      {selectedTxForDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTxForDetails.amount)}
                    </h2>
                    {selectedTxForDetails.comanda_id && (
@@ -3564,13 +3593,13 @@ export const LivroCaixa: React.FC = () => {
                 </div>
 
                 {/* Grid Infos */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Data do Fluxo</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <p className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1.5"><Calendar size={11} /> Data do Fluxo</p>
                     <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.date)}</p>
                   </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><CreditCard size={12} /> Forma de Pagto</p>
+                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <p className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1.5"><CreditCard size={11} /> Forma de Pagto</p>
                     <p className="text-sm font-black text-slate-700">{METHOD_LABEL[selectedTxForDetails.payment_method] || selectedTxForDetails.payment_method || '—'}</p>
                   </div>
                   {selectedTxForDetails.due_date && selectedTxForDetails.due_date.slice(0, 10) !== selectedTxForDetails.date.slice(0, 10) && (
@@ -3583,11 +3612,11 @@ export const LivroCaixa: React.FC = () => {
               </div>
 
               {/* Patient/Payer Section */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-5 h-full">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-3">Envolvidos na Transação</p>
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">Envolvidos na Transação</p>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100 shrink-0 font-black text-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100 shrink-0 font-black text-sm">
                     {(selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div>
@@ -3639,12 +3668,12 @@ export const LivroCaixa: React.FC = () => {
                 : '—';
 
               return (
-                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                   {/* Header da seção */}
-                  <div className="px-5 pt-5 pb-4 border-b border-slate-50">
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <p className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        <CalendarCheck size={13} className="text-indigo-500" />
+                  <div className="px-4 pt-3.5 pb-3 border-b border-slate-50">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="flex items-center gap-1.5 text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                        <CalendarCheck size={12} className="text-indigo-500" />
                         Sessões realizadas neste pacote
                       </p>
                       {total && (
@@ -3657,7 +3686,7 @@ export const LivroCaixa: React.FC = () => {
                     </div>
                     {/* Barra de progresso */}
                     {total && (
-                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-700 ${done >= total ? 'bg-emerald-500' : 'bg-indigo-500'}`}
                           style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
@@ -3665,16 +3694,16 @@ export const LivroCaixa: React.FC = () => {
                       </div>
                     )}
                     {comanda?.description && (
-                      <p className="text-[10px] font-bold text-slate-400 mt-2 truncate">{comanda.description}</p>
+                      <p className="text-[9px] font-bold text-slate-400 mt-1.5 truncate">{comanda.description}</p>
                     )}
                   </div>
 
                   {/* Lista de sessões concluídas */}
                   <div className="divide-y divide-slate-50">
                     {completed.length === 0 ? (
-                      <div className="px-5 py-6 text-center">
-                        <CalendarClock size={28} className="text-slate-200 mx-auto mb-2" />
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                      <div className="px-4 py-4 text-center">
+                        <CalendarClock size={22} className="text-slate-200 mx-auto mb-1.5" />
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                           Nenhum atendimento realizado ainda para este pacote.
                         </p>
                       </div>
@@ -3703,7 +3732,7 @@ export const LivroCaixa: React.FC = () => {
                   {/* Faltas */}
                   {no_show.length > 0 && (
                     <div className="border-t border-slate-50">
-                      <p className="px-5 pt-3 pb-1 text-[9px] font-black text-slate-400 uppercase tracking-widest">Faltas ({no_show.length})</p>
+                      <p className="px-4 pt-2.5 pb-1 text-[8px] font-black text-slate-400 uppercase tracking-wider">Faltas ({no_show.length})</p>
                       {no_show.map((s) => (
                         <div key={s.id} className="flex items-center gap-3 px-5 py-2.5">
                           <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-400 flex items-center justify-center shrink-0">
@@ -3725,11 +3754,11 @@ export const LivroCaixa: React.FC = () => {
                   {/* Próximas sessões */}
                   {upcoming.length > 0 && (
                     <div className="border-t border-slate-50">
-                      <p className="px-5 pt-3 pb-1 text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <p className="px-4 pt-2.5 pb-1 text-[8px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                         <CalendarClock size={10} /> Próximas agendadas ({upcoming.length})
                       </p>
                       {upcoming.map((s) => (
-                        <div key={s.id} className="flex items-center gap-3 px-5 py-2.5">
+                        <div key={s.id} className="flex items-center gap-3 px-4 py-2">
                           <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-400 flex items-center justify-center shrink-0">
                             <CalendarClock size={13} />
                           </div>
@@ -3752,36 +3781,6 @@ export const LivroCaixa: React.FC = () => {
               );
             })()}
 
-            {/* Footer Actions in Drawer */}
-            <div className="pt-6 border-t border-slate-100 grid grid-cols-2 lg:grid-cols-3 gap-3">
-              <button
-                onClick={() => { setSelectedTxForDetails(null); openEditTx(selectedTxForDetails); }}
-                className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 font-black text-[10px] uppercase tracking-widest transition-all"
-              >
-                <Edit2 size={15} /> Editar Dados
-              </button>
-              
-              {selectedTxForDetails.comanda_id && (
-                <button
-                  onClick={() => {
-                    setSelectedTxForDetails(null);
-                    navigate('/comandas', { state: { openComandaId: String(selectedTxForDetails.comanda_id) } });
-                  }}
-                  className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100 font-black text-[10px] uppercase tracking-widest transition-all"
-                >
-                  <ShoppingBag size={15} /> Abrir Comanda
-                </button>
-              )}
-
-              {selectedTxForDetails.status !== 'paid' && selectedTxForDetails.status !== 'confirmed' && (
-                <button
-                  onClick={() => handleQuickPay(selectedTxForDetails)}
-                  className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-100 transition-all col-span-2 lg:col-span-1"
-                >
-                  <Check size={16} /> Efetivar Pagto
-                </button>
-              )}
-            </div>
           </div>
         )}
       </ActionDrawer>
