@@ -12,7 +12,7 @@ import {
   useRoomContext,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, RoomEvent, ConnectionQuality, LocalVideoTrack, LocalAudioTrack, type LocalParticipant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication, type Participant } from "livekit-client";
+import { Track, RoomEvent, ConnectionQuality, type LocalParticipant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication, type Participant } from "livekit-client";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
@@ -1281,35 +1281,19 @@ const RoomInner: React.FC<{
       publishedLobbyStreamRef.current = true;
 
       try {
-        // Tenta publicar o track de vídeo do lobby diretamente
-        if (initialCam && lobbyStream) {
-          const videoTrack = lobbyStream.getVideoTracks()[0];
-          if (videoTrack && videoTrack.readyState === 'live') {
-            const lkVideoTrack = new LocalVideoTrack(videoTrack, undefined, false);
-            await localParticipant.publishTrack(lkVideoTrack, { source: Track.Source.Camera });
-          } else {
-            // Track não está vivo, pede câmera normalmente
-            const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
-            await localParticipant.setCameraEnabled(true, camOpts);
-          }
-        } else if (initialCam) {
+        // Libera o preview antes de publicar. O track criado no lobby não era
+        // controlado pelo LiveKit em alguns celulares, deixando a câmera preta
+        // após entrar e impedindo a troca frontal/traseira.
+        if (initialCam) {
+          lobbyStream?.getVideoTracks().forEach(track => track.stop());
           const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
           await localParticipant.setCameraEnabled(true, camOpts);
         } else if (!initialCam && localParticipant.isCameraEnabled) {
           await localParticipant.setCameraEnabled(false);
         }
 
-        // Publica áudio do lobby diretamente se disponível
-        if (initialMic && lobbyStream) {
-          const audioTrack = lobbyStream.getAudioTracks()[0];
-          if (audioTrack && audioTrack.readyState === 'live' && !localParticipant.isMicrophoneEnabled) {
-            const lkAudioTrack = new LocalAudioTrack(audioTrack, undefined, false);
-            await localParticipant.publishTrack(lkAudioTrack, { source: Track.Source.Microphone });
-          } else if (!localParticipant.isMicrophoneEnabled) {
-            const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
-            await localParticipant.setMicrophoneEnabled(true, micOpts);
-          }
-        } else if (initialMic && !localParticipant.isMicrophoneEnabled) {
+        if (initialMic && !localParticipant.isMicrophoneEnabled) {
+          lobbyStream?.getAudioTracks().forEach(track => track.stop());
           const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
           await localParticipant.setMicrophoneEnabled(true, micOpts);
         } else if (!initialMic && localParticipant.isMicrophoneEnabled) {
