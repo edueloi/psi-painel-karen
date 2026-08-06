@@ -9,11 +9,10 @@ import {
   TrendingUp, Box, CheckCircle, Barcode, X, Image, UploadCloud, BookOpen,
   ShoppingBag, ArrowUpRight, Clock, CheckCircle2, AlertCircle, FileText,
   Sparkles, Layers, List as ListIcon, LayoutGrid,
-  ChevronRight,
   CreditCard
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper, Select } from '../components/UI';
+import { Button, ConfirmModal, Input, Modal, ModalFooter, PageWrapper, Select } from '../components/UI';
 import { FilterLine, FilterLineSearch, FilterLineSection, FilterLineSegmented } from '../components/UI/FilterLine';
 import { PageHeader } from '../components/UI/PageHeader';
 
@@ -507,7 +506,8 @@ export const Products: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         title={editingProduct.id ? t('products.edit') : t('products.new')}
         subtitle={editingProduct.id ? `#${editingProduct.id}` : t('products.creation')}
-        maxWidth="max-w-5xl"
+        size="xl"
+        mobileStyle="fullscreen"
         footer={
           <ModalFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
@@ -523,25 +523,25 @@ export const Products: React.FC = () => {
           </ModalFooter>
         }
       >
-        <div className="flex flex-col lg:flex-row gap-8 md:gap-12">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
                         
                         {/* LEFT: IMAGE & TYPE */}
-                        <div className="w-full lg:w-80 space-y-8">
-                            <div className="space-y-4">
-                              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">{t('products.nature')}</label>
-                              <div className="bg-slate-50 p-1 rounded-2xl flex border border-slate-100 shadow-inner">
-                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'physical'})} className={`flex-1 py-3 rounded-xl text-[9px] font-black flex items-center justify-center gap-3 uppercase tracking-widest transition-all ${editingProduct.type === 'physical' ? 'bg-white shadow-lg text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                                      <Box size={16} /> {t('products.type.physical')}
+                        <div className="min-w-0 space-y-5">
+                            <div className="space-y-2">
+                              <label className="ds-label">{t('products.nature')}</label>
+                              <div className="bg-zinc-50 p-1 rounded-xl flex border border-zinc-200">
+                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'physical'})} className={`flex-1 h-9 rounded-lg text-[9px] font-black flex items-center justify-center gap-2 uppercase tracking-wider transition-all ${editingProduct.type === 'physical' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                      <Box size={14} /> {t('products.type.physical')}
                                   </button>
-                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'digital'})} className={`flex-1 py-3 rounded-xl text-[9px] font-black flex items-center justify-center gap-3 uppercase tracking-widest transition-all ${editingProduct.type === 'digital' ? 'bg-white shadow-xl text-purple-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                                      <BookOpen size={16} /> {t('products.type.digital')}
+                                  <button onClick={() => setEditingProduct({...editingProduct, type: 'digital'})} className={`flex-1 h-9 rounded-lg text-[9px] font-black flex items-center justify-center gap-2 uppercase tracking-wider transition-all ${editingProduct.type === 'digital' ? 'bg-white shadow-sm text-purple-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                      <BookOpen size={14} /> {t('products.type.digital')}
                                   </button>
                               </div>
                             </div>
 
-                            <div className="space-y-4">
-                              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">{t('products.visual')}</label>
-                              <div className="w-full aspect-square md:aspect-auto md:h-64 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group hover:border-indigo-400 hover:bg-indigo-50/30 transition-all cursor-pointer shadow-inner">
+                            <div className="space-y-2">
+                              <label className="ds-label">{t('products.visual')}</label>
+                              <div className="w-full aspect-square bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden group hover:border-indigo-400 hover:bg-indigo-50/30 transition-all cursor-pointer">
                                   {editingProduct.imageUrl ? (
                                       <>
                                           <img src={editingProduct.imageUrl} className="w-full h-full object-cover rounded-2xl p-2" />
@@ -551,10 +551,10 @@ export const Products: React.FC = () => {
                                       </>
                                   ) : (
                                       <div className="text-center p-6">
-                                          <div className="w-16 h-16 bg-white shadow-lg text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all">
-                                              <Image size={28} />
+                                          <div className="w-11 h-11 bg-white shadow-sm text-indigo-500 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-all">
+                                              <Image size={22} />
                                           </div>
-                                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">{t('products.image.drag')}</p>
+                                          <p className="text-[9px] font-black text-slate-600 uppercase tracking-wider mb-1">{t('products.image.drag')}</p>
                                           <p className="text-[8px] text-slate-400 font-bold uppercase">{t('products.image.click')}</p>
                                       </div>
                                   )}
@@ -564,87 +564,55 @@ export const Products: React.FC = () => {
                         </div>
 
                         {/* RIGHT: DATA FIELDS */}
-                        <div className="flex-1 space-y-10">
-                            <div className="group">
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">{t('products.productName')}</label>
-                                <input type="text" className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 focus:bg-white focus:border-indigo-400 transition-all text-lg tracking-tight" value={editingProduct.name || ''} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder={t('products.placeholder.name')} />
-                            </div>
+                        <div className="min-w-0 space-y-5">
+                            <Input label={t('products.productName')} value={editingProduct.name || ''} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder={t('products.placeholder.name')} />
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('products.category')}</label>
                                     {showNewCategoryInput ? (
                                         <div className="flex gap-2 animate-fadeIn">
-                                          <input type="text" className="flex-1 p-4.5 rounded-2xl border-2 border-indigo-400 bg-indigo-50/30 outline-none font-black text-indigo-700 text-sm" placeholder="Nova Categoria..." value={newCategory} onChange={e => setNewCategory(e.target.value)} autoFocus />
-                                          <button onClick={() => setShowNewCategoryInput(false)} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:bg-white transition-all"><X size={20} /></button>
+                                          <Input wrapperClassName="flex-1" label={t('products.category')} placeholder="Nova categoria" value={newCategory} onChange={e => setNewCategory(e.target.value)} autoFocus />
+                                          <button onClick={() => setShowNewCategoryInput(false)} className="mt-6 h-10 w-10 shrink-0 bg-zinc-50 rounded-xl border border-zinc-200 hover:bg-white transition-all"><X size={17} /></button>
                                         </div>
                                     ) : (
-                                        <div className="relative group">
-                                            <select className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-600 text-sm appearance-none focus:bg-white focus:border-indigo-400 transition-all cursor-pointer" value={editingProduct.category || ''} onChange={e => {if(e.target.value === 'new') setShowNewCategoryInput(true); else setEditingProduct({...editingProduct, category: e.target.value});}}>
+                                        <Select label={t('products.category')} value={editingProduct.category || ''} onChange={e => {if(e.target.value === 'new') setShowNewCategoryInput(true); else setEditingProduct({...editingProduct, category: e.target.value});}}>
                                                 {categories.filter(c => c !== 'ALL').map(c => <option key={c} value={c}>{c}</option>)}
-                                                <option value="new" className="font-black text-indigo-600">+ {t('products.newCategory')}</option>
-                                            </select>
-                                            <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none group-focus-within:text-indigo-600" size={20} />
-                                        </div>
+                                                <option value="new">+ {t('products.newCategory')}</option>
+                                        </Select>
                                     )}
                                 </div>
-                                <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">{t('products.brand')}</label>
-                                    <input type="text" className="w-full p-4.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none font-black text-slate-700 text-sm focus:bg-white focus:border-indigo-400 transition-all" value={editingProduct.brand || ''} onChange={e => setEditingProduct({...editingProduct, brand: e.target.value})} />
-                                </div>
+                                <Input label={t('products.brand')} value={editingProduct.brand || ''} onChange={e => setEditingProduct({...editingProduct, brand: e.target.value})} />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-slate-50/50 rounded-[2.5rem] border border-slate-100">
-                                <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">{t('products.price')}</label>
-                                    <div className="relative group">
-                                       <DollarSign size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
-                                       <input type="number" className="w-full pl-12 p-4 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-emerald-600 text-xl focus:border-emerald-400 transition-all tabular-nums" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: parseFloat(e.target.value)})} />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">{t('products.cost')}</label>
-                                    <div className="relative group">
-                                      <CreditCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                      <input type="number" className="w-full pl-12 p-4 rounded-xl border-2 border-slate-100 bg-white outline-none font-black text-slate-500 text-xl focus:border-indigo-400 transition-all tabular-nums" value={editingProduct.cost} onChange={e => setEditingProduct({...editingProduct, cost: parseFloat(e.target.value)})} />
-                                    </div>
-                                </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
+                                <Input label={t('products.price')} type="number" leftIcon={<DollarSign size={15} className="text-emerald-500" />} value={editingProduct.price ?? 0} onChange={e => setEditingProduct({...editingProduct, price: parseFloat(e.target.value) || 0})} />
+                                <Input label={t('products.cost')} type="number" leftIcon={<CreditCard size={15} />} value={editingProduct.cost ?? 0} onChange={e => setEditingProduct({...editingProduct, cost: parseFloat(e.target.value) || 0})} />
                             </div>
 
                             {/* PHYSICAL ONLY ARTEFACTS */}
                             {editingProduct.type === 'physical' && (
-                                <div className="space-y-6 animate-slideIn">
-                                    <h4 className="text-[11px] font-black text-indigo-900 uppercase tracking-[0.2em] flex items-center gap-3 px-2">
-                                       <Archive size={16} /> {t('products.stockParams')}
+                                <div className="space-y-3 animate-slideIn">
+                                    <h4 className="text-[10px] font-black text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+                                       <Archive size={14} /> {t('products.stockParams')}
                                     </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('products.inventory')}</label>
-                                          <input type="number" className="w-full p-2.5 bg-slate-50 border-b-2 border-slate-200 outline-none font-black text-slate-800 text-xl focus:border-indigo-500 transition-all text-center" value={editingProduct.stock} onChange={e => setEditingProduct({...editingProduct, stock: parseInt(e.target.value)})} />
-                                        </div>
-                                        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('products.minStock')}</label>
-                                          <input type="number" className="w-full p-2.5 bg-slate-50 border-b-2 border-slate-200 outline-none font-black text-amber-600 text-xl focus:border-amber-500 transition-all text-center" value={editingProduct.minStock} onChange={e => setEditingProduct({...editingProduct, minStock: parseInt(e.target.value)})} />
-                                        </div>
-                                        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
-                                          <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('products.validity')}</label>
-                                          <input type="date" className="w-full p-2.5 bg-slate-50 border-b-2 border-slate-200 outline-none font-black text-slate-700 text-base focus:border-indigo-500 transition-all" value={editingProduct.expirationDate || ''} onChange={e => setEditingProduct({...editingProduct, expirationDate: e.target.value})} />
-                                        </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                                        <Input label={t('products.inventory')} type="number" value={editingProduct.stock ?? 0} onChange={e => setEditingProduct({...editingProduct, stock: parseInt(e.target.value) || 0})} />
+                                        <Input label={t('products.minStock')} type="number" value={editingProduct.minStock ?? 0} onChange={e => setEditingProduct({...editingProduct, minStock: parseInt(e.target.value) || 0})} />
+                                        <Input label={t('products.validity')} type="date" value={editingProduct.expirationDate || ''} onChange={e => setEditingProduct({...editingProduct, expirationDate: e.target.value})} />
                                     </div>
                                 </div>
                             )}
                             
                             {editingProduct.type === 'digital' && (
-                                <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-[2.5rem] text-white animate-slideIn relative overflow-hidden shadow-2xl shadow-indigo-200">
-                                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
-                                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                                       <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-[2rem] border border-white/20 flex items-center justify-center">
-                                          <UploadCloud size={40} />
+                                <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-5 rounded-2xl text-white animate-slideIn relative overflow-hidden shadow-lg shadow-indigo-200">
+                                    <div className="relative z-10 flex flex-col sm:flex-row items-center gap-4">
+                                       <div className="w-12 h-12 bg-white/20 rounded-xl border border-white/20 flex items-center justify-center shrink-0">
+                                          <UploadCloud size={24} />
                                        </div>
                                        <div className="flex-1 text-center md:text-left">
-                                          <h4 className="text-xl font-black tracking-tight mb-2 uppercase tracking-widest">{t('products.digital.title')}</h4>
-                                          <p className="text-xs font-bold text-indigo-100 mb-6 leading-relaxed opacity-80">{t('products.digital.desc')}</p>
-                                          <button className="px-8 py-4 bg-white text-indigo-700 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-slate-50 transition-all">{t('products.digital.select')}</button>
+                                          <h4 className="text-sm font-black tracking-tight mb-1">{t('products.digital.title')}</h4>
+                                          <p className="text-[11px] font-medium text-indigo-100 mb-3 leading-relaxed">{t('products.digital.desc')}</p>
+                                          <button className="h-9 px-4 bg-white text-indigo-700 rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm hover:bg-slate-50 transition-all">{t('products.digital.select')}</button>
                                        </div>
                                     </div>
                                 </div>
