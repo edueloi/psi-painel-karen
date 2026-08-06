@@ -299,7 +299,17 @@ router.post('/conversations', requireSuperAdmin, async (req, res) => {
     const wppService = require('../services/whatsappService');
     const convService = require('../services/whatsappConversationService');
     const phoneDigits = wppService.normalizePhoneDigits(rawPhone).replace(/\D/g, '');
-    if (!phoneDigits) return res.status(400).json({ error: 'Telefone inválido' });
+    // Só aceita BR com DDI (12/13 dígitos) ou internacional explícito (rawPhone
+    // começando com "+"), sempre com no máximo 15 dígitos (padrão E.164) — sem
+    // isso, um número digitado errado (ex: com máscara colada) era aceito e a
+    // mensagem saía para um destino que não existe.
+    const looksInternational = String(rawPhone).trim().startsWith('+');
+    const validLength = looksInternational
+      ? phoneDigits.length >= 8 && phoneDigits.length <= 15
+      : phoneDigits.length === 12 || phoneDigits.length === 13;
+    if (!phoneDigits || !validLength) {
+      return res.status(400).json({ error: `Telefone inválido: "${rawPhone}". Use o formato (DDD) 99999-9999.` });
+    }
 
     const [[existing]] = await db.query(
       'SELECT * FROM whatsapp_conversations WHERE tenant_id = ? AND contact_phone = ?',

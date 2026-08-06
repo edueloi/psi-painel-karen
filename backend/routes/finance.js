@@ -1320,6 +1320,11 @@ router.get('/comandas/patient/:patientId', authMiddleware, async (req, res) => {
     try {
         await withSchema();
         const { patientId } = req.params;
+        // include_id: garante que a comanda de UM agendamento específico apareça
+        // mesmo que já esteja 'closed' — sem isso, reabrir o modal de edição de uma
+        // sessão cuja comanda foi fechada (ex: pacote de 1 sessão, marcada como
+        // Realizada) nunca mostrava os dados, ficando preso em "Carregando...".
+        const includeId = req.query.include_id ? parseInt(req.query.include_id) : null;
         // Reabre automaticamente pacotes que ainda têm sessões, mesmo já pagos.
         await db.query(`
           UPDATE comandas c
@@ -1339,12 +1344,12 @@ router.get('/comandas/patient/:patientId', authMiddleware, async (req, res) => {
         `, [req.user.tenant_id, req.user.tenant_id, patientId]);
         const [comandas] = await db.query(
             `SELECT c.*, p.name as patient_name, u.name as professional_name
-             FROM comandas c 
+             FROM comandas c
              LEFT JOIN patients p ON p.id = c.patient_id
              LEFT JOIN users u ON u.id = c.professional_id
-             WHERE c.tenant_id = ? AND c.patient_id = ? AND c.status = 'open'
+             WHERE c.tenant_id = ? AND c.patient_id = ? AND (c.status = 'open' OR c.id = ?)
              ORDER BY c.created_at DESC`,
-            [req.user.tenant_id, patientId]
+            [req.user.tenant_id, patientId, includeId]
         );
 
         for (const c of comandas) {

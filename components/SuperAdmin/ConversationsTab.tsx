@@ -3,7 +3,6 @@ import { MessageSquare, Search, Send, Plus, Loader2, User, Phone as PhoneIcon } 
 import { Button, IconButton } from '../UI/Button';
 import { Modal } from '../UI/Modal';
 import { Input } from '../UI/Input';
-import { Combobox, ComboboxOption } from '../UI/Combobox';
 import { EmptyState } from '../UI/EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import { api, API_BASE_URL } from '../../services/api';
@@ -268,35 +267,57 @@ export const ConversationsTab: React.FC = () => {
   );
 };
 
+// Formata dígitos brasileiros como (DDD) 99999-9999 enquanto o usuário digita,
+// só para exibição — o valor enviado ao backend usa `phone` (dígitos crus).
+function formatBrPhoneInput(digits: string) {
+  const d = digits.slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+interface ContactResult {
+  id: number;
+  kind: 'patient' | 'user';
+  name: string;
+  phone: string;
+  tenantId: number;
+  tenantName: string;
+}
+
 const NewConversationModal: React.FC<{ onClose: () => void; onCreated: (conv: Conversation) => void }> = ({ onClose, onCreated }) => {
   const { pushToast } = useToast();
   const [mode, setMode] = useState<'contact' | 'phone'>('contact');
-  const [contactOptions, setContactOptions] = useState<ComboboxOption[]>([]);
-  const [contactRef, setContactRef] = useState('');
-  const [phone, setPhone] = useState('');
+  const [contactQuery, setContactQuery] = useState('');
+  const [contactResults, setContactResults] = useState<ContactResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<ContactResult | null>(null);
+  const [phoneDigits, setPhoneDigits] = useState('');
   const [creating, setCreating] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const searchContacts = (q: string) => {
+  const handleContactQueryChange = (q: string) => {
+    setContactQuery(q);
+    setSelectedContact(null);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (q.trim().length < 2) { setContactOptions([]); return; }
+    if (q.trim().length < 2) { setContactResults([]); return; }
     searchTimer.current = setTimeout(() => {
-      api.get<{ items: any[] }>('/whatsapp/contacts/search', { q })
-        .then(data => setContactOptions((data.items || []).map(item => ({
-          value: `${item.kind}:${item.id}`,
-          label: `${item.name} — ${item.tenantName}`,
-          subtitle: item.phone,
-          group: item.kind === 'patient' ? 'Pacientes' : 'Equipe/Admin',
-        }))))
-        .catch(() => {});
+      setSearching(true);
+      api.get<{ items: ContactResult[] }>('/whatsapp/contacts/search', { q })
+        .then(data => setContactResults(data.items || []))
+        .catch(() => setContactResults([]))
+        .finally(() => setSearching(false));
     }, 300);
   };
 
   const handleCreate = () => {
-    if (mode === 'contact' && !contactRef) return;
-    if (mode === 'phone' && !phone.trim()) return;
+    if (mode === 'contact' && !selectedContact) return;
+    if (mode === 'phone' && phoneDigits.length < 10) return;
     setCreating(true);
-    const body = mode === 'contact' ? { contactRef } : { phone };
+    const body = mode === 'contact'
+      ? { contactRef: `${selectedContact!.kind}:${selectedContact!.id}` }
+      : { phone: phoneDigits };
     api.post<Conversation>('/whatsapp/conversations', body)
       .then(conv => onCreated(conv))
       .catch((e) => pushToast('error', e?.message || 'Erro ao criar conversa.'))
@@ -316,19 +337,52 @@ const NewConversationModal: React.FC<{ onClose: () => void; onCreated: (conv: Co
         </div>
 
         {mode === 'contact' ? (
-          <Combobox
-            label="Paciente ou responsável"
-            options={contactOptions}
-            value={contactRef}
-            onChange={(v) => setContactRef(v as string)}
-            placeholder="Buscar por nome ou telefone..."
-            searchPlaceholder="Digite para buscar..."
-          />
+          <div>
+            <label className="ds-label mb-1.5 block">Paciente ou responsável</label>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={selectedContact ? `${selectedContact.name} — ${selectedContact.tenantName}` : contactQuery}
+                onChange={e => handleContactQueryChange(e.target.value)}
+                placeholder="Buscar por nome ou telefone..."
+                className="w-full h-10 pl-8 pr-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-indigo-400 focus:bg-white transition-all"
+              />
+              {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />}
+            </div>
+            {!selectedContact && contactResults.length > 0 && (
+              <div className="mt-2 border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                {contactResults.map(c => (
+                  <button
+                    key={`${c.kind}:${c.id}`}
+                    onClick={() => { setSelectedContact(c); setContactResults([]); }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">{c.name}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{formatPhoneLabel(c.phone)} · {c.tenantName}</p>
+                    </div>
+                    <span className={`shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${c.kind === 'patient' ? 'bg-amber-50 text-amber-600' : 'bg-violet-50 text-violet-600'}`}>
+                      {c.kind === 'patient' ? 'Paciente' : 'Equipe'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedContact && (
+              <p className="mt-1.5 text-[11px] text-slate-400">Telefone: {formatPhoneLabel(selectedContact.phone)}</p>
+            )}
+          </div>
         ) : (
-          <Input label="Telefone" placeholder="(11) 99999-9999" value={phone} onChange={e => setPhone(e.target.value)} />
+          <Input
+            label="Telefone"
+            placeholder="(11) 99999-9999"
+            value={formatBrPhoneInput(phoneDigits)}
+            onChange={e => setPhoneDigits(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            hint={phoneDigits.length > 0 && phoneDigits.length < 10 ? 'Informe DDD + número completo' : undefined}
+          />
         )}
 
-        <Button fullWidth onClick={handleCreate} disabled={creating} loading={creating}>
+        <Button fullWidth onClick={handleCreate} disabled={creating || (mode === 'contact' ? !selectedContact : phoneDigits.length < 10)} loading={creating}>
           Iniciar conversa
         </Button>
       </div>

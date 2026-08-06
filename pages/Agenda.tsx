@@ -551,7 +551,11 @@ export const Agenda: React.FC = () => {
             return;
         }
         try {
-            const data = await api.get<any[]>(`/finance/comandas/patient/${pId}`);
+            // include_id garante que a comanda já vinculada a esta sessão apareça
+            // mesmo se estiver 'closed' (ex: pacote de 1 sessão já Realizada) —
+            // sem isso o card "Comanda Vinculada" ficava preso em "Carregando...".
+            const params = formData.comanda_id ? { include_id: String(formData.comanda_id) } : undefined;
+            const data = await api.get<any[]>(`/finance/comandas/patient/${pId}`, params);
             setPatientComandas(data || []);
         } catch (err) {
             console.error('Erro ao buscar comandas:', err);
@@ -559,7 +563,7 @@ export const Agenda: React.FC = () => {
         }
     };
     fetchComandas();
-  }, [formData.patient_id, selectedApt?.patient_id]);
+  }, [formData.patient_id, selectedApt?.patient_id, formData.comanda_id]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -2157,7 +2161,7 @@ export const Agenda: React.FC = () => {
                                           </div>
                                           {/* Corpo */}
                                           <div className="px-4 py-3">
-                                            <p className="text-sm font-black text-slate-800 mb-2">{cc?.description || 'Carregando...'}</p>
+                                            <p className="text-sm font-black text-slate-800 mb-2">{cc?.description || 'Comanda não encontrada'}</p>
                                             <div className="flex items-center justify-between gap-3 mb-2.5">
                                               <div className="flex items-center gap-2">
                                                 <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
