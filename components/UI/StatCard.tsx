@@ -133,7 +133,7 @@ export function StatCard({
         <p className="text-[7px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5 sm:mb-1 truncate">
           {title}
         </p>
-        <h3 className="text-lg sm:text-2xl font-black text-zinc-900 tracking-tight leading-none">
+        <h3 className="text-base sm:text-xl font-black text-zinc-900 tracking-tight leading-none">
           {value}
         </h3>
         {description && (

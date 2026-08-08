@@ -711,7 +711,7 @@ export const Professionals: React.FC = () => {
                           <Key size={24} />
                         </div>
                         <div>
-                          <h3 className="text-xl font-bold text-slate-800">Definição de Acessos</h3>
+                          <h3 className="text-sm sm:text-base font-bold text-slate-800">Definição de Acessos</h3>
                           <p className="text-xs text-slate-400 font-medium">Configure as funções do perfil "{profiles.find(p => p.id === selectedProfileId)?.name}"</p>
                         </div>
                       </div>
@@ -841,7 +841,7 @@ export const Professionals: React.FC = () => {
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign size={24} /></div>
                       <div>
-                        <h3 className="text-xl font-bold text-slate-800">Regras de Comissão</h3>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-800">Regras de Comissão</h3>
                         <p className="text-xs text-slate-400 font-medium">Configure os repasses para {professionals.find(p => p.id === selectedComProId)?.name}</p>
                       </div>
                     </div>

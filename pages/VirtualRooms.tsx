@@ -849,7 +849,7 @@ export const VirtualRooms: React.FC = () => {
                           {/* Date badge */}
                           <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 shadow-sm">
                             <span className="text-[9px] font-bold uppercase tracking-wide text-indigo-500">{monthStr}</span>
-                            <span className="text-2xl font-black leading-tight text-indigo-800">{dayNum}</span>
+                            <span className="text-base sm:text-xl font-black leading-tight text-indigo-800">{dayNum}</span>
                           </div>
 
                           <div className="min-w-0 flex-1">

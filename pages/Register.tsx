@@ -581,7 +581,7 @@ export const Register: React.FC = () => {
           {step === 0 && (
             <div key="step-0" className="animate-[fadeIn_.35s_ease-out]">
               <div className="mb-7">
-                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Crie sua conta</h2>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Crie sua conta</h2>
                 <p className="text-slate-400 text-sm">Comece agora — sem cartão de crédito.</p>
               </div>
 
@@ -706,7 +706,7 @@ export const Register: React.FC = () => {
               </button>
 
               <div className="mb-7">
-                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Sua área de atuação</h2>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Sua área de atuação</h2>
                 <p className="text-slate-400 text-sm">Isso ajuda a personalizar o sistema para o seu dia a dia.</p>
               </div>
 
@@ -786,7 +786,7 @@ export const Register: React.FC = () => {
               </button>
 
               <div className="mb-7">
-                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Perfil profissional</h2>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Perfil profissional</h2>
                 <p className="text-slate-400 text-sm">Essas informações poderão aparecer no seu perfil público.</p>
               </div>
 
@@ -935,7 +935,7 @@ export const Register: React.FC = () => {
               </button>
 
               <div className="mb-7">
-                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Endereço</h2>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Endereço</h2>
                 <p className="text-slate-400 text-sm">Onde você atende ou onde fica sua clínica.</p>
               </div>
 
@@ -1045,7 +1045,7 @@ export const Register: React.FC = () => {
               </button>
 
               <div className="mb-7">
-                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1">Rotina semanal</h2>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Rotina semanal</h2>
                 <p className="text-slate-400 text-sm">Defina seus horários de atendimento. Você pode ajustar isso depois.</p>
               </div>
 
@@ -1099,7 +1099,7 @@ export const Register: React.FC = () => {
                 <CheckCircle2 size={44} className="text-white" />
               </div>
 
-              <h2 className="text-[30px] font-bold text-slate-900 tracking-tight mb-3">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-3">
                 Conta criada!
               </h2>
               <p className="text-slate-500 text-sm max-w-xs mx-auto mb-2 leading-relaxed">

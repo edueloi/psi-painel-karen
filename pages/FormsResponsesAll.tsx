@@ -264,7 +264,7 @@ export const FormsResponsesAll: React.FC = () => {
             <ArrowLeft size={24} />
           </Button>
           <div className="text-left">
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight text-left">Central de Resultados</h1>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tight text-left">Central de Resultados</h1>
             <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1 text-left">
               Monitoramento Clínico · {responses.length} Respostas Registradas
             </p>
@@ -430,7 +430,7 @@ export const FormsResponsesAll: React.FC = () => {
                     <div className="text-left space-y-4">
                       <div className="text-left">
                         <div className="flex items-center gap-3 flex-wrap text-left">
-                          <h3 className="text-2xl font-black text-slate-800 tracking-tight text-left">{patientName || res.respondent_name || 'Usuário Externo'}</h3>
+                          <h3 className="text-sm sm:text-base font-bold text-slate-800 tracking-tight text-left">{patientName || res.respondent_name || 'Usuário Externo'}</h3>
                           <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border ${
                             patientName ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
                           }`}>
@@ -467,7 +467,7 @@ export const FormsResponsesAll: React.FC = () => {
                     } shadow-xl shadow-slate-200/40 text-left`}>
                       <div className="text-center pr-8 border-r border-white/20 shrink-0 text-left">
                         <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 text-left">DESEMPENHO</p>
-                        <p className="text-4xl font-black tracking-tighter text-left">{res.score}</p>
+                        <p className="text-base sm:text-xl font-black tracking-tighter text-left">{res.score}</p>
                       </div>
                       <div className="text-left flex-1 min-w-0">
                         <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80 mb-1 text-left">DIAGNÓSTICO / STATUS</p>

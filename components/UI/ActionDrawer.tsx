@@ -115,7 +115,7 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
             <div className="min-w-0">
               <h3
                 id="drawer-title-mobile"
-                className="text-[17px] font-semibold text-slate-800 leading-tight"
+                className="text-sm sm:text-base font-bold text-slate-800 leading-tight"
               >
                 {title}
               </h3>
@@ -182,7 +182,7 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
             <div className="min-w-0">
               <h3
                 id="drawer-title-desktop"
-                className="text-[18px] font-semibold text-slate-800 leading-tight"
+                className="text-sm sm:text-base font-bold text-slate-800 leading-tight"
               >
                 {title}
               </h3>

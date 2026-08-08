@@ -1461,7 +1461,7 @@ export const PEI: React.FC = () => {
               {selectedPatientId && selectedPei ? (
                   <div className="space-y-6 animate-fadeIn">
                   <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-bold">
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-base sm:text-lg font-bold">
                             {(patient?.full_name || '?').charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">

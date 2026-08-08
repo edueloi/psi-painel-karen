@@ -641,7 +641,7 @@ Gere o seguinte JSON:
                     {user.avatarUrl ? (
                       <img src={getStaticUrl(user.avatarUrl)} alt="Avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                     ) : (
-                      <span className="text-3xl font-black text-indigo-400">{initials}</span>
+                      <span className="text-base sm:text-xl font-black text-indigo-400">{initials}</span>
                     )}
                   </div>
                 </div>

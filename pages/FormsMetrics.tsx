@@ -181,8 +181,8 @@ export const FormsMetrics: React.FC = () => {
           <div className="lg:col-span-3 bg-white rounded-[32px] border border-slate-100 shadow-sm p-8 flex flex-col h-full">
               <div className="flex items-center justify-between mb-10">
                   <div>
-                      <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                          <TrendingUp size={20} className="text-indigo-600" /> 
+                      <h2 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                          <TrendingUp size={20} className="text-indigo-600" />
                           Formulários em Destaque
                       </h2>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Maiores volumes de engajamento</p>
@@ -241,8 +241,8 @@ export const FormsMetrics: React.FC = () => {
           <div className="lg:col-span-2 bg-white rounded-[32px] border border-slate-100 shadow-sm p-8 flex flex-col h-full">
               <div className="flex items-center justify-between mb-8">
                   <div>
-                      <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                          <Clock size={20} className="text-slate-700" /> 
+                      <h2 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                          <Clock size={20} className="text-slate-700" />
                           Atividade Recente
                       </h2>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Últimas interações registradas</p>
@@ -320,7 +320,7 @@ const KPIMetricCard = ({ label, value, icon, color, trend, isFresh }: any) => {
             </div>
             
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">{label}</p>
-            <h3 className="text-3xl font-black text-slate-800">{value}</h3>
+            <h3 className="text-base sm:text-xl font-black text-slate-800">{value}</h3>
         </div>
     );
 };

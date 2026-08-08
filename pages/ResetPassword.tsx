@@ -73,7 +73,7 @@ export const ResetPassword: React.FC = () => {
               <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle size={40} />
               </div>
-              <h1 className="font-bold text-slate-900 text-2xl mb-3">Senha redefinida!</h1>
+              <h1 className="font-bold text-slate-900 text-lg sm:text-xl lg:text-2xl mb-3">Senha redefinida!</h1>
               <p className="text-slate-500 text-sm leading-relaxed mb-8">
                 Sua senha foi atualizada com sucesso. Você já pode entrar com a nova senha.
               </p>
@@ -92,7 +92,7 @@ export const ResetPassword: React.FC = () => {
               <div className="w-20 h-20 bg-red-50 text-red-400 rounded-full flex items-center justify-center mx-auto mb-6">
                 <XCircle size={40} />
               </div>
-              <h1 className="font-bold text-slate-900 text-2xl mb-3">Link inválido</h1>
+              <h1 className="font-bold text-slate-900 text-lg sm:text-xl lg:text-2xl mb-3">Link inválido</h1>
               <p className="text-slate-500 text-sm leading-relaxed mb-8">{errorMsg}</p>
               <button
                 onClick={() => navigate('/login')}
@@ -107,7 +107,7 @@ export const ResetPassword: React.FC = () => {
           {status === 'idle' && (
             <div className="w-full">
               <div className="text-center mb-8">
-                <h1 className="font-bold text-slate-900 text-2xl mb-2">Criar nova senha</h1>
+                <h1 className="font-bold text-slate-900 text-lg sm:text-xl lg:text-2xl mb-2">Criar nova senha</h1>
                 <p className="text-slate-400 text-sm">Escolha uma senha segura para sua conta PsiFlux.</p>
               </div>
 

@@ -4193,7 +4193,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                       return (
                         <div className="mt-3 bg-white/5 border border-white/10 rounded-xl p-3 flex-shrink-0 space-y-1">
                           <div className="text-xs text-slate-400">Pontuação total</div>
-                          <div className="text-2xl font-bold text-white">{score ?? "–"}</div>
+                          <div className="text-base sm:text-xl font-black text-white">{score ?? "–"}</div>
                           {interp && (
                             <div className={`text-xs font-semibold px-2 py-1 rounded-lg inline-block ${interp.color || "bg-slate-700 text-slate-300"}`}>
                               {interp.resultTitle}

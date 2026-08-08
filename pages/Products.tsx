@@ -178,7 +178,7 @@ export const Products: React.FC = () => {
                       </div>
                       <span className="text-[10px] font-black text-slate-400 capitalize tracking-widest">{t('products.valueStock')}</span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-800">{formatCurrency(stats.totalInventoryValue)}</h3>
+                  <h3 className="text-base sm:text-xl font-black text-slate-800">{formatCurrency(stats.totalInventoryValue)}</h3>
                   <p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-tighter">{t('products.totalCost')}: {formatCurrency(stats.totalCostValue)}</p>
               </div>
               <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-amber-200 transition-all">
@@ -188,7 +188,7 @@ export const Products: React.FC = () => {
                       </div>
                       <span className="text-[10px] font-black text-slate-400 capitalize tracking-widest">{t('products.lowStock')}</span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-800">{stats.lowStockItems.length}</h3>
+                  <h3 className="text-base sm:text-xl font-black text-slate-800">{stats.lowStockItems.length}</h3>
                   <p className="text-[10px] font-bold text-amber-500 mt-2 uppercase tracking-tighter">Itens que precisam de reposição</p>
               </div>
               <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-rose-200 transition-all">
@@ -198,7 +198,7 @@ export const Products: React.FC = () => {
                       </div>
                       <span className="text-[10px] font-black text-slate-400 capitalize tracking-widest">Vencimento</span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-800">{stats.expiredItems.length + stats.expiringItems.length}</h3>
+                  <h3 className="text-base sm:text-xl font-black text-slate-800">{stats.expiredItems.length + stats.expiringItems.length}</h3>
                   <p className="text-[10px] font-bold text-rose-500 mt-2 uppercase tracking-tighter">{stats.expiredItems.length} {t('products.expired').toLowerCase()} / {stats.expiringItems.length} {t('products.toExpire').toLowerCase()}</p>
               </div>
           </div>

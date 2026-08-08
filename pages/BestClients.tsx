@@ -245,7 +245,7 @@ export const BestClients: React.FC = () => {
                       <div className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100 mb-6">
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{metric === 'revenue' ? 'Receita Total' : 'Sessões Realizadas'}</p>
                           <div className="flex items-end justify-between">
-                              <span className={`text-2xl font-black ${metric === 'revenue' ? 'text-emerald-600' : 'text-indigo-600'}`}>
+                              <span className={`text-base sm:text-xl font-black ${metric === 'revenue' ? 'text-emerald-600' : 'text-indigo-600'}`}>
                                   {metric === 'revenue' ? formatCurrency(client.totalRevenue) : client.appointmentCount}
                               </span>
                               <div className="flex items-center gap-1 text-[10px] font-black text-slate-400">

@@ -717,22 +717,22 @@ export const Instruments: React.FC = () => {
             <Brain size={40} className="text-indigo-300"/>
           </div>
           <div className="flex-1 text-center lg:text-left">
-            <h2 className="text-2xl font-black mb-1.5 tracking-tight">Hub de Instrumentos <span className="text-indigo-400">PsiFlux</span></h2>
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-black mb-1.5 tracking-tight">Hub de Instrumentos <span className="text-indigo-400">PsiFlux</span></h2>
             <p className="text-slate-300 text-sm font-medium leading-relaxed max-w-2xl">
               Centralize escalas psicométricas e inventários clínicos. Acompanhe a evolução longitudinal com análise assistida por IA.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-3 shrink-0">
             <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center backdrop-blur-sm">
-              <div className="text-2xl font-black text-indigo-400">{INSTRUMENTS_CONFIG.length}</div>
+              <div className="text-base sm:text-xl font-black text-indigo-400">{INSTRUMENTS_CONFIG.length}</div>
               <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Instrumentos</div>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center backdrop-blur-sm">
-              <div className="text-2xl font-black text-rose-400">{totalPatients}</div>
+              <div className="text-base sm:text-xl font-black text-rose-400">{totalPatients}</div>
               <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Pacientes</div>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center backdrop-blur-sm">
-              <div className="text-2xl font-black text-emerald-400">{stats.disc + stats.dass + stats.bdi + stats.bai}</div>
+              <div className="text-base sm:text-xl font-black text-emerald-400">{stats.disc + stats.dass + stats.bdi + stats.bai}</div>
               <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Ativos</div>
             </div>
           </div>

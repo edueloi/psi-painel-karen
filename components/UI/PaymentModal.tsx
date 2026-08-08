@@ -227,7 +227,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">
               {alreadyPaid > 0 ? "Saldo Restante" : "Total da Comanda"}
             </p>
-            <p className="text-3xl font-black text-zinc-900 tracking-tighter">{fmtBRL(remaining)}</p>
+            <p className="text-base sm:text-xl font-black text-zinc-900 tracking-tighter">{fmtBRL(remaining)}</p>
             {alreadyPaid > 0 && (
               <div className="mt-2 flex items-center justify-center gap-3 text-[10px] font-bold flex-wrap">
                 <span className="text-zinc-400">Total: {fmtBRL(total)}</span>

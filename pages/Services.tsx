@@ -1695,7 +1695,7 @@ export const Services: React.FC = () => {
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-200">
                   Preço final
                 </p>
-                <p className="mt-2 text-2xl font-bold">
+                <p className="mt-2 text-base sm:text-xl font-black">
                   {formatCurrency(editingPackage.totalPrice || 0)}
                 </p>
 

@@ -173,7 +173,7 @@ export const Forms: React.FC = () => {
             <div className={`w-8 h-8 rounded-lg ${s.bg} ${s.color} flex items-center justify-center mb-2`}>
               {s.icon}
             </div>
-            <div className="text-2xl font-extrabold text-slate-800">{s.value}</div>
+            <div className="text-base sm:text-xl font-black text-slate-800">{s.value}</div>
             <div className="text-xs text-slate-500 font-medium mt-0.5">{s.label}</div>
           </div>
         ))}

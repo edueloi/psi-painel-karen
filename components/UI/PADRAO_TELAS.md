@@ -101,7 +101,25 @@ import { Pagination } from '../components/UI/Pagination';
 
 ---
 
-## 3. StatCard — cards de resumo no topo
+## 3. Escala tipográfica — tamanhos de fonte padrão
+
+Toda tela deve seguir esta escala. **Nunca use `text-2xl` ou maior fora do título de página** — números/valores de destaque (dashboards, stat cards, cards de resumo) usam no máximo `text-xl`, para manter o sistema com fontes contidas e consistentes.
+
+| Papel | Classe Tailwind | Onde usar |
+|-------|-----------------|-----------|
+| Título de página | `text-lg sm:text-xl lg:text-2xl font-black` | Só no `SectionTitle` (topo da página). Não replicar em outro lugar. |
+| Valor de destaque (stat card, resumo financeiro) | `text-base sm:text-xl font-black` | Número/valor principal de um card (ex: `StatCard`, cards de faturamento/lucro). **Nunca `text-2xl`+ aqui.** |
+| Título de card/seção interna | `text-sm sm:text-base font-bold` | Cabeçalho de um `PanelCard`, `ContentCard` ou bloco dentro da página. |
+| Label / rótulo uppercase | `text-[10px] sm:text-xs font-bold uppercase tracking-widest text-zinc-400` | Legenda acima de um valor (ex: "PACIENTES CADASTRADOS"). |
+| Corpo / texto de linha de lista | `text-sm` | Nome, descrição principal de um item em lista/tabela. |
+| Texto secundário / metadado | `text-xs text-zinc-400` | Subtítulo, data, telefone, texto de apoio. |
+| Badge / tag | `text-[10px] sm:text-[11px] font-bold` | `Badge`, status pill, contador pequeno. |
+
+Regra prática: se um número em um card está competindo visualmente com o título da página, ele está grande demais — a hierarquia certa é o título da página ser o maior texto da tela, nunca um valor dentro de um card.
+
+---
+
+## 3.1 StatCard — cards de resumo no topo
 
 Use o grid manual em vez de `StatGrid` para controle responsivo de colunas:
 

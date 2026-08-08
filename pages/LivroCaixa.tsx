@@ -3582,7 +3582,7 @@ export const LivroCaixa: React.FC = () => {
                       <Wallet size={86} />
                    </div>
                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.24em] mb-1.5 leading-none">VALOR REGISTRADO</p>
-                   <h2 className={`text-3xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                   <h2 className={`text-base sm:text-xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
                      {selectedTxForDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTxForDetails.amount)}
                    </h2>
                    {selectedTxForDetails.comanda_id && (

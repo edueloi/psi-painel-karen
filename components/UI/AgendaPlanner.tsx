@@ -549,7 +549,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 </button>
               </div>
 
-              <h2 className="px-1 text-lg font-bold tracking-tight text-slate-800">
+              <h2 className="px-1 text-sm sm:text-base font-bold tracking-tight text-slate-800">
                 {rangeLabel}
               </h2>
 
@@ -622,7 +622,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 Sessões hoje
               </p>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{stats.appointmentsToday}</p>
+            <p className="text-base sm:text-xl font-black text-slate-800">{stats.appointmentsToday}</p>
           </div>
 
           <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
@@ -634,7 +634,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 Confirmados
               </p>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{stats.confirmed}</p>
+            <p className="text-base sm:text-xl font-black text-slate-800">{stats.confirmed}</p>
           </div>
 
           <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
@@ -646,7 +646,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 Tarefas abertas
               </p>
             </div>
-            <p className="text-2xl font-bold text-slate-800">{stats.tasksOpen}</p>
+            <p className="text-base sm:text-xl font-black text-slate-800">{stats.tasksOpen}</p>
           </div>
         </div>
       )}

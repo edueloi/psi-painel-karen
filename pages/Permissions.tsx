@@ -214,7 +214,7 @@ export const Permissions: React.FC = () => {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-widest">
             <Shield size={14} /> Permissões
           </div>
-          <h1 className="text-3xl md:text-4xl font-display font-bold mt-4">Gestão de Permissões</h1>
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-black mt-4">Gestão de Permissões</h1>
           <p className="text-indigo-100 mt-3 max-w-2xl">Controle visual das permissões por cargo. Compare acessos e entenda rapidamente o que cada perfil pode fazer em cada módulo do sistema.</p>
         </div>
       </div>
@@ -223,19 +223,19 @@ export const Permissions: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Cargos</div>
-          <div className="text-2xl font-display font-bold text-slate-800 mt-2">{ROLES.length}</div>
+          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{ROLES.length}</div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Módulos</div>
-          <div className="text-2xl font-display font-bold text-slate-800 mt-2">{filteredModules.length}</div>
+          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{filteredModules.length}</div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Acesso total</div>
-          <div className="text-2xl font-display font-bold text-slate-800 mt-2">{summary.find(s => s.id === activeRole)?.total ?? 0}</div>
+          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{summary.find(s => s.id === activeRole)?.total ?? 0}</div>
         </div>
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Sem acesso</div>
-          <div className="text-2xl font-display font-bold text-slate-800 mt-2">{summary.find(s => s.id === activeRole)?.none ?? 0}</div>
+          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{summary.find(s => s.id === activeRole)?.none ?? 0}</div>
         </div>
       </div>
 

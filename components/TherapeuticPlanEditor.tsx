@@ -463,7 +463,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
               <div key={s.label} className={`bg-white border border-${s.color}-100 rounded-2xl p-4 shadow-sm flex items-center gap-3`}>
                 <div className={`w-8 h-8 rounded-xl bg-${s.color}-50 text-${s.color}-600 flex items-center justify-center shrink-0`}>{s.icon}</div>
                 <div>
-                  <div className="text-2xl font-black text-slate-800">{s.value}</div>
+                  <div className="text-base sm:text-xl font-black text-slate-800">{s.value}</div>
                   <div className="text-[9px] text-slate-400 font-bold uppercase">{s.label}</div>
                 </div>
               </div>

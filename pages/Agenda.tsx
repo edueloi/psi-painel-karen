@@ -4381,7 +4381,7 @@ export const Agenda: React.FC = () => {
                   {managerTab === 'pacote' && (
                     <div className="rounded-xl border border-slate-100 bg-slate-50 p-5 flex flex-col items-center gap-4">
                       <div className="flex items-end gap-1.5">
-                        <span className={cx('text-5xl font-black leading-none', usedCount > totalSessions ? 'text-rose-600' : 'text-indigo-600')}>
+                        <span className={cx('text-base sm:text-xl font-black leading-none', usedCount > totalSessions ? 'text-rose-600' : 'text-indigo-600')}>
                           {usedCount}
                         </span>
                         <span className="text-lg text-slate-400 font-medium mb-1">/ {totalSessions}</span>

@@ -299,7 +299,7 @@ export const Approaches: React.FC = () => {
                          {/* Text Content */}
                          <div className="space-y-4 flex-1">
                             <div className="space-y-1.5">
-                                <h2 className="text-lg lg:text-xl font-black text-slate-900 tracking-tight leading-[1.1] uppercase group-hover:text-indigo-600 transition-colors">{app.title}</h2>
+                                <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-[1.1] uppercase group-hover:text-indigo-600 transition-colors">{app.title}</h2>
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{app.subtitle}</p>
                             </div>
                             
@@ -351,7 +351,7 @@ export const Approaches: React.FC = () => {
         <div className="max-w-6xl mx-auto space-y-12 animate-slideUpFade px-4">
             <div className="text-center relative py-6">
                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-indigo-100 rounded-full blur-[60px] opacity-30" />
-                 <h2 className="text-3xl md:text-4xl font-black text-slate-950 tracking-tighter uppercase mb-4 relative">Manual de Epistemologia Clínica</h2>
+                 <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-950 tracking-tighter uppercase mb-4 relative">Manual de Epistemologia Clínica</h2>
                  <p className="text-slate-500 max-w-xl mx-auto text-sm font-medium leading-relaxed">O guia definitivo sobre as bases teóricas que alimentam o motor clínico da nossa plataforma inteligente.</p>
             </div>
 
@@ -370,7 +370,7 @@ export const Approaches: React.FC = () => {
                              </div>
                              
                              <div className="space-y-4">
-                                <h3 className="text-3xl md:text-4xl font-black text-slate-950 tracking-tight uppercase leading-none">{app.title}</h3>
+                                <h3 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-950 tracking-tight uppercase leading-none">{app.title}</h3>
                                 <div className="flex items-center gap-3 justify-center lg:justify-start">
                                     <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-950 text-white shadow-lg`}>{app.subtitle}</span>
                                 </div>
@@ -449,7 +449,7 @@ export const Approaches: React.FC = () => {
                         Sincronização Ativa 3.1
                      </span>
                  </div>
-                 <h2 className="text-7xl font-black tracking-tighter leading-none uppercase">Neuro-Epistemologia<br /><span className="text-indigo-500">Aumentada por IA.</span></h2>
+                 <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter leading-none uppercase">Neuro-Epistemologia<br /><span className="text-indigo-500">Aumentada por IA.</span></h2>
                  <p className="text-slate-400 text-xl font-medium leading-[1.8] max-w-2xl mx-auto lg:mx-0">
                     A Aurora não apenas escreve resumos, ela **pensa** como você. Sua abordagem clínica é o filtro intelectual que define como o sistema analisa padrões de fala, sonhos e distorções cognitivas.
                  </p>

@@ -292,7 +292,7 @@ export const FormsList: React.FC = () => {
               <ClipboardList size={26} />
            </div>
            <div className="text-left">
-              <h1 className="text-3xl font-black text-slate-800 tracking-tight text-left">Formulários e Avaliações</h1>
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tight text-left">Formulários e Avaliações</h1>
               <p className="text-sm text-slate-400 font-bold uppercase tracking-widest leading-none mt-1 text-left">
                 {forms.length} Modelos · {totalResponses} Registros Totais
               </p>

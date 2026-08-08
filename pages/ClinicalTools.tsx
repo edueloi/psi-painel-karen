@@ -388,7 +388,7 @@ export const ClinicalTools: React.FC = () => {
     
                         <div className="space-y-3 flex-1">
                             <section className="space-y-1">
-                                <h3 className="text-lg lg:text-xl font-black text-slate-900 tracking-tight leading-[1.1] uppercase group-hover:text-indigo-600 transition-colors">{tool.title}</h3>
+                                <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-[1.1] uppercase group-hover:text-indigo-600 transition-colors">{tool.title}</h3>
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{categoryLabels[tool.category]}</p>
                             </section>
                             <p className="text-[11px] text-slate-500 font-bold leading-relaxed pr-2 line-clamp-3">"{tool.description}"</p>
@@ -420,7 +420,7 @@ export const ClinicalTools: React.FC = () => {
                  <Search size={64} />
              </div>
              <div className="space-y-4">
-                <h3 className="text-4xl font-black text-slate-950 uppercase tracking-tighter leading-none">Silêncio Clínico</h3>
+                <h3 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-950 uppercase tracking-tighter leading-none">Silêncio Clínico</h3>
                 <p className="text-slate-400 text-lg font-medium max-w-lg">Nenhuma ferramenta foi encontrada com o termo "{search}". Tente buscar por abordagem ou recurso.</p>
              </div>
              <Button 
@@ -448,7 +448,7 @@ export const ClinicalTools: React.FC = () => {
                     <div className="inline-flex items-center gap-3 px-6 py-2 bg-indigo-500/20 rounded-full border border-indigo-500/30">
                         <span className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-400">Aurora AI High Performance</span>
                     </div>
-                    <h2 className="text-6xl font-black tracking-tighter leading-none uppercase">A inteligência que<br /><span className="text-indigo-500">potencializa</span> sua clínica.</h2>
+                    <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter leading-none uppercase">A inteligência que<br /><span className="text-indigo-500">potencializa</span> sua clínica.</h2>
                 </div>
                 <p className="text-indigo-100/60 font-medium italic text-xl max-w-3xl leading-relaxed">
                     "Todas as ferramentas da sua caixa estão vivas. Elas retroalimentam o motor de IA do PsiFlux para organizar dados clínicos, sistematizar informações e apoiar a documentação — o julgamento clínico é sempre do profissional."

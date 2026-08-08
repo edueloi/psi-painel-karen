@@ -293,7 +293,7 @@ export function Assinatura() {
                       {isExempt ? 'Cortesia' : isInGrace ? 'Assinatura Vencida' : isPaid ? 'Assinatura Ativa' : isTrial ? 'Período de Teste' : 'Sem Assinatura'}
                     </span>
                   </div>
-                  <p className="text-white font-black text-2xl">
+                  <p className="text-white font-black text-base sm:text-xl">
                     {(isPaid || isExempt) ? (status?.plan_name || 'Plano Ativo') : 'PsiFlux Free Trial'}
                   </p>
                   {isPaid && !isInGrace && status?.expires_at && (
@@ -462,7 +462,7 @@ export function Assinatura() {
                       </div>
                       {plan.description && <p className="text-xs text-slate-500 mb-3">{plan.description}</p>}
 
-                      <p className="font-black text-slate-900 text-2xl mt-1">{fmtPrice(monthlyPrice)}<span className="text-xs font-bold text-slate-400">/mês</span></p>
+                      <p className="font-black text-slate-900 text-base sm:text-xl mt-1">{fmtPrice(monthlyPrice)}<span className="text-xs font-bold text-slate-400">/mês</span></p>
                       {period === 'annual' && (
                         <p className="text-[11px] text-emerald-600 font-bold mt-0.5">{fmtPrice(plan.price * 12 * 0.85)}/ano</p>
                       )}

@@ -168,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
               <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-[28px] leading-none tracking-tight flex items-baseline">
+              <h1 className="font-display font-bold text-xl leading-none tracking-tight flex items-baseline">
                 <span className={isDark ? 'text-slate-100' : 'text-[#1e295b]'}>Psi</span>
                 <span className="text-[#00bcd4]">Flux</span>
               </h1>

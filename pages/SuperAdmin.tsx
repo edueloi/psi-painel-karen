@@ -803,7 +803,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right min-w-0">
                         <p className="text-white/50 text-[10px] uppercase tracking-widest whitespace-nowrap">Receita ({statsDays}d)</p>
-                        <p className="text-white text-lg sm:text-2xl font-bold break-all sm:break-normal">{fmt(stats.mrr || 0)}</p>
+                        <p className="text-white text-base sm:text-xl font-black break-all sm:break-normal">{fmt(stats.mrr || 0)}</p>
                       </div>
                       <div className="hidden sm:flex w-12 h-12 rounded-2xl items-center justify-center shrink-0" style={{ background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.5)' }}>
                         <TrendingUp size={22} className="text-indigo-300" />
@@ -846,7 +846,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                           <ArrowUpRight size={14} className="text-slate-300 shrink-0" />
                         </div>
                         <p className="text-xs font-semibold text-slate-400 mb-1 truncate">{c.label}</p>
-                        <p className="text-xl sm:text-2xl font-bold text-slate-800 mb-1 truncate" title={c.value}>{c.value}</p>
+                        <p className="text-base sm:text-xl font-black text-slate-800 mb-1 truncate" title={c.value}>{c.value}</p>
                         <p className="text-xs text-slate-400 truncate">{c.sub}</p>
                       </div>
                     ))}
@@ -1418,7 +1418,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                             { icon: '🔗', title: 'Hotmart / Eduzz', desc: 'Checkout externo via webhook.' },
                           ].map(g => (
                             <div key={g.title} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
-                              <span className="text-2xl flex-shrink-0">{g.icon}</span>
+                              <span className="text-xl flex-shrink-0">{g.icon}</span>
                               <div>
                                 <p className="text-sm font-bold text-slate-700">{g.title}</p>
                                 <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{g.desc}</p>
@@ -1630,7 +1630,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                   <div className="rounded-2xl p-6 text-white shadow-sm" style={{ background: 'linear-gradient(135deg,#4338ca,#7c3aed)' }}>
                     <div className="flex items-start justify-between gap-4">
                       <div><p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">Comunicação</p><h2 className="text-xl font-black mt-1">Central de E-mails</h2><p className="text-sm text-white/75 mt-2">Envie novidades e comunicados para todos os usuários ativos do PsiFlux.</p></div>
-                      <div className="shrink-0 rounded-2xl bg-white/15 px-4 py-3 text-center"><p className="text-2xl font-black">{emailSummary.active_recipients || 0}</p><p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Destinatários ativos</p></div>
+                      <div className="shrink-0 rounded-2xl bg-white/15 px-4 py-3 text-center"><p className="text-base sm:text-xl font-black">{emailSummary.active_recipients || 0}</p><p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Destinatários ativos</p></div>
                     </div>
                   </div>
                   <div className="grid lg:grid-cols-[1.3fr_.7fr] gap-5">

@@ -349,7 +349,7 @@ export const FormResponses: React.FC = () => {
                   } pts possíveis
                 </span>
              </div>
-             <h1 className="text-3xl font-black text-slate-800 tracking-tight leading-tight mt-1 text-left">{formTitle}</h1>
+             <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tight leading-tight mt-1 text-left">{formTitle}</h1>
           </div>
         </div>
       </div>
@@ -426,7 +426,7 @@ export const FormResponses: React.FC = () => {
               <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                 <Calculator size={26} />
               </div>
-              <h3 className="text-xl font-black uppercase tracking-tight text-left">Metodologia</h3>
+              <h3 className="text-sm sm:text-base font-bold uppercase tracking-tight text-left">Metodologia</h3>
             </div>
             
             <div className="space-y-6 text-left">
@@ -503,7 +503,7 @@ export const FormResponses: React.FC = () => {
                         </div>
                         <div className="space-y-3 text-left">
                           <div className="flex items-center gap-3 flex-wrap text-left">
-                            <h3 className="text-2xl font-black text-slate-800 tracking-tight text-left leading-none">
+                            <h3 className="text-sm sm:text-base font-bold text-slate-800 tracking-tight text-left leading-none">
                               {respondentDisplay}
                             </h3>
                             {patientName ? (
@@ -545,7 +545,7 @@ export const FormResponses: React.FC = () => {
                           } text-left`}>
                             <div className="text-center pr-4 border-r border-white/20 shrink-0 text-left">
                               <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-80 mb-0.5 text-left">SCORE</p>
-                              <p className="text-2xl font-black text-left">{res.score}</p>
+                              <p className="text-base sm:text-xl font-black text-left">{res.score}</p>
                             </div>
                             <div className="min-w-[100px] text-left">
                               <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-80 mb-0.5 leading-none text-left">RESULTADO</p>

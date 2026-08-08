@@ -464,11 +464,11 @@ export const PublicProfile: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-8 pt-4">
                        <div>
-                          <p className="text-2xl sm:text-4xl font-black text-indigo-500">{data.profile_theme?.patients_count || '+100'}</p>
+                          <p className="text-base sm:text-xl font-black text-indigo-500">{data.profile_theme?.patients_count || '+100'}</p>
                           <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${themeColors.subtext}`}>Vidas Transformadas</p>
                        </div>
                        <div>
-                          <p className="text-2xl sm:text-4xl font-black text-indigo-500">{data.profile_theme?.experience_years || '8+'}</p>
+                          <p className="text-base sm:text-xl font-black text-indigo-500">{data.profile_theme?.experience_years || '8+'}</p>
                           <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${themeColors.subtext}`}>Anos de Experiência</p>
                        </div>
                     </div>

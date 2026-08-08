@@ -919,7 +919,7 @@ export const DocGenerator: React.FC = () => {
                         ) : (
                             <div className="p-20 text-center">
                                 <FileText size={64} className="mx-auto text-slate-200 mb-4" />
-                                <h4 className="text-xl font-black text-slate-800">Documento Vazio</h4>
+                                <h4 className="text-sm sm:text-base font-bold text-slate-800">Documento Vazio</h4>
                             </div>
                         )}
                     </div>
@@ -991,7 +991,7 @@ export const DocGenerator: React.FC = () => {
             <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <Sparkles size={32} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Deseja importar os modelos padrão?</h3>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 mb-2">Deseja importar os modelos padrão?</h3>
             <p className="text-sm text-slate-500 mb-8">
               Isso adicionará modelos de Atestado, Declaração, Recibo e Relatórios pré-configurados. Seus modelos atuais não serão alterados.
             </p>
@@ -1112,7 +1112,7 @@ export const DocGenerator: React.FC = () => {
             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 size={32} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Deseja excluir este modelo?</h3>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 mb-2">Deseja excluir este modelo?</h3>
             <p className="text-sm text-slate-500 mb-8">
               Você está prestes a excluir o modelo <span className="font-bold text-slate-700">"{templateToDelete.title}"</span>. 
               Esta ação não pode ser desfeita.

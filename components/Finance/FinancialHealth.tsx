@@ -223,7 +223,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
         <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-200 flex items-center justify-center mb-5 shadow-sm">
           <ShieldCheck size={36} className="text-emerald-500" />
         </div>
-        <h2 className="text-xl font-black text-slate-800 mb-2">Planejamento Financeiro</h2>
+        <h2 className="text-sm sm:text-base font-bold text-slate-800 mb-2">Planejamento Financeiro</h2>
         <p className="text-sm text-slate-500 font-bold max-w-md mb-8">
           Configure seu perfil profissional para receber um painel personalizado com quanto guardar para impostos, férias, 13º e muito mais.
         </p>
@@ -743,7 +743,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
             </div>
             <div className="text-center bg-emerald-600 text-white px-8 py-4 rounded-2xl shadow-lg shadow-emerald-100 shrink-0">
               <p className="text-[9px] font-black uppercase tracking-widest text-emerald-200 mb-0.5">Valor mínimo/sessão</p>
-              <p className="text-3xl font-black">{formatCurrency(sessionSuggestion)}</p>
+              <p className="text-base sm:text-xl font-black">{formatCurrency(sessionSuggestion)}</p>
             </div>
           </div>
           <p className="text-[10px] text-slate-400 font-bold mt-3 flex items-center gap-1">
@@ -978,7 +978,7 @@ const SetupModal: React.FC<SetupProps> = ({
                 <div className="flex items-center gap-3">
                   <button onClick={() => setFSessions(Math.max(1, fSessions - 5))} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">−5</button>
                   <button onClick={() => setFSessions(Math.max(1, fSessions - 1))} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">−</button>
-                  <span className="font-black text-3xl text-slate-800 w-12 text-center">{fSessions}</span>
+                  <span className="font-black text-base sm:text-xl text-slate-800 w-12 text-center">{fSessions}</span>
                   <button onClick={() => setFSessions(fSessions + 1)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">+</button>
                   <button onClick={() => setFSessions(fSessions + 5)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">+5</button>
                 </div>

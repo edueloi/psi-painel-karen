@@ -394,7 +394,7 @@ const KPICard = ({ title, value, icon, color, isPercent = false, isDecimal = fal
             </div>
 
             <p className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 leading-tight">{title}</p>
-            <h3 className="text-sm sm:text-base lg:text-2xl font-black text-slate-800 leading-tight">
+            <h3 className="text-base sm:text-xl font-black text-slate-800 leading-tight">
                 {isPercent ? `${value.toFixed(1)}%` : isDecimal ? `${value.toFixed(1)}h` : formatCurrency(value)}
             </h3>
         </div>

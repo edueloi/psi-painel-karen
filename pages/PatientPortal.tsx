@@ -2303,7 +2303,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
           <div className="flex items-center gap-4">
             {/* avatar com anel gradiente */}
             <div className="shrink-0 rounded-3xl p-[3px] bg-gradient-to-br from-white/80 via-white/30 to-white/10 shadow-lg">
-              <div className="w-[68px] h-[68px] rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-[28px] font-black text-white">
+              <div className="w-[68px] h-[68px] rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-xl sm:text-2xl font-black text-white">
                 {patient.full_name.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -2312,7 +2312,7 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
                 <Sparkles size={10} className="text-white" />
                 <span className="text-[10px] font-black text-white uppercase tracking-wider">Meu Perfil</span>
               </div>
-              <h2 className="text-[22px] font-black text-white leading-tight truncate">{patient.full_name}</h2>
+              <h2 className="text-lg sm:text-xl font-black text-white leading-tight truncate">{patient.full_name}</h2>
               {(patient.portal_email || patient.email) && (
                 <p className="text-white/70 text-sm mt-0.5 truncate flex items-center gap-1.5">
                   <Mail size={12} className="shrink-0" />{patient.portal_email || patient.email}

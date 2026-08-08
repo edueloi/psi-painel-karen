@@ -415,7 +415,7 @@ export const DocumentVault: React.FC = () => {
             <Key size={32} />
           </div>
           <div className="flex-1 space-y-2">
-            <h3 className="text-xl font-black tracking-tight uppercase">Segurança de Dados Nível Militar</h3>
+            <h3 className="text-sm sm:text-base font-bold uppercase tracking-tight">Segurança de Dados Nível Militar</h3>
             <p className="text-indigo-100 text-sm font-medium leading-relaxed max-w-2xl">
               Nossa tecnologia de cofre utiliza criptografia de ponta a ponta. Documentos marcados como seguros só podem ser descriptografados mediante sua senha mestre local. Ninguém, nem mesmo nossa equipe, tem acesso a estes arquivos sem sua chave.
             </p>
@@ -538,7 +538,7 @@ export const DocumentVault: React.FC = () => {
           </div>
           
           <div className="space-y-1">
-            <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">
+            <h4 className="text-sm sm:text-base font-bold text-slate-800 uppercase tracking-tight">
               Digite a Senha do Seu Login
             </h4>
             <p className="text-xs font-medium text-slate-500 max-w-xs mx-auto">
