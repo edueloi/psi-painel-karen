@@ -148,6 +148,7 @@ export const CaseStudies: React.FC = () => {
 
   // New Item States
   const [newBoardTitle, setNewBoardTitle] = useState('');
+  const [newBoardTitleError, setNewBoardTitleError] = useState('');
   const [newBoardDesc, setNewBoardDesc] = useState('');
   const [newBoardType, setNewBoardType] = useState<string>('geral');
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
@@ -160,6 +161,7 @@ export const CaseStudies: React.FC = () => {
   const [newCardDueDate, setNewCardDueDate] = useState('');
   const [newCardType, setNewCardType] = useState('');
   const [newCardAmount, setNewCardAmount] = useState('');
+  const [newCardAssignee, setNewCardAssignee] = useState('');
   const [newCardDetails, setNewCardDetails] = useState<CaseDetails>({
       complaint: '',
       history: '',
@@ -238,6 +240,7 @@ export const CaseStudies: React.FC = () => {
       setNewCardDueDate('');
       setNewCardType('');
       setNewCardAmount('');
+      setNewCardAssignee('');
       setNewCardDetails({
         complaint: '',
         history: '',
@@ -394,7 +397,11 @@ export const CaseStudies: React.FC = () => {
   }, [activeBoardId]);
   // --- Board Logic ---
   const handleAddBoard = async () => {
-      if (!newBoardTitle.trim()) return;
+      if (!newBoardTitle.trim()) {
+          setNewBoardTitleError('Nome do quadro é obrigatório');
+          return;
+      }
+      setNewBoardTitleError('');
       try {
           if (editingBoardId) {
               await api.put(`/case-studies/boards/${editingBoardId}`, {
@@ -429,6 +436,7 @@ export const CaseStudies: React.FC = () => {
       e.stopPropagation();
       setEditingBoardId(board.id);
       setNewBoardTitle(board.title);
+      setNewBoardTitleError('');
       setNewBoardDesc(board.description || '');
       setIsBoardModalOpen(true);
   };
@@ -594,6 +602,7 @@ export const CaseStudies: React.FC = () => {
               due_date: newCardDueDate || null,
               card_type: newCardType || null,
               amount: newCardAmount ? parseFloat(newCardAmount) : null,
+              assignee: newCardAssignee.trim() || null,
               sort_order: activeBoard?.columns.find(c => c.id === targetColumnId)?.cards.length || 0
           });
 
@@ -980,12 +989,12 @@ export const CaseStudies: React.FC = () => {
       {/* --- MODAL: NEW BOARD --- */}
       <Modal
         isOpen={isBoardModalOpen}
-        onClose={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); setNewBoardType('geral'); }}
+        onClose={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardTitleError(''); setNewBoardDesc(''); setNewBoardType('geral'); }}
         title={editingBoardId ? 'Editar Quadro' : 'Novo Quadro'}
         size="md"
         footer={
           <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardDesc(''); setNewBoardType('geral'); }}>Cancelar</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardTitleError(''); setNewBoardDesc(''); setNewBoardType('geral'); }}>Cancelar</Button>
             <Button variant="primary" size="sm" onClick={handleAddBoard}>{editingBoardId ? 'Salvar Alterações' : 'Criar Quadro'}</Button>
           </div>
         }
@@ -994,8 +1003,9 @@ export const CaseStudies: React.FC = () => {
           <Input
             label="Nome do Quadro"
             required
+            error={newBoardTitleError}
             value={newBoardTitle}
-            onChange={(e) => setNewBoardTitle(e.target.value)}
+            onChange={(e) => { setNewBoardTitle(e.target.value); if (newBoardTitleError) setNewBoardTitleError(''); }}
             placeholder="Ex: Acompanhamento Clínico, Projetos da Clínica..."
           />
           {!editingBoardId && (
@@ -1037,7 +1047,7 @@ export const CaseStudies: React.FC = () => {
       <Modal
         isOpen={isCardModalOpen}
         onClose={() => { resetCardForm(); setIsCardModalOpen(false); }}
-        title="Novo Caso"
+        title={activeBoard?.board_type === 'clinico' ? 'Novo Caso' : 'Novo Card'}
         size="lg"
         footer={
           <div className="flex w-full items-center justify-end gap-3">
@@ -1045,41 +1055,80 @@ export const CaseStudies: React.FC = () => {
               Cancelar
             </Button>
             <Button variant="primary" size="sm" onClick={handleCreateCard} loading={isSavingCard}>
-              Criar Caso
+              {activeBoard?.board_type === 'clinico' ? 'Criar Caso' : 'Criar Card'}
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
-          {/* Paciente — Combobox com apenas ativos */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Paciente *</label>
-            <Combobox
-              placeholder="Buscar paciente ativo..."
-              options={patients
-                .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
-                .map((p: any) => ({ value: String(p.id), label: p.full_name || p.name || '' }))}
-              value={newCardPatientId}
-              onChange={(val: any) => {
-                setNewCardPatientId(String(val || ''));
-              }}
-              size="md"
+          {/* Título — comum a todos os tipos */}
+          <div>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Título *</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 transition-colors"
+              placeholder="Ex: Sessão de avaliação, Cobrança pendente, Entrega do relatório..."
+              value={newCardTitle}
+              onChange={(e) => setNewCardTitle(e.target.value)}
             />
           </div>
 
+          {/* Paciente — só faz sentido em quadros clínicos ou gerais da clínica */}
+          {activeBoard?.board_type !== 'projeto' && activeBoard?.board_type !== 'atividade' && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">
+                Paciente{activeBoard?.board_type === 'clinico' ? ' *' : ' (opcional)'}
+              </label>
+              <Combobox
+                placeholder="Buscar paciente ativo..."
+                options={patients
+                  .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
+                  .map((p: any) => ({ value: String(p.id), label: p.full_name || p.name || '' }))}
+                value={newCardPatientId}
+                onChange={(val: any) => {
+                  setNewCardPatientId(String(val || ''));
+                }}
+                size="md"
+              />
+            </div>
+          )}
+
+          {/* Responsável — projeto, financeiro e atividade */}
+          {(activeBoard?.board_type === 'projeto' || activeBoard?.board_type === 'financeiro' || activeBoard?.board_type === 'atividade') && (
+            <Input
+              label="Responsável"
+              placeholder="Quem vai executar/acompanhar..."
+              value={newCardAssignee}
+              onChange={(e) => setNewCardAssignee(e.target.value)}
+            />
+          )}
+
+          {/* Valor — só financeiro */}
+          {activeBoard?.board_type === 'financeiro' && (
+            <Input
+              label="Valor (R$)"
+              type="number"
+              placeholder="0,00"
+              value={newCardAmount}
+              onChange={(e) => setNewCardAmount(e.target.value)}
+            />
+          )}
+
           {/* Descrição */}
           <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Descrição *</label>
+            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+              Descrição{activeBoard?.board_type === 'clinico' ? ' *' : ' (opcional)'}
+            </label>
             <textarea
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
               rows={3}
-              placeholder="Resumo do caso, queixa principal, contexto..."
+              placeholder={activeBoard?.board_type === 'clinico' ? 'Resumo do caso, queixa principal, contexto...' : 'Detalhes adicionais...'}
               value={newCardDesc}
               onChange={(e) => setNewCardDesc(e.target.value)}
             />
           </div>
 
-          {/* Prioridade + Risco */}
+          {/* Prioridade + Data de entrega — comum a todos */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Prioridade</label>
@@ -1096,55 +1145,68 @@ export const CaseStudies: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Risco / Alerta</label>
-              <select
+              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data de entrega</label>
+              <input
+                type="date"
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm font-medium text-slate-700 transition-colors"
-                value={newCardDetails.risk_level}
-                onChange={(e) => setNewCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
-              >
-                <option value="">Selecione...</option>
-                <option value="Baixo">Baixo</option>
-                <option value="Moderado">Moderado</option>
-                <option value="Alto">Alto</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Histórico Clínico */}
-          <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Histórico Clínico</label>
-            <textarea
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
-              rows={2}
-              placeholder="Diagnósticos anteriores, histórico familiar..."
-              value={newCardDetails.history}
-              onChange={(e) => setNewCardDetails(prev => ({ ...prev, history: e.target.value }))}
-            />
-          </div>
-
-          {/* Hipóteses + Objetivos */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hipóteses</label>
-              <textarea
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
-                rows={2}
-                placeholder="Hipóteses diagnósticas..."
-                value={newCardDetails.hypothesis}
-                onChange={(e) => setNewCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Objetivos Terapêuticos</label>
-              <textarea
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
-                rows={2}
-                placeholder="Metas e objetivos..."
-                value={newCardDetails.objectives}
-                onChange={(e) => setNewCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
+                value={newCardDueDate}
+                onChange={(e) => setNewCardDueDate(e.target.value)}
               />
             </div>
           </div>
+
+          {/* Campos clínicos — só quadro do tipo Clínico */}
+          {activeBoard?.board_type === 'clinico' && (
+            <>
+              <div>
+                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Risco / Alerta</label>
+                <select
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm font-medium text-slate-700 transition-colors"
+                  value={newCardDetails.risk_level}
+                  onChange={(e) => setNewCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Baixo">Baixo</option>
+                  <option value="Moderado">Moderado</option>
+                  <option value="Alto">Alto</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Histórico Clínico</label>
+                <textarea
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
+                  rows={2}
+                  placeholder="Diagnósticos anteriores, histórico familiar..."
+                  value={newCardDetails.history}
+                  onChange={(e) => setNewCardDetails(prev => ({ ...prev, history: e.target.value }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hipóteses</label>
+                  <textarea
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
+                    rows={2}
+                    placeholder="Hipóteses diagnósticas..."
+                    value={newCardDetails.hypothesis}
+                    onChange={(e) => setNewCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Objetivos Terapêuticos</label>
+                  <textarea
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
+                    rows={2}
+                    placeholder="Metas e objetivos..."
+                    value={newCardDetails.objectives}
+                    onChange={(e) => setNewCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Tags */}
           <div>

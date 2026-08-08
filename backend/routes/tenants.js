@@ -276,6 +276,8 @@ router.put('/:id', async (req, res) => {
     // Update tenant basic data
     // trial_ends_at é tratado à parte pois precisa suportar ser explicitamente
     // limpo (null) ao converter um trial em assinatura ativa — COALESCE não permite isso.
+    // expires_at vira null quando string vazia: o MySQL rejeita '' como DATETIME,
+    // e COALESCE só substitui valor NULL, não string vazia.
     await db.query(
       `UPDATE tenants SET
         name = COALESCE(?, name),
@@ -286,7 +288,7 @@ router.put('/:id', async (req, res) => {
         expires_at = COALESCE(?, expires_at),
         status = COALESCE(?, status)
        WHERE id = ?`,
-      [company_name, cnpj_cpf, phone, plan_id, active !== undefined ? active : undefined, expires_at, status, req.params.id]
+      [company_name, cnpj_cpf, phone, plan_id, active !== undefined ? active : undefined, expires_at || null, status, req.params.id]
     );
 
     if (trial_ends_at !== undefined) {

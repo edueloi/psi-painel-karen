@@ -246,6 +246,26 @@ router.delete('/templates/:id', async (req, res) => {
 // CHAT PACIENTE — profissional lê e responde pelo painel
 // ══════════════════════════════════════════════════════════════════
 
+// GET /messages/portal/unread-counts — badges de não lidos por paciente
+// Precisa vir ANTES de /portal/:patientId: Express casa rotas na ordem
+// declarada, e "unread-counts" seria capturado como :patientId senão.
+router.get('/portal/unread-counts', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT patient_id, COUNT(*) as unread
+       FROM portal_messages
+       WHERE tenant_id = ? AND sender_type = 'patient' AND read_at IS NULL
+       GROUP BY patient_id`,
+      [req.user.tenant_id]
+    );
+    const map = {};
+    for (const r of rows) map[r.patient_id] = r.unread;
+    res.json(map);
+  } catch (e) {
+    res.status(500).json({ error: 'Erro' });
+  }
+});
+
 // GET /messages/portal/:patientId — busca conversa do paciente (profissional vê tudo)
 router.get('/portal/:patientId', async (req, res) => {
   try {
@@ -285,24 +305,6 @@ router.post('/portal/:patientId', async (req, res) => {
   } catch (e) {
     console.error('[messages/portal POST]', e.message);
     res.status(500).json({ error: 'Erro ao enviar mensagem' });
-  }
-});
-
-// GET /messages/portal/unread-counts — badges de não lidos por paciente
-router.get('/portal/unread-counts', async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      `SELECT patient_id, COUNT(*) as unread
-       FROM portal_messages
-       WHERE tenant_id = ? AND sender_type = 'patient' AND read_at IS NULL
-       GROUP BY patient_id`,
-      [req.user.tenant_id]
-    );
-    const map = {};
-    for (const r of rows) map[r.patient_id] = r.unread;
-    res.json(map);
-  } catch (e) {
-    res.status(500).json({ error: 'Erro' });
   }
 });
 
