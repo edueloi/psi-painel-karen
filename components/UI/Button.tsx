@@ -41,7 +41,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       rightIcon,
       fullWidth = false,
       iconOnly = false,
-      radius = "xl",
+      radius = "md",
       elevation = "none",
       children,
       disabled,
@@ -76,17 +76,17 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const sizes: Record<string, string> = {
-      xs: "h-7 min-w-[74px] px-2.5 text-[11px] rounded-[20px]",
-      sm: "h-8 min-w-[82px] px-3 text-[12px] rounded-[20px]",
-      md: "h-9 min-w-[90px] px-4 text-[13px] rounded-[20px]",
-      lg: "h-10 min-w-[110px] px-5 text-[14px] rounded-[20px]",
+      xs: "h-7 min-w-[74px] px-2.5 text-[11px]",
+      sm: "h-8 min-w-[82px] px-3 text-[12px]",
+      md: "h-9 min-w-[90px] px-4 text-[13px]",
+      lg: "h-10 min-w-[110px] px-5 text-[14px]",
     };
 
     const iconOnlySizes: Record<string, string> = {
-      xs: "h-7 w-7 rounded-[10px] p-0 min-w-0",
-      sm: "h-8 w-8 rounded-[10px] p-0 min-w-0",
-      md: "h-9 w-9 rounded-[12px] p-0 min-w-0",
-      lg: "h-10 w-10 rounded-[12px] p-0 min-w-0",
+      xs: "h-7 w-7 rounded-lg p-0 min-w-0",
+      sm: "h-8 w-8 rounded-lg p-0 min-w-0",
+      md: "h-9 w-9 rounded-xl p-0 min-w-0",
+      lg: "h-10 w-10 rounded-xl p-0 min-w-0",
     };
 
     const radiusClasses: Record<string, string> = {
@@ -111,7 +111,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || resolvedLoading}
         className={cn(
-          "relative inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap border-2",
+          "relative inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap border",
           "font-semibold leading-none select-none transition-colors duration-150",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300/50 focus-visible:ring-offset-1",
           "disabled:pointer-events-none disabled:opacity-50",
@@ -205,10 +205,10 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
     };
 
     const sizes: Record<string, string> = {
-      xs: "h-7 w-7 rounded-[10px]",
-      sm: "h-8 w-8 rounded-[10px]",
-      md: "h-9 w-9 rounded-[12px]",
-      lg: "h-10 w-10 rounded-[12px]",
+      xs: "h-7 w-7",
+      sm: "h-8 w-8",
+      md: "h-9 w-9",
+      lg: "h-10 w-10",
     };
 
     const radiusClasses: Record<string, string> = {
@@ -225,7 +225,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         disabled={disabled || resolvedLoading}
         className={cn(
-          "inline-flex items-center justify-center shrink-0 border-2 transition-colors duration-150",
+          "inline-flex items-center justify-center shrink-0 border transition-colors duration-150",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300/50 focus-visible:ring-offset-1",
           "disabled:pointer-events-none disabled:opacity-50",
           "[&_svg]:shrink-0 [&_svg]:pointer-events-none",

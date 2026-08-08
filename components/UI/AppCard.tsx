@@ -68,7 +68,7 @@ interface AppCardProps {
 }
 
 const toneMap: Record<CardTone, string> = {
-  default: 'bg-slate-100 text-slate-700 border-slate-200',
+  default: 'bg-zinc-100 text-zinc-700 border-zinc-200',
   primary: 'bg-primary-50 text-primary-700 border-primary-100',
   success: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   warning: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -76,7 +76,7 @@ const toneMap: Record<CardTone, string> = {
 };
 
 const statToneMap: Record<CardTone, string> = {
-  default: 'text-slate-800',
+  default: 'text-zinc-800',
   primary: 'text-primary-600',
   success: 'text-emerald-600',
   warning: 'text-amber-600',
@@ -85,11 +85,11 @@ const statToneMap: Record<CardTone, string> = {
 
 const actionVariantMap = {
   ghost:
-    'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700',
+    'bg-white text-zinc-500 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-700',
   outline:
-    'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800',
+    'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-800',
   soft:
-    'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200',
+    'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200',
   danger:
     'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100',
 };
@@ -165,7 +165,7 @@ export const AppCard: React.FC<AppCardProps> = ({
       id={id}
       onClick={onClick}
       className={cx(
-        'relative overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition-all text-left',
+        'relative overflow-hidden rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white shadow-sm transition-all text-left',
         onClick && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md',
         compact ? 'p-4' : 'p-5',
         className
@@ -186,7 +186,7 @@ export const AppCard: React.FC<AppCardProps> = ({
                 'absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-lg border transition text-left',
                 selected
                   ? 'border-primary-600 bg-primary-600 text-white'
-                  : 'border-slate-300 bg-white text-transparent hover:border-primary-400'
+                  : 'border-zinc-300 bg-white text-transparent hover:border-primary-400'
               )}
               aria-label="Selecionar card"
             >
@@ -203,7 +203,7 @@ export const AppCard: React.FC<AppCardProps> = ({
                     src={imageUrl}
                     alt={title || ''}
                     className={cx(
-                      'object-cover rounded-2xl border border-slate-200',
+                      'object-cover rounded-2xl border border-zinc-200',
                       compact ? 'h-12 w-12' : 'h-14 w-14'
                     )}
                   />
@@ -222,7 +222,7 @@ export const AppCard: React.FC<AppCardProps> = ({
               <div className="min-w-0 flex-1 text-left">
                 <h3
                   className={cx(
-                    'truncate font-semibold text-slate-800 text-left',
+                    'truncate font-semibold text-zinc-800 text-left',
                     compact ? 'text-[15px]' : 'text-base'
                   )}
                 >
@@ -230,7 +230,7 @@ export const AppCard: React.FC<AppCardProps> = ({
                 </h3>
 
                 {subtitle && (
-                  <p className="mt-0.5 text-sm text-slate-400 truncate text-left">{subtitle}</p>
+                  <p className="mt-0.5 text-sm text-zinc-400 truncate text-left">{subtitle}</p>
                 )}
 
                 {(badge || badges?.length) && (
@@ -266,12 +266,12 @@ export const AppCard: React.FC<AppCardProps> = ({
               {meta.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 text-sm text-slate-500 text-left"
+                  className="flex items-center gap-2 text-sm text-zinc-500 text-left"
                 >
-                  {item.icon && <span className="text-slate-400">{item.icon}</span>}
+                  {item.icon && <span className="text-zinc-400">{item.icon}</span>}
                   <span className="truncate">{item.label}</span>
                   {item.value && (
-                    <span className="ml-auto shrink-0 font-medium text-slate-700">
+                    <span className="ml-auto shrink-0 font-medium text-zinc-700">
                       {item.value}
                     </span>
                   )}
@@ -282,7 +282,7 @@ export const AppCard: React.FC<AppCardProps> = ({
 
           {/* DESCRIPTION */}
           {description && (
-            <p className="mt-4 text-sm leading-relaxed text-slate-500 text-left">
+            <p className="mt-4 text-sm leading-relaxed text-zinc-500 text-left">
               {description}
             </p>
           )}
@@ -293,7 +293,7 @@ export const AppCard: React.FC<AppCardProps> = ({
               {sections.map((section, index) => (
                 <div
                   key={index}
-                  className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left"
+                  className="rounded-2xl border border-zinc-100 bg-zinc-50 p-4 text-left"
                 >
                   {(section.icon || section.title || section.subtitle) && (
                     <div className="mb-2 flex items-start gap-2 text-left">
@@ -303,12 +303,12 @@ export const AppCard: React.FC<AppCardProps> = ({
 
                       <div className="min-w-0 text-left">
                         {section.title && (
-                          <p className="truncate text-sm font-medium text-slate-800 text-left">
+                          <p className="truncate text-sm font-medium text-zinc-800 text-left">
                             {section.title}
                           </p>
                         )}
                         {section.subtitle && (
-                          <p className="text-xs text-slate-400 text-left">{section.subtitle}</p>
+                          <p className="text-xs text-zinc-400 text-left">{section.subtitle}</p>
                         )}
                       </div>
                     </div>
@@ -323,14 +323,14 @@ export const AppCard: React.FC<AppCardProps> = ({
           {/* PROGRESS */}
           {progressPercent !== null && (
             <div className="mt-4 text-left">
-              <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+              <div className="mb-2 flex items-center justify-between text-xs text-zinc-500">
                 <span>Progresso</span>
                 <span>
                   {progressValue}/{progressMax}
                 </span>
               </div>
 
-              <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
                 <div
                   className="h-full rounded-full bg-primary-600 transition-all"
                   style={{ width: `${progressPercent}%` }}
@@ -343,7 +343,7 @@ export const AppCard: React.FC<AppCardProps> = ({
           {stats.length > 0 && (
             <div
               className={cx(
-                'mt-4 grid gap-3 border-t border-slate-100 pt-4 text-left',
+                'mt-4 grid gap-3 border-t border-zinc-100 pt-4 text-left',
                 stats.length === 1
                   ? 'grid-cols-1'
                   : stats.length === 2
@@ -359,7 +359,7 @@ export const AppCard: React.FC<AppCardProps> = ({
                     stat.align === 'right' && 'text-right'
                   )}
                 >
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{stat.label}</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide truncate">{stat.label}</p>
                   <p
                     className={cx(
                       'text-base font-black truncate',
@@ -376,7 +376,7 @@ export const AppCard: React.FC<AppCardProps> = ({
           {/* BOTTOM ACTIONS */}
           {bottomActions.length > 0 && (
             <div
-              className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4 text-left"
+              className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 text-left"
               onClick={(e) => e.stopPropagation()}
             >
               {bottomActions.map((action, index) => (

@@ -3,7 +3,7 @@ import { cn } from "@/src/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input — Design System
-// Altura: h-10 mobile / h-11 sm+  (usa classe ds-input do CSS global)
+// Altura por size: sm = h-9, md = h-10, lg = h-11 (mesma escala do Select)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
@@ -75,10 +75,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <div
           className={cn(
             "group relative flex items-stretch overflow-hidden transition-all duration-200",
-            "rounded-[10px] bg-zinc-50 border border-zinc-200 shadow-sm",
+            "rounded-xl bg-zinc-50 border border-zinc-200 shadow-sm",
             "focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-500/10 focus-within:bg-white",
             error && "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/10 bg-red-50/30",
-            size === "sm" && "h-9"
+            size === "sm" && "h-9",
+            size === "md" && "h-10",
+            size === "lg" && "h-11"
           )}
         >
           {resolvedAddonLeft && (
@@ -100,10 +102,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
               maxLength={maxLength}
               value={value}
               className={cn(
-                "w-full bg-transparent px-3 py-2.5 outline-none",
+                "w-full h-full bg-transparent px-3 outline-none",
                 "text-sm text-zinc-800 placeholder:text-zinc-400 font-bold tracking-tight",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
-                size === "sm" && "py-1.5 text-xs",
+                size === "sm" && "text-xs",
+                size === "lg" && "text-base",
                 resolvedIconLeft && (size === "sm" ? "pl-8" : "pl-9"),
                 resolvedIconRight && (size === "sm" ? "pr-8" : "pr-9"),
                 className
@@ -176,7 +179,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           maxLength={maxLength}
           value={value}
           className={cn(
-            "w-full rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 py-2.5",
+            "w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5",
             "text-sm text-zinc-800 placeholder:text-zinc-400 font-medium",
             "outline-none resize-none transition-all duration-150",
             "focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 focus:bg-white",
@@ -255,8 +258,9 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             id={inputId}
             className={cn(
               "ds-input appearance-none pr-8 cursor-pointer",
-              size === "sm" && "h-8 py-0 px-2 text-[11px] font-black uppercase tracking-widest",
-              size === "lg" && "h-14 px-4 text-base",
+              size === "sm" && "h-9 py-0 px-2 text-[11px] font-black uppercase tracking-widest",
+              size === "md" && "h-10",
+              size === "lg" && "h-11 px-4 text-base",
               leftIcon && (size === "sm" ? "pl-8" : "pl-10"),
               rightIcon && "pr-10",
               error && "border-red-400 focus:border-red-500 focus:ring-red-500/10 bg-red-50/30",

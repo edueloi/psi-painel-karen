@@ -107,7 +107,7 @@ function MobileCard<T>({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'bg-white rounded-2xl border shadow-sm overflow-hidden transition-colors',
+        'bg-white rounded-2xl sm:rounded-3xl border shadow-sm overflow-hidden transition-colors',
         isSelected ? 'border-amber-400 bg-amber-50/30' : borderClass,
       )}
     >
@@ -190,9 +190,9 @@ const mobileClasses = {
 };
 
 const desktopCardClasses = {
-  sm: "bg-white sm:border border-zinc-200 sm:rounded-2xl sm:shadow-sm",
-  md: "bg-white md:border border-zinc-200 md:rounded-2xl md:shadow-sm",
-  lg: "bg-white lg:border border-zinc-200 lg:rounded-2xl lg:shadow-sm",
+  sm: "bg-white sm:border border-zinc-200 rounded-2xl sm:rounded-3xl sm:shadow-sm",
+  md: "bg-white md:border border-zinc-200 rounded-2xl sm:rounded-3xl md:shadow-sm",
+  lg: "bg-white lg:border border-zinc-200 rounded-2xl sm:rounded-3xl lg:shadow-sm",
 };
 
 export function GridTable<T>({
@@ -333,7 +333,7 @@ export function GridTable<T>({
         <div className={cn("space-y-2 pb-2", mobileClasses[mobileBreakpoint])}>
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="animate-pulse bg-white border border-zinc-200 rounded-2xl p-4 flex flex-col gap-3">
+              <div key={i} className="animate-pulse bg-white border border-zinc-200 rounded-2xl sm:rounded-3xl p-4 flex flex-col gap-3">
                 <div className="h-4 bg-zinc-200 rounded-md w-2/3" />
                 <div className="grid grid-cols-2 gap-3">
                   <div className="h-8 bg-zinc-100 rounded-lg w-full" />
@@ -342,7 +342,7 @@ export function GridTable<T>({
               </div>
             ))
           ) : data.length === 0 ? (
-            <div className="py-12 bg-white border border-zinc-200 border-dashed rounded-2xl text-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
+            <div className="py-12 bg-white border border-zinc-200 border-dashed rounded-2xl sm:rounded-3xl text-center text-xs font-bold text-zinc-400 uppercase tracking-widest">
               {emptyMessage}
             </div>
           ) : (

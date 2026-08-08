@@ -119,7 +119,29 @@ Regra prática: se um número em um card está competindo visualmente com o tít
 
 ---
 
-## 3.1 StatCard — cards de resumo no topo
+## 3.1 Espaçamento, tamanho e radius — padrão de layout
+
+Além da tipografia (seção 3), estes são os padrões de layout do sistema:
+
+| Aspecto | Padrão | Onde aplicar |
+|---|---|---|
+| Radius de card grande (stat card, painel, tabela) | `rounded-2xl sm:rounded-3xl` | `StatCard`, `PanelCard`, `GridTable` (card desktop e mobile), `EmptyState`, `Modal`, `AppCard` — cantos mais sutis no mobile, mais arredondados no desktop. |
+| Radius de elemento pequeno (ícone wrap, avatar, botão de fechar) | `rounded-xl` | Ícone de `PanelCard`/`EmptyState`, botão fechar de `Modal`/`ActionDrawer`. |
+| Radius de botão (`Button`/`IconButton`) | `rounded-xl` (default da prop `radius="md"`) | Não usar `rounded-[20px]` nem outros valores em px fixo — a prop `radius` já existe para casos que precisem de `lg`/`full`. |
+| Radius de input/select/textarea | `rounded-xl` | `Input`, `Textarea`, `.ds-input` (Select). |
+| Sombra de card estático | `shadow-sm` (com `hover:shadow-md` se for clicável) | Todos os cards — não usar `shadow-[...]` customizado exceto em painéis flutuantes de fato elevados (Modal, ActionDrawer, que já têm sombra própria maior). |
+| Borda de card | `border border-zinc-200` (1px) | Sempre `zinc`, nunca `slate`, para manter a mesma paleta neutra em todo o sistema. |
+| Borda de botão | `border` (1px) | `Button`/`IconButton` — não usar `border-2`. |
+| Altura de Input/Select por tamanho | `sm` = `h-9`, `md` = `h-10`, `lg` = `h-11` | Mesma escala nos dois componentes. |
+| Padding de card em telas maiores | `p-4 sm:p-6` (ou próximo) | `PanelCard`, `ContentCard` (md). |
+| Gap/space-y entre seções de página | `space-y-4 sm:space-y-6` | Já documentado na seção 1 — reforçado aqui. |
+
+### Nota sobre `ds-input` / `ds-label`
+O Tailwind deste projeto roda via CDN (`index.html`), sem PostCSS/`@apply` — por isso `.ds-input` e `.ds-label` (usadas por `Select`, `Combobox`, `DatePicker`) são definidas como CSS puro dentro da tag `<style>` do `index.html`, não em um arquivo `.css` separado. Se precisar ajustar o visual desses dois, edite ali.
+
+---
+
+## 3.2 StatCard — cards de resumo no topo
 
 Use o grid manual em vez de `StatGrid` para controle responsivo de colunas:
 

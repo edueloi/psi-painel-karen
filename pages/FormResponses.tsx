@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useDateFormat } from '../contexts/UserPreferencesContext';
 import { FilterLine, FilterLineSection } from '../components/UI/FilterLine';
-import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
 import { Combobox } from '../components/UI/Combobox';
 import { DatePicker } from '../components/UI/DatePicker';
@@ -494,7 +493,7 @@ export const FormResponses: React.FC = () => {
                 const respondentDisplay = patientName || res.respondent_name || 'Usuário Externo';
                 
                 return (
-                  <AppCard key={res.id} id={`response-card-${res.id}`} noPadding className="group overflow-visible bg-white border-slate-100 hover:border-indigo-500/10 shadow-lg hover:shadow-2xl transition-all duration-700 rounded-[2.5rem]">
+                  <div key={res.id} id={`response-card-${res.id}`} className="group overflow-visible bg-white border border-slate-100 hover:border-indigo-500/10 shadow-lg hover:shadow-2xl transition-all duration-700 rounded-2xl sm:rounded-3xl">
                     {/* Header Item */}
                     <div className="p-8 flex flex-col md:flex-row gap-10 justify-between items-start text-left">
                       <div className="flex items-start gap-6 text-left">
@@ -735,7 +734,7 @@ export const FormResponses: React.FC = () => {
                         </div>
                       </details>
                     </div>
-                  </AppCard>
+                  </div>
                 );
               })}
             </div>

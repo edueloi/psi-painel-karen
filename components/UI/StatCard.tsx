@@ -78,7 +78,7 @@ export function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3, ease: "easeOut" }}
       className={cn(
-        "bg-white rounded-2xl border border-zinc-200 shadow-sm",
+        "bg-white rounded-2xl sm:rounded-3xl border border-zinc-200 shadow-sm",
         "hover:shadow-md transition-all duration-300 group",
         "relative overflow-hidden",
         "p-3 sm:p-5",
