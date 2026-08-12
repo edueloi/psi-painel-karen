@@ -7,6 +7,7 @@ const archiver = require('archiver');
 const db = require('../db');
 const { authMiddleware, checkPermission } = require('../middleware/auth');
 const { emitirNfse } = require('../services/nfse/emitir');
+const { cancelarNfse } = require('../services/nfse/cancelar');
 const { parsePfx } = require('../services/nfse/signer');
 const { encryptCertPassword } = require('../services/nfse/certCrypto');
 const { sendMail, templates } = require('../services/emailService');
@@ -389,6 +390,38 @@ router.post('/:transactionId/retry', authMiddleware, checkPermission('manage_pay
   } catch (err) {
     console.error('[NFS-e] Erro ao tentar novamente:', err);
     res.status(500).json({ error: 'Falha ao tentar emitir novamente' });
+  }
+});
+
+// ── POST /nfse/:transactionId/cancel — cancela NFS-e já autorizada ──────────
+// O Sistema Nacional NFS-e não permite editar uma nota autorizada: a correção é
+// sempre cancelar (evento e101101) e emitir uma nova DPS com os dados certos.
+router.post('/:transactionId/cancel', authMiddleware, checkPermission('manage_payments'), requireNfseEnabled, async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const transactionId = Number(req.params.transactionId);
+    const { motivo } = req.body;
+
+    if (!motivo || !String(motivo).trim()) {
+      return res.status(422).json({ error: 'Informe o motivo do cancelamento.' });
+    }
+
+    const [[invoice]] = await db.query(
+      'SELECT * FROM nfse_invoices WHERE financial_transaction_id = ? AND tenant_id = ?',
+      [transactionId, tenantId]
+    );
+    if (!invoice) return res.status(404).json({ error: 'NFS-e não encontrada' });
+    if (invoice.status !== 'authorized') {
+      return res.status(409).json({ error: 'Só é possível cancelar uma NFS-e autorizada.' });
+    }
+
+    await cancelarNfse(invoice.id, String(motivo).trim());
+
+    const [[updated]] = await db.query('SELECT * FROM nfse_invoices WHERE id = ?', [invoice.id]);
+    res.json(updated);
+  } catch (err) {
+    console.error('[NFS-e] Erro ao cancelar:', err);
+    res.status(422).json({ error: err.message || 'Falha ao cancelar a NFS-e' });
   }
 });
 

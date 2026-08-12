@@ -7,6 +7,7 @@ import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { Button } from '../components/UI/Button';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { EmptyState } from '../components/UI/EmptyState';
+import { Modal } from '../components/UI/Modal';
 import {
   FilterLine, FilterLineSection, FilterLineItem,
   FilterLineSegmented,
@@ -72,6 +73,10 @@ export const NotaFiscal: React.FC = () => {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRunning, setBatchRunning] = useState(false);
+
+  const [cancelTarget, setCancelTarget] = useState<NfseInvoiceRow | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
@@ -191,6 +196,22 @@ export const NotaFiscal: React.FC = () => {
     } catch (e: any) { pushToast('error', e?.message || `Erro ao enviar por ${channel}.`); }
   };
 
+  const handleConfirmCancel = async () => {
+    if (!cancelTarget || !cancelReason.trim()) return;
+    setCancelling(true);
+    try {
+      await api.post(`/nfse/${cancelTarget.financial_transaction_id}/cancel`, { motivo: cancelReason.trim() });
+      pushToast('success', 'NFS-e cancelada. Agora você já pode emitir uma nova nota corrigida para este lançamento.');
+      setCancelTarget(null);
+      setCancelReason('');
+      fetchInvoices();
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao cancelar a NFS-e');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const columns: Column<NfseInvoiceRow>[] = [
     {
       header: 'Emitida em',
@@ -274,6 +295,11 @@ export const NotaFiscal: React.FC = () => {
               </button>
               {inv.patient_email && <button onClick={() => sendInvoice(inv, 'email')} title={`Enviar por e-mail: ${inv.patient_email}`} className="w-7 h-7 flex items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-all"><Mail size={12} /></button>}
               {inv.patient_whatsapp && <button onClick={() => sendInvoice(inv, 'whatsapp')} title="Enviar por WhatsApp" className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all"><MessageCircle size={12} /></button>}
+              <button
+                onClick={() => { setCancelTarget(inv); setCancelReason(''); }}
+                title="Cancelar NFS-e" className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all">
+                <Ban size={12} />
+              </button>
             </>
           ) : (
             <span className="text-slate-200 text-lg leading-none select-none">—</span>
@@ -382,6 +408,43 @@ export const NotaFiscal: React.FC = () => {
           />
         )}
       </div>
+
+      <Modal
+        isOpen={!!cancelTarget}
+        onClose={() => { if (!cancelling) { setCancelTarget(null); setCancelReason(''); } }}
+        title="Cancelar NFS-e"
+        size="sm"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" disabled={cancelling} onClick={() => { setCancelTarget(null); setCancelReason(''); }}>
+              Voltar
+            </Button>
+            <Button variant="danger" disabled={cancelling || !cancelReason.trim()} onClick={handleConfirmCancel}>
+              {cancelling ? 'Cancelando...' : 'Confirmar cancelamento'}
+            </Button>
+          </div>
+        }
+      >
+        {cancelTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              A NFS-e nº <strong>{cancelTarget.numero}</strong> (Série {cancelTarget.serie}) será cancelada junto ao Sistema Nacional NFS-e.
+              Essa ação não pode ser desfeita — depois de cancelada, emita uma nova nota com os dados corretos para este mesmo lançamento.
+            </p>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Motivo do cancelamento</label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ex: Valor e descrição do serviço lançados incorretamente"
+                rows={3}
+                maxLength={255}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 resize-none"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageWrapper>
   );
 };

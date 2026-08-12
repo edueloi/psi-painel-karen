@@ -89,4 +89,9 @@ function assinarDPS(xml, idDPS, cert) {
   return assinarElemento(xml, 'infDPS', idDPS, cert);
 }
 
-module.exports = { parsePfx, loadPfx, assinarDPS };
+// Assina a tag infPedReg do XML de pedido de registro de evento (ex: cancelamento)
+function assinarEvento(xml, idPedido, cert) {
+  return assinarElemento(xml, 'infPedReg', idPedido, cert);
+}
+
+module.exports = { parsePfx, loadPfx, assinarDPS, assinarEvento };

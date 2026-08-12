@@ -76,4 +76,18 @@ async function callNfseRest({ environment, method, path, body, pfxPath, pfxPassw
   }
 }
 
-module.exports = { callNfseRest, gzipBase64, ungzipBase64, BASE_URLS };
+// Envia o pedido de registro de evento (ex: cancelamento) para uma NFS-e já autorizada.
+// Path real confirmado via swagger do Sefin Nacional: POST /nfse/{chaveAcesso}/eventos.
+async function callNfseEventoRest({ environment, chaveAcesso, signedXml, pfxPath, pfxPassword, timeoutMs }) {
+  return callNfseRest({
+    environment,
+    method: 'POST',
+    path: `/nfse/${chaveAcesso}/eventos`,
+    body: { pedRegEventoXmlGZipB64: gzipBase64(signedXml) },
+    pfxPath,
+    pfxPassword,
+    timeoutMs,
+  });
+}
+
+module.exports = { callNfseRest, callNfseEventoRest, gzipBase64, ungzipBase64, BASE_URLS };
