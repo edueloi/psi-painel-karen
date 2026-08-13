@@ -1301,6 +1301,7 @@ export const Agenda: React.FC = () => {
         return new Date(year, month - 1, day, hour, min).toISOString();
       };
 
+      const failedSiblings: (string | number)[] = [];
       for (const extraId of extraIds) {
         if (String(extraId) === String(payload.id)) continue;
         const sibling = appointments.find(a => String(a.id) === String(extraId));
@@ -1309,13 +1310,13 @@ export const Agenda: React.FC = () => {
         let newAppointmentDate = payload.appointment_date;
         let newStartUtc = null;
         let newEndUtc = null;
-        
+
         if (sibling && payload.appointment_date) {
             const sDate = new Date(sibling.start);
             const localDateStr = `${sDate.getFullYear()}-${String(sDate.getMonth() + 1).padStart(2, '0')}-${String(sDate.getDate()).padStart(2, '0')}`;
             const newTimeStr = payload.appointment_date.split('T')[1] || '00:00';
             newAppointmentDate = `${localDateStr}T${newTimeStr}`;
-            
+
             newStartUtc = localToUtc(newAppointmentDate);
             if (newStartUtc && payload.duration_minutes) {
                 newEndUtc = new Date(new Date(newStartUtc).getTime() + Number(payload.duration_minutes) * 60000).toISOString();
@@ -1329,7 +1330,12 @@ export const Agenda: React.FC = () => {
           start_time: newStartUtc || payload.start_time,
           end_time: newEndUtc || payload.end_time,
         };
-        await api.put(`/appointments/${extraId}`, siblingPayload).catch(() => {});
+        try {
+          await api.put(`/appointments/${extraId}`, siblingPayload);
+        } catch (siblingErr: any) {
+          console.warn(`Falha ao atualizar agendamento irmão ${extraId}:`, siblingErr?.message);
+          failedSiblings.push(extraId);
+        }
       }
 
       const savedAppointment = response;
@@ -1353,6 +1359,8 @@ export const Agenda: React.FC = () => {
       // Notifica se a repetição foi limitada pelo saldo da comanda
       if (response?.comanda_limited) {
         pushToast('warning', `Repetição limitada pela comanda: ${response.created_count} de ${response.requested_count} sessão(ões) criada(s). Comanda atingiu o limite de sessões.`);
+      } else if (failedSiblings.length > 0) {
+        pushToast('warning', `Agendamento atualizado, mas ${failedSiblings.length} sessão(ões) da mesma série não puderam ser atualizadas. Verifique-as manualmente.`);
       } else {
         pushToast('success', extraIds.length > 0 ? `${extraIds.length + 1} agendamentos atualizados!` : 'Agenda atualizada com sucesso.');
       }
@@ -3584,6 +3592,15 @@ export const Agenda: React.FC = () => {
                       <><span className="text-emerald-300 mx-0.5">·</span><span className="text-[11px] font-semibold text-rose-500">{formatCurrency((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0))}</span><span className="text-[9px] text-rose-400 font-bold">dev</span></>
                     )}
                     <ChevronRight size={10} className="text-emerald-400 ml-0.5" />
+                  </button>
+                )}
+                {!cmnd && currentStatus !== 'cancelled' && (
+                  <button onClick={openNewComandaModal}
+                    title="Este agendamento não tem comanda vinculada — clique para criar"
+                    className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-colors">
+                    <AlertCircle size={12} className="text-amber-600 shrink-0" />
+                    <span className="text-[11px] font-semibold text-amber-700">Sem comanda</span>
+                    <ChevronRight size={10} className="text-amber-400 ml-0.5" />
                   </button>
                 )}
               </div>

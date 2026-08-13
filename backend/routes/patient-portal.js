@@ -1497,6 +1497,7 @@ router.post('/appointments', portalAuth, async (req, res) => {
       ? `Pacote de ${sessionsTotal} sessões — ${patientName}`
       : `Consulta — ${patientName}`;
     let comandaId = provided_comanda_id ? parseInt(provided_comanda_id) : null;
+    let comandaCreationFailed = false;
     // No reagendamento (skip_comanda) ou quando já existe comanda ativa, não cria nova.
     if (!skip_comanda && !comandaId) {
       try {
@@ -1510,9 +1511,12 @@ router.post('/appointments', portalAuth, async (req, res) => {
         );
         comandaId = comandaIns.insertId;
       } catch (e) {
-        // Se a tabela comandas não tiver alguma coluna, segue sem comanda (não bloqueia o agendamento)
+        // Se a tabela comandas não tiver alguma coluna, segue sem comanda (não bloqueia o agendamento) —
+        // mas avisa a profissional via alerta do sistema, já que antes isso só ia pro log do servidor
+        // e ela nunca ficava sabendo que o agendamento ficou sem comanda vinculada.
         console.error('[portal] falha ao criar comanda automática:', e.message);
         comandaId = null;
+        comandaCreationFailed = true;
       }
     }
 
@@ -1559,6 +1563,18 @@ router.post('/appointments', portalAuth, async (req, res) => {
          VALUES (?, ?, ?, 'info', '/agenda')`,
         [tenant_id, alertTitle, alertMsg]
       );
+
+      if (comandaCreationFailed) {
+        await db.query(
+          `INSERT INTO system_alerts (tenant_id, title, message, type, link)
+           VALUES (?, ?, ?, 'warning', '/agenda')`,
+          [
+            tenant_id,
+            `⚠️ Comanda não gerada para ${patientName}`,
+            'O agendamento pelo portal foi criado, mas a comanda automática falhou. Vincule uma comanda manualmente na Agenda.',
+          ]
+        );
+      }
     } catch (alertErr) {
       console.error('[portal] falha ao criar alerta de agendamento:', alertErr.message);
     }
