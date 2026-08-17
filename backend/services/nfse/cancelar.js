@@ -49,9 +49,19 @@ async function cancelarNfse(invoiceId, motivo) {
     const primeiro = erros[0];
     const descricao = primeiro?.Descricao ?? primeiro?.descricao;
     const complemento = primeiro?.Complemento ?? primeiro?.complemento;
-    const mensagem = descricao
-      ? [descricao, complemento].filter(Boolean).join(' — ')
-      : (result.error || result.raw || 'Falha na comunicação com o Sistema Nacional NFS-e');
+    console.error(`[NFS-e] Falha ao registrar evento de cancelamento (chave ${invoice.chave_acesso}): status=${result.statusCode} raw=${result.raw}`);
+
+    let mensagem;
+    if (descricao) {
+      mensagem = [descricao, complemento].filter(Boolean).join(' — ');
+    } else if (!result.error && data.message === 'An error has occurred.') {
+      // O Sistema Nacional NFS-e devolve esse fallback genérico (sem detalhar o motivo real)
+      // quando o pedido de evento é rejeitado internamente — na prática, o caso mais comum é
+      // o cancelamento estar fora do prazo (até o dia 15 do mês seguinte ao da emissão).
+      mensagem = 'O Sistema Nacional NFS-e recusou o cancelamento sem detalhar o motivo. A causa mais provável é o prazo: o cancelamento só é permitido até o dia 15 do mês seguinte ao da emissão. Se o prazo já passou, não é mais possível cancelar por este caminho — consulte seu contador sobre nota de substituição/carta de correção ou entre em contato com a prefeitura.';
+    } else {
+      mensagem = result.error || result.raw || 'Falha na comunicação com o Sistema Nacional NFS-e';
+    }
     throw new Error(mensagem);
   }
 
