@@ -275,16 +275,17 @@ export const Agenda: React.FC = () => {
       session_info: context?.apt?.recurrence_index ? `Sessão ${context.apt.recurrence_index} de ${context.apt.recurrence_count || ''}` : '',
       package_name: context?.package?.name || '',
       amount: String(context?.comanda?.totalValue || context?.comanda?.total || '').replace('.', ','),
+      room_link: context?.apt?.meeting_url || '',
     };
     return String(template || '').replace(/\{(\w+)\}/g, (_, key) => values[key] ?? `{${key}}`);
   };
   const openQuickMessage = async (context: any) => {
-    const fallback = { reminder_24h_msg: 'Olá {patient_name}! Lembramos do seu atendimento em {date} às {time}.', reminder_1h_msg: 'Olá {patient_name}! Seu atendimento é hoje às {time}.', payment_msg: 'Olá {patient_name}! Temos um lembrete de pagamento para você.' };
+    const fallback = { reminder_24h_msg: 'Olá {patient_name}! Lembramos do seu atendimento em {date} às {time}.', reminder_1h_msg: 'Olá {patient_name}! Seu atendimento é hoje às {time}.', payment_msg: 'Olá {patient_name}! Temos um lembrete de pagamento para você.', virtual_room_link_msg: 'Olá, {patient_name}! Sua sala de atendimento com {professional_name} já está disponível.\n\nAcesse pelo link: {room_link}' };
     setQuickMessageContext(context); setQuickTemplates(fallback); setQuickCategory('reminder_24h'); setQuickMessage(renderQuickMessage(fallback.reminder_24h_msg, context)); setIsQuickMessageOpen(true);
     try {
       const data: any = await api.get('/whatsapp/preferences');
       const prefs = data?.preferences || {};
-      const templates = { reminder_24h_msg: prefs.reminder_24h_msg || fallback.reminder_24h_msg, reminder_1h_msg: prefs.reminder_1h_msg || fallback.reminder_1h_msg, birthday_msg: prefs.birthday_msg || '', payment_msg: prefs.payment_msg || fallback.payment_msg };
+      const templates = { reminder_24h_msg: prefs.reminder_24h_msg || fallback.reminder_24h_msg, reminder_1h_msg: prefs.reminder_1h_msg || fallback.reminder_1h_msg, birthday_msg: prefs.birthday_msg || '', payment_msg: prefs.payment_msg || fallback.payment_msg, virtual_room_link_msg: prefs.virtual_room_link_msg || fallback.virtual_room_link_msg };
       setQuickTemplates(templates); setQuickMessage(renderQuickMessage(templates.reminder_24h_msg, context));
     } catch { /* mantém mensagens padrão quando o bot não estiver configurado */ }
   };
@@ -3880,7 +3881,13 @@ export const Agenda: React.FC = () => {
         <div className="space-y-4">
           <p className="text-xs text-slate-500">Escolha uma mensagem configurada no WhatsApp Bot, revise e envie para <strong>{quickMessageContext?.patient?.name || quickMessageContext?.apt?.patient_name}</strong>.</p>
           <div className="grid grid-cols-2 gap-2">
-            {[['reminder_24h', 'Lembrete 24h'], ['reminder_1h', 'Lembrete 1h'], ['payment', 'Pagamento'], ['birthday', 'Aniversário']].map(([key, label]) => (
+            {[
+              ['reminder_24h', 'Lembrete 24h'],
+              ['reminder_1h', 'Lembrete 1h'],
+              ['payment', 'Pagamento'],
+              ['birthday', 'Aniversário'],
+              ...(quickMessageContext?.apt?.meeting_url ? [['virtual_room_link', 'Sala Virtual']] : []),
+            ].map(([key, label]) => (
               <button key={key} type="button" onClick={() => { setQuickCategory(key); setQuickMessage(renderQuickMessage(quickTemplates[`${key}_msg`], quickMessageContext)); }} className={cx('px-3 py-2 rounded-xl border text-xs font-bold transition', quickCategory === key ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300')}>{label}</button>
             ))}
           </div>

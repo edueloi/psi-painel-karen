@@ -716,7 +716,7 @@ export const MenuCustomizer: React.FC = () => {
                               <div
                                 key={layoutItem.navItemPath}
                                 draggable={!isDefaultSelected}
-                                onDragStart={e => !isDefaultSelected && encodeDrag({ type: 'section-item', sectionId: section.id, path: layoutItem.navItemPath }, e)}
+                                onDragStart={e => { if (isDefaultSelected) return; e.stopPropagation(); encodeDrag({ type: 'section-item', sectionId: section.id, path: layoutItem.navItemPath }, e); }}
                                 onDragOver={e => !isDefaultSelected && onItemDragOver(e, section.id, layoutItem.navItemPath)}
                                 onDrop={e => !isDefaultSelected && onItemDrop(e, section.id, layoutItem.navItemPath)}
                                 className={`group flex items-center gap-2.5 px-3 py-2 rounded-xl border cursor-grab active:cursor-grabbing select-none transition-all duration-100 ${
