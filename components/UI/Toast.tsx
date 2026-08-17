@@ -63,13 +63,24 @@ const toastConfig = {
   },
 };
 
+// Toasts curtos (ex: "Salvo com sucesso") somem em 5s; mensagens longas (ex: avisos
+// explicativos de erro) ganham mais tempo na tela, proporcional ao tamanho do texto.
+const TOAST_MIN_DURATION_MS = 5000;
+const TOAST_MAX_DURATION_MS = 14000;
+const TOAST_MS_PER_CHAR = 80;
+
+function toastDuration(message: string) {
+  return Math.min(TOAST_MAX_DURATION_MS, Math.max(TOAST_MIN_DURATION_MS, message.length * TOAST_MS_PER_CHAR));
+}
+
 export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
   const cfg = toastConfig[type];
+  const duration = toastDuration(message);
 
   useEffect(() => {
-    const t = setTimeout(() => onClose(id), 5000);
+    const t = setTimeout(() => onClose(id), duration);
     return () => clearTimeout(t);
-  }, [id, onClose]);
+  }, [id, onClose, duration]);
 
   return (
     <motion.div
@@ -83,8 +94,9 @@ export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
         "bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-zinc-100",
         // Mobile: full width, arredondado
         "w-full rounded-2xl",
-        // Desktop: largura fixa
-        "sm:w-[380px] sm:rounded-2xl"
+        // Desktop: largura fixa — um pouco mais larga para acomodar mensagens
+        // explicativas mais longas sem quebrar em muitas linhas
+        "sm:w-[420px] sm:rounded-2xl"
       )}
     >
       {/* Acento lateral */}
@@ -122,7 +134,7 @@ export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
         <motion.div
           initial={{ width: "100%" }}
           animate={{ width: "0%" }}
-          transition={{ duration: 5, ease: "linear" }}
+          transition={{ duration: duration / 1000, ease: "linear" }}
           className={cn("h-full", cfg.bar)}
         />
       </div>
