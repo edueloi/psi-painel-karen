@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   Plus, Trash2, GripVertical, PenLine, Check, X,
   LayoutGrid, ChevronDown, ChevronRight, Copy, Star,
-  Inbox, ArrowRight, ArrowLeft, ChevronUp, CheckCircle2,
+  Inbox, ArrowRight, ArrowLeft, ChevronUp, CheckCircle2, Save,
 } from 'lucide-react';
 
 function genId() {
@@ -176,8 +176,8 @@ export const MenuCustomizer: React.FC = () => {
   const handleNew = () => {
     if (layout && !isDefaultSelected) doSave(layout);
     const blank: MenuLayout = { id: genId(), name: 'Novo Layout', createdAt: new Date().toISOString(), sections: [] };
+    doSave(blank);
     setLayout(blank);
-    setSelectedId(null);
     setEditingName(true);
     setNameValue('Novo Layout');
   };
@@ -190,8 +190,13 @@ export const MenuCustomizer: React.FC = () => {
       name: layout.name + ' (cópia)',
       createdAt: new Date().toISOString(),
     };
+    doSave(copy);
     setLayout(copy);
-    setSelectedId(null);
+  };
+
+  const handleSave = () => {
+    if (!layout || isDefaultSelected) return;
+    doSave(layout);
   };
 
   const confirmAndDelete = (id: string) => {
@@ -536,7 +541,10 @@ export const MenuCustomizer: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 {!isDefaultSelected && (
-                  <Button variant="outline" size="sm" iconLeft={<Copy size={13} />} onClick={handleDuplicate}>Duplicar</Button>
+                  <>
+                    <Button variant="outline" size="sm" iconLeft={<Copy size={13} />} onClick={handleDuplicate}>Duplicar</Button>
+                    <Button variant="outline" size="sm" iconLeft={<Save size={13} />} onClick={handleSave}>Salvar</Button>
+                  </>
                 )}
                 <Button
                   variant={isCurrentActive ? 'secondary' : 'primary'}
