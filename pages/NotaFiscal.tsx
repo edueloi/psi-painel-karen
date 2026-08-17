@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FileText, Download, RefreshCw, Loader2, CheckCircle2, Clock,
-  AlertCircle, XCircle, Ban, Archive, Mail, MessageCircle,
+  AlertCircle, XCircle, Ban, Archive, Mail, MessageCircle, HelpCircle,
+  Search as SearchIcon, CalendarRange, ListFilter, Layers, MousePointerClick,
 } from 'lucide-react';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
-import { Button } from '../components/UI/Button';
+import { Button, IconButton } from '../components/UI/Button';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { EmptyState } from '../components/UI/EmptyState';
 import { Modal } from '../components/UI/Modal';
+import { Combobox } from '../components/UI/Combobox';
 import {
   FilterLine, FilterLineSection, FilterLineItem,
-  FilterLineSegmented,
+  FilterLineSearch, FilterLineDateRange,
 } from '../components/UI/FilterLine';
 import { api, API_BASE_URL } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -55,6 +57,22 @@ const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'c
 const formatDate = (v?: string | null) => v ? new Date(v).toLocaleDateString('pt-BR') : '—';
 const formatDateTime = (v?: string | null) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
+// Data local em ISO (yyyy-mm-dd), sem o deslocamento de fuso que `toISOString()` causaria.
+const toISODate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Período padrão da tela: sempre o mês corrente (do dia 1 até hoje o mês inteiro).
+function currentMonthRange() {
+  const now = new Date();
+  return {
+    from: toISODate(new Date(now.getFullYear(), now.getMonth(), 1)),
+    to: toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  };
+}
+
+const STATUS_FILTER_OPTIONS = (Object.keys(STATUS_CONFIG) as NfseStatus[]).map(value => ({
+  value, label: STATUS_CONFIG[value].label,
+}));
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const NotaFiscal: React.FC = () => {
@@ -66,10 +84,14 @@ export const NotaFiscal: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  const [statusFilter, setStatusFilter] = useState<'all' | NfseStatus>('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'' | NfseStatus>('');
+  const [{ from: defaultFrom, to: defaultTo }] = useState(currentMonthRange);
+  const [dateFrom, setDateFrom] = useState<string | null>(defaultFrom);
+  const [dateTo, setDateTo] = useState<string | null>(defaultTo);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRunning, setBatchRunning] = useState(false);
@@ -78,13 +100,20 @@ export const NotaFiscal: React.FC = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
+  // Busca por texto é debounced para não disparar uma requisição a cada tecla digitada.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: Record<string, string> = { page: String(page), pageSize: String(pageSize) };
-      if (statusFilter !== 'all') params.status = statusFilter;
+      if (statusFilter) params.status = statusFilter;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
+      if (debouncedSearch) params.q = debouncedSearch;
 
       const data = await api.get<{ invoices: NfseInvoiceRow[]; total: number }>('/nfse', params);
       setInvoices(data.invoices || []);
@@ -94,12 +123,12 @@ export const NotaFiscal: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, statusFilter, dateFrom, dateTo, pushToast]);
+  }, [page, pageSize, statusFilter, dateFrom, dateTo, debouncedSearch, pushToast]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
   // Reseta para a primeira página quando os filtros mudam
-  useEffect(() => { setPage(1); }, [statusFilter, dateFrom, dateTo]);
+  useEffect(() => { setPage(1); }, [statusFilter, dateFrom, dateTo, debouncedSearch]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -212,6 +241,56 @@ export const NotaFiscal: React.FC = () => {
     }
   };
 
+  // Prazo do governo para cancelamento self-service: até dia 15 do mês seguinte à autorização.
+  const cancelDeadline = (authorizedAt: string) => {
+    const d = new Date(authorizedAt);
+    return new Date(d.getFullYear(), d.getMonth() + 1, 15);
+  };
+  const isPastCancelDeadline = (inv: NfseInvoiceRow) => !!inv.authorized_at && new Date() > cancelDeadline(inv.authorized_at);
+
+  const renderStatusBadge = (inv: NfseInvoiceRow) => {
+    const cfg = STATUS_CONFIG[inv.status];
+    const Icon = cfg.icon;
+    return (
+      <div>
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10px] font-bold ${cfg.color}`}>
+          <Icon size={11} className={inv.status === 'processing' ? 'animate-spin' : ''} />
+          {cfg.label}
+        </span>
+        {['rejected', 'error'].includes(inv.status) && inv.rejection_reason && (
+          <p className="text-[10px] text-rose-500 mt-1 max-w-[200px] truncate" title={inv.rejection_reason}>{inv.rejection_reason}</p>
+        )}
+      </div>
+    );
+  };
+
+  const renderActions = (inv: NfseInvoiceRow, opts: { mobile?: boolean } = {}) => {
+    if (inv.status !== 'authorized') return <span className="text-slate-200 text-lg leading-none select-none">—</span>;
+    const size = opts.mobile ? 'w-9 h-9' : 'w-7 h-7';
+    const iconSize = opts.mobile ? 15 : 12;
+    return (
+      <div className={`flex items-center gap-1.5 ${opts.mobile ? 'flex-wrap' : 'justify-center'}`}>
+        <button
+          onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/xml`, `nfse-${inv.chave_acesso || inv.numero}.xml`)}
+          title="Baixar XML" className={`${size} flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all`}>
+          <Download size={iconSize} />
+        </button>
+        <button
+          onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/pdf`, `nfse-${inv.chave_acesso || inv.numero}.pdf`)}
+          title="Baixar PDF" className={`${size} flex items-center justify-center rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all`}>
+          <FileText size={iconSize} />
+        </button>
+        {inv.patient_email && <button onClick={() => sendInvoice(inv, 'email')} title={`Enviar por e-mail: ${inv.patient_email}`} className={`${size} flex items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-all`}><Mail size={iconSize} /></button>}
+        {inv.patient_whatsapp && <button onClick={() => sendInvoice(inv, 'whatsapp')} title="Enviar por WhatsApp" className={`${size} flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all`}><MessageCircle size={iconSize} /></button>}
+        <button
+          onClick={() => { setCancelTarget(inv); setCancelReason(''); }}
+          title="Cancelar NFS-e" className={`${size} flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all`}>
+          <Ban size={iconSize} />
+        </button>
+      </div>
+    );
+  };
+
   const columns: Column<NfseInvoiceRow>[] = [
     {
       header: 'Emitida em',
@@ -250,21 +329,7 @@ export const NotaFiscal: React.FC = () => {
     },
     {
       header: 'Status',
-      render: (inv) => {
-        const cfg = STATUS_CONFIG[inv.status];
-        const Icon = cfg.icon;
-        return (
-          <div>
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10px] font-bold ${cfg.color}`}>
-              <Icon size={11} className={inv.status === 'processing' ? 'animate-spin' : ''} />
-              {cfg.label}
-            </span>
-            {['rejected', 'error'].includes(inv.status) && inv.rejection_reason && (
-              <p className="text-[10px] text-rose-500 mt-1 max-w-[200px] truncate" title={inv.rejection_reason}>{inv.rejection_reason}</p>
-            )}
-          </div>
-        );
-      },
+      render: renderStatusBadge,
     },
     {
       header: 'Ambiente',
@@ -279,33 +344,7 @@ export const NotaFiscal: React.FC = () => {
     {
       header: 'Ações',
       headerClassName: 'text-center',
-      render: (inv) => (
-        <div className="flex items-center justify-center gap-1.5">
-          {inv.status === 'authorized' ? (
-            <>
-              <button
-                onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/xml`, `nfse-${inv.chave_acesso || inv.numero}.xml`)}
-                title="Baixar XML" className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all">
-                <Download size={12} />
-              </button>
-              <button
-                onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/pdf`, `nfse-${inv.chave_acesso || inv.numero}.pdf`)}
-                title="Baixar PDF" className="w-7 h-7 flex items-center justify-center rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all">
-                <FileText size={12} />
-              </button>
-              {inv.patient_email && <button onClick={() => sendInvoice(inv, 'email')} title={`Enviar por e-mail: ${inv.patient_email}`} className="w-7 h-7 flex items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-all"><Mail size={12} /></button>}
-              {inv.patient_whatsapp && <button onClick={() => sendInvoice(inv, 'whatsapp')} title="Enviar por WhatsApp" className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all"><MessageCircle size={12} /></button>}
-              <button
-                onClick={() => { setCancelTarget(inv); setCancelReason(''); }}
-                title="Cancelar NFS-e" className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all">
-                <Ban size={12} />
-              </button>
-            </>
-          ) : (
-            <span className="text-slate-200 text-lg leading-none select-none">—</span>
-          )}
-        </div>
-      ),
+      render: (inv) => renderActions(inv),
     },
   ];
 
@@ -331,40 +370,42 @@ export const NotaFiscal: React.FC = () => {
         title="Nota Fiscal"
         description="Acompanhe as NFS-e emitidas, veja erros e baixe XML/PDF"
         action={
-          <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={fetchInvoices}>
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <IconButton variant="outline" size="sm" title="Como usar esta tela" onClick={() => setIsHelpOpen(true)}>
+              <HelpCircle size={15} />
+            </IconButton>
+            <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={fetchInvoices}>
+              Atualizar
+            </Button>
+          </div>
         }
       />
 
       <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
         <FilterLine>
-          <FilterLineSection grow>
-            <FilterLineItem>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">De</label>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400" />
+          <FilterLineSection grow wrap>
+            <FilterLineItem grow minWidth={200}>
+              <FilterLineSearch
+                value={search}
+                onChange={setSearch}
+                placeholder="Buscar por paciente, descrição ou número..."
+              />
             </FilterLineItem>
-            <FilterLineItem>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Até</label>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400" />
+            <FilterLineItem minWidth={260}>
+              <FilterLineDateRange from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
             </FilterLineItem>
           </FilterLineSection>
           <FilterLineSection align="right">
-            <FilterLineSegmented
-              value={statusFilter}
-              onChange={v => setStatusFilter(v as any)}
-              options={[
-                { value: 'all', label: 'Todos' },
-                { value: 'pending', label: 'Pendente' },
-                { value: 'processing', label: 'Processando' },
-                { value: 'authorized', label: 'Autorizada' },
-                { value: 'rejected', label: 'Rejeitada' },
-                { value: 'error', label: 'Erro' },
-              ]}
-              size="sm"
-            />
+            <FilterLineItem minWidth={180}>
+              <Combobox
+                value={statusFilter}
+                onChange={(v) => setStatusFilter((v as string) as any)}
+                placeholder="Todos os status"
+                searchPlaceholder="Buscar status..."
+                options={STATUS_FILTER_OPTIONS}
+                size="sm"
+              />
+            </FilterLineItem>
           </FilterLineSection>
         </FilterLine>
 
@@ -389,7 +430,7 @@ export const NotaFiscal: React.FC = () => {
           <EmptyState
             icon={FileText}
             title="Nenhuma NFS-e encontrada"
-            description="As notas fiscais emitidas pelo Livro Caixa aparecerão aqui."
+            description="As notas fiscais emitidas pelo Livro Caixa aparecerão aqui. Experimente ajustar o período ou os filtros acima."
           />
         ) : (
           <GridTable
@@ -400,6 +441,45 @@ export const NotaFiscal: React.FC = () => {
             selectedIds={selectedIds}
             onToggleSelect={(id) => toggleSelect(String(id))}
             onToggleSelectAll={toggleSelectAll}
+            renderMobileItem={(inv) => (
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-sm text-zinc-900 truncate">nº {inv.numero} · {inv.patient_name || 'Sem paciente'}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {renderStatusBadge(inv)}
+                  <span className="text-xs font-semibold text-zinc-500">{formatCurrency(inv.valor_servico)}</span>
+                </div>
+              </div>
+            )}
+            renderMobileExpandedContent={(inv) => (
+              <div className="p-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Descrição</p>
+                  <p className="text-xs font-semibold text-zinc-700">{inv.descricao_servico || inv.transaction_description || '—'}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Emitida em</p>
+                    <p className="text-xs font-semibold text-zinc-700">{formatDate(inv.created_at)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Ambiente</p>
+                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      inv.environment === 'producao' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                    }`}>
+                      {inv.environment === 'producao' ? 'Produção' : 'Homologação'}
+                    </span>
+                  </div>
+                </div>
+                {inv.status === 'authorized' && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1.5">Ações</p>
+                    {renderActions(inv, { mobile: true })}
+                  </div>
+                )}
+              </div>
+            )}
             pagination={{
               total, page, pageSize,
               onPageChange: setPage,
@@ -431,6 +511,21 @@ export const NotaFiscal: React.FC = () => {
               A NFS-e nº <strong>{cancelTarget.numero}</strong> (Série {cancelTarget.serie}) será cancelada junto ao Sistema Nacional NFS-e.
               Essa ação não pode ser desfeita — depois de cancelada, emita uma nova nota com os dados corretos para este mesmo lançamento.
             </p>
+            {cancelTarget.authorized_at && (
+              isPastCancelDeadline(cancelTarget) ? (
+                <div className="flex gap-2 p-3 rounded-xl border border-amber-200 bg-amber-50">
+                  <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800">
+                    O prazo para cancelar esta nota pelo sistema (até <strong>{cancelDeadline(cancelTarget.authorized_at).toLocaleDateString('pt-BR')}</strong>) já passou.
+                    O governo deve recusar este pedido. Se isso acontecer, fale com seu contador sobre emitir uma <strong>nota de substituição</strong> ou <strong>carta de correção</strong>, ou procure a prefeitura para pedir o cancelamento fora do prazo.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400">
+                  Prazo para cancelar pelo sistema: até {cancelDeadline(cancelTarget.authorized_at).toLocaleDateString('pt-BR')}.
+                </p>
+              )
+            )}
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Motivo do cancelamento</label>
               <textarea
@@ -444,6 +539,64 @@ export const NotaFiscal: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+        title="Como funciona esta tela"
+        size="md"
+      >
+        <div className="space-y-5">
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center shrink-0"><SearchIcon size={15} className="text-sky-600" /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Busca</p>
+              <p className="text-xs text-slate-500">Digite o nome do paciente, a descrição do serviço ou o número da nota para filtrar a lista.</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0"><CalendarRange size={15} className="text-violet-600" /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Período (De / Até)</p>
+              <p className="text-xs text-slate-500">Filtra pela data de emissão da nota. Por padrão a tela mostra o mês atual — altere as datas para ver meses anteriores.</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0"><ListFilter size={15} className="text-amber-600" /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Status</p>
+              <p className="text-xs text-slate-500">
+                <strong>Pendente</strong> aguarda envio; <strong>Processando</strong> está em análise no governo; <strong>Autorizada</strong> foi emitida com sucesso;
+                {' '}<strong>Rejeitada</strong>/<strong>Erro</strong> falharam (veja o motivo abaixo do status); <strong>Cancelada</strong> foi cancelada junto ao Sistema Nacional NFS-e.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0"><Layers size={15} className="text-emerald-600" /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Ambiente</p>
+              <p className="text-xs text-slate-500"><strong>Produção</strong> é uma nota fiscal real e válida. <strong>Homologação</strong> é o ambiente de testes do governo — não tem valor fiscal.</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0"><MousePointerClick size={15} className="text-rose-600" /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Ações (por nota autorizada)</p>
+              <p className="text-xs text-slate-500">Baixar XML, baixar PDF, enviar por e-mail ou WhatsApp (quando o paciente tiver contato cadastrado) e cancelar.</p>
+            </div>
+          </div>
+          <div className="flex gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
+            <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-amber-800">Prazo de cancelamento</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Uma nota só pode ser cancelada pelo sistema até o <strong>dia 15 do mês seguinte</strong> ao da emissão. Perdeu o prazo?
+                Fale com seu contador sobre emitir uma <strong>nota de substituição</strong> ou <strong>carta de correção</strong>, ou entre em contato com a prefeitura para pedir o cancelamento fora do prazo.
+              </p>
+            </div>
+          </div>
+        </div>
       </Modal>
     </PageWrapper>
   );

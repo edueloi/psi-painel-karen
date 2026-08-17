@@ -543,30 +543,43 @@ router.get('/', authMiddleware, async (req, res) => {
     const tenantId = req.user.tenant_id;
     const page = Math.max(1, Number(req.query.page) || 1);
     const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize) || 50));
-    const { status, date_from, date_to } = req.query;
+    const { status, date_from, date_to, q } = req.query;
+
+    const fromSql = `
+         FROM nfse_invoices ni
+         LEFT JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
+         LEFT JOIN patients p ON p.tenant_id = ft.tenant_id
+              AND (p.id = ft.patient_id OR (ft.patient_id IS NULL AND p.name = ft.payer_name))`;
 
     const where = ['ni.tenant_id = ?'];
     const params = [tenantId];
     if (status) { where.push('ni.status = ?'); params.push(status); }
     if (date_from) { where.push('DATE(ni.created_at) >= ?'); params.push(date_from); }
     if (date_to) { where.push('DATE(ni.created_at) <= ?'); params.push(date_to); }
+    if (q && String(q).trim()) {
+      const term = `%${String(q).trim()}%`;
+      where.push(`(
+        COALESCE(p.name, ft.beneficiary_name, ft.payer_name) LIKE ?
+        OR ni.descricao_servico LIKE ?
+        OR ft.description LIKE ?
+        OR CAST(ni.numero AS CHAR) LIKE ?
+      )`);
+      params.push(term, term, term, term);
+    }
     const whereSql = where.join(' AND ');
 
     const [invoices] = await db.query(
       `SELECT ni.*, ft.description AS transaction_description, ft.date AS transaction_date,
               COALESCE(p.name, ft.beneficiary_name, ft.payer_name) AS patient_name,
               p.email AS patient_email, COALESCE(p.whatsapp, p.phone) AS patient_whatsapp
-         FROM nfse_invoices ni
-         LEFT JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id
-         LEFT JOIN patients p ON p.tenant_id = ft.tenant_id
-              AND (p.id = ft.patient_id OR (ft.patient_id IS NULL AND p.name = ft.payer_name))
+        ${fromSql}
         WHERE ${whereSql}
         ORDER BY ni.created_at DESC
         LIMIT ? OFFSET ?`,
       [...params, pageSize, (page - 1) * pageSize]
     );
     const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) AS total FROM nfse_invoices ni WHERE ${whereSql}`,
+      `SELECT COUNT(*) AS total ${fromSql} WHERE ${whereSql}`,
       params
     );
 
