@@ -6,6 +6,16 @@ const { decryptCertPassword } = require('./certCrypto');
 
 const NFSE_TIMEOUT_MS = Number(process.env.NFSE_TIMEOUT_MS) || 30000;
 
+// Regra do Sistema Nacional NFS-e: cancelamento pelo emissor só é aceito até o dia 15
+// do mês seguinte ao da autorização. Checamos isso ANTES de chamar a API porque o
+// serviço do governo, quando rejeita por prazo vencido, não devolve uma mensagem de
+// validação clara — só um erro genérico interno ("An error has occurred."), sem detalhe.
+function prazoCancelamentoExpirado(authorizedAt) {
+  const autorizado = new Date(authorizedAt);
+  const prazo = new Date(autorizado.getFullYear(), autorizado.getMonth() + 1, 15, 23, 59, 59, 999);
+  return { expirado: new Date() > prazo, prazo };
+}
+
 // Cancela uma NFS-e já autorizada junto ao Sistema Nacional NFS-e (evento e101101),
 // espelhando o fluxo de emitirNfse: monta o XML do evento, assina com o certificado
 // A1 do emissor e envia via mTLS. Só pode ser chamada para invoices com status
@@ -15,6 +25,14 @@ async function cancelarNfse(invoiceId, motivo) {
   if (!invoice) throw new Error('NFS-e não encontrada.');
   if (invoice.status !== 'authorized') throw new Error('Só é possível cancelar uma NFS-e autorizada.');
   if (!invoice.chave_acesso) throw new Error('NFS-e sem chave de acesso — não é possível cancelar.');
+
+  if (invoice.authorized_at) {
+    const { expirado, prazo } = prazoCancelamentoExpirado(invoice.authorized_at);
+    if (expirado) {
+      const prazoStr = prazo.toLocaleDateString('pt-BR');
+      throw new Error(`O prazo para cancelar esta NFS-e pelo sistema (até ${prazoStr}) já expirou. Não é mais possível cancelar por aqui — consulte seu contador sobre nota de substituição/carta de correção ou entre em contato com a prefeitura.`);
+    }
+  }
 
   const [[emitter]] = await db.query('SELECT * FROM users WHERE id = ?', [invoice.user_id]);
   if (!emitter) throw new Error('Profissional emissor não encontrado.');
@@ -56,9 +74,10 @@ async function cancelarNfse(invoiceId, motivo) {
       mensagem = [descricao, complemento].filter(Boolean).join(' — ');
     } else if (!result.error && data.message === 'An error has occurred.') {
       // O Sistema Nacional NFS-e devolve esse fallback genérico (sem detalhar o motivo real)
-      // quando o pedido de evento é rejeitado internamente — na prática, o caso mais comum é
-      // o cancelamento estar fora do prazo (até o dia 15 do mês seguinte ao da emissão).
-      mensagem = 'O Sistema Nacional NFS-e recusou o cancelamento sem detalhar o motivo. A causa mais provável é o prazo: o cancelamento só é permitido até o dia 15 do mês seguinte ao da emissão. Se o prazo já passou, não é mais possível cancelar por este caminho — consulte seu contador sobre nota de substituição/carta de correção ou entre em contato com a prefeitura.';
+      // quando o pedido de evento é rejeitado internamente. Já validamos o prazo antes de
+      // chegar aqui, então essa mensagem é um erro do lado do governo mesmo, sem detalhe
+      // disponível -- ficam registrados status/raw acima nos logs para investigação.
+      mensagem = 'O Sistema Nacional NFS-e recusou o cancelamento sem detalhar o motivo. Tente novamente em alguns minutos; se persistir, contate o suporte com o número desta nota.';
     } else {
       mensagem = result.error || result.raw || 'Falha na comunicação com o Sistema Nacional NFS-e';
     }
