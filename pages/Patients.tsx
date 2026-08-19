@@ -299,6 +299,14 @@ export const Patients: React.FC = () => {
         city: data.city || null,
         state: data.state || null,
         zip_code: data.address_zip || null,
+        // Endereço estruturado (separado do texto livre acima) -- usado para enviar
+        // o endereço do paciente na NFS-e, que exige os campos quebrados assim.
+        address_cep: data.address_zip || null,
+        address_logradouro: data.street || null,
+        address_numero: data.house_number || null,
+        address_bairro: data.neighborhood || null,
+        address_uf: data.state || null,
+        address_municipio_ibge: data.municipio_ibge || null,
         notes: data.notes || null,
         status: data.status || 'ativo',
         health_plan: data.convenio ? data.convenio_name || 'Sim' : null,

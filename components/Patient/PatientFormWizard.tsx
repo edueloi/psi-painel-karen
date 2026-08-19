@@ -244,6 +244,10 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
           neighborhood: data.bairro || prev.neighborhood,
           city: data.localidade || prev.city,
           state: data.uf || prev.state,
+          // Código IBGE do município, usado para o endereço do paciente na NFS-e
+          // (o schema nacional exige o código, não o nome da cidade) — o ViaCEP já
+          // devolve isso de graça, então não precisamos pedir pro usuário digitar.
+          municipio_ibge: data.ibge || prev.municipio_ibge,
         }));
       }
     } catch { /* silencia erro de rede */ } finally {

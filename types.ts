@@ -176,6 +176,9 @@ export interface Patient {
   state?: string;
   address_zip?: string;
   zip_code?: string;
+  // Código IBGE do município (via ViaCEP) -- usado só para enviar o endereço do
+  // paciente na NFS-e (o schema nacional exige o código, não o nome da cidade).
+  municipio_ibge?: string;
   country?: string;
   // Sociais
   marital_status?: MaritalStatus | string;

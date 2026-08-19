@@ -63,14 +63,30 @@ async function resolveTomador(transaction) {
   }
   if (transaction.patient_id) {
     const [[patient]] = await db.query(
-      'SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?',
+      `SELECT name, cpf, is_payer, payer_name, payer_cpf,
+              address_cep, address_logradouro, address_numero, address_complemento, address_bairro, address_municipio_ibge
+         FROM patients WHERE id = ?`,
       [transaction.patient_id]
     );
     if (patient) {
+      // Endereço é sempre o do paciente cadastrado, mesmo quando quem paga (payer_*)
+      // é outra pessoa (ex: responsável de menor) -- não há um endereço separado do
+      // pagador hoje, e o grupo é opcional na NFS-e de qualquer forma.
+      const endereco = (patient.address_cep && patient.address_municipio_ibge
+        && patient.address_logradouro && patient.address_numero && patient.address_bairro)
+        ? {
+            cep: patient.address_cep,
+            municipioIbge: patient.address_municipio_ibge,
+            logradouro: patient.address_logradouro,
+            numero: patient.address_numero,
+            complemento: patient.address_complemento,
+            bairro: patient.address_bairro,
+          }
+        : null;
       if (!patient.is_payer && (patient.payer_name || patient.payer_cpf)) {
-        return { nome: patient.payer_name, cpf: patient.payer_cpf };
+        return { nome: patient.payer_name, cpf: patient.payer_cpf, endereco };
       }
-      return { nome: patient.name, cpf: patient.cpf };
+      return { nome: patient.name, cpf: patient.cpf, endereco };
     }
   }
   return null;

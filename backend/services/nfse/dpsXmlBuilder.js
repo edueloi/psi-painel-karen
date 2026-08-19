@@ -122,6 +122,22 @@ function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNaci
     if (tomCnpj) toma.ele('CNPJ').txt(tomCnpj);
     else if (tomCpf) toma.ele('CPF').txt(tomCpf);
     toma.ele('xNome').txt(tomador.nome || 'Consumidor Final');
+
+    // <end> (schema TCEndereco/TCEnderNac, confirmado no XSD oficial) exige TODOS os
+    // campos abaixo -- cMun/CEP dentro de endNac, xLgr/nro/xBairro fora (xCpl é o
+    // único opcional). Faltando qualquer um, omitimos o grupo inteiro em vez de
+    // enviar um endereço incompleto que o servidor rejeitaria.
+    const end = tomador.endereco;
+    if (end && end.cep && end.municipioIbge && end.logradouro && end.numero && end.bairro) {
+      const endEl = toma.ele('end');
+      const endNac = endEl.ele('endNac');
+      endNac.ele('cMun').txt(onlyDigits(end.municipioIbge));
+      endNac.ele('CEP').txt(onlyDigits(end.cep));
+      endEl.ele('xLgr').txt(end.logradouro);
+      endEl.ele('nro').txt(end.numero);
+      if (end.complemento) endEl.ele('xCpl').txt(end.complemento);
+      endEl.ele('xBairro').txt(end.bairro);
+    }
   }
 
   const serv = infDPS.ele('serv');

@@ -41,6 +41,16 @@ async function ensurePatientColumns() {
     "ALTER TABLE patients ADD COLUMN phone2_country VARCHAR(10) DEFAULT 'BR' AFTER phone2",
     "ALTER TABLE patients ADD COLUMN spouse_phone VARCHAR(20) NULL",
     "ALTER TABLE patients ADD COLUMN emergency_contacts TEXT NULL",
+    // Endereço estruturado — necessário para enviar o endereço do paciente (tomador)
+    // na NFS-e, que exige logradouro/número/bairro/CEP/UF/município IBGE separados
+    // (o campo `address` livre em texto não é aceito pelo Sistema Nacional NFS-e).
+    "ALTER TABLE patients ADD COLUMN address_cep VARCHAR(10) NULL",
+    "ALTER TABLE patients ADD COLUMN address_logradouro VARCHAR(255) NULL",
+    "ALTER TABLE patients ADD COLUMN address_numero VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN address_complemento VARCHAR(100) NULL",
+    "ALTER TABLE patients ADD COLUMN address_bairro VARCHAR(100) NULL",
+    "ALTER TABLE patients ADD COLUMN address_municipio_ibge VARCHAR(10) NULL",
+    "ALTER TABLE patients ADD COLUMN address_uf VARCHAR(2) NULL",
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (!e.message.includes('Duplicate column')) console.warn('Patients schema warning:', e.message); }
@@ -332,7 +342,9 @@ router.post('/', async (req, res) => {
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis,
       is_payer, payer_name, payer_cpf, payer_phone,
-      phone_country, phone2_country
+      phone_country, phone2_country,
+      address_cep, address_logradouro, address_numero, address_complemento,
+      address_bairro, address_municipio_ibge, address_uf
     } = req.body;
 
     if (cpf) {
@@ -355,8 +367,10 @@ router.post('/', async (req, res) => {
         responsible_professional_id, responsible_name,
         responsible_phone, health_plan, diagnosis,
         is_payer, payer_name, payer_cpf, payer_phone,
-        phone_country, phone2_country
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        phone_country, phone2_country,
+        address_cep, address_logradouro, address_numero, address_complemento,
+        address_bairro, address_municipio_ibge, address_uf
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, name, email || null, phone || null, whatsapp || phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
@@ -371,7 +385,9 @@ router.post('/', async (req, res) => {
         responsible_phone || null, health_plan || null, diagnosis || null,
         is_payer === undefined ? 1 : (is_payer ? 1 : 0),
         payer_name || null, payer_cpf || null, payer_phone || null,
-        phone_country || 'BR', phone2_country || 'BR'
+        phone_country || 'BR', phone2_country || 'BR',
+        address_cep || null, address_logradouro || null, address_numero || null, address_complemento || null,
+        address_bairro || null, address_municipio_ibge || null, address_uf || null
       ]
     );
 
@@ -397,7 +413,9 @@ router.put('/:id', async (req, res) => {
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis,
       is_payer, payer_name, payer_cpf, payer_phone,
-      phone_country, phone2_country
+      phone_country, phone2_country,
+      address_cep, address_logradouro, address_numero, address_complemento,
+      address_bairro, address_municipio_ibge, address_uf
     } = req.body;
 
     const [existing] = await db.query(
@@ -452,7 +470,14 @@ router.put('/:id', async (req, res) => {
         payer_cpf = ?,
         payer_phone = ?,
         phone_country = COALESCE(?, phone_country),
-        phone2_country = COALESCE(?, phone2_country)
+        phone2_country = COALESCE(?, phone2_country),
+        address_cep = ?,
+        address_logradouro = ?,
+        address_numero = ?,
+        address_complemento = ?,
+        address_bairro = ?,
+        address_municipio_ibge = ?,
+        address_uf = ?
       WHERE id = ? AND tenant_id = ?`,
       [
         name ?? null,
@@ -491,6 +516,13 @@ router.put('/:id', async (req, res) => {
         payer_cpf !== undefined ? (payer_cpf || null) : existing[0].payer_cpf,
         payer_phone !== undefined ? (payer_phone || null) : existing[0].payer_phone,
         phone_country ?? null, phone2_country ?? null,
+        address_cep !== undefined ? (address_cep || null) : existing[0].address_cep,
+        address_logradouro !== undefined ? (address_logradouro || null) : existing[0].address_logradouro,
+        address_numero !== undefined ? (address_numero || null) : existing[0].address_numero,
+        address_complemento !== undefined ? (address_complemento || null) : existing[0].address_complemento,
+        address_bairro !== undefined ? (address_bairro || null) : existing[0].address_bairro,
+        address_municipio_ibge !== undefined ? (address_municipio_ibge || null) : existing[0].address_municipio_ibge,
+        address_uf !== undefined ? (address_uf || null) : existing[0].address_uf,
         req.params.id, req.user.tenant_id
       ]
     );
