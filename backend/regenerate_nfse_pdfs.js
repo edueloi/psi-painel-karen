@@ -35,28 +35,9 @@ function extractEnderecoFromNfseXml(nfseXml) {
   ].filter(Boolean).join(' — ');
 }
 
-// Mesma resolução de tomador usada na emissão original (payer > beneficiary > paciente)
-async function resolveTomador(transaction) {
-  if (transaction.payer_name || transaction.payer_cpf) {
-    return { nome: transaction.payer_name, cpf: transaction.payer_cpf };
-  }
-  if (transaction.beneficiary_name || transaction.beneficiary_cpf) {
-    return { nome: transaction.beneficiary_name, cpf: transaction.beneficiary_cpf };
-  }
-  if (transaction.patient_id) {
-    const [[patient]] = await db.query(
-      'SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?',
-      [transaction.patient_id]
-    );
-    if (patient) {
-      if (!patient.is_payer && (patient.payer_name || patient.payer_cpf)) {
-        return { nome: patient.payer_name, cpf: patient.payer_cpf };
-      }
-      return { nome: patient.name, cpf: patient.cpf };
-    }
-  }
-  return null;
-}
+// Reusa a mesma resolução de tomador (com endereço) que emitir.js/substituir.js já
+// usam, em vez de manter uma cópia própria que ficava desatualizada a cada mudança.
+const { resolveTomador, formatTomadorEndereco } = require('./services/nfse/emitir');
 
 async function run() {
   const [invoices] = await db.query(
@@ -108,6 +89,7 @@ async function run() {
         emitterPhone: emitter.whatsapp || emitter.phone || null,
         tomadorNome: tomador?.nome,
         tomadorDocumento: tomador?.cpf || tomador?.cnpj,
+        tomadorEndereco: formatTomadorEndereco(tomador?.endereco),
         numero: invoice.numero,
         serie: invoice.serie,
         environment: invoice.environment,

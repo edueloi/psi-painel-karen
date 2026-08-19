@@ -44,6 +44,19 @@ function extractEnderecoFromNfseXml(nfseXml) {
   ].filter(Boolean).join(' — ');
 }
 
+// Formata o endereço estruturado do paciente (mesmos campos enviados na DPS) para
+// exibição no PDF -- usado tanto na emissão normal quanto na substituição.
+function formatTomadorEndereco(endereco) {
+  if (!endereco) return null;
+  const cepFmt = endereco.cep ? String(endereco.cep).replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2') : null;
+  return [
+    [endereco.logradouro, endereco.numero].filter(Boolean).join(', '),
+    endereco.complemento,
+    endereco.bairro,
+    cepFmt ? `CEP ${cepFmt}` : null,
+  ].filter(Boolean).join(' — ');
+}
+
 const NFSE_TIMEOUT_MS = Number(process.env.NFSE_TIMEOUT_MS) || 30000;
 const NFSE_XML_DIR = process.env.NFSE_XML_DIR || path.join(__dirname, '../../private_storage/nfse_xml');
 
@@ -226,6 +239,7 @@ async function emitirNfse(invoiceId) {
       emitterPhone: emitter.whatsapp || emitter.phone || null,
       tomadorNome: tomador?.nome,
       tomadorDocumento: tomador?.cpf || tomador?.cnpj,
+      tomadorEndereco: formatTomadorEndereco(tomador?.endereco),
       numero: invoice.numero,
       serie: invoice.serie,
       environment,
@@ -273,5 +287,5 @@ module.exports = {
   emitirNfse,
   // Exportados também para reuso em substituir.js (mesmas regras de resolução de
   // tomador/PDF que a emissão normal já usa) — nenhuma mudança de comportamento aqui.
-  resolveTomador, extractTag, titleCase, extractEnderecoFromNfseXml,
+  resolveTomador, extractTag, titleCase, extractEnderecoFromNfseXml, formatTomadorEndereco,
 };

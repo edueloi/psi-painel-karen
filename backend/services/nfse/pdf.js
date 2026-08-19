@@ -30,7 +30,7 @@ async function generateNfsePdf({
   logoBuffer,
   emitterName, emitterDisplayName, emitterDocument, emitterIM, emitterRegime,
   emitterAddress, emitterEmail, emitterPhone,
-  tomadorNome, tomadorDocumento,
+  tomadorNome, tomadorDocumento, tomadorEndereco,
   numero, serie, environment,
   chaveAcesso, authorizedAt, codigoVerificacao,
   codigoTributacao, descricaoTributacao,
@@ -60,11 +60,15 @@ async function generateNfsePdf({
     doc.on('error', reject);
 
     const pageWidth = doc.page.width - 72;
-    const colorPrimary = '#5b21b6'; // violet-800
-    const colorPrimaryLight = '#f5f3ff'; // violet-50
-    const colorText = '#1e293b'; // slate-800
-    const colorMuted = '#64748b'; // slate-500
+    // Paleta na cor de marca do PsiFlux (mesmo verde do logo/tema padrão), no lugar
+    // do roxo genérico usado antes.
+    const colorPrimary = '#0f6e46';      // --c-600
+    const colorPrimaryLight = '#ecfdf5'; // --c-50
+    const colorPrimaryBorder = '#a3e8c4'; // --c-200
+    const colorText = '#1e293b';   // slate-800
+    const colorMuted = '#64748b';  // slate-500
     const colorBorder = '#e2e8f0'; // slate-200
+    const colorSoftBg = '#f8fafc'; // slate-50
 
     // ── Cabeçalho ──────────────────────────────────────────────────────────
     const headerTop = doc.y;
@@ -89,7 +93,7 @@ async function generateNfsePdf({
 
     // Badge no canto direito
     const badgeX = doc.page.width - 36 - 160;
-    doc.roundedRect(badgeX, headerTop, 160, 64, 8).fillAndStroke(colorPrimaryLight, colorBorder);
+    doc.roundedRect(badgeX, headerTop, 160, 64, 8).fillAndStroke(colorPrimaryLight, colorPrimaryBorder);
     doc.fillColor(colorPrimary).font('Helvetica-Bold').fontSize(9)
       .text('NFS-e', badgeX, headerTop + 10, { width: 160, align: 'center' });
     doc.fontSize(7.5).font('Helvetica').fillColor(colorMuted)
@@ -115,55 +119,75 @@ async function generateNfsePdf({
       doc.fillColor(colorText);
     }
 
-    function fieldRow(fields) {
-      const colWidth = pageWidth / fields.length;
-      const y = doc.y;
-      fields.forEach((f, i) => {
-        const x = 36 + i * colWidth;
-        doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text(f.label.toUpperCase(), x, y, { width: colWidth - 8, characterSpacing: 0.3 });
-        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(f.value || '—', x, doc.y + 1, { width: colWidth - 8 });
+    // Cartão genérico usado por toda a nota (Prestador, Tomador, Identificação etc.):
+    // mede a altura de cada linha antes de desenhar (linhas de texto longo, como
+    // razão social/endereço, podem quebrar em várias linhas) para a caixa nunca
+    // ficar cortada nem sobrando espaço em branco.
+    const cardPad = 12;
+    function drawCard(lines) {
+      const contentWidth = pageWidth - cardPad * 2;
+      const measured = lines.map(line => {
+        if (line.type === 'text') {
+          doc.font('Helvetica-Bold').fontSize(9.5);
+          const h = doc.heightOfString(line.value || '—', { width: contentWidth, lineGap: 1 }) + 11;
+          return { ...line, height: h };
+        }
+        return { ...line, height: 24 };
       });
-      doc.moveDown(0.9);
+      const contentH = measured.reduce((s, l) => s + l.height, 0) + (measured.length - 1) * 5;
+      const boxH = contentH + cardPad * 2;
+
+      const y0 = doc.y;
+      doc.roundedRect(36, y0, pageWidth, boxH, 8).fillAndStroke(colorSoftBg, colorBorder);
+
+      let cy = y0 + cardPad;
+      measured.forEach(line => {
+        if (line.type === 'text') {
+          doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text(line.label.toUpperCase(), 36 + cardPad, cy, { characterSpacing: 0.3 });
+          doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText)
+            .text(line.value || '—', 36 + cardPad, cy + 10, { width: contentWidth, lineGap: 1 });
+        } else {
+          const colWidth = contentWidth / line.fields.length;
+          line.fields.forEach((f, i) => {
+            const x = 36 + cardPad + i * colWidth;
+            doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text(f.label.toUpperCase(), x, cy, { width: colWidth - 10, characterSpacing: 0.3 });
+            doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(f.value || '—', x, cy + 10, { width: colWidth - 10 });
+          });
+        }
+        cy += line.height + 5;
+      });
+
+      doc.y = y0 + boxH + 10;
     }
 
     // ── Prestador ──────────────────────────────────────────────────────────
     sectionTitle('Prestador do serviço');
-    fieldRow([
-      { label: 'Razão social', value: emitterName },
-      { label: 'CNPJ/CPF', value: formatCpfCnpj(emitterDocument) },
+    drawCard([
+      { type: 'text', label: 'Razão social', value: emitterName },
+      { type: 'row', fields: [
+        { label: 'CNPJ/CPF', value: formatCpfCnpj(emitterDocument) },
+        { label: 'Inscrição municipal', value: emitterIM || 'Não informada' },
+        { label: 'Regime tributário', value: emitterRegime },
+      ] },
+      ...(emitterAddress ? [{ type: 'text', label: 'Endereço', value: emitterAddress }] : []),
     ]);
-    fieldRow([
-      { label: 'Inscrição municipal', value: emitterIM || 'Não informada' },
-      { label: 'Regime tributário', value: emitterRegime },
-    ]);
-    if (emitterAddress) {
-      doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text('ENDEREÇO', 36, doc.y, { characterSpacing: 0.3 });
-      doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(emitterAddress, 36, doc.y + 1, { width: pageWidth });
-      doc.moveDown(0.6);
-    }
 
     // ── Tomador ────────────────────────────────────────────────────────────
     sectionTitle('Tomador do serviço');
-    fieldRow([
-      { label: 'Nome / Razão social', value: tomadorNome || 'Consumidor final' },
-      { label: 'CPF/CNPJ', value: tomadorDocumento ? formatCpfCnpj(tomadorDocumento) : 'Não informado' },
+    drawCard([
+      { type: 'text', label: 'Nome / Razão social', value: tomadorNome || 'Consumidor final' },
+      { type: 'row', fields: [
+        { label: 'CPF/CNPJ', value: tomadorDocumento ? formatCpfCnpj(tomadorDocumento) : 'Não informado' },
+      ] },
+      ...(tomadorEndereco ? [{ type: 'text', label: 'Endereço', value: tomadorEndereco }] : []),
     ]);
 
     // ── Discriminação do serviço ───────────────────────────────────────────
     sectionTitle('Discriminação do serviço');
-    fieldRow([
-      { label: 'Código de tributação (LC 116/03)', value: `${codigoTributacao}${descricaoTributacao ? ` — ${descricaoTributacao}` : ''}` },
+    drawCard([
+      { type: 'text', label: 'Código de tributação (LC 116/03)', value: `${codigoTributacao}${descricaoTributacao ? ` — ${descricaoTributacao}` : ''}` },
+      { type: 'text', label: 'Descrição', value: (descricaoServico || '').trim() },
     ]);
-    // Caixa própria para a descrição (em vez de texto solto na página) -- fica contida
-    // e legível mesmo quando é longa (ex: descrições com lista de datas de sessões).
-    const descPad = 12;
-    const descText = (descricaoServico || '').trim();
-    doc.font('Helvetica').fontSize(8.5);
-    const descBoxY = doc.y;
-    const descHeight = doc.heightOfString(descText, { width: pageWidth - descPad * 2, lineGap: 2.5 });
-    doc.roundedRect(36, descBoxY, pageWidth, descHeight + descPad * 2, 8).fillAndStroke('#f8fafc', colorBorder);
-    doc.fillColor(colorText).text(descText, 36 + descPad, descBoxY + descPad, { width: pageWidth - descPad * 2, lineGap: 2.5 });
-    doc.y = descBoxY + descHeight + descPad * 2 + 10;
 
     // ── Valores ────────────────────────────────────────────────────────────
     sectionTitle('Valores');
@@ -189,7 +213,7 @@ async function generateNfsePdf({
     const boxH = 54;
 
     const boxY = doc.y;
-    doc.roundedRect(36, boxY, pageWidth, boxH, 8).fillAndStroke('#f8fafc', colorBorder);
+    doc.roundedRect(36, boxY, pageWidth, boxH, 8).fillAndStroke(colorSoftBg, colorBorder);
     valCols.forEach((v, i) => {
       const x = 36 + i * vw;
       doc.font('Helvetica').fontSize(7.5).fillColor(colorMuted).text(v.label.toUpperCase(), x + boxPad, boxY + 10, { width: valColWidth, characterSpacing: 0.3 });
@@ -200,13 +224,13 @@ async function generateNfsePdf({
 
     // ── Identificação da NFS-e ─────────────────────────────────────────────
     sectionTitle('Identificação da NFS-e');
-    fieldRow([
-      { label: 'Data/hora de autorização', value: authorizedAt ? new Date(authorizedAt).toLocaleString('pt-BR') : '—' },
-      { label: 'Código de verificação', value: codigoVerificacao || '—' },
+    drawCard([
+      { type: 'row', fields: [
+        { label: 'Data/hora de autorização', value: authorizedAt ? new Date(authorizedAt).toLocaleString('pt-BR') : '—' },
+        { label: 'Código de verificação', value: codigoVerificacao || '—' },
+      ] },
+      { type: 'text', label: 'Chave de acesso', value: chaveAcesso || '' },
     ]);
-    doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text('CHAVE DE ACESSO', 36, doc.y, { characterSpacing: 0.3 });
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(chaveAcesso || '', 36, doc.y + 1, { width: pageWidth });
-    doc.moveDown(0.8);
 
     // ── Substituição (só aparece quando esta NFS-e substitui outra já autorizada) ──
     if (substitutedChaveAcesso) {

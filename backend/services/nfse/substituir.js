@@ -7,7 +7,7 @@ const { callNfseRest, gzipBase64, ungzipBase64 } = require('./restClient');
 const { consultarAliquotaServico } = require('./parametrosMunicipais');
 const { decryptCertPassword } = require('./certCrypto');
 const { generateNfsePdf } = require('./pdf');
-const { resolveTomador, extractTag, titleCase, extractEnderecoFromNfseXml } = require('./emitir');
+const { resolveTomador, extractTag, titleCase, extractEnderecoFromNfseXml, formatTomadorEndereco } = require('./emitir');
 const { notificarNfseWhatsapp } = require('./notify');
 
 const NFSE_TIMEOUT_MS = Number(process.env.NFSE_TIMEOUT_MS) || 30000;
@@ -179,6 +179,7 @@ async function substituirNfse(invoiceId, { descricaoServico, valorServico, cMoti
     emitterPhone: emitter.whatsapp || emitter.phone || null,
     tomadorNome: tomador?.nome,
     tomadorDocumento: tomador?.cpf || tomador?.cnpj,
+    tomadorEndereco: formatTomadorEndereco(tomador?.endereco),
     numero: novoNumero,
     serie: invoice.serie,
     environment,
