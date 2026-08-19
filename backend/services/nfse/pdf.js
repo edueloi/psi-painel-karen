@@ -248,25 +248,36 @@ async function generateNfsePdf({
     }
 
     // ── Rodapé: QR Code + código de barras ─────────────────────────────────
+    // Garante que TODO o rodapé (linha, QR, código de barras e os dois textos)
+    // fica junto na mesma página -- em vez de posições absolutas soltas, que
+    // deixavam a paginação automática do PDFKit espalhar cada elemento numa
+    // página diferente quando o conteúdo acima já tinha ocupado quase a página.
+    const qrSize = 70;
+    const barcodeWidth = pageWidth - qrSize - 16;
+    const footerHeight = 140;
+    if (doc.y + footerHeight > doc.page.height - 36) {
+      doc.addPage();
+      doc.y = 36;
+    }
+
     const footerY = doc.y + 4;
     doc.moveTo(36, footerY).lineTo(doc.page.width - 36, footerY).strokeColor(colorBorder).lineWidth(1).stroke();
 
-    const qrSize = 70;
     doc.image(qrPng, 36, footerY + 10, { width: qrSize, height: qrSize });
 
     const barcodeX = 36 + qrSize + 16;
-    const barcodeWidth = pageWidth - qrSize - 16;
     doc.image(barcodePng, barcodeX, footerY + 20, { width: barcodeWidth, height: 28 });
+
     doc.font('Helvetica').fontSize(6.5).fillColor(colorMuted)
-      .text(chaveAcesso || '', barcodeX, footerY + 50, { width: barcodeWidth, align: 'center' });
+      .text(chaveAcesso || '', barcodeX, footerY + 52, { width: barcodeWidth, align: 'center' });
 
     doc.font('Helvetica').fontSize(7).fillColor(colorMuted)
       .text('Consulte a autenticidade desta NFS-e no portal do Sistema Nacional NFS-e (nfse.gov.br) utilizando a chave de acesso acima.',
-        barcodeX, footerY + 60, { width: barcodeWidth });
+        barcodeX, footerY + 62, { width: barcodeWidth });
 
     doc.font('Helvetica-Oblique').fontSize(6.5).fillColor(colorMuted)
       .text('Documento gerado a partir dos dados da DPS/NFS-e do Sistema Nacional NFS-e. Não substitui a consulta oficial pela chave de acesso.',
-        36, doc.page.height - 50, { width: pageWidth, align: 'center' });
+        36, footerY + 90, { width: pageWidth, align: 'center' });
 
     doc.end();
   });
