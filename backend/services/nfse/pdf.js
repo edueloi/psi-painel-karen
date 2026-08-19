@@ -164,27 +164,70 @@ async function generateNfsePdf({
       doc.y = y0 + boxH + 7;
     }
 
-    // ── Prestador ──────────────────────────────────────────────────────────
-    sectionTitle('Prestador do serviço');
-    drawCard([
-      { type: 'text', label: 'Razão social', value: emitterName },
-      { type: 'row', fields: [
-        { label: 'CNPJ/CPF', value: formatCpfCnpj(emitterDocument) },
-        { label: 'Inscrição municipal', value: emitterIM || 'Não informada' },
-        { label: 'Regime tributário', value: emitterRegime },
-      ] },
-      ...(emitterAddress ? [{ type: 'text', label: 'Endereço', value: emitterAddress }] : []),
-    ]);
+    // Prestador e Tomador lado a lado (2 colunas) -- economiza bastante altura
+    // de página em relação a empilhar os dois, importante para notas com
+    // descrição longa e/ou substituição, que já usam bastante espaço abaixo.
+    function drawTwoColumnCards(leftTitle, leftLines, rightTitle, rightLines) {
+      const gap = 12;
+      const colWidth = (pageWidth - gap) / 2;
+      const pad = 9;
+      const innerWidth = colWidth - pad * 2;
 
-    // ── Tomador ────────────────────────────────────────────────────────────
-    sectionTitle('Tomador do serviço');
-    drawCard([
-      { type: 'text', label: 'Nome / Razão social', value: tomadorNome || 'Consumidor final' },
-      { type: 'row', fields: [
+      function measure(lines) {
+        return lines.map(line => {
+          doc.font('Helvetica-Bold').fontSize(9.5);
+          const h = doc.heightOfString(line.value || '—', { width: innerWidth, lineGap: 1 }) + 9;
+          return { ...line, height: h };
+        });
+      }
+      const leftMeasured = measure(leftLines);
+      const rightMeasured = measure(rightLines);
+      const leftH = leftMeasured.reduce((s, l) => s + l.height, 0) + (leftMeasured.length - 1) * 4;
+      const rightH = rightMeasured.reduce((s, l) => s + l.height, 0) + (rightMeasured.length - 1) * 4;
+      const boxH = Math.max(leftH, rightH) + pad * 2;
+
+      const y0 = doc.y;
+      const rightX = 36 + colWidth + gap;
+      doc.rect(36, y0, 3, 11).fill(colorPrimary);
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(colorPrimary).text(leftTitle.toUpperCase(), 44, y0, { characterSpacing: 0.5 });
+      doc.rect(rightX, y0, 3, 11).fill(colorPrimary);
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(colorPrimary).text(rightTitle.toUpperCase(), rightX + 8, y0, { characterSpacing: 0.5 });
+
+      const boxY = y0 + 17;
+      doc.roundedRect(36, boxY, colWidth, boxH, 8).fillAndStroke(colorSoftBg, colorBorder);
+      doc.roundedRect(rightX, boxY, colWidth, boxH, 8).fillAndStroke(colorSoftBg, colorBorder);
+
+      function draw(measured, x) {
+        let cy = boxY + pad;
+        measured.forEach(line => {
+          doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text(line.label.toUpperCase(), x + pad, cy, { width: innerWidth, characterSpacing: 0.3 });
+          doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText)
+            .text(line.value || '—', x + pad, cy + 9, { width: innerWidth, lineGap: 1 });
+          cy += line.height + 4;
+        });
+      }
+      draw(leftMeasured, 36);
+      draw(rightMeasured, rightX);
+
+      doc.y = boxY + boxH + 7;
+    }
+
+    doc.moveDown(0.45);
+    drawTwoColumnCards(
+      'Prestador do serviço',
+      [
+        { label: 'Razão social', value: emitterName },
+        { label: 'CNPJ/CPF', value: formatCpfCnpj(emitterDocument) },
+        { label: 'Inscrição municipal / Regime', value: `${emitterIM || 'IM não informada'} — ${emitterRegime}` },
+        ...(emitterAddress ? [{ label: 'Endereço', value: emitterAddress }] : []),
+      ],
+      'Tomador do serviço',
+      [
+        { label: 'Nome / Razão social', value: tomadorNome || 'Consumidor final' },
         { label: 'CPF/CNPJ', value: tomadorDocumento ? formatCpfCnpj(tomadorDocumento) : 'Não informado' },
-      ] },
-      ...(tomadorEndereco ? [{ type: 'text', label: 'Endereço', value: tomadorEndereco }] : []),
-    ]);
+        ...(tomadorEndereco ? [{ label: 'Endereço', value: tomadorEndereco }] : []),
+      ],
+    );
 
     // ── Discriminação do serviço ───────────────────────────────────────────
     sectionTitle('Discriminação do serviço');
@@ -258,7 +301,7 @@ async function generateNfsePdf({
     // página diferente quando o conteúdo acima já tinha ocupado quase a página.
     const qrSize = 70;
     const barcodeWidth = pageWidth - qrSize - 16;
-    const footerHeight = 140;
+    const footerHeight = 118;
     if (doc.y + footerHeight > doc.page.height - 36) {
       doc.addPage();
       doc.y = 36;
