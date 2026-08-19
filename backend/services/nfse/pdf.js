@@ -154,9 +154,16 @@ async function generateNfsePdf({
     fieldRow([
       { label: 'Código de tributação (LC 116/03)', value: `${codigoTributacao}${descricaoTributacao ? ` — ${descricaoTributacao}` : ''}` },
     ]);
-    doc.font('Helvetica').fontSize(9).fillColor(colorText)
-      .text(descricaoServico || '', 36, doc.y, { width: pageWidth });
-    doc.moveDown(0.6);
+    // Caixa própria para a descrição (em vez de texto solto na página) -- fica contida
+    // e legível mesmo quando é longa (ex: descrições com lista de datas de sessões).
+    const descPad = 12;
+    const descText = (descricaoServico || '').trim();
+    doc.font('Helvetica').fontSize(8.5);
+    const descBoxY = doc.y;
+    const descHeight = doc.heightOfString(descText, { width: pageWidth - descPad * 2, lineGap: 2.5 });
+    doc.roundedRect(36, descBoxY, pageWidth, descHeight + descPad * 2, 8).fillAndStroke('#f8fafc', colorBorder);
+    doc.fillColor(colorText).text(descText, 36 + descPad, descBoxY + descPad, { width: pageWidth - descPad * 2, lineGap: 2.5 });
+    doc.y = descBoxY + descHeight + descPad * 2 + 10;
 
     // ── Valores ────────────────────────────────────────────────────────────
     sectionTitle('Valores');

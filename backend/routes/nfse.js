@@ -553,8 +553,15 @@ router.get('/:transactionId/suggest-description', authMiddleware, requireNfseEna
     const tenantId = req.user.tenant_id;
     const transactionId = Number(req.params.transactionId);
 
+    // O vínculo com a comanda nem sempre está em financial_transactions.comanda_id --
+    // o Livro Caixa também resolve via origin_id ou pelo vínculo reverso
+    // comandas.livrocaixa_tx_id (mesma lógica de GET /finance), então repetimos aqui
+    // para não perder a sugestão quando só o vínculo reverso existir.
     const [[transaction]] = await db.query(
-      'SELECT id, comanda_id, description FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      `SELECT t.id, t.description, COALESCE(t.comanda_id, t.origin_id, c.id) AS comanda_id
+         FROM financial_transactions t
+         LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.id = t.origin_id OR c.livrocaixa_tx_id = t.id)
+        WHERE t.id = ? AND t.tenant_id = ?`,
       [transactionId, tenantId]
     );
     if (!transaction) return res.status(404).json({ error: 'Lançamento não encontrado' });
