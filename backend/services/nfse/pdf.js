@@ -114,12 +114,12 @@ async function generateNfsePdf({
     doc.moveDown(0.5);
 
     function sectionTitle(label) {
-      doc.moveDown(0.45);
+      doc.moveDown(0.35);
       const y = doc.y;
       doc.rect(36, y, 3, 11).fill(colorPrimary);
       doc.font('Helvetica-Bold').fontSize(9).fillColor(colorPrimary)
         .text(label.toUpperCase(), 44, y, { characterSpacing: 0.5 });
-      doc.moveDown(0.22);
+      doc.moveDown(0.16);
       doc.fillColor(colorText);
     }
 
@@ -127,7 +127,7 @@ async function generateNfsePdf({
     // mede a altura de cada linha antes de desenhar (linhas de texto longo, como
     // razão social/endereço, podem quebrar em várias linhas) para a caixa nunca
     // ficar cortada nem sobrando espaço em branco.
-    const cardPad = 9;
+    const cardPad = 8;
     function drawCard(lines) {
       const contentWidth = pageWidth - cardPad * 2;
       const measured = lines.map(line => {
@@ -161,7 +161,7 @@ async function generateNfsePdf({
         cy += line.height + 4;
       });
 
-      doc.y = y0 + boxH + 7;
+      doc.y = y0 + boxH + 5;
     }
 
     // Prestador e Tomador lado a lado (2 colunas) -- economiza bastante altura
@@ -170,7 +170,7 @@ async function generateNfsePdf({
     function drawTwoColumnCards(leftTitle, leftLines, rightTitle, rightLines) {
       const gap = 12;
       const colWidth = (pageWidth - gap) / 2;
-      const pad = 9;
+      const pad = 8;
       const innerWidth = colWidth - pad * 2;
 
       function measure(lines) {
@@ -193,7 +193,7 @@ async function generateNfsePdf({
       doc.rect(rightX, y0, 3, 11).fill(colorPrimary);
       doc.font('Helvetica-Bold').fontSize(9).fillColor(colorPrimary).text(rightTitle.toUpperCase(), rightX + 8, y0, { characterSpacing: 0.5 });
 
-      const boxY = y0 + 17;
+      const boxY = y0 + 15;
       doc.roundedRect(36, boxY, colWidth, boxH, 8).fillAndStroke(colorSoftBg, colorBorder);
       doc.roundedRect(rightX, boxY, colWidth, boxH, 8).fillAndStroke(colorSoftBg, colorBorder);
 
@@ -209,10 +209,10 @@ async function generateNfsePdf({
       draw(leftMeasured, 36);
       draw(rightMeasured, rightX);
 
-      doc.y = boxY + boxH + 7;
+      doc.y = boxY + boxH + 5;
     }
 
-    doc.moveDown(0.45);
+    doc.moveDown(0.35);
     drawTwoColumnCards(
       'Prestador do serviço',
       [
@@ -267,7 +267,7 @@ async function generateNfsePdf({
       doc.font('Helvetica-Bold').fontSize(valSizes[i]).fillColor(v.emphasis ? colorPrimary : colorText)
         .text(v.value, x + boxPad, boxY + 24, { width: valColWidth, lineBreak: false });
     });
-    doc.y = boxY + boxH + 7;
+    doc.y = boxY + boxH + 5;
 
     // ── Identificação da NFS-e ─────────────────────────────────────────────
     sectionTitle('Identificação da NFS-e');
@@ -291,7 +291,7 @@ async function generateNfsePdf({
         doc.font('Helvetica').fontSize(7).fillColor('#92400e').text('MOTIVO DA SUBSTITUIÇÃO', 36 + 12, doc.y + 4, { characterSpacing: 0.3 });
         doc.font('Helvetica-Bold').fontSize(9).fillColor(colorText).text(substitutionReason, 36 + 12, doc.y + 1, { width: pageWidth - 24 });
       }
-      doc.y = substBoxY + substBoxH + 7;
+      doc.y = substBoxY + substBoxH + 5;
     }
 
     // ── Rodapé: QR Code + código de barras ─────────────────────────────────
