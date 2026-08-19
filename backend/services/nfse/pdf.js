@@ -35,6 +35,7 @@ async function generateNfsePdf({
   chaveAcesso, authorizedAt, codigoVerificacao,
   codigoTributacao, descricaoTributacao,
   descricaoServico, valorServico, aliquotaIss, valorIss,
+  substitutedChaveAcesso, substitutionReason,
 }) {
   // O QR code aponta para a consulta pública oficial já com a chave preenchida —
   // um texto solto com a chave não abre nada ao ser escaneado pela câmera do celular.
@@ -184,6 +185,21 @@ async function generateNfsePdf({
     doc.font('Helvetica').fontSize(7).fillColor(colorMuted).text('CHAVE DE ACESSO', 36, doc.y, { characterSpacing: 0.3 });
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor(colorText).text(chaveAcesso || '', 36, doc.y + 1, { width: pageWidth });
     doc.moveDown(0.8);
+
+    // ── Substituição (só aparece quando esta NFS-e substitui outra já autorizada) ──
+    if (substitutedChaveAcesso) {
+      sectionTitle('Substituição de NFS-e');
+      const substBoxY = doc.y;
+      const substBoxH = substitutionReason ? 46 : 32;
+      doc.roundedRect(36, substBoxY, pageWidth, substBoxH, 8).fillAndStroke('#fffbeb', '#fde68a');
+      doc.font('Helvetica').fontSize(7).fillColor('#92400e').text('NFS-E SUBSTITUÍDA (CHAVE DE ACESSO)', 36 + 14, substBoxY + 8, { width: pageWidth - 28, characterSpacing: 0.3 });
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(colorText).text(substitutedChaveAcesso, 36 + 14, doc.y + 1, { width: pageWidth - 28 });
+      if (substitutionReason) {
+        doc.font('Helvetica').fontSize(7).fillColor('#92400e').text('MOTIVO DA SUBSTITUIÇÃO', 36 + 14, doc.y + 6, { characterSpacing: 0.3 });
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(colorText).text(substitutionReason, 36 + 14, doc.y + 1, { width: pageWidth - 28 });
+      }
+      doc.y = substBoxY + substBoxH + 10;
+    }
 
     // ── Rodapé: QR Code + código de barras ─────────────────────────────────
     const footerY = doc.y + 6;

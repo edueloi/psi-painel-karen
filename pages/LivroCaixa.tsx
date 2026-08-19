@@ -925,6 +925,19 @@ export const LivroCaixa: React.FC = () => {
   const [nfseDescricao, setNfseDescricao] = useState('');
   const [nfseValor, setNfseValor] = useState('');
   const [nfseSubmitting, setNfseSubmitting] = useState(false);
+  const [nfseSuggesting, setNfseSuggesting] = useState(false);
+
+  // Busca uma descrição sugerida a partir da comanda vinculada (serviço/pacote,
+  // datas das sessões) e do registro profissional (CRP/CRM/etc.) do emissor.
+  // Só sugestão -- o campo continua editável, nada é sobrescrito à força.
+  const applySuggestedDescription = async (tx: Transaction) => {
+    setNfseSuggesting(true);
+    try {
+      const data = await api.get<{ descricao_servico: string }>(`/nfse/${tx.id}/suggest-description`);
+      if (data?.descricao_servico) setNfseDescricao(data.descricao_servico);
+    } catch { /* mantém o que já estava no campo */ }
+    finally { setNfseSuggesting(false); }
+  };
 
   const openNfseModal = async (tx: Transaction) => {
     setNfseModalTx(tx);
@@ -932,10 +945,12 @@ export const LivroCaixa: React.FC = () => {
     setNfseDescricao(tx.description || '');
     setNfseValor(String(tx.amount ?? ''));
     setNfseModalLoading(true);
+    let hasExistingInvoice = false;
     try {
       const invoice = await api.get<NfseInvoice>(`/nfse/${tx.id}`);
       setNfseInvoice(invoice);
       setNfseCodigoTributacao(invoice.codigo_tributacao_nacional || '');
+      hasExistingInvoice = true;
     } catch {
       setNfseInvoice(null);
       try {
@@ -945,6 +960,9 @@ export const LivroCaixa: React.FC = () => {
     } finally {
       setNfseModalLoading(false);
     }
+    // Só pré-preenche sozinho quando ainda não existe nota para este lançamento --
+    // se já existir (mesmo pendente/rejeitada), respeita o que já foi digitado.
+    if (!hasExistingInvoice) applySuggestedDescription(tx);
   };
 
   const closeNfseModal = () => {
@@ -3271,11 +3289,23 @@ export const LivroCaixa: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Descrição do serviço</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição do serviço</label>
+                      <button
+                        type="button"
+                        onClick={() => nfseModalTx && applySuggestedDescription(nfseModalTx)}
+                        disabled={nfseSuggesting}
+                        className="flex items-center gap-1 text-[10px] font-bold text-violet-600 hover:text-violet-700 disabled:opacity-50"
+                        title="Preenche com o serviço/pacote, datas das sessões e seu registro profissional"
+                      >
+                        {nfseSuggesting ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                        Sugestão automática
+                      </button>
+                    </div>
                     <textarea
                       value={nfseDescricao}
                       onChange={e => setNfseDescricao(e.target.value)}
-                      rows={2}
+                      rows={6}
                       className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-violet-400 resize-none"
                     />
                   </div>

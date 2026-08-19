@@ -36,6 +36,8 @@ interface NfseInvoiceRow {
   authorized_at?: string | null;
   substituted_chave_acesso?: string | null;
   substitution_reason?: string | null;
+  whatsapp_sent_at?: string | null;
+  whatsapp_send_error?: string | null;
   created_at: string;
   transaction_description?: string | null;
   transaction_date?: string | null;
@@ -301,6 +303,17 @@ export const NotaFiscal: React.FC = () => {
         {['rejected', 'error'].includes(inv.status) && inv.rejection_reason && (
           <p className="text-[10px] text-rose-500 mt-1 max-w-[200px] truncate" title={inv.rejection_reason}>{inv.rejection_reason}</p>
         )}
+        {inv.status === 'authorized' && (
+          inv.whatsapp_sent_at ? (
+            <p className="text-[10px] text-emerald-600 font-semibold mt-1 flex items-center gap-1" title={formatDateTime(inv.whatsapp_sent_at)}>
+              <MessageCircle size={10} /> Enviado por WhatsApp
+            </p>
+          ) : inv.whatsapp_send_error ? (
+            <p className="text-[10px] text-rose-500 mt-1 max-w-[200px] truncate flex items-center gap-1" title={inv.whatsapp_send_error}>
+              <MessageCircle size={10} /> Não enviado — {inv.whatsapp_send_error}
+            </p>
+          ) : null
+        )}
       </div>
     );
   };
@@ -322,7 +335,18 @@ export const NotaFiscal: React.FC = () => {
           <FileText size={iconSize} />
         </button>
         {inv.patient_email && <button onClick={() => sendInvoice(inv, 'email')} title={`Enviar por e-mail: ${inv.patient_email}`} className={`${size} flex items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-all`}><Mail size={iconSize} /></button>}
-        {inv.patient_whatsapp && <button onClick={() => sendInvoice(inv, 'whatsapp')} title="Enviar por WhatsApp" className={`${size} flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all`}><MessageCircle size={iconSize} /></button>}
+        {inv.patient_whatsapp && (
+          <button
+            onClick={() => sendInvoice(inv, 'whatsapp')}
+            title={inv.whatsapp_sent_at ? `Já enviado por WhatsApp em ${formatDateTime(inv.whatsapp_sent_at)} — clique para reenviar` : 'Enviar por WhatsApp'}
+            className={`relative ${size} flex items-center justify-center rounded-lg transition-all ${
+              inv.whatsapp_sent_at ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+            }`}
+          >
+            <MessageCircle size={iconSize} />
+            {inv.whatsapp_sent_at && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white" />}
+          </button>
+        )}
         <button
           onClick={() => openSubstitute(inv)}
           title="Substituir NFS-e (corrigir descrição/valor)" className={`${size} flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all`}>
@@ -354,8 +378,11 @@ export const NotaFiscal: React.FC = () => {
           <p className="text-xs font-bold text-slate-700">nº {inv.numero} · Série {inv.serie}</p>
           {inv.chave_acesso && <p className="text-[10px] text-slate-400 truncate max-w-[160px]" title={inv.chave_acesso}>{inv.chave_acesso}</p>}
           {inv.substituted_chave_acesso && (
-            <p className="text-[10px] text-amber-600 font-semibold mt-0.5 flex items-center gap-1" title={`Substitui a NFS-e de chave ${inv.substituted_chave_acesso}`}>
-              <Repeat size={9} /> Nota substituta
+            <p
+              className="text-[10px] text-amber-600 font-semibold mt-0.5 flex items-center gap-1 max-w-[160px] truncate"
+              title={`Substitui a NFS-e de chave ${inv.substituted_chave_acesso}${inv.substitution_reason ? ` — Motivo: ${inv.substitution_reason}` : ''}`}
+            >
+              <Repeat size={9} className="shrink-0" /> Nota substituta{inv.substitution_reason ? ` — ${inv.substitution_reason}` : ''}
             </p>
           )}
         </div>
@@ -681,6 +708,17 @@ export const NotaFiscal: React.FC = () => {
               <p className="text-xs text-slate-500">
                 <strong>Pendente</strong> aguarda envio; <strong>Processando</strong> está em análise no governo; <strong>Autorizada</strong> foi emitida com sucesso;
                 {' '}<strong>Rejeitada</strong>/<strong>Erro</strong> falharam (veja o motivo abaixo do status); <strong>Cancelada</strong> foi cancelada junto ao Sistema Nacional NFS-e.
+                {' '}Quando autorizada, aparece também se o <strong>WhatsApp</strong> para o paciente foi enviado ou não.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0"><MessageCircle size={15} className="text-teal-600" /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Envio automático por WhatsApp</p>
+              <p className="text-xs text-slate-500">
+                Assim que uma nota é autorizada (emissão ou substituição), o robô do WhatsApp envia o PDF para o paciente automaticamente — não precisa clicar em nada.
+                Se o paciente não tiver WhatsApp cadastrado ou o envio falhar, isso aparece abaixo do status; use o botão de WhatsApp nas ações para reenviar manualmente.
               </p>
             </div>
           </div>

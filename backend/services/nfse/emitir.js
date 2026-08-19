@@ -7,6 +7,7 @@ const { callNfseRest, gzipBase64, ungzipBase64 } = require('./restClient');
 const { consultarAliquotaServico } = require('./parametrosMunicipais');
 const { decryptCertPassword } = require('./certCrypto');
 const { generateNfsePdf } = require('./pdf');
+const { notificarNfseWhatsapp } = require('./notify');
 
 // Extrai um valor simples de tag XML sem depender de parser completo (o XML de
 // retorno do governo é bem estruturado e sem CDATA nesses campos).
@@ -237,6 +238,12 @@ async function emitirNfse(invoiceId) {
     );
 
     await db.query('UPDATE users SET nfse_next_number = nfse_next_number + 1 WHERE id = ?', [emitter.id]);
+
+    // Disparo automático por WhatsApp assim que a nota é autorizada -- não aguardamos
+    // aqui de propósito (emitirNfse às vezes é chamada de forma síncrona/aguardada pela
+    // rota de emissão) para não atrasar a resposta da emissão em si; erros ficam
+    // registrados em whatsapp_send_error e nunca derrubam a emissão.
+    notificarNfseWhatsapp(invoice.tenant_id, invoiceId).catch(() => {});
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await db.query(

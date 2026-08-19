@@ -8,6 +8,7 @@ const { consultarAliquotaServico } = require('./parametrosMunicipais');
 const { decryptCertPassword } = require('./certCrypto');
 const { generateNfsePdf } = require('./pdf');
 const { resolveTomador, extractTag, titleCase, extractEnderecoFromNfseXml } = require('./emitir');
+const { notificarNfseWhatsapp } = require('./notify');
 
 const NFSE_TIMEOUT_MS = Number(process.env.NFSE_TIMEOUT_MS) || 30000;
 const NFSE_XML_DIR = process.env.NFSE_XML_DIR || path.join(__dirname, '../../private_storage/nfse_xml');
@@ -19,6 +20,14 @@ function ensureDir(dir) {
 // Códigos de justificativa válidos para o evento e105102 (Cancelamento de NFS-e por
 // Substituição), confirmados no XSD oficial (enum TSCodJustSubst).
 const CODIGOS_SUBSTITUICAO = ['01', '02', '03', '04', '05', '99'];
+const MOTIVO_LABELS = {
+  '01': 'Desenquadramento do Simples Nacional',
+  '02': 'Enquadramento no Simples Nacional',
+  '03': 'Inclusão retroativa de imunidade/isenção',
+  '04': 'Exclusão retroativa de imunidade/isenção',
+  '05': 'Rejeição da NFS-e pelo tomador/intermediário',
+  '99': 'Outros',
+};
 
 // Substitui uma NFS-e já autorizada por uma nova, corrigida. Diferente do cancelamento
 // simples (e101101, evento avulso), a substituição é uma NOVA EMISSÃO (mesma rota POST
@@ -31,6 +40,9 @@ async function substituirNfse(invoiceId, { descricaoServico, valorServico, cMoti
   if (!CODIGOS_SUBSTITUICAO.includes(codigo)) {
     throw new Error('Motivo de substituição inválido.');
   }
+  // Texto exibido na nota e guardado no histórico: usa a observação livre quando
+  // informada, senão cai para o rótulo do código oficial (nunca fica em branco).
+  const motivoDisplay = xMotivo || MOTIVO_LABELS[codigo];
 
   const [[invoice]] = await db.query('SELECT * FROM nfse_invoices WHERE id = ?', [invoiceId]);
   if (!invoice) throw new Error('NFS-e não encontrada.');
@@ -179,6 +191,8 @@ async function substituirNfse(invoiceId, { descricaoServico, valorServico, cMoti
     valorServico: Number(valorServico),
     aliquotaIss: emitter.nfse_regime_tributario === 'simples_nacional' ? null : aliquotaIss,
     valorIss: null,
+    substitutedChaveAcesso: invoice.chave_acesso,
+    substitutionReason: motivoDisplay,
   });
   const pdfPath = path.join(dir, `${idDPS}-nfse.pdf`);
   fs.writeFileSync(pdfPath, pdfBuffer);
@@ -192,16 +206,21 @@ async function substituirNfse(invoiceId, { descricaoServico, valorServico, cMoti
            chave_acesso = ?, authorized_at = UTC_TIMESTAMP(),
            dps_xml_path = ?, nfse_xml_path = ?, nfse_pdf_path = ?,
            substituted_chave_acesso = ?, substitution_reason = ?,
-           status = 'authorized', rejection_code = NULL, rejection_reason = NULL
+           status = 'authorized', rejection_code = NULL, rejection_reason = NULL,
+           whatsapp_sent_at = NULL, whatsapp_send_error = NULL
      WHERE id = ?`,
     [
       novoNumero, valorServico, descricaoServico, chaveAcesso,
       dpsPath, nfsePath, pdfPath,
-      invoice.chave_acesso, xMotivo || null,
+      invoice.chave_acesso, motivoDisplay,
       invoiceId,
     ]
   );
   await db.query('UPDATE users SET nfse_next_number = nfse_next_number + 1 WHERE id = ?', [emitter.id]);
+
+  // A substituta é, na prática, uma NFS-e nova para o paciente -- dispara o mesmo
+  // envio automático por WhatsApp que a emissão normal já faz.
+  notificarNfseWhatsapp(invoice.tenant_id, invoiceId).catch(() => {});
 
   return true;
 }

@@ -9,6 +9,7 @@ const { authMiddleware, checkPermission } = require('../middleware/auth');
 const { emitirNfse } = require('../services/nfse/emitir');
 const { cancelarNfse } = require('../services/nfse/cancelar');
 const { substituirNfse } = require('../services/nfse/substituir');
+const { notificarNfseWhatsapp } = require('../services/nfse/notify');
 const { parsePfx } = require('../services/nfse/signer');
 const { encryptCertPassword } = require('../services/nfse/certCrypto');
 const { sendMail, templates } = require('../services/emailService');
@@ -30,6 +31,8 @@ function ensureDir(dir) {
   const alters = [
     'ALTER TABLE nfse_invoices ADD COLUMN substituted_chave_acesso VARCHAR(60) NULL',
     'ALTER TABLE nfse_invoices ADD COLUMN substitution_reason TEXT NULL',
+    'ALTER TABLE nfse_invoices ADD COLUMN whatsapp_sent_at TIMESTAMP NULL',
+    'ALTER TABLE nfse_invoices ADD COLUMN whatsapp_send_error TEXT NULL',
   ];
   for (const sql of alters) {
     try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.error('[NFS-e] Erro na automigração de substituição:', e.message); }
@@ -524,23 +527,87 @@ router.post('/:transactionId/send-email', authMiddleware, checkPermission('manag
   } catch (err) { console.error('[NFS-e] Erro ao enviar por e-mail:', err); res.status(500).json({ error: 'Erro ao enviar nota por e-mail.' }); }
 });
 
-// Envia o PDF pelo WhatsApp; a mensagem também inclui o link oficial de consulta.
+// Envia o PDF pelo WhatsApp (reenvio manual) — reusa a mesma lógica do disparo
+// automático pós-autorização, para os dois caminhos manterem whatsapp_sent_at/
+// whatsapp_send_error como a única fonte de verdade sobre o status do envio.
 router.post('/:transactionId/send-whatsapp', authMiddleware, checkPermission('manage_payments'), async (req, res) => {
   try {
     const invoice = await getAuthorizedInvoiceForDelivery(req.user.tenant_id, Number(req.params.transactionId));
     if (!invoice || invoice.status !== 'authorized' || !invoice.nfse_pdf_path || !fs.existsSync(invoice.nfse_pdf_path)) return res.status(404).json({ error: 'PDF da NFS-e autorizada não está disponível.' });
     if (!invoice.patient_whatsapp) return res.status(422).json({ error: 'Este paciente não possui WhatsApp cadastrado.' });
-    const url = nfsePublicUrl(invoice);
-    const message = `Olá, ${invoice.patient_name || ''}! Sua Nota Fiscal de Serviço${invoice.numero ? ` nº ${invoice.numero}` : ''} está disponível.${url ? `\n\nConsulte a nota oficial: ${url}` : ''}`.trim();
-    const response = await axios.post(`${BOT_URL}/document/${req.user.tenant_id}`, {
-      phone: invoice.patient_whatsapp,
-      filePath: invoice.nfse_pdf_path,
-      fileName: `nota-fiscal-${invoice.chave_acesso || invoice.numero}.pdf`,
-      caption: message,
-    }, { timeout: 30000 });
-    if (response.data?.success === false) throw new Error(response.data?.error || 'Falha no WhatsApp');
+
+    await notificarNfseWhatsapp(req.user.tenant_id, invoice.id);
+
+    const [[updated]] = await db.query('SELECT whatsapp_sent_at, whatsapp_send_error FROM nfse_invoices WHERE id = ?', [invoice.id]);
+    if (!updated?.whatsapp_sent_at) return res.status(502).json({ error: updated?.whatsapp_send_error || 'Não foi possível enviar pelo WhatsApp.' });
     res.json({ success: true, whatsapp: invoice.patient_whatsapp });
   } catch (err) { console.error('[NFS-e] Erro ao enviar por WhatsApp:', err.message); res.status(502).json({ error: err.response?.data?.error || err.message || 'Erro ao enviar nota por WhatsApp.' }); }
+});
+
+// ── GET /nfse/:transactionId/suggest-description — monta uma descrição sugerida a
+// partir da comanda vinculada (serviço/pacote, datas das sessões) e do registro
+// profissional (CRP/CRM/etc.) do emissor. Só sugestão -- o campo continua editável
+// no modal de emissão, nada aqui é gravado sozinho.
+router.get('/:transactionId/suggest-description', authMiddleware, requireNfseEnabled, async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const transactionId = Number(req.params.transactionId);
+
+    const [[transaction]] = await db.query(
+      'SELECT id, comanda_id, description FROM financial_transactions WHERE id = ? AND tenant_id = ?',
+      [transactionId, tenantId]
+    );
+    if (!transaction) return res.status(404).json({ error: 'Lançamento não encontrado' });
+
+    const [[reg]] = await db.query(
+      `SELECT u.crp, u.registry_number, pa.registry_label
+         FROM users u LEFT JOIN professional_areas pa ON pa.id = u.professional_area_id
+        WHERE u.id = ?`,
+      [req.user.id]
+    );
+    const registryLabel = reg?.registry_label || null;
+    const registryNumber = reg?.registry_number || reg?.crp || null;
+
+    let servicePart = transaction.description || '';
+    let sessionLines = [];
+
+    if (transaction.comanda_id) {
+      const [[comanda]] = await db.query(
+        `SELECT c.*, s.name AS service_name, pkg.name AS package_name
+           FROM comandas c
+           LEFT JOIN services s ON s.id = c.service_id
+           LEFT JOIN packages pkg ON pkg.id = c.package_id
+          WHERE c.id = ? AND c.tenant_id = ?`,
+        [transaction.comanda_id, tenantId]
+      );
+      if (comanda) {
+        const nomePartes = [comanda.service_name, comanda.package_name].filter(Boolean);
+        let texto = nomePartes.join(' — ');
+        if (comanda.sessions_total > 1) texto += `${texto ? ', ' : ''}pacote com ${comanda.sessions_total} sessões`;
+        servicePart = texto || comanda.description || servicePart;
+
+        const [appointments] = await db.query(
+          `SELECT start_time FROM appointments WHERE comanda_id = ? AND status <> 'cancelled' ORDER BY start_time ASC`,
+          [transaction.comanda_id]
+        );
+        sessionLines = appointments.map((a, i) => `${i + 1}º ${new Date(a.start_time).toLocaleDateString('pt-BR')}`);
+      }
+    }
+
+    const blocos = [servicePart].filter(Boolean);
+    if (registryLabel && registryNumber) {
+      blocos.push(`Profissional responsável inscrito(a) no ${registryLabel} ${registryNumber}.`);
+    }
+    let descricao = blocos.join('\n');
+    if (sessionLines.length > 1) {
+      descricao += `\n\nData das sessões\n\n${sessionLines.join('\n')}`;
+    }
+
+    res.json({ descricao_servico: descricao.trim() });
+  } catch (err) {
+    console.error('[NFS-e] Erro ao sugerir descrição:', err);
+    res.status(500).json({ error: 'Erro ao montar sugestão de descrição' });
+  }
 });
 
 // ── GET /nfse/:transactionId — status da NFS-e de um lançamento ─────────────
