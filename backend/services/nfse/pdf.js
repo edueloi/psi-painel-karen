@@ -60,11 +60,10 @@ async function generateNfsePdf({
     doc.on('error', reject);
 
     const pageWidth = doc.page.width - 72;
-    // Paleta na cor de marca do PsiFlux (mesmo verde do logo/tema padrão), no lugar
-    // do roxo genérico usado antes.
-    const colorPrimary = '#0f6e46';      // --c-600
-    const colorPrimaryLight = '#ecfdf5'; // --c-50
-    const colorPrimaryBorder = '#a3e8c4'; // --c-200
+    // Paleta em azul discreto/profissional (neutro, sem ser roxo nem verde vibrante).
+    const colorPrimary = '#1e40af';      // blue-800
+    const colorPrimaryLight = '#eff6ff'; // blue-50
+    const colorPrimaryBorder = '#bfdbfe'; // blue-200
     const colorText = '#1e293b';   // slate-800
     const colorMuted = '#64748b';  // slate-500
     const colorBorder = '#e2e8f0'; // slate-200
@@ -91,9 +90,14 @@ async function generateNfsePdf({
     const contactLine = [emitterPhone ? formatPhone(emitterPhone) : null, emitterEmail].filter(Boolean).join('   ');
     if (contactLine) doc.text(contactLine, textX, doc.y + 1, { width: textWidth });
 
+    // Altura real do cabeçalho: a maior entre o bloco de texto (o nome da clínica
+    // pode quebrar em 2 linhas) e a logo (64px) -- um valor fixo cortava o
+    // telefone/e-mail contra a linha divisória quando o nome era longo.
+    const headerHeight = Math.max(64, doc.y - headerTop) + 8;
+
     // Badge no canto direito
     const badgeX = doc.page.width - 36 - 160;
-    doc.roundedRect(badgeX, headerTop, 160, 64, 8).fillAndStroke(colorPrimaryLight, colorPrimaryBorder);
+    doc.roundedRect(badgeX, headerTop, 160, headerHeight - 6, 8).fillAndStroke(colorPrimaryLight, colorPrimaryBorder);
     doc.fillColor(colorPrimary).font('Helvetica-Bold').fontSize(9)
       .text('NFS-e', badgeX, headerTop + 10, { width: 160, align: 'center' });
     doc.fontSize(7.5).font('Helvetica').fillColor(colorMuted)
@@ -105,7 +109,7 @@ async function generateNfsePdf({
         .text('HOMOLOGAÇÃO — SEM VALOR FISCAL', badgeX, headerTop + 52, { width: 160, align: 'center' });
     }
 
-    doc.y = headerTop + 70;
+    doc.y = headerTop + headerHeight;
     doc.moveTo(36, doc.y).lineTo(doc.page.width - 36, doc.y).lineWidth(1.5).strokeColor(colorPrimary).stroke();
     doc.moveDown(0.5);
 
