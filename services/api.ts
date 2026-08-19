@@ -103,6 +103,7 @@ export const api: Api = {
         const message = (data?.message || (data?.error ? (data.detail ? `${data.error}: ${data.detail}` : data.error) : null))
           || (rawPreview ? `Erro ${response.status}: resposta nao-JSON do servidor (${rawPreview})` : `Erro ${response.status}: ${response.statusText}`);
         const err: any = new Error(message);
+        err.status = response.status;
         if (data?.conflict) {
           err.conflict = true;
           err.conflict_id = data.conflict_id;

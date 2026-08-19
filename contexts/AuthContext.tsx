@@ -106,8 +106,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         doesPsychotherapy: !!(data as any).does_psychotherapy,
         canPrescribeMedication: !!(data as any).can_prescribe_medication,
       });
-    } catch (e) {
-      setUser(decoded); // fallback só com id/role
+    } catch (e: any) {
+      // A conta do token foi apagada/desativada (ex: usuário removido do tenant) --
+      // não dá pra só cair no fallback de id/role aqui, porque a tela fica presa
+      // (sem dados, sem redirecionar) já que toda outra chamada da API também vai
+      // 404 pro mesmo id inexistente. Força logout para voltar à tela de login.
+      if (e?.status === 404) {
+        logout();
+        return;
+      }
+      setUser(decoded); // fallback só com id/role (erro de rede/servidor, não de conta)
     } finally {
       // Garante que o loading dure pelo menos 3.5s para o usuário ver a animação de boas-vindas
       setTimeout(() => {
