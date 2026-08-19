@@ -627,6 +627,7 @@ export const NotaFiscal: React.FC = () => {
                 onChange={(e) => setSubstValor(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
               />
+              <p className="text-[11px] text-slate-400 mt-1">Se você é optante do Simples Nacional, o governo não permite mudar o valor numa substituição — mantenha o mesmo valor da nota original.</p>
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Motivo da substituição (oficial)</label>

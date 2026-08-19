@@ -39,8 +39,12 @@ function formatDateTimeWithOffset(date) {
  * @param {object|null} input.subst - { chSubstda, cMotivo, xMotivo } quando esta DPS substitui uma NFS-e
  *   já autorizada (fluxo de correção oficial do Sistema Nacional NFS-e — o governo cancela a
  *   NFS-e referenciada em chSubstda e emite esta como a substituta, tudo na mesma emissão).
+ * @param {string|null} input.dCompetOverride - "AAAA-MM-DD" para reusar a MESMA competência da
+ *   nota original em vez de "hoje". Obrigatório ao substituir quando o emitente é optante do
+ *   Simples Nacional: o próprio servidor rejeita (erro E0xxx) se dCompet, o tomador (CPF/CNPJ) ou
+ *   vServ mudarem entre a nota original e a substituta nesse regime.
  */
-function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNacional, descricaoServico, valorServico, tomador, subst }) {
+function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNacional, descricaoServico, valorServico, tomador, subst, dCompetOverride }) {
   if (!emitter.nfse_codigo_municipio) {
     throw new Error('Código do município (IBGE) não configurado (Configurações > Dados Fiscais).');
   }
@@ -65,7 +69,7 @@ function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNaci
   // a data UTC pode cair um dia à frente da local e o servidor rejeita "competência
   // posterior à emissão".
   const pad2 = (n) => String(n).padStart(2, '0');
-  const dCompet = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  const dCompet = dCompetOverride || `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 
   const doc = create({ version: '1.0', encoding: 'UTF-8' }).ele('DPS', { xmlns: 'http://www.sped.fazenda.gov.br/nfse', versao: '1.00' });
   const infDPS = doc.ele('infDPS', { Id: idDPS });

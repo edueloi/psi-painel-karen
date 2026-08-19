@@ -64,6 +64,15 @@ async function substituirNfse(invoiceId, { descricaoServico, valorServico, cMoti
   // do emissor, igual a qualquer NFS-e nova (o servidor rejeita número já utilizado).
   const novoNumero = emitter.nfse_next_number;
 
+  // Para emissores optantes do Simples Nacional (ME/EPP), o próprio servidor rejeita a
+  // substituição se a competência (dCompet) mudar em relação à nota original — reusamos
+  // a data de autorização da nota antiga (mesmo dia em que o dCompet original foi gerado)
+  // em vez de "hoje", que é o padrão de buildDpsXml para uma emissão nova.
+  const dCompetOriginal = invoice.authorized_at || invoice.created_at;
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const dOrig = new Date(dCompetOriginal);
+  const dCompetOverride = `${dOrig.getFullYear()}-${pad2(dOrig.getMonth() + 1)}-${pad2(dOrig.getDate())}`;
+
   const { idDPS, xml } = buildDpsXml({
     emitter,
     serie: invoice.serie,
@@ -74,6 +83,7 @@ async function substituirNfse(invoiceId, { descricaoServico, valorServico, cMoti
     valorServico: Number(valorServico),
     tomador,
     subst: { chSubstda: invoice.chave_acesso, cMotivo: codigo, xMotivo },
+    dCompetOverride,
   });
 
   const cert = loadPfx(emitter.nfse_cert_path, certPassword);
