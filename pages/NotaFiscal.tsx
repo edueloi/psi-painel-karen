@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FileText, Download, RefreshCw, Loader2, CheckCircle2, Clock,
-  AlertCircle, XCircle, Ban, Archive, Mail, MessageCircle, HelpCircle,
+  AlertCircle, XCircle, Ban, Archive, Mail, MessageCircle, HelpCircle, Repeat,
   Search as SearchIcon, CalendarRange, ListFilter, Layers, MousePointerClick,
 } from 'lucide-react';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
@@ -34,6 +34,8 @@ interface NfseInvoiceRow {
   descricao_servico?: string | null;
   rejection_reason?: string | null;
   authorized_at?: string | null;
+  substituted_chave_acesso?: string | null;
+  substitution_reason?: string | null;
   created_at: string;
   transaction_description?: string | null;
   transaction_date?: string | null;
@@ -73,6 +75,17 @@ const STATUS_FILTER_OPTIONS = (Object.keys(STATUS_CONFIG) as NfseStatus[]).map(v
   value, label: STATUS_CONFIG[value].label,
 }));
 
+// Códigos oficiais de justificativa do evento de substituição (e105102), confirmados
+// no XSD do Sistema Nacional NFS-e (enum TSCodJustSubst).
+const SUBSTITUTION_REASON_OPTIONS = [
+  { value: '99', label: '99 — Outros (ex: descrição ou valor incorretos)' },
+  { value: '05', label: '05 — Rejeição da NFS-e pelo tomador/intermediário' },
+  { value: '01', label: '01 — Desenquadramento do Simples Nacional' },
+  { value: '02', label: '02 — Enquadramento no Simples Nacional' },
+  { value: '03', label: '03 — Inclusão retroativa de imunidade/isenção' },
+  { value: '04', label: '04 — Exclusão retroativa de imunidade/isenção' },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const NotaFiscal: React.FC = () => {
@@ -99,6 +112,13 @@ export const NotaFiscal: React.FC = () => {
   const [cancelTarget, setCancelTarget] = useState<NfseInvoiceRow | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+
+  const [substTarget, setSubstTarget] = useState<NfseInvoiceRow | null>(null);
+  const [substDescricao, setSubstDescricao] = useState('');
+  const [substValor, setSubstValor] = useState('');
+  const [substMotivo, setSubstMotivo] = useState('');
+  const [substCodigo, setSubstCodigo] = useState('99');
+  const [substituting, setSubstituting] = useState(false);
 
   // Busca por texto é debounced para não disparar uma requisição a cada tecla digitada.
   useEffect(() => {
@@ -241,12 +261,33 @@ export const NotaFiscal: React.FC = () => {
     }
   };
 
-  // Prazo do governo para cancelamento self-service: até dia 15 do mês seguinte à autorização.
-  const cancelDeadline = (authorizedAt: string) => {
-    const d = new Date(authorizedAt);
-    return new Date(d.getFullYear(), d.getMonth() + 1, 15);
+  const openSubstitute = (inv: NfseInvoiceRow) => {
+    setSubstTarget(inv);
+    setSubstDescricao(inv.descricao_servico || inv.transaction_description || '');
+    setSubstValor(String(inv.valor_servico ?? ''));
+    setSubstMotivo('');
+    setSubstCodigo('99');
   };
-  const isPastCancelDeadline = (inv: NfseInvoiceRow) => !!inv.authorized_at && new Date() > cancelDeadline(inv.authorized_at);
+
+  const handleConfirmSubstitute = async () => {
+    if (!substTarget || !substDescricao.trim() || !substValor) return;
+    setSubstituting(true);
+    try {
+      await api.post(`/nfse/${substTarget.financial_transaction_id}/substitute`, {
+        descricao_servico: substDescricao.trim(),
+        valor_servico: Number(substValor),
+        cMotivo: substCodigo,
+        motivo: substMotivo.trim() || undefined,
+      });
+      pushToast('success', 'NFS-e substituída com sucesso — a nota antiga foi cancelada e a nova já está autorizada.');
+      setSubstTarget(null);
+      fetchInvoices();
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao substituir a NFS-e');
+    } finally {
+      setSubstituting(false);
+    }
+  };
 
   const renderStatusBadge = (inv: NfseInvoiceRow) => {
     const cfg = STATUS_CONFIG[inv.status];
@@ -283,6 +324,11 @@ export const NotaFiscal: React.FC = () => {
         {inv.patient_email && <button onClick={() => sendInvoice(inv, 'email')} title={`Enviar por e-mail: ${inv.patient_email}`} className={`${size} flex items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-all`}><Mail size={iconSize} /></button>}
         {inv.patient_whatsapp && <button onClick={() => sendInvoice(inv, 'whatsapp')} title="Enviar por WhatsApp" className={`${size} flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all`}><MessageCircle size={iconSize} /></button>}
         <button
+          onClick={() => openSubstitute(inv)}
+          title="Substituir NFS-e (corrigir descrição/valor)" className={`${size} flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all`}>
+          <Repeat size={iconSize} />
+        </button>
+        <button
           onClick={() => { setCancelTarget(inv); setCancelReason(''); }}
           title="Cancelar NFS-e" className={`${size} flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all`}>
           <Ban size={iconSize} />
@@ -307,6 +353,11 @@ export const NotaFiscal: React.FC = () => {
         <div>
           <p className="text-xs font-bold text-slate-700">nº {inv.numero} · Série {inv.serie}</p>
           {inv.chave_acesso && <p className="text-[10px] text-slate-400 truncate max-w-[160px]" title={inv.chave_acesso}>{inv.chave_acesso}</p>}
+          {inv.substituted_chave_acesso && (
+            <p className="text-[10px] text-amber-600 font-semibold mt-0.5 flex items-center gap-1" title={`Substitui a NFS-e de chave ${inv.substituted_chave_acesso}`}>
+              <Repeat size={9} /> Nota substituta
+            </p>
+          )}
         </div>
       ),
     },
@@ -511,28 +562,88 @@ export const NotaFiscal: React.FC = () => {
               A NFS-e nº <strong>{cancelTarget.numero}</strong> (Série {cancelTarget.serie}) será cancelada junto ao Sistema Nacional NFS-e.
               Essa ação não pode ser desfeita — depois de cancelada, emita uma nova nota com os dados corretos para este mesmo lançamento.
             </p>
-            {cancelTarget.authorized_at && (
-              isPastCancelDeadline(cancelTarget) ? (
-                <div className="flex gap-2 p-3 rounded-xl border border-amber-200 bg-amber-50">
-                  <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-800">
-                    O prazo para cancelar esta nota pelo sistema (até <strong>{cancelDeadline(cancelTarget.authorized_at).toLocaleDateString('pt-BR')}</strong>) já passou.
-                    O governo deve recusar este pedido. Se isso acontecer, fale com seu contador sobre emitir uma <strong>nota de substituição</strong> ou <strong>carta de correção</strong>, ou procure a prefeitura para pedir o cancelamento fora do prazo.
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[11px] text-slate-400">
-                  Prazo para cancelar pelo sistema: até {cancelDeadline(cancelTarget.authorized_at).toLocaleDateString('pt-BR')}.
-                </p>
-              )
-            )}
+            <div className="flex gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50">
+              <AlertCircle size={15} className="text-slate-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-slate-500">
+                O prazo de cancelamento varia por prefeitura, e o governo às vezes recusa esse pedido sem detalhar o motivo.
+                Se isso acontecer, use <strong>Substituir</strong> nesta nota em vez de cancelar — o prazo de substituição é bem mais generoso e resolve o mesmo problema.
+              </p>
+            </div>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Motivo do cancelamento</label>
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="Ex: Valor e descrição do serviço lançados incorretamente"
+                placeholder="Ex: Nota emitida em duplicidade"
                 rows={3}
+                maxLength={255}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 resize-none"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!substTarget}
+        onClose={() => { if (!substituting) setSubstTarget(null); }}
+        title="Substituir NFS-e"
+        size="sm"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button variant="ghost" disabled={substituting} onClick={() => setSubstTarget(null)}>
+              Voltar
+            </Button>
+            <Button
+              variant="primary"
+              disabled={substituting || !substDescricao.trim() || !substValor || Number(substValor) <= 0}
+              onClick={handleConfirmSubstitute}
+            >
+              {substituting ? 'Substituindo...' : 'Confirmar substituição'}
+            </Button>
+          </div>
+        }
+      >
+        {substTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Corrija os dados abaixo e confirme: o governo cancela automaticamente a NFS-e nº <strong>{substTarget.numero}</strong> e autoriza uma nova, já com as informações certas, numa única operação. Nada se perde se der errado — a nota atual só muda quando a substituta for aceita.
+            </p>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Descrição do serviço</label>
+              <textarea
+                value={substDescricao}
+                onChange={(e) => setSubstDescricao(e.target.value)}
+                rows={3}
+                maxLength={1000}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Valor do serviço (R$)</label>
+              <input
+                type="number" step="0.01" min="0.01"
+                value={substValor}
+                onChange={(e) => setSubstValor(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Motivo da substituição (oficial)</label>
+              <Combobox
+                value={substCodigo}
+                onChange={(v) => setSubstCodigo(v as string)}
+                options={SUBSTITUTION_REASON_OPTIONS}
+                size="sm"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Observação (opcional)</label>
+              <textarea
+                value={substMotivo}
+                onChange={(e) => setSubstMotivo(e.target.value)}
+                placeholder="Ex: Descrição do serviço estava incorreta"
+                rows={2}
                 maxLength={255}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 resize-none"
               />
@@ -583,16 +694,28 @@ export const NotaFiscal: React.FC = () => {
             <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0"><MousePointerClick size={15} className="text-rose-600" /></div>
             <div>
               <p className="text-sm font-bold text-slate-700">Ações (por nota autorizada)</p>
-              <p className="text-xs text-slate-500">Baixar XML, baixar PDF, enviar por e-mail ou WhatsApp (quando o paciente tiver contato cadastrado) e cancelar.</p>
+              <p className="text-xs text-slate-500">
+                Baixar XML, baixar PDF, enviar por e-mail ou WhatsApp (quando o paciente tiver contato cadastrado), <strong>substituir</strong> e <strong>cancelar</strong>.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0"><Repeat size={15} className="text-amber-600" /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Substituir x Cancelar</p>
+              <p className="text-xs text-slate-500">
+                <strong>Cancelar</strong> anula a nota (ela deixa de existir); use quando a nota nem deveria ter sido emitida (duplicidade, serviço não prestado).
+                {' '}<strong>Substituir</strong> corrige a descrição/valor mantendo o vínculo com a nota original — o governo cancela a antiga e autoriza a nova, tudo numa operação só. Use substituir quando o serviço foi mesmo prestado e só um dado (como a descrição) está errado.
+              </p>
             </div>
           </div>
           <div className="flex gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
             <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-bold text-amber-800">Prazo de cancelamento</p>
+              <p className="text-sm font-bold text-amber-800">Prazos</p>
               <p className="text-xs text-amber-800 mt-0.5">
-                Uma nota só pode ser cancelada pelo sistema até o <strong>dia 15 do mês seguinte</strong> ao da emissão. Perdeu o prazo?
-                Fale com seu contador sobre emitir uma <strong>nota de substituição</strong> ou <strong>carta de correção</strong>, ou entre em contato com a prefeitura para pedir o cancelamento fora do prazo.
+                O prazo de <strong>cancelamento</strong> varia conforme a prefeitura de cada emissor — o governo pode recusar sem detalhar o motivo quando ele já passou.
+                O prazo de <strong>substituição</strong> costuma ser bem mais generoso. Se o cancelamento for recusado, use Substituir na mesma nota — resolve o mesmo problema sem depender do prazo apertado.
               </p>
             </div>
           </div>

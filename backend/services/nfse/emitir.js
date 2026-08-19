@@ -246,4 +246,9 @@ async function emitirNfse(invoiceId) {
   }
 }
 
-module.exports = { emitirNfse };
+module.exports = {
+  emitirNfse,
+  // Exportados também para reuso em substituir.js (mesmas regras de resolução de
+  // tomador/PDF que a emissão normal já usa) — nenhuma mudança de comportamento aqui.
+  resolveTomador, extractTag, titleCase, extractEnderecoFromNfseXml,
+};

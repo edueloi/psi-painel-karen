@@ -36,8 +36,11 @@ function formatDateTimeWithOffset(date) {
  * @param {string} input.descricaoServico
  * @param {number} input.valorServico
  * @param {object|null} input.tomador - { nome, cpf, cnpj } de quem contratou o serviço (paciente/pagador)
+ * @param {object|null} input.subst - { chSubstda, cMotivo, xMotivo } quando esta DPS substitui uma NFS-e
+ *   já autorizada (fluxo de correção oficial do Sistema Nacional NFS-e — o governo cancela a
+ *   NFS-e referenciada em chSubstda e emite esta como a substituta, tudo na mesma emissão).
  */
-function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNacional, descricaoServico, valorServico, tomador }) {
+function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNacional, descricaoServico, valorServico, tomador, subst }) {
   if (!emitter.nfse_codigo_municipio) {
     throw new Error('Código do município (IBGE) não configurado (Configurações > Dados Fiscais).');
   }
@@ -75,6 +78,15 @@ function buildDpsXml({ emitter, serie, numero, aliquotaIss, codigoTributacaoNaci
   infDPS.ele('dCompet').txt(dCompet);
   infDPS.ele('tpEmit').txt('1'); // 1 = prestador do serviço
   infDPS.ele('cLocEmi').txt(onlyDigits(emitter.nfse_codigo_municipio));
+
+  // <subst> fica entre cLocEmi e prest — posição confirmada no XSD oficial
+  // (TCInfDPS, tiposComplexos_v1.01.xsd): tpAmb..cLocEmi, subst (minOccurs=0), prest, toma...
+  if (subst && subst.chSubstda) {
+    const substEl = infDPS.ele('subst');
+    substEl.ele('chSubstda').txt(subst.chSubstda);
+    substEl.ele('cMotivo').txt(String(subst.cMotivo).padStart(2, '0'));
+    if (subst.xMotivo) substEl.ele('xMotivo').txt(String(subst.xMotivo).slice(0, 255));
+  }
 
   const prest = infDPS.ele('prest');
   if (isCnpj) prest.ele('CNPJ').txt(cnpjDigits);

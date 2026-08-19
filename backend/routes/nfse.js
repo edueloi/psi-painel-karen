@@ -8,6 +8,7 @@ const db = require('../db');
 const { authMiddleware, checkPermission } = require('../middleware/auth');
 const { emitirNfse } = require('../services/nfse/emitir');
 const { cancelarNfse } = require('../services/nfse/cancelar');
+const { substituirNfse } = require('../services/nfse/substituir');
 const { parsePfx } = require('../services/nfse/signer');
 const { encryptCertPassword } = require('../services/nfse/certCrypto');
 const { sendMail, templates } = require('../services/emailService');
@@ -22,6 +23,18 @@ const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
+
+// Auto-migração: colunas novas para o histórico de substituição de NFS-e (mesmo
+// padrão usado em virtual-rooms.js) — roda uma vez ao carregar o módulo.
+(async () => {
+  const alters = [
+    'ALTER TABLE nfse_invoices ADD COLUMN substituted_chave_acesso VARCHAR(60) NULL',
+    'ALTER TABLE nfse_invoices ADD COLUMN substitution_reason TEXT NULL',
+  ];
+  for (const sql of alters) {
+    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.error('[NFS-e] Erro na automigração de substituição:', e.message); }
+  }
+})();
 
 // Bloqueia emissão/retry quando a clínica desativou a NFS-e em Configurações — a
 // tela já esconde os botões, isso é a garantia de servidor caso a rota seja chamada
@@ -422,6 +435,55 @@ router.post('/:transactionId/cancel', authMiddleware, checkPermission('manage_pa
   } catch (err) {
     console.error('[NFS-e] Erro ao cancelar:', err);
     res.status(422).json({ error: err.message || 'Falha ao cancelar a NFS-e' });
+  }
+});
+
+const CODIGOS_SUBSTITUICAO = ['01', '02', '03', '04', '05', '99'];
+
+// ── POST /nfse/:transactionId/substitute — substitui NFS-e já autorizada ────
+// Ao contrário do cancelamento simples, a substituição emite uma NOVA NFS-e (com
+// os dados corrigidos) referenciando a antiga — o governo cancela a original e
+// autoriza a substituta numa única operação. Prazo bem mais generoso que o do
+// cancelamento simples (parametrizado por município, tipicamente meses).
+router.post('/:transactionId/substitute', authMiddleware, checkPermission('manage_payments'), requireNfseEnabled, async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const transactionId = Number(req.params.transactionId);
+    const { descricao_servico, valor_servico, motivo, cMotivo } = req.body;
+
+    if (!descricao_servico || !String(descricao_servico).trim()) {
+      return res.status(422).json({ error: 'Informe a descrição corrigida do serviço.' });
+    }
+    const valor = Number(valor_servico);
+    if (!valor || valor <= 0) {
+      return res.status(422).json({ error: 'Informe um valor válido para o serviço.' });
+    }
+    const codigo = String(cMotivo || '99').padStart(2, '0');
+    if (!CODIGOS_SUBSTITUICAO.includes(codigo)) {
+      return res.status(422).json({ error: 'Motivo de substituição inválido.' });
+    }
+
+    const [[invoice]] = await db.query(
+      'SELECT * FROM nfse_invoices WHERE financial_transaction_id = ? AND tenant_id = ?',
+      [transactionId, tenantId]
+    );
+    if (!invoice) return res.status(404).json({ error: 'NFS-e não encontrada' });
+    if (invoice.status !== 'authorized') {
+      return res.status(409).json({ error: 'Só é possível substituir uma NFS-e autorizada.' });
+    }
+
+    await substituirNfse(invoice.id, {
+      descricaoServico: String(descricao_servico).trim(),
+      valorServico: valor,
+      cMotivo: codigo,
+      xMotivo: motivo ? String(motivo).trim().slice(0, 255) : undefined,
+    });
+
+    const [[updated]] = await db.query('SELECT * FROM nfse_invoices WHERE id = ?', [invoice.id]);
+    res.json(updated);
+  } catch (err) {
+    console.error('[NFS-e] Erro ao substituir:', err);
+    res.status(422).json({ error: err.message || 'Falha ao substituir a NFS-e' });
   }
 });
 
