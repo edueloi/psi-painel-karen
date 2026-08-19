@@ -167,19 +167,34 @@ async function generateNfsePdf({
 
     // ── Valores ────────────────────────────────────────────────────────────
     sectionTitle('Valores');
-    const boxY = doc.y;
-    const boxH = 54;
-    doc.roundedRect(36, boxY, pageWidth, boxH, 8).fillAndStroke('#f8fafc', colorBorder);
+    const boxPad = 14;
     const valCols = [
-      { label: 'Valor do serviço', value: formatMoney(valorServico) },
-      { label: 'Alíquota ISS', value: aliquotaIss != null ? `${Number(aliquotaIss).toFixed(2)}%` : 'Apurado pelo Simples Nacional' },
+      { label: 'Valor do serviço', value: formatMoney(valorServico), emphasis: true },
+      { label: 'Alíquota ISS', value: aliquotaIss != null ? `${Number(aliquotaIss).toFixed(2)}%` : 'Simples Nacional' },
       { label: 'Valor aprox. ISS', value: valorIss != null ? formatMoney(valorIss) : '—' },
     ];
     const vw = pageWidth / valCols.length;
+    const valColWidth = vw - boxPad * 2;
+
+    // Encolhe a fonte até caber numa linha só (em vez de tamanho fixo, que fazia um
+    // valor curto tipo "R$ 250,00" e um texto longo tipo "Apurado pelo Simples
+    // Nacional" saírem do mesmo tamanho gigante e quebrarem em várias linhas).
+    function fitFontSize(text, maxWidth, max, min) {
+      let size = max;
+      doc.font('Helvetica-Bold');
+      while (size > min && doc.fontSize(size).widthOfString(text) > maxWidth) size -= 0.5;
+      return size;
+    }
+    const valSizes = valCols.map(v => fitFontSize(String(v.value), valColWidth, v.emphasis ? 15 : 12, 8));
+    const boxH = 54;
+
+    const boxY = doc.y;
+    doc.roundedRect(36, boxY, pageWidth, boxH, 8).fillAndStroke('#f8fafc', colorBorder);
     valCols.forEach((v, i) => {
       const x = 36 + i * vw;
-      doc.font('Helvetica').fontSize(7.5).fillColor(colorMuted).text(v.label.toUpperCase(), x + 14, boxY + 10, { width: vw - 28, characterSpacing: 0.3 });
-      doc.font('Helvetica-Bold').fontSize(14).fillColor(i === 0 ? colorPrimary : colorText).text(v.value, x + 14, boxY + 24, { width: vw - 28 });
+      doc.font('Helvetica').fontSize(7.5).fillColor(colorMuted).text(v.label.toUpperCase(), x + boxPad, boxY + 10, { width: valColWidth, characterSpacing: 0.3 });
+      doc.font('Helvetica-Bold').fontSize(valSizes[i]).fillColor(v.emphasis ? colorPrimary : colorText)
+        .text(v.value, x + boxPad, boxY + 27, { width: valColWidth, lineBreak: false });
     });
     doc.y = boxY + boxH + 10;
 
