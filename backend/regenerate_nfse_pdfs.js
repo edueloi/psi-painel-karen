@@ -120,6 +120,8 @@ async function run() {
         valorServico: Number(invoice.valor_servico),
         aliquotaIss: emitter.nfse_regime_tributario === 'simples_nacional' ? null : (extractTag(nfseXml, 'pAliq') ? Number(extractTag(nfseXml, 'pAliq')) : 5),
         valorIss: null,
+        substitutedChaveAcesso: invoice.substituted_chave_acesso || null,
+        substitutionReason: invoice.substitution_reason || null,
       });
 
       fs.writeFileSync(invoice.nfse_pdf_path, pdfBuffer);
