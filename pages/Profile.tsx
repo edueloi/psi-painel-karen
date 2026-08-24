@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
 import { api, getStaticUrl } from '../services/api';
 import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper } from '../components/UI/PageWrapper';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Textarea } from '../components/UI/Input';
+import { Combobox } from '../components/UI/Combobox';
 import {
   Mail,
   Phone,
@@ -109,6 +111,30 @@ const formatClosedDate = (date: string) => {
   });
 };
 
+interface ProfessionalArea {
+  id: number;
+  name: string;
+  category: string;
+  registry_label: string | null;
+  registry_mask: string | null;
+}
+
+function applyRegistryMask(raw: string, mask?: string | null): string {
+  if (!mask) return raw;
+  const digits = raw.replace(/[^A-Za-z0-9]/g, '');
+  let result = '';
+  let di = 0;
+  for (let i = 0; i < mask.length && di < digits.length; i++) {
+    if (mask[i] === '0') {
+      result += digits[di];
+      di++;
+    } else {
+      result += mask[i];
+    }
+  }
+  return result;
+}
+
 const buildHolidayPresets = (year: number): ClosedDatePreset[] => [
   { date: year + '-01-01', label: 'Ano Novo', buttonLabel: 'Ano Novo ' + year },
   { date: year + '-04-21', label: 'Tiradentes', buttonLabel: 'Tiradentes ' + year },
@@ -134,6 +160,11 @@ export const Profile: React.FC = () => {
     phone: '',
     crp: '',
     specialty: '',
+    professionalAreaId: '' as string | number,
+    registryNumber: '',
+    areaName: '',
+    registryLabel: '',
+    registryMask: '',
     companyName: '',
     address: '',
     bio: '',
@@ -201,6 +232,16 @@ export const Profile: React.FC = () => {
     { key: 'faq',          label: 'Liste 3 dúvidas frequentes dos seus pacientes (uma por linha).',         placeholder: 'Ex:\nQual o valor da sessão?\nVocê atende online?\nPreciso de encaminhamento?' },
   ];
 
+  const [areas, setAreas] = useState<ProfessionalArea[]>([]);
+  const [areasLoading, setAreasLoading] = useState(true);
+
+  useEffect(() => {
+    api.get<ProfessionalArea[]>('/professional-areas')
+      .then(data => setAreas(Array.isArray(data) ? data : []))
+      .catch(() => setAreas([]))
+      .finally(() => setAreasLoading(false));
+  }, []);
+
   const [schedule, setSchedule] = useState<ScheduleDay[]>(() => cloneSchedule(DEFAULT_SCHEDULE));
   const [closedDates, setClosedDates] = useState<ClosedDate[]>([]);
   const [customDateInput, setCustomDateInput] = useState('');
@@ -218,6 +259,11 @@ export const Profile: React.FC = () => {
             phone: data.phone || '',
             crp: data.crp || '',
             specialty: data.specialty || '',
+            professionalAreaId: data.professional_area_id || '',
+            registryNumber: data.registry_number || data.crp || '',
+            areaName: data.area_name || '',
+            registryLabel: data.registry_label || 'CRP',
+            registryMask: data.registry_mask || '',
             companyName: data.company_name || data.companyName || '',
             address: data.address || '',
             bio: data.bio || '',
@@ -560,6 +606,8 @@ Gere o seguinte JSON:
         phone: user.phone,
         crp: user.crp,
         specialty: user.specialty,
+        professional_area_id: user.professionalAreaId || null,
+        registry_number: user.registryNumber,
         company_name: user.companyName,
         address: user.address,
         bio: user.bio,
@@ -593,7 +641,7 @@ Gere o seguinte JSON:
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-4 pb-20 animate-fadeIn font-sans space-y-5">
+    <PageWrapper className="animate-fadeIn font-sans space-y-5">
       <PageHeader
         icon={<User />}
         title="Meu Perfil"
@@ -610,7 +658,7 @@ Gere o seguinte JSON:
           {user.coverUrl ? (
             <img src={getStaticUrl(user.coverUrl)} alt="Cover" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-indigo-700 via-indigo-800 to-violet-900">
+            <div className="w-full h-full bg-gradient-to-br from-indigo-600 via-indigo-800 to-indigo-950">
                <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
             </div>
           )}
@@ -738,7 +786,26 @@ Gere o seguinte JSON:
                           setUser(p => ({ ...p, phone: val }));
                         }} 
                       />
-                      <ProfileInput label="Especialidade" icon={<Stethoscope size={16} />} value={user.specialty} onChange={v => setUser(p => ({ ...p, specialty: v }))} />
+                      <Combobox
+                        label="Área de Atuação"
+                        icon={<Stethoscope size={16} />}
+                        options={areas.map(a => ({ value: String(a.id), label: a.name, group: a.category }))}
+                        value={user.professionalAreaId ? String(user.professionalAreaId) : ''}
+                        onChange={v => {
+                          const idStr = Array.isArray(v) ? v[0] : v;
+                          const area = areas.find(a => String(a.id) === idStr);
+                          setUser(p => ({
+                            ...p,
+                            professionalAreaId: idStr || '',
+                            specialty: area?.name || p.specialty,
+                            areaName: area?.name || '',
+                            registryLabel: area?.registry_label || 'CRP',
+                            registryMask: area?.registry_mask || '',
+                          }));
+                        }}
+                        placeholder={areasLoading ? 'Carregando áreas…' : 'Selecione sua área'}
+                        disabled={areasLoading}
+                      />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <ProfileInput
@@ -1623,7 +1690,15 @@ Gere o seguinte JSON:
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-slate-50">
                     <ProfileInput label="Razão Social / Nome Fantasia" icon={<Building2 size={16} />} value={user.companyName} onChange={v => setUser(p => ({ ...p, companyName: v }))} />
-                    <ProfileInput label="Registro Profissional (CRP/CRM)" icon={<Shield size={16} />} value={user.crp} onChange={v => setUser(p => ({ ...p, crp: v }))} />
+                    <ProfileInput
+                      label={`Registro Profissional (${user.registryLabel || 'CRP'})`}
+                      icon={<Shield size={16} />}
+                      value={user.registryNumber}
+                      onChange={v => {
+                        const masked = applyRegistryMask(v, user.registryMask);
+                        setUser(p => ({ ...p, registryNumber: masked, crp: masked }));
+                      }}
+                    />
                   </div>
                   <ProfileInput label="Endereço Físico Completo" icon={<MapPin size={16} />} value={user.address} onChange={v => setUser(p => ({ ...p, address: v }))} />
                 </div>
@@ -1792,7 +1867,7 @@ Gere o seguinte JSON:
           </div>
         ))}
       </div>
-    </div>
+    </PageWrapper>
   );
 };
 

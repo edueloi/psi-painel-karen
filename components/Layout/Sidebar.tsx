@@ -162,13 +162,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
       <aside className={`fixed top-0 left-0 z-[110] h-full w-[256px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:translate-x-0 lg:z-auto lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
 
         {/* Logo */}
-        <div className={`h-[88px] flex items-center px-5 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
-          <div className="flex items-center gap-3">
-            <div className="h-[60px] w-[60px] rounded-2xl overflow-hidden shadow-md flex-shrink-0 bg-white ring-2 ring-white/80">
+        <div className={`h-[72px] flex items-center px-5 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-md flex-shrink-0 bg-white ring-1 ring-black/5 p-1">
               <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className={`font-display font-bold text-xl leading-none tracking-tight ${isDark ? 'text-slate-100' : 'text-[#1e295b]'}`}>
+              <h1 className={`font-display font-bold text-lg leading-none tracking-tight ${isDark ? 'text-slate-100' : 'text-[#1e295b]'}`}>
                 Plaelo
               </h1>
               <span className={`text-[10px] whitespace-nowrap font-medium ${isDark ? 'text-slate-400' : 'text-[#1e295b]'} tracking-tight opacity-60`}>

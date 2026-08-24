@@ -167,21 +167,21 @@
         --text-main: #0f172a;
         --text-muted: #64748b;
 
-        /* Cores do Tema Padrão (Verde) - Necessário para o App.
-           Sobrescrito em runtime por ThemeContext.tsx conforme a preferência
-           salva do usuário (THEME_COLORS_VARS.PsiFlux é o default — nome de chave
-           legado mantido de propósito, é um valor de preferência já persistido
-           no banco para usuários existentes). */
-        --c-50: #ecfdf5;
-        --c-100: #d1fae5;
-        --c-200: #a3e8c4;
-        --c-300: #6bcf9c;
-        --c-400: #3aab74;
-        --c-500: #1f8a5b;
-        --c-600: #0f6e46;
-        --c-700: #0b5738;
-        --c-800: #0a462e;
-        --c-900: #083a27;
+        /* Cores do Tema Padrão (Roxo Plaelo) - Necessário para o App antes do
+           React montar. Sobrescrito em runtime por ThemeContext.tsx conforme a
+           preferência salva do usuário — o default de fábrica é 'Indigo'
+           (ver UserPreferencesContext.tsx), cujos tons agora seguem a cor da
+           marca Plaelo (THEME_COLORS_VARS.Indigo em ThemeContext.tsx). */
+        --c-50: #F4F0FF;
+        --c-100: #EFE9FF;
+        --c-200: #DDD1FE;
+        --c-300: #BCA3FC;
+        --c-400: #9670F9;
+        --c-500: #6D42F5;
+        --c-600: #5C2FE0;
+        --c-700: #4B23BD;
+        --c-800: #3D1D97;
+        --c-900: #2F1670;
       }
       body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-page); color: var(--text-main); }
 

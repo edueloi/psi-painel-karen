@@ -72,17 +72,29 @@ router.post('/send', authMiddleware, async (req, res) => {
     let sentViaBot = false;
 
     if (patientPhone.length >= 10) {
-      try {
-        await notificationService.enqueue({
-          tenant_id: Number(req.user.tenant_id),
-          recipient_phone: patientPhone,
-          content: message,
-          scheduled_at: null,
-          metadata: { type: 'patient_registration_link', token }
-        });
-        sentViaBot = true;
-      } catch (botErr) {
-        console.warn('[patient-registration] Fila indisponível, fallback para link manual:', botErr.message);
+      // Só tenta enfileirar no bot se ele estiver de fato conectado — enqueue()
+      // apenas insere na fila e quase nunca falha, então sem checar o status
+      // real o toast diria "enviado" mesmo com o bot offline (mensagem parada
+      // na fila, nunca entregue).
+      const [[tenantRow]] = await db.query(
+        'SELECT whatsapp_status FROM tenants WHERE id = ?',
+        [req.user.tenant_id]
+      );
+      const botConnected = tenantRow?.whatsapp_status === 'connected';
+
+      if (botConnected) {
+        try {
+          await notificationService.enqueue({
+            tenant_id: Number(req.user.tenant_id),
+            recipient_phone: patientPhone,
+            content: message,
+            scheduled_at: null,
+            metadata: { type: 'patient_registration_link', token }
+          });
+          sentViaBot = true;
+        } catch (botErr) {
+          console.warn('[patient-registration] Fila indisponível, fallback para link manual:', botErr.message);
+        }
       }
     }
 

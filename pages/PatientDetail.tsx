@@ -399,8 +399,10 @@ export const PatientDetail: React.FC = () => {
 
         {/* Hero header */}
         <PanelCard contentClassName="p-0" className="overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-5 sm:px-6 sm:py-6">
-          <div className="flex items-center gap-4">
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#150F2E] via-[#2A1F6B] to-[#6D42F5] px-4 py-5 sm:px-6 sm:py-6">
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-2/3 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_60%)]" />
+          <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-violet-300/10 blur-3xl" />
+          <div className="relative flex items-center gap-4">
             <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getAvatarColor(patientName(patient))} flex items-center justify-center text-white text-2xl font-black shrink-0 border-4 border-white/30 overflow-hidden shadow-lg`}>
               {patient.photo_url || patient.photoUrl ? (
                 <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patientName(patient)} className="w-full h-full object-cover" />
@@ -428,22 +430,22 @@ export const PatientDetail: React.FC = () => {
           </div>
 
           {/* Quick stats */}
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 mt-5">
+          <div className="relative grid grid-cols-4 sm:grid-cols-7 gap-2 mt-5">
             {[
-              { key: 'agenda',      label: 'Agenda',      icon: <Calendar size={13} />,      bg: 'bg-white/15' },
-              { key: 'prontuario',  label: 'Prontuário',  icon: <FileText size={13} />,       bg: 'bg-white/15' },
-              { key: 'neuro',       label: 'Neuro',       icon: <BrainCircuit size={13} />,   bg: 'bg-white/15' },
-              { key: 'formularios', label: 'Formulários', icon: <ClipboardList size={13} />,  bg: 'bg-white/15' },
-              { key: 'documentos',  label: 'Docs',        icon: <FolderOpen size={13} />,     bg: 'bg-white/15' },
-              { key: 'ferramentas', label: 'Ferramentas', icon: <Boxes size={13} />,          bg: 'bg-white/15' },
-              { key: 'notas',       label: 'Notas',       icon: <StickyNote size={13} />,     bg: 'bg-white/15' },
+              { key: 'agenda',      label: 'Agenda',      icon: <Calendar size={13} /> },
+              { key: 'prontuario',  label: 'Prontuário',  icon: <FileText size={13} /> },
+              { key: 'neuro',       label: 'Neuro',       icon: <BrainCircuit size={13} /> },
+              { key: 'formularios', label: 'Formulários', icon: <ClipboardList size={13} /> },
+              { key: 'documentos',  label: 'Docs',        icon: <FolderOpen size={13} /> },
+              { key: 'ferramentas', label: 'Ferramentas', icon: <Boxes size={13} /> },
+              { key: 'notas',       label: 'Notas',       icon: <StickyNote size={13} /> },
             ].map(item => (
-              <div key={item.key} className="bg-white/15 backdrop-blur rounded-xl p-2 text-center text-white">
-                <div className="flex justify-center mb-1 opacity-80">{item.icon}</div>
+              <div key={item.key} className="bg-white/10 border border-white/10 backdrop-blur rounded-xl p-2 text-center text-white transition-colors hover:bg-white/15">
+                <div className="flex justify-center mb-1 text-violet-200">{item.icon}</div>
                 <div className="text-base font-black leading-none">
                   {summary[item.key] === null || summary[item.key] === undefined ? '—' : summary[item.key]}
                 </div>
-                <div className="text-[9px] font-bold opacity-60 uppercase tracking-wide mt-1 leading-tight">{item.label}</div>
+                <div className="text-[9px] font-bold text-white/60 uppercase tracking-wide mt-1 leading-tight">{item.label}</div>
               </div>
             ))}
           </div>

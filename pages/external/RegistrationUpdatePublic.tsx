@@ -1,12 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  User, Mail, Phone, Briefcase, IdCard, Calendar, MapPin, Home, ShieldCheck,
-  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft,
+  User, Mail, Phone, Briefcase, IdCard, MapPin, Home, ShieldCheck,
+  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, ChevronDown,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { fetchAddressByCep, applyCepMask } from '../../src/lib/cep';
+import { DatePicker } from '../../components/UI/DatePicker';
 import logoUrl from '../../images/logo-sistema/logo.png';
+
+const COUNTRY_CODES = [
+  { code: 'BR', dial: '55', flag: '🇧🇷' },
+  { code: 'PT', dial: '351', flag: '🇵🇹' },
+  { code: 'US', dial: '1', flag: '🇺🇸' },
+];
+
+function applyCpfMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
+function applyPhoneMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 
 interface PatientData {
   id: number;
@@ -55,6 +78,8 @@ export const RegistrationUpdatePublic: React.FC = () => {
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const [phoneCountry, setPhoneCountry] = useState(COUNTRY_CODES[0]);
+  const [countryMenuOpen, setCountryMenuOpen] = useState(false);
 
   const [form, setForm] = useState<PatientData>({
     id: 0, name: '', email: '', phone: '', profession: '', cpf: '', birth_date: '', gender: '',
@@ -70,7 +95,13 @@ export const RegistrationUpdatePublic: React.FC = () => {
     api.get(`/public-profile/cadastro/validate?t=${token}`)
       .then((data: any) => {
         setProfessionalName(data.professional_name || null);
-        setForm(prev => ({ ...prev, ...data.patient }));
+        const patient = data.patient || {};
+        setForm(prev => ({
+          ...prev,
+          ...patient,
+          cpf: applyCpfMask(patient.cpf || ''),
+          phone: applyPhoneMask(patient.phone || ''),
+        }));
         setStep('form');
       })
       .catch((err: any) => {
@@ -98,7 +129,7 @@ export const RegistrationUpdatePublic: React.FC = () => {
     try {
       await api.post(`/public-profile/cadastro/submit?t=${token}`, {
         name: form.name, email: form.email, phone: form.phone, profession: form.profession,
-        cpf: form.cpf, birth_date: form.birth_date, gender: form.gender,
+        cpf: form.cpf, birth_date: form.birth_date ? form.birth_date.slice(0, 10) : null, gender: form.gender,
         street: form.street, house_number: form.house_number, neighborhood: form.neighborhood,
         city: form.city, state: form.state, zip_code: form.zip_code,
         health_plan: form.health_plan,
@@ -198,17 +229,53 @@ export const RegistrationUpdatePublic: React.FC = () => {
                 <Field label="E-mail" icon={<Mail size={15} />}>
                   <input type="email" className={inputCls} value={form.email || ''} onChange={e => setField('email', e.target.value)} placeholder="seu@email.com" />
                 </Field>
-                <Field label="Telefone" icon={<Phone size={15} />}>
-                  <input className={inputCls} value={form.phone || ''} onChange={e => setField('phone', e.target.value)} placeholder="(00) 00000-0000" />
-                </Field>
+                <div>
+                  <label className={labelCls}>Telefone</label>
+                  <div className="relative flex gap-1.5">
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setCountryMenuOpen(o => !o)}
+                        className="h-full flex items-center gap-1 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700"
+                      >
+                        <span className="text-base leading-none">{phoneCountry.flag}</span>
+                        +{phoneCountry.dial}
+                        <ChevronDown size={13} className="text-slate-400" />
+                      </button>
+                      {countryMenuOpen && (
+                        <div className="absolute z-20 top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden min-w-[110px]">
+                          {COUNTRY_CODES.map(c => (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => { setPhoneCountry(c); setCountryMenuOpen(false); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 text-left"
+                            >
+                              <span className="text-base leading-none">{c.flag}</span> +{c.dial}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="relative flex-1">
+                      <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input className={inputCls} value={form.phone || ''} onChange={e => setField('phone', applyPhoneMask(e.target.value))} placeholder="(00) 00000-0000" />
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="CPF" icon={<IdCard size={15} />}>
-                  <input className={inputCls} value={form.cpf || ''} onChange={e => setField('cpf', e.target.value)} placeholder="CPF (somente números)" />
+                  <input className={inputCls} value={form.cpf || ''} onChange={e => setField('cpf', applyCpfMask(e.target.value))} placeholder="000.000.000-00" />
                 </Field>
-                <Field label="Data de nascimento" icon={<Calendar size={15} />}>
-                  <input type="date" className={inputCls} value={form.birth_date ? form.birth_date.slice(0, 10) : ''} onChange={e => setField('birth_date', e.target.value)} />
-                </Field>
+                <div>
+                  <label className={labelCls}>Data de nascimento</label>
+                  <DatePicker
+                    value={form.birth_date ? form.birth_date.slice(0, 10) : null}
+                    onChange={v => setField('birth_date', v || '')}
+                    placeholder="Selecione a data"
+                  />
+                </div>
               </div>
               <Field label="Gênero" icon={<User size={15} />}>
                 <select className={inputCls} value={form.gender || ''} onChange={e => setField('gender', e.target.value)}>

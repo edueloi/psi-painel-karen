@@ -785,18 +785,16 @@ export const Dashboard: React.FC = () => {
         <div
           className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm"
           style={{
-            background: trialBanner <= 3
-              ? 'linear-gradient(90deg, #7f1d1d22, #991b1b18)'
-              : 'linear-gradient(90deg, #1e1b4b33, #312e8133)',
-            border: `1px solid ${trialBanner <= 3 ? 'rgba(239,68,68,0.35)' : 'rgba(99,85,216,0.35)'}`,
+            background: trialBanner <= 3 ? '#FEF2F2' : '#F4F0FF',
+            border: `1px solid ${trialBanner <= 3 ? '#FECACA' : '#DDD1FE'}`,
           }}
         >
           <div className="flex items-center gap-2">
             <Zap
               size={16}
-              style={{ color: trialBanner <= 3 ? '#f87171' : '#a78bfa', flexShrink: 0 }}
+              style={{ color: trialBanner <= 3 ? '#DC2626' : '#6D42F5', flexShrink: 0 }}
             />
-            <span style={{ color: trialBanner <= 3 ? '#fca5a5' : '#c4b5fd' }}>
+            <span className="font-medium" style={{ color: trialBanner <= 3 ? '#991B1B' : '#3D1D97' }}>
               {trialBanner <= 3
                 ? `Seu período de teste expira em ${trialBanner} dia${trialBanner === 1 ? '' : 's'}. Assine para não perder o acesso.`
                 : `Você está no período de teste gratuito — ${trialBanner} dia${trialBanner === 1 ? '' : 's'} restante${trialBanner === 1 ? '' : 's'}.`
@@ -805,9 +803,9 @@ export const Dashboard: React.FC = () => {
           </div>
           <button
             onClick={() => navigate('/assinatura')}
-            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
             style={{
-              background: trialBanner <= 3 ? '#dc2626' : '#6355D8',
+              background: trialBanner <= 3 ? '#DC2626' : '#6D42F5',
               color: '#fff',
             }}
           >
@@ -845,11 +843,11 @@ export const Dashboard: React.FC = () => {
       />
 
       <PanelCard
-        className="overflow-hidden border-[#1f496d]/10 bg-gradient-to-br from-[#143a59] via-[#295b85] to-[#2a74ac] text-white shadow-[0_16px_40px_rgba(20,58,89,0.18)]"
+        className="overflow-hidden border-[#2A1F6B]/20 bg-gradient-to-br from-[#150F2E] via-[#2A1F6B] to-[#5C2FE0] text-white shadow-[0_16px_40px_rgba(18,12,46,0.25)]"
         contentClassName="relative p-4 sm:p-5"
       >
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_60%)]" />
-        <div className="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_60%)]" />
+        <div className="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-violet-300/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl space-y-3">
@@ -871,10 +869,10 @@ export const Dashboard: React.FC = () => {
             <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
               <div className="flex items-start gap-2.5">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10">
-                  <Sparkles size={15} className="text-cyan-100" />
+                  <Sparkles size={15} className="text-violet-200" />
                 </div>
                 <div className="space-y-0.5 min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/90">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200/90">
                     Insights do dia
                   </p>
                   <p className="text-xs leading-relaxed text-white/90">{insightMessage}</p>
@@ -885,7 +883,7 @@ export const Dashboard: React.FC = () => {
 
           <div className="grid gap-2.5 sm:grid-cols-2 xl:w-[320px]">
             <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/90">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200/90">
                 Próximo atendimento
               </p>
               <p className="mt-1.5 text-sm font-black leading-tight text-white truncate">
@@ -902,7 +900,7 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/90">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200/90">
                 Pendências
               </p>
               <p className="mt-1.5 text-xl font-black leading-none text-white">{pendingTodosCount}</p>

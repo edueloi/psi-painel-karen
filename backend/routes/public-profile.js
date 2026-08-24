@@ -722,7 +722,13 @@ router.post('/cadastro/submit', async (req, res) => {
     const body = req.body || {};
     const updates = {};
     for (const k of allowed) {
-      if (body[k] !== undefined) updates[k] = body[k] === '' ? null : body[k];
+      if (body[k] === undefined) continue;
+      let v = body[k] === '' ? null : body[k];
+      // birth_date é coluna DATE — truncar para YYYY-MM-DD evita erro do MySQL
+      // ao receber um ISO completo com hora/timezone (ex: prefill não editado
+      // pelo paciente, que volta como veio do GET /validate).
+      if (k === 'birth_date' && typeof v === 'string') v = v.slice(0, 10);
+      updates[k] = v;
     }
     if (Object.keys(updates).length) {
       const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');

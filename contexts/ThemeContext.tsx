@@ -22,7 +22,11 @@ const THEME_COLORS_VARS: Record<string, Record<string, string>> = {
   // salva desses usuários — ver THEME_COLORS em pages/Settings.tsx para as
   // paletas atuais expostas na UI.
   PsiFlux: { '50': '#ecfdf5', '100': '#d1fae5', '200': '#a3e8c4', '300': '#6bcf9c', '400': '#3aab74', '500': '#1f8a5b', '600': '#0f6e46', '700': '#0b5738', '800': '#0a462e', '900': '#083a27' },
-  Indigo: { '50': '#eef2ff', '100': '#e0e7ff', '200': '#c7d2fe', '300': '#a5b4fc', '400': '#818cf8', '500': '#6366f1', '600': '#4f46e5', '700': '#4338ca', '800': '#3730a3', '900': '#312e81' },
+  // Roxo Plaelo — tom da marca (ver logo), usado como default do app (fallback
+  // quando o usuário não tem primaryColor salvo). Chave 'Indigo' mantida pelo
+  // mesmo motivo do 'PsiFlux' acima: é o valor já persistido para quem nunca
+  // trocou de cor — só os tons mudaram, não a chave.
+  Indigo: { '50': '#F4F0FF', '100': '#EFE9FF', '200': '#DDD1FE', '300': '#BCA3FC', '400': '#9670F9', '500': '#6D42F5', '600': '#5C2FE0', '700': '#4B23BD', '800': '#3D1D97', '900': '#2F1670' },
   Emerald: { '50': '#ecfdf5', '100': '#d1fae5', '200': '#a7f3d0', '300': '#6ee7b7', '400': '#34d399', '500': '#10b981', '600': '#059669', '700': '#047857', '800': '#065f46', '900': '#064e3b' },
   Rose: { '50': '#fff1f2', '100': '#ffe4e6', '200': '#fecdd3', '300': '#fda4af', '400': '#fb7185', '500': '#f43f5e', '600': '#e11d48', '700': '#be123c', '800': '#9f1239', '900': '#881337' },
   Amber: { '50': '#fffbeb', '100': '#fef3c7', '200': '#fde68a', '300': '#fcd34d', '400': '#fbbf24', '500': '#f59e0b', '600': '#d97706', '700': '#b45309', '800': '#92400e', '900': '#78350f' },
