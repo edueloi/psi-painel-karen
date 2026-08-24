@@ -5,8 +5,7 @@ import {
   FileText, MapPin, Home, Briefcase, Stethoscope,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import logoUrl from '../images/logo-psiflux.png';
-import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
+import logoUrl from '../images/logo-sistema/logo.png';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
 import { Combobox } from '../components/UI/Combobox';
@@ -32,12 +31,12 @@ const BrainIllustration = () => (
         <stop offset="100%" stopColor="#8B7CF6" stopOpacity="0" />
       </radialGradient>
       <radialGradient id="rg-glow2" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#6355D8" stopOpacity="0.25" />
-        <stop offset="100%" stopColor="#6355D8" stopOpacity="0" />
+        <stop offset="0%" stopColor="#6D42F5" stopOpacity="0.25" />
+        <stop offset="100%" stopColor="#6D42F5" stopOpacity="0" />
       </radialGradient>
       <radialGradient id="rg-orb" cx="50%" cy="50%" r="50%">
         <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.9" />
-        <stop offset="60%" stopColor="#6355D8" stopOpacity="0.7" />
+        <stop offset="60%" stopColor="#6D42F5" stopOpacity="0.7" />
         <stop offset="100%" stopColor="#4338CA" stopOpacity="0.4" />
       </radialGradient>
       <filter id="reg-blur1"><feGaussianBlur stdDeviation="18" /></filter>
@@ -52,18 +51,18 @@ const BrainIllustration = () => (
     <ellipse cx="180" cy="160" rx="120" ry="100" fill="url(#rg-glow2)" filter="url(#reg-blur1)" />
     <ellipse cx="360" cy="320" rx="100" ry="90" fill="url(#rg-glow2)" filter="url(#reg-blur1)" />
     {/* Outer ring connections */}
-    <line x1="140" y1="130" x2="210" y2="100" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="210" y1="100" x2="290" y2="90" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="290" y1="90" x2="370" y2="120" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.4" />
+    <line x1="140" y1="130" x2="210" y2="100" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="210" y1="100" x2="290" y2="90" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="290" y1="90" x2="370" y2="120" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.4" />
     <line x1="370" y1="120" x2="400" y2="190" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.5" />
     <line x1="400" y1="190" x2="390" y2="270" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
     <line x1="390" y1="270" x2="360" y2="350" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
     <line x1="360" y1="350" x2="290" y2="390" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
     <line x1="290" y1="390" x2="210" y2="380" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
     <line x1="210" y1="380" x2="145" y2="340" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="145" y1="340" x2="120" y2="265" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="120" y1="265" x2="130" y2="190" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="130" y1="190" x2="140" y2="130" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="145" y1="340" x2="120" y2="265" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="120" y1="265" x2="130" y2="190" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
+    <line x1="130" y1="190" x2="140" y2="130" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
     {/* Inner ring */}
     <line x1="200" y1="165" x2="260" y2="160" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
     <line x1="260" y1="160" x2="330" y2="180" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
@@ -83,30 +82,30 @@ const BrainIllustration = () => (
     <line x1="175" y1="300" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
     <line x1="170" y1="230" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
     {/* Cross connections */}
-    <line x1="140" y1="130" x2="200" y2="165" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="210" y1="100" x2="260" y2="160" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="370" y1="120" x2="330" y2="180" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="140" y1="130" x2="200" y2="165" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="210" y1="100" x2="260" y2="160" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="370" y1="120" x2="330" y2="180" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
     <line x1="400" y1="190" x2="340" y2="250" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
     <line x1="360" y1="350" x2="310" y2="320" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
     <line x1="210" y1="380" x2="240" y2="330" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="120" y1="265" x2="170" y2="230" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="145" y1="340" x2="175" y2="300" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="120" y1="265" x2="170" y2="230" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
+    <line x1="145" y1="340" x2="175" y2="300" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
     {/* Hexagons */}
-    <polygon points="260,195 280,207 280,231 260,243 240,231 240,207" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.3" fill="none" />
+    <polygon points="260,195 280,207 280,231 260,243 240,231 240,207" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.3" fill="none" />
     <polygon points="260,140 290,157 290,191 260,208 230,191 230,157" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.2" fill="none" />
     {/* Outer nodes */}
-    <circle cx="140" cy="130" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="210" cy="100" r="8" fill="#6355D8" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="290" cy="90" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="370" cy="120" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="400" cy="190" r="9" fill="#6355D8" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
-    <circle cx="390" cy="270" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="360" cy="350" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="290" cy="390" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="210" cy="380" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="145" cy="340" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="120" cy="265" r="8" fill="#6355D8" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="130" cy="190" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="140" cy="130" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="210" cy="100" r="8" fill="#6D42F5" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="290" cy="90" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="370" cy="120" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="400" cy="190" r="9" fill="#6D42F5" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
+    <circle cx="390" cy="270" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="360" cy="350" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
+    <circle cx="290" cy="390" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="210" cy="380" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
+    <circle cx="145" cy="340" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
+    <circle cx="120" cy="265" r="8" fill="#6D42F5" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
+    <circle cx="130" cy="190" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
     {/* Inner nodes */}
     <circle cx="200" cy="165" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
     <circle cx="260" cy="160" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
@@ -132,7 +131,7 @@ const BrainIllustration = () => (
     <circle cx="200" cy="165" r="15" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.25" fill="none" />
     <circle cx="310" cy="320" r="15" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.25" fill="none" />
     <circle cx="260" cy="245" r="36" stroke="#8B7CF6" strokeWidth="1.5" strokeOpacity="0.2" fill="none" />
-    <circle cx="260" cy="245" r="50" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.12" fill="none" />
+    <circle cx="260" cy="245" r="50" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.12" fill="none" />
   </svg>
 );
 
@@ -234,7 +233,7 @@ const PillGroup: React.FC<PillGroupProps> = ({ label, items, selected, onToggle 
       {selected.length > 0 && (
         <span
           className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-          style={{ background: 'rgba(99,85,216,0.12)', color: '#6355D8' }}
+          style={{ background: 'rgba(99,85,216,0.12)', color: '#6D42F5' }}
         >
           {selected.length}
         </span>
@@ -252,11 +251,11 @@ const PillGroup: React.FC<PillGroupProps> = ({ label, items, selected, onToggle 
             style={
               active
                 ? {
-                    background: '#6355D8',
-                    borderColor: '#6355D8',
+                    background: '#6D42F5',
+                    borderColor: '#6D42F5',
                     color: '#fff',
                     boxShadow: '0 2px 8px rgba(99,85,216,0.30)',
-                    focusRingColor: '#6355D8',
+                    focusRingColor: '#6D42F5',
                   }
                 : {
                     background: '#fff',
@@ -445,7 +444,7 @@ export const Register: React.FC = () => {
 
   // ── Shared input class ─────────────────────────────────────────────────────
   const inputCls =
-    'w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6355D8] focus:ring-2 focus:ring-[#6355D8]/15 transition-all duration-200';
+    'w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200';
 
   // ── Accent button ──────────────────────────────────────────────────────────
   const accentBtn =
@@ -473,16 +472,15 @@ export const Register: React.FC = () => {
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3 p-10">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10 shadow-2xl">
-            <img src={logoDarkUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+          <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10 shadow-2xl bg-white p-2">
+            <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h1 className="font-bold text-[26px] leading-none tracking-tight" style={{ fontWeight: 900 }}>
-              <span style={{ color: '#E0DEFF' }}>Psi</span>
-              <span style={{ color: '#A78BFA' }}>Flux</span>
+            <h1 className="font-bold text-[26px] leading-none tracking-tight" style={{ fontWeight: 900, color: '#E0DEFF' }}>
+              Plaelo
             </h1>
             <p className="text-[11px] font-medium tracking-wide mt-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>
-              Onde o seu consultório flui.
+              Conectando cuidado e gestão.
             </p>
           </div>
         </div>
@@ -529,15 +527,12 @@ export const Register: React.FC = () => {
 
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md ring-2 ring-slate-100 flex-shrink-0">
-              <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md ring-2 ring-slate-100 flex-shrink-0 bg-white">
+              <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <p className="font-bold text-[20px] tracking-tight leading-none">
-                <span style={{ color: '#1e295b' }}>Psi</span>
-                <span style={{ color: '#00bcd4' }}>Flux</span>
-              </p>
-              <p className="text-slate-400 text-[10px] mt-0.5 font-medium">Onde o seu consultório flui.</p>
+              <p className="font-bold text-[20px] tracking-tight leading-none" style={{ color: '#1e295b' }}>Plaelo</p>
+              <p className="text-slate-400 text-[10px] mt-0.5 font-medium">Conectando cuidado e gestão.</p>
             </div>
           </div>
 
@@ -551,9 +546,9 @@ export const Register: React.FC = () => {
                       className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300"
                       style={
                         i < step
-                          ? { background: '#6355D8', color: '#fff' }
+                          ? { background: '#6D42F5', color: '#fff' }
                           : i === step
-                          ? { background: '#6355D8', color: '#fff', boxShadow: '0 0 0 4px rgba(99,85,216,0.15)' }
+                          ? { background: '#6D42F5', color: '#fff', boxShadow: '0 0 0 4px rgba(99,85,216,0.15)' }
                           : { background: '#F1F5F9', color: '#94A3B8' }
                       }
                     >
@@ -569,7 +564,7 @@ export const Register: React.FC = () => {
                   {i < 4 && (
                     <div
                       className="flex-1 h-0.5 rounded-full transition-all duration-500"
-                      style={{ background: i < step ? '#6355D8' : '#E2E8F0' }}
+                      style={{ background: i < step ? '#6D42F5' : '#E2E8F0' }}
                     />
                   )}
                 </React.Fragment>
@@ -590,7 +585,7 @@ export const Register: React.FC = () => {
               <div className="space-y-4">
                 {/* Nome */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome completo</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome completo <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
@@ -604,7 +599,7 @@ export const Register: React.FC = () => {
 
                 {/* E-mail */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">E-mail profissional</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">E-mail profissional <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
@@ -618,7 +613,7 @@ export const Register: React.FC = () => {
 
                 {/* Senha */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Senha</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Senha <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
@@ -650,7 +645,7 @@ export const Register: React.FC = () => {
 
                 {/* Confirmar senha */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Confirmar senha</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Confirmar senha <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
@@ -661,7 +656,7 @@ export const Register: React.FC = () => {
                       className={`w-full pl-11 pr-12 py-3.5 rounded-xl bg-slate-50 border text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all duration-200
                         ${confirm && confirm !== password
                           ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                          : 'border-slate-200 focus:border-[#6355D8] focus:ring-[#6355D8]/15'}`}
+                          : 'border-slate-200 focus:border-[#6D42F5] focus:ring-[#6D42F5]/15'}`}
                     />
                     <button type="button" onClick={() => setShowConf(s => !s)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
@@ -677,9 +672,9 @@ export const Register: React.FC = () => {
               <button
                 onClick={goNext}
                 className={`${accentBtn} mt-7 shadow-lg`}
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
               >
                 Continuar
               </button>
@@ -688,9 +683,9 @@ export const Register: React.FC = () => {
                 Já tem conta?{' '}
                 <button onClick={() => navigate('/login')}
                   className="font-semibold transition-colors"
-                  style={{ color: '#6355D8' }}
+                  style={{ color: '#6D42F5' }}
                   onMouseEnter={e => (e.currentTarget.style.color = '#5447C4')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#6355D8')}>
+                  onMouseLeave={e => (e.currentTarget.style.color = '#6D42F5')}>
                   Entrar
                 </button>
               </p>
@@ -714,7 +709,7 @@ export const Register: React.FC = () => {
 
               <div className="space-y-5">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Área de atuação</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Área de atuação <span className="text-red-500">*</span></label>
                   <Combobox
                     options={areas.map(a => ({ value: String(a.id), label: a.name, group: a.category }))}
                     value={professionalAreaId}
@@ -739,7 +734,7 @@ export const Register: React.FC = () => {
                         className="flex flex-col items-center gap-2 rounded-xl border py-4 transition-all duration-150"
                         style={
                           accountType === opt.value
-                            ? { background: 'rgba(99,85,216,0.06)', borderColor: '#6355D8', color: '#6355D8' }
+                            ? { background: 'rgba(99,85,216,0.06)', borderColor: '#6D42F5', color: '#6D42F5' }
                             : { background: '#fff', borderColor: '#E2E8F0', color: '#64748B' }
                         }
                       >
@@ -752,7 +747,7 @@ export const Register: React.FC = () => {
 
                 {accountType === 'clinica' && (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome da clínica</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome da clínica <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <Building2 size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       <input
@@ -768,9 +763,9 @@ export const Register: React.FC = () => {
               <button
                 onClick={goNext}
                 className={`${accentBtn} mt-7 shadow-lg`}
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
               >
                 Continuar
               </button>
@@ -829,7 +824,7 @@ export const Register: React.FC = () => {
 
                 {/* Telefone */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Telefone / WhatsApp</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Telefone / WhatsApp <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
@@ -878,7 +873,7 @@ export const Register: React.FC = () => {
                       value={bio} onChange={e => setBio(e.target.value)}
                       placeholder="Conte um pouco sobre você e sua abordagem…"
                       rows={3}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6355D8] focus:ring-2 focus:ring-[#6355D8]/15 transition-all duration-200 resize-none"
+                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200 resize-none"
                     />
                   </div>
                 </div>
@@ -917,9 +912,9 @@ export const Register: React.FC = () => {
               <button
                 onClick={goNext}
                 className={`${accentBtn} mt-7 shadow-lg`}
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
               >
                 Continuar
               </button>
@@ -1027,9 +1022,9 @@ export const Register: React.FC = () => {
               <button
                 onClick={goNext}
                 className={`${accentBtn} mt-7 shadow-lg`}
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
               >
                 Continuar
               </button>
@@ -1056,12 +1051,12 @@ export const Register: React.FC = () => {
               <p className="text-xs text-slate-400 mt-6 leading-relaxed">
                 Ao criar sua conta você concorda com os{' '}
                 <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer"
-                  className="hover:underline transition-colors" style={{ color: '#6355D8' }}>
+                  className="hover:underline transition-colors" style={{ color: '#6D42F5' }}>
                   Termos de Uso
                 </a>{' '}
                 e a{' '}
                 <a href="/politica-privacidade" target="_blank" rel="noopener noreferrer"
-                  className="hover:underline transition-colors" style={{ color: '#6355D8' }}>
+                  className="hover:underline transition-colors" style={{ color: '#6D42F5' }}>
                   Política de Privacidade
                 </a>.
               </p>
@@ -1070,9 +1065,9 @@ export const Register: React.FC = () => {
                 onClick={goNext}
                 disabled={loading}
                 className={`${accentBtn} mt-5 shadow-lg`}
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#5447C4'; }}
-                onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#6355D8'; }}
+                onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#6D42F5'; }}
               >
                 {loading
                   ? <><Loader2 size={16} className="animate-spin" /> Criando conta…</>
@@ -1094,7 +1089,7 @@ export const Register: React.FC = () => {
               {/* Success circle */}
               <div
                 className="w-24 h-24 rounded-3xl flex items-center justify-center mb-6 shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #7C6FF7 0%, #6355D8 100%)', boxShadow: '0 8px 32px rgba(99,85,216,0.35)' }}
+                style={{ background: 'linear-gradient(135deg, #7C6FF7 0%, #6D42F5 100%)', boxShadow: '0 8px 32px rgba(99,85,216,0.35)' }}
               >
                 <CheckCircle2 size={44} className="text-white" />
               </div>
@@ -1103,7 +1098,7 @@ export const Register: React.FC = () => {
                 Conta criada!
               </h2>
               <p className="text-slate-500 text-sm max-w-xs mx-auto mb-2 leading-relaxed">
-                Bem-vindo ao PsiFlux,{' '}
+                Bem-vindo à Plaelo,{' '}
                 <span className="font-bold text-slate-800">{firstName}</span>! 🌟
               </p>
               <p className="text-slate-400 text-sm max-w-xs mx-auto mb-8 leading-relaxed">
@@ -1119,7 +1114,7 @@ export const Register: React.FC = () => {
                     style={{
                       background: 'rgba(99,85,216,0.07)',
                       borderColor: 'rgba(99,85,216,0.20)',
-                      color: '#6355D8',
+                      color: '#6D42F5',
                     }}
                   >
                     {feat}
@@ -1130,9 +1125,9 @@ export const Register: React.FC = () => {
               <button
                 onClick={() => navigate('/login')}
                 className={`${accentBtn} shadow-lg`}
-                style={{ background: '#6355D8', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
+                style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#6355D8')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
               >
                 Ir para o login
               </button>

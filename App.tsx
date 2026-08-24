@@ -9,7 +9,10 @@ import { Sidebar } from './components/Layout/Sidebar';
 import { Topbar } from './components/Layout/Topbar';
 import { AuroraAssistant } from './components/AI/AuroraAssistant';
 import { OnboardingController } from './components/Onboarding/OnboardingController';
-import { LandingPage } from './pages/LandingPage';
+import { Home } from './pages/public/Home';
+import { Funcionalidades } from './pages/public/Funcionalidades';
+import { Planos } from './pages/public/Planos';
+import { Sobre } from './pages/public/Sobre';
 import { Login } from './components/Auth/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
@@ -67,6 +70,7 @@ import { SNAPIVPage } from '@/pages/clinical-tools/SNAPIVProfessional';
 import { MCHATPublic } from '@/pages/external/MCHATPublic';
 import { MCHATPage } from '@/pages/clinical-tools/MCHATProfessional';
 import { AnamnesisPublic } from '@/pages/external/AnamnesisPublic';
+import { RegistrationUpdatePublic } from '@/pages/external/RegistrationUpdatePublic';
 import { ContractPublic } from '@/pages/external/ContractPublic';
 import { Records } from './pages/Records';
 import { CaseStudies } from './pages/CaseStudies';
@@ -93,8 +97,7 @@ import { Terms } from './pages/Terms';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Help } from './pages/Help';
 import { Assinatura } from './pages/Assinatura';
-import logoUrl from './images/logo-psiflux.png';
-import logoDarkUrl from './images/logopsiflux-para-fundo-escuro.png';
+import logoUrl from './images/logo-sistema/logo.png';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 import { api } from './services/api';
 
@@ -277,7 +280,7 @@ const RedirectToSala: React.FC = () => {
 };
 
 // painel.psiflux.com.br serve o mesmo build de psiflux.com.br — a raiz "/"
-// deve abrir o sistema (dashboard/login) ali, não a landing page do site.
+// deve abrir o sistema (dashboard/login) ali, não o site institucional.
 const IS_PAINEL_HOST = typeof window !== 'undefined' && window.location.hostname === 'painel.psiflux.com.br';
 
 const AppRoutes: React.FC = () => {
@@ -294,8 +297,8 @@ const AppRoutes: React.FC = () => {
         <div className="relative z-10 flex flex-col items-center">
           <div className="relative mb-12 transform-gpu hover:scale-105 transition-transform duration-700">
             <div className={`absolute -inset-10 rounded-full blur-3xl animate-pulse ${isDark ? 'bg-indigo-500/20' : 'bg-indigo-500/10'}`} />
-            <div className={`w-32 h-32 rounded-[2.5rem] shadow-[0_20px_50px_rgba(79,70,229,0.15)] flex items-center justify-center p-2 relative z-10 ring-1 ${isDark ? 'bg-slate-900 ring-slate-800' : 'bg-white ring-slate-100/50'}`}>
-               <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+            <div className={`w-32 h-32 rounded-[2.5rem] shadow-[0_20px_50px_rgba(79,70,229,0.15)] flex items-center justify-center p-2 relative z-10 ring-1 bg-white ${isDark ? 'ring-slate-800' : 'ring-slate-100/50'}`}>
+               <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div className={`absolute -inset-2 border rounded-[2.8rem] animate-[spin_8s_linear_infinite] ${isDark ? 'border-indigo-500/30' : 'border-indigo-200/50'}`} />
           </div>
@@ -323,7 +326,10 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
-      <Route path="/" element={IS_PAINEL_HOST ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+      <Route path="/" element={IS_PAINEL_HOST ? <Navigate to="/dashboard" replace /> : <Home />} />
+      <Route path="/funcionalidades" element={<Funcionalidades />} />
+      <Route path="/planos" element={<Planos />} />
+      <Route path="/sobre" element={<Sobre />} />
       <Route path="/login" element={<Login onLogin={() => {}} />} />
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       <Route path="/cadastro" element={<Register />} />
@@ -336,10 +342,12 @@ const AppRoutes: React.FC = () => {
       <Route path="/f/snap-iv" element={<SNAPIVPublic />} />
       <Route path="/f/m-chat-r" element={<MCHATPublic />} />
       <Route path="/f/anamnese" element={<AnamnesisPublic />} />
+      <Route path="/f/cadastro" element={<RegistrationUpdatePublic />} />
       <Route path="/f/contrato" element={<ContractPublic />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
       <Route path="/p/:slug" element={<PublicProfile />} />
-      <Route path="/encontrar-psicologo" element={<PsychologistDirectory />} />
+      <Route path="/encontrar-profissional" element={<PsychologistDirectory />} />
+      <Route path="/encontrar-psicologo" element={<Navigate to="/encontrar-profissional" replace />} />
 
       {/* Portal do Paciente */}
       <Route path="/portal" element={<PatientPortalLogin />} />

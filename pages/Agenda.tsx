@@ -271,7 +271,7 @@ export const Agenda: React.FC = () => {
       date: context?.apt?.start ? new Date(context.apt.start).toLocaleDateString('pt-BR') : '',
       time: context?.apt?.start ? new Date(context.apt.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
       service: context?.service?.name || context?.package?.name || 'Consulta',
-      clinic_name: user?.companyName || user?.name || 'PsiFlux',
+      clinic_name: user?.companyName || user?.name || 'Plaelo',
       session_info: context?.apt?.recurrence_index ? `Sessão ${context.apt.recurrence_index} de ${context.apt.recurrence_count || ''}` : '',
       package_name: context?.package?.name || '',
       amount: String(context?.comanda?.totalValue || context?.comanda?.total || '').replace('.', ','),
@@ -925,7 +925,7 @@ export const Agenda: React.FC = () => {
             <thead>${headersHtml}</thead>
             <tbody>${rowsHtml}</tbody>
           </table>
-          ${isLastPage ? `<div style="margin-top:20px;font-size:10px;color:#94a3b8;text-align:right;">Gerado em ${now} · PsiFlux${profName ? ` · ${profName}` : ''}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
+          ${isLastPage ? `<div style="margin-top:20px;font-size:10px;color:#94a3b8;text-align:right;">Gerado em ${now} · Plaelo${profName ? ` · ${profName}` : ''}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
         `;
 
         document.body.appendChild(container);

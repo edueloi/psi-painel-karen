@@ -465,7 +465,7 @@ export const MCHATPage: React.FC = () => {
 
 <!-- FOOTER -->
 <div style="border-top:1px solid #f1f5f9;padding:16px 40px;display:flex;justify-content:space-between;align-items:center">
-  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;text-transform:uppercase;letter-spacing:.1em">PsiFlux · Tecnologia para Prática Clínica</p>
+  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;text-transform:uppercase;letter-spacing:.1em">Plaelo · Tecnologia para Prática Clínica</p>
   <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600">Gerado em ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
 </div>
 
@@ -489,7 +489,7 @@ export const MCHATPage: React.FC = () => {
     const analysis = getClinicalAnalysis(result.scores);
     const interp = getInterpretation(result.scores.total);
     const dateStr = new Date(result.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-    const systemName = 'PsiFlux · Tecnologia para Prática Clínica';
+    const systemName = 'Plaelo · Tecnologia para Prática Clínica';
 
     const colorMap: Record<string, [number, number, number]> = {
       'Baixo Risco': [16, 185, 129],

@@ -14,7 +14,7 @@ interface TourStep {
 const ALL_STEPS: TourStep[] = [
   {
     title: 'Sua clínica começa aqui!',
-    description: 'O PsiFlux foi projetado para ser intuitivo. Vamos dar uma volta rápida pelos principais recursos para você se sentir em casa.',
+    description: 'O Plaelo foi projetado para ser intuitivo. Vamos dar uma volta rápida pelos principais recursos para você se sentir em casa.',
     position: 'center',
     emoji: '🚀',
   },
@@ -84,7 +84,7 @@ const ALL_STEPS: TourStep[] = [
   },
   {
     title: 'Tudo pronto!',
-    description: 'Você conhece os principais recursos do PsiFlux. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda). Bom trabalho! 🎉',
+    description: 'Você conhece os principais recursos do Plaelo. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda). Bom trabalho! 🎉',
     position: 'center',
     emoji: '🎉',
   },
@@ -113,7 +113,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
     // Ajusta o texto final se não houver Aurora
     const last = filtered[filtered.length - 1];
     if (last && last.title === 'Tudo pronto!' && user?.plan_features?.includes('aurora_ai')) {
-      last.description = 'Você conhece os principais recursos do PsiFlux. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda) ou converse com a Aurora a qualquer momento. Bom trabalho! 🎉';
+      last.description = 'Você conhece os principais recursos do Plaelo. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda) ou converse com a Aurora a qualquer momento. Bom trabalho! 🎉';
     }
 
     return filtered;

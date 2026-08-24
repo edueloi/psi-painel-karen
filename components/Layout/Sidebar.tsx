@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { NAV_SECTIONS } from '../../constants';
 import { LogOut, ShieldAlert, ChevronDown, LayoutGrid } from 'lucide-react';
-import logoUrl from '../../images/logo-psiflux.png';
+import logoUrl from '../../images/logo-sistema/logo.png';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -165,15 +165,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
         <div className={`h-[88px] flex items-center px-5 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
           <div className="flex items-center gap-3">
             <div className="h-[60px] w-[60px] rounded-2xl overflow-hidden shadow-md flex-shrink-0 bg-white ring-2 ring-white/80">
-              <img src={logoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+              <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-xl leading-none tracking-tight flex items-baseline">
-                <span className={isDark ? 'text-slate-100' : 'text-[#1e295b]'}>Psi</span>
-                <span className="text-[#00bcd4]">Flux</span>
+              <h1 className={`font-display font-bold text-xl leading-none tracking-tight ${isDark ? 'text-slate-100' : 'text-[#1e295b]'}`}>
+                Plaelo
               </h1>
               <span className={`text-[10px] whitespace-nowrap font-medium ${isDark ? 'text-slate-400' : 'text-[#1e295b]'} tracking-tight opacity-60`}>
-                Onde o seu consultório flui.
+                Conectando cuidado e gestão.
               </span>
             </div>
           </div>

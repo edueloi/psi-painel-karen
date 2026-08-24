@@ -49,7 +49,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ userName, onStartTou
               Olá, {firstName}! 👋
             </h1>
             <p className="text-indigo-200 text-sm sm:text-base max-w-sm mx-auto">
-              Seja bem-vindo(a) ao <span className="text-white font-bold">PsiFlux</span> — gestão completa do seu consultório.
+              Seja bem-vindo(a) ao <span className="text-white font-bold">Plaelo</span> — gestão completa do seu consultório.
             </p>
           </div>
         </div>

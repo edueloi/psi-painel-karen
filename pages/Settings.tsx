@@ -614,7 +614,7 @@ export const Settings: React.FC = () => {
           {/* ── NOTIFICAÇÕES ─────────────────────────────────────────────── */}
           {activeTab === 'notificacoes' && hasPermission('manage_clinic_settings') && (
             <div className="space-y-6 max-w-2xl">
-              <SectionHeader icon={<Bell size={20} />} title="Notificações por Email" desc="Configure os emails automáticos do sistema PsiFlux." />
+              <SectionHeader icon={<Bell size={20} />} title="Notificações por Email" desc="Configure os emails automáticos do sistema Plaelo." />
 
               {prefsLoading ? (
                 <div className="flex items-center justify-center py-20 text-slate-400 gap-3">
@@ -1329,7 +1329,7 @@ export const Settings: React.FC = () => {
                       icon: <Zap size={20} />,
                       color: 'bg-orange-50 text-orange-600',
                       title: 'Zapier / Webhooks',
-                      desc: 'Conecte o PsiFlux a outros sistemas via webhooks',
+                      desc: 'Conecte o Plaelo a outros sistemas via webhooks',
                     },
                   ].map(item => (
                     <div key={item.title}

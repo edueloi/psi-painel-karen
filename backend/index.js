@@ -169,6 +169,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/therapeutic-plans`, therapeuticPlansRoutes);
   app.use(`${prefix}/patient-history`, patientHistoryRoutes);
   app.use(`${prefix}/patient-portal`, require('./routes/patient-portal'));
+  app.use(`${prefix}/patient-registration`, require('./routes/patient-registration'));
   app.use(`${prefix}/backup`, require('./routes/backup'));
   app.use(`${prefix}/livekit`, livekitTokenRoutes);
   app.use(`${prefix}/infinitepay`, infinitePayRoutes);

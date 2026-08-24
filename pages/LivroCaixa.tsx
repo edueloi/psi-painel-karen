@@ -301,7 +301,7 @@ const applyBorderAll = (cell: any) => {
 const exportXLS = async (data: Transaction[], monthLabel: string, summary: { income: number; expense: number; balance: number; pending: number }) => {
   const ExcelJS = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'PsiFlux';
+  workbook.creator = 'Plaelo';
   workbook.created = new Date();
 
   // Aba 1: Resumo
@@ -521,7 +521,7 @@ const exportPDF = async (data: Transaction[], summary: { income: number; expense
     'Gerado em: ' + new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     PAGE_W - MARGIN, 15, { align: 'right' }
   );
-  doc.text('PsiFlux', PAGE_W - MARGIN, 20, { align: 'right' });
+  doc.text('Plaelo', PAGE_W - MARGIN, 20, { align: 'right' });
 
   // Cards de resumo
   const cardDefs = [

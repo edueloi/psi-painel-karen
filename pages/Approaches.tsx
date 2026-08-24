@@ -241,7 +241,7 @@ export const Approaches: React.FC = () => {
       <PageHeader
         icon={<Layers className="text-indigo-600" />}
         title="Dossiê Clânico de Epistemologia"
-        subtitle="Explore o ecossistema teórico do PsiFlux. Sua abordagem define o cérebro da nossa IA."
+        subtitle="Explore o ecossistema teórico do Plaelo. Sua abordagem define o cérebro da nossa IA."
         showBackButton
         onBackClick={() => navigate('/caixa-ferramentas')}
         containerClassName="mb-0"

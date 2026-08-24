@@ -1,139 +1,50 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, BrainCircuit, ShieldCheck, ChevronLeft, Smartphone, AlertCircle } from 'lucide-react';
-import logoUrl from '../../images/logo-psiflux.png';
-import logoDarkUrl from '../../images/logopsiflux-para-fundo-escuro.png';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Calendar, Sparkles, TrendingUp, ShieldCheck, ChevronLeft, Smartphone, AlertCircle } from 'lucide-react';
+import logoUrl from '../../images/logo-sistema/logo.png';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
-// ── Geometric Brain SVG Illustration ─────────────────────────────────────────
-const BrainIllustration = () => (
-  <svg viewBox="0 0 520 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full max-w-md mx-auto">
-    <defs>
-      <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#8B7CF6" stopOpacity="0.35" />
-        <stop offset="100%" stopColor="#8B7CF6" stopOpacity="0" />
-      </radialGradient>
-      <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#6355D8" stopOpacity="0.25" />
-        <stop offset="100%" stopColor="#6355D8" stopOpacity="0" />
-      </radialGradient>
-      <radialGradient id="orbGrad" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.9" />
-        <stop offset="60%" stopColor="#6355D8" stopOpacity="0.7" />
-        <stop offset="100%" stopColor="#4338CA" stopOpacity="0.4" />
-      </radialGradient>
-      <filter id="blur1">
-        <feGaussianBlur stdDeviation="18" />
-      </filter>
-      <filter id="blur2">
-        <feGaussianBlur stdDeviation="10" />
-      </filter>
-      <filter id="nodeglow">
-        <feGaussianBlur stdDeviation="3" result="b" />
-        <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-      </filter>
-    </defs>
+// ── Floating collage illustration (mesma linguagem visual do site público) ──
+const PlaeloIllustration = () => (
+  <div className="relative w-full max-w-md mx-auto" style={{ minHeight: 320 }}>
+    <div className="absolute rounded-3xl shadow-2xl p-5" style={{ top: 0, left: '2%', width: '68%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(6px)' }}>
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(167,139,250,0.18)', color: '#C4B5FD' }}>
+          <Calendar size={16} />
+        </div>
+        <span className="text-sm font-bold" style={{ color: '#E0DEFF' }}>Agenda de hoje</span>
+      </div>
+      {[['09:00', 'Sessão · Ana P.'], ['10:30', 'Retorno · Marcos S.'], ['14:00', 'Avaliação · Beatriz L.']].map(([time, label]) => (
+        <div key={time} className="flex gap-2.5 text-xs py-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <span style={{ color: '#A78BFA', fontWeight: 700 }}>{time}</span>
+          <span style={{ color: 'rgba(224,222,255,0.6)' }}>{label}</span>
+        </div>
+      ))}
+    </div>
 
-    {/* Ambient glow blobs */}
-    <ellipse cx="260" cy="230" rx="180" ry="160" fill="url(#glow1)" filter="url(#blur1)" />
-    <ellipse cx="180" cy="160" rx="120" ry="100" fill="url(#glow2)" filter="url(#blur1)" />
-    <ellipse cx="360" cy="320" rx="100" ry="90" fill="url(#glow2)" filter="url(#blur1)" />
+    <div className="absolute rounded-3xl shadow-2xl p-5" style={{ top: '42%', right: '0%', width: '56%', transform: 'rotate(2deg)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(6px)' }}>
+      <div className="flex items-center gap-2 mb-1.5" style={{ color: '#6EE7B7' }}>
+        <TrendingUp size={16} />
+        <span className="text-xs font-bold">Financeiro do mês</span>
+      </div>
+      <div className="text-2xl font-extrabold tracking-tight" style={{ color: '#fff' }}>R$ 18.240</div>
+      <div className="text-xs mt-0.5" style={{ color: 'rgba(224,222,255,0.5)' }}>42 atendimentos</div>
+    </div>
 
-    {/* Connection lines between nodes — drawn first so nodes appear on top */}
-    {/* Outer connections */}
-    <line x1="140" y1="130" x2="210" y2="100" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="210" y1="100" x2="290" y2="90" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="290" y1="90" x2="370" y2="120" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="370" y1="120" x2="400" y2="190" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="400" y1="190" x2="390" y2="270" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="390" y1="270" x2="360" y2="350" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="360" y1="350" x2="290" y2="390" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="290" y1="390" x2="210" y2="380" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="210" y1="380" x2="145" y2="340" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="145" y1="340" x2="120" y2="265" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="120" y1="265" x2="130" y2="190" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="130" y1="190" x2="140" y2="130" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.5" />
-
-    {/* Inner connections — first ring to center */}
-    <line x1="200" y1="165" x2="260" y2="160" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="260" y1="160" x2="330" y2="180" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="330" y1="180" x2="340" y2="250" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="340" y1="250" x2="310" y2="320" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.5" />
-    <line x1="310" y1="320" x2="240" y2="330" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.5" />
-    <line x1="240" y1="330" x2="175" y2="300" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.5" />
-    <line x1="175" y1="300" x2="170" y2="230" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="170" y1="230" x2="200" y2="165" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
-
-    {/* Radial spokes to center */}
-    <line x1="200" y1="165" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="260" y1="160" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="330" y1="180" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="340" y1="250" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="310" y1="320" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="240" y1="330" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="175" y1="300" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="170" y1="230" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
-
-    {/* Cross connections — outer to inner */}
-    <line x1="140" y1="130" x2="200" y2="165" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="210" y1="100" x2="260" y2="160" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="370" y1="120" x2="330" y2="180" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="400" y1="190" x2="340" y2="250" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="360" y1="350" x2="310" y2="320" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="210" y1="380" x2="240" y2="330" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="120" y1="265" x2="170" y2="230" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="145" y1="340" x2="175" y2="300" stroke="#6355D8" strokeWidth="0.8" strokeOpacity="0.35" />
-
-    {/* Hexagon background shapes (subtle) */}
-    <polygon points="260,195 280,207 280,231 260,243 240,231 240,207" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.3" fill="none" />
-    <polygon points="260,140 290,157 290,191 260,208 230,191 230,157" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.2" fill="none" />
-
-    {/* Outer ring nodes */}
-    <circle cx="140" cy="130" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#nodeglow)" />
-    <circle cx="210" cy="100" r="8" fill="#6355D8" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#nodeglow)" />
-    <circle cx="290" cy="90" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="370" cy="120" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#nodeglow)" />
-    <circle cx="400" cy="190" r="9" fill="#6355D8" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#nodeglow)" />
-    <circle cx="390" cy="270" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="360" cy="350" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="290" cy="390" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="210" cy="380" r="7" fill="#6355D8" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="145" cy="340" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="120" cy="265" r="8" fill="#6355D8" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#nodeglow)" />
-    <circle cx="130" cy="190" r="6" fill="#6355D8" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-
-    {/* Inner ring nodes */}
-    <circle cx="200" cy="165" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#nodeglow)" />
-    <circle cx="260" cy="160" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
-    <circle cx="330" cy="180" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#nodeglow)" />
-    <circle cx="340" cy="250" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
-    <circle cx="310" cy="320" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#nodeglow)" />
-    <circle cx="240" cy="330" r="7" fill="#8B7CF6" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="175" cy="300" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#nodeglow)" />
-    <circle cx="170" cy="230" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
-
-    {/* Center orb */}
-    <circle cx="260" cy="245" r="28" fill="url(#orbGrad)" filter="url(#blur2)" />
-    <circle cx="260" cy="245" r="20" fill="#7C6FF7" fillOpacity="0.9" stroke="#A78BFA" strokeWidth="2.5" filter="url(#nodeglow)" />
-    <circle cx="260" cy="245" r="10" fill="#C4B5FD" fillOpacity="0.6" />
-    <circle cx="255" cy="240" r="4" fill="white" fillOpacity="0.4" />
-
-    {/* Floating accent dots */}
-    <circle cx="450" cy="100" r="3" fill="#A78BFA" fillOpacity="0.5" />
-    <circle cx="465" cy="115" r="2" fill="#8B7CF6" fillOpacity="0.4" />
-    <circle cx="75" cy="400" r="3" fill="#A78BFA" fillOpacity="0.5" />
-    <circle cx="60" cy="415" r="2" fill="#8B7CF6" fillOpacity="0.4" />
-    <circle cx="460" cy="380" r="2.5" fill="#A78BFA" fillOpacity="0.4" />
-
-    {/* Small pulse rings on brightest nodes */}
-    <circle cx="400" cy="190" r="16" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.25" fill="none" />
-    <circle cx="200" cy="165" r="15" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.25" fill="none" />
-    <circle cx="310" cy="320" r="15" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.25" fill="none" />
-    <circle cx="260" cy="245" r="36" stroke="#8B7CF6" strokeWidth="1.5" strokeOpacity="0.2" fill="none" />
-    <circle cx="260" cy="245" r="50" stroke="#6355D8" strokeWidth="1" strokeOpacity="0.12" fill="none" />
-  </svg>
+    <div className="absolute rounded-3xl shadow-2xl p-5" style={{ bottom: 0, left: '12%', width: '64%', transform: 'rotate(-2deg)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(6px)' }}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(110,231,183,0.15)', color: '#6EE7B7' }}>
+          <Sparkles size={13} />
+        </div>
+        <span className="text-xs font-bold" style={{ color: '#E0DEFF' }}>Aurora IA</span>
+      </div>
+      <p className="text-xs leading-relaxed" style={{ color: 'rgba(224,222,255,0.6)' }}>
+        "Resumo da última sessão pronto para revisão."
+      </p>
+    </div>
+  </div>
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -266,30 +177,29 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       {/* ── LEFT PANEL — dark, illustrated ───────────────────────────────── */}
       <div
         className="hidden lg:flex flex-col justify-between w-[52%] relative overflow-hidden flex-shrink-0"
-        style={{ background: '#0C0B1A' }}
+        style={{ background: 'linear-gradient(160deg, #120C2E 0%, #2A1F6B 100%)' }}
       >
         {/* Background glow layers */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse 70% 60% at 40% 35%, rgba(99,85,216,0.18) 0%, transparent 70%), ' +
-              'radial-gradient(ellipse 50% 50% at 75% 70%, rgba(139,124,246,0.10) 0%, transparent 65%)',
+              'radial-gradient(ellipse 70% 60% at 40% 35%, rgba(109,66,245,0.22) 0%, transparent 70%), ' +
+              'radial-gradient(ellipse 50% 50% at 75% 70%, rgba(18,183,106,0.12) 0%, transparent 65%)',
           }}
         />
 
         {/* Top-left logo */}
         <div className="relative z-10 flex items-center gap-3 p-10">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10 shadow-2xl">
-            <img src={logoDarkUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+          <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10 shadow-2xl bg-white p-2">
+            <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h1 className="font-bold text-[26px] leading-none tracking-tight" style={{ fontWeight: 900 }}>
-              <span style={{ color: '#E0DEFF' }}>Psi</span>
-              <span style={{ color: '#A78BFA' }}>Flux</span>
+            <h1 className="font-bold text-[26px] leading-none tracking-tight" style={{ fontWeight: 900, color: '#E0DEFF' }}>
+              Plaelo
             </h1>
             <p className="text-[11px] font-medium tracking-wide mt-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>
-              Onde o seu consultório flui.
+              Conectando cuidado e gestão.
             </p>
           </div>
         </div>
@@ -297,11 +207,11 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
         {/* Center illustration */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-10 -mt-6">
           <div className="w-full max-w-[420px]">
-            <BrainIllustration />
+            <PlaeloIllustration />
           </div>
-          <div className="text-center mt-2 px-6">
+          <div className="text-center mt-8 px-6">
             <h2 className="text-xl font-bold text-white/90 tracking-tight">
-              Gestão clínica inteligente
+              Gestão para saúde mental
             </h2>
             <p className="text-sm mt-2 leading-relaxed max-w-xs mx-auto" style={{ color: 'rgba(167,139,250,0.65)' }}>
               Agenda, prontuários, financeiro e relatórios — tudo integrado para sua prática fluir.
@@ -326,18 +236,12 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
           {/* Mobile-only logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div
-              className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-indigo-100 shadow-lg"
-              style={{ background: '#0C0B1A' }}
-            >
-              <img src={logoDarkUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+            <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-indigo-100 shadow-lg bg-white p-2">
+              <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className="font-black text-[22px] leading-none tracking-tight">
-                <span style={{ color: '#1e295b' }}>Psi</span>
-                <span style={{ color: '#6355D8' }}>Flux</span>
-              </h1>
-              <p className="text-[10px] font-medium mt-0.5 text-slate-400">Onde o seu consultório flui.</p>
+              <h1 className="font-black text-[22px] leading-none tracking-tight" style={{ color: '#1e295b' }}>Plaelo</h1>
+              <p className="text-[10px] font-medium mt-0.5 text-slate-400">Conectando cuidado e gestão.</p>
             </div>
           </div>
 
@@ -355,7 +259,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                 <div className="text-center py-4">
                   <div
                     className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                    style={{ background: 'linear-gradient(135deg, #6355D8, #8B7CF6)' }}
+                    style={{ background: 'linear-gradient(135deg, #120C2E, #6D42F5)' }}
                   >
                     <Mail size={26} className="text-white" />
                   </div>
@@ -399,8 +303,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                       disabled={loading}
                       className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 active:scale-[0.99]"
                       style={{
-                        background: 'linear-gradient(135deg, #6355D8 0%, #8B7CF6 100%)',
-                        boxShadow: '0 8px 24px rgba(99,85,216,0.35)',
+                        background: 'linear-gradient(135deg, #120C2E 0%, #6D42F5 100%)',
+                        boxShadow: '0 8px 24px rgba(109,66,245,0.35)',
                       }}
                     >
                       {loading ? <><Loader2 size={15} className="animate-spin" /> Enviando...</> : 'Enviar instruções'}
@@ -423,7 +327,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
               <div className="mb-8">
                 <div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-                  style={{ background: 'linear-gradient(135deg, #6355D8, #8B7CF6)', boxShadow: '0 8px 24px rgba(99,85,216,0.3)' }}
+                  style={{ background: 'linear-gradient(135deg, #120C2E, #6D42F5)', boxShadow: '0 8px 24px rgba(18,12,46,0.35)' }}
                 >
                   <ShieldCheck size={30} className="text-white" />
                 </div>
@@ -462,8 +366,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   disabled={loading || twoFactorToken.length < 6}
                   className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
                   style={{
-                    background: 'linear-gradient(135deg, #6355D8 0%, #8B7CF6 100%)',
-                    boxShadow: '0 8px 24px rgba(99,85,216,0.35)',
+                    background: 'linear-gradient(135deg, #120C2E 0%, #6D42F5 100%)',
+                    boxShadow: '0 8px 24px rgba(109,66,245,0.35)',
                   }}
                 >
                   {loading
@@ -548,7 +452,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                     className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
                       remember ? 'border-indigo-600' : 'bg-white border-slate-300 group-hover:border-indigo-400'
                     }`}
-                    style={remember ? { background: 'linear-gradient(135deg, #6355D8, #8B7CF6)' } : {}}
+                    style={remember ? { background: 'linear-gradient(135deg, #120C2E, #6D42F5)' } : {}}
                   >
                     {remember && (
                       <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
@@ -565,8 +469,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   disabled={loading}
                   className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 active:scale-[0.99] mt-1"
                   style={{
-                    background: 'linear-gradient(135deg, #6355D8 0%, #8B7CF6 100%)',
-                    boxShadow: '0 8px 28px rgba(99,85,216,0.40)',
+                    background: 'linear-gradient(135deg, #120C2E 0%, #6D42F5 100%)',
+                    boxShadow: '0 8px 28px rgba(109,66,245,0.40)',
                   }}
                 >
                   {loading
@@ -581,7 +485,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full mb-3"
                   style={{
                     background: 'linear-gradient(135deg, rgba(99,85,216,0.08), rgba(139,124,246,0.12))',
-                    color: '#6355D8',
+                    color: '#120C2E',
                     border: '1px solid rgba(99,85,216,0.2)',
                   }}
                 >

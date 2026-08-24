@@ -59,7 +59,7 @@ export const translations = {
     'topbar.logout': 'Encerrar Sessão',
 
     // Login
-    'login.welcome': 'Bem-vindo ao PsiFlux',
+    'login.welcome': 'Bem-vindo ao Plaelo',
     'login.subtitle': 'Gestão clínica inteligente e segura para psicólogos modernos.',
     'login.email': 'E-mail de Acesso',
     'login.password': 'Senha',
@@ -1029,7 +1029,7 @@ export const translations = {
     'topbar.logout': 'Logout',
 
     // Login
-    'login.welcome': 'Welcome to PsiFlux',
+    'login.welcome': 'Welcome to Plaelo',
     'login.subtitle': 'Intelligent and secure clinical management for modern psychologists.',
     'login.email': 'Login Email',
     'login.password': 'Password',
@@ -1871,7 +1871,7 @@ export const translations = {
     'products.category.general': 'General',
 
     // Login
-    'login.welcome': 'Bienvenido a PsiFlux',
+    'login.welcome': 'Bienvenido a Plaelo',
     'login.subtitle': 'Gestión clínica inteligente y segura para psicólogos modernos.',
     'login.email': 'Correo electrónico',
     'login.password': 'Contraseña',

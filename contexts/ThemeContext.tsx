@@ -16,9 +16,11 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const THEME_COLORS_VARS: Record<string, Record<string, string>> = {
-  // Verde PsiFlux — tom principal da nova identidade visual (logo em árvore
-  // verde + raízes douradas). Vira o default do sistema; as demais paletas
-  // continuam disponíveis em Configurações → Aparência para quem preferir.
+  // Chave 'PsiFlux' mantida por compatibilidade: é o valor de primaryColor já
+  // persistido para usuários existentes (default legado, não listado no
+  // seletor de Configurações → Aparência). Renomear quebraria a preferência
+  // salva desses usuários — ver THEME_COLORS em pages/Settings.tsx para as
+  // paletas atuais expostas na UI.
   PsiFlux: { '50': '#ecfdf5', '100': '#d1fae5', '200': '#a3e8c4', '300': '#6bcf9c', '400': '#3aab74', '500': '#1f8a5b', '600': '#0f6e46', '700': '#0b5738', '800': '#0a462e', '900': '#083a27' },
   Indigo: { '50': '#eef2ff', '100': '#e0e7ff', '200': '#c7d2fe', '300': '#a5b4fc', '400': '#818cf8', '500': '#6366f1', '600': '#4f46e5', '700': '#4338ca', '800': '#3730a3', '900': '#312e81' },
   Emerald: { '50': '#ecfdf5', '100': '#d1fae5', '200': '#a7f3d0', '300': '#6ee7b7', '400': '#34d399', '500': '#10b981', '600': '#059669', '700': '#047857', '800': '#065f46', '900': '#064e3b' },

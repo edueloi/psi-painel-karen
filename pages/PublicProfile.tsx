@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL, getStaticUrl } from '../services/api';
-import psifluxLogoUrl from '../images/logo-psiflux.png';
+import plaeloLogoUrl from '../images/logo-sistema/logo.png';
 import {
   Instagram,
   Linkedin,
@@ -175,8 +175,8 @@ export const PublicProfile: React.FC = () => {
   // ── SEO dinâmico ──────────────────────────────────────
   useEffect(() => {
     if (!data) return;
-    const displayName = data.profile_theme?.public_name || data.name || 'Psicólogo(a)';
-    const specialty   = data.specialty || 'Psicologia';
+    const displayName = data.profile_theme?.public_name || data.name || 'Profissional de Saúde Mental';
+    const specialty   = data.specialty || 'Saúde Mental';
     const crpStr      = data.crp ? ` | CRP ${data.crp}` : '';
     const bio         = data.bio || `${displayName} — ${specialty}. Agende sua consulta.`;
     const ogImage     = data.avatar_url
@@ -304,7 +304,7 @@ export const PublicProfile: React.FC = () => {
     }
   }, [layout, primaryColor]);
 
-  const psiTitle = data?.gender === 'female' ? 'Psicóloga' : data?.gender === 'male' ? 'Psicólogo' : 'Psicólogo(a)';
+  const psiTitle = 'Profissional de Saúde Mental';
   const whatsappLink = data?.social_links.find(l => l.platform.toLowerCase() === 'whatsapp')?.url 
     || (data?.phone ? `https://wa.me/55${data.phone.replace(/\D/g, '')}` : null);
 
@@ -343,7 +343,7 @@ export const PublicProfile: React.FC = () => {
                ) : data.avatar_url ? (
                  <img src={getStaticUrl(data.avatar_url)} alt={data.name} className="w-full h-full object-cover rounded-xl" />
                ) : (
-                 <img src={psifluxLogoUrl} alt="PsiFlux" className="w-full h-full object-contain" />
+                 <img src={plaeloLogoUrl} alt="Plaelo" className="w-full h-full object-contain" />
                )}
              </div>
              <span className={`font-black text-lg tracking-tighter ${themeColors.text} truncate max-w-[120px] sm:max-w-none`}>
@@ -658,8 +658,8 @@ export const PublicProfile: React.FC = () => {
          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-20">
             <div className="lg:col-span-5 space-y-10 text-center lg:text-left">
                <div className="flex items-center justify-center lg:justify-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">ψ</div>
-                  <span className={`text-2xl font-black tracking-tighter ${themeColors.text}`}>PsiFlux</span>
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20">P</div>
+                  <span className={`text-2xl font-black tracking-tighter ${themeColors.text}`}>Plaelo</span>
                </div>
                <p className={`text-lg leading-relaxed ${themeColors.subtext} font-medium`}>Elevando o padrão do atendimento clínico. Tecnologia e cuidado humano para sua jornada de bem-estar.</p>
                <div className="flex items-center justify-center lg:justify-start gap-6">
@@ -697,7 +697,7 @@ export const PublicProfile: React.FC = () => {
          </div>
          <div className="max-w-7xl mx-auto px-6 mt-32 pt-16 border-t border-slate-100 text-center">
             <p className={`text-[10px] font-black uppercase tracking-[0.4em] mb-4 ${themeColors.muted} opacity-40`}>Transformando a Clínica Digital</p>
-            <p className={`text-[10px] font-bold opacity-30 ${themeColors.text}`}>© 2026 {data.company_name || 'PsiFlux'}. Tecnologia PsiFlux.</p>
+            <p className={`text-[10px] font-bold opacity-30 ${themeColors.text}`}>© 2026 {data.company_name || 'Plaelo'}. Tecnologia Plaelo.</p>
          </div>
       </footer>
 

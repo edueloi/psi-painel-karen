@@ -660,7 +660,7 @@ export const Services: React.FC = () => {
               </thead>
               <tbody>${rowsHtml}</tbody>
             </table>
-            ${isLastPage ? `<div style="margin-top:20px;font-size:10px;color:#94a3b8;">Gerado em ${now} · PsiFlux</div>` : ''}
+            ${isLastPage ? `<div style="margin-top:20px;font-size:10px;color:#94a3b8;">Gerado em ${now} · Plaelo</div>` : ''}
           </div>`;
 
         document.body.appendChild(container);

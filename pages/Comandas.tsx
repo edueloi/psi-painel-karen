@@ -1294,7 +1294,7 @@ export const Comandas: React.FC = () => {
             </table>
             ${isLastPage ? `
               <div style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;">
-                <div style="font-size:10px;color:#94a3b8;">Gerado em ${now} · PsiFlux</div>
+                <div style="font-size:10px;color:#94a3b8;">Gerado em ${now} · Plaelo</div>
                 ${profName ? `<div style="font-size:10px;color:#64748b;">${profName}${profCrp ? ` · CRP ${profCrp}` : ''}</div>` : ''}
               </div>
             ` : ''}

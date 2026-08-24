@@ -86,7 +86,7 @@ export const DISCPublic: React.FC = () => {
       setMeta('property', 'og:title', fullTitle);
       setMeta('property', 'og:description', description);
       setMeta('property', 'og:type', 'website');
-      setMeta('property', 'og:site_name', 'PsiFlux Clinical');
+      setMeta('property', 'og:site_name', 'Plaelo Clinical');
       if (professional.clinic_logo_url) {
         setMeta('property', 'og:image', getStaticUrl(professional.clinic_logo_url));
         setMeta('property', 'og:image:alt', fullTitle);
@@ -94,7 +94,7 @@ export const DISCPublic: React.FC = () => {
         setMeta('property', 'og:image:height', '630');
       }
     } else {
-      document.title = "DISC Avaliativo | PsiFlux";
+      document.title = "DISC Avaliativo | Plaelo";
     }
   }, [professional]);
 
@@ -163,7 +163,7 @@ export const DISCPublic: React.FC = () => {
           </div>
           <div className="pt-8 border-t border-slate-100 flex items-center justify-center gap-3">
              <ShieldCheck size={18} className="text-slate-300" />
-             <span className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em]">Criptografia PsiFlux 256-bit</span>
+             <span className="text-[11px] font-black text-slate-300 uppercase tracking-[0.3em]">Criptografia Plaelo 256-bit</span>
           </div>
         </div>
       </div>
@@ -309,7 +309,7 @@ export const DISCPublic: React.FC = () => {
                {error && <p className="text-rose-500 text-center mt-4 text-sm font-bold">{error}</p>}
                <div className="flex items-center justify-center gap-2 mt-6 opacity-30">
                   <ShieldCheck size={14} className="text-violet-400" />
-                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Protocolo de Sigilo PsiFlux</p>
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Protocolo de Sigilo Plaelo</p>
                </div>
             </div>
           </form>

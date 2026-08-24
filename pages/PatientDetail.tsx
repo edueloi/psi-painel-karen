@@ -205,6 +205,27 @@ export const PatientDetail: React.FC = () => {
     } catch { pushToast('error', 'Erro ao revogar.'); }
   };
 
+  const [sendingRegistrationLink, setSendingRegistrationLink] = useState(false);
+  const sendRegistrationLink = async () => {
+    if (!id) return;
+    setSendingRegistrationLink(true);
+    try {
+      const res = await api.post<any>('/patient-registration/send', { patient_id: parseInt(id) });
+      if (res.sent_via_bot) {
+        pushToast('success', 'Link de atualização de cadastro enviado via WhatsApp!');
+      } else if (res.whatsapp_url) {
+        window.open(res.whatsapp_url, '_blank', 'noopener,noreferrer');
+        pushToast('success', 'Link gerado — envie pelo WhatsApp que abriu.');
+      } else {
+        pushToast('success', 'Link gerado, mas o paciente não tem telefone cadastrado.');
+      }
+    } catch {
+      pushToast('error', 'Erro ao gerar link de cadastro.');
+    } finally {
+      setSendingRegistrationLink(false);
+    }
+  };
+
   const copyPortalLink = (token: string, id: number) => {
     const url = `${PORTAL_BASE_URL}/portal/entrar/${token}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -346,6 +367,18 @@ export const PatientDetail: React.FC = () => {
                     iconLeft={<Smartphone size={13} />}
                   >
                     Portal
+                  </Button>
+                )}
+                {hasPermission('edit_patient') && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={sendRegistrationLink}
+                    disabled={sendingRegistrationLink}
+                    iconLeft={sendingRegistrationLink ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                  >
+                    Enviar cadastro
                   </Button>
                 )}
                 {hasPermission('edit_patient') && (

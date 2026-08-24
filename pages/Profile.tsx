@@ -1675,7 +1675,7 @@ Gere o seguinte JSON:
                   <Layout size={16} className="text-indigo-400" />
                 </div>
                 <div>
-                  <h5 className="text-xs font-black">Suporte Psiflux</h5>
+                  <h5 className="text-xs font-black">Suporte Plaelo</h5>
                   <p className="text-[10px] text-slate-400 font-medium">Precisa de ajuda?</p>
                 </div>
               </div>

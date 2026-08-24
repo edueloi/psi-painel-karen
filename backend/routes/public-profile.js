@@ -650,6 +650,97 @@ router.post('/anamnese/cancel', async (req, res) => {
   }
 });
 
+// ─── CADASTRO — Rotas Públicas (atualização de cadastro pelo paciente) ────────────
+
+// GET /public-profile/cadastro/validate?t=TOKEN
+// Valida o token e retorna os dados atuais do paciente para pré-preencher o formulário
+router.get('/cadastro/validate', async (req, res) => {
+  try {
+    const { t: token } = req.query;
+    if (!token) return res.status(400).json({ error: 'Token obrigatório.' });
+
+    const [[link]] = await db.query(
+      'SELECT * FROM patient_registration_links WHERE token = ?',
+      [token]
+    );
+    if (!link) return res.status(404).json({ error: 'Link não encontrado ou inválido.' });
+    if (link.is_revoked) return res.status(410).json({ error: 'Este link foi revogado pelo(a) profissional.' });
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Este link expirou. Peça um novo link ao seu profissional.' });
+    }
+
+    const [[patient]] = await db.query(
+      `SELECT id, name, email, phone, profession, cpf, birth_date, gender,
+              COALESCE(street, '') AS street,
+              COALESCE(house_number, '') AS house_number,
+              COALESCE(neighborhood, '') AS neighborhood,
+              city, state, zip_code, health_plan
+       FROM patients WHERE id = ? AND tenant_id = ?`,
+      [link.patient_id, link.tenant_id]
+    );
+    if (!patient) return res.status(404).json({ error: 'Paciente não encontrado.' });
+
+    const [[prof]] = await db.query('SELECT name FROM users WHERE id = ?', [link.professional_id]);
+
+    if (!link.opened_at) {
+      await db.query('UPDATE patient_registration_links SET opened_at = NOW() WHERE token = ?', [token]);
+    }
+
+    res.json({
+      patient,
+      professional_name: prof?.name || null,
+      already_submitted: !!link.submitted_at,
+    });
+  } catch (err) {
+    console.error('Erro validar cadastro token:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// POST /public-profile/cadastro/submit?t=TOKEN
+// Paciente submete os dados atualizados de cadastro
+router.post('/cadastro/submit', async (req, res) => {
+  try {
+    const { t: token } = req.query;
+    if (!token) return res.status(400).json({ error: 'Token obrigatório.' });
+
+    const [[link]] = await db.query(
+      'SELECT * FROM patient_registration_links WHERE token = ? AND is_revoked = 0',
+      [token]
+    );
+    if (!link) return res.status(404).json({ error: 'Link inválido.' });
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'Este link expirou. Peça um novo link ao seu profissional.' });
+    }
+
+    // Mesma allow-list usada em patient-portal.js PATCH /me
+    const allowed = [
+      'name', 'email', 'phone', 'profession', 'cpf', 'birth_date', 'gender',
+      'street', 'house_number', 'neighborhood', 'city', 'state', 'zip_code',
+      'health_plan',
+    ];
+    const body = req.body || {};
+    const updates = {};
+    for (const k of allowed) {
+      if (body[k] !== undefined) updates[k] = body[k] === '' ? null : body[k];
+    }
+    if (Object.keys(updates).length) {
+      const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      await db.query(
+        `UPDATE patients SET ${sets} WHERE id = ? AND tenant_id = ?`,
+        [...Object.values(updates), link.patient_id, link.tenant_id]
+      );
+    }
+
+    await db.query('UPDATE patient_registration_links SET submitted_at = NOW() WHERE token = ?', [token]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro submeter cadastro:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // ─── CONTRATO — Rotas Públicas (acesso via token seguro do paciente) ──────────────
 
 // GET /public-profile/contrato/validate?t=TOKEN

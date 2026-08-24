@@ -911,7 +911,7 @@ export const BotIntegration: React.FC = () => {
 const TestSendPanel: React.FC = () => {
   const { pushToast } = useToast();
   const [phone, setPhone]     = useState('');
-  const [message, setMessage] = useState('Olá! Este é um teste do bot PsiFlux. 🤖');
+  const [message, setMessage] = useState('Olá! Este é um teste do bot Plaelo. 🤖');
   const [sending, setSending] = useState(false);
 
   const handleTest = async () => {

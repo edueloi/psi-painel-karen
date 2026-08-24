@@ -108,7 +108,7 @@ export const ResetPassword: React.FC = () => {
             <div className="w-full">
               <div className="text-center mb-8">
                 <h1 className="font-bold text-slate-900 text-lg sm:text-xl lg:text-2xl mb-2">Criar nova senha</h1>
-                <p className="text-slate-400 text-sm">Escolha uma senha segura para sua conta PsiFlux.</p>
+                <p className="text-slate-400 text-sm">Escolha uma senha segura para sua conta Plaelo.</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -178,7 +178,7 @@ export const ResetPassword: React.FC = () => {
           )}
 
           <div className="mt-8 pt-6 border-t border-slate-100 w-full flex justify-center">
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">PsiFlux Segurança</p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Plaelo Segurança</p>
           </div>
         </div>
       </div>

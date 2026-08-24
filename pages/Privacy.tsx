@@ -321,7 +321,7 @@ export const Privacy: React.FC = () => {
                       <div className="w-1.5 h-12 bg-indigo-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                       <div>
                           <h4 className="font-bold text-slate-800 tracking-tight">Perfil Público de Agendamento</h4>
-                          <p className="text-sm text-slate-500 mt-1 max-w-md leading-relaxed">Permitir que novos pacientes encontrem você através da busca global do PsiFlux e agendem diretamente.</p>
+                          <p className="text-sm text-slate-500 mt-1 max-w-md leading-relaxed">Permitir que novos pacientes encontrem você através da busca global do Plaelo e agendem diretamente.</p>
                       </div>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer scale-110">
@@ -499,7 +499,7 @@ export const Privacy: React.FC = () => {
                         <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs mb-3">
                             <CheckCircle2 size={14} /> Sistema em Compliance
                         </div>
-                        <p className="text-[10px] text-slate-400 leading-tight">PsiFlux está em sua versão Gold v3.4. Atendimento às normas do CFP e Legislação Brasileira.</p>
+                        <p className="text-[10px] text-slate-400 leading-tight">Plaelo está em sua versão Gold v3.4. Atendimento às normas do CFP e Legislação Brasileira.</p>
                     </div>
                 </div>
           </div>
@@ -627,7 +627,7 @@ export const Privacy: React.FC = () => {
                             <CheckCircle2 size={12} className="absolute inset-0 m-auto text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
                         </div>
                         <span className="text-xs font-bold text-slate-600 leading-relaxed select-none">
-                            Aceito total responsabilidade pela exclusão definitiva de todos os meus dados ativos e históricos no PsiFlux e estou ciente dos riscos envolvidos.
+                            Aceito total responsabilidade pela exclusão definitiva de todos os meus dados ativos e históricos no Plaelo e estou ciente dos riscos envolvidos.
                         </span>
                     </label>
                 </div>
@@ -678,7 +678,7 @@ export const Privacy: React.FC = () => {
                         <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> 01. Coleta e Finalidade
                     </h4>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                        O PsiFlux armazena dados pessoais e clínicos (prontuários, evoluções, exames) com a finalidade exclusiva de gestão terapêutica. Todo acesso é monitorado e registrado sob a Lei Geral de Proteção de Dados (13.709/2018).
+                        O Plaelo armazena dados pessoais e clínicos (prontuários, evoluções, exames) com a finalidade exclusiva de gestão terapêutica. Todo acesso é monitorado e registrado sob a Lei Geral de Proteção de Dados (13.709/2018).
                     </p>
                 </section>
 
@@ -705,7 +705,7 @@ export const Privacy: React.FC = () => {
                         <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> 04. Responsabilidade Profissional
                     </h4>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                        O profissional é o único detentor do sigilo clínico. O PsiFlux atua como Operador de Dados, fornecendo a infraestrutura necessária sob os mais altos padrões de bioética digital.
+                        O profissional é o único detentor do sigilo clínico. O Plaelo atua como Operador de Dados, fornecendo a infraestrutura necessária sob os mais altos padrões de bioética digital.
                     </p>
                 </section>
             </div>

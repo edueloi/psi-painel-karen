@@ -7,7 +7,7 @@ import {
   CheckCircle, Zap, Crown, Clock, Copy, ExternalLink,
   Loader2, AlertTriangle, Check, X,
   CreditCard, QrCode, Calendar, Shield, ArrowRight, ArrowLeft,
-  Receipt, Download, FileText,
+  Receipt, Download, FileText, LogOut,
 } from 'lucide-react';
 
 interface SubStatus {
@@ -78,7 +78,7 @@ const STATUS_BADGE: Record<Invoice['status'], { label: string; cls: string; Icon
 };
 
 export function Assinatura() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { pushToast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -236,13 +236,21 @@ export function Assinatura() {
   return (
     <div className="max-w-full 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
 
-      {/* ── Voltar ── */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors"
-      >
-        <ArrowLeft size={16} /> Voltar
-      </button>
+      {/* ── Voltar / Sair ── */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          <ArrowLeft size={16} /> Voltar
+        </button>
+        <button
+          onClick={logout}
+          className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-red-600 transition-colors"
+        >
+          <LogOut size={16} /> Sair
+        </button>
+      </div>
 
       {/* ── Plano mudou: avisa e recarrega a página para atualizar menu/permissões ── */}
       {planChangedTo && (
@@ -261,7 +269,7 @@ export function Assinatura() {
           <CheckCircle size={20} className="text-emerald-600 shrink-0" />
           <div>
             <p className="font-bold text-emerald-800 text-sm">Pagamento confirmado!</p>
-            <p className="text-xs text-emerald-600">Sua assinatura está ativa. Aproveite o PsiFlux sem limitações.</p>
+            <p className="text-xs text-emerald-600">Sua assinatura está ativa. Aproveite o Plaelo sem limitações.</p>
           </div>
         </div>
       )}
@@ -294,7 +302,7 @@ export function Assinatura() {
                     </span>
                   </div>
                   <p className="text-white font-black text-base sm:text-xl">
-                    {(isPaid || isExempt) ? (status?.plan_name || 'Plano Ativo') : 'PsiFlux Free Trial'}
+                    {(isPaid || isExempt) ? (status?.plan_name || 'Plano Ativo') : 'Plaelo Free Trial'}
                   </p>
                   {isPaid && !isInGrace && status?.expires_at && (
                     <p className="text-white/70 text-xs mt-1">Válida até {fmtDate(status.expires_at)}</p>

@@ -12,25 +12,25 @@ export const Terms: React.FC = () => {
             id: 'aceitacao',
             icon: <CheckCircle className="text-emerald-500" size={24} />,
             title: '01. Aceitação dos Termos',
-            content: 'Ao acessar e utilizar a plataforma PsiFlux, você concorda em cumprir e estar vinculado aos seguintes termos e condições de uso. Se você não concordar com qualquer parte destes termos, não deverá utilizar nossos serviços. Recomendamos a leitura atenta de todo o documento antes de prosseguir com o uso do software.'
+            content: 'Ao acessar e utilizar a plataforma Plaelo, você concorda em cumprir e estar vinculado aos seguintes termos e condições de uso. Se você não concordar com qualquer parte destes termos, não deverá utilizar nossos serviços. Recomendamos a leitura atenta de todo o documento antes de prosseguir com o uso do software.'
         },
         {
             id: 'servicos',
             icon: <Scale className="text-indigo-500" size={24} />,
             title: '02. Descrição dos Serviços',
-            content: 'O PsiFlux é uma plataforma de gestão para profissionais de psicologia, oferecendo ferramentas de prontuário eletrônico, agenda, faturamento, salas virtuais e gestão de pacientes. Reservamo-nos o direito de modificar, suspender ou descontinuar qualquer aspecto do serviço a qualquer momento, visando a melhoria contínua e conformidade com as normas regulatórias do Conselho Federal de Psicologia (CFP).'
+            content: 'O Plaelo é uma plataforma de gestão para profissionais de psicologia, oferecendo ferramentas de prontuário eletrônico, agenda, faturamento, salas virtuais e gestão de pacientes. Reservamo-nos o direito de modificar, suspender ou descontinuar qualquer aspecto do serviço a qualquer momento, visando a melhoria contínua e conformidade com as normas regulatórias do Conselho Federal de Psicologia (CFP).'
         },
         {
             id: 'responsabilidade',
             icon: <Gavel className="text-amber-500" size={24} />,
             title: '03. Responsabilidades do Profissional',
-            content: 'O usuário é único e exclusivo responsável pelo sigilo ético e profissional das informações inseridas na plataforma. O PsiFlux atua como provedor de infraestrutura (Operador de Dados), enquanto o profissional é o Controlador dos Dados Clínicos. É dever do usuário manter suas credenciais de acesso seguras e utilizar senhas fortes, preferencialmente com autenticação de dois fatores (2FA) ativa.'
+            content: 'O usuário é único e exclusivo responsável pelo sigilo ético e profissional das informações inseridas na plataforma. O Plaelo atua como provedor de infraestrutura (Operador de Dados), enquanto o profissional é o Controlador dos Dados Clínicos. É dever do usuário manter suas credenciais de acesso seguras e utilizar senhas fortes, preferencialmente com autenticação de dois fatores (2FA) ativa.'
         },
         {
             id: 'privacidade',
             icon: <Shield className="text-blue-500" size={24} />,
             title: '04. Privacidade e Proteção de Dados (LGPD)',
-            content: 'Operamos em total conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Todos os dados clínicos são criptografados em repouso e em trânsito. O acesso aos dados de pacientes é restrito ao profissional responsável, não sendo acessível pela equipe administrativa do PsiFlux, exceto quando explicitamente autorizado para suporte técnico via token de segurança temporário.'
+            content: 'Operamos em total conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Todos os dados clínicos são criptografados em repouso e em trânsito. O acesso aos dados de pacientes é restrito ao profissional responsável, não sendo acessível pela equipe administrativa do Plaelo, exceto quando explicitamente autorizado para suporte técnico via token de segurança temporário.'
         },
         {
             id: 'pagamento',

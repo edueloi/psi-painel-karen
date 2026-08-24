@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Instagram, Globe, Linkedin, Twitter, ArrowUpRight, ChevronRight, ChevronDown, X, SlidersHorizontal, Monitor } from 'lucide-react';
-import logoUrl from '../images/logo-psiflux.png';
+import logoUrl from '../images/logo-sistema/logo.png';
+import { Combobox } from '../components/UI/Combobox';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -26,12 +27,12 @@ interface Psychologist {
 
 /* ─── Paleta do projeto ─── */
 const C = {
-  accent:  '#6355D8',
-  accent2: '#0EA98B',
-  text:    '#0F172A',
-  muted:   '#64748B',
-  border:  '#E2E8F0',
-  surface: '#F7F8FC',
+  accent:  '#6D42F5',
+  accent2: '#0D9155',
+  text:    '#150F2E',
+  muted:   '#665F82',
+  border:  '#E7E2F7',
+  surface: '#F8F6FF',
 };
 
 /* ─── Listas de filtro ─── */
@@ -57,7 +58,7 @@ const MODALIDADE_OPTS = ['Presencial', 'Remoto'];
 
 /* ─── Gradientes de capa para cards — determinísticos pelo nome ─── */
 const CARD_GRADIENTS = [
-  ['#6355D8','#8B7CF6'],
+  ['#6D42F5','#A78BFA'],
   ['#0EA98B','#34D399'],
   ['#7C3AED','#C084FC'],
   ['#0369A1','#38BDF8'],
@@ -454,7 +455,6 @@ export const PsychologistDirectory: React.FC = () => {
     setPage(1);
   };
   const toggleModalidade = (v: string) => { setSelectedModalidade(prev => prev === v ? '' : v); setPage(1); };
-  const toggleEspecialidade = (v: string) => { setSelectedEspecialidade(prev => prev === v ? '' : v); setPage(1); };
 
   /* ─── Scroll listener ─── */
   useEffect(() => {
@@ -539,8 +539,8 @@ export const PsychologistDirectory: React.FC = () => {
         html { scroll-behavior: smooth; }
         body { -webkit-font-smoothing: antialiased; }
         input:focus { outline: none; }
-        button:focus-visible { outline: 2px solid #6355D8; outline-offset: 2px; }
-        a:focus-visible { outline: 2px solid #6355D8; outline-offset: 2px; border-radius: 4px; }
+        button:focus-visible { outline: 2px solid #6D42F5; outline-offset: 2px; }
+        a:focus-visible { outline: 2px solid #6D42F5; outline-offset: 2px; border-radius: 4px; }
 
         @keyframes dir-pulse {
           0%, 100% { opacity: 1; }
@@ -666,17 +666,17 @@ export const PsychologistDirectory: React.FC = () => {
         <button
           onClick={() => navigate('/')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '4px 6px', borderRadius: 10 }}
-          aria-label="Página inicial PsiFlux"
+          aria-label="Página inicial Plaelo"
         >
           <div style={{
             width: 42, height: 42, borderRadius: 12,
-            background: scrolled ? 'transparent' : 'rgba(255,255,255,.1)',
+            background: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             overflow: 'hidden',
             border: scrolled ? 'none' : '1px solid rgba(255,255,255,.15)',
             transition: 'background .3s, border .3s',
           }}>
-            <img src={logoUrl} alt="PsiFlux" style={{ width: 38, height: 38, objectFit: 'contain' }} />
+            <img src={logoUrl} alt="Plaelo" style={{ width: 34, height: 34, objectFit: 'contain' }} />
           </div>
           <span className="dir-navbar-logo-text" style={{
             fontWeight: 900, fontSize: 20,
@@ -685,7 +685,7 @@ export const PsychologistDirectory: React.FC = () => {
             transition: 'color .3s',
             lineHeight: 1,
           }}>
-            Psi<span style={{ color: scrolled ? C.accent : '#A89DFF' }}>Flux</span>
+            Plaelo
           </span>
         </button>
 
@@ -762,7 +762,7 @@ export const PsychologistDirectory: React.FC = () => {
             color: '#fff',
             marginBottom: 18,
           }}>
-            Encontre o psicólogo<br />
+            Encontre o profissional<br />
             <span style={{
               background: `linear-gradient(90deg, ${C.accent} 0%, #A78BFA 50%, ${C.accent2} 100%)`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
@@ -773,7 +773,7 @@ export const PsychologistDirectory: React.FC = () => {
           </h1>
 
           <p style={{ fontSize: 'clamp(15px, 2vw, 17px)', color: 'rgba(255,255,255,.6)', lineHeight: 1.65, marginBottom: 40 }}>
-            Conheça os profissionais da plataforma PsiFlux, veja suas abordagens e entre em contato diretamente.
+            Conheça os profissionais de saúde mental da plataforma Plaelo, veja suas abordagens e entre em contato diretamente.
           </p>
 
           {/* Search bar */}
@@ -822,7 +822,7 @@ export const PsychologistDirectory: React.FC = () => {
               <button
                 onClick={() => { setDebouncedSearch(search); }}
                 style={{
-                  background: `linear-gradient(135deg, ${C.accent} 0%, #7C6EE8 100%)`,
+                  background: `linear-gradient(135deg, ${C.accent} 0%, #8B5CF6 100%)`,
                   border: 'none', borderRadius: 12,
                   padding: '10px 20px',
                   fontSize: 14, fontWeight: 700, color: '#fff',
@@ -875,41 +875,44 @@ export const PsychologistDirectory: React.FC = () => {
       </div>
 
       {/* ── CONTEÚDO ── */}
-      <div style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(24px,4vw,48px) clamp(16px,4vw,24px) 80px' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,4vw,48px) clamp(16px,4vw,24px) 80px' }}>
 
-        {/* ── FILTROS TOGGLE ── */}
-        <div style={{ marginBottom: 16 }}>
-          <button
-            onClick={() => setFiltersOpen(v => !v)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: hasActiveFilters ? `${C.accent}10` : '#fff',
-              border: `1.5px solid ${hasActiveFilters ? C.accent + '40' : C.border}`,
-              borderRadius: 12, padding: '10px 18px',
-              fontSize: 14, fontWeight: 700,
-              color: hasActiveFilters ? C.accent : C.text,
-              cursor: 'pointer', transition: 'all .15s',
-              fontFamily: 'inherit',
-            }}
-          >
-            <SlidersHorizontal size={16} strokeWidth={2} />
-            Filtros
-            {activeFilterCount > 0 && (
-              <span style={{
-                background: C.accent, color: '#fff',
-                fontSize: 11, fontWeight: 800,
-                width: 20, height: 20, borderRadius: '50%',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                lineHeight: 1,
-              }}>
-                {activeFilterCount}
-              </span>
-            )}
-            <ChevronDown size={14} strokeWidth={2} style={{ transition: 'transform .2s', transform: filtersOpen && !isMobile ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-          </button>
-        </div>
+        {/* ── FILTROS TOGGLE (somente mobile — no desktop os filtros ficam sempre visíveis na barra lateral) ── */}
+        {isMobile && (
+          <div style={{ marginBottom: 16 }}>
+            <button
+              onClick={() => setFiltersOpen(v => !v)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: hasActiveFilters ? `${C.accent}10` : '#fff',
+                border: `1.5px solid ${hasActiveFilters ? C.accent + '40' : C.border}`,
+                borderRadius: 12, padding: '10px 18px',
+                fontSize: 14, fontWeight: 700,
+                color: hasActiveFilters ? C.accent : C.text,
+                cursor: 'pointer', transition: 'all .15s',
+                fontFamily: 'inherit',
+              }}
+            >
+              <SlidersHorizontal size={16} strokeWidth={2} />
+              Filtros
+              {activeFilterCount > 0 && (
+                <span style={{
+                  background: C.accent, color: '#fff',
+                  fontSize: 11, fontWeight: 800,
+                  width: 20, height: 20, borderRadius: '50%',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1,
+                }}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
-        {/* ── FILTER PANEL (desktop inline / mobile bottom sheet) ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '280px 1fr', gap: 28, alignItems: 'start' }}>
+
+        {/* ── FILTER PANEL (desktop: barra lateral sempre visível / mobile: bottom sheet) ── */}
         {(() => {
           const filterSections = ([
             {
@@ -917,11 +920,15 @@ export const PsychologistDirectory: React.FC = () => {
               label: 'Abordagens',
               count: selectedAbordagens.length,
               content: (
-                <div className="dir-pill-group">
-                  {ABORDAGENS.map(v => (
-                    <Pill key={v} label={v} active={selectedAbordagens.includes(v)} onClick={() => toggleAbordagem(v)} />
-                  ))}
-                </div>
+                <Combobox
+                  multiple
+                  options={ABORDAGENS.map(v => ({ value: v, label: v }))}
+                  value={selectedAbordagens}
+                  onChange={v => { setSelectedAbordagens(Array.isArray(v) ? v : v ? [v] : []); setPage(1); }}
+                  placeholder="Selecionar abordagens…"
+                  searchPlaceholder="Buscar abordagem…"
+                  showSelectedBadge
+                />
               ),
             },
             {
@@ -929,11 +936,13 @@ export const PsychologistDirectory: React.FC = () => {
               label: 'Especialidades',
               count: selectedEspecialidade ? 1 : 0,
               content: (
-                <div className="dir-pill-group">
-                  {ESPECIALIDADES.map(v => (
-                    <Pill key={v} label={v} active={selectedEspecialidade === v} onClick={() => toggleEspecialidade(v)} />
-                  ))}
-                </div>
+                <Combobox
+                  options={ESPECIALIDADES.map(v => ({ value: v, label: v }))}
+                  value={selectedEspecialidade}
+                  onChange={v => { setSelectedEspecialidade(Array.isArray(v) ? (v[0] || '') : v); setPage(1); }}
+                  placeholder="Selecionar especialidade…"
+                  searchPlaceholder="Buscar especialidade…"
+                />
               ),
             },
             {
@@ -1102,17 +1111,18 @@ export const PsychologistDirectory: React.FC = () => {
             );
           }
 
-          if (!filtersOpen) return null;
           return (
-            <div style={{
+            <aside style={{
               background: '#fff', border: `1.5px solid ${C.border}`,
-              borderRadius: 20, overflow: 'hidden', marginBottom: 28,
+              borderRadius: 20, overflow: 'hidden',
+              position: 'sticky', top: 20,
             }}>
               {accordionBody}
-            </div>
+            </aside>
           );
         })()}
 
+        <div>
         {/* ── Status bar ── */}
         <div className="dir-status-bar" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1252,7 +1262,7 @@ export const PsychologistDirectory: React.FC = () => {
                 ? `Não encontramos ninguém com "${debouncedSearch}". Tente outro termo.`
                 : hasActiveFilters
                   ? 'Nenhum profissional corresponde aos filtros selecionados.'
-                  : 'Ainda não há psicólogos com perfil público ativo.'}
+                  : 'Ainda não há profissionais com perfil público ativo.'}
             </p>
             {(debouncedSearch || hasActiveFilters) && (
               <button
@@ -1350,6 +1360,8 @@ export const PsychologistDirectory: React.FC = () => {
             >»</button>
           </div>
         )}
+        </div>
+        </div>
 
         {/* ── Rodapé da página ── */}
         <div style={{
@@ -1359,9 +1371,9 @@ export const PsychologistDirectory: React.FC = () => {
           textAlign: 'center',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src={logoUrl} alt="PsiFlux" style={{ width: 26, height: 26, borderRadius: 6, opacity: .6 }} />
+            <img src={logoUrl} alt="Plaelo" style={{ width: 26, height: 26, borderRadius: 6, opacity: .6 }} />
             <span style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>
-              Diretório de profissionais <strong style={{ color: C.text }}>PsiFlux</strong>
+              Diretório de profissionais <strong style={{ color: C.text }}>Plaelo</strong>
             </span>
           </div>
           <button
@@ -1383,7 +1395,7 @@ export const PsychologistDirectory: React.FC = () => {
               (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
             }}
           >
-            Sou psicólogo — quero cadastrar meu perfil <ChevronRight size={14} />
+            Sou profissional de saúde mental — quero cadastrar meu perfil <ChevronRight size={14} />
           </button>
         </div>
       </div>

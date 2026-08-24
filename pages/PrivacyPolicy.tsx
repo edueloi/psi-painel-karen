@@ -12,7 +12,7 @@ export const PrivacyPolicy: React.FC = () => {
             id: 'coleta',
             icon: <Database className="text-indigo-500" size={24} />,
             title: '01. Dados que Coletamos',
-            content: 'Coletamos dados cadastrais fornecidos por você (nome, e-mail, telefone, CRP quando informado) e dados de uso da plataforma. Dados clínicos inseridos por profissionais (prontuários, anotações, formulários de pacientes) pertencem ao profissional responsável e não são utilizados pelo PsiFlux para nenhuma outra finalidade além de fornecer o serviço contratado.'
+            content: 'Coletamos dados cadastrais fornecidos por você (nome, e-mail, telefone, CRP quando informado) e dados de uso da plataforma. Dados clínicos inseridos por profissionais (prontuários, anotações, formulários de pacientes) pertencem ao profissional responsável e não são utilizados pelo Plaelo para nenhuma outra finalidade além de fornecer o serviço contratado.'
         },
         {
             id: 'uso',

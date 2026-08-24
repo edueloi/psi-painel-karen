@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { api, getStaticUrl } from '../services/api';
+import logoUrl from '../images/logo-sistema/logo.png';
 import {
   LayoutDashboard, Users, LogOut, Plus, Trash2, ShieldCheck, ShieldOff,
   X, Building2, User, Loader2, CheckCircle, Edit2, Save, Camera,
@@ -723,12 +724,12 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
       <aside className={`w-64 flex flex-col fixed h-full z-40 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
         style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%)' }}>
         <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-              <ShieldCheck size={18} className="text-white" />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg bg-white flex-shrink-0 p-1.5">
+              <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
-            <div>
-              <p className="text-sm font-bold text-white leading-none">PsiFlux</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white leading-none truncate">Plaelo</p>
               <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: '#a5b4fc' }}>Super Admin</p>
             </div>
           </div>
@@ -771,7 +772,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               <Menu size={18} />
             </button>
             <div className="flex items-center gap-2 text-xs text-slate-400 min-w-0">
-              <span className="text-slate-500 font-medium hidden sm:inline">PsiFlux</span>
+              <span className="text-slate-500 font-medium hidden sm:inline">Plaelo</span>
               <ChevronRight size={12} className="flex-shrink-0 hidden sm:inline" />
               <span className="hidden sm:inline text-slate-400">Master</span>
               <ChevronRight size={12} className="flex-shrink-0 hidden sm:inline" />
@@ -795,10 +796,15 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
               {tab === 'dashboard' && stats && (
                 <div className="space-y-5 max-w-full 2xl:max-w-[1600px]">
                   <div className="rounded-2xl p-4 sm:p-6 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
-                    <div className="min-w-0">
-                      <p className="text-white/60 text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-1">Visão Geral</p>
-                      <h2 className="text-white text-lg sm:text-xl font-bold truncate">Painel Master PsiFlux</h2>
-                      <p className="text-white/50 text-[11px] sm:text-xs mt-1">Administração centralizada de todas as clínicas</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white items-center justify-center shrink-0 p-2">
+                        <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white/60 text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-1">Visão Geral</p>
+                        <h2 className="text-white text-lg sm:text-xl font-bold truncate">Painel Master Plaelo</h2>
+                        <p className="text-white/50 text-[11px] sm:text-xs mt-1">Administração centralizada de todas as clínicas</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <div className="text-right min-w-0">
@@ -1171,7 +1177,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                               </div>
 
                               <h3 className="font-bold text-slate-800 text-base leading-tight">{u.name}</h3>
-                              <p className="text-xs text-slate-400 mb-4 mt-0.5">Equipe Master · PsiFlux</p>
+                              <p className="text-xs text-slate-400 mb-4 mt-0.5">Equipe Master · Plaelo</p>
 
                               <div className="space-y-2">
                                   {u.cargo && (
@@ -1503,7 +1509,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                           <div className="p-3 bg-sky-50 rounded-xl border border-sky-100 space-y-1.5">
                             <p className="text-xs font-bold text-sky-700">Como configurar:</p>
                             <ol className="text-xs text-sky-800 space-y-1 pl-3 list-decimal">
-                              <li>Acesse <strong>mercadopago.com.br</strong> com a conta da plataforma PsiFlux</li>
+                              <li>Acesse <strong>mercadopago.com.br</strong> com a conta da plataforma Plaelo</li>
                               <li>Vá em <strong>Seu negócio → Configurações → Credenciais de produção</strong></li>
                               <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-sky-100 px-1 rounded">APP_USR-</code>)</li>
                               <li>Cole abaixo e clique em <strong>Conectar</strong></li>
@@ -1629,14 +1635,14 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                 <div className="max-w-5xl space-y-5">
                   <div className="rounded-2xl p-6 text-white shadow-sm" style={{ background: 'linear-gradient(135deg,#4338ca,#7c3aed)' }}>
                     <div className="flex items-start justify-between gap-4">
-                      <div><p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">Comunicação</p><h2 className="text-xl font-black mt-1">Central de E-mails</h2><p className="text-sm text-white/75 mt-2">Envie novidades e comunicados para todos os usuários ativos do PsiFlux.</p></div>
+                      <div><p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">Comunicação</p><h2 className="text-xl font-black mt-1">Central de E-mails</h2><p className="text-sm text-white/75 mt-2">Envie novidades e comunicados para todos os usuários ativos do Plaelo.</p></div>
                       <div className="shrink-0 rounded-2xl bg-white/15 px-4 py-3 text-center"><p className="text-base sm:text-xl font-black">{emailSummary.active_recipients || 0}</p><p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Destinatários ativos</p></div>
                     </div>
                   </div>
                   <div className="grid lg:grid-cols-[1.3fr_.7fr] gap-5">
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
                       <div><h3 className="font-black text-slate-800">Novo comunicado</h3><p className="text-xs text-slate-500 mt-1">O envio será feito somente para usuários com conta ativa e e-mail cadastrado.</p></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Assunto do e-mail</label><input className={inp} maxLength={180} value={emailForm.subject} onChange={e => setEmailForm({ ...emailForm, subject: e.target.value })} placeholder="Ex.: Novidade no PsiFlux" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Assunto do e-mail</label><input className={inp} maxLength={180} value={emailForm.subject} onChange={e => setEmailForm({ ...emailForm, subject: e.target.value })} placeholder="Ex.: Novidade no Plaelo" /></div>
                       <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Título em destaque</label><input className={inp} maxLength={180} value={emailForm.title} onChange={e => setEmailForm({ ...emailForm, title: e.target.value })} placeholder="Uma nova atualização chegou" /></div>
                       <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Mensagem</label><textarea className={inp + ' min-h-36 resize-y'} value={emailForm.content} onChange={e => setEmailForm({ ...emailForm, content: e.target.value })} placeholder="Conte o que mudou e como isso ajuda no dia a dia..." /></div>
                       <div className="grid sm:grid-cols-2 gap-3"><div><label className="block text-xs font-bold text-slate-500 mb-1.5">Texto do botão (opcional)</label><input className={inp} value={emailForm.button_text} onChange={e => setEmailForm({ ...emailForm, button_text: e.target.value })} /></div><div><label className="block text-xs font-bold text-slate-500 mb-1.5">Link do botão (opcional)</label><input className={inp} value={emailForm.button_url} onChange={e => setEmailForm({ ...emailForm, button_url: e.target.value })} placeholder="https://..." /></div></div>
@@ -1705,7 +1711,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                                       <input type="text" placeholder="(00) 00000-0000" id="testPhone"
                                         onChange={e => { let v = e.target.value.replace(/\D/g,''); if(v.length>11)v=v.slice(0,11); if(v.length>2)v=`(${v.slice(0,2)}) ${v.slice(2)}`; if(v.length>9)v=`${v.slice(0,10)}-${v.slice(10)}`; e.target.value=v; }}
                                         className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-300" />
-                                      <button onClick={async () => { const ph=(document.getElementById('testPhone') as HTMLInputElement).value; if(!ph) return toast('Insira um número','info'); try { await api.post('/whatsapp/test',{phone:ph,message:'🚀 Teste PsiFlux: Bot operando!'}); toast('Enviado!'); } catch { toast('Erro','error'); }}}
+                                      <button onClick={async () => { const ph=(document.getElementById('testPhone') as HTMLInputElement).value; if(!ph) return toast('Insira um número','info'); try { await api.post('/whatsapp/test',{phone:ph,message:'🚀 Teste Plaelo: Bot operando!'}); toast('Enviado!'); } catch { toast('Erro','error'); }}}
                                         className="text-white px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
                                         Testar
                                       </button>
@@ -2084,6 +2090,30 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
           </div>
           <div>
             {lbl('Funcionalidades')}
+            {plans.filter(p => p.id !== editPlan?.id && (p.features || []).length > 0).length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mr-1">Copiar de:</span>
+                {plans.filter(p => p.id !== editPlan?.id && (p.features || []).length > 0).map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPlanForm(prev => ({ ...prev, features: Array.from(new Set([...prev.features, ...(p.features || [])])) }))}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
+                  >
+                    + {p.name}
+                  </button>
+                ))}
+                {planForm.features.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPlanForm(prev => ({ ...prev, features: [] }))}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition"
+                  >
+                    Limpar tudo
+                  </button>
+                )}
+              </div>
+            )}
             <div className="space-y-3 mt-1">
               {Array.from(new Set(FEATURES_OPTIONS.map(o => o.group))).map(group => (
                 <div key={group}>

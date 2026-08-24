@@ -1369,7 +1369,7 @@ export const Messages: React.FC = () => {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-zinc-500 mb-1">Clínica</label>
-                <input type="text" value={sendMeta.clinic} onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })} placeholder="Ex: PsiFlux" className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
+                <input type="text" value={sendMeta.clinic} onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })} placeholder="Ex: Plaelo" className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
               </div>
             </div>
 

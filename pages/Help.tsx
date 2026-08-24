@@ -79,7 +79,7 @@ const FAQ_CATEGORIES = [
     Icon: BookOpen,
     color: 'bg-amber-50 text-amber-700 border-amber-200',
     faqs: [
-      { q: 'Quais formulários estão disponíveis?', a: 'O PsiFlux inclui templates prontos: PHQ-9 (depressão), GAD-7 (ansiedade), Escala de Beck, Escala de Autoestima de Rosenberg, SRQ-20, AUDIT (álcool) e outros. Você também pode criar formulários completamente personalizados.' },
+      { q: 'Quais formulários estão disponíveis?', a: 'O Plaelo inclui templates prontos: PHQ-9 (depressão), GAD-7 (ansiedade), Escala de Beck, Escala de Autoestima de Rosenberg, SRQ-20, AUDIT (álcool) e outros. Você também pode criar formulários completamente personalizados.' },
       { q: 'Como enviar um formulário para o paciente?', a: 'No perfil do paciente > Formulários, ou em Formulários na barra lateral, selecione o formulário e clique em "Enviar". O sistema gera um link único que o paciente acessa pelo celular sem precisar de cadastro.' },
       { q: 'Como a pontuação funciona?', a: 'Cada opção de resposta tem um peso configurável. O sistema soma os pesos e classifica automaticamente por faixas (ex: PHQ-9: 0-4 mínimo, 5-9 leve, 10-14 moderado, 15+ grave). As faixas e interpretações são personalizáveis.' },
       { q: 'Como a Aurora analisa os formulários?', a: 'Após o preenchimento, clique em "Analisar com IA" no formulário respondido. A Aurora gera um relatório clínico completo com sumário do caso, análise de sintomas, pontos de atenção e diretrizes terapêuticas baseadas em evidências.' },
@@ -190,7 +190,7 @@ export const Help: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([{
     id: 'welcome',
     role: 'model',
-    text: `${getSaudacao()}! Sou a Aurora, sua assistente do PsiFlux. ✨\n\nEstou aqui na Central de Ajuda para responder qualquer dúvida sobre o sistema. Como posso te ajudar?`,
+    text: `${getSaudacao()}! Sou a Aurora, sua assistente do Plaelo. ✨\n\nEstou aqui na Central de Ajuda para responder qualquer dúvida sobre o sistema. Como posso te ajudar?`,
   }]);
   const [chatInput, setChatInput]   = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -363,7 +363,7 @@ export const Help: React.FC = () => {
 
           {activeTab === 'guides' && (
             <div className="space-y-4">
-              <p className="text-sm text-slate-500 px-1">Guias detalhados para aproveitar ao máximo o PsiFlux.</p>
+              <p className="text-sm text-slate-500 px-1">Guias detalhados para aproveitar ao máximo o Plaelo.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {GUIDES.map((g, i) => (
                   <div

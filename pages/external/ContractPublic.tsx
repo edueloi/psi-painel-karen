@@ -54,7 +54,7 @@ export const ContractPublic: React.FC = () => {
   }, [token]);
 
   useEffect(() => {
-    document.title = data ? `${data.title} | PsiFlux` : 'Contrato de Psicoterapia | PsiFlux';
+    document.title = data ? `${data.title} | Plaelo` : 'Contrato de Psicoterapia | Plaelo';
   }, [data]);
 
   const clearSignature = () => {
@@ -141,7 +141,7 @@ export const ContractPublic: React.FC = () => {
         </div>
         <div className="pt-4 flex items-center justify-center gap-2 text-slate-300">
           <ShieldCheck size={16} />
-          <span className="text-[11px] font-black uppercase tracking-widest">Segurança & Privacidade PsiFlux</span>
+          <span className="text-[11px] font-black uppercase tracking-widest">Segurança & Privacidade Plaelo</span>
         </div>
       </div>
     </div>
@@ -164,7 +164,7 @@ export const ContractPublic: React.FC = () => {
         </div>
         <div className="flex items-center justify-center gap-2 text-slate-300">
           <ShieldCheck size={16} />
-          <span className="text-[11px] font-black uppercase tracking-widest">Assinatura Eletrônica PsiFlux</span>
+          <span className="text-[11px] font-black uppercase tracking-widest">Assinatura Eletrônica Plaelo</span>
         </div>
       </div>
     </div>
@@ -207,7 +207,7 @@ export const ContractPublic: React.FC = () => {
 
         <div className="pt-4 flex items-center justify-center gap-2 opacity-40">
           <ShieldCheck size={14} className="text-indigo-400" />
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assinatura Eletrônica • Criptografia PsiFlux</span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assinatura Eletrônica • Criptografia Plaelo</span>
         </div>
       </div>
     </div>
@@ -349,7 +349,7 @@ export const ContractPublic: React.FC = () => {
 
           <div className="flex items-center justify-center gap-2 opacity-40">
             <ShieldCheck size={14} className="text-indigo-400" />
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assinatura Eletrônica • Criptografia PsiFlux</span>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assinatura Eletrônica • Criptografia Plaelo</span>
           </div>
         </div>
       </div>

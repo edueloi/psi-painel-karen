@@ -717,7 +717,7 @@ export const Instruments: React.FC = () => {
             <Brain size={40} className="text-indigo-300"/>
           </div>
           <div className="flex-1 text-center lg:text-left">
-            <h2 className="text-lg sm:text-xl lg:text-2xl font-black mb-1.5 tracking-tight">Hub de Instrumentos <span className="text-indigo-400">PsiFlux</span></h2>
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-black mb-1.5 tracking-tight">Hub de Instrumentos <span className="text-indigo-400">Plaelo</span></h2>
             <p className="text-slate-300 text-sm font-medium leading-relaxed max-w-2xl">
               Centralize escalas psicométricas e inventários clínicos. Acompanhe a evolução longitudinal com análise assistida por IA.
             </p>

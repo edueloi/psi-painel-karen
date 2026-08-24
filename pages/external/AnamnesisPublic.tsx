@@ -260,7 +260,7 @@ export const AnamnesisPublic: React.FC = () => {
       const profName = formData.professional?.name || 'Psicólogo(a)';
       document.title = `${formData.title} | ${profName}`;
     } else {
-      document.title = 'Anamnese Clínica | PsiFlux';
+      document.title = 'Anamnese Clínica | Plaelo';
     }
   }, [formData]);
 
@@ -343,7 +343,7 @@ export const AnamnesisPublic: React.FC = () => {
         </div>
         <div className="pt-4 flex items-center justify-center gap-2 text-slate-300">
           <ShieldCheck size={16} />
-          <span className="text-[11px] font-black uppercase tracking-widest">Segurança & Privacidade PsiFlux</span>
+          <span className="text-[11px] font-black uppercase tracking-widest">Segurança & Privacidade Plaelo</span>
         </div>
       </div>
     </div>
@@ -409,7 +409,7 @@ export const AnamnesisPublic: React.FC = () => {
 
         <div className="pt-4 flex items-center justify-center gap-2 opacity-40">
           <ShieldCheck size={14} className="text-indigo-400" />
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sigilo Psicológico CFP • Criptografia PsiFlux</span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sigilo Psicológico CFP • Criptografia Plaelo</span>
         </div>
       </div>
     </div>
@@ -453,7 +453,7 @@ export const AnamnesisPublic: React.FC = () => {
         </div>
         <div className="flex items-center justify-center gap-2 opacity-40">
           <ShieldCheck size={14} />
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PsiFlux • Segurança Clínica</span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Plaelo • Segurança Clínica</span>
         </div>
       </div>
     </div>
@@ -753,7 +753,7 @@ export const AnamnesisPublic: React.FC = () => {
         )}
         <div className="flex items-center justify-center gap-2 opacity-30">
           <ShieldCheck size={14} />
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PsiFlux • Segurança Clínica</span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Plaelo • Segurança Clínica</span>
         </div>
       </div>
     </div>

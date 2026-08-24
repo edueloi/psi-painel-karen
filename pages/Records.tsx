@@ -545,7 +545,7 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(160, 175, 195);
-    doc.text(`Documento gerado em ${new Date().toLocaleString('pt-BR')}  |  PsiFlux`, W / 2, 289, { align: 'center' });
+    doc.text(`Documento gerado em ${new Date().toLocaleString('pt-BR')}  |  Plaelo`, W / 2, 289, { align: 'center' });
 
     const fileName = `Atestado_${tipo}_${(patient?.full_name || 'paciente').replace(/\s+/g, '_')}.pdf`;
     doc.save(fileName);
@@ -2794,7 +2794,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     if (!selectedPatient) return;
     setIsLoading(true);
     try {
-        const systemName = 'PsiFlux — Sistema de Prontuário Informatizado';
+        const systemName = 'Plaelo — Sistema de Prontuário Informatizado';
         const profName = user?.name || 'Profissional';
         const profCRP = (user as any)?.crp || 'Não informado';
         const patName = selectedPatient.full_name;

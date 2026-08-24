@@ -31,7 +31,7 @@ export const AuroraAssistant: React.FC = () => {
     {
       id: 'welcome',
       role: 'model',
-      text: `${getGreeting()}! Sou a Aurora, sua assistente inteligente do PsiFlux. 🧠✨\n\nSou uma parceira para te ajudar na gestão da clínica e também com dúvidas sobre psicologia. Posso consultar seus pacientes, agenda e até realizar marcações para você. Como posso ser útil hoje?`,
+      text: `${getGreeting()}! Sou a Aurora, sua assistente inteligente do Plaelo. 🧠✨\n\nSou uma parceira para te ajudar na gestão da clínica e também com dúvidas sobre sua prática clínica. Posso consultar seus pacientes, agenda e até realizar marcações para você. Como posso ser útil hoje?`,
       timestamp: new Date()
     }
   ]);
@@ -325,7 +325,7 @@ export const AuroraAssistant: React.FC = () => {
             </div>
 
             <div className="text-center mt-2">
-                <span className="text-[10px] text-slate-400">Powered by Aurora AI • PsiFlux</span>
+                <span className="text-[10px] text-slate-400">Powered by Aurora AI • Plaelo</span>
             </div>
         </div>
       </div>

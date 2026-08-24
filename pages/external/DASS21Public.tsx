@@ -53,7 +53,7 @@ export const DASS21Public: React.FC = () => {
 
   useEffect(() => {
     const profName = professional?.name || 'Psicólogo(a)';
-    document.title = professional ? `DASS-21 | ${profName}` : 'DASS-21 | PsiFlux';
+    document.title = professional ? `DASS-21 | ${profName}` : 'DASS-21 | Plaelo';
     if (professional) {
       const setMeta = (attr: string, key: string, content: string) => {
         let el = document.querySelector(`meta[${attr}="${key}"]`);
@@ -101,7 +101,7 @@ export const DASS21Public: React.FC = () => {
           </div>
           <div className="flex items-center justify-center gap-2 pt-2 opacity-40">
             <ShieldCheck size={13} className="text-slate-400" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocolo PsiFlux</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protocolo Plaelo</span>
           </div>
         </div>
       </div>
@@ -204,7 +204,7 @@ export const DASS21Public: React.FC = () => {
             {error && <p className="text-rose-500 text-center mt-3 text-xs font-bold">{error}</p>}
             <div className="flex items-center justify-center gap-1.5 mt-4 opacity-30">
               <ShieldCheck size={12} className="text-slate-400" />
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocolo de Sigilo PsiFlux</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protocolo de Sigilo Plaelo</p>
             </div>
           </div>
         </form>

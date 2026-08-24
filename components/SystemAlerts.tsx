@@ -158,7 +158,7 @@ export const SystemAlerts: React.FC = () => {
             </div>
             
             <div className="p-2 bg-slate-50 border-t border-slate-100 text-center">
-               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Psiflux Analytics & Intelligence</p>
+               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Plaelo Analytics & Intelligence</p>
             </div>
           </div>
       )}

@@ -22,8 +22,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { api, API_BASE_URL } from "../services/api";
 import { useUserPreferences } from "../contexts/UserPreferencesContext";
-import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
-import logoUrl from '../images/logo-psiflux.png';
+import logoUrl from '../images/logo-sistema/logo.png';
 import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -241,7 +240,7 @@ const Lobby: React.FC<{
 
         {/* Barra superior */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 28px", position: "relative", zIndex: 10, flexShrink: 0 }}>
-          <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 32, objectFit: "contain", opacity: 0.9 }} />
+          <img src={logoUrl} alt="Plaelo" style={{ height: 32, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 8, padding: 3 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 99, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e" }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Sala pronta</span>
@@ -400,7 +399,7 @@ const Lobby: React.FC<{
     <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "12px 16px 24px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
       <div style={{ marginBottom: 16 }} className="lobby-logo">
-        <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 28, objectFit: "contain", opacity: 0.7 }} />
+        <img src={logoUrl} alt="Plaelo" style={{ height: 28, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 8, padding: 3 }} />
       </div>
 
       <div style={{ width: "100%", maxWidth: 760, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, background: "#12151e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 22, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.75)" }} className="lobby-grid lobby-guest">
@@ -1632,7 +1631,7 @@ const RoomInner: React.FC<{
         {/* Header flutuante */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)", pointerEvents: "none" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src={logoDarkUrl} alt="PsiFlux" style={{ height: 22, objectFit: "contain", opacity: 0.7 }} />
+            <img src={logoUrl} alt="Plaelo" style={{ height: 22, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 6, padding: 2 }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <Clock size={12} color="#6366f1" />

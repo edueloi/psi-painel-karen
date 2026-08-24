@@ -47,8 +47,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useUserPreferences } from "../contexts/UserPreferencesContext";
-import logoUrl from '../images/logo-psiflux.png';
-import logoDarkUrl from '../images/logopsiflux-para-fundo-escuro.png';
+import logoUrl from '../images/logo-sistema/logo.png';
 import { ClinicalForm, FormQuestion } from "../types";
 import { api, API_BASE_URL } from "../services/api";
 import { Button } from "../components/UI/Button";
@@ -4793,7 +4792,7 @@ export const MeetingRoom: React.FC<MeetingRoomProps> = ({
                   </div>
                 ) : (
                   <div className="absolute -bottom-3 -right-3 w-12 h-12 bg-white rounded-2xl p-1 shadow-xl border border-slate-100 flex items-center justify-center overflow-hidden">
-                    <img src={isDark ? logoDarkUrl : logoUrl} alt="PsiFlux" className="w-10 h-10 object-contain" />
+                    <img src={logoUrl} alt="Plaelo" className="w-10 h-10 object-contain" />
                   </div>
                 )}
               </div>

@@ -606,7 +606,7 @@ export const FormResponses: React.FC = () => {
                                 />
 
                                 <div className="mt-10 pt-10 border-t border-slate-100 flex items-center justify-between">
-                                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">PsiFlux Intelligence · Relatório Gerado em {new Date().toLocaleDateString()}</p>
+                                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Plaelo Intelligence · Relatório Gerado em {new Date().toLocaleDateString()}</p>
                                    <p className="text-[9px] font-black text-indigo-300 uppercase">Análise Automática Orientada por IA</p>
                                 </div>
                              </div>
@@ -665,7 +665,7 @@ export const FormResponses: React.FC = () => {
 
                                 <div className="mt-32 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
                                    <div className="max-w-[300px]">
-                                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Tecnologia PsiFlux</p>
+                                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Tecnologia Plaelo</p>
                                       <p className="text-[9px] leading-relaxed text-slate-400 italic">Este documento foi gerado pela inteligência artificial Aurora e deve ser validado pelo profissional responsável para fins legais e clínicos.</p>
                                    </div>
                                    <div className="text-right flex flex-col items-center">

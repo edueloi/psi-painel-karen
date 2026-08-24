@@ -181,7 +181,7 @@ function HeroSide() {
           <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center border border-white/20">
             <Heart size={16} className="text-white" fill="currentColor" />
           </div>
-          <span className="text-white/80 text-sm font-bold tracking-wide">PsiFlux</span>
+          <span className="text-white/80 text-sm font-bold tracking-wide">Plaelo</span>
         </div>
 
         <h1 className="text-4xl font-black text-white leading-tight mb-4">
