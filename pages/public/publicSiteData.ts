@@ -27,12 +27,14 @@ export const FEATURE_LABELS: Record<string, string> = {
   financeiro: 'Financeiro & Livro Caixa',
   relatorios: 'Relatórios & Desempenho',
   mensagens: 'Mensagens internas',
-  aurora_ia: 'Aurora IA',
+  aurora_ai: 'Aurora IA',
   whatsapp_bot: 'WhatsApp Bot',
   profissionais: 'Múltiplos profissionais',
   servicos: 'Serviços e produtos',
+  produtos: 'Produtos',
   comandas: 'Comandas',
   instrumentos: 'Instrumentos (DISC, DASS-21)',
+  nota_fiscal: 'Nota Fiscal de Serviço',
 };
 
 export const features = [
