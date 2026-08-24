@@ -34,6 +34,17 @@ async function ensureTablesExist() {
     "ALTER TABLE patients ADD COLUMN street VARCHAR(255) NULL",
     "ALTER TABLE patients ADD COLUMN house_number VARCHAR(20) NULL",
     "ALTER TABLE patients ADD COLUMN neighborhood VARCHAR(100) NULL",
+    // Colunas adicionadas de forma preguiçosa (só na primeira request) em
+    // backend/routes/patients.js — garantidas aqui também porque o cadastro
+    // público pode ser o primeiro a lê-las/escrevê-las após um deploy.
+    "ALTER TABLE patients ADD COLUMN is_payer TINYINT(1) DEFAULT 1",
+    "ALTER TABLE patients ADD COLUMN payer_name VARCHAR(255) NULL",
+    "ALTER TABLE patients ADD COLUMN payer_cpf VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN payer_phone VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN emergency_contacts TEXT NULL",
+    "ALTER TABLE patients ADD COLUMN address_logradouro VARCHAR(255) NULL",
+    "ALTER TABLE patients ADD COLUMN address_numero VARCHAR(20) NULL",
+    "ALTER TABLE patients ADD COLUMN address_bairro VARCHAR(100) NULL",
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { /* coluna já existe, ignorar */ }
@@ -57,7 +68,7 @@ router.post('/send', authMiddleware, async (req, res) => {
     if (!patient) return res.status(403).json({ error: 'Paciente não encontrado ou sem permissão' });
 
     const token = generateSecureToken();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 3600000); // 30 dias
+    const expiresAt = new Date(Date.now() + 7 * 24 * 3600000); // 7 dias
 
     await db.query(
       `INSERT INTO patient_registration_links (token, patient_id, professional_id, tenant_id, expires_at)

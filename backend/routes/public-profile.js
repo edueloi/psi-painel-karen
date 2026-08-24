@@ -671,14 +671,24 @@ router.get('/cadastro/validate', async (req, res) => {
 
     const [[patient]] = await db.query(
       `SELECT id, name, email, phone, profession, cpf, birth_date, gender,
-              COALESCE(street, '') AS street,
-              COALESCE(house_number, '') AS house_number,
-              COALESCE(neighborhood, '') AS neighborhood,
-              city, state, zip_code, health_plan
+              COALESCE(NULLIF(street, ''), address_logradouro, '') AS street,
+              COALESCE(NULLIF(house_number, ''), address_numero, '') AS house_number,
+              COALESCE(NULLIF(neighborhood, ''), address_bairro, '') AS neighborhood,
+              city, state, zip_code, health_plan,
+              marital_status, education, nationality,
+              has_children, children_count, minor_children_count,
+              is_payer, payer_name, payer_cpf, payer_phone,
+              emergency_contacts, family_contact
        FROM patients WHERE id = ? AND tenant_id = ?`,
       [link.patient_id, link.tenant_id]
     );
     if (!patient) return res.status(404).json({ error: 'Paciente não encontrado.' });
+
+    if (patient.emergency_contacts && typeof patient.emergency_contacts === 'string') {
+      try { patient.emergency_contacts = JSON.parse(patient.emergency_contacts); } catch { patient.emergency_contacts = []; }
+    }
+    patient.has_children = !!patient.has_children;
+    patient.is_payer = patient.is_payer === null || patient.is_payer === undefined ? true : !!patient.is_payer;
 
     const [[prof]] = await db.query('SELECT name FROM users WHERE id = ?', [link.professional_id]);
 
@@ -713,11 +723,16 @@ router.post('/cadastro/submit', async (req, res) => {
       return res.status(410).json({ error: 'Este link expirou. Peça um novo link ao seu profissional.' });
     }
 
-    // Mesma allow-list usada em patient-portal.js PATCH /me
+    // Mesma allow-list usada em patient-portal.js PATCH /me, ampliada com os
+    // campos de família/financeiro que o profissional também precisa (mesmos
+    // do wizard interno de paciente).
     const allowed = [
       'name', 'email', 'phone', 'profession', 'cpf', 'birth_date', 'gender',
       'street', 'house_number', 'neighborhood', 'city', 'state', 'zip_code',
-      'health_plan',
+      'health_plan', 'marital_status', 'education', 'nationality',
+      'has_children', 'children_count', 'minor_children_count',
+      'family_contact', 'emergency_contacts',
+      'is_payer', 'payer_name', 'payer_cpf', 'payer_phone',
     ];
     const body = req.body || {};
     const updates = {};
@@ -728,8 +743,20 @@ router.post('/cadastro/submit', async (req, res) => {
       // ao receber um ISO completo com hora/timezone (ex: prefill não editado
       // pelo paciente, que volta como veio do GET /validate).
       if (k === 'birth_date' && typeof v === 'string') v = v.slice(0, 10);
+      if (k === 'has_children' || k === 'is_payer') v = v ? 1 : 0;
+      if (k === 'children_count' || k === 'minor_children_count') v = v === null ? 0 : Number(v) || 0;
+      if (k === 'emergency_contacts' && v && typeof v !== 'string') v = JSON.stringify(v);
       updates[k] = v;
     }
+    // Endereço é gravado nas duas convenções de colunas usadas pelo sistema
+    // (portal: street/house_number/neighborhood; NFS-e: address_logradouro/
+    // address_numero/address_bairro) para que qualquer tela que leia dados
+    // do paciente — cadastro interno, emissão de nota fiscal, portal — veja
+    // o mesmo endereço, não importa qual formulário foi usado para editá-lo.
+    if (updates.street !== undefined) updates.address_logradouro = updates.street;
+    if (updates.house_number !== undefined) updates.address_numero = updates.house_number;
+    if (updates.neighborhood !== undefined) updates.address_bairro = updates.neighborhood;
+
     if (Object.keys(updates).length) {
       const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
       await db.query(

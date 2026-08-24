@@ -2,33 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   User, Mail, Phone, Briefcase, IdCard, MapPin, Home, ShieldCheck,
-  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, ChevronDown,
+  Loader2, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, Globe2,
+  Users2, Wallet,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { fetchAddressByCep, applyCepMask } from '../../src/lib/cep';
 import { DatePicker } from '../../components/UI/DatePicker';
+import { CountrySelect, maskPhone } from '../../components/UI/CountrySelect';
 import logoUrl from '../../images/logo-sistema/logo.png';
 
-const COUNTRY_CODES = [
-  { code: 'BR', dial: '55', flag: '🇧🇷' },
-  { code: 'PT', dial: '351', flag: '🇵🇹' },
-  { code: 'US', dial: '1', flag: '🇺🇸' },
-];
-
-function applyCpfMask(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 11);
-  return digits
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-}
-
-function applyPhoneMask(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
 }
 
 interface PatientData {
@@ -47,15 +33,66 @@ interface PatientData {
   state: string | null;
   zip_code: string | null;
   health_plan: string | null;
+  marital_status: string | null;
+  education: string | null;
+  nationality: string | null;
+  has_children: boolean;
+  children_count: number | null;
+  minor_children_count: number | null;
+  emergency_contacts: EmergencyContact[];
+  is_payer: boolean;
+  payer_name: string | null;
+  payer_cpf: string | null;
+  payer_phone: string | null;
 }
+
+const EMPTY_PATIENT: PatientData = {
+  id: 0, name: '', email: '', phone: '', profession: '', cpf: '', birth_date: '', gender: '',
+  street: '', house_number: '', neighborhood: '', city: '', state: '', zip_code: '', health_plan: '',
+  marital_status: '', education: '', nationality: 'Brasileiro(a)',
+  has_children: false, children_count: 0, minor_children_count: 0,
+  emergency_contacts: [],
+  is_payer: true, payer_name: '', payer_cpf: '', payer_phone: '',
+};
 
 const STEPS = [
   { key: 'pessoais', label: 'Dados pessoais' },
+  { key: 'familia', label: 'Família' },
   { key: 'endereco', label: 'Endereço' },
   { key: 'plano', label: 'Plano de saúde' },
 ];
 
+const MARITAL_OPTIONS = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'Amaziado/União Estável', 'Separado(a)'];
+const EDUCATION_OPTIONS = [
+  'Ensino Fundamental Incompleto', 'Ensino Fundamental Completo',
+  'Ensino Médio Incompleto', 'Ensino Médio Completo',
+  'Ensino Superior Incompleto', 'Ensino Superior Completo',
+  'Pós-graduação', 'Mestrado', 'Doutorado',
+];
+const RELATIONSHIP_OPTIONS = [
+  ['conjuge', 'Cônjuge'], ['mae', 'Mãe'], ['pai', 'Pai'], ['filho', 'Filho'], ['filha', 'Filha'],
+  ['irmao', 'Irmão'], ['irma', 'Irmã'], ['avo', 'Avô/Avó'], ['tio', 'Tio(a)'], ['primo', 'Primo(a)'],
+  ['amigo', 'Amigo(a)'], ['outro', 'Outro'],
+];
+
+function normalizeGender(raw: string | null | undefined): string {
+  const v = (raw || '').trim().toLowerCase();
+  if (['m', 'masculino', 'male'].includes(v)) return 'masculino';
+  if (['f', 'feminino', 'female'].includes(v)) return 'feminino';
+  if (!v) return '';
+  return 'outro';
+}
+
+function applyCpfMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
 const inputCls = 'w-full pl-11 pr-4 py-3 rounded-xl text-sm bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200';
+const plainInputCls = 'w-full px-3.5 py-3 rounded-xl text-sm bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200';
 const labelCls = 'text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block';
 
 const Field: React.FC<{ label: string; icon: React.ReactNode; children: React.ReactNode }> = ({ label, icon, children }) => (
@@ -72,21 +109,17 @@ export const RegistrationUpdatePublic: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
 
-  const [step, setStep] = useState<'loading' | 'error' | 'form' | 'submitted'>('loading');
+  const [step, setStep] = useState<'loading' | 'error' | 'form' | 'submitted' | 'already_done'>('loading');
   const [error, setError] = useState('');
   const [professionalName, setProfessionalName] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [phoneCountry, setPhoneCountry] = useState(COUNTRY_CODES[0]);
-  const [countryMenuOpen, setCountryMenuOpen] = useState(false);
+  const [phoneCountry, setPhoneCountry] = useState('BR');
 
-  const [form, setForm] = useState<PatientData>({
-    id: 0, name: '', email: '', phone: '', profession: '', cpf: '', birth_date: '', gender: '',
-    street: '', house_number: '', neighborhood: '', city: '', state: '', zip_code: '', health_plan: '',
-  });
+  const [form, setForm] = useState<PatientData>(EMPTY_PATIENT);
 
-  const setField = (k: keyof PatientData, v: string) => setForm(prev => ({ ...prev, [k]: v }));
+  const setField = <K extends keyof PatientData>(k: K, v: PatientData[K]) => setForm(prev => ({ ...prev, [k]: v }));
 
   useEffect(() => {
     document.title = 'Atualizar Cadastro | Plaelo';
@@ -100,9 +133,18 @@ export const RegistrationUpdatePublic: React.FC = () => {
           ...prev,
           ...patient,
           cpf: applyCpfMask(patient.cpf || ''),
-          phone: applyPhoneMask(patient.phone || ''),
+          phone: maskPhone(patient.phone || '', 'BR'),
+          gender: normalizeGender(patient.gender),
+          nationality: patient.nationality || prev.nationality,
+          emergency_contacts: Array.isArray(patient.emergency_contacts) && patient.emergency_contacts.length
+            ? patient.emergency_contacts
+            : [],
         }));
-        setStep('form');
+        if (data.already_submitted) {
+          setStep('already_done');
+        } else {
+          setStep('form');
+        }
       })
       .catch((err: any) => {
         const msg = err?.response?.data?.error || err?.message || 'Erro ao carregar formulário.';
@@ -121,6 +163,12 @@ export const RegistrationUpdatePublic: React.FC = () => {
     setCepLoading(false);
   };
 
+  const contact = form.emergency_contacts[0] || { name: '', phone: '', relationship: '' };
+  const setContact = (patch: Partial<EmergencyContact>) => {
+    const next = { ...contact, ...patch };
+    setField('emergency_contacts', (next.name || next.phone || next.relationship) ? [next] : []);
+  };
+
   const goNext = () => setStepIndex(i => Math.min(STEPS.length - 1, i + 1));
   const goPrev = () => setStepIndex(i => Math.max(0, i - 1));
 
@@ -130,6 +178,15 @@ export const RegistrationUpdatePublic: React.FC = () => {
       await api.post(`/public-profile/cadastro/submit?t=${token}`, {
         name: form.name, email: form.email, phone: form.phone, profession: form.profession,
         cpf: form.cpf, birth_date: form.birth_date ? form.birth_date.slice(0, 10) : null, gender: form.gender,
+        marital_status: form.marital_status, education: form.education, nationality: form.nationality,
+        has_children: form.has_children,
+        children_count: form.has_children ? form.children_count : 0,
+        minor_children_count: form.has_children ? form.minor_children_count : 0,
+        emergency_contacts: form.emergency_contacts,
+        is_payer: form.is_payer,
+        payer_name: form.is_payer ? null : form.payer_name,
+        payer_cpf: form.is_payer ? null : form.payer_cpf,
+        payer_phone: form.is_payer ? null : form.payer_phone,
         street: form.street, house_number: form.house_number, neighborhood: form.neighborhood,
         city: form.city, state: form.state, zip_code: form.zip_code,
         health_plan: form.health_plan,
@@ -163,6 +220,22 @@ export const RegistrationUpdatePublic: React.FC = () => {
     );
   }
 
+  if (step === 'already_done') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md text-center">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-slate-200">
+            <CheckCircle2 size={28} className="text-slate-500" />
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 mb-2">Este cadastro já foi enviado</h1>
+          <p className="text-slate-500 leading-relaxed">
+            Você já atualizou seus dados por este link{professionalName ? ` com ${professionalName}` : ''}. Se precisar corrigir algo, peça um novo link.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (step === 'submitted') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -191,10 +264,10 @@ export const RegistrationUpdatePublic: React.FC = () => {
 
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8">
           {/* Step indicator */}
-          <div className="flex items-center gap-2 mb-8 flex-wrap">
+          <div className="flex items-center gap-1.5 mb-8 flex-wrap">
             {STEPS.map((s, i) => (
               <React.Fragment key={s.key}>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                     style={i < stepIndex
@@ -205,9 +278,9 @@ export const RegistrationUpdatePublic: React.FC = () => {
                   >
                     {i < stepIndex ? <CheckCircle2 size={14} /> : i + 1}
                   </div>
-                  <span className={`text-xs font-bold ${i === stepIndex ? 'text-slate-800' : 'text-slate-400'} hidden sm:inline`}>{s.label}</span>
+                  <span className={`text-[11px] font-bold ${i === stepIndex ? 'text-slate-800' : 'text-slate-400'} hidden sm:inline`}>{s.label}</span>
                 </div>
-                {i < STEPS.length - 1 && <div className="flex-1 h-px bg-slate-200 min-w-[16px]" />}
+                {i < STEPS.length - 1 && <div className="flex-1 h-px bg-slate-200 min-w-[10px]" />}
               </React.Fragment>
             ))}
           </div>
@@ -231,35 +304,11 @@ export const RegistrationUpdatePublic: React.FC = () => {
                 </Field>
                 <div>
                   <label className={labelCls}>Telefone</label>
-                  <div className="relative flex gap-1.5">
-                    <div className="relative shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setCountryMenuOpen(o => !o)}
-                        className="h-full flex items-center gap-1 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700"
-                      >
-                        <span className="text-base leading-none">{phoneCountry.flag}</span>
-                        +{phoneCountry.dial}
-                        <ChevronDown size={13} className="text-slate-400" />
-                      </button>
-                      {countryMenuOpen && (
-                        <div className="absolute z-20 top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden min-w-[110px]">
-                          {COUNTRY_CODES.map(c => (
-                            <button
-                              key={c.code}
-                              type="button"
-                              onClick={() => { setPhoneCountry(c); setCountryMenuOpen(false); }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 text-left"
-                            >
-                              <span className="text-base leading-none">{c.flag}</span> +{c.dial}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  <div className="flex gap-1.5">
+                    <CountrySelect value={phoneCountry} onChange={c => { setPhoneCountry(c); setField('phone', ''); }} />
                     <div className="relative flex-1">
                       <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                      <input className={inputCls} value={form.phone || ''} onChange={e => setField('phone', applyPhoneMask(e.target.value))} placeholder="(00) 00000-0000" />
+                      <input className={inputCls} value={form.phone || ''} onChange={e => setField('phone', maskPhone(e.target.value, phoneCountry))} placeholder="(00) 00000-0000" />
                     </div>
                   </div>
                 </div>
@@ -286,6 +335,88 @@ export const RegistrationUpdatePublic: React.FC = () => {
                   <option value="prefiro_nao_dizer">Prefiro não dizer</option>
                 </select>
               </Field>
+            </div>
+          )}
+
+          {currentKey === 'familia' && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Estado civil</label>
+                  <select className={plainInputCls} value={form.marital_status || ''} onChange={e => setField('marital_status', e.target.value)}>
+                    <option value="">Selecione</option>
+                    {MARITAL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Escolaridade</label>
+                  <select className={plainInputCls} value={form.education || ''} onChange={e => setField('education', e.target.value)}>
+                    <option value="">Selecione</option>
+                    {EDUCATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+              <Field label="Nacionalidade" icon={<Globe2 size={15} />}>
+                <input className={inputCls} value={form.nationality || ''} onChange={e => setField('nationality', e.target.value)} placeholder="Ex: Brasileiro(a)" />
+              </Field>
+
+              <div className="border-t border-slate-100 pt-4">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input type="checkbox" className="w-4 h-4 accent-[#6D42F5]" checked={form.has_children} onChange={e => setField('has_children', e.target.checked)} />
+                  <span className="text-sm font-semibold text-slate-700">Tem filhos</span>
+                </label>
+                {form.has_children && (
+                  <div className="grid grid-cols-2 gap-4 mt-3 pl-7">
+                    <div>
+                      <label className={labelCls}>Quantos, ao todo</label>
+                      <input type="number" min={0} className={plainInputCls} value={form.children_count ?? 0} onChange={e => setField('children_count', parseInt(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Quantos menores de idade</label>
+                      <input type="number" min={0} className={plainInputCls} value={form.minor_children_count ?? 0} onChange={e => setField('minor_children_count', parseInt(e.target.value) || 0)} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                  <Users2 size={15} className="text-[#6D42F5]" /> Contato de emergência / parente
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input className={plainInputCls} placeholder="Nome" value={contact.name} onChange={e => setContact({ name: e.target.value })} />
+                  <select className={plainInputCls} value={contact.relationship} onChange={e => setContact({ relationship: e.target.value })}>
+                    <option value="">Parentesco</option>
+                    {RELATIONSHIP_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                  <input className={plainInputCls} placeholder="Telefone" value={contact.phone} onChange={e => setContact({ phone: maskPhone(e.target.value, 'BR') })} />
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <Wallet size={15} className="text-[#6D42F5]" /> Responsável financeiro
+                  </h4>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <span className="text-xs font-semibold text-slate-500">Sou eu mesmo(a)</span>
+                    <button
+                      type="button"
+                      onClick={() => setField('is_payer', !form.is_payer)}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors ${form.is_payer ? 'bg-[#6D42F5]' : 'bg-slate-300'}`}
+                    >
+                      <span className={`inline-block h-5 w-5 mt-0.5 transform rounded-full bg-white shadow transition-transform ${form.is_payer ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </label>
+                </div>
+                {!form.is_payer && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input className={plainInputCls} placeholder="Nome do responsável" value={form.payer_name || ''} onChange={e => setField('payer_name', e.target.value)} />
+                    <input className={plainInputCls} placeholder="CPF do responsável" value={form.payer_cpf || ''} onChange={e => setField('payer_cpf', applyCpfMask(e.target.value))} />
+                    <input className={plainInputCls} placeholder="Telefone do responsável" value={form.payer_phone || ''} onChange={e => setField('payer_phone', maskPhone(e.target.value, 'BR'))} />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -318,7 +449,7 @@ export const RegistrationUpdatePublic: React.FC = () => {
                   <input className={inputCls} value={form.city || ''} onChange={e => setField('city', e.target.value)} placeholder="Cidade" />
                 </Field>
                 <Field label="Estado" icon={<MapPin size={15} />}>
-                  <input className={inputCls} value={form.state || ''} onChange={e => setField('state', e.target.value)} placeholder="UF" maxLength={2} />
+                  <input className={inputCls} value={form.state || ''} onChange={e => setField('state', e.target.value.toUpperCase())} placeholder="UF" maxLength={2} />
                 </Field>
               </div>
             </div>
@@ -333,7 +464,7 @@ export const RegistrationUpdatePublic: React.FC = () => {
             </div>
           )}
 
-          {error && step === 'form' && (
+          {error && (
             <div className="flex items-start gap-2 border border-red-200 bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl mt-5">
               <AlertCircle size={15} className="mt-0.5 flex-shrink-0" /> {error}
             </div>
