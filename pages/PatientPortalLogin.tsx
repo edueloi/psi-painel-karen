@@ -7,6 +7,7 @@ import {
   Plus, Trash2, Users, Baby, UserPlus,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
+import logoUrl from "../images/logo-sistema/logo.png";
 
 const SESSION_KEY = "psi_portal_session";
 
@@ -86,9 +87,9 @@ function portalApiFetch(path: string, body?: object) {
 function BgDecor() {
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
-      <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-500/10 blur-3xl" />
-      <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-gradient-to-tl from-purple-500/15 to-pink-500/10 blur-3xl" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-gradient-to-br from-indigo-500/5 to-violet-500/5 blur-3xl" />
+      <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-indigo-500/15 blur-3xl" />
+      <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-emerald-500/10 blur-3xl" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-indigo-500/5 blur-3xl" />
     </div>
   );
 }
@@ -107,10 +108,9 @@ function Toast({ msg, type = "success" }: { msg: string; type?: "success" | "err
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const s = size === "lg" ? "w-16 h-16" : size === "sm" ? "w-8 h-8" : "w-12 h-12";
-  const icon = size === "lg" ? 28 : size === "sm" ? 14 : 20;
   return (
-    <div className={`${s} bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-300/40 shrink-0`}>
-      <Heart size={icon} className="text-white" fill="currentColor" />
+    <div className={`${s} rounded-2xl overflow-hidden ring-1 ring-indigo-100 shadow-lg bg-white p-1.5 shrink-0`}>
+      <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
     </div>
   );
 }
@@ -144,7 +144,7 @@ function PrimaryBtn({ onClick, disabled, loading, children }: {
 }) {
   return (
     <button onClick={onClick} disabled={disabled || loading}
-      className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-300/30 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+      className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-300/30 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
       {loading ? <Loader2 size={16} className="animate-spin" /> : children}
     </button>
   );
@@ -169,8 +169,19 @@ function HeroSide() {
     { icon: <MessageCircle size={15} />, label: "Comunicação", desc: "Mensagens seguras com seu profissional" },
   ];
   return (
-    <div className="hidden lg:flex lg:w-[420px] xl:w-[480px] shrink-0 relative bg-gradient-to-br from-violet-700 via-indigo-700 to-indigo-800 flex-col justify-between p-12 overflow-hidden">
-      {/* Círculos decorativos */}
+    <div
+      className="hidden lg:flex lg:w-[420px] xl:w-[480px] shrink-0 relative flex-col justify-between p-12 overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #120C2E 0%, #2A1F6B 100%)' }}
+    >
+      {/* Glow decorativo */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 60% at 40% 35%, rgba(109,66,245,0.22) 0%, transparent 70%), ' +
+            'radial-gradient(ellipse 50% 50% at 75% 70%, rgba(18,183,106,0.12) 0%, transparent 65%)',
+        }}
+      />
       <div className="absolute -top-20 -left-20 w-72 h-72 bg-white/5 rounded-full" />
       <div className="absolute top-1/3 -right-16 w-56 h-56 bg-white/5 rounded-full" />
       <div className="absolute -bottom-16 -left-8 w-64 h-64 bg-white/5 rounded-full" />
@@ -178,8 +189,8 @@ function HeroSide() {
       {/* Topo */}
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-12">
-          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center border border-white/20">
-            <Heart size={16} className="text-white" fill="currentColor" />
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white p-1.5 flex items-center justify-center border border-white/20">
+            <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
           </div>
           <span className="text-white/80 text-sm font-bold tracking-wide">Plaelo</span>
         </div>
@@ -503,7 +514,7 @@ export const PatientPortalLogin: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
       <BgDecor />
       <div className="text-center relative z-10">
-        <div className="w-20 h-20 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-indigo-300/40 animate-pulse">
+        <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-indigo-300/40 animate-pulse">
           <Heart size={32} className="text-white" fill="currentColor" />
         </div>
         <p className="text-slate-500 text-sm font-medium">Carregando portal...</p>
@@ -682,7 +693,7 @@ export const PatientPortalLogin: React.FC = () => {
     <PageLayout>
       {inviteInfo?.professional_name && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5 flex items-center gap-3">
-          <div className="w-11 h-11 bg-gradient-to-br from-violet-100 to-indigo-100 rounded-xl flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
+          <div className="w-11 h-11 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-xl flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
             {inviteInfo.professional_name.charAt(0)}
           </div>
           <div className="min-w-0">
@@ -739,7 +750,7 @@ export const PatientPortalLogin: React.FC = () => {
     <PageLayout>
       {inviteInfo.professional_name && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5 flex items-center gap-3">
-          <div className="w-11 h-11 bg-gradient-to-br from-violet-100 to-indigo-100 rounded-xl flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
+          <div className="w-11 h-11 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-xl flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
             {inviteInfo.professional_name.charAt(0)}
           </div>
           <div className="min-w-0">
@@ -805,7 +816,7 @@ export const PatientPortalLogin: React.FC = () => {
       <BgDecor />
       <div className="w-full max-w-2xl relative z-10">
         <div className="text-center mb-7">
-          <div className="w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-300/40">
+          <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-300/40">
             <Users size={24} className="text-white" />
           </div>
           <h2 className="text-2xl font-black text-slate-800">Complete seu cadastro</h2>
@@ -986,7 +997,7 @@ export const PatientPortalLogin: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
       <BgDecor />
       <div className="text-center relative z-10">
-        <div className="w-20 h-20 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-indigo-300/40">
+        <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-indigo-300/40">
           <CheckCircle size={32} className="text-white" />
         </div>
         <h2 className="text-xl font-bold text-slate-800 mb-2">Entrando no portal...</h2>
