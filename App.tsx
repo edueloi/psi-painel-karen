@@ -4,6 +4,7 @@ import { useAuth, AuthProvider } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Topbar } from './components/Layout/Topbar';
@@ -474,7 +475,9 @@ export default function App() {
           <LanguageProvider>
             <ThemeProvider>
               <ToastProvider>
-                <AppRoutes />
+                <ErrorBoundary>
+                  <AppRoutes />
+                </ErrorBoundary>
               </ToastProvider>
             </ThemeProvider>
           </LanguageProvider>
