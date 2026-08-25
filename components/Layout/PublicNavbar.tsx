@@ -30,7 +30,11 @@ export const PublicNavbar: React.FC = () => {
   const go = () => {
     setMenuOpen(false);
     const path = isAuthenticated ? '/dashboard' : '/login';
-    if (typeof window !== 'undefined' && window.location.hostname === 'painel.psiflux.com.br') {
+    // Só força ir pro domínio painel em produção (psiflux.com.br) — em
+    // localhost/dev isso mandaria o desenvolvedor pra produção sem querer.
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isPublicRootHost = hostname === 'psiflux.com.br' || hostname === 'www.psiflux.com.br';
+    if (!isPublicRootHost) {
       navigate(path);
     } else {
       window.location.href = `https://painel.psiflux.com.br${path}`;

@@ -43,7 +43,6 @@ import {
   Input,
   Modal,
   ModalFooter,
-  Select,
   StatCard,
   Textarea,
 } from '../components/UI';
@@ -672,6 +671,46 @@ export const VirtualRooms: React.FC = () => {
           <StatCard title="Permanentes" value={roomStats.persistent} icon={ShieldCheck} color="purple" delay={2} />
         </div>
 
+        {/* Como funciona — orienta qual tipo de sala usar em cada caso */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 className="mb-3 text-sm font-bold text-slate-700">Como funciona o atendimento online</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                <ShieldCheck size={16} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-700">Sala interna do Plaelo</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                  Criptografada, sem instalar nada. Use "Sala Instantânea" ou "Agendar Sala" — o link é gerado sozinho.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                <LinkIcon size={16} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-700">Link externo (Zoom, Teams...)</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                  Já tem uma sala em outro serviço? Cole o link manualmente ao agendar a consulta na Agenda.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-3.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <span className="text-sm font-black">G</span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-700">Google Meet automático — novo</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
+                  Conecte sua conta em <strong>Configurações → Integrações</strong> e gere um link do Meet com um clique direto na Agenda.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Tab switcher */}
         <FilterLineSegmented
           value={activeTab}
@@ -1278,26 +1317,12 @@ export const VirtualRooms: React.FC = () => {
             onChange={(v) => setCreateForm((prev) => ({ ...prev, professional_id: String(v) }))}
           />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Select
-              label="Provider"
-              value={createForm.provider}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, provider: e.target.value }))}
-              options={[
-                { value: 'jitsi', label: 'Jitsi' },
-                { value: 'zoom', label: 'Zoom' },
-                { value: 'teams', label: 'Teams' },
-                { value: 'outro', label: 'Outro' },
-              ]}
+          <div>
+            <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Expira em</label>
+            <DatePicker
+              value={createForm.expiration_date ? createForm.expiration_date.slice(0, 10) : null}
+              onChange={(val) => setCreateForm((prev) => ({ ...prev, expiration_date: val || '' }))}
             />
-
-            <div>
-              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Expira em</label>
-              <DatePicker
-                value={createForm.expiration_date ? createForm.expiration_date.slice(0, 10) : null}
-                onChange={(val) => setCreateForm((prev) => ({ ...prev, expiration_date: val || '' }))}
-              />
-            </div>
           </div>
 
           <Input

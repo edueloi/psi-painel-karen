@@ -300,12 +300,18 @@ const PUBLIC_ROOT_PREFIXES = ['/f/', '/p/', '/portal'];
 const isPublicRootPath = (pathname: string) =>
   PUBLIC_ROOT_PATHS.has(pathname) || PUBLIC_ROOT_PREFIXES.some(prefix => pathname.startsWith(prefix));
 
+// O redirecionamento pro domínio painel só faz sentido no site público de
+// produção — em localhost/dev (ou qualquer outro host, ex: preview) isso
+// mandaria o desenvolvedor pra produção sem querer.
+const IS_PUBLIC_ROOT_HOST = typeof window !== 'undefined' &&
+  ['psiflux.com.br', 'www.psiflux.com.br'].includes(window.location.hostname);
+
 const AppRoutes: React.FC = () => {
   const { user, logout, isInitializing } = useAuth();
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === 'dark';
 
-  if (typeof window !== 'undefined' && !IS_PAINEL_HOST && !isPublicRootPath(window.location.pathname)) {
+  if (IS_PUBLIC_ROOT_HOST && !isPublicRootPath(window.location.pathname)) {
     window.location.replace(`https://painel.psiflux.com.br${window.location.pathname}${window.location.search}`);
     return null;
   }
