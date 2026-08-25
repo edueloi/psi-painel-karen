@@ -156,6 +156,8 @@ export const Agenda: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [googleMeetEnabled, setGoogleMeetEnabled] = useState(false);
+  const [generatingMeetLink, setGeneratingMeetLink] = useState(false);
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [filterPatientId, setFilterPatientId] = useState<string | null>(null);
   const [filterProfessionalId, setFilterProfessionalId] = useState<string | null>(null);
@@ -567,6 +569,10 @@ export const Agenda: React.FC = () => {
   }, [formData.patient_id, selectedApt?.patient_id, formData.comanda_id]);
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    api.get<any>('/google/status').then((d: any) => setGoogleMeetEnabled(!!(d?.connected && d?.enabled))).catch(() => {});
+  }, []);
 
   // Sincronização em tempo real: recarrega a agenda quando outro dispositivo/aba
   // cria, edita ou exclui um agendamento na mesma clínica.
@@ -1384,6 +1390,39 @@ export const Agenda: React.FC = () => {
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleGenerateGoogleMeetLink = async () => {
+    if (!formData.appointment_date) {
+      pushToast('error', 'Defina a data e o horário da consulta antes de gerar o link.');
+      return;
+    }
+    setGeneratingMeetLink(true);
+    try {
+      // Interpreta a string como horário LOCAL (mesmo formato usado no restante do form)
+      const [datePart, timePart = '00:00'] = formData.appointment_date.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, min] = timePart.split(':').map(Number);
+      const startDate = new Date(year, month - 1, day, hour, min);
+      const duration = Number(formData.duration_minutes) || 50;
+      const endDate = new Date(startDate.getTime() + duration * 60000);
+
+      const patient = patients.find(p => String(p.id) === String(formData.patient_id));
+      const res = await api.post<any>('/google/generate-meet-link', {
+        title: `Sessão: ${patient?.full_name || 'Paciente'}`,
+        start_time: startDate.toISOString(),
+        end_time: endDate.toISOString(),
+        patient_id: formData.patient_id || undefined,
+      });
+      if (res?.meeting_url) {
+        setFormData((prev: any) => ({ ...prev, meeting_url: res.meeting_url }));
+        pushToast('success', 'Link do Google Meet gerado!');
+      }
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao gerar link do Google Meet.');
+    } finally {
+      setGeneratingMeetLink(false);
     }
   };
 
@@ -2635,12 +2674,25 @@ export const Agenda: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                           <label className="text-[9px] font-semibold text-indigo-300 uppercase tracking-wider mb-1 block">Link da Sala Virtual</label>
-                          <input
-                            placeholder="Google Meet, Zoom ou sala interna..."
-                            value={formData.meeting_url || ''}
-                            onChange={e => setFormData({...formData, meeting_url: e.target.value})}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-white/30 outline-none focus:bg-white/10 focus:border-indigo-400 transition-all"
-                          />
+                          <div className="flex gap-1.5">
+                            <input
+                              placeholder="Google Meet, Zoom ou sala interna..."
+                              value={formData.meeting_url || ''}
+                              onChange={e => setFormData({...formData, meeting_url: e.target.value})}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-white/30 outline-none focus:bg-white/10 focus:border-indigo-400 transition-all"
+                            />
+                            {googleMeetEnabled && (
+                              <button
+                                type="button"
+                                onClick={handleGenerateGoogleMeetLink}
+                                disabled={generatingMeetLink}
+                                title="Gerar link do Google Meet automaticamente"
+                                className="shrink-0 px-2.5 py-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {generatingMeetLink ? <Loader2 size={13} className="animate-spin" /> : 'Gerar Meet'}
+                              </button>
+                            )}
+                          </div>
                       </div>
                   </div>
               )}

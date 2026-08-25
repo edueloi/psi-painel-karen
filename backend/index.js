@@ -178,6 +178,7 @@ function mountApiRoutes(prefix = '') {
   // interna se protege com authMiddleware individualmente, exceto o webhook).
   app.use(`${prefix}/nfse`, nfseRoutes);
   app.use(`${prefix}/email-campaigns`, emailCampaignsRoutes);
+  app.use(`${prefix}/google`, require('./routes/google-calendar'));
 }
 
 // ---- Middlewares globais ----

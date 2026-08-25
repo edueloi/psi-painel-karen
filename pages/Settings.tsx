@@ -91,7 +91,7 @@ export const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const { user, hasPermission, updateUser } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('aparencia');
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'aparencia');
   const { mode: selectedMode, setMode, primaryColor: selectedColor, setPrimaryColor: setSelectedColor } = useTheme();
   const { pushToast } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
@@ -212,6 +212,57 @@ export const Settings: React.FC = () => {
       await api.post('/mercadopago/config', { enabled: !mpConfig.enabled });
       setMpConfig(prev => ({ ...prev, enabled: !prev.enabled }));
     } catch { pushToast('error', 'Erro ao alterar status.'); }
+  };
+
+  // ── Google Meet (via Google Calendar) ────────────────────────────────────
+  const [googleStatus, setGoogleStatus] = useState({ connected: false, enabled: false, email: null as string | null });
+  const [googleConnecting, setGoogleConnecting] = useState(false);
+  const [googleDisconnecting, setGoogleDisconnecting] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'integracoes') return;
+    api.get<any>('/google/status').then((d: any) => setGoogleStatus(d)).catch(() => {});
+  }, [activeTab]);
+
+  // Toast + limpeza da query string ao voltar do consentimento do Google
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleResult = params.get('google');
+    if (!googleResult) return;
+    if (googleResult === 'success') pushToast('success', 'Conta Google conectada com sucesso!');
+    else if (googleResult === 'error') pushToast('error', 'Não foi possível conectar sua conta Google. Tente novamente.');
+    params.delete('google');
+    const qs = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const connectGoogle = async () => {
+    setGoogleConnecting(true);
+    try {
+      const res = await api.get<any>('/google/connect');
+      if (res?.url) window.location.href = res.url;
+      else pushToast('error', 'Erro ao iniciar conexão com o Google.');
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao iniciar conexão com o Google.');
+    } finally { setGoogleConnecting(false); }
+  };
+
+  const toggleGoogleEnabled = async () => {
+    try {
+      await api.post('/google/toggle', { enabled: !googleStatus.enabled });
+      setGoogleStatus(prev => ({ ...prev, enabled: !prev.enabled }));
+    } catch { pushToast('error', 'Erro ao alterar status.'); }
+  };
+
+  const disconnectGoogle = async () => {
+    setGoogleDisconnecting(true);
+    try {
+      await api.post('/google/disconnect', {});
+      setGoogleStatus({ connected: false, enabled: false, email: null });
+      pushToast('success', 'Conta Google desconectada.');
+    } catch { pushToast('error', 'Erro ao desconectar conta Google.'); }
+    finally { setGoogleDisconnecting(false); }
   };
 
   // ── NFS-e (Dados Fiscais) ────────────────────────────────────────────────
@@ -1308,17 +1359,78 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
+              {/* ── Google Meet ──────────────────────────────────────────────── */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Vídeo</p>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
+                    <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+                      <Video size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-slate-800 text-sm">Google Meet</p>
+                        {googleStatus.connected && (
+                          <span className={cx(
+                            'px-2 py-0.5 rounded-full text-[10px] font-bold border',
+                            googleStatus.enabled
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-slate-100 text-slate-500 border-slate-200'
+                          )}>
+                            {googleStatus.enabled ? 'Ativo' : 'Pausado'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Gere links do Google Meet automaticamente para consultas online</p>
+                    </div>
+                    {googleStatus.connected && (
+                      <ToggleSwitch checked={googleStatus.enabled} onChange={toggleGoogleEnabled} />
+                    )}
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {googleStatus.connected ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                          <p className="text-xs text-emerald-700 font-medium">
+                            Conectado como <strong>{googleStatus.email}</strong>
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          Com isso ativado, você pode gerar um link do Google Meet direto ao criar uma consulta online na Agenda.
+                        </p>
+                        <button onClick={disconnectGoogle} disabled={googleDisconnecting}
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
+                          <Unplug size={12} /> {googleDisconnecting ? 'Desconectando...' : 'Desconectar Google'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-1.5">
+                          <p className="text-xs font-bold text-blue-700">Como funciona:</p>
+                          <p className="text-xs text-blue-800">
+                            Conecte sua conta Google (pessoal ou Workspace) para que o sistema gere automaticamente um link
+                            do Google Meet e um evento na sua Agenda do Google ao criar uma consulta online.
+                          </p>
+                        </div>
+                        <button onClick={connectGoogle} disabled={googleConnecting}
+                          className="w-full py-2.5 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all disabled:opacity-40">
+                          {googleConnecting
+                            ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Conectando...</span>
+                            : 'Conectar com Google'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Em breve */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Em breve</p>
                 <div className="space-y-2">
                   {[
-                    {
-                      icon: <span className="font-bold text-base">G</span>,
-                      color: 'bg-blue-50 text-blue-600',
-                      title: 'Google Calendar',
-                      desc: 'Sincronize sua agenda com o Google Calendar',
-                    },
                     {
                       icon: <Phone size={20} />,
                       color: 'bg-green-50 text-green-600',

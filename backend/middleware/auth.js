@@ -6,7 +6,9 @@ const { subscriptionAccessMiddleware } = require('./subscriptionAccess');
  * Extrai tenant_id, user_id e role do token
  */
 // Paths that don't require authentication
-const PUBLIC_PATHS = ['/virtual-rooms/public', '/patient-portal'];
+// /google/callback é chamado pelo próprio navegador do usuário voltando do
+// consentimento do Google — não carrega o header Authorization da SPA.
+const PUBLIC_PATHS = ['/virtual-rooms/public', '/patient-portal', '/google/callback'];
 
 async function authMiddleware(req, res, next) {
   // For semi-public paths: try to decode JWT if present, but don't block if absent
