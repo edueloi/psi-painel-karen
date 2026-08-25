@@ -24,7 +24,18 @@ export const PublicNavbar: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const go = () => { setMenuOpen(false); navigate(isAuthenticated ? '/dashboard' : '/login'); };
+  // Login/dashboard vivem só em painel.psiflux.com.br (token em localStorage
+  // é isolado por domínio) — navegação real de browser, não SPA, evita cair
+  // no /login deste domínio e ter que ser redirecionado de novo depois.
+  const go = () => {
+    setMenuOpen(false);
+    const path = isAuthenticated ? '/dashboard' : '/login';
+    if (typeof window !== 'undefined' && window.location.hostname === 'painel.psiflux.com.br') {
+      navigate(path);
+    } else {
+      window.location.href = `https://painel.psiflux.com.br${path}`;
+    }
+  };
 
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 

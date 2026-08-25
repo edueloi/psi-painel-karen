@@ -283,10 +283,31 @@ const RedirectToSala: React.FC = () => {
 // deve abrir o sistema (dashboard/login) ali, não o site institucional.
 const IS_PAINEL_HOST = typeof window !== 'undefined' && window.location.hostname === 'painel.psiflux.com.br';
 
+// O login (token em localStorage) é isolado por domínio — logar em
+// psiflux.com.br e depois acabar em painel.psiflux.com.br (ou vice-versa)
+// faz a sessão "sumir" ao dar F5, pois cada origem tem seu próprio storage.
+// Por isso o painel/login só existe de fato em painel.psiflux.com.br; o
+// domínio raiz fica só com o site institucional, formulários e portal do
+// paciente — qualquer outra rota é redirecionada (navegação real de
+// browser, não SPA) para o host correto.
+const PUBLIC_ROOT_PATHS = new Set([
+  '/', '/funcionalidades', '/planos', '/sobre', '/cadastro',
+  '/termos-de-uso', '/politica-privacidade',
+  '/encontrar-profissional', '/encontrar-psicologo',
+]);
+const PUBLIC_ROOT_PREFIXES = ['/f/', '/p/', '/portal'];
+const isPublicRootPath = (pathname: string) =>
+  PUBLIC_ROOT_PATHS.has(pathname) || PUBLIC_ROOT_PREFIXES.some(prefix => pathname.startsWith(prefix));
+
 const AppRoutes: React.FC = () => {
   const { user, logout, isInitializing } = useAuth();
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === 'dark';
+
+  if (typeof window !== 'undefined' && !IS_PAINEL_HOST && !isPublicRootPath(window.location.pathname)) {
+    window.location.replace(`https://painel.psiflux.com.br${window.location.pathname}${window.location.search}`);
+    return null;
+  }
 
   if (isInitializing) {
     return (
