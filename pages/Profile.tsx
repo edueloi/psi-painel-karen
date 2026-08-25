@@ -168,6 +168,7 @@ export const Profile: React.FC = () => {
     companyName: '',
     address: '',
     bio: '',
+    waitingRoomMessage: '',
     avatarUrl: '',
     clinicLogoUrl: '',
     coverUrl: '',
@@ -267,6 +268,7 @@ export const Profile: React.FC = () => {
             companyName: data.company_name || data.companyName || '',
             address: data.address || '',
             bio: data.bio || '',
+            waitingRoomMessage: data.waiting_room_message || data.waitingRoomMessage || '',
             avatarUrl: data.avatar_url || data.avatarUrl || '',
             clinicLogoUrl: data.clinic_logo_url || data.clinicLogoUrl || '',
             coverUrl: data.cover_url || data.coverUrl || '',
@@ -611,6 +613,7 @@ Gere o seguinte JSON:
         company_name: user.companyName,
         address: user.address,
         bio: user.bio,
+        waiting_room_message: user.waitingRoomMessage,
         avatar_url: user.avatarUrl,
         clinic_logo_url: user.clinicLogoUrl,
         cover_url: user.coverUrl,
@@ -1699,6 +1702,17 @@ Gere o seguinte JSON:
                         setUser(p => ({ ...p, registryNumber: masked, crp: masked }));
                       }}
                     />
+                    <div className="md:col-span-2">
+                      <Textarea
+                        label="Mensagem da sala de espera (opcional)"
+                        value={user.waitingRoomMessage}
+                        onChange={e => setUser(p => ({ ...p, waitingRoomMessage: e.target.value }))}
+                        rows={2}
+                        maxLength={500}
+                        placeholder="Exibida ao paciente enquanto ele aguarda você admitir na videochamada..."
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
                   <ProfileInput label="Endereço Físico Completo" icon={<MapPin size={16} />} value={user.address} onChange={v => setUser(p => ({ ...p, address: v }))} />
                 </div>

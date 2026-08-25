@@ -779,7 +779,7 @@ router.get('/public/:id/info', async (req, res) => {
     const rid = req.params.id;
     const numId = parseInt(rid) || 0;
     const [rooms] = await db.query(
-      `SELECT r.title, r.code, r.hash, r.scheduled_start, u.name as host_name, u.clinic_logo_url, u.company_name, u.crp, u.specialty, u.avatar_url
+      `SELECT r.title, r.code, r.hash, r.scheduled_start, u.name as host_name, u.clinic_logo_url, u.company_name, u.crp, u.specialty, u.avatar_url, u.waiting_room_message
        FROM virtual_rooms r
        JOIN users u ON u.id = r.host_id
        WHERE r.hash = ? OR r.code = ? OR r.id = ?`,
@@ -796,6 +796,7 @@ router.get('/public/:id/info', async (req, res) => {
       specialty: room.specialty || null,
       avatar_url: room.avatar_url || null,
       scheduled_start: room.scheduled_start || null,
+      waiting_room_message: room.waiting_room_message || null,
     });
   } catch (err) {
     console.error(err);
@@ -930,6 +931,45 @@ router.post('/:id/notify-patient', async (req, res) => {
   } catch (err) {
     console.error('[VirtualRooms] Erro ao notificar paciente:', err?.message || err);
     res.status(502).json({ error: err.response?.data?.error || err.message || 'Erro ao enviar mensagem pelo bot.' });
+  }
+});
+
+// ── Avaliação da experiência técnica (tela pós-consulta do paciente) ──────────
+let feedbackTableReady = false;
+async function ensureFeedbackTable() {
+  if (feedbackTableReady) return;
+  try {
+    await db.query(`CREATE TABLE IF NOT EXISTS room_feedback (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      room_id INT NOT NULL, tenant_id INT NULL,
+      rating TINYINT NOT NULL, comment TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_rf_room (room_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    feedbackTableReady = true;
+  } catch (e) {
+    console.warn('[VirtualRooms] ensureFeedbackTable:', e.message);
+  }
+}
+
+// POST /virtual-rooms/public/:id/feedback — avaliação do paciente ao sair da sala
+router.post('/public/:id/feedback', async (req, res) => {
+  try {
+    await ensureFeedbackTable();
+    const { rating, comment } = req.body || {};
+    const numRating = parseInt(rating);
+    if (!numRating || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ error: 'Avaliação inválida (use 1 a 5).' });
+    }
+    const room = await resolveRoomContext({ roomIdentifier: req.params.id, tenantId: null });
+    await db.query(
+      'INSERT INTO room_feedback (room_id, tenant_id, rating, comment) VALUES (?, ?, ?, ?)',
+      [room?.id || null, room?.tenant_id || null, numRating, (comment || '').slice(0, 500) || null]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[VirtualRooms] Erro ao salvar feedback:', err?.message || err);
+    res.status(500).json({ error: 'Erro ao salvar avaliação.' });
   }
 });
 

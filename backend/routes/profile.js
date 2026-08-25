@@ -33,6 +33,7 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN gender VARCHAR(20) NULL",
     "ALTER TABLE users ADD COLUMN cpf VARCHAR(20) NULL",
     "ALTER TABLE users ADD COLUMN cnpj VARCHAR(20) NULL",
+    "ALTER TABLE users ADD COLUMN waiting_room_message VARCHAR(500) NULL",
   ];
   for (const sql of extras) {
     try { 
@@ -52,6 +53,7 @@ router.get('/me', async (req, res) => {
     const [rows] = await db.query(
       `SELECT u.id, u.tenant_id, u.name, u.email, u.role, u.specialty, u.crp, u.phone,
               u.avatar_url, u.bio, u.company_name, u.address, u.clinic_logo_url, u.cover_url,
+              u.waiting_room_message,
               u.schedule, u.closed_dates, u.active, u.permissions as user_permissions,
               u.ui_preferences, u.forms_archived, u.forms_favorites,
               u.two_factor_enabled, u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme,
@@ -128,7 +130,7 @@ router.put('/me', async (req, res) => {
       name, email, phone, crp, specialty, company_name, address, bio,
       avatar_url, clinic_logo_url, cover_url, schedule, closed_dates,
       public_slug, social_links, public_profile_enabled, profile_theme,
-      gender, cpf, cnpj, professional_area_id, registry_number
+      gender, cpf, cnpj, professional_area_id, registry_number, waiting_room_message
     } = req.body;
 
     // registry_number substitui o crp legado como fonte de verdade quando a
@@ -160,7 +162,8 @@ router.put('/me', async (req, res) => {
         cpf = ?,
         cnpj = ?,
         professional_area_id = COALESCE(?, professional_area_id),
-        registry_number = COALESCE(?, registry_number)
+        registry_number = COALESCE(?, registry_number),
+        waiting_room_message = ?
        WHERE id = ?`,
       [
         name, email, phone, effectiveCrp, specialty, company_name || null, address || null, bio || null,
@@ -176,13 +179,14 @@ router.put('/me', async (req, res) => {
         cnpj ? cnpj.replace(/\D/g, '') : null,
         professional_area_id || null,
         registry_number,
+        waiting_room_message ? String(waiting_room_message).slice(0, 500) : null,
         req.user.id
       ]
     );
 
     const [rows] = await db.query(
       `SELECT u.id, u.name, u.email, u.role, u.phone, u.crp, u.specialty, u.avatar_url, u.bio,
-              u.company_name, u.address, u.clinic_logo_url, u.cover_url, u.schedule, u.closed_dates,
+              u.company_name, u.address, u.clinic_logo_url, u.cover_url, u.waiting_room_message, u.schedule, u.closed_dates,
               u.public_slug, u.social_links, u.public_profile_enabled, u.profile_theme, u.gender,
               u.cpf, u.cnpj, u.professional_area_id, u.registry_number,
               pa.slug as area_slug, pa.name as area_name, pa.category as area_category,
