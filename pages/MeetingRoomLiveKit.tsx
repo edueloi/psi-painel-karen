@@ -1690,9 +1690,14 @@ type CachedChatMessage = { id: string; sender: string; senderName?: string; mess
 // inclusive em celulares que gravam Opus com bitrate mais alto.
 const TRANSCRIPTION_SEGMENT_MS = 8 * 60 * 1000;
 
-const LiveKitChatPanel: React.FC<{ participantName: string; roomId: string; onClose: () => void }> = ({ participantName, roomId, onClose }) => {
-  const { chatMessages, send, isSending } = useChat();
+const LiveKitChatPanel: React.FC<{
+  participantName: string; roomId: string; localIdentity: string; onClose: () => void;
+  chatMessages: ReturnType<typeof useChat>['chatMessages'];
+  send: ReturnType<typeof useChat>['send'];
+  isSending: boolean;
+}> = ({ participantName, roomId, localIdentity, onClose, chatMessages, send, isSending }) => {
   const [newMessage, setNewMessage] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const storageKey = `psi_room_chat_${roomId}`;
   const [cachedMessages, setCachedMessages] = useState<CachedChatMessage[]>(() => {
@@ -1732,16 +1737,16 @@ const LiveKitChatPanel: React.FC<{ participantName: string; roomId: string; onCl
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [visibleMessages.length]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = newMessage.trim();
     if (!text || isSending) return;
-    setNewMessage("");
-    const timestamp = Date.now();
-    const id = messageId(participantName, timestamp, text);
-    setCachedMessages(previous => previous.some(message => message.id === id)
-      ? previous
-      : [...previous, { id, sender: participantName, senderName: participantName, message: text, timestamp }].slice(-200));
-    send(text);
+    setSendError(null);
+    try {
+      await send(text);
+      setNewMessage("");
+    } catch (err: any) {
+      setSendError(err?.message || 'Não foi possível enviar a mensagem. Verifique a conexão e tente novamente.');
+    }
   };
 
   const fmtTime = (ts: number) => {
@@ -1765,29 +1770,32 @@ const LiveKitChatPanel: React.FC<{ participantName: string; roomId: string; onCl
           <p style={{ textAlign: "center", fontSize: 12, color: "#334155", marginTop: 20 }}>Nenhuma mensagem ainda</p>
         )}
         {visibleMessages.map((msg) => {
-          const isMe = msg.sender === participantName;
+          const isMe = msg.sender === localIdentity || msg.sender === participantName;
           return (
             <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
               {!isMe && <span style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>{msg.senderName || msg.sender}</span>}
               <div style={{ maxWidth: "85%", padding: "8px 12px", borderRadius: isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px", background: isMe ? "#4f46e5" : "rgba(255,255,255,0.08)", color: "#e2e8f0", fontSize: 13, lineHeight: 1.5 }}>
                 {msg.message}
               </div>
-              <span style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>{fmtTime(msg.timestamp)}</span>
+              <span style={{ fontSize: 10, color: isMe ? "#818cf8" : "#334155", marginTop: 2 }}>
+                {fmtTime(msg.timestamp)}{isMe ? " · Enviada" : ""}
+              </span>
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
 
+      {sendError && <p style={{ margin: "0 12px 8px", color: "#f87171", fontSize: 11 }}>{sendError}</p>}
       <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 8 }}>
         <input
           type="text" value={newMessage}
           onChange={e => setNewMessage(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && handleSend()}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void handleSend(); } }}
           placeholder="Mensagem..."
           style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 12px", color: "#fff", fontSize: 13, outline: "none" }}
         />
-        <button onClick={handleSend} disabled={!newMessage.trim() || isSending}
+        <button onClick={() => { void handleSend(); }} disabled={!newMessage.trim() || isSending}
           style={{ padding: 8, borderRadius: 10, background: newMessage.trim() ? "#4f46e5" : "rgba(255,255,255,0.05)", border: "none", cursor: newMessage.trim() ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
           <Send size={15} />
         </button>
@@ -2033,6 +2041,9 @@ const RoomInner: React.FC<{
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const room = useRoomContext();
+  // Fica montado durante toda a chamada. Se fosse criado apenas dentro do painel,
+  // mensagens recebidas enquanto o chat estivesse fechado seriam perdidas.
+  const roomChat = useChat();
   const { preferences } = useUserPreferences();
   const { user, hasPermission } = useAuth();
   const { error: toastError, success: toastSuccess } = useToast();
@@ -2054,6 +2065,30 @@ const RoomInner: React.FC<{
   }, [room, localParticipant.identity]);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | "files" | "instrument" | "breakout" | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const previousChatCountRef = useRef(0);
+  useEffect(() => {
+    const previousCount = previousChatCountRef.current;
+    const newMessages = roomChat.chatMessages.slice(previousCount);
+    previousChatCountRef.current = roomChat.chatMessages.length;
+    if (sidePanel === 'chat') {
+      setUnreadChatCount(0);
+      return;
+    }
+    const remoteNewMessages = newMessages.filter(message => message.from?.identity !== localParticipant.identity);
+    if (remoteNewMessages.length) {
+      setUnreadChatCount(count => count + remoteNewMessages.length);
+      toastSuccess('Nova mensagem no chat', remoteNewMessages[remoteNewMessages.length - 1].message);
+    }
+  }, [roomChat.chatMessages, sidePanel, localParticipant.identity, toastSuccess]);
+
+  const toggleChatPanel = useCallback(() => {
+    setSidePanel(current => {
+      const next = current === 'chat' ? null : 'chat';
+      if (next === 'chat') setUnreadChatCount(0);
+      return next;
+    });
+  }, []);
   const [patientId, setPatientId] = useState<number | null>(null);
   const [appointmentId, setAppointmentId] = useState<number | null>(null);
 
@@ -2385,44 +2420,68 @@ const RoomInner: React.FC<{
   const micOn = isMicrophoneEnabled;
   const camOn = isCameraEnabled;
 
-  // Publica tracks ao montar: tenta usar o stream do lobby (evita getUserMedia duplo no Android)
+  // Publica as próprias tracks do lobby. No Android, parar a câmera e chamar
+  // getUserMedia novamente logo em seguida pode falhar com NotReadableError,
+  // mesmo que seja esta página que ainda esteja liberando o dispositivo.
   const publishedLobbyStreamRef = useRef(false);
+  const initialMediaPublishingRef = useRef(false);
   useEffect(() => {
     const apply = async () => {
       if (publishedLobbyStreamRef.current) return;
       publishedLobbyStreamRef.current = true;
+      initialMediaPublishingRef.current = true;
 
       try {
-        // Libera o preview antes de publicar. O track criado no lobby não era
-        // controlado pelo LiveKit em alguns celulares, deixando a câmera preta
-        // após entrar e impedindo a troca frontal/traseira.
         if (initialCam) {
-          lobbyStream?.getVideoTracks().forEach(track => track.stop());
-          const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
-          await localParticipant.setCameraEnabled(true, camOpts);
+          const lobbyVideoTrack = lobbyStream?.getVideoTracks()
+            .find(track => track.readyState === 'live');
+          if (lobbyVideoTrack) {
+            lobbyVideoTrack.enabled = true;
+            await localParticipant.publishTrack(lobbyVideoTrack, { source: Track.Source.Camera });
+          } else {
+            const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
+            await localParticipant.setCameraEnabled(true, camOpts);
+          }
         } else if (!initialCam && localParticipant.isCameraEnabled) {
           await localParticipant.setCameraEnabled(false);
+        } else {
+          lobbyStream?.getVideoTracks().forEach(track => track.stop());
         }
 
-        if (initialMic && !localParticipant.isMicrophoneEnabled) {
-          lobbyStream?.getAudioTracks().forEach(track => track.stop());
-          const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
-          await localParticipant.setMicrophoneEnabled(true, micOpts);
+        if (initialMic) {
+          const lobbyAudioTrack = lobbyStream?.getAudioTracks()
+            .find(track => track.readyState === 'live');
+          if (lobbyAudioTrack) {
+            lobbyAudioTrack.enabled = true;
+            await localParticipant.publishTrack(lobbyAudioTrack, { source: Track.Source.Microphone });
+          } else if (!localParticipant.isMicrophoneEnabled) {
+            const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
+            await localParticipant.setMicrophoneEnabled(true, micOpts);
+          }
         } else if (!initialMic && localParticipant.isMicrophoneEnabled) {
           await localParticipant.setMicrophoneEnabled(false);
+        } else {
+          lobbyStream?.getAudioTracks().forEach(track => track.stop());
         }
-      } catch {
-        // Fallback: usa setCameraEnabled/setMicrophoneEnabled normalmente
+      } catch (err) {
+        // Se a publicação da track existente falhar, só então libera a track do
+        // lobby e deixa o LiveKit criar outra. Um pequeno intervalo dá tempo para
+        // o driver da câmera móvel realmente liberar o hardware.
         try {
           if (initialCam && !localParticipant.isCameraEnabled) {
+            lobbyStream?.getVideoTracks().forEach(track => track.stop());
+            await new Promise(resolve => setTimeout(resolve, 350));
             const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
             await localParticipant.setCameraEnabled(true, camOpts);
           }
           if (initialMic && !localParticipant.isMicrophoneEnabled) {
+            lobbyStream?.getAudioTracks().forEach(track => track.stop());
             const micOpts = audioDeviceId ? { deviceId: audioDeviceId } : undefined;
             await localParticipant.setMicrophoneEnabled(true, micOpts);
           }
         } catch {}
+      } finally {
+        initialMediaPublishingRef.current = false;
       }
     };
 
@@ -2460,7 +2519,7 @@ const RoomInner: React.FC<{
         }
         return;
       }
-      if (!localParticipant.isCameraEnabled && !camTogglingRef.current) {
+      if (!initialMediaPublishingRef.current && !localParticipant.isCameraEnabled && !camTogglingRef.current) {
         camTogglingRef.current = true;
         const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
         try {
@@ -2819,7 +2878,15 @@ const RoomInner: React.FC<{
         {sidePanel && (
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" || sidePanel === "billing" || sidePanel === "whiteboard" ? "min(420px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
-              ? <LiveKitChatPanel participantName={participantName} roomId={roomId} onClose={() => setSidePanel(null)} />
+              ? <LiveKitChatPanel
+                  participantName={participantName}
+                  roomId={roomId}
+                  localIdentity={localParticipant.identity}
+                  chatMessages={roomChat.chatMessages}
+                  send={roomChat.send}
+                  isSending={roomChat.isSending}
+                  onClose={() => setSidePanel(null)}
+                />
               : sidePanel === "settings"
               ? <SettingsPanel
                   onClose={() => setSidePanel(null)}
@@ -2893,8 +2960,13 @@ const RoomInner: React.FC<{
 
           {/* Chat */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button onClick={() => togglePanel("chat")} style={btnActive(sidePanel === "chat")}>
+            <button onClick={toggleChatPanel} style={{ ...btnActive(sidePanel === "chat"), position: "relative" }}>
               <MessageSquare size={22} />
+              {unreadChatCount > 0 && (
+                <span style={{ position: "absolute", top: -5, right: -5, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 9, background: "#ef4444", color: "#fff", border: "2px solid #0d0f14", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800 }}>
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
             </button>
             <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Chat</span>
           </div>
