@@ -18,7 +18,7 @@ import {
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
   ChevronDown, Settings, Circle, Loader2, FileText, SwitchCamera,
   Sparkles, Receipt, NotebookPen, CalendarPlus, FileOutput, PenTool, Eraser, Trash2,
-  FileSignature, Upload,
+  FileSignature, Upload, ClipboardList, ExternalLink,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -1231,6 +1231,102 @@ const FilesPanel: React.FC<{ patientId: number | null; isHost: boolean; particip
   );
 };
 
+// ── Painel de aplicação de instrumento/teste clínico durante a chamada ────────
+// Reaproveita o sistema de Formulários que já existe (mesmo backend que a sala
+// antiga usava, endpoint /forms/public/by-id já tinha o comentário "usada pela
+// sala virtual") — o paciente responde na página pública já pronta, em vez de
+// eu reimplementar a renderização de formulário aqui dentro.
+type FormListItem = { id: number; title: string; description?: string; category?: string; hash: string };
+
+const InstrumentPanel: React.FC<{ patientId: number | null; isHost: boolean; onClose: () => void }> = ({ patientId, isHost, onClose }) => {
+  const room = useRoomContext();
+  const { localParticipant } = useLocalParticipant();
+  const [forms, setForms] = useState<FormListItem[] | null>(null);
+  const [sentForm, setSentForm] = useState<{ title: string; url: string } | null>(null);
+  const [received, setReceived] = useState<{ title: string; url: string } | null>(null);
+  const { success: toastSuccess } = useToast();
+
+  useEffect(() => {
+    if (!isHost) return;
+    api.get<FormListItem[]>('/forms').then(setForms).catch(() => setForms([]));
+  }, [isHost]);
+
+  useEffect(() => {
+    if (!room) return;
+    const onData = (payload: Uint8Array) => {
+      let msg: any;
+      try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (msg?.type !== 'psi-instrument') return;
+      setReceived({ title: msg.title, url: msg.url });
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => { room.off(RoomEvent.DataReceived, onData); };
+  }, [room]);
+
+  const handleSend = (form: FormListItem) => {
+    const base = `${PUBLIC_BASE_URL}/f/${form.hash}`;
+    const url = patientId ? `${base}?p=${patientId}` : base;
+    try {
+      localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'psi-instrument', title: form.title, url })), { reliable: true });
+    } catch {}
+    setSentForm({ title: form.title, url });
+    toastSuccess('Instrumento enviado', `${form.title} foi enviado — o paciente responde numa página própria.`);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <ClipboardList size={16} color="#6366f1" /> Aplicar teste
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
+        {isHost ? (
+          <>
+            <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
+              O paciente responde numa página própria, fora da chamada — ele recebe o link agora mesmo.
+            </p>
+            {forms === null ? (
+              <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+            ) : forms.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum formulário cadastrado. Crie um em Formulários, na tela principal do sistema.</p>
+            ) : (
+              forms.map(f => (
+                <button key={f.id} onClick={() => handleSend(f)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, textAlign: "left", cursor: "pointer" }}>
+                  <ClipboardList size={16} color="#6366f1" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{f.title}</span>
+                </button>
+              ))
+            )}
+            {sentForm && (
+              <div style={{ marginTop: 8, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 12, padding: 12 }}>
+                <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>{sentForm.title} enviado ✓</p>
+                <a href={sentForm.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#94a3b8" }}>Ver a página do paciente</a>
+              </div>
+            )}
+          </>
+        ) : received ? (
+          <div style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+            <p style={{ fontSize: 13, color: "#e2e8f0" }}>Seu profissional pediu que você responda: <strong>{received.title}</strong></p>
+            <a href={received.url} target="_blank" rel="noopener noreferrer"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+              Responder agora <ExternalLink size={14} />
+            </a>
+            <p style={{ fontSize: 11, color: "#64748b" }}>Abre em outra aba — você pode voltar pra chamada quando terminar.</p>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum teste enviado nesta sessão ainda.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Painel de agendamento de retorno ──────────────────────────────────────────
 const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | null; onClose: () => void }> = ({ patientId, professionalId, onClose }) => {
   const [date, setDate] = useState("");
@@ -1879,7 +1975,7 @@ const RoomInner: React.FC<{
   const { user, hasPermission } = useAuth();
   const { error: toastError } = useToast();
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | "files" | null>(null);
+  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | "files" | "instrument" | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
   const [appointmentId, setAppointmentId] = useState<number | null>(null);
 
@@ -2441,7 +2537,7 @@ const RoomInner: React.FC<{
     return () => clearInterval(interval);
   }, []);
 
-  const togglePanel = (panel: "chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | "files") => setSidePanel(prev => prev === panel ? null : panel);
+  const togglePanel = (panel: "chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | "files" | "instrument") => setSidePanel(prev => prev === panel ? null : panel);
 
   const hasRemote = remoteParticipants.length > 0;
   const poorConnection = connectionQuality === ConnectionQuality.Poor || connectionQuality === ConnectionQuality.Lost
@@ -2639,6 +2735,8 @@ const RoomInner: React.FC<{
               ? <SignaturePanel patientId={patientId!} onClose={() => setSidePanel(null)} />
               : sidePanel === "files"
               ? <FilesPanel patientId={patientId} isHost={isHost} participantName={participantName} onClose={() => setSidePanel(null)} />
+              : sidePanel === "instrument"
+              ? <InstrumentPanel patientId={patientId} isHost={isHost} onClose={() => setSidePanel(null)} />
               : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
             }
           </div>
@@ -2775,6 +2873,14 @@ const RoomInner: React.FC<{
               <Upload size={22} />
             </button>
             <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Arquivos</span>
+          </div>
+
+          {/* Aplicar teste (host e paciente — host escolhe e envia, paciente só recebe) */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+            <button onClick={() => togglePanel("instrument")} style={btnActive(sidePanel === "instrument")}>
+              <ClipboardList size={22} />
+            </button>
+            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Teste</span>
           </div>
 
           {/* Aurora IA (só host, só quando o plano/permite) */}
