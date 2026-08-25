@@ -95,6 +95,18 @@ const DeviceSelect: React.FC<{
 // ── Lobby ─────────────────────────────────────────────────────────────────────
 type RoomInfo = { host_name?: string; company_name?: string; clinic_logo_url?: string; crp?: string; specialty?: string; avatar_url?: string; scheduled_start?: string | null; };
 
+// Traduz erros de getUserMedia/LiveKit em mensagens que a pessoa entende —
+// sem isso, um clique em "ligar câmera" que falha (permissão negada, câmera
+// em uso por outro app, dispositivo removido) parece simplesmente não fazer nada.
+const mediaErrorMessage = (err: any): string => {
+  const name = err?.name || '';
+  if (name === 'NotAllowedError') return 'Permissão negada. Verifique as permissões de câmera/microfone do navegador para este site e tente novamente.';
+  if (name === 'NotFoundError') return 'Nenhuma câmera ou microfone foi encontrado neste dispositivo.';
+  if (name === 'NotReadableError') return 'A câmera ou microfone já está em uso por outro aplicativo ou aba.';
+  if (name === 'OverconstrainedError') return 'O dispositivo selecionado não está mais disponível. Escolha outro em Configurações.';
+  return 'Não foi possível ativar. Verifique as permissões do navegador e tente novamente.';
+};
+
 const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void }> = ({ on, onChange }) => (
   <button
     onClick={() => onChange(!on)}
@@ -111,10 +123,8 @@ const Lobby: React.FC<{
   userName?: string; onCamChange?: (v: boolean) => void; onMicChange?: (v: boolean) => void;
   onDeviceChange?: (videoId: string, audioId: string) => void;
   onStreamReady?: (stream: MediaStream | null) => void;
-  recordingConsent?: boolean; onRecordingConsentChange?: (v: boolean) => void;
-  aiConsent?: boolean; onAiConsentChange?: (v: boolean) => void;
   guestRole?: string; onGuestRoleChange?: (v: string) => void;
-}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange, onStreamReady, recordingConsent, onRecordingConsentChange, aiConsent, onAiConsentChange, guestRole, onGuestRoleChange }) => {
+}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange, onStreamReady, guestRole, onGuestRoleChange }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { preferences, updatePreference } = useUserPreferences();
@@ -544,20 +554,6 @@ const Lobby: React.FC<{
                 <a href="/politica-privacidade" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>política de privacidade</a>.
               </span>
             </label>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10 }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Consentimentos opcionais</p>
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
-                <input type="checkbox" checked={!!recordingConsent} onChange={(e) => onRecordingConsentChange?.(e.target.checked)}
-                  style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#6366f1" }} />
-                <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>Autorizo a gravação e transcrição desta sessão para fins de prontuário.</span>
-              </label>
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
-                <input type="checkbox" checked={!!aiConsent} onChange={(e) => onAiConsentChange?.(e.target.checked)}
-                  style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#6366f1" }} />
-                <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>Autorizo o uso de Inteligência Artificial para organizar anotações e evolução clínica desta sessão.</span>
-              </label>
-            </div>
 
             {error && (
               <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, color: "#f87171", fontSize: 13 }}>
@@ -1732,6 +1728,7 @@ const RoomInner: React.FC<{
   const room = useRoomContext();
   const { preferences } = useUserPreferences();
   const { user, hasPermission } = useAuth();
+  const { error: toastError } = useToast();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
@@ -2127,11 +2124,17 @@ const RoomInner: React.FC<{
       return;
     }
     if (camWatchdogRef.current) return;
+    let lastCamError: any = null;
     camWatchdogRef.current = setInterval(async () => {
       camWatchdogAttemptsRef.current += 1;
       if (camWatchdogAttemptsRef.current > 5) {
         clearInterval(camWatchdogRef.current!);
         camWatchdogRef.current = null;
+        // Desistiu depois de 15s tentando religar sozinho — sem isso a câmera
+        // some ao entrar na sala (comum em celulares) e a pessoa não sabe por quê.
+        if (!localParticipant.isCameraEnabled) {
+          toastError('Não foi possível ligar sua câmera', lastCamError ? mediaErrorMessage(lastCamError) : 'Toque no botão de câmera na barra abaixo para tentar novamente, ou verifique as permissões do navegador.');
+        }
         return;
       }
       if (!localParticipant.isCameraEnabled && !camTogglingRef.current) {
@@ -2139,14 +2142,14 @@ const RoomInner: React.FC<{
         const camOpts = videoDeviceId ? { deviceId: videoDeviceId } : undefined;
         try {
           await localParticipant.setCameraEnabled(true, camOpts);
-        } catch {}
+        } catch (err) { lastCamError = err; }
         finally { camTogglingRef.current = false; }
       }
     }, 3000);
     return () => {
       if (camWatchdogRef.current) clearInterval(camWatchdogRef.current);
     };
-  }, [isCameraEnabled, initialCam, localParticipant]);
+  }, [isCameraEnabled, initialCam, localParticipant, videoDeviceId, toastError]);
 
   // Detecta screen share ativo (local ou remoto) — hooks sempre chamados
   const localHasScreen = useHasScreenShare(localParticipant.identity);
@@ -2161,9 +2164,13 @@ const RoomInner: React.FC<{
   const toggleMic = useCallback(async () => {
     if (micTogglingRef.current) return;
     micTogglingRef.current = true;
-    try { await localParticipant.setMicrophoneEnabled(!micOn); } catch {}
+    try {
+      await localParticipant.setMicrophoneEnabled(!micOn);
+    } catch (err: any) {
+      toastError('Não foi possível ativar o microfone', mediaErrorMessage(err));
+    }
     finally { micTogglingRef.current = false; }
-  }, [localParticipant, micOn]);
+  }, [localParticipant, micOn, toastError]);
 
   const toggleCam = useCallback(async () => {
     if (camTogglingRef.current) return;
@@ -2171,9 +2178,11 @@ const RoomInner: React.FC<{
     const camOpts = (!camOn && videoDeviceId) ? { deviceId: videoDeviceId } : undefined;
     try {
       await localParticipant.setCameraEnabled(!camOn, camOpts);
-    } catch {}
+    } catch (err: any) {
+      toastError('Não foi possível ativar a câmera', mediaErrorMessage(err));
+    }
     finally { camTogglingRef.current = false; }
-  }, [localParticipant, camOn, videoDeviceId]);
+  }, [localParticipant, camOn, videoDeviceId, toastError]);
 
   // Em celulares, uma ligação pode colocar o navegador em segundo plano e o
   // sistema operacional encerrar somente os tracks de envio. A sala continua
@@ -2722,6 +2731,160 @@ const WaitingToastHost: React.FC<{
   </div>
 );
 
+// ── Encerramento inteligente (host, sessão com paciente vinculado) ───────────
+// Depois de sair da chamada, em vez de simplesmente navegar embora, resume o
+// que falta fazer — evolução, próxima consulta, cobrança — tudo já ligado nas
+// mesmas rotas que os painéis da sala usam, sem precisar do contexto LiveKit
+// (a chamada já foi encerrada nesse ponto).
+const EndSummaryScreen: React.FC<{
+  patientId: number; transcript: string; onDone: () => void;
+}> = ({ patientId, transcript, onDone }) => {
+  const navigate = useNavigate();
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  const [comandas, setComandas] = useState<ComandaSummary[] | null>(null);
+  const [paying, setPaying] = useState<ComandaSummary | null>(null);
+
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduled, setScheduled] = useState(false);
+
+  useEffect(() => {
+    api.get<ComandaSummary[]>(`/finance/comandas/patient/${patientId}`)
+      .then(rows => setComandas(rows || []))
+      .catch(() => setComandas([]));
+  }, [patientId]);
+
+  const pendingComanda = (comandas || []).find(c => {
+    const total = Number(c.total || 0);
+    const paid = Number(c.paidValue ?? c.paid_value ?? 0);
+    return total - paid > 0;
+  });
+
+  const handleSchedule = async () => {
+    if (!date || !time) return;
+    setScheduling(true);
+    try {
+      await api.post('/appointments', {
+        patient_id: patientId,
+        start_time: `${date}T${time}:00`,
+        duration_minutes: 50,
+        title: 'Retorno',
+        status: 'scheduled',
+      });
+      setScheduled(true);
+      toastSuccess('Retorno agendado', 'A próxima sessão já está na agenda.');
+    } catch (err: any) {
+      toastError('Erro ao agendar', err?.message || '');
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleConfirmPayment = async (method: string, details: any) => {
+    if (!paying) return;
+    const entries = details.mode === 'mixed' ? details.entries : [{ method, amount: details.amount }];
+    for (const entry of entries) {
+      await api.post(`/finance/comandas/${paying.id}/payments`, {
+        amount: entry.amount,
+        payment_method: PAYMENT_METHOD_LABEL[entry.method] || PAYMENT_METHOD_LABEL[method] || 'Pix',
+        notes: 'Pagamento registrado no encerramento do atendimento',
+      });
+    }
+    toastSuccess('Pagamento registrado', 'O pagamento foi lançado na comanda.');
+    setPaying(null);
+    api.get<ComandaSummary[]>(`/finance/comandas/patient/${patientId}`).then(rows => setComandas(rows || [])).catch(() => {});
+  };
+
+  const cardStyle: React.CSSProperties = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 18, display: "flex", flexDirection: "column", gap: 12 };
+  const titleStyle: React.CSSProperties = { fontSize: 13, fontWeight: 800, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 8, margin: 0 };
+  const inputStyle: React.CSSProperties = { flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#e2e8f0", fontSize: 13, outline: "none" };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 16px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div style={{ width: "100%", maxWidth: 520, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.35)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+            <Check size={26} color="#4ade80" />
+          </div>
+          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#f1f5f9", margin: 0 }}>Atendimento finalizado</h1>
+          <p style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Videochamada encerrada. Confira o que falta antes de sair.</p>
+        </div>
+
+        <div style={cardStyle}>
+          <p style={titleStyle}><NotebookPen size={16} color="#6366f1" /> Evolução</p>
+          <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6, maxHeight: 90, overflowY: "auto" }}>
+            {transcript ? transcript.slice(0, 400) + (transcript.length > 400 ? '…' : '') : 'Sem transcrição registrada nesta sessão.'}
+          </p>
+          <button
+            onClick={() => navigate(`/prontuario?patient_id=${patientId}&new_session=1`)}
+            style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
+          >
+            Revisar e gerar evolução com Aurora
+          </button>
+        </div>
+
+        <div style={cardStyle}>
+          <p style={titleStyle}><CalendarPlus size={16} color="#6366f1" /> Próxima consulta</p>
+          {scheduled ? (
+            <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>Retorno agendado ✓</p>
+          ) : (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
+              <button
+                onClick={handleSchedule}
+                disabled={scheduling || !date || !time}
+                style={{ padding: "9px 16px", borderRadius: 10, border: "none", cursor: scheduling || !date || !time ? "not-allowed" : "pointer", background: scheduling || !date || !time ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
+              >
+                Agendar
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style={cardStyle}>
+          <p style={titleStyle}><Receipt size={16} color="#6366f1" /> Pagamento</p>
+          {comandas === null ? (
+            <Loader2 size={16} color="#64748b" style={{ animation: "spin 1s linear infinite" }} />
+          ) : !pendingComanda ? (
+            <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>Sem pendências</p>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <p style={{ fontSize: 13, color: "#fbbf24" }}>
+                Pendente: R$ {(Number(pendingComanda.total || 0) - Number(pendingComanda.paidValue ?? pendingComanda.paid_value ?? 0)).toFixed(2)}
+              </p>
+              <button
+                onClick={() => setPaying(pendingComanda)}
+                style={{ padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
+              >
+                Cobrar agora
+              </button>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onDone}
+          style={{ marginTop: 8, width: "100%", height: 48, borderRadius: 13, fontWeight: 800, fontSize: 14, color: "#fff", background: "linear-gradient(135deg, #6366f1, #4f46e5)", border: "none", cursor: "pointer" }}
+        >
+          Concluir atendimento
+        </button>
+      </div>
+
+      {paying && (
+        <PaymentModal
+          isOpen
+          onClose={() => setPaying(null)}
+          comanda={{ ...paying, paidAmount: Number(paying.paidValue ?? paying.paid_value ?? 0) }}
+          onConfirm={handleConfirmPayment}
+        />
+      )}
+    </div>
+  );
+};
+
 // ── Tela de espera (para o guest) ────────────────────────────────────────────
 const WaitingScreen: React.FC<{ guestName: string; onCancel: () => void; keepStream?: MediaStream | null; roomInfo?: RoomInfo }> = ({ guestName, onCancel, keepStream, roomInfo }) => {
   // Mantém o stream do lobby vivo enquanto aguarda aprovação,
@@ -2800,12 +2963,15 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   const [waitingStatus, setWaitingStatus] = useState<"idle" | "waiting" | "approved" | "denied">("idle");
   const [guestRoomInfo, setGuestRoomInfo] = useState<RoomInfo>({});
 
-  // Consentimentos granulares do paciente (opcionais) — vão junto no token
-  // LiveKit como metadata, pra o host saber se pode contar com a transcrição
-  // automática do lado do paciente e com o uso de IA sobre o conteúdo dele.
-  const [recordingConsent, setRecordingConsent] = useState(false);
-  const [aiConsent, setAiConsent] = useState(false);
+  // Consentimento de gravação/transcrição e uso de IA é implícito (não exibido
+  // como checkbox pro paciente) — ambos vão sempre habilitados no metadata do
+  // token LiveKit, que é o que a sala usa pra decidir se transcreve o lado dele.
+  const recordingConsent = true;
+  const aiConsent = true;
   const [guestRole, setGuestRole] = useState("");
+
+  // Tela de encerramento inteligente — só pra host com paciente vinculado
+  const [endSummary, setEndSummary] = useState<{ patientId: number; transcript: string } | null>(null);
   useEffect(() => {
     if (!isGuest || !id) return;
     fetch(`${API_BASE_URL}/virtual-rooms/public/${id}/info`)
@@ -2968,7 +3134,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
     setWaitingToken(null);
     setWaitingStatus("idle");
     // Ao encerrar uma sessão vinculada, entrega a transcrição ao editor de
-    // prontuário como rascunho. A profissional ainda revisa e aciona a Aurora.
+    // prontuário como rascunho (a profissional ainda revisa e aciona a Aurora)
+    // e mostra a tela de encerramento com o que falta fazer antes de sair.
     if (!isGuest && handoff?.patientId) {
       try {
         sessionStorage.setItem('psi_session_record_draft', JSON.stringify({
@@ -2977,11 +3144,22 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
           createdAt: new Date().toISOString(),
         }));
       } catch {}
-      navigate(`/prontuario?patient_id=${handoff.patientId}&new_session=1`);
+      setEndSummary({ patientId: handoff.patientId, transcript: handoff.transcript || '' });
       return;
     }
     navigate(-1);
   };
+
+  // Encerramento inteligente — host revisa evolução/agenda/pagamento antes de sair
+  if (endSummary) {
+    return (
+      <EndSummaryScreen
+        patientId={endSummary.patientId}
+        transcript={endSummary.transcript}
+        onDone={() => navigate('/agenda')}
+      />
+    );
+  }
 
   // Guest aguardando aprovação — mantém referência ao stream do lobby para não perder o dispositivo
   if (isGuest && waitingStatus === "waiting") {
@@ -3005,10 +3183,6 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         onMicChange={setLobbyMicOn}
         onDeviceChange={(vid, aid) => { lobbyVideoDeviceRef.current = vid; lobbyAudioDeviceRef.current = aid; }}
         onStreamReady={stream => { lobbyStreamRef.current = stream; }}
-        recordingConsent={recordingConsent}
-        onRecordingConsentChange={setRecordingConsent}
-        aiConsent={aiConsent}
-        onAiConsentChange={setAiConsent}
         guestRole={guestRole}
         onGuestRoleChange={setGuestRole}
       />
