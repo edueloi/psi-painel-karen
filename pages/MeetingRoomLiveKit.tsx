@@ -2629,47 +2629,41 @@ const RoomInner: React.FC<{
     cameraFlipInProgressRef.current = true;
     const next = facingMode === "user" ? "environment" : "user";
     const currentPublication = localParticipant.getTrackPublication(Track.Source.Camera);
-    const currentDeviceId = currentPublication?.track?.mediaStreamTrack?.getSettings().deviceId;
     try {
-      const cameras = (await navigator.mediaDevices.enumerateDevices())
-        .filter(device => device.kind === 'videoinput');
-      const nextCamera = cameras.find(device => device.deviceId !== currentDeviceId);
-
-      if (nextCamera) {
-        // Substitui a fonte da track já publicada. Nunca desliga a publicação:
-        // o ciclo false/true fazia alguns Androids perderem a câmera após virar.
-        const switched = await room.switchActiveDevice('videoinput', nextCamera.deviceId, true);
-        if (!switched) {
-          const publishedTrack = localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-          if (!publishedTrack) throw new Error('A câmera publicada não está disponível.');
-          await publishedTrack.restartTrack({ deviceId: nextCamera.deviceId } as any);
-        }
-      } else {
-        // Alguns navegadores escondem a lista dos sensores, mas aceitam a troca
-        // pela orientação na própria track publicada.
-        const publishedTrack = currentPublication?.track;
-        if (!publishedTrack) throw new Error('A câmera publicada não está disponível.');
-        await publishedTrack.restartTrack({ facingMode: next } as any);
-      }
+      // Em vários Androids, enumerateDevices retorna lentes internas com deviceId
+      // que não podem ser abertas diretamente (OverconstrainedError). facingMode é
+      // a forma portátil de pedir frontal/traseira sem escolher uma lente inválida.
+      const publishedTrack = currentPublication?.track;
+      if (!publishedTrack) throw new Error('A câmera publicada não está disponível.');
+      await publishedTrack.restartTrack({ facingMode: next } as any);
       const pub = localParticipant.getTrackPublication(Track.Source.Camera);
       const settings = pub?.track?.mediaStreamTrack?.getSettings();
       const actualFacing = settings?.facingMode;
       setFacingMode(actualFacing === 'environment' || actualFacing === 'user' ? actualFacing : next);
     } catch (err: any) {
-      // Restaura explicitamente o dispositivo anterior se o navegador tiver
-      // encerrado a track durante uma troca que falhou.
+      // restartTrack encerra a captura anterior antes de abrir a nova. Se a nova
+      // falhar, restaura pela orientação anterior (não pelo deviceId problemático).
       try {
         const publishedTrack = localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-        if (publishedTrack && currentDeviceId) {
+        if (publishedTrack) {
           await new Promise(resolve => setTimeout(resolve, 350));
-          await publishedTrack.restartTrack({ deviceId: currentDeviceId } as any);
+          await publishedTrack.restartTrack({ facingMode } as any);
         }
-      } catch {}
+      } catch {
+        // Último recurso: remove apenas a track já encerrada e cria uma captura
+        // limpa da câmera anterior, após o driver móvel liberar o hardware.
+        try {
+          const failedTrack = localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+          if (failedTrack) await localParticipant.unpublishTrack(failedTrack, true);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await localParticipant.setCameraEnabled(true, { facingMode } as any);
+        } catch {}
+      }
       toastError('Não foi possível virar a câmera', mediaErrorMessage(err));
     } finally {
       cameraFlipInProgressRef.current = false;
     }
-  }, [localParticipant, room, facingMode, toastError]);
+  }, [localParticipant, facingMode, toastError]);
 
   const toggleScreen = useCallback(async () => {
     try { await localParticipant.setScreenShareEnabled(!localHasScreen); } catch {}
@@ -3548,6 +3542,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   // Pós-consulta do paciente — só quando ele de fato participou da chamada
   // (não quando cancela ainda na sala de espera, sem ter entrado)
   const [showPostCall, setShowPostCall] = useState(false);
+  const callConnectedRef = useRef(false);
   useEffect(() => {
     if (!isGuest || !id) return;
     fetch(`${API_BASE_URL}/virtual-rooms/public/${id}/info`)
@@ -3733,6 +3728,32 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
     navigate(-1);
   };
 
+  const handleLiveKitConnected = useCallback(() => {
+    callConnectedRef.current = true;
+    setError(null);
+  }, []);
+
+  const handleLiveKitDisconnected = useCallback(() => {
+    // Quando o profissional exclui a sala no LiveKit, o paciente recebe uma
+    // desconexão definitiva. Desmonta a chamada em vez de deixá-lo preso na tela
+    // com o aviso genérico "Disconnected".
+    lobbyStreamRef.current?.getTracks().forEach(track => track.stop());
+    lobbyStreamRef.current = null;
+    setToken(null);
+    setJoined(false);
+    setWaitingToken(null);
+    setWaitingStatus('idle');
+
+    if (isGuest && callConnectedRef.current) {
+      setShowPostCall(true);
+    } else if (!isGuest) {
+      setError('A chamada foi encerrada.');
+    } else {
+      setError('Não foi possível conectar à chamada. Tente novamente.');
+    }
+    callConnectedRef.current = false;
+  }, [isGuest]);
+
   // Encerramento inteligente — host revisa evolução/agenda/pagamento antes de sair
   if (endSummary) {
     return (
@@ -3785,9 +3806,11 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         connect={true}
         video={false}
         audio={false}
-        // O LiveKit tenta se reconectar automaticamente. Não trate uma queda
-        // temporária (por exemplo, ligação recebida no celular) como saída.
-        onDisconnected={() => setError('Conexão interrompida. Tentando reconectar…')}
+        // onDisconnected só ocorre quando a sala foi efetivamente encerrada ou
+        // quando o LiveKit desistiu de reconectar; quedas temporárias são tratadas
+        // internamente sem desmontar a tela.
+        onConnected={handleLiveKitConnected}
+        onDisconnected={handleLiveKitDisconnected}
         style={{ height: "100vh" }}
         data-lk-theme="default"
       >
