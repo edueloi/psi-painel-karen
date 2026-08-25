@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   LiveKitRoom,
@@ -17,13 +17,18 @@ import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
   ChevronDown, Settings, Circle, Loader2, FileText, SwitchCamera,
+  Sparkles, Receipt, NotebookPen, CalendarPlus, FileOutput, PenTool, Eraser, Trash2,
+  FileSignature, Upload,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useToast } from "../contexts/ToastContext";
 import { api, API_BASE_URL } from "../services/api";
 import { useUserPreferences } from "../contexts/UserPreferencesContext";
 import logoUrl from '../images/logo-sistema/logo.png';
 import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { PaymentModal } from '../components/UI/PaymentModal';
+import { AuroraAssistant } from '../components/AI/AuroraAssistant';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface MeetingRoomLiveKitProps { isGuest?: boolean; }
@@ -88,7 +93,7 @@ const DeviceSelect: React.FC<{
 };
 
 // ── Lobby ─────────────────────────────────────────────────────────────────────
-type RoomInfo = { host_name?: string; company_name?: string; clinic_logo_url?: string; crp?: string; specialty?: string; avatar_url?: string; };
+type RoomInfo = { host_name?: string; company_name?: string; clinic_logo_url?: string; crp?: string; specialty?: string; avatar_url?: string; scheduled_start?: string | null; };
 
 const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void }> = ({ on, onChange }) => (
   <button
@@ -106,7 +111,10 @@ const Lobby: React.FC<{
   userName?: string; onCamChange?: (v: boolean) => void; onMicChange?: (v: boolean) => void;
   onDeviceChange?: (videoId: string, audioId: string) => void;
   onStreamReady?: (stream: MediaStream | null) => void;
-}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange, onStreamReady }) => {
+  recordingConsent?: boolean; onRecordingConsentChange?: (v: boolean) => void;
+  aiConsent?: boolean; onAiConsentChange?: (v: boolean) => void;
+  guestRole?: string; onGuestRoleChange?: (v: string) => void;
+}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange, onStreamReady, recordingConsent, onRecordingConsentChange, aiConsent, onAiConsentChange, guestRole, onGuestRoleChange }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { preferences, updatePreference } = useUserPreferences();
@@ -118,6 +126,7 @@ const Lobby: React.FC<{
   const [activeSection, setActiveSection] = useState<"link" | "devices" | "recording" | null>("link");
   const [guestDevicesOpen, setGuestDevicesOpen] = useState(false);
   const [roomInfo, setRoomInfo] = useState<RoomInfo>({});
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
@@ -221,7 +230,10 @@ const Lobby: React.FC<{
     const msg = `Olá! Sua consulta vai começar em breve.\n\nAcesse sua sala virtual pelo link:\n${guestUrl}\n\n_Não é necessário login._`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
-  const canJoin = !joining && (!isGuest || guestName.trim().length > 0);
+  const canJoin = !joining && (!isGuest || (guestName.trim().length > 0 && consentAccepted));
+  const scheduledLabel = roomInfo.scheduled_start
+    ? new Date(roomInfo.scheduled_start).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null;
   const displayName = isGuest ? (guestName || "Você") : (userName || "Você");
 
   const sectionBtn = (id: typeof activeSection, label: string, icon: React.ReactNode) => (
@@ -399,7 +411,7 @@ const Lobby: React.FC<{
     <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "12px 16px 24px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
       <div style={{ marginBottom: 16 }} className="lobby-logo">
-        <img src={logoUrl} alt="Plaelo" style={{ height: 28, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 8, padding: 3 }} />
+        <img src={roomInfo.clinic_logo_url || logoUrl} alt={roomInfo.company_name || "Plaelo"} style={{ height: 28, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 8, padding: 3 }} />
       </div>
 
       <div style={{ width: "100%", maxWidth: 760, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, background: "#12151e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 22, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.75)" }} className="lobby-grid lobby-guest">
@@ -463,6 +475,12 @@ const Lobby: React.FC<{
                 </div>
               </div>
             )}
+            {scheduledLabel && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12, padding: "4px 10px", borderRadius: 99, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.22)" }}>
+                <Clock size={11} color="#818cf8" />
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc" }}>Consulta agendada para {scheduledLabel}</span>
+              </div>
+            )}
             <h1 style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", margin: 0, letterSpacing: "-.3px" }}>Entrar na consulta</h1>
             <p style={{ fontSize: 12, color: "#475569", margin: "4px 0 0" }}>Informe seu nome para aguardar aprovação</p>
           </div>
@@ -479,6 +497,20 @@ const Lobby: React.FC<{
                 onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
               />
             </div>
+
+            {onGuestRoleChange && (
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Seu papel nesta sessão (opcional)</label>
+                <input type="text" value={guestRole || ""}
+                  onChange={e => onGuestRoleChange(e.target.value)}
+                  placeholder="Ex: Paciente, Mãe, Pai, Acompanhante"
+                  style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "11px 14px", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                  onFocus={e => (e.target.style.borderColor = "#6366f1")}
+                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+                />
+                <p style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>Ajuda o profissional a identificar quem é quem, se mais de uma pessoa entrar na sessão.</p>
+              </div>
+            )}
 
             {(videoDevices.length > 0 || audioDevices.length > 0 || audioOutDevices.length > 0) && (
               <div>
@@ -497,6 +529,35 @@ const Lobby: React.FC<{
                 )}
               </div>
             )}
+
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={consentAccepted}
+                onChange={(e) => setConsentAccepted(e.target.checked)}
+                style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#6366f1" }}
+              />
+              <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
+                Li e concordo com os{" "}
+                <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>termos de atendimento online</a>
+                {" "}e a{" "}
+                <a href="/politica-privacidade" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>política de privacidade</a>.
+              </span>
+            </label>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Consentimentos opcionais</p>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
+                <input type="checkbox" checked={!!recordingConsent} onChange={(e) => onRecordingConsentChange?.(e.target.checked)}
+                  style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#6366f1" }} />
+                <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>Autorizo a gravação e transcrição desta sessão para fins de prontuário.</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
+                <input type="checkbox" checked={!!aiConsent} onChange={(e) => onAiConsentChange?.(e.target.checked)}
+                  style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#6366f1" }} />
+                <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>Autorizo o uso de Inteligência Artificial para organizar anotações e evolução clínica desta sessão.</span>
+              </label>
+            </div>
 
             {error && (
               <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, color: "#f87171", fontSize: 13 }}>
@@ -706,6 +767,536 @@ const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = (
   );
 };
 
+// ── Painel de anotações rápidas da sessão ─────────────────────────────────────
+type QuickNote = { id: number | string; content: string; created_at: string };
+
+const NotesPanel: React.FC<{ patientId: number; appointmentId: number | null; onClose: () => void }> = ({ patientId, appointmentId, onClose }) => {
+  const [content, setContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedNotes, setSavedNotes] = useState<QuickNote[]>([]);
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  const handleSave = async () => {
+    const text = content.trim();
+    if (!text) return;
+    setSaving(true);
+    try {
+      const res = await api.post<any>('/medical-records', {
+        patient_id: patientId,
+        appointment_id: appointmentId || undefined,
+        content: text,
+        record_type: 'Evolucao',
+        status: 'Rascunho',
+      });
+      setSavedNotes(prev => [{ id: res?.id ?? `${Date.now()}`, content: text, created_at: new Date().toISOString() }, ...prev]);
+      setContent("");
+      toastSuccess('Anotação salva', 'Ficou registrada como rascunho de evolução no prontuário.');
+    } catch (err: any) {
+      toastError('Erro ao salvar anotação', err?.message || '');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <NotebookPen size={16} color="#6366f1" /> Anotações da sessão
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Anote pontos importantes da sessão..."
+          rows={8}
+          style={{ width: "100%", resize: "vertical", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 12, color: "#e2e8f0", fontSize: 13, lineHeight: 1.5, outline: "none" }}
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving || !content.trim()}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: saving || !content.trim() ? "not-allowed" : "pointer", background: saving || !content.trim() ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
+        >
+          {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <NotebookPen size={16} />}
+          Salvar como rascunho
+        </button>
+        <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
+          Salva direto no prontuário como rascunho de evolução — revise e finalize depois na ficha do paciente.
+        </p>
+
+        {savedNotes.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+            <p style={{ fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Salvas nesta sessão</p>
+            {savedNotes.map(n => (
+              <div key={n.id} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 }}>
+                <p style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}>{new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                <p style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>{n.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Painel de cobrança da sessão ──────────────────────────────────────────────
+type ComandaSummary = {
+  id: number; total: number | string; paid_value?: number | string; paidValue?: number | string;
+  sessions_total?: number; sessions_used?: number; description?: string; status: string;
+};
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = { cash: 'Dinheiro', card: 'Cartão', pix: 'Pix', mixed: 'Misto' };
+
+const BillingPanel: React.FC<{ patientId: number; patientName?: string; onClose: () => void }> = ({ patientId, patientName, onClose }) => {
+  const [comandas, setComandas] = useState<ComandaSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState<ComandaSummary | null>(null);
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  const load = () => {
+    setLoading(true);
+    api.get<ComandaSummary[]>(`/finance/comandas/patient/${patientId}`)
+      .then(rows => setComandas(rows || []))
+      .catch(() => setComandas([]))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [patientId]);
+
+  const handleConfirmPayment = async (method: string, details: any) => {
+    if (!paying) return;
+    const entries = details.mode === 'mixed' ? details.entries : [{ method, amount: details.amount }];
+    for (const entry of entries) {
+      await api.post(`/finance/comandas/${paying.id}/payments`, {
+        amount: entry.amount,
+        payment_method: PAYMENT_METHOD_LABEL[entry.method] || PAYMENT_METHOD_LABEL[method] || 'Pix',
+        notes: 'Pagamento registrado durante o atendimento',
+      });
+    }
+    toastSuccess('Pagamento registrado', 'O pagamento foi lançado na comanda do paciente.');
+    setPaying(null);
+    load();
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <Receipt size={16} color="#6366f1" /> Cobrança
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+        ) : comandas.length === 0 ? (
+          <p style={{ fontSize: 13, color: "#64748b" }}>Nenhuma comanda em aberto para este paciente.</p>
+        ) : (
+          comandas.map(c => {
+            const total = Number(c.total || 0);
+            const paid = Number(c.paidValue ?? c.paid_value ?? 0);
+            const remaining = Math.max(0, total - paid);
+            return (
+              <div key={c.id} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{c.description || `Comanda #${c.id}`}</p>
+                <p style={{ fontSize: 12, color: "#94a3b8" }}>
+                  Total R$ {total.toFixed(2)} · Pago R$ {paid.toFixed(2)} · Pendente <strong style={{ color: remaining > 0 ? "#f87171" : "#4ade80" }}>R$ {remaining.toFixed(2)}</strong>
+                </p>
+                {remaining > 0 && (
+                  <button
+                    onClick={() => setPaying(c)}
+                    style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
+                  >
+                    <Receipt size={14} /> Cobrar agora
+                  </button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {paying && (
+        <PaymentModal
+          isOpen
+          onClose={() => setPaying(null)}
+          comanda={{ ...paying, paidAmount: Number(paying.paidValue ?? paying.paid_value ?? 0) }}
+          onConfirm={handleConfirmPayment}
+          patientName={patientName}
+        />
+      )}
+    </div>
+  );
+};
+
+// ── Painel de assinatura de contrato ──────────────────────────────────────────
+// Reaproveita o fluxo de contract-send já existente no sistema (envio de link
+// seguro, assinatura simples com nome+CPF+traço, rastreio enviado/aberto/assinado)
+// — não é um sistema de assinatura genérica de qualquer documento nem assinatura
+// com certificado ICP-Brasil, é o mesmo contrato de prestação de serviço que já
+// existe em Pacientes > Contrato.
+type ContractStatus = {
+  id: number; status: 'sent' | 'viewed' | 'signed' | 'expired' | 'cancelled'; contract_type: 'online' | 'presencial';
+  sent_at?: string; viewed_at?: string; public_link?: string | null;
+  signature?: { signer_name: string; signed_at: string } | null;
+} | null;
+
+const CONTRACT_STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  sent: { label: 'Enviado — aguardando abertura', color: '#facc15' },
+  viewed: { label: 'Paciente abriu — aguardando assinatura', color: '#818cf8' },
+  signed: { label: 'Assinado', color: '#4ade80' },
+  expired: { label: 'Expirado', color: '#f87171' },
+  cancelled: { label: 'Cancelado', color: '#64748b' },
+};
+
+const SignaturePanel: React.FC<{ patientId: number; onClose: () => void }> = ({ patientId, onClose }) => {
+  const [contract, setContract] = useState<ContractStatus>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [contractType, setContractType] = useState<'online' | 'presencial'>('online');
+  const [copied, setCopied] = useState(false);
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  const load = () => {
+    setLoading(true);
+    api.get<ContractStatus>(`/contract-send/${patientId}`)
+      .then(setContract)
+      .catch(() => setContract(null))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [patientId]);
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      await api.post('/contract-send', { patient_id: patientId, contract_type: contractType });
+      toastSuccess('Contrato enviado', 'O paciente recebeu o link para assinar.');
+      load();
+    } catch (err: any) {
+      toastError('Erro ao enviar contrato', err?.message || '');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!contract) return;
+    setSending(true);
+    try {
+      await api.post(`/contract-send/${contract.id}/resend`, {});
+      toastSuccess('Link renovado', 'Um novo link de assinatura foi gerado.');
+      load();
+    } catch (err: any) {
+      toastError('Erro ao reenviar', err?.message || '');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (!contract?.public_link) return;
+    navigator.clipboard.writeText(contract.public_link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const status = contract ? CONTRACT_STATUS_LABEL[contract.status] : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <FileSignature size={16} color="#6366f1" /> Contrato / Assinatura
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+        ) : !contract ? (
+          <>
+            <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>Nenhum contrato enviado a este paciente ainda.</p>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Modalidade</label>
+              <select value={contractType} onChange={(e) => setContractType(e.target.value as 'online' | 'presencial')}
+                style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 10px", color: "#e2e8f0", fontSize: 13, outline: "none" }}>
+                <option value="online">Atendimento online</option>
+                <option value="presencial">Atendimento presencial</option>
+              </select>
+            </div>
+            <button
+              onClick={handleSend}
+              disabled={sending}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: sending ? "not-allowed" : "pointer", background: sending ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
+            >
+              {sending ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <FileSignature size={16} />}
+              Enviar para assinatura
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <Circle size={8} style={{ fill: status?.color, color: status?.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: status?.color }}>{status?.label}</span>
+            </div>
+
+            {contract.status === 'signed' && contract.signature ? (
+              <div style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 12, padding: 12 }}>
+                <p style={{ fontSize: 13, color: "#cbd5e1" }}>Assinado por <strong>{contract.signature.signer_name}</strong></p>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{new Date(contract.signature.signed_at).toLocaleString('pt-BR')}</p>
+              </div>
+            ) : (
+              <>
+                {contract.public_link && (
+                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 }}>
+                    <p style={{ fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Link de assinatura</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ flex: 1, fontSize: 12, color: "#94a3b8", fontFamily: "monospace", wordBreak: "break-all" }}>{contract.public_link}</span>
+                      <button onClick={copyLink} style={{ flexShrink: 0, padding: "6px 12px", borderRadius: 8, background: copied ? "#16a34a" : "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                        {copied ? <><Check size={13} /> Copiado!</> : <><Copy size={13} /> Copiar</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <button
+                  onClick={handleResend}
+                  disabled={sending}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", cursor: sending ? "not-allowed" : "pointer", background: "rgba(255,255,255,0.04)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}
+                >
+                  {sending ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={14} />}
+                  Gerar novo link
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Painel de agendamento de retorno ──────────────────────────────────────────
+const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | null; onClose: () => void }> = ({ patientId, professionalId, onClose }) => {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [duration, setDuration] = useState(50);
+  const [saving, setSaving] = useState(false);
+  const [scheduled, setScheduled] = useState<{ date: string; time: string } | null>(null);
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  const handleSchedule = async () => {
+    if (!date || !time) return;
+    setSaving(true);
+    try {
+      await api.post('/appointments', {
+        patient_id: patientId,
+        professional_id: professionalId || undefined,
+        start_time: `${date}T${time}:00`,
+        duration_minutes: duration,
+        title: 'Retorno',
+        status: 'scheduled',
+      });
+      setScheduled({ date, time });
+      toastSuccess('Retorno agendado', 'A próxima sessão já está na agenda.');
+    } catch (err: any) {
+      toastError('Erro ao agendar retorno', err?.message || '');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#e2e8f0", fontSize: 13, outline: "none" };
+  const labelStyle: React.CSSProperties = { fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, display: "block" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <CalendarPlus size={16} color="#6366f1" /> Agendar retorno
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+        {scheduled ? (
+          <div style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 4 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#4ade80" }}>Retorno agendado ✓</p>
+            <p style={{ fontSize: 13, color: "#cbd5e1" }}>{new Date(`${scheduled.date}T${scheduled.time}`).toLocaleDateString('pt-BR')} às {scheduled.time}</p>
+            <button onClick={() => setScheduled(null)} style={{ alignSelf: "flex-start", marginTop: 6, background: "none", border: "none", color: "#a5b4fc", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Agendar outra data</button>
+          </div>
+        ) : (
+          <>
+            <div>
+              <label style={labelStyle}>Data</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Horário</label>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Duração (minutos)</label>
+              <input type="number" min={10} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value) || 50)} style={inputStyle} />
+            </div>
+            <button
+              onClick={handleSchedule}
+              disabled={saving || !date || !time}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: saving || !date || !time ? "not-allowed" : "pointer", background: saving || !date || !time ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
+            >
+              {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <CalendarPlus size={16} />}
+              Agendar retorno
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Quadro branco compartilhado (canvas + canal de dados do LiveKit) ─────────
+// Sem persistência: quem entra depois ou reabre o painel não vê traços antigos —
+// é um recurso "ao vivo" pra desenhar junto durante a conversa, não um documento.
+type WBStroke = { x0: number; y0: number; x1: number; y1: number; color: string; width: number; erase?: boolean };
+
+const WHITEBOARD_COLORS = ['#f43f5e', '#6366f1', '#22c55e', '#f59e0b', '#0ea5e9', '#1e293b'];
+
+const WhiteboardPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const room = useRoomContext();
+  const { localParticipant } = useLocalParticipant();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const [color, setColor] = useState(WHITEBOARD_COLORS[0]);
+  const [eraser, setEraser] = useState(false);
+
+  const drawSegment = useCallback((s: WBStroke) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.width;
+    ctx.beginPath();
+    ctx.moveTo(s.x0 * canvas.width, s.y0 * canvas.height);
+    ctx.lineTo(s.x1 * canvas.width, s.y1 * canvas.height);
+    ctx.stroke();
+  }, []);
+
+  useEffect(() => {
+    if (!room) return;
+    const onData = (payload: Uint8Array) => {
+      let msg: any;
+      try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (msg?.type !== 'psi-whiteboard') return;
+      if (msg.action === 'stroke' && msg.stroke) drawSegment(msg.stroke);
+      else if (msg.action === 'clear') {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => { room.off(RoomEvent.DataReceived, onData); };
+  }, [room, drawSegment]);
+
+  // Ajusta a resolução do canvas ao tamanho real do elemento, senão o traço fica borrado
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+
+  const getPoint = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
+  };
+
+  const broadcast = (msg: any) => {
+    try {
+      localParticipant.publishData(new TextEncoder().encode(JSON.stringify(msg)), { reliable: true });
+    } catch {}
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    drawingRef.current = true;
+    lastPointRef.current = getPoint(e);
+  };
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current || !lastPointRef.current) return;
+    const point = getPoint(e);
+    const stroke: WBStroke = { x0: lastPointRef.current.x, y0: lastPointRef.current.y, x1: point.x, y1: point.y, color, width: eraser ? 18 : 3, erase: eraser };
+    drawSegment(stroke);
+    broadcast({ type: 'psi-whiteboard', action: 'stroke', stroke });
+    lastPointRef.current = point;
+  };
+  const handlePointerUp = () => { drawingRef.current = false; lastPointRef.current = null; };
+
+  const handleClear = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    broadcast({ type: 'psi-whiteboard', action: 'clear' });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <PenTool size={16} color="#6366f1" /> Quadro branco
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {WHITEBOARD_COLORS.map(c => (
+          <button key={c} onClick={() => { setColor(c); setEraser(false); }}
+            style={{ width: 20, height: 20, borderRadius: "50%", background: c, border: !eraser && color === c ? "2px solid #fff" : "2px solid transparent", cursor: "pointer", padding: 0 }} />
+        ))}
+        <button onClick={() => setEraser(v => !v)} title="Borracha"
+          style={{ marginLeft: "auto", width: 28, height: 28, borderRadius: 8, border: "none", cursor: "pointer", background: eraser ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.08)", color: eraser ? "#a5b4fc" : "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Eraser size={14} />
+        </button>
+        <button onClick={handleClear} title="Limpar tudo"
+          style={{ width: 28, height: 28, borderRadius: 8, border: "none", cursor: "pointer", background: "rgba(255,255,255,0.08)", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+      <canvas
+        ref={canvasRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+        style={{ flex: 1, width: "100%", background: "#fff", touchAction: "none", cursor: "crosshair" }}
+      />
+    </div>
+  );
+};
+
 // ── Tile de vídeo usando useParticipantTracks (um hook por participante) ──────
 const ParticipantVideo: React.FC<{
   participant: LocalParticipant | RemoteParticipant;
@@ -748,16 +1339,44 @@ const ParticipantVideo: React.FC<{
           </div>
         )
       }
-      {!hideName && (
-        <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff", maxWidth: "80%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {participant.name || participant.identity}{isLocal ? " (Você)" : ""}
-        </div>
-      )}
+      {!hideName && (() => {
+        let role: string | undefined;
+        try { role = JSON.parse(participant.metadata || '{}')?.role; } catch {}
+        return (
+          <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff", maxWidth: "80%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {participant.name || participant.identity}{isLocal ? " (Você)" : ""}{role ? ` · ${role}` : ""}
+          </div>
+        );
+      })()}
       {!participant.isMicrophoneEnabled && !hideName && (
         <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(220,38,38,0.9)", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <MicOff size={12} color="#fff" />
         </div>
       )}
+    </div>
+  );
+};
+
+// ── Grade de participantes (atendimento em grupo — família, casal) ────────────
+// Ativa só quando há 2+ participantes remotos; sessão individual (o caso comum)
+// continua usando o layout principal+PiP acima, sem nenhuma mudança de risco.
+const GroupGrid: React.FC<{
+  participants: (LocalParticipant | RemoteParticipant)[]; localIdentity: string; isFrontCamera: boolean;
+}> = ({ participants, localIdentity, isFrontCamera }) => {
+  const count = participants.length;
+  const cols = count <= 2 ? 1 : count <= 4 ? 2 : 3;
+  return (
+    <div style={{ width: "100%", height: "100%", display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 4, padding: 4, boxSizing: "border-box" }}>
+      {participants.map(p => (
+        <ParticipantVideo
+          key={p.identity}
+          participant={p}
+          isLocal={p.identity === localIdentity}
+          isFrontCamera={isFrontCamera}
+          style={{ width: "100%", height: "100%", borderRadius: 10 }}
+          objectFit="cover"
+        />
+      ))}
     </div>
   );
 };
@@ -881,9 +1500,35 @@ const useHasScreenShare = (identity: string) => {
 };
 
 // ── Painel de configurações de dispositivos ──────────────────────────────────
-const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const QUALITY_LABEL: Record<string, { label: string; color: string }> = {
+  [ConnectionQuality.Excellent]: { label: "Excelente", color: "#4ade80" },
+  [ConnectionQuality.Good]: { label: "Boa", color: "#facc15" },
+  [ConnectionQuality.Poor]: { label: "Instável", color: "#f87171" },
+  [ConnectionQuality.Unknown]: { label: "Desconhecida", color: "#64748b" },
+};
+
+const SettingsPanel: React.FC<{
+  onClose: () => void; connectionQuality?: ConnectionQuality; remoteConnectionQuality?: ConnectionQuality;
+  hasRemote?: boolean; isHost?: boolean; livekitRoomName?: string;
+}> = ({ onClose, connectionQuality, remoteConnectionQuality, hasRemote, isHost, livekitRoomName }) => {
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diagData, setDiagData] = useState<any[] | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+
+  const loadDiag = async () => {
+    if (!livekitRoomName) return;
+    setDiagOpen(true);
+    setDiagLoading(true);
+    try {
+      const data = await api.get<any[]>(`/livekit/diag/${livekitRoomName}`);
+      setDiagData(data || []);
+    } catch {
+      setDiagData([]);
+    }
+    setDiagLoading(false);
+  };
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([]);
@@ -979,6 +1624,53 @@ const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
+        {(connectionQuality !== undefined || hasRemote) && (
+          <div style={{ padding: 12, borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", fontWeight: 800, letterSpacing: ".5px", textTransform: "uppercase" }}>Qualidade da chamada</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: hasRemote ? 6 : 0 }}>
+              <span style={{ fontSize: 12, color: "#cbd5e1" }}>Sua conexão</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: QUALITY_LABEL[connectionQuality ?? ConnectionQuality.Unknown].color, display: "flex", alignItems: "center", gap: 6 }}>
+                <Circle size={7} style={{ fill: "currentColor" }} /> {QUALITY_LABEL[connectionQuality ?? ConnectionQuality.Unknown].label}
+              </span>
+            </div>
+            {hasRemote && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, color: "#cbd5e1" }}>{isHost ? "Paciente" : "Profissional"}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: QUALITY_LABEL[remoteConnectionQuality ?? ConnectionQuality.Unknown].color, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Circle size={7} style={{ fill: "currentColor" }} /> {QUALITY_LABEL[remoteConnectionQuality ?? ConnectionQuality.Unknown].label}
+                </span>
+              </div>
+            )}
+            {isHost && livekitRoomName && (
+              <>
+                <button onClick={loadDiag} style={{ marginTop: 10, background: "none", border: "none", cursor: "pointer", color: "#818cf8", fontSize: 11, fontWeight: 700, padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                  <ChevronDown size={12} style={{ transform: diagOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} /> Detalhes técnicos
+                </button>
+                {diagOpen && (
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                    {diagLoading ? (
+                      <Loader2 size={14} color="#64748b" style={{ animation: "spin 1s linear infinite" }} />
+                    ) : !diagData?.length ? (
+                      <p style={{ fontSize: 11, color: "#64748b" }}>Sem dados de participantes conectados.</p>
+                    ) : (
+                      diagData.map((p: any) => (
+                        <div key={p.identity} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 8 }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", margin: "0 0 4px" }}>{p.name || p.identity}</p>
+                          {(p.tracks || []).map((t: any) => (
+                            <p key={t.sid} style={{ fontSize: 10, color: "#64748b", margin: 0 }}>
+                              {t.type === 1 ? "Vídeo" : t.type === 0 ? "Áudio" : "Dados"}
+                              {t.width ? ` · ${t.width}x${t.height}` : ""}{t.muted ? " · mudo" : ""}
+                            </p>
+                          ))}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
         <div style={{ padding: 12, borderRadius: 10, background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.22)" }}>
           <p style={{ margin: "0 0 10px", fontSize: 11, color: "#c7d2fe", fontWeight: 800, letterSpacing: ".5px", textTransform: "uppercase" }}>Teste de áudio e conexão</p>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
@@ -1033,22 +1725,27 @@ const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: (handoff?: { transcript?: string; patientId?: number | null }) => void; roomCode: string;
   initialCam: boolean; initialMic: boolean; videoDeviceId?: string; audioDeviceId?: string;
-  lobbyStream?: MediaStream | null;
-}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId, lobbyStream }) => {
+  lobbyStream?: MediaStream | null; onOpenAurora?: () => void;
+}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId, lobbyStream, onOpenAurora }) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const room = useRoomContext();
   const { preferences } = useUserPreferences();
+  const { user, hasPermission } = useAuth();
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | null>(null);
+  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
+  const [appointmentId, setAppointmentId] = useState<number | null>(null);
 
-  // Descobre se a sala tem paciente vinculado, só para o host — o botão
-  // "Paciente" na barra de controles só aparece quando há alguém vinculado.
+  // Descobre se a sala tem paciente/agendamento vinculado, só para o host — os
+  // botões de prontuário/anotações/cobrança/agenda só aparecem quando há paciente.
   useEffect(() => {
     if (!isHost || !roomId) return;
     api.get<any>(`/virtual-rooms/${roomId}`)
-      .then(room => setPatientId(room?.patient_id || null))
+      .then(room => {
+        setPatientId(room?.patient_id || null);
+        setAppointmentId(room?.appointment_id || null);
+      })
       .catch(() => {});
   }, [isHost, roomId]);
   const [pinned, setPinned] = useState<"remote" | "local">("remote");
@@ -1159,12 +1856,18 @@ const RoomInner: React.FC<{
     }
   }, [remoteParticipants]);
 
-  const stopRecordingAndTranscribe = useCallback(async () => {
+  // Só salva o arquivo de áudio misturado (host+paciente) para o prontuário —
+  // a transcrição NÃO sai mais daqui. Transcrever o áudio misturado produzia um
+  // texto correto, mas rotulado inteiro como uma pessoa só (quem gravou), porque
+  // o Whisper não faz diarização. O texto correto vem do pipeline separado
+  // abaixo (startMicOnlyCapture/stopMicOnlyCaptureAndUpload), que roda nos dois
+  // lados captando só o próprio microfone de cada um.
+  const stopAudioRecordingFile = useCallback(async () => {
     const mr = mediaRecorderRef.current;
-    if (!mr || mr.state === 'inactive' || recordingStoppingRef.current) return '';
+    if (!mr || mr.state === 'inactive' || recordingStoppingRef.current) return;
     recordingStoppingRef.current = true;
     // O último chunk chega apenas após o evento "stop". Antes, o upload podia
-    // receber um arquivo incompleto, sem a voz remota e impossível de transcrever.
+    // receber um arquivo incompleto, sem a voz remota.
     await new Promise<void>((resolve) => {
       mr.addEventListener('stop', () => resolve(), { once: true });
       mr.stop();
@@ -1178,93 +1881,183 @@ const RoomInner: React.FC<{
     connectedRemoteTrackIdsRef.current = new Set();
     setRecording(false);
 
-    // Ao parar uma gravação, a transcrição é parte do fluxo de encerramento.
-    // Isso evita que uma preferência antiga desabilitada silenciosamente deixe
-    // a sessão sem texto para revisão no prontuário.
-    const shouldTranscribe = true;
     const chunks = audioChunksRef.current;
     if (!chunks.length) {
       recordingStoppingRef.current = false;
-      setRecordingError('A gravação não gerou áudio. Tente novamente e confirme o microfone.');
-      return '';
+      return;
     }
 
-    // Usa o mimetype real do gravador para garantir que o Whisper receba o formato correto
-    const actualMime = mediaRecorderRef.current?.mimeType || mr.mimeType || 'audio/webm';
+    const actualMime = mr.mimeType || 'audio/webm';
     const recordExt = actualMime.includes('ogg') ? 'ogg' : actualMime.includes('mp4') ? 'mp4' : 'webm';
     const blob = new Blob(chunks, { type: actualMime || 'audio/webm' });
     const sk = sessionKeyRef.current;
-    const formData = new FormData();
-    formData.append('audio', blob, `recording-${sk}.${recordExt}`);
-    formData.append('speaker_role', isHost ? 'host' : 'guest');
-    formData.append('speaker_name', participantName);
-    formData.append('duration_seconds', String(Math.round(elapsedTime)));
     if (preferences.sessions?.saveAudioRecording) {
+      const formData = new FormData();
+      formData.append('audio', blob, `recording-${sk}.${recordExt}`);
+      formData.append('speaker_role', isHost ? 'host' : 'guest');
+      formData.append('speaker_name', participantName);
+      formData.append('duration_seconds', String(Math.round(elapsedTime)));
       try {
         await api.post<any>(`/virtual-rooms/${roomId}/sessions/${sk}/recordings`, formData);
       } catch {
         setRecordingError('Não foi possível salvar a gravação.');
       }
     }
-
-    // Transcrição via Whisper
-    let transcript = '';
-    if (shouldTranscribe) {
-      setTranscribing(true);
-      try {
-        const tf = new FormData();
-        tf.append('audio', blob, `audio.${recordExt}`);
-        tf.append('language', 'pt');
-        const res = await api.post<any>('/ai/transcribe-audio', tf);
-        const text: string = res?.text || '';
-        if (text) {
-          await api.post<any>(`/virtual-rooms/${roomId}/transcripts`, {
-            session_key: sk,
-            speaker_role: isHost ? 'host' : 'guest',
-            speaker_name: participantName,
-            text,
-          });
-          setTranscriptDone(true);
-          setTimeout(() => setTranscriptDone(false), 5000);
-          transcript = text;
-          transcriptPartsRef.current.push(text);
-        }
-      } catch {
-        setRecordingError('A gravação foi salva, mas a transcrição não pôde ser concluída.');
-      }
-      setTranscribing(false);
-    }
     recordingStoppingRef.current = false;
-    return transcriptPartsRef.current.length ? transcriptPartsRef.current.join('\n\n') : transcript;
   }, [preferences.sessions?.saveAudioRecording, isHost, participantName, roomId, elapsedTime]);
 
-  // Uma gravação longa é dividida em arquivos independentes, todos com a mesma
-  // chave de sessão. Assim, o histórico continua agrupado e nenhum POST excede
-  // 25 MB — limite da OpenAI para transcrição de áudio.
+  // ── Transcrição diarizada: cada lado grava e transcreve só o próprio microfone ──
+  const micOnlyRecorderRef = useRef<MediaRecorder | null>(null);
+  const micOnlyStreamRef = useRef<MediaStream | null>(null);
+  const micOnlyChunksRef = useRef<Blob[]>([]);
+  const micRotationRef = useRef(false);
+  const [localMicCapturing, setLocalMicCapturing] = useState(false);
+
+  const startMicOnlyCapture = useCallback(async () => {
+    if (micOnlyRecorderRef.current && micOnlyRecorderRef.current.state !== 'inactive') return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micOnlyStreamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+      const mr = new MediaRecorder(stream, { mimeType });
+      micOnlyChunksRef.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) micOnlyChunksRef.current.push(e.data); };
+      mr.start(1000);
+      micOnlyRecorderRef.current = mr;
+      setLocalMicCapturing(true);
+    } catch {
+      // Sem permissão de microfone deste lado — só não haverá texto desta pessoa.
+    }
+  }, []);
+
+  const stopMicOnlyCaptureAndUpload = useCallback(async () => {
+    const mr = micOnlyRecorderRef.current;
+    if (!mr || mr.state === 'inactive') return;
+    await new Promise<void>((resolve) => {
+      mr.addEventListener('stop', () => resolve(), { once: true });
+      mr.stop();
+    });
+    micOnlyStreamRef.current?.getTracks().forEach(t => t.stop());
+    micOnlyStreamRef.current = null;
+    micOnlyRecorderRef.current = null;
+    setLocalMicCapturing(false);
+
+    const chunks = micOnlyChunksRef.current;
+    micOnlyChunksRef.current = [];
+    if (!chunks.length) return;
+
+    setTranscribing(true);
+    try {
+      const actualMime = mr.mimeType || 'audio/webm';
+      const ext = actualMime.includes('ogg') ? 'ogg' : actualMime.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: actualMime });
+      const tf = new FormData();
+      tf.append('audio', blob, `mic.${ext}`);
+      tf.append('language', 'pt');
+      const res = await api.post<any>('/ai/transcribe-audio', tf);
+      const text: string = res?.text || '';
+      if (text) {
+        await api.post<any>(`/virtual-rooms/${roomId}/transcripts`, {
+          session_key: sessionKeyRef.current,
+          speaker_role: isHost ? 'host' : 'guest',
+          speaker_name: participantName,
+          text,
+        });
+        transcriptPartsRef.current.push(`${participantName}: ${text}`);
+        setTranscriptDone(true);
+        setTimeout(() => setTranscriptDone(false), 5000);
+      }
+    } catch {
+      // Falha pontual de transcrição de um segmento não interrompe a sessão.
+    }
+    setTranscribing(false);
+  }, [roomId, isHost, participantName]);
+
+  // Sinaliza início/parada de transcrição pro outro lado via canal de dados do
+  // LiveKit — reaproveita a conexão já existente, sem depender do backend antigo.
+  const broadcastRecordSignal = useCallback((action: 'start' | 'stop') => {
+    try {
+      const payload = new TextEncoder().encode(JSON.stringify({ type: 'psi-record', action }));
+      localParticipant.publishData(payload, { reliable: true });
+    } catch {}
+  }, [localParticipant]);
+
+  const handleStartRecording = useCallback(async () => {
+    await startRecording();
+    await startMicOnlyCapture();
+    if (isHost) broadcastRecordSignal('start');
+  }, [startRecording, startMicOnlyCapture, isHost, broadcastRecordSignal]);
+
+  const handleStopRecording = useCallback(async () => {
+    await stopAudioRecordingFile();
+    await stopMicOnlyCaptureAndUpload();
+    if (isHost) broadcastRecordSignal('stop');
+  }, [stopAudioRecordingFile, stopMicOnlyCaptureAndUpload, isHost, broadcastRecordSignal]);
+
+  // Consentimentos do paciente, lidos do metadata anexado ao token LiveKit no
+  // momento da entrada (ver Lobby/handleJoin) — evita round-trip com o backend.
+  const myConsent = useMemo(() => {
+    try { return JSON.parse(localParticipant.metadata || '{}'); } catch { return {}; }
+  }, [localParticipant.metadata]);
+
+  // Paciente: obedece ao sinal do host, só se tiver consentido gravação/transcrição.
+  useEffect(() => {
+    if (isHost || !room) return;
+    const onData = (payload: Uint8Array) => {
+      let msg: any;
+      try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (msg?.type !== 'psi-record') return;
+      if (msg.action === 'start' && myConsent.recordingConsent) startMicOnlyCapture();
+      else if (msg.action === 'stop') stopMicOnlyCaptureAndUpload();
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => { room.off(RoomEvent.DataReceived, onData); };
+  }, [isHost, room, myConsent, startMicOnlyCapture, stopMicOnlyCaptureAndUpload]);
+
+  // Uma gravação longa é dividida em segmentos independentes, todos com a mesma
+  // chave de sessão, pra nenhum upload exceder 25 MB — limite da OpenAI Whisper.
   useEffect(() => {
     if (!recording || !isHost) return;
     const timer = window.setTimeout(async () => {
       if (segmentRotationRef.current || recordingStoppingRef.current) return;
       segmentRotationRef.current = true;
       try {
-        await stopRecordingAndTranscribe();
+        await stopAudioRecordingFile();
         await startRecording();
       } finally {
         segmentRotationRef.current = false;
       }
     }, TRANSCRIPTION_SEGMENT_MS);
     return () => window.clearTimeout(timer);
-  }, [recording, isHost, startRecording, stopRecordingAndTranscribe]);
+  }, [recording, isHost, startRecording, stopAudioRecordingFile]);
+
+  // Mesma rotação por segmento, só que pro pipeline de transcrição própria —
+  // roda nos dois lados (host e paciente), não só no host.
+  useEffect(() => {
+    const timer = window.setInterval(async () => {
+      if (!micOnlyRecorderRef.current || micOnlyRecorderRef.current.state === 'inactive' || micRotationRef.current) return;
+      micRotationRef.current = true;
+      try {
+        await stopMicOnlyCaptureAndUpload();
+        await startMicOnlyCapture();
+      } finally {
+        micRotationRef.current = false;
+      }
+    }, TRANSCRIPTION_SEGMENT_MS);
+    return () => window.clearInterval(timer);
+  }, [stopMicOnlyCaptureAndUpload, startMicOnlyCapture]);
 
   // Auto-inicia gravação se configurado
   useEffect(() => {
     if (isHost && preferences.sessions?.autoRecord) {
-      startRecording();
+      handleStartRecording();
     }
     return () => {
-      // Para gravação ao desmontar sem chamar transcrição
+      // Para gravação ao desmontar sem subir a última transcrição.
       mediaRecorderRef.current?.stop();
       mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+      micOnlyRecorderRef.current?.stop();
+      micOnlyRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1490,7 +2283,7 @@ const RoomInner: React.FC<{
     return () => clearInterval(interval);
   }, []);
 
-  const togglePanel = (panel: "chat" | "invite" | "settings" | "patient") => setSidePanel(prev => prev === panel ? null : panel);
+  const togglePanel = (panel: "chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature") => setSidePanel(prev => prev === panel ? null : panel);
 
   const hasRemote = remoteParticipants.length > 0;
   const poorConnection = connectionQuality === ConnectionQuality.Poor || connectionQuality === ConnectionQuality.Lost
@@ -1541,8 +2334,14 @@ const RoomInner: React.FC<{
       {/* Área de vídeo */}
       <div style={{ flex: 1, position: "relative", minHeight: 0, background: "#0d0f14" }}>
 
-        {/* Modo screen share: tela em full, câmeras como strip no canto */}
-        {screenShareActive && screenSharer ? (
+        {/* Atendimento em grupo (2+ participantes remotos) — grade, sem PiP */}
+        {remoteParticipants.length >= 2 ? (
+          <GroupGrid
+            participants={[localParticipant, ...remoteParticipants]}
+            localIdentity={localParticipant.identity}
+            isFrontCamera={facingMode === "user"}
+          />
+        ) : screenShareActive && screenSharer ? (
           <>
             {/* Tela compartilhada em full */}
             <ParticipantVideo
@@ -1648,15 +2447,38 @@ const RoomInner: React.FC<{
           </div>
         )}
 
+        {!isHost && localMicCapturing && (
+          <div style={{ position: "absolute", top: poorConnection ? 82 : 46, left: "50%", transform: "translateX(-50%)", zIndex: 5, display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, background: "rgba(220,38,38,0.85)", color: "#fff", fontSize: 11, fontWeight: 700 }}>
+            <Circle size={8} style={{ fill: "#fff" }} /> Esta sessão está sendo transcrita
+          </div>
+        )}
+
         {/* Painel lateral */}
         {sidePanel && (
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" ? "min(380px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" || sidePanel === "billing" || sidePanel === "whiteboard" ? "min(420px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
               ? <LiveKitChatPanel participantName={participantName} roomId={roomId} onClose={() => setSidePanel(null)} />
               : sidePanel === "settings"
-              ? <SettingsPanel onClose={() => setSidePanel(null)} />
+              ? <SettingsPanel
+                  onClose={() => setSidePanel(null)}
+                  connectionQuality={connectionQuality}
+                  remoteConnectionQuality={remoteConnectionQuality}
+                  hasRemote={remoteParticipants.length > 0}
+                  isHost={isHost}
+                  livekitRoomName={`psiflux-${roomId}`}
+                />
               : sidePanel === "patient"
               ? <PatientInfoPanel patientId={patientId!} onClose={() => setSidePanel(null)} />
+              : sidePanel === "notes"
+              ? <NotesPanel patientId={patientId!} appointmentId={appointmentId} onClose={() => setSidePanel(null)} />
+              : sidePanel === "billing"
+              ? <BillingPanel patientId={patientId!} onClose={() => setSidePanel(null)} />
+              : sidePanel === "schedule"
+              ? <SchedulePanel patientId={patientId!} professionalId={user?.id} onClose={() => setSidePanel(null)} />
+              : sidePanel === "whiteboard"
+              ? <WhiteboardPanel onClose={() => setSidePanel(null)} />
+              : sidePanel === "signature"
+              ? <SignaturePanel patientId={patientId!} onClose={() => setSidePanel(null)} />
               : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
             }
           </div>
@@ -1729,6 +2551,74 @@ const RoomInner: React.FC<{
             </div>
           )}
 
+          {/* Anotações da sessão (só host, só com paciente vinculado) */}
+          {isHost && patientId && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+              <button onClick={() => togglePanel("notes")} style={btnActive(sidePanel === "notes")}>
+                <NotebookPen size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Notas</span>
+            </div>
+          )}
+
+          {/* Cobrança (só host, só com paciente vinculado) */}
+          {isHost && patientId && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+              <button onClick={() => togglePanel("billing")} style={btnActive(sidePanel === "billing")}>
+                <Receipt size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Cobrança</span>
+            </div>
+          )}
+
+          {/* Agendar retorno (só host, só com paciente vinculado) */}
+          {isHost && patientId && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+              <button onClick={() => togglePanel("schedule")} style={btnActive(sidePanel === "schedule")}>
+                <CalendarPlus size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Retorno</span>
+            </div>
+          )}
+
+          {/* Gerar documento (só host, só com paciente vinculado) — abre o gerador em nova aba, prefiltrado */}
+          {isHost && patientId && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+              <button onClick={() => window.open(`/gerador-documentos?patient_id=${patientId}`, '_blank')} style={btnActive(false)}>
+                <FileOutput size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Doc.</span>
+            </div>
+          )}
+
+          {/* Contrato/assinatura (só host, só com paciente vinculado) */}
+          {isHost && patientId && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+              <button onClick={() => togglePanel("signature")} style={btnActive(sidePanel === "signature")}>
+                <FileSignature size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Contrato</span>
+            </div>
+          )}
+
+          {/* Quadro branco (host e paciente) */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+            <button onClick={() => togglePanel("whiteboard")} style={btnActive(sidePanel === "whiteboard")}>
+              <PenTool size={22} />
+            </button>
+            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Quadro</span>
+          </div>
+
+          {/* Aurora IA (só host, só quando o plano/permite) */}
+          {isHost && onOpenAurora && user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+              <button onClick={onOpenAurora} style={btnActive(false)}>
+                <Sparkles size={22} />
+              </button>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Aurora</span>
+            </div>
+          )}
+
           {/* Configurações (só host) */}
           {isHost && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -1743,7 +2633,7 @@ const RoomInner: React.FC<{
           {isHost && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
               <button
-                onClick={() => recording ? stopRecordingAndTranscribe() : startRecording()}
+                onClick={() => recording ? handleStopRecording() : handleStartRecording()}
                 style={{ ...btnActive(recording), ...(recording ? { background: "rgba(239,68,68,0.25)", color: "#f87171" } : {}) }}
                 title={recording ? "Parar gravação" : "Iniciar gravação"}
               >
@@ -1764,7 +2654,16 @@ const RoomInner: React.FC<{
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             <button
               onClick={async () => {
-                const transcript = await stopRecordingAndTranscribe();
+                await handleStopRecording();
+                let transcript = '';
+                if (isHost) {
+                  try {
+                    const rows = await api.get<any[]>(`/virtual-rooms/${roomId}/sessions/${sessionKeyRef.current}/transcript`);
+                    transcript = (rows || [])
+                      .map(r => `${r.speaker_name || (r.speaker_role === 'host' ? 'Profissional' : 'Paciente')}: ${r.text}`)
+                      .join('\n');
+                  } catch {}
+                }
                 onLeave({ transcript, patientId });
               }}
               style={{ width: BTN, height: BTN, borderRadius: "50%", background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff" }}
@@ -1800,8 +2699,9 @@ const WaitingToastHost: React.FC<{
   entry: { id: string; guest_name: string };
   onApprove: (id: string) => void;
   onDeny: (id: string) => void;
-}> = ({ entry, onApprove, onDeny }) => (
-  <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "#1e2130", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 16, padding: "16px 20px", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", gap: 12, minWidth: 280, maxWidth: 340 }}>
+  index?: number;
+}> = ({ entry, onApprove, onDeny, index = 0 }) => (
+  <div style={{ position: "fixed", top: 20 + index * 150, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "#1e2130", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 16, padding: "16px 20px", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", gap: 12, minWidth: 280, maxWidth: 340 }}>
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
         {entry.guest_name.charAt(0).toUpperCase()}
@@ -1823,23 +2723,37 @@ const WaitingToastHost: React.FC<{
 );
 
 // ── Tela de espera (para o guest) ────────────────────────────────────────────
-const WaitingScreen: React.FC<{ guestName: string; onCancel: () => void; keepStream?: MediaStream | null }> = ({ guestName, onCancel, keepStream }) => {
+const WaitingScreen: React.FC<{ guestName: string; onCancel: () => void; keepStream?: MediaStream | null; roomInfo?: RoomInfo }> = ({ guestName, onCancel, keepStream, roomInfo }) => {
   // Mantém o stream do lobby vivo enquanto aguarda aprovação,
   // impedindo que o Android libere o dispositivo de câmera antes do LiveKit conectar.
   const streamHolderRef = useRef(keepStream);
   streamHolderRef.current = keepStream;
 
+  const [waitSeconds, setWaitSeconds] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setWaitSeconds(s => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const waitLabel = `${String(Math.floor(waitSeconds / 60)).padStart(2, "0")}:${String(waitSeconds % 60).padStart(2, "0")}`;
+
   return (
-  <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0d0f14", padding: 16 }}>
+  <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0d0f14", padding: 16 }}>
+    {(roomInfo?.clinic_logo_url || roomInfo?.company_name) && (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
+        {roomInfo?.clinic_logo_url && <img src={roomInfo.clinic_logo_url} alt={roomInfo.company_name || ""} style={{ height: 24, objectFit: "contain", background: "#fff", borderRadius: 6, padding: 2 }} />}
+        {roomInfo?.company_name && <span style={{ fontSize: 13, fontWeight: 700, color: "#64748b" }}>{roomInfo.company_name}</span>}
+      </div>
+    )}
     <div style={{ textAlign: "center", maxWidth: 360 }}>
       <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(99,102,241,0.15)", border: "2px solid rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", animation: "pulse 2s infinite" }}>
         <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#818cf8" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
       </div>
       <h2 style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 8 }}>Aguardando aprovação</h2>
-      <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.6, marginBottom: 32 }}>
+      <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.6, marginBottom: 12 }}>
         Olá, <strong style={{ color: "#e2e8f0" }}>{guestName}</strong>!<br />
-        O profissional foi notificado da sua chegada. Aguarde um momento.
+        {roomInfo?.host_name ? `${roomInfo.host_name} foi notificado(a)` : "O profissional foi notificado"} da sua chegada. Aguarde um momento.
       </p>
+      <p style={{ fontSize: 12, color: "#475569", marginBottom: 32 }}>Tempo de espera: <strong style={{ color: "#94a3b8" }}>{waitLabel}</strong></p>
       <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 32 }}>
         {[0, 1, 2].map(i => (
           <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#4f46e5", animation: `bounce 1.2s ${i * 0.2}s infinite` }} />
@@ -1884,12 +2798,33 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   // Sala de espera — guest
   const [waitingToken, setWaitingToken] = useState<string | null>(null);
   const [waitingStatus, setWaitingStatus] = useState<"idle" | "waiting" | "approved" | "denied">("idle");
+  const [guestRoomInfo, setGuestRoomInfo] = useState<RoomInfo>({});
+
+  // Consentimentos granulares do paciente (opcionais) — vão junto no token
+  // LiveKit como metadata, pra o host saber se pode contar com a transcrição
+  // automática do lado do paciente e com o uso de IA sobre o conteúdo dele.
+  const [recordingConsent, setRecordingConsent] = useState(false);
+  const [aiConsent, setAiConsent] = useState(false);
+  const [guestRole, setGuestRole] = useState("");
+  useEffect(() => {
+    if (!isGuest || !id) return;
+    fetch(`${API_BASE_URL}/virtual-rooms/public/${id}/info`)
+      .then(r => r.json()).then(setGuestRoomInfo).catch(() => {});
+  }, [isGuest, id]);
   const waitingPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Sala de espera — host
   const [pendingGuests, setPendingGuests] = useState<{ id: string; guest_name: string }[]>([]);
   const hostPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notifiedIdsRef = useRef<Set<string>>(new Set());
+
+  // Aurora IA: widget global carrega seu próprio FAB fixo — só montamos quando o
+  // host abre pela primeira vez, pra não sobrepor a barra de controles da chamada.
+  const [auroraMounted, setAuroraMounted] = useState(false);
+  const openAurora = useCallback(() => {
+    setAuroraMounted(true);
+    setTimeout(() => (window as any).openAuroraChat?.(), 50);
+  }, []);
 
   const participantName = isGuest ? guestName : (user?.name || user?.email || "Profissional");
   const lkRoomName = `psiflux-${id}`;
@@ -1974,7 +2909,8 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
           clearInterval(waitingPollRef.current!);
           setWaitingStatus("approved");
           // Pega token LiveKit e entra
-          const lkRes = await fetch(`${API_BASE_URL}/livekit/token-guest?roomName=${encodeURIComponent(lkRoomName)}&participantName=${encodeURIComponent(guestName.trim())}&token=${id}`);
+          const guestMetadata = JSON.stringify({ recordingConsent, aiConsent, role: guestRole.trim() || undefined });
+          const lkRes = await fetch(`${API_BASE_URL}/livekit/token-guest?roomName=${encodeURIComponent(lkRoomName)}&participantName=${encodeURIComponent(guestName.trim())}&token=${id}&metadata=${encodeURIComponent(guestMetadata)}`);
           const lkData = await lkRes.json();
           if (!lkRes.ok) throw new Error(lkData.error);
           setToken(lkData.token);
@@ -2049,7 +2985,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
 
   // Guest aguardando aprovação — mantém referência ao stream do lobby para não perder o dispositivo
   if (isGuest && waitingStatus === "waiting") {
-    return <WaitingScreen guestName={guestName} onCancel={handleLeave} keepStream={lobbyStreamRef.current} />;
+    return <WaitingScreen guestName={guestName} onCancel={handleLeave} keepStream={lobbyStreamRef.current} roomInfo={guestRoomInfo} />;
   }
 
   // Lobby
@@ -2069,6 +3005,12 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
         onMicChange={setLobbyMicOn}
         onDeviceChange={(vid, aid) => { lobbyVideoDeviceRef.current = vid; lobbyAudioDeviceRef.current = aid; }}
         onStreamReady={stream => { lobbyStreamRef.current = stream; }}
+        recordingConsent={recordingConsent}
+        onRecordingConsentChange={setRecordingConsent}
+        aiConsent={aiConsent}
+        onAiConsentChange={setAiConsent}
+        guestRole={guestRole}
+        onGuestRoleChange={setGuestRole}
       />
     );
   }
@@ -2098,17 +3040,22 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
           videoDeviceId={lobbyVideoDeviceRef.current}
           audioDeviceId={lobbyAudioDeviceRef.current}
           lobbyStream={lobbyStreamRef.current}
+          onOpenAurora={!isGuest ? openAurora : undefined}
         />
       </LiveKitRoom>
+      {auroraMounted && !isGuest && <AuroraAssistant />}
 
-      {/* Notificações de sala de espera para o host */}
-      {!isGuest && pendingGuests.length > 0 && (
+      {/* Notificações de sala de espera para o host — uma por pessoa aguardando,
+          empilhadas (ex: mãe e filho chegando juntos numa sessão familiar) */}
+      {!isGuest && pendingGuests.map((guest, index) => (
         <WaitingToastHost
-          entry={pendingGuests[0]}
+          key={guest.id}
+          entry={guest}
           onApprove={approveGuest}
           onDeny={denyGuest}
+          index={index}
         />
-      )}
+      ))}
     </>
   );
 };

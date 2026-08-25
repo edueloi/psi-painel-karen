@@ -49,7 +49,7 @@ router.post('/token', authMiddleware, async (req, res) => {
 // GET /livekit/token?roomName=...&participantName=...&isHost=...  (para guests sem auth)
 router.get('/token-guest', async (req, res) => {
   try {
-    const { roomName, participantName, token: guestToken } = req.query;
+    const { roomName, participantName, token: guestToken, metadata } = req.query;
 
     if (!roomName || !participantName || !guestToken) {
       return res.status(400).json({ error: 'roomName, participantName e token são obrigatórios' });
@@ -65,6 +65,7 @@ router.get('/token-guest', async (req, res) => {
     const at = new AccessToken(apiKey, apiSecret, {
       identity: participantName,
       ttl: '4h',
+      metadata: typeof metadata === 'string' ? metadata.slice(0, 500) : undefined,
     });
 
     at.addGrant({

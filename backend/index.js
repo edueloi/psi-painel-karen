@@ -104,14 +104,17 @@ function mountApiRoutes(prefix = '') {
   app.get(`${prefix}/livekit/token-guest`, async (req, res) => {
     try {
       const { AccessToken } = require('livekit-server-sdk');
-      const { roomName, participantName, token: guestToken } = req.query;
+      const { roomName, participantName, token: guestToken, metadata } = req.query;
       if (!roomName || !participantName || !guestToken) {
         return res.status(400).json({ error: 'roomName, participantName e token são obrigatórios' });
       }
       const apiKey = process.env.LIVEKIT_API_KEY;
       const apiSecret = process.env.LIVEKIT_API_SECRET;
       if (!apiKey || !apiSecret) return res.status(500).json({ error: 'LiveKit não configurado' });
-      const at = new AccessToken(apiKey, apiSecret, { identity: participantName, ttl: '4h' });
+      const at = new AccessToken(apiKey, apiSecret, {
+        identity: participantName, ttl: '4h',
+        metadata: typeof metadata === 'string' ? metadata.slice(0, 500) : undefined,
+      });
       at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: false });
       const token = await at.toJwt();
       res.json({ token, url: process.env.LIVEKIT_URL });
@@ -605,10 +608,6 @@ app.use((err, req, res, next) => {
   console.error('Erro nao tratado:', err);
   res.status(500).json({ error: 'Erro interno do servidor' });
 });
-
-// ── WebSocket para sinalização WebRTC das salas virtuais ─────────────────────
-const { attachRoomWebSocket } = require('./routes/room-ws');
-attachRoomWebSocket(httpServer);
 
 // ── WebSocket de sincronização em tempo real entre dispositivos ─────────────
 require('./services/realtimeService').attach(httpServer);

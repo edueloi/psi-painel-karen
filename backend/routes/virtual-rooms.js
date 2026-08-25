@@ -88,12 +88,8 @@ async function withSchema() {
 
 // ── In-memory real-time stores ────────────────────────────────────────────────
 // Each store: roomKey → Array of items with auto-increment id
-const eventsMap      = new Map(); // { id, event_type, payload_json, created_at }
-const messagesMap    = new Map(); // { id, sender_name, content, created_at }
-const assessmentsMap = new Map(); // { id, event_type, assessment_id, question_id, payload_json, created_at }
 const transcriptsMap = new Map(); // { id, speaker_name, text, created_at }
 const waitingMap     = new Map(); // { id(string), guest_name, status, token, created_at }
-const participantsMap = new Map();
 const lastActivityMap = new Map(); // roomKey → Date.now() — usado para TTL
 
 const ROOM_TTL_MS  = 2 * 60 * 60 * 1000; // 2h sem atividade → limpa da memória
@@ -119,21 +115,6 @@ function pushItem(map, key, item) {
   if (list.length > MAX_ITEMS) list.splice(0, list.length - MAX_ITEMS);
   return item;
 }
-
-// Quando um novo offer WebRTC chega, apaga todos os eventos webrtc_* antigos
-// para impedir que o polling entregue answers/ice de sessões anteriores.
-function purgeWebrtcEvents(key) {
-  if (!eventsMap.has(key)) return;
-  const list = eventsMap.get(key);
-  const filtered = list.filter(e => !e.event_type.startsWith('webrtc_') && e.event_type !== 'request_renegotiation');
-  eventsMap.set(key, filtered);
-}
-
-// ── Integração WebSocket ──────────────────────────────────────────────────────
-// Injeta dependências no room-ws e recebe função de broadcast
-const roomWs = require('./room-ws');
-roomWs.injectRoomState({ pushItem, nextId, eventsMap });
-const { broadcastEventToRoom } = roomWs;
 
 function sinceItems(map, key, since) {
   const n = Number(since) || 0;
@@ -181,12 +162,8 @@ function cleanupInactiveRooms() {
   const cutoff = Date.now() - ROOM_TTL_MS;
   for (const [key, ts] of lastActivityMap) {
     if (ts < cutoff) {
-      eventsMap.delete(key);
-      messagesMap.delete(key);
-      assessmentsMap.delete(key);
       transcriptsMap.delete(key);
       waitingMap.delete(key);
-      participantsMap.delete(key);
       lastActivityMap.delete(key);
       console.log(`[VirtualRooms] Sala "${key}" removida da memória por inatividade.`);
     }
@@ -373,83 +350,13 @@ router.delete('/:id', async (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Sala não encontrada' });
     // Libera memória da sala imediatamente ao deletar
     const key = getRoomKey(req.params.id);
-    eventsMap.delete(key); messagesMap.delete(key); assessmentsMap.delete(key);
-    transcriptsMap.delete(key); waitingMap.delete(key); participantsMap.delete(key);
+    transcriptsMap.delete(key); waitingMap.delete(key);
     lastActivityMap.delete(key);
     res.status(204).send();
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao deletar sala' });
   }
-});
-
-// ── Real-time: Events ─────────────────────────────────────────────────────────
-
-// GET /virtual-rooms/:id/events?since=0
-router.get('/:id/events', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  res.json(sinceItems(eventsMap, key, req.query.since));
-});
-
-// POST /virtual-rooms/:id/events
-router.post('/:id/events', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const { event_type, payload } = req.body || {};
-  if (!event_type) return res.json({ ok: true });
-  if (event_type === 'webrtc_offer') purgeWebrtcEvents(key);
-  const item = pushItem(eventsMap, key, {
-    id: nextId(),
-    event_type,
-    payload_json: payload ? JSON.stringify(payload) : null,
-    created_at: new Date().toISOString(),
-  });
-  broadcastEventToRoom(key, item);
-  res.json({ ok: true, id: item.id });
-});
-
-// ── Real-time: Messages ───────────────────────────────────────────────────────
-
-// GET /virtual-rooms/:id/messages?since=0
-router.get('/:id/messages', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  res.json(sinceItems(messagesMap, key, req.query.since));
-});
-
-// POST /virtual-rooms/:id/messages
-router.post('/:id/messages', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const { sender_name, message } = req.body || {};
-  const item = pushItem(messagesMap, key, {
-    id: nextId(),
-    sender_role: 'host',
-    sender_name: sender_name || 'Profissional',
-    message: message || '',
-    created_at: new Date().toISOString(),
-  });
-  res.json({ ok: true, id: item.id, timestamp: item.created_at });
-});
-
-// ── Real-time: Assessments ────────────────────────────────────────────────────
-
-// GET /virtual-rooms/:id/assessments?since=0
-router.get('/:id/assessments', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  res.json(sinceItems(assessmentsMap, key, req.query.since));
-});
-
-// POST /virtual-rooms/:id/assessments
-router.post('/:id/assessments', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const { event_type, assessment_id, question_id, payload } = req.body || {};
-  const item = pushItem(assessmentsMap, key, {
-    id: nextId(),
-    event_type: event_type || '',
-    assessment_id: assessment_id || '',
-    question_id: question_id || null,
-    payload_json: payload ? JSON.stringify(payload) : null,
-    created_at: new Date().toISOString(),
-  });
-  res.json({ ok: true, id: item.id });
 });
 
 // ── Real-time: Transcripts ────────────────────────────────────────────────────
@@ -772,13 +679,6 @@ router.get('/:id/waiting', (req, res) => {
   res.json([...room.values()]);
 });
 
-// GET /virtual-rooms/:id/participants
-router.get('/:id/participants', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const room = participantsMap.get(key) || new Map();
-  res.json([...room.values()].map(p => ({ name: p.name, joined_at: p.joined_at })));
-});
-
 // POST /virtual-rooms/:id/waiting/:entryId/approve
 router.post('/:id/waiting/:entryId/approve', (req, res) => {
   const key = getRoomKey(req.params.id);
@@ -803,58 +703,6 @@ router.post('/:id/waiting/:entryId/deny', (req, res) => {
 
 // ── Public routes (no auth) ───────────────────────────────────────────────────
 
-// POST /virtual-rooms/public/:id/join
-router.post('/public/:id/join', async (req, res) => {
-  try {
-    await withSchema();
-    const rid = req.params.id;
-    const numId = parseInt(rid) || 0;
-    const { name, token: waitingToken } = req.body || {};
-
-    // Tenta buscar a sala no banco
-    const [rooms] = await db.query(
-      'SELECT id, name, title, status, code, hash FROM virtual_rooms WHERE hash = ? OR code = ? OR id = ?',
-      [rid, rid, numId]
-    );
-
-    let roomData = rooms[0] || null;
-
-    // Se não encontrou no banco, verifica se o token de espera está aprovado (sala em memória)
-    if (!roomData) {
-      let tokenApproved = false;
-      if (waitingToken) {
-        for (const room of waitingMap.values()) {
-          for (const entry of room.values()) {
-            if (entry.token === waitingToken && entry.status === 'approved') {
-              tokenApproved = true;
-              break;
-            }
-          }
-          if (tokenApproved) break;
-        }
-      }
-      if (!tokenApproved) {
-        return res.status(404).json({ error: 'Sala não encontrada' });
-      }
-      // Permite entrada com dados mínimos (sala existe só em memória)
-      roomData = { id: rid, name: rid, title: rid, status: 'active', code: rid, hash: rid };
-    }
-
-    if (roomData.status === 'ended') return res.status(410).json({ error: 'Esta sala já foi encerrada' });
-
-    const participantToken = waitingToken || uuidv4();
-    if (name) {
-      const key = getRoomKey(rid);
-      if (!participantsMap.has(key)) participantsMap.set(key, new Map());
-      participantsMap.get(key).set(participantToken, { name, joined_at: new Date().toISOString() });
-    }
-    res.json({ room: roomData, participant_token: participantToken });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao entrar na sala' });
-  }
-});
-
 // POST /virtual-rooms/public/:id/waiting
 router.post('/public/:id/waiting', (req, res) => {
   const { name } = req.body || {};
@@ -878,69 +726,6 @@ router.get('/public/waiting/:token', (req, res) => {
     }
   }
   res.json({ status: 'waiting' });
-});
-
-// GET /virtual-rooms/public/:id/events?since=0
-router.get('/public/:id/events', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  res.json(sinceItems(eventsMap, key, req.query.since));
-});
-
-// POST /virtual-rooms/public/:id/events
-router.post('/public/:id/events', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const { event_type, payload } = req.body || {};
-  if (!event_type) return res.json({ ok: true });
-  if (event_type === 'webrtc_offer') purgeWebrtcEvents(key);
-  const item = pushItem(eventsMap, key, {
-    id: nextId(),
-    event_type,
-    payload_json: payload ? JSON.stringify(payload) : null,
-    created_at: new Date().toISOString(),
-  });
-  broadcastEventToRoom(key, item);
-  res.json({ ok: true, id: item.id });
-});
-
-// GET /virtual-rooms/public/:id/messages?since=0
-router.get('/public/:id/messages', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  res.json(sinceItems(messagesMap, key, req.query.since));
-});
-
-// POST /virtual-rooms/public/:id/messages
-router.post('/public/:id/messages', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const { sender_name, message } = req.body || {};
-  const item = pushItem(messagesMap, key, {
-    id: nextId(),
-    sender_role: 'guest',
-    sender_name: sender_name || 'Paciente',
-    message: message || '',
-    created_at: new Date().toISOString(),
-  });
-  res.json({ ok: true, id: item.id, timestamp: item.created_at });
-});
-
-// GET /virtual-rooms/public/:id/assessments?since=0
-router.get('/public/:id/assessments', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  res.json(sinceItems(assessmentsMap, key, req.query.since));
-});
-
-// POST /virtual-rooms/public/:id/assessments
-router.post('/public/:id/assessments', (req, res) => {
-  const key = getRoomKey(req.params.id);
-  const { event_type, assessment_id, question_id, payload } = req.body || {};
-  const item = pushItem(assessmentsMap, key, {
-    id: nextId(),
-    event_type: event_type || '',
-    assessment_id: assessment_id || '',
-    question_id: question_id || null,
-    payload_json: payload ? JSON.stringify(payload) : null,
-    created_at: new Date().toISOString(),
-  });
-  res.json({ ok: true, id: item.id });
 });
 
 // GET /virtual-rooms/public/:id/transcripts?since=0
@@ -988,24 +773,13 @@ router.post('/public/:id/transcripts', async (req, res) => {
   res.json({ ok: true, id: item.id });
 });
 
-// POST /virtual-rooms/public/:id/leave
-router.post('/public/:id/leave', (req, res) => {
-  const { token } = req.body || {};
-  if (token) {
-    const key = getRoomKey(req.params.id);
-    const room = participantsMap.get(key);
-    if (room) room.delete(token);
-  }
-  res.json({ ok: true });
-});
-
 // GET /virtual-rooms/public/:id/info - Info pública da sala para o lobby do guest
 router.get('/public/:id/info', async (req, res) => {
   try {
     const rid = req.params.id;
     const numId = parseInt(rid) || 0;
     const [rooms] = await db.query(
-      `SELECT r.title, r.code, r.hash, u.name as host_name, u.clinic_logo_url, u.company_name, u.crp, u.specialty, u.avatar_url
+      `SELECT r.title, r.code, r.hash, r.scheduled_start, u.name as host_name, u.clinic_logo_url, u.company_name, u.crp, u.specialty, u.avatar_url
        FROM virtual_rooms r
        JOIN users u ON u.id = r.host_id
        WHERE r.hash = ? OR r.code = ? OR r.id = ?`,
@@ -1021,6 +795,7 @@ router.get('/public/:id/info', async (req, res) => {
       crp: room.crp || null,
       specialty: room.specialty || null,
       avatar_url: room.avatar_url || null,
+      scheduled_start: room.scheduled_start || null,
     });
   } catch (err) {
     console.error(err);
