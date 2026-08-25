@@ -1391,6 +1391,32 @@ const BreakoutPanel: React.FC<{
 };
 
 // ── Painel de agendamento de retorno ──────────────────────────────────────────
+const ROOM_RECURRENCE_OPTIONS = [
+  { label: 'Não repete', value: '', freq: '', interval: 1, count: 1 },
+  { label: 'Semanal — 4 sessões', value: 'weekly-4', freq: 'WEEKLY', interval: 1, count: 4 },
+  { label: 'Semanal — 8 sessões', value: 'weekly-8', freq: 'WEEKLY', interval: 1, count: 8 },
+  { label: 'Semanal — 12 sessões', value: 'weekly-12', freq: 'WEEKLY', interval: 1, count: 12 },
+  { label: 'Semanal — 16 sessões', value: 'weekly-16', freq: 'WEEKLY', interval: 1, count: 16 },
+  { label: 'Semanal — 20 sessões', value: 'weekly-20', freq: 'WEEKLY', interval: 1, count: 20 },
+  { label: '2x por semana — 8 sessões', value: 'twice-8', freq: 'TWICE_WEEKLY', interval: 1, count: 8 },
+  { label: '2x por semana — 16 sessões', value: 'twice-16', freq: 'TWICE_WEEKLY', interval: 1, count: 16 },
+  { label: '2x por semana — 24 sessões', value: 'twice-24', freq: 'TWICE_WEEKLY', interval: 1, count: 24 },
+  { label: '3x por semana — 12 sessões', value: 'three-12', freq: 'THREE_WEEKLY', interval: 1, count: 12 },
+  { label: '3x por semana — 24 sessões', value: 'three-24', freq: 'THREE_WEEKLY', interval: 1, count: 24 },
+  { label: 'Quinzenal — 2 sessões', value: 'fortnight-2', freq: 'WEEKLY', interval: 2, count: 2 },
+  { label: 'Quinzenal — 4 sessões', value: 'fortnight-4', freq: 'WEEKLY', interval: 2, count: 4 },
+  { label: 'Quinzenal — 8 sessões', value: 'fortnight-8', freq: 'WEEKLY', interval: 2, count: 8 },
+  { label: 'Quinzenal — 12 sessões', value: 'fortnight-12', freq: 'WEEKLY', interval: 2, count: 12 },
+  { label: 'Quinzenal — 16 sessões', value: 'fortnight-16', freq: 'WEEKLY', interval: 2, count: 16 },
+  { label: 'Quinzenal — 24 sessões', value: 'fortnight-24', freq: 'WEEKLY', interval: 2, count: 24 },
+  { label: 'A cada 15 dias — 4 sessões', value: '15days-4', freq: 'DAILY', interval: 15, count: 4 },
+  { label: 'A cada 15 dias — 8 sessões', value: '15days-8', freq: 'DAILY', interval: 15, count: 8 },
+  { label: 'Mensal — 3 sessões', value: 'monthly-3', freq: 'MONTHLY', interval: 1, count: 3 },
+  { label: 'Mensal — 6 sessões', value: 'monthly-6', freq: 'MONTHLY', interval: 1, count: 6 },
+  { label: 'Mensal — 12 sessões', value: 'monthly-12', freq: 'MONTHLY', interval: 1, count: 12 },
+  { label: 'Personalizado…', value: 'custom', freq: 'CUSTOM', interval: 1, count: 4 },
+] as const;
+
 const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | null; onClose: () => void }> = ({ patientId, professionalId, onClose }) => {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1398,6 +1424,12 @@ const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | nul
   const [date, setDate] = useState(() => localDateISO(tomorrow));
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState(50);
+  const [recurrencePreset, setRecurrencePreset] = useState('');
+  const [customFrequency, setCustomFrequency] = useState('WEEKLY');
+  const [customInterval, setCustomInterval] = useState(1);
+  const [customEndType, setCustomEndType] = useState<'count' | 'until'>('count');
+  const [customCount, setCustomCount] = useState(4);
+  const [customEndDate, setCustomEndDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [manualTime, setManualTime] = useState(false);
@@ -1475,16 +1507,25 @@ const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | nul
     if (!date || !time) return;
     setSaving(true);
     try {
-      await api.post('/appointments', {
+      const selectedRecurrence = ROOM_RECURRENCE_OPTIONS.find(option => option.value === recurrencePreset);
+      const isCustom = recurrencePreset === 'custom';
+      const response = await api.post<any>('/appointments', {
         patient_id: patientId,
         professional_id: professionalId || undefined,
         start_time: `${date}T${time}:00`,
         duration_minutes: duration,
         title: 'Retorno',
         status: 'scheduled',
+        recurrence_freq: isCustom ? customFrequency : (selectedRecurrence?.freq || ''),
+        recurrence_interval: isCustom ? customInterval : (selectedRecurrence?.interval || 1),
+        recurrence_count: isCustom
+          ? (customEndType === 'count' ? customCount : '')
+          : (selectedRecurrence?.count || 1),
+        recurrence_end_date: isCustom && customEndType === 'until' ? customEndDate : '',
       });
       setScheduled({ date, time });
-      toastSuccess('Retorno agendado', 'A próxima sessão já está na agenda.');
+      const createdCount = Number(response?.created_count || selectedRecurrence?.count || 1);
+      toastSuccess(createdCount > 1 ? 'Retornos agendados' : 'Retorno agendado', createdCount > 1 ? `${createdCount} sessões foram criadas na agenda.` : 'A próxima sessão já está na agenda.');
     } catch (err: any) {
       toastError('Erro ao agendar retorno', err?.message || '');
     } finally {
@@ -1537,9 +1578,45 @@ const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | nul
               <label style={labelStyle}>Duração (minutos)</label>
               <input type="number" min={10} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value) || 50)} style={inputStyle} />
             </div>
+            <div>
+              <label style={labelStyle}>Repetição</label>
+              <select value={recurrencePreset} onChange={event => setRecurrencePreset(event.target.value)} style={inputStyle}>
+                {ROOM_RECURRENCE_OPTIONS.map(option => <option key={option.value || 'none'} value={option.value} style={{ color: '#111827' }}>{option.label}</option>)}
+              </select>
+            </div>
+            {recurrencePreset === 'custom' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 11, borderRadius: 11, border: '1px solid rgba(99,102,241,.3)', background: 'rgba(99,102,241,.07)' }}>
+                <div>
+                  <label style={labelStyle}>Frequência</label>
+                  <select value={customFrequency} onChange={event => setCustomFrequency(event.target.value)} style={inputStyle}>
+                    <option value="DAILY" style={{ color: '#111827' }}>Diariamente</option>
+                    <option value="WEEKLY" style={{ color: '#111827' }}>Semanalmente</option>
+                    <option value="TWICE_WEEKLY" style={{ color: '#111827' }}>2 vezes por semana</option>
+                    <option value="THREE_WEEKLY" style={{ color: '#111827' }}>3 vezes por semana</option>
+                    <option value="MONTHLY" style={{ color: '#111827' }}>Mensalmente</option>
+                  </select>
+                </div>
+                {(customFrequency === 'DAILY' || customFrequency === 'WEEKLY' || customFrequency === 'MONTHLY') && (
+                  <div>
+                    <label style={labelStyle}>Intervalo</label>
+                    <input type="number" min={1} max={52} value={customInterval} onChange={event => setCustomInterval(Math.max(1, Number(event.target.value) || 1))} style={inputStyle} />
+                    <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: 10 }}>Ex.: semanal com intervalo 2 = a cada duas semanas.</p>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 7 }}>
+                  <button onClick={() => setCustomEndType('count')} style={{ flex: 1, padding: 8, borderRadius: 8, border: `1px solid ${customEndType === 'count' ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: customEndType === 'count' ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#fff', fontSize: 11, fontWeight: 700 }}>Por sessões</button>
+                  <button onClick={() => setCustomEndType('until')} style={{ flex: 1, padding: 8, borderRadius: 8, border: `1px solid ${customEndType === 'until' ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: customEndType === 'until' ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#fff', fontSize: 11, fontWeight: 700 }}>Até uma data</button>
+                </div>
+                {customEndType === 'count' ? (
+                  <div><label style={labelStyle}>Quantidade de sessões</label><input type="number" min={2} max={365} value={customCount} onChange={event => setCustomCount(Math.max(2, Number(event.target.value) || 2))} style={inputStyle} /></div>
+                ) : (
+                  <div><label style={labelStyle}>Repetir até</label><DatePicker value={customEndDate} onChange={value => setCustomEndDate(value || '')} min={date} /></div>
+                )}
+              </div>
+            )}
             <button
               onClick={handleSchedule}
-              disabled={saving || !date || !time}
+              disabled={saving || !date || !time || (recurrencePreset === 'custom' && customEndType === 'until' && !customEndDate)}
               style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: saving || !date || !time ? "not-allowed" : "pointer", background: saving || !date || !time ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
             >
               {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <CalendarPlus size={16} />}
@@ -1775,6 +1852,12 @@ type CachedChatMessage = { id: string; sender: string; senderName?: string; mess
 // Mantém cada envio muito abaixo do limite de 25 MB da API de transcrição,
 // inclusive em celulares que gravam Opus com bitrate mais alto.
 const TRANSCRIPTION_SEGMENT_MS = 8 * 60 * 1000;
+const supportedAudioMimeType = () => [
+  'audio/webm;codecs=opus',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+  'audio/webm',
+].find(type => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) || '';
 
 const LiveKitChatPanel: React.FC<{
   participantName: string; roomId: string; localIdentity: string; onClose: () => void;
@@ -2122,8 +2205,8 @@ const SettingsPanel: React.FC<{
 const RoomInner: React.FC<{
   roomId: string; participantName: string; isHost: boolean; onLeave: (handoff?: { transcript?: string; patientId?: number | null }) => void; roomCode: string;
   initialCam: boolean; initialMic: boolean; videoDeviceId?: string; audioDeviceId?: string;
-  lobbyStream?: MediaStream | null; onOpenAurora?: () => void; returnTo?: string | null;
-}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId, lobbyStream, onOpenAurora, returnTo }) => {
+  lobbyStream?: MediaStream | null; guestAccessToken?: string | null; onOpenAurora?: () => void; returnTo?: string | null;
+}> = ({ roomId, participantName, isHost, onLeave, roomCode, initialCam, initialMic, videoDeviceId, audioDeviceId, lobbyStream, guestAccessToken, onOpenAurora, returnTo }) => {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
   const remoteParticipants = useRemoteParticipants();
   const room = useRoomContext();
@@ -2273,7 +2356,11 @@ const RoomInner: React.FC<{
       recordingDestinationRef.current = destination;
       connectedRemoteTrackIdsRef.current = new Set();
 
-      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const publishedMic = localParticipant.getTrackPublication(Track.Source.Microphone)
+        ?.track?.mediaStreamTrack;
+      const localStream = publishedMic?.readyState === 'live'
+        ? new MediaStream([publishedMic.clone()])
+        : await navigator.mediaDevices.getUserMedia({ audio: true });
       localMicStreamRef.current = localStream;
       ctx.createMediaStreamSource(localStream).connect(destination);
 
@@ -2284,8 +2371,8 @@ const RoomInner: React.FC<{
         });
       }
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-      const mr = new MediaRecorder(destination.stream, { mimeType });
+      const mimeType = supportedAudioMimeType();
+      const mr = new MediaRecorder(destination.stream, mimeType ? { mimeType, audioBitsPerSecond: 64000 } : { audioBitsPerSecond: 64000 });
       audioChunksRef.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mr.start(1000);
@@ -2295,7 +2382,7 @@ const RoomInner: React.FC<{
     } catch {
       setRecordingError('Não foi possível iniciar a gravação. Verifique a permissão do microfone.');
     }
-  }, [remoteParticipants]);
+  }, [remoteParticipants, localParticipant]);
 
   // Só salva o arquivo de áudio misturado (host+paciente) para o prontuário —
   // a transcrição NÃO sai mais daqui. Transcrever o áudio misturado produzia um
@@ -2357,19 +2444,25 @@ const RoomInner: React.FC<{
   const startMicOnlyCapture = useCallback(async () => {
     if (micOnlyRecorderRef.current && micOnlyRecorderRef.current.state !== 'inactive') return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const publishedMic = localParticipant.getTrackPublication(Track.Source.Microphone)
+        ?.track?.mediaStreamTrack;
+      const stream = publishedMic?.readyState === 'live'
+        ? new MediaStream([publishedMic.clone()])
+        : await navigator.mediaDevices.getUserMedia({ audio: true });
       micOnlyStreamRef.current = stream;
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-      const mr = new MediaRecorder(stream, { mimeType });
+      const mimeType = supportedAudioMimeType();
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType, audioBitsPerSecond: 64000 } : { audioBitsPerSecond: 64000 });
       micOnlyChunksRef.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) micOnlyChunksRef.current.push(e.data); };
       mr.start(1000);
       micOnlyRecorderRef.current = mr;
       setLocalMicCapturing(true);
-    } catch {
-      // Sem permissão de microfone deste lado — só não haverá texto desta pessoa.
+      return true;
+    } catch (err: any) {
+      setRecordingError(`Não foi possível capturar o microfone para transcrição: ${mediaErrorMessage(err)}`);
+      return false;
     }
-  }, []);
+  }, [localParticipant]);
 
   const stopMicOnlyCaptureAndUpload = useCallback(async () => {
     const mr = micOnlyRecorderRef.current;
@@ -2395,65 +2488,119 @@ const RoomInner: React.FC<{
       const tf = new FormData();
       tf.append('audio', blob, `mic.${ext}`);
       tf.append('language', 'pt');
-      const res = await api.post<any>('/ai/transcribe-audio', tf);
+      let res: any;
+      if (isHost) {
+        res = await api.post<any>('/ai/transcribe-audio', tf);
+      } else {
+        tf.append('waiting_token', guestAccessToken || '');
+        tf.append('speaker_name', participantName);
+        tf.append('session_key', sessionKeyRef.current);
+        const response = await fetch(`${API_BASE_URL}/virtual-rooms/public/${encodeURIComponent(roomCode)}/transcribe`, {
+          method: 'POST', body: tf,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || 'Falha ao transcrever o áudio do paciente.');
+        res = data;
+      }
       const text: string = res?.text || '';
-      if (text) {
+      if (text && isHost) {
         await api.post<any>(`/virtual-rooms/${roomId}/transcripts`, {
           session_key: sessionKeyRef.current,
           speaker_role: isHost ? 'host' : 'guest',
           speaker_name: participantName,
           text,
         });
+      }
+      if (text) {
         transcriptPartsRef.current.push(`${participantName}: ${text}`);
         setTranscriptDone(true);
         setTimeout(() => setTranscriptDone(false), 5000);
       }
-    } catch {
-      // Falha pontual de transcrição de um segmento não interrompe a sessão.
+    } catch (err: any) {
+      setRecordingError(err?.message || 'Não foi possível transcrever este segmento.');
     }
     setTranscribing(false);
-  }, [roomId, isHost, participantName]);
+  }, [roomId, roomCode, isHost, participantName, guestAccessToken]);
 
   // Sinaliza início/parada de transcrição pro outro lado via canal de dados do
   // LiveKit — reaproveita a conexão já existente, sem depender do backend antigo.
   const broadcastRecordSignal = useCallback((action: 'start' | 'stop') => {
-    try {
-      const payload = new TextEncoder().encode(JSON.stringify({ type: 'psi-record', action }));
-      localParticipant.publishData(payload, { reliable: true });
-    } catch {}
+    const payload = new TextEncoder().encode(JSON.stringify({
+      type: 'psi-record', action, sessionKey: sessionKeyRef.current,
+    }));
+    void localParticipant.publishData(payload, { reliable: true }).catch(() => {});
   }, [localParticipant]);
+
+  const pendingGuestTranscriptionsRef = useRef<Map<string, () => void>>(new Map());
+  useEffect(() => {
+    if (!isHost) return;
+    const onData = (payload: Uint8Array, sender?: Participant) => {
+      let message: any;
+      try { message = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (message?.type !== 'psi-record-complete' || message.sessionKey !== sessionKeyRef.current) return;
+      const identity = sender?.identity || message.identity;
+      pendingGuestTranscriptionsRef.current.get(identity)?.();
+      pendingGuestTranscriptionsRef.current.delete(identity);
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => { room.off(RoomEvent.DataReceived, onData); };
+  }, [isHost, room]);
+
+  // Se a gravação já estiver ativa quando alguém entrar, envia o estado atual.
+  // Sem isso o paciente admitido depois do clique em "Gravar" nunca iniciava a captura.
+  useEffect(() => {
+    if (!isHost || !recording || remoteParticipants.length === 0) return;
+    const timer = window.setTimeout(() => broadcastRecordSignal('start'), 500);
+    return () => window.clearTimeout(timer);
+  }, [isHost, recording, remoteParticipants.length, broadcastRecordSignal]);
 
   const handleStartRecording = useCallback(async () => {
     await startRecording();
-    await startMicOnlyCapture();
+    const transcriptionStarted = await startMicOnlyCapture();
+    if (transcriptionStarted) setRecording(true);
     if (isHost) broadcastRecordSignal('start');
   }, [startRecording, startMicOnlyCapture, isHost, broadcastRecordSignal]);
 
   const handleStopRecording = useCallback(async () => {
-    await stopAudioRecordingFile();
-    await stopMicOnlyCaptureAndUpload();
+    const guestDone = isHost ? Promise.all(remoteParticipants.map(participant => new Promise<void>(resolve => {
+      pendingGuestTranscriptionsRef.current.set(participant.identity, resolve);
+    }))) : Promise.resolve();
     if (isHost) broadcastRecordSignal('stop');
-  }, [stopAudioRecordingFile, stopMicOnlyCaptureAndUpload, isHost, broadcastRecordSignal]);
+    await Promise.all([stopAudioRecordingFile(), stopMicOnlyCaptureAndUpload()]);
+    if (isHost && remoteParticipants.length > 0) {
+      await Promise.race([
+        guestDone,
+        new Promise<void>(resolve => window.setTimeout(resolve, 30000)),
+      ]);
+      pendingGuestTranscriptionsRef.current.clear();
+    }
+    setRecording(false);
+  }, [stopAudioRecordingFile, stopMicOnlyCaptureAndUpload, isHost, broadcastRecordSignal, remoteParticipants]);
 
-  // Consentimentos do paciente, lidos do metadata anexado ao token LiveKit no
-  // momento da entrada (ver Lobby/handleJoin) — evita round-trip com o backend.
-  const myConsent = useMemo(() => {
-    try { return JSON.parse(localParticipant.metadata || '{}'); } catch { return {}; }
-  }, [localParticipant.metadata]);
-
-  // Paciente: obedece ao sinal do host, só se tiver consentido gravação/transcrição.
+  // Paciente: obedece ao sinal de gravação/transcrição enviado pelo host.
   useEffect(() => {
     if (isHost || !room) return;
-    const onData = (payload: Uint8Array) => {
+    const onData = async (payload: Uint8Array) => {
       let msg: any;
       try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
       if (msg?.type !== 'psi-record') return;
-      if (msg.action === 'start' && myConsent.recordingConsent) startMicOnlyCapture();
-      else if (msg.action === 'stop') stopMicOnlyCaptureAndUpload();
+      if (msg.sessionKey) sessionKeyRef.current = msg.sessionKey;
+      if (msg.action === 'start') {
+        await startMicOnlyCapture();
+      } else if (msg.action === 'stop') {
+        try { await stopMicOnlyCaptureAndUpload(); }
+        finally {
+          const complete = new TextEncoder().encode(JSON.stringify({
+            type: 'psi-record-complete', sessionKey: sessionKeyRef.current,
+            identity: localParticipant.identity,
+          }));
+          void localParticipant.publishData(complete, { reliable: true }).catch(() => {});
+        }
+      }
     };
     room.on(RoomEvent.DataReceived, onData);
     return () => { room.off(RoomEvent.DataReceived, onData); };
-  }, [isHost, room, myConsent, startMicOnlyCapture, stopMicOnlyCaptureAndUpload]);
+  }, [isHost, room, localParticipant, startMicOnlyCapture, stopMicOnlyCaptureAndUpload]);
 
   // Uma gravação longa é dividida em segmentos independentes, todos com a mesma
   // chave de sessão, pra nenhum upload exceder 25 MB — limite da OpenAI Whisper.
@@ -3911,6 +4058,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
           videoDeviceId={lobbyVideoDeviceRef.current}
           audioDeviceId={lobbyAudioDeviceRef.current}
           lobbyStream={lobbyStreamRef.current}
+          guestAccessToken={isGuest ? waitingToken : null}
           onOpenAurora={!isGuest ? openAurora : undefined}
           returnTo={returnTo}
         />

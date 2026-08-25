@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const notificationService = require('../services/notificationService');
+const { transcribeAudioBuffer } = require('../services/audioTranscription');
 
 const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
@@ -60,6 +61,10 @@ const uploadAudio = multer({
     );
     cb(null, ok);
   },
+});
+const transcribeAudioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
 // ── Auto-migrate virtual_rooms table ─────────────────────────────────────────
@@ -433,13 +438,17 @@ router.get('/:id/sessions', async (req, res) => {
 // GET /virtual-rooms/:id/sessions/:sessionKey/transcript
 router.get('/:id/sessions/:sessionKey/transcript', async (req, res) => {
   try {
-    const roomId = parseInt(req.params.id);
+    const room = await resolveRoomContext({
+      roomIdentifier: req.params.id,
+      tenantId: req.user.tenant_id,
+    });
+    if (!room?.id) return res.status(404).json({ error: 'Sala não encontrada.' });
     const [rows] = await db.query(
       `SELECT id, speaker_role, speaker_name, text, created_at
        FROM room_transcripts
        WHERE room_id = ? AND tenant_id = ? AND session_key = ?
        ORDER BY created_at ASC`,
-      [roomId, req.user.tenant_id, req.params.sessionKey]
+      [room.id, room.tenant_id, req.params.sessionKey]
     );
     res.json(rows);
   } catch (e) {
@@ -450,15 +459,19 @@ router.get('/:id/sessions/:sessionKey/transcript', async (req, res) => {
 // GET /virtual-rooms/:id/sessions/:sessionKey/transcript/download — baixar .txt
 router.get('/:id/sessions/:sessionKey/transcript/download', async (req, res) => {
   try {
-    const roomId = parseInt(req.params.id);
+    const room = await resolveRoomContext({
+      roomIdentifier: req.params.id,
+      tenantId: req.user.tenant_id,
+    });
+    if (!room?.id) return res.status(404).json({ error: 'Sala não encontrada.' });
     const [rows] = await db.query(
       `SELECT speaker_name, text, created_at FROM room_transcripts
        WHERE room_id = ? AND tenant_id = ? AND session_key = ?
        ORDER BY created_at ASC`,
-      [roomId, req.user.tenant_id, req.params.sessionKey]
+      [room.id, room.tenant_id, req.params.sessionKey]
     );
-    const [room] = await db.query(`SELECT title, code FROM virtual_rooms WHERE id = ?`, [roomId]);
-    const roomTitle = room[0]?.title || room[0]?.code || `sala-${roomId}`;
+    const [roomRows] = await db.query(`SELECT title, code FROM virtual_rooms WHERE id = ?`, [room.id]);
+    const roomTitle = roomRows[0]?.title || roomRows[0]?.code || `sala-${room.id}`;
     const content = rows.map(r => {
       const ts = new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       return `[${ts}] ${r.speaker_name}: ${r.text}`;
@@ -732,6 +745,52 @@ router.get('/public/waiting/:token', (req, res) => {
 router.get('/public/:id/transcripts', (req, res) => {
   const key = getRoomKey(req.params.id);
   res.json(sinceItems(transcriptsMap, key, req.query.since));
+});
+
+// POST /virtual-rooms/public/:id/transcribe — convidado aprovado transcreve
+// somente o próprio microfone. O token da sala de espera impede uploads públicos
+// anônimos; o resultado já é persistido com speaker_role=guest.
+router.post('/public/:id/transcribe', transcribeAudioUpload.single('audio'), async (req, res) => {
+  try {
+    const key = getRoomKey(req.params.id);
+    const approvedGuest = [...(waitingMap.get(key)?.values() || [])]
+      .find(entry => entry.token === req.body?.waiting_token && entry.status === 'approved');
+    if (!approvedGuest) return res.status(403).json({ error: 'Participante não autorizado para esta sala.' });
+    if (!req.file) return res.status(400).json({ error: 'Arquivo de áudio não enviado.' });
+
+    const text = await transcribeAudioBuffer(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      req.body?.language || 'pt',
+    );
+    if (!text) return res.json({ text: '' });
+
+    const speakerName = String(req.body?.speaker_name || approvedGuest.guest_name || 'Paciente').slice(0, 150);
+    const sessionKey = String(req.body?.session_key || key).slice(0, 190);
+    pushItem(transcriptsMap, key, {
+      id: nextId(), speaker_name: speakerName, speaker_role: 'guest', text,
+      created_at: new Date().toISOString(),
+    });
+    const room = await resolveRoomContext({ roomIdentifier: req.params.id });
+    if (room?.id) {
+      await db.query(
+        `INSERT INTO room_transcripts (room_id, tenant_id, session_key, speaker_role, speaker_name, text)
+         VALUES (?, ?, ?, 'guest', ?, ?)`,
+        [room.id, room.tenant_id, sessionKey, speakerName, text]
+      );
+      await db.query(
+        `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
+         VALUES (?, ?, ?, NOW(), 1)
+         ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
+        [room.id, room.tenant_id, sessionKey]
+      );
+    }
+    res.json({ text });
+  } catch (error) {
+    console.error('[Guest transcription]', error);
+    res.status(500).json({ error: 'Não foi possível transcrever este segmento de áudio.' });
+  }
 });
 
 // POST /virtual-rooms/public/:id/transcripts  (guest — persiste no banco)
