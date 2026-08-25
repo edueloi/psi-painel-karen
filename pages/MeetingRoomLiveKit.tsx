@@ -2623,47 +2623,53 @@ const RoomInner: React.FC<{
 
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const cameraFlipInProgressRef = useRef(false);
   const flipCamera = useCallback(async () => {
+    if (cameraFlipInProgressRef.current) return;
+    cameraFlipInProgressRef.current = true;
     const next = facingMode === "user" ? "environment" : "user";
     const currentPublication = localParticipant.getTrackPublication(Track.Source.Camera);
     const currentDeviceId = currentPublication?.track?.mediaStreamTrack?.getSettings().deviceId;
     try {
-      // setCameraEnabled(true, options) ignora `options` e só faz unmute()
-      // quando já existe uma publicação ativa — o facingMode só é respeitado
-      // ao criar uma track nova, por isso é preciso desligar e religar.
       const cameras = (await navigator.mediaDevices.enumerateDevices())
         .filter(device => device.kind === 'videoinput');
       const nextCamera = cameras.find(device => device.deviceId !== currentDeviceId);
 
       if (nextCamera) {
-        // No iOS, facingMode pode só espelhar o preview. Trocar o deviceId
-        // seleciona obrigatoriamente o outro sensor físico.
+        // Substitui a fonte da track já publicada. Nunca desliga a publicação:
+        // o ciclo false/true fazia alguns Androids perderem a câmera após virar.
         const switched = await room.switchActiveDevice('videoinput', nextCamera.deviceId, true);
-        const activeDeviceId = localParticipant
-          .getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack?.getSettings().deviceId;
-        // Tracks publicados a partir do preview do lobby podem não obedecer ao
-        // switchActiveDevice. Nesse caso, recria a publicação com o deviceId.
-        if (!switched || activeDeviceId === currentDeviceId) {
-          await localParticipant.setCameraEnabled(false);
-          await localParticipant.setCameraEnabled(true, { deviceId: { exact: nextCamera.deviceId } } as any);
+        if (!switched) {
+          const publishedTrack = localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+          if (!publishedTrack) throw new Error('A câmera publicada não está disponível.');
+          await publishedTrack.restartTrack({ deviceId: nextCamera.deviceId } as any);
         }
       } else {
-        await localParticipant.setCameraEnabled(false);
-      // exact força falha explícita se o dispositivo não tiver a câmera pedida,
-      // em vez do navegador devolver a frontal silenciosamente e o app achar
-      // que trocou (o que fazia a imagem só continuar espelhada errado).
-        await localParticipant.setCameraEnabled(true, { facingMode: { exact: next } } as any);
+        // Alguns navegadores escondem a lista dos sensores, mas aceitam a troca
+        // pela orientação na própria track publicada.
+        const publishedTrack = currentPublication?.track;
+        if (!publishedTrack) throw new Error('A câmera publicada não está disponível.');
+        await publishedTrack.restartTrack({ facingMode: next } as any);
       }
       const pub = localParticipant.getTrackPublication(Track.Source.Camera);
       const settings = pub?.track?.mediaStreamTrack?.getSettings();
       const actualFacing = settings?.facingMode;
       setFacingMode(actualFacing === 'environment' || actualFacing === 'user' ? actualFacing : next);
-    } catch {
-      // "exact" falhou (dispositivo não tem 2ª câmera, ou navegador não suporta) —
-      // religa a câmera anterior em vez de deixar o usuário sem vídeo nenhum.
-      try { await localParticipant.setCameraEnabled(true); } catch {}
+    } catch (err: any) {
+      // Restaura explicitamente o dispositivo anterior se o navegador tiver
+      // encerrado a track durante uma troca que falhou.
+      try {
+        const publishedTrack = localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+        if (publishedTrack && currentDeviceId) {
+          await new Promise(resolve => setTimeout(resolve, 350));
+          await publishedTrack.restartTrack({ deviceId: currentDeviceId } as any);
+        }
+      } catch {}
+      toastError('Não foi possível virar a câmera', mediaErrorMessage(err));
+    } finally {
+      cameraFlipInProgressRef.current = false;
     }
-  }, [localParticipant, room, facingMode]);
+  }, [localParticipant, room, facingMode, toastError]);
 
   const toggleScreen = useCallback(async () => {
     try { await localParticipant.setScreenShareEnabled(!localHasScreen); } catch {}
