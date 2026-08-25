@@ -121,6 +121,9 @@ export const VirtualRooms: React.FC = () => {
   const [instantPatientId, setInstantPatientId] = useState('');
   const [roomToNotify, setRoomToNotify] = useState<VirtualRoom | null>(null);
   const [isNotifyingPatient, setIsNotifyingPatient] = useState(false);
+  const [googleMeetEnabled, setGoogleMeetEnabled] = useState(false);
+  const [generatingRoomMeetLink, setGeneratingRoomMeetLink] = useState(false);
+  const [isCreatingInstantMeet, setIsCreatingInstantMeet] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'rooms' | 'transcricoes'>('rooms');
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -176,6 +179,10 @@ export const VirtualRooms: React.FC = () => {
 
   useEffect(() => {
     fetchRooms();
+  }, []);
+
+  useEffect(() => {
+    api.get<any>('/google/status').then((d: any) => setGoogleMeetEnabled(!!(d?.connected && d?.enabled))).catch(() => {});
   }, []);
 
   const fetchSessions = async () => {
@@ -510,6 +517,69 @@ export const VirtualRooms: React.FC = () => {
   const handleInstantMeeting = () => {
     setInstantPatientId('');
     setIsInstantModalOpen(true);
+  };
+
+  const handleGenerateRoomMeetLink = async () => {
+    setGeneratingRoomMeetLink(true);
+    try {
+      const now = new Date();
+      const startISO = createForm.scheduled_start
+        ? new Date(createForm.scheduled_start).toISOString()
+        : now.toISOString();
+      const endISO = createForm.scheduled_end
+        ? new Date(createForm.scheduled_end).toISOString()
+        : new Date(new Date(startISO).getTime() + 50 * 60000).toISOString();
+
+      const res = await api.post<any>('/google/generate-meet-link', {
+        title: createForm.title || 'Sessão online',
+        start_time: startISO,
+        end_time: endISO,
+        patient_id: createForm.patient_id || undefined,
+      });
+      if (res?.meeting_url) {
+        setCreateForm((prev) => ({ ...prev, link: res.meeting_url, provider: 'google_meet' }));
+        toastSuccess('Link do Google Meet gerado!', '');
+      }
+    } catch (error: any) {
+      toastError('Erro ao gerar link do Google Meet', error.message || '');
+    } finally {
+      setGeneratingRoomMeetLink(false);
+    }
+  };
+
+  const handleCreateInstantGoogleMeet = async () => {
+    setIsCreatingInstantMeet(true);
+    try {
+      const now = new Date();
+      const startISO = now.toISOString();
+      const endISO = new Date(now.getTime() + 50 * 60000).toISOString();
+      const title = `Sessão - ${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+      const meetRes = await api.post<any>('/google/generate-meet-link', {
+        title,
+        start_time: startISO,
+        end_time: endISO,
+        patient_id: instantPatientId || undefined,
+      });
+      if (!meetRes?.meeting_url) throw new Error('Não foi possível gerar o link do Google Meet.');
+
+      const code = generateCode();
+      const room = await api.post<any>('/virtual-rooms', {
+        title,
+        description: 'Sessão iniciada via acesso rápido (Google Meet).',
+        code,
+        provider: 'google_meet',
+        link: meetRes.meeting_url,
+        patient_id: instantPatientId || null,
+      });
+      setIsInstantModalOpen(false);
+      window.open(meetRes.meeting_url, '_blank');
+      if (instantPatientId) setRoomToNotify(room);
+    } catch (error: any) {
+      toastError('Erro ao iniciar com Google Meet', error.message || '');
+    } finally {
+      setIsCreatingInstantMeet(false);
+    }
   };
 
   const handleCreateInstantRoom = async () => {
@@ -1325,12 +1395,25 @@ export const VirtualRooms: React.FC = () => {
             />
           </div>
 
-          <Input
-            label="Link externo (opcional)"
-            value={createForm.link}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, link: e.target.value }))}
-            placeholder="https://..."
-          />
+          <div>
+            <Input
+              label="Link externo (opcional)"
+              value={createForm.link}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, link: e.target.value, provider: prev.provider === 'google_meet' ? 'jitsi' : prev.provider }))}
+              placeholder="https://..."
+            />
+            {googleMeetEnabled && (
+              <button
+                type="button"
+                onClick={handleGenerateRoomMeetLink}
+                disabled={generatingRoomMeetLink}
+                className="mt-2 flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-500 disabled:opacity-50"
+              >
+                {generatingRoomMeetLink ? <Loader2 size={13} className="animate-spin" /> : <span className="font-black">G</span>}
+                Gerar link do Google Meet
+              </button>
+            )}
+          </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
             O link é público. O cliente entra sem login usando <code className="font-mono">/sala/{'{codigo}'}</code>.
@@ -1403,7 +1486,18 @@ export const VirtualRooms: React.FC = () => {
         footer={
           <ModalFooter>
             <Button variant="ghost" onClick={() => setIsInstantModalOpen(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={handleCreateInstantRoom} loading={isCreatingInstant}>Criar sala</Button>
+            {googleMeetEnabled && (
+              <button
+                type="button"
+                onClick={handleCreateInstantGoogleMeet}
+                disabled={isCreatingInstantMeet || isCreatingInstant}
+                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
+              >
+                {isCreatingInstantMeet ? <Loader2 size={14} className="animate-spin" /> : <span className="font-black">G</span>}
+                Google Meet
+              </button>
+            )}
+            <Button variant="primary" onClick={handleCreateInstantRoom} loading={isCreatingInstant} disabled={isCreatingInstantMeet}>Criar sala</Button>
           </ModalFooter>
         }
       >

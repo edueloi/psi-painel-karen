@@ -275,7 +275,7 @@ export interface VirtualRoom {
   patient_id?: number;
   professional_id?: number;
   appointment_id?: number;
-  provider?: 'jitsi' | 'zoom' | 'teams' | 'outro' | 'interno';
+  provider?: 'jitsi' | 'zoom' | 'teams' | 'outro' | 'interno' | 'google_meet';
   link?: string;
   expiration_date?: string;
   created_at: string;
