@@ -1082,6 +1082,155 @@ const SignaturePanel: React.FC<{ patientId: number; onClose: () => void }> = ({ 
   );
 };
 
+// ── Painel de arquivos compartilhados na sessão ───────────────────────────────
+// Reaproveita o upload autenticado que já existe (POST /uploads, vinculado ao
+// paciente) e só avisa o outro lado do link via canal de dados do LiveKit —
+// /uploads-static é servido publicamente, então o paciente (sem login) abre
+// o arquivo direto pelo link, sem precisar de nenhuma rota nova no backend.
+type SharedFile = { id: string; name: string; url: string; size?: number; sender: string; ts: number };
+
+type LibraryDoc = { id: number; title: string; file_name: string; file_url: string; type: string };
+
+const FilesPanel: React.FC<{ patientId: number | null; isHost: boolean; participantName: string; onClose: () => void }> = ({ patientId, isHost, participantName, onClose }) => {
+  const room = useRoomContext();
+  const { localParticipant } = useLocalParticipant();
+  const [files, setFiles] = useState<SharedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { success: toastSuccess, error: toastError } = useToast();
+
+  // Aba "Biblioteca" — reaproveita os materiais já cadastrados em Documentos
+  // (uploads sem paciente vinculado), sem precisar subir arquivo de novo a cada sessão.
+  const [tab, setTab] = useState<"send" | "library">("send");
+  const [library, setLibrary] = useState<LibraryDoc[] | null>(null);
+  useEffect(() => {
+    if (tab !== 'library' || library !== null || !isHost) return;
+    api.get<LibraryDoc[]>('/uploads')
+      .then(docs => setLibrary(docs || []))
+      .catch(() => setLibrary([]));
+  }, [tab, library, isHost]);
+
+  const shareLibraryDoc = (doc: LibraryDoc) => {
+    const rawUrl = doc.file_url || '';
+    const fullUrl = rawUrl.startsWith('http') ? rawUrl : `${API_BASE_URL.replace('/api', '')}${rawUrl}`;
+    const entry: SharedFile = { id: `lib-${doc.id}-${Date.now()}`, name: doc.title || doc.file_name, url: fullUrl, sender: participantName, ts: Date.now() };
+    setFiles(prev => [entry, ...prev]);
+    try {
+      localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'psi-file', ...entry })), { reliable: true });
+    } catch {}
+    toastSuccess('Material compartilhado', `${entry.name} foi enviado na chamada.`);
+  };
+
+  useEffect(() => {
+    if (!room) return;
+    const onData = (payload: Uint8Array) => {
+      let msg: any;
+      try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (msg?.type !== 'psi-file') return;
+      setFiles(prev => [{ id: msg.id, name: msg.name, url: msg.url, size: msg.size, sender: msg.sender, ts: msg.ts }, ...prev]);
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => { room.off(RoomEvent.DataReceived, onData); };
+  }, [room]);
+
+  const handleUpload = async (file: File) => {
+    if (!patientId) {
+      toastError('Sem paciente vinculado', 'Esta sala não tem um paciente vinculado para arquivar o envio.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('patient_id', String(patientId));
+      formData.append('category', 'Sessão de vídeo');
+      const res = await api.post<any>('/uploads', formData);
+      const rawUrl: string = res?.file_url || res?.url || '';
+      const fullUrl = rawUrl.startsWith('http') ? rawUrl : `${API_BASE_URL.replace('/api', '')}${rawUrl}`;
+      const entry: SharedFile = { id: String(res?.id ?? Date.now()), name: res?.file_name || file.name, url: fullUrl, size: file.size, sender: participantName, ts: Date.now() };
+      setFiles(prev => [entry, ...prev]);
+      try {
+        localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'psi-file', ...entry })), { reliable: true });
+      } catch {}
+      toastSuccess('Arquivo enviado', `${file.name} foi compartilhado e salvo na ficha do paciente.`);
+    } catch (err: any) {
+      toastError('Erro ao enviar arquivo', err?.message || '');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <Upload size={16} color="#6366f1" /> Arquivos
+        </span>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      {isHost && (
+        <div style={{ display: "flex", gap: 4, padding: "10px 16px 0" }}>
+          <button onClick={() => setTab("send")} style={{ flex: 1, padding: "7px 6px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: tab === "send" ? "rgba(99,102,241,0.2)" : "transparent", color: tab === "send" ? "#a5b4fc" : "#64748b" }}>Enviar</button>
+          <button onClick={() => setTab("library")} style={{ flex: 1, padding: "7px 6px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: tab === "library" ? "rgba(99,102,241,0.2)" : "transparent", color: tab === "library" ? "#a5b4fc" : "#64748b" }}>Biblioteca</button>
+        </div>
+      )}
+
+      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+        {isHost && tab === "send" && (
+          <>
+            <input ref={fileInputRef} type="file" style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: uploading ? "not-allowed" : "pointer", background: uploading ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
+            >
+              {uploading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={16} />}
+              Enviar arquivo
+            </button>
+          </>
+        )}
+
+        {isHost && tab === "library" && (
+          library === null ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+          ) : library.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum material cadastrado ainda. Adicione em Documentos, na tela principal do sistema.</p>
+          ) : (
+            library.map(doc => (
+              <button key={doc.id} onClick={() => shareLibraryDoc(doc)}
+                style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, textAlign: "left", cursor: "pointer" }}>
+                <FileText size={18} color="#6366f1" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title || doc.file_name}</span>
+              </button>
+            ))
+          )
+        )}
+
+        {(!isHost || tab === "send") && (
+          files.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum arquivo compartilhado nesta sessão ainda.</p>
+          ) : (
+            files.map(f => (
+              <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
+                style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, textDecoration: "none" }}>
+                <FileText size={18} color="#6366f1" style={{ flexShrink: 0 }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</p>
+                  <p style={{ fontSize: 11, color: "#64748b", margin: "2px 0 0" }}>{f.sender} · {new Date(f.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              </a>
+            ))
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Painel de agendamento de retorno ──────────────────────────────────────────
 const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | null; onClose: () => void }> = ({ patientId, professionalId, onClose }) => {
   const [date, setDate] = useState("");
@@ -1730,7 +1879,7 @@ const RoomInner: React.FC<{
   const { user, hasPermission } = useAuth();
   const { error: toastError } = useToast();
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | null>(null);
+  const [sidePanel, setSidePanel] = useState<"chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | "files" | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
   const [appointmentId, setAppointmentId] = useState<number | null>(null);
 
@@ -2292,7 +2441,7 @@ const RoomInner: React.FC<{
     return () => clearInterval(interval);
   }, []);
 
-  const togglePanel = (panel: "chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature") => setSidePanel(prev => prev === panel ? null : panel);
+  const togglePanel = (panel: "chat" | "invite" | "settings" | "patient" | "notes" | "billing" | "schedule" | "whiteboard" | "signature" | "files") => setSidePanel(prev => prev === panel ? null : panel);
 
   const hasRemote = remoteParticipants.length > 0;
   const poorConnection = connectionQuality === ConnectionQuality.Poor || connectionQuality === ConnectionQuality.Lost
@@ -2488,6 +2637,8 @@ const RoomInner: React.FC<{
               ? <WhiteboardPanel onClose={() => setSidePanel(null)} />
               : sidePanel === "signature"
               ? <SignaturePanel patientId={patientId!} onClose={() => setSidePanel(null)} />
+              : sidePanel === "files"
+              ? <FilesPanel patientId={patientId} isHost={isHost} participantName={participantName} onClose={() => setSidePanel(null)} />
               : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
             }
           </div>
@@ -2616,6 +2767,14 @@ const RoomInner: React.FC<{
               <PenTool size={22} />
             </button>
             <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Quadro</span>
+          </div>
+
+          {/* Arquivos (host e paciente — host envia, paciente só recebe) */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
+            <button onClick={() => togglePanel("files")} style={btnActive(sidePanel === "files")}>
+              <Upload size={22} />
+            </button>
+            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Arquivos</span>
           </div>
 
           {/* Aurora IA (só host, só quando o plano/permite) */}
