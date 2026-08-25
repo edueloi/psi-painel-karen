@@ -28,6 +28,7 @@ import { useUserPreferences } from "../contexts/UserPreferencesContext";
 import logoUrl from '../images/logo-sistema/logo.png';
 import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
 import { PaymentModal } from '../components/UI/PaymentModal';
+import { DatePicker } from '../components/UI/DatePicker';
 import { AuroraAssistant } from '../components/AI/AuroraAssistant';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -1391,12 +1392,84 @@ const BreakoutPanel: React.FC<{
 
 // ── Painel de agendamento de retorno ──────────────────────────────────────────
 const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | null; onClose: () => void }> = ({ patientId, professionalId, onClose }) => {
-  const [date, setDate] = useState("");
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const localDateISO = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  const [date, setDate] = useState(() => localDateISO(tomorrow));
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState(50);
   const [saving, setSaving] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [manualTime, setManualTime] = useState(false);
+  const [profileSchedule, setProfileSchedule] = useState<any[]>([]);
+  const [closedDates, setClosedDates] = useState<{ date: string; label?: string }[]>([]);
+  const [dayAppointments, setDayAppointments] = useState<any[]>([]);
   const [scheduled, setScheduled] = useState<{ date: string; time: string } | null>(null);
   const { success: toastSuccess, error: toastError } = useToast();
+
+  useEffect(() => {
+    api.get<any>('/profile/me').then(profile => {
+      const parse = (value: any, fallback: any[]) => {
+        if (Array.isArray(value)) return value;
+        try { return JSON.parse(value || '[]'); } catch { return fallback; }
+      };
+      setProfileSchedule(parse(profile?.schedule, []));
+      setClosedDates(parse(profile?.closed_dates, []));
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!date) return;
+    setLoadingSlots(true);
+    setTime('');
+    api.get<any[]>('/appointments', professionalId ? {
+      professional_id: String(professionalId),
+    } : undefined).then(rows => setDayAppointments(rows || []))
+      .catch(() => setDayAppointments([]))
+      .finally(() => setLoadingSlots(false));
+  }, [date, professionalId]);
+
+  const availableSlots = useMemo(() => {
+    if (!date) return [] as string[];
+    if (closedDates.some(item => String(item.date).slice(0, 10) === date)) return [] as string[];
+    const selectedDate = new Date(`${date}T12:00:00`);
+    const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const workDay = profileSchedule.find(item => item.dayKey === dayKeys[selectedDate.getDay()]);
+    if (!workDay?.active || !workDay.start || !workDay.end) return [] as string[];
+    const toMinutes = (value: string) => {
+      const [hours, minutes] = value.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    const formatMinutes = (value: number) => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+    const breaks = (workDay.breaks || (workDay.lunchStart ? [{ start: workDay.lunchStart, end: workDay.lunchEnd }] : []))
+      .filter((item: any) => item.start && item.end)
+      .map((item: any) => ({ start: toMinutes(item.start), end: toMinutes(item.end) }));
+    const occupied = dayAppointments
+      .filter(item => !['cancelled', 'rescheduled'].includes(item.status))
+      .map(item => {
+        const raw = String(item.start_time || item.appointment_date || '').replace(' ', 'T');
+        const start = new Date(raw && !raw.endsWith('Z') && !raw.includes('+') ? `${raw}Z` : raw);
+        return { start, end: new Date(start.getTime() + (Number(item.duration_minutes) || 50) * 60000) };
+      });
+    const slots: string[] = [];
+    const now = new Date();
+    for (let minute = toMinutes(workDay.start); minute + duration <= toMinutes(workDay.end); minute += 30) {
+      const slotTime = formatMinutes(minute);
+      const slotStart = new Date(`${date}T${slotTime}:00`);
+      const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+      const inBreak = breaks.some((pause: any) => minute < pause.end && minute + duration > pause.start);
+      const conflict = occupied.some(item => slotStart < item.end && slotEnd > item.start);
+      if (!inBreak && !conflict && slotStart > now) slots.push(slotTime);
+    }
+    return slots;
+  }, [date, duration, profileSchedule, closedDates, dayAppointments]);
+
+  const openFullAgenda = () => {
+    const params = new URLSearchParams({ newAppointment: '1', patientId: String(patientId) });
+    if (professionalId) params.set('professionalId', String(professionalId));
+    if (date) params.set('date', `${date}T${time || '08:00'}`);
+    window.open(`/agenda?${params.toString()}`, '_blank', 'noopener,noreferrer');
+  };
 
   const handleSchedule = async () => {
     if (!date || !time) return;
@@ -1444,11 +1517,21 @@ const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | nul
           <>
             <div>
               <label style={labelStyle}>Data</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+              <DatePicker value={date} onChange={value => { setDate(value || ''); setManualTime(false); }} min={localDateISO(new Date())} />
             </div>
             <div>
-              <label style={labelStyle}>Horário</label>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} />
+              <label style={labelStyle}>Horários disponíveis</label>
+              {loadingSlots ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#94a3b8', fontSize: 12 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Consultando agenda…</div>
+              ) : availableSlots.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7 }}>
+                  {availableSlots.map(slot => <button key={slot} onClick={() => { setTime(slot); setManualTime(false); }} style={{ padding: '8px 4px', borderRadius: 9, border: `1px solid ${time === slot && !manualTime ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: time === slot && !manualTime ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{slot}</button>)}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: '#f59e0b', lineHeight: 1.5 }}>Não há horários livres configurados nesta data.</p>
+              )}
+              <button onClick={() => { setManualTime(true); setTime(''); }} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, color: '#a5b4fc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ Criar horário fora da disponibilidade</button>
+              {manualTime && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginTop: 8 }} />}
             </div>
             <div>
               <label style={labelStyle}>Duração (minutos)</label>
@@ -1461,6 +1544,9 @@ const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | nul
             >
               {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <CalendarPlus size={16} />}
               Agendar retorno
+            </button>
+            <button onClick={openFullAgenda} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(99,102,241,.45)', background: 'rgba(99,102,241,.1)', color: '#a5b4fc', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              <ExternalLink size={14} /> Agenda completa · comandas e repetições
             </button>
           </>
         )}

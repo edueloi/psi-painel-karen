@@ -582,7 +582,22 @@ export const Agenda: React.FC = () => {
 
   useEffect(() => {
     const aptId = searchParams.get('appointmentId');
-    if (aptId && appointments.length > 0 && !hasPrefilled) {
+    const shouldCreate = searchParams.get('newAppointment') === '1';
+    if (shouldCreate && patients.length > 0 && !hasPrefilled) {
+      const requestedPatientId = searchParams.get('patientId') || '';
+      const requestedProfessionalId = searchParams.get('professionalId') || '';
+      const requestedDate = searchParams.get('date');
+      const parsedDate = requestedDate ? new Date(requestedDate) : new Date();
+      const initialDate = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+      setCurrentDate(initialDate);
+      openNewModal(initialDate);
+      setFormData((previous: any) => ({
+        ...previous,
+        patient_id: patients.some(patient => String(patient.id) === requestedPatientId) ? requestedPatientId : previous.patient_id,
+        psychologist_id: requestedProfessionalId || previous.psychologist_id,
+      }));
+      setHasPrefilled(true);
+    } else if (aptId && appointments.length > 0 && !hasPrefilled) {
       const apt = appointments.find(a => String(a.id) === String(aptId));
       if (apt) {
         setCurrentDate(new Date(apt.start));
@@ -590,7 +605,7 @@ export const Agenda: React.FC = () => {
         setHasPrefilled(true);
       }
     }
-  }, [searchParams, appointments, hasPrefilled]);
+  }, [searchParams, appointments, patients, hasPrefilled]);
 
   const filteredAppointments = useMemo(() => {
     let filtered = appointments;
