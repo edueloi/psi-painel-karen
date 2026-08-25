@@ -1109,12 +1109,18 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     } = req.body;
 
     const [existing] = await db.query(
-      'SELECT id, status as old_status, comanda_id as old_comanda, start_time as old_start, duration_minutes as old_duration FROM appointments WHERE id = ? AND tenant_id = ?',
+      `SELECT id, status as old_status, comanda_id as old_comanda, start_time as old_start,
+              duration_minutes as old_duration, patient_id as old_patient_id,
+              professional_id as old_professional_id, service_id as old_service_id,
+              package_id as old_package_id, title as old_title, notes as old_notes,
+              color as old_color, modality as old_modality, type as old_type,
+              meeting_url as old_meeting_url, reschedule_reason as old_reschedule_reason
+       FROM appointments WHERE id = ? AND tenant_id = ?`,
       [req.params.id, req.user.tenant_id]
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
 
-    const dbStatus = normalizeStatus(status);
+    const dbStatus = status !== undefined ? normalizeStatus(status) : existing[0].old_status;
     const oldStatus = existing[0].old_status;
 
     let formattedStart = null;
@@ -1146,9 +1152,24 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
       formattedEnd = endDate.toISOString().slice(0, 19).replace('T', ' ');
     }
 
-    const finalProfessionalId = professional_id || psychologist_id || null;
-    const finalPatientId = patient_id || null;
-    let finalComandaId = comanda_id || existing[0].old_comanda || null;
+    // Campos ausentes no corpo (undefined) preservam o valor atual — uma
+    // atualização parcial (ex: só trocar o horário ou o status) não pode
+    // apagar patient_id/professional_id/comanda_id/etc., senão a sessão
+    // perde o vínculo com o paciente e a comanda "desvincula" sozinha.
+    const finalProfessionalId = (professional_id !== undefined || psychologist_id !== undefined)
+      ? (professional_id || psychologist_id || null)
+      : existing[0].old_professional_id;
+    const finalPatientId = patient_id !== undefined ? (patient_id || null) : existing[0].old_patient_id;
+    const finalServiceId = service_id !== undefined ? (service_id || null) : existing[0].old_service_id;
+    const finalPackageId = package_id !== undefined ? (package_id || null) : existing[0].old_package_id;
+    const finalTitle = title !== undefined ? (title || null) : existing[0].old_title;
+    const finalNotes = notes !== undefined ? (notes || null) : existing[0].old_notes;
+    const finalColor = color !== undefined ? (color || null) : existing[0].old_color;
+    const finalModality = modality !== undefined ? (modality || 'presencial') : existing[0].old_modality;
+    const finalType = type !== undefined ? (type || 'consulta') : existing[0].old_type;
+    const finalMeetingUrl = meeting_url !== undefined ? (meeting_url || null) : existing[0].old_meeting_url;
+    const finalRescheduleReason = reschedule_reason !== undefined ? (reschedule_reason || null) : existing[0].old_reschedule_reason;
+    let finalComandaId = comanda_id !== undefined ? (comanda_id || null) : existing[0].old_comanda;
 
     // A comanda pertence a um paciente específico — se o paciente da sessão muda
     // (ou a comanda enviada não é a do paciente atual), desvincula em vez de
@@ -1190,21 +1211,21 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
         livrocaixa_tx_id = COALESCE(?, livrocaixa_tx_id)
        WHERE id = ? AND tenant_id = ?`,
       [
-        patient_id || null,
+        finalPatientId,
         finalProfessionalId,
-        service_id || null,
-        package_id || null,
-        title || null,
+        finalServiceId,
+        finalPackageId,
+        finalTitle,
         formattedStart,
         formattedEnd,
         dbStatus,
-        notes || null,
-        color || null,
-        modality || 'presencial',
-        type || 'consulta',
+        finalNotes,
+        finalColor,
+        finalModality,
+        finalType,
         effectiveDur,
-        meeting_url || null,
-        reschedule_reason || null,
+        finalMeetingUrl,
+        finalRescheduleReason,
         finalComandaId,
         finalFraction,
         req.body.sync_to_livrocaixa ? 1 : 0,
@@ -1291,7 +1312,7 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
 
             // Buscar dados do paciente para popular pagador/beneficiário
             let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
-            const pId = patient_id || (existing[0] ? existing[0].patient_id : null);
+            const pId = finalPatientId;
             if (pId) {
                 const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [pId]);
                 if (pRows.length > 0) {
@@ -1341,7 +1362,7 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
             }
             // Buscar dados do paciente para popular pagador/beneficiário
             let pName = null, pCpf = null, payName = null, payCpf = null, isPayPatient = 1;
-            const pId = patient_id || (existing[0] ? existing[0].patient_id : null);
+            const pId = finalPatientId;
             if (pId) {
                 const [pRows] = await db.query('SELECT name, cpf, is_payer, payer_name, payer_cpf FROM patients WHERE id = ?', [pId]);
                 if (pRows.length > 0) {
