@@ -495,7 +495,7 @@ export const Register: React.FC = () => {
               Crie sua conta grátis
             </h2>
             <p className="text-sm mt-2 leading-relaxed max-w-xs mx-auto" style={{ color: 'rgba(167,139,250,0.65)' }}>
-              14 dias sem compromisso. Cancele quando quiser.
+              7 dias sem compromisso. Cancele quando quiser.
             </p>
           </div>
         </div>
@@ -503,7 +503,7 @@ export const Register: React.FC = () => {
         {/* Stats */}
         <div className="relative z-10 flex items-center justify-center gap-3 p-10 pt-6">
           {[
-            { value: '14 dias', label: 'Teste grátis' },
+            { value: '7 dias', label: 'Teste grátis' },
             { value: 'Pix', label: 'ou assinatura' },
           ].map(({ value, label }) => (
             <div

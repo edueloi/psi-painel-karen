@@ -14,7 +14,7 @@ const TRUST_BADGES = [
 ];
 
 const FAQ = [
-  { q: 'Existe período de teste gratuito?', a: 'Sim — você pode começar a usar a Plaelo por 14 dias sem custo e sem precisar cadastrar cartão de crédito.' },
+  { q: 'Existe período de teste gratuito?', a: 'Sim — você pode começar a usar a Plaelo por 7 dias sem custo e sem precisar cadastrar cartão de crédito.' },
   { q: 'Posso cancelar quando quiser?', a: 'Sim. Não há fidelidade ou multa de cancelamento — sua assinatura pode ser cancelada a qualquer momento diretamente pelo painel.' },
   { q: 'Como funciona a cobrança?', a: 'A assinatura é mensal, cobrada via Pix ou cartão. Você pode trocar de plano quando quiser, e o valor é ajustado proporcionalmente.' },
   { q: 'Meus dados clínicos ficam seguros?', a: 'Sim. Todos os dados são criptografados em trânsito e em repouso, seguindo a LGPD — e o profissional é sempre o único detentor do sigilo clínico.' },

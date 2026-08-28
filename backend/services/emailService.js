@@ -78,7 +78,7 @@ function baseTemplate(title, content, footerNote = '') {
 </html>`;
 }
 
-function badge(text, color = '#6D42F5', bg = '#eef2ff') {
+function badge(text, color = '#6D42F5', bg = '#EFE9FF') {
   return `<span style="display:inline-block;padding:3px 10px;background:${bg};color:${color};border-radius:999px;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;">${text}</span>`;
 }
 
@@ -97,8 +97,8 @@ function statBox(label, value, color = '#6D42F5') {
 function templateAppointmentReminder({ patientName, time, date, type, modality, professional }) {
   const content = `
     <p style="margin:0 0 24px;font-size:15px;color:#475569;">Olá, <strong>${professional || 'Doutor(a)'}</strong> 👋</p>
-    <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:16px;padding:24px;margin-bottom:24px;">
-      <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6366f1;">⏰ Atendimento em 1 hora</p>
+    <div style="background:#EFE9FF;border:1px solid #DDD1FE;border-radius:16px;padding:24px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6D42F5;">⏰ Atendimento em 1 hora</p>
       <p style="margin:8px 0 0;font-size:20px;font-weight:900;color:#1e293b;">${patientName}</p>
       <p style="margin:4px 0 0;font-size:15px;color:#475569;"><strong>${date}</strong> às <strong>${time}</strong></p>
       <p style="margin:12px 0 0;">${badge(type || 'Consulta')} ${badge(modality || 'Presencial', '#059669', '#d1fae5')}</p>
@@ -223,9 +223,9 @@ function templateMonthlyReport({ monthLabel, totalAppointments, completedCount, 
           </div>
         </td>
         <td style="padding:0 0 0 4px;">
-          <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:16px;">
-            <p style="margin:0 0 2px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#4338ca;">Lucro</p>
-            <p style="margin:0;font-size:18px;font-weight:900;color:#4338ca;">${fmt(profit)}</p>
+          <div style="background:#EFE9FF;border:1px solid #DDD1FE;border-radius:12px;padding:16px;">
+            <p style="margin:0 0 2px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#4B23BD;">Lucro</p>
+            <p style="margin:0;font-size:18px;font-weight:900;color:#4B23BD;">${fmt(profit)}</p>
           </div>
         </td>
       </tr>
@@ -249,21 +249,21 @@ function templateWelcome({ name, email, loginUrl }) {
     <p style="margin:0 0 28px;font-size:15px;color:#475569;">Sua conta no <strong style="color:#6D42F5;">Plaelo</strong> foi criada com sucesso. Estamos felizes em ter você aqui!</p>
 
     <!-- Card de destaque -->
-    <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:20px;padding:28px;margin-bottom:28px;text-align:center;">
-      <p style="margin:0 0 6px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#6366f1;">Sua conta</p>
+    <div style="background:linear-gradient(135deg,#EFE9FF,#F4F0FF);border:1px solid #DDD1FE;border-radius:20px;padding:28px;margin-bottom:28px;text-align:center;">
+      <p style="margin:0 0 6px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#6D42F5;">Sua conta</p>
       <p style="margin:0 0 4px;font-size:20px;font-weight:900;color:#1e293b;">${name}</p>
       <p style="margin:0;font-size:13px;color:#64748b;">${email}</p>
     </div>
 
     <!-- Período de trial -->
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px 24px;margin-bottom:28px;">
-      <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#16a34a;">🎁 14 dias grátis</p>
-      <p style="margin:0;font-size:14px;color:#166534;">Aproveite todos os recursos do Plaelo sem pagar nada por 14 dias. Sem precisar de cartão.</p>
+      <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#16a34a;">🎁 7 dias grátis</p>
+      <p style="margin:0;font-size:14px;color:#166534;">Aproveite todos os recursos do Plaelo sem pagar nada por 7 dias. Sem precisar de cartão.</p>
     </div>
 
     <!-- O que você pode fazer -->
     <p style="margin:0 0 16px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;">O que você pode fazer</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       <tr>
         <td style="padding:0 8px 0 0;vertical-align:top;width:50%;">
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
@@ -280,7 +280,7 @@ function templateWelcome({ name, email, loginUrl }) {
           </div>
         </td>
       </tr>
-      <tr style="margin-top:12px;">
+      <tr>
         <td style="padding:12px 8px 0 0;vertical-align:top;width:50%;">
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
             <p style="margin:0 0 6px;font-size:18px;">💰</p>
@@ -290,9 +290,41 @@ function templateWelcome({ name, email, loginUrl }) {
         </td>
         <td style="padding:12px 0 0 8px;vertical-align:top;width:50%;">
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">🧾</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Nota Fiscal (NFS-e)</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Emita notas fiscais direto da comanda</p>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 8px 0 0;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">🤖</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Bot de WhatsApp</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Lembretes e confirmações automáticas</p>
+          </div>
+        </td>
+        <td style="padding:12px 0 0 8px;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">🎥</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Sala Virtual</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Atendimento online com Meet automático</p>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 8px 0 0;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
             <p style="margin:0 0 6px;font-size:18px;">🌐</p>
             <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Portal do Paciente</p>
             <p style="margin:0;font-size:11px;color:#64748b;">Link exclusivo para seus pacientes acessarem</p>
+          </div>
+        </td>
+        <td style="padding:12px 0 0 8px;vertical-align:top;width:50%;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+            <p style="margin:0 0 6px;font-size:18px;">✨</p>
+            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Aurora IA</p>
+            <p style="margin:0;font-size:11px;color:#64748b;">Organiza dados clínicos e automatiza relatórios</p>
           </div>
         </td>
       </tr>
@@ -321,7 +353,7 @@ function templatePasswordReset({ name, link }) {
     </div>
 
     <p style="margin:20px 0 0;font-size:11px;color:#94a3b8;">Se o botão não funcionar, copie e cole este link no navegador:<br>
-    <span style="color:#6366f1;word-break:break-all;">${link}</span></p>`;
+    <span style="color:#6D42F5;word-break:break-all;">${link}</span></p>`;
   return baseTemplate('🔐 Redefinir Senha', content, 'Solicitação de redefinição de senha.');
 }
 
@@ -330,8 +362,8 @@ function templateTeamWelcome({ name, email, clinicName, loginUrl }) {
   const content = `
     <p style="margin:0 0 12px;font-size:16px;color:#475569;">Olá, <strong>${name}</strong>! 👋</p>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;">Uma conta foi criada para você no <strong style="color:#6D42F5;">Plaelo</strong>. Agora você já pode colaborar com <strong>${clinicName}</strong> em um só lugar.</p>
-    <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:18px;padding:22px;margin-bottom:26px;">
-      <p style="margin:0 0 6px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6366f1;">Seu acesso</p>
+    <div style="background:linear-gradient(135deg,#EFE9FF,#F4F0FF);border:1px solid #DDD1FE;border-radius:18px;padding:22px;margin-bottom:26px;">
+      <p style="margin:0 0 6px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6D42F5;">Seu acesso</p>
       <p style="margin:0;font-size:14px;font-weight:800;color:#1e293b;">${email}</p>
     </div>
     <p style="margin:0 0 14px;font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;">No portal você poderá</p>

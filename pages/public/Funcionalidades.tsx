@@ -136,7 +136,7 @@ export const Funcionalidades: React.FC = () => {
             </button>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px 18px', marginTop: 22, fontSize: 13, color: 'rgba(255,255,255,.6)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={13} /> Sem fidelidade</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={13} /> 14 dias grátis</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={13} /> 7 dias grátis</span>
             </div>
           </div>
         </div>

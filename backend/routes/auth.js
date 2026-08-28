@@ -379,7 +379,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
     }
 
-    // Trial de 14 dias libera o plano mais completo (Enterprise) para o cliente
+    // Trial de 7 dias libera o plano mais completo (Enterprise) para o cliente
     // experimentar tudo antes de decidir — depois do trial, escolhe o plano que quiser.
     const [[defaultPlan]] = await conn.query(
       'SELECT id FROM plans WHERE active = true ORDER BY price DESC LIMIT 1'
@@ -395,8 +395,8 @@ router.post('/register', registerLimiter, async (req, res) => {
     const uniqueSuffix = crypto.randomBytes(3).toString('hex');
     const tenantSlug = `${baseSlug}-${uniqueSuffix}`;
 
-    // trial_ends_at = agora + 14 dias
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    // trial_ends_at = agora + 7 dias
+    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const [tenantResult] = await conn.query(
       `INSERT INTO tenants
