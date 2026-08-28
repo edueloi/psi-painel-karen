@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { getToken, setToken as persistToken, clearToken } from '../services/tokenStorage';
 import { disconnectRealtimeSync } from '../hooks/useRealtimeSync';
 
 interface AuthUser {
@@ -32,7 +33,7 @@ interface AuthUser {
 interface AuthContextType {
   token: string | null;
   user: AuthUser | null;
-  login: (token: string) => void;
+  login: (token: string, remember?: boolean) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
@@ -62,7 +63,7 @@ const decodeToken = (token: string | null): AuthUser | null => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('psi_token'));
+  const [token, setToken] = useState<string | null>(getToken());
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isInitializing, setIsInitializing] = useState(!!token);
 
@@ -149,8 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // eslint-disable-next-line
   }, [token]);
 
-  const login = (newToken: string) => {
-    localStorage.setItem('psi_token', newToken);
+  const login = (newToken: string, remember: boolean = true) => {
+    persistToken(newToken, remember);
     setToken(newToken);
     setIsInitializing(true);
     const decoded = decodeToken(newToken);
@@ -158,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem('psi_token');
+    clearToken();
     disconnectRealtimeSync();
     setToken(null);
     setUser(null);

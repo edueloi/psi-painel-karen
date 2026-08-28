@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Appointment, Service, Patient, User, AppointmentType } from '../types';
+import { getToken } from '../services/tokenStorage';
 import {
     ChevronLeft, ChevronRight, ChevronDown, Clock, Plus, Video, MapPin,
     Calendar as CalendarIcon, CalendarDays, CalendarRange, X, Check, Repeat, Trash2, User as UserIcon,
@@ -786,7 +787,7 @@ export const Agenda: React.FC = () => {
   const handleExport = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/appointments/export`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+        headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       if (!response.ok) throw new Error('Erro ao exportar');
       const blob = await response.blob();

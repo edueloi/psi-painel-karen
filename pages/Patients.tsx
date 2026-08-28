@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getToken } from '../services/tokenStorage';
 import {
   Users, Plus, Phone, Mail, Calendar, FileText,
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
@@ -469,7 +470,7 @@ export const Patients: React.FC = () => {
   const handleExportTemplate = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/patients/export-template`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+        headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
       const blob = await response.blob();
@@ -487,7 +488,7 @@ export const Patients: React.FC = () => {
   const handleExportPatients = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/patients/export`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('psi_token')}` }
+        headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       if (!response.ok) throw new Error(`Erro no servidor: ${response.status}`);
       const blob = await response.blob();

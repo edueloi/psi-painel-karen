@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { getToken } from '../../services/tokenStorage';
 import {
   Sparkles, Send, X, Bot, Calculator, TrendingUp, FileText,
   ReceiptText, Loader2, ChevronDown
@@ -74,7 +75,7 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
     setIsTyping(true);
 
     try {
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const history = [...messages, userMsg].map(m => ({
         role: m.role,
         text: m.text,

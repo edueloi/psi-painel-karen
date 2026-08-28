@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { getToken } from '../services/tokenStorage';
 import {
   ArrowRight,
   Calendar,
@@ -226,7 +227,7 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const downloadTranscript = (session: SessionSummary) => {
-    const token = localStorage.getItem('psi_token');
+    const token = getToken();
     window.open(
       `${API_BASE_URL}/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript/download?token=${token}`,
       '_blank'

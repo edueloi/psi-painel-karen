@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api, getStaticUrl, API_BASE_URL } from '../services/api';
 import { Comanda, Patient, Service } from '../types';
+import { getToken } from '../services/tokenStorage';
 import {
   Modal, ModalFooter, ConfirmModal,
   Button, IconButton,
@@ -838,7 +839,7 @@ export const Comandas: React.FC = () => {
       // Envia ao backend para parsing
       const formData = new FormData();
       formData.append('file', file);
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       fetch(`${API_BASE_URL}/finance/comandas/parse-xlsx`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -880,7 +881,7 @@ export const Comandas: React.FC = () => {
         pending: getComandaPending(c),
         status: c.status === 'closed' ? 'Finalizada' : 'Aberta',
       }));
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}/finance/comandas/export-xlsx`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },

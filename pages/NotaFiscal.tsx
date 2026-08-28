@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { getToken } from '../services/tokenStorage';
 import {
   FileText, Download, RefreshCw, Loader2, CheckCircle2, Clock,
   AlertCircle, XCircle, Ban, Archive, Mail, MessageCircle, HelpCircle, Repeat,
@@ -190,7 +191,7 @@ export const NotaFiscal: React.FC = () => {
     if (!ids.length) return;
     setBatchRunning(true);
     try {
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}/nfse/batch/${kind}.zip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -220,7 +221,7 @@ export const NotaFiscal: React.FC = () => {
   // navegador não envia o token, por isso baixamos via fetch e criamos um blob local.
   const downloadFile = async (path: string, filename: string) => {
     try {
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

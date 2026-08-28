@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { api, API_BASE_URL } from '../services/api';
+import { getToken } from '../services/tokenStorage';
 import {
   CheckCircle, Zap, Crown, Clock, Copy, ExternalLink,
   Loader2, AlertTriangle, Check, X,
@@ -187,7 +188,7 @@ export function Assinatura() {
   const downloadReceipt = async (invoiceId: number) => {
     setDownloadingId(invoiceId);
     try {
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}/subscription/invoices/${invoiceId}/receipt`, {
         headers: { Authorization: `Bearer ${token}` },
       });

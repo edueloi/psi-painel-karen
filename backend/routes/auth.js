@@ -53,7 +53,7 @@ const forgotPasswordLimiter = rateLimit({
 // POST /auth/login
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, remember } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email e senha são obrigatórios' });
@@ -113,25 +113,27 @@ router.post('/login', loginLimiter, async (req, res) => {
       name: user.name,
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    });
+    // "Lembrar-me neste dispositivo": desmarcado = sessão curta (1 dia),
+    // marcado = sessão longa (30 dias). Antes era sempre 7 dias fixos,
+    // sem relação nenhuma com a checkbox — ela só pré-preenchia o e-mail.
+    const sessionDurationMs = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const jwtExpiresIn = remember ? '30d' : '1d';
 
     // Record session
     const tokenId = crypto.randomBytes(16).toString('hex');
     const userAgent = req.headers['user-agent'] || 'Desconhecido';
     const ipAddress = req.ip || req.connection.remoteAddress || '0.0.0.0';
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiresAt = new Date(Date.now() + sessionDurationMs);
 
     await db.query(
-      `INSERT INTO user_sessions (user_id, token_id, user_agent, ip_address, expires_at) 
+      `INSERT INTO user_sessions (user_id, token_id, user_agent, ip_address, expires_at)
        VALUES (?, ?, ?, ?, ?)`,
       [user.id, tokenId, userAgent, ipAddress, expiresAt]
     );
 
     // Update payload with tokenId
     const tokenWithId = jwt.sign({...payload, tokenId}, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+      expiresIn: jwtExpiresIn,
     });
 
     res.json({ token: tokenWithId });
@@ -147,7 +149,7 @@ router.post('/login', loginLimiter, async (req, res) => {
  */
 router.post('/verify-2fa', verify2faLimiter, async (req, res) => {
   try {
-    const { userId, token: totpToken } = req.body;
+    const { userId, token: totpToken, remember } = req.body;
 
     const [users] = await db.query(
       'SELECT id, tenant_id, role, email, name, two_factor_secret FROM users WHERE id = ? AND active = true',
@@ -175,20 +177,24 @@ router.post('/verify-2fa', verify2faLimiter, async (req, res) => {
       name: user.name,
     };
 
+    // Mesma regra do login normal: sessão de 1 dia sem "lembrar-me", 30 dias com.
+    const sessionDurationMs = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const jwtExpiresIn = remember ? '30d' : '1d';
+
     // Record session
     const tokenId = crypto.randomBytes(16).toString('hex');
     const userAgent = req.headers['user-agent'] || 'Desconhecido';
     const ipAddress = req.ip || req.connection.remoteAddress || '0.0.0.0';
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiresAt = new Date(Date.now() + sessionDurationMs);
 
     await db.query(
-      `INSERT INTO user_sessions (user_id, token_id, user_agent, ip_address, expires_at) 
+      `INSERT INTO user_sessions (user_id, token_id, user_agent, ip_address, expires_at)
        VALUES (?, ?, ?, ?, ?)`,
       [user.id, tokenId, userAgent, ipAddress, expiresAt]
     );
 
     const jwtToken = jwt.sign({...payload, tokenId}, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+      expiresIn: jwtExpiresIn,
     });
 
     res.json({ token: jwtToken });

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { getToken } from '../services/tokenStorage';
 import {
   BookOpen, Plus, ArrowLeft, Search,
   TrendingUp, TrendingDown, Wallet, ChevronLeft, ChevronRight,
@@ -749,7 +750,7 @@ export const LivroCaixa: React.FC = () => {
   const handleExportCarneleao = async () => {
     setIsExportingCarneleao(true);
     try {
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const params = new URLSearchParams({ year: String(carneleaoYear) });
       if (carneleaoMode === 'month') params.set('month', String(carneleaoMonth));
       const url = `${API_BASE_URL}/finance/export/carneleao?${params.toString()}&token=${token}`;
@@ -1012,7 +1013,7 @@ export const LivroCaixa: React.FC = () => {
   // navegador não envia o token, por isso baixamos via fetch e criamos um blob local.
   const downloadNfseFile = async (path: string, filename: string) => {
     try {
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

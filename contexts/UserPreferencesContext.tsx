@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
+import { getToken } from '../services/tokenStorage';
 
 export interface UserPreferences {
   comandas: {
@@ -223,7 +224,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
         return;
       }
 
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       try {
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3013';
         const res = await fetch(`${baseUrl}/profile/me`, {

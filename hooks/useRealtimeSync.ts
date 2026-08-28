@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../services/api';
+import { getToken } from '../services/tokenStorage';
 
 export type RealtimeEventType =
   | 'appointment.created' | 'appointment.updated' | 'appointment.deleted'
@@ -39,7 +40,7 @@ function scheduleReconnect() {
 }
 
 function connect() {
-  const token = localStorage.getItem('psi_token');
+  const token = getToken();
   if (!token) return;
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
 

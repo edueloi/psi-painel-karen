@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Send, X, MessageSquare, ChevronDown, Minimize2, Paperclip, Bot } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { api, API_BASE_URL } from '../../services/api';
+import { getToken } from '../../services/tokenStorage';
 
 // --- Types ---
 interface Message {
@@ -94,7 +95,7 @@ export const AuroraAssistant: React.FC = () => {
       }
 
       // We need a specific call for multipart if api.post only handles JSON
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}/ai/chat`, {
         method: 'POST',
         headers: {

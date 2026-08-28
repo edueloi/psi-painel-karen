@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { MOCK_SERVICES, MOCK_PACKAGES } from '../constants';
 import { Service, ServicePackage, ServicePackageItem } from '../types';
+import { getToken } from '../services/tokenStorage';
 import {
   Briefcase,
   Plus,
@@ -476,7 +477,7 @@ export const Services: React.FC = () => {
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('psi_token')}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
 
@@ -506,7 +507,7 @@ export const Services: React.FC = () => {
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('psi_token')}`,
+          Authorization: `Bearer ${getToken()}`,
         },
       });
 

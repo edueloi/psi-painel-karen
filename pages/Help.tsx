@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getToken } from '../services/tokenStorage';
 import {
   HelpCircle, MessageCircle, FileText, ChevronDown, CheckCircle, Mail,
   Search, Sparkles, Send, Bot, Calendar, Users, DollarSign, Video,
@@ -213,7 +214,7 @@ export const Help: React.FC = () => {
         role: m.role === 'model' ? 'assistant' : 'user',
         content: m.text,
       }));
-      const token = localStorage.getItem('psi_token');
+      const token = getToken();
       const formData = new FormData();
       formData.append('messages', JSON.stringify(history));
       const res = await fetch(`${API_BASE_URL}/ai/chat`, {

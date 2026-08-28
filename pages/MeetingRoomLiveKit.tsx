@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { getToken } from '../services/tokenStorage';
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -3742,7 +3743,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === "dark";
 
-  const hasAuthToken = Boolean(localStorage.getItem("psi_token"));
+  const hasAuthToken = Boolean(getToken());
   const isGuest = isGuestProp || searchParams.get("guest") === "true" || !hasAuthToken;
   const returnTo = searchParams.get("returnTo");
 

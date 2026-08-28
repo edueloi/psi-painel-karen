@@ -1,3 +1,5 @@
+import { getToken, clearToken } from './tokenStorage';
+
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3013';
 const BASE_URL = API_BASE_URL;
 
@@ -56,7 +58,7 @@ async function parseResponseBody(response: Response): Promise<any> {
 
 export const api: Api = {
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const token = localStorage.getItem('psi_token');
+    const token = getToken();
 
     const headers = new Headers(options.headers || {});
     if (!(options.body instanceof FormData)) {
@@ -87,9 +89,9 @@ export const api: Api = {
                            window.location.pathname === '/login' ||
                            window.location.pathname === '/';
         // Only force logout if the request was authenticated (had a token) and the server rejected it
-        const hadToken = !!localStorage.getItem('psi_token');
+        const hadToken = !!getToken();
         if (!isPublicPath && hadToken && endpoint.startsWith('/') && !endpoint.startsWith('/patient-portal') && !endpoint.startsWith('/virtual-rooms/public')) {
-          localStorage.removeItem('psi_token');
+          clearToken();
           window.location.href = '/login';
         }
         throw new Error('Sessao expirada');

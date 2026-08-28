@@ -6,6 +6,7 @@ import { Input } from '../UI/Input';
 import { EmptyState } from '../UI/EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import { api, API_BASE_URL } from '../../services/api';
+import { getToken } from '../../services/tokenStorage';
 
 interface Conversation {
   id: number;
@@ -92,7 +93,7 @@ export const ConversationsTab: React.FC = () => {
   // RealtimeService já usado por outras telas do sistema para evitar polling.
   useEffect(() => {
     const wsOrigin = API_BASE_URL.replace(/^http/, 'ws').replace(/\/api\/?$/, '');
-    const token = localStorage.getItem('psi_token');
+    const token = getToken();
     if (!token) return;
 
     let ws: WebSocket | null = null;

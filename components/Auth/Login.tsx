@@ -81,7 +81,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.post<any>('/auth/login', { email, password });
+      const res = await api.post<any>('/auth/login', { email, password, remember });
 
       if (res.requires_2fa) {
           setTempUserId(res.userId);
@@ -93,7 +93,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       if (remember) localStorage.setItem('psi_remembered_email', email);
       else localStorage.removeItem('psi_remembered_email');
 
-      login(res.token);
+      login(res.token, remember);
       navigate('/dashboard');
     } catch (err: any) {
       const msg = (err.message || '').toLowerCase();
@@ -121,11 +121,12 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     try {
         const res = await api.post<any>('/auth/verify-2fa', {
             userId: tempUserId,
-            token: twoFactorToken
+            token: twoFactorToken,
+            remember,
         });
 
         if (remember) localStorage.setItem('psi_remembered_email', email);
-        login(res.token);
+        login(res.token, remember);
         navigate('/dashboard');
     } catch (err: any) {
         setError(err.message || 'Código 2FA inválido ou expirado.');
