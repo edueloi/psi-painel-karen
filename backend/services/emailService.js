@@ -242,97 +242,59 @@ function templateMonthlyReport({ monthLabel, totalAppointments, completedCount, 
   return baseTemplate('📅 Relatório Mensal', content, 'Enviado automaticamente no primeiro dia de cada mês.');
 }
 
+function featureRow(icon, title, text, last = false) {
+  return `<tr>
+    <td style="padding:14px 0;${last ? '' : 'border-bottom:1px solid #F1EEFB;'}vertical-align:top;width:40px;">
+      <div style="width:34px;height:34px;border-radius:10px;background:#F4F0FF;font-size:16px;line-height:34px;text-align:center;">${icon}</div>
+    </td>
+    <td style="padding:14px 0 14px 14px;${last ? '' : 'border-bottom:1px solid #F1EEFB;'}vertical-align:middle;">
+      <p style="margin:0;font-size:13px;font-weight:800;color:#1e293b;">${title}</p>
+      <p style="margin:2px 0 0;font-size:12px;color:#8B8599;">${text}</p>
+    </td>
+  </tr>`;
+}
+
 /** 6. Boas-vindas (novo cadastro) */
 function templateWelcome({ name, email, loginUrl }) {
+  const features = [
+    ['📅', 'Agenda', 'Gerencie seus atendimentos com facilidade'],
+    ['👥', 'Pacientes', 'Cadastro completo com prontuário digital'],
+    ['💰', 'Financeiro', 'Cobranças, pacotes e fluxo de caixa'],
+    ['🧾', 'Nota Fiscal (NFS-e)', 'Emita notas fiscais direto da comanda'],
+    ['🤖', 'Bot de WhatsApp', 'Lembretes e confirmações automáticas'],
+    ['🎥', 'Sala Virtual', 'Atendimento online com Meet automático'],
+    ['🌐', 'Portal do Paciente', 'Link exclusivo para seus pacientes'],
+    ['✨', 'Aurora IA', 'Organiza dados clínicos e relatórios'],
+  ];
+  const rows = features.map((f, i) => featureRow(f[0], f[1], f[2], i === features.length - 1)).join('');
+
   const content = `
-    <p style="margin:0 0 8px;font-size:15px;color:#475569;">Olá, <strong>${name}</strong>! 🎉</p>
-    <p style="margin:0 0 28px;font-size:15px;color:#475569;">Sua conta no <strong style="color:#6D42F5;">Plaelo</strong> foi criada com sucesso. Estamos felizes em ter você aqui!</p>
+    <p style="margin:0 0 6px;font-size:17px;font-weight:800;color:#150F2E;">Olá, ${name} 👋</p>
+    <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#64748b;">Sua conta no Plaelo foi criada com sucesso. Estamos felizes em ter você por aqui.</p>
 
-    <!-- Card de destaque -->
-    <div style="background:linear-gradient(135deg,#EFE9FF,#F4F0FF);border:1px solid #DDD1FE;border-radius:20px;padding:28px;margin-bottom:28px;text-align:center;">
-      <p style="margin:0 0 6px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:#6D42F5;">Sua conta</p>
-      <p style="margin:0 0 4px;font-size:20px;font-weight:900;color:#1e293b;">${name}</p>
-      <p style="margin:0;font-size:13px;color:#64748b;">${email}</p>
-    </div>
-
-    <!-- Período de trial -->
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px 24px;margin-bottom:28px;">
-      <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#16a34a;">🎁 7 dias grátis</p>
-      <p style="margin:0;font-size:14px;color:#166534;">Aproveite todos os recursos do Plaelo sem pagar nada por 7 dias. Sem precisar de cartão.</p>
-    </div>
-
-    <!-- O que você pode fazer -->
-    <p style="margin:0 0 16px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;">O que você pode fazer</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FAF9FF;border:1px solid #EDE9FB;border-radius:16px;margin-bottom:20px;">
       <tr>
-        <td style="padding:0 8px 0 0;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">📅</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Agenda</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Gerencie seus atendimentos com facilidade</p>
-          </div>
-        </td>
-        <td style="padding:0 0 0 8px;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">👥</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Pacientes</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Cadastro completo com prontuário digital</p>
-          </div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:12px 8px 0 0;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">💰</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Financeiro</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Controle de cobranças, pacotes e fluxo de caixa</p>
-          </div>
-        </td>
-        <td style="padding:12px 0 0 8px;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">🧾</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Nota Fiscal (NFS-e)</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Emita notas fiscais direto da comanda</p>
-          </div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:12px 8px 0 0;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">🤖</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Bot de WhatsApp</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Lembretes e confirmações automáticas</p>
-          </div>
-        </td>
-        <td style="padding:12px 0 0 8px;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">🎥</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Sala Virtual</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Atendimento online com Meet automático</p>
-          </div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:12px 8px 0 0;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">🌐</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Portal do Paciente</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Link exclusivo para seus pacientes acessarem</p>
-          </div>
-        </td>
-        <td style="padding:12px 0 0 8px;vertical-align:top;width:50%;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
-            <p style="margin:0 0 6px;font-size:18px;">✨</p>
-            <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:#1e293b;">Aurora IA</p>
-            <p style="margin:0;font-size:11px;color:#64748b;">Organiza dados clínicos e automatiza relatórios</p>
-          </div>
+        <td style="padding:16px 20px;">
+          <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#B4AECD;">Conta</p>
+          <p style="margin:2px 0 0;font-size:14px;font-weight:800;color:#150F2E;">${name}</p>
+          <p style="margin:0;font-size:12px;color:#8B8599;">${email}</p>
         </td>
       </tr>
     </table>
 
-    <!-- CTA -->
-    <div style="text-align:center;margin:8px 0 0;">
-      <a href="${loginUrl || 'https://plaelo.com.br'}" style="display:inline-block;background:linear-gradient(135deg,#150F2E,#6D42F5);color:#fff;font-weight:900;font-size:15px;padding:16px 48px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">🚀 Acessar meu painel</a>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#150F2E;border-radius:14px;margin-bottom:32px;">
+      <tr><td style="padding:14px 18px;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#fff;">🎁 7 dias grátis, sem cartão &nbsp;·&nbsp; <span style="color:#C9B8FF;font-weight:500;">aproveite todos os recursos do Plaelo</span></p>
+      </td></tr>
+    </table>
+
+    <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#B4AECD;">O que você pode fazer</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
+      ${rows}
+    </table>
+
+    <div style="text-align:center;">
+      <a href="${loginUrl || 'https://plaelo.com.br'}" style="display:inline-block;background:linear-gradient(135deg,#150F2E,#6D42F5);color:#fff;font-weight:800;font-size:14px;padding:15px 44px;border-radius:12px;text-decoration:none;">Acessar meu painel →</a>
     </div>`;
   return baseTemplate('Bem-vindo ao Plaelo! 🎉', content, 'Você está recebendo este email porque criou uma conta no Plaelo.');
 }
