@@ -50,8 +50,8 @@ function baseTemplate(title, content, footerNote = '') {
         <!-- Header -->
         <tr><td style="background:linear-gradient(160deg,#150F2E 0%,#2A1F6B 55%,#6D42F5 100%);padding:36px 32px 32px;text-align:center;">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px;">
-            <tr><td style="width:56px;height:56px;background:#ffffff;border-radius:16px;padding:9px;">
-              <img src="${LOGO_URL}" width="38" height="38" alt="Plaelo" style="display:block;width:38px;height:38px;object-fit:contain;"/>
+            <tr><td style="background:#ffffff;border-radius:16px;padding:10px 14px;">
+              <img src="${LOGO_URL}" width="34" height="46" alt="Plaelo" style="display:block;width:34px;height:46px;"/>
             </td></tr>
           </table>
           <p style="margin:0 0 10px;font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.55);">Plaelo</p>
@@ -65,7 +65,7 @@ function baseTemplate(title, content, footerNote = '') {
 
         <!-- Footer -->
         <tr><td style="background:#FAF9FF;border-top:1px solid #EDE9FB;padding:28px 32px;text-align:center;">
-          <img src="${LOGO_URL}" width="22" height="22" alt="" style="display:block;margin:0 auto 10px;width:22px;height:22px;object-fit:contain;opacity:0.85;"/>
+          <img src="${LOGO_URL}" width="16" height="22" alt="" style="display:block;margin:0 auto 10px;width:16px;height:22px;opacity:0.85;"/>
           <p style="margin:0 0 4px;font-size:11px;color:#8B85A3;font-weight:700;">Este é um email automático do sistema Plaelo.</p>
           ${footerNote ? `<p style="margin:0 0 4px;font-size:11px;color:#8B85A3;">${footerNote}</p>` : ''}
           <p style="margin:10px 0 0;font-size:10px;color:#B4AECD;">contato@plaelo.com.br · Não responda este email · <a href="https://plaelo.com.br" style="color:#6D42F5;text-decoration:none;">plaelo.com.br</a></p>
