@@ -330,6 +330,13 @@ router.delete('/subscription/:patientId', authMiddleware, async (req, res) => {
 // (backend/routes/mercadopago.js) para manter os dois provedores consistentes.
 router.post('/webhook', express.json(), async (req, res) => {
   try {
+    // Confirma que a chamada realmente veio da Asaas (token configurado no
+    // painel de Webhooks dela, enviado de volta neste header a cada chamada).
+    if (process.env.ASAAS_WEBHOOK_TOKEN && req.headers['asaas-access-token'] !== process.env.ASAAS_WEBHOOK_TOKEN) {
+      console.warn('[Asaas Webhook] Token inválido/ausente — requisição rejeitada.');
+      return res.status(401).json({ error: 'invalid token' });
+    }
+
     const { event, payment } = req.body || {};
     console.log('[Asaas Webhook] Evento:', event, payment?.id);
 

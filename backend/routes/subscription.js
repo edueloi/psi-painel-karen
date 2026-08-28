@@ -534,6 +534,10 @@ router.get('/check-payment-asaas/:paymentId', authMiddleware, async (req, res) =
 // check-payment-asaas, polling do Pix na tela).
 router.post('/asaas-webhook', express.json(), async (req, res) => {
   try {
+    if (process.env.ASAAS_WEBHOOK_TOKEN && req.headers['asaas-access-token'] !== process.env.ASAAS_WEBHOOK_TOKEN) {
+      console.warn('[Sub Asaas Webhook] Token inválido/ausente — requisição rejeitada.');
+      return res.status(401).json({ error: 'invalid token' });
+    }
     const { event, payment } = req.body || {};
     if (!['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].includes(event) || !payment) {
       return res.status(200).json({ received: true, action: 'ignored' });
