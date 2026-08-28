@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
   tls: { rejectUnauthorized: false },
 });
 
-const FROM = `"${process.env.EMAIL_FROM_NAME || 'PsiFlux'}" <${process.env.EMAIL_USER}>`;
+const FROM = `"${process.env.EMAIL_FROM_NAME || 'Plaelo'}" <${process.env.EMAIL_USER}>`;
 
 async function sendMail(to, subject, html, options = {}) {
   if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -46,7 +46,7 @@ function baseTemplate(title, content, footerNote = '') {
 
         <!-- Header -->
         <tr><td style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:20px 20px 0 0;padding:32px;text-align:center;">
-          <p style="margin:0 0 8px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);">PsiFlux</p>
+          <p style="margin:0 0 8px;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);">Plaelo</p>
           <h1 style="margin:0;font-size:22px;font-weight:900;color:#fff;line-height:1.3;">${title}</h1>
         </td></tr>
 
@@ -57,9 +57,9 @@ function baseTemplate(title, content, footerNote = '') {
 
         <!-- Footer -->
         <tr><td style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 20px 20px;padding:24px;text-align:center;">
-          <p style="margin:0 0 4px;font-size:11px;color:#94a3b8;font-weight:700;">Este é um email automático do sistema PsiFlux.</p>
+          <p style="margin:0 0 4px;font-size:11px;color:#94a3b8;font-weight:700;">Este é um email automático do sistema Plaelo.</p>
           ${footerNote ? `<p style="margin:0;font-size:11px;color:#94a3b8;">${footerNote}</p>` : ''}
-          <p style="margin:8px 0 0;font-size:10px;color:#cbd5e1;">sistema@psiflux.com.br · Não responda este email.</p>
+          <p style="margin:8px 0 0;font-size:10px;color:#cbd5e1;">contato@plaelo.com.br · Não responda este email.</p>
         </td></tr>
 
       </table>
@@ -153,7 +153,7 @@ function row(label, value) {
 function templateWeeklyReport({ weekLabel, appointments, completedCount, cancelledCount, newPatients, revenue, topPatient }) {
   const content = `
     <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Semana: <strong>${weekLabel}</strong></p>
-    <p style="margin:0 0 24px;font-size:15px;color:#475569;">Aqui está o resumo da sua semana no PsiFlux.</p>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;">Aqui está o resumo da sua semana no Plaelo.</p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
@@ -237,7 +237,7 @@ function templateMonthlyReport({ monthLabel, totalAppointments, completedCount, 
 function templateWelcome({ name, email, loginUrl }) {
   const content = `
     <p style="margin:0 0 8px;font-size:15px;color:#475569;">Olá, <strong>${name}</strong>! 🎉</p>
-    <p style="margin:0 0 28px;font-size:15px;color:#475569;">Sua conta no <strong style="color:#4f46e5;">PsiFlux</strong> foi criada com sucesso. Estamos felizes em ter você aqui!</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#475569;">Sua conta no <strong style="color:#4f46e5;">Plaelo</strong> foi criada com sucesso. Estamos felizes em ter você aqui!</p>
 
     <!-- Card de destaque -->
     <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:20px;padding:28px;margin-bottom:28px;text-align:center;">
@@ -249,7 +249,7 @@ function templateWelcome({ name, email, loginUrl }) {
     <!-- Período de trial -->
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:20px 24px;margin-bottom:28px;">
       <p style="margin:0 0 4px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#16a34a;">🎁 14 dias grátis</p>
-      <p style="margin:0;font-size:14px;color:#166534;">Aproveite todos os recursos do PsiFlux sem pagar nada por 14 dias. Sem precisar de cartão.</p>
+      <p style="margin:0;font-size:14px;color:#166534;">Aproveite todos os recursos do Plaelo sem pagar nada por 14 dias. Sem precisar de cartão.</p>
     </div>
 
     <!-- O que você pode fazer -->
@@ -291,16 +291,16 @@ function templateWelcome({ name, email, loginUrl }) {
 
     <!-- CTA -->
     <div style="text-align:center;margin:8px 0 0;">
-      <a href="${loginUrl || 'https://psiflux.com.br'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 48px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">🚀 Acessar meu painel</a>
+      <a href="${loginUrl || 'https://plaelo.com.br'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 48px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">🚀 Acessar meu painel</a>
     </div>`;
-  return baseTemplate('Bem-vindo ao PsiFlux! 🎉', content, 'Você está recebendo este email porque criou uma conta no PsiFlux.');
+  return baseTemplate('Bem-vindo ao Plaelo! 🎉', content, 'Você está recebendo este email porque criou uma conta no Plaelo.');
 }
 
 /** 7. Recuperação de senha */
 function templatePasswordReset({ name, link }) {
   const content = `
     <p style="margin:0 0 20px;font-size:15px;color:#475569;">Olá, <strong>${name || 'usuário'}</strong> 👋</p>
-    <p style="margin:0 0 28px;font-size:15px;color:#475569;">Recebemos uma solicitação para redefinir a senha da sua conta no <strong>PsiFlux</strong>. Clique no botão abaixo para criar uma nova senha:</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#475569;">Recebemos uma solicitação para redefinir a senha da sua conta no <strong>Plaelo</strong>. Clique no botão abaixo para criar uma nova senha:</p>
 
     <div style="text-align:center;margin:32px 0;">
       <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 40px;border-radius:14px;text-decoration:none;letter-spacing:0.3px;">🔐 Redefinir Minha Senha</a>
@@ -320,7 +320,7 @@ function templatePasswordReset({ name, link }) {
 function templateTeamWelcome({ name, email, clinicName, loginUrl }) {
   const content = `
     <p style="margin:0 0 12px;font-size:16px;color:#475569;">Olá, <strong>${name}</strong>! 👋</p>
-    <p style="margin:0 0 24px;font-size:15px;color:#475569;">Uma conta foi criada para você no <strong style="color:#4f46e5;">PsiFlux</strong>. Agora você já pode colaborar com <strong>${clinicName}</strong> em um só lugar.</p>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;">Uma conta foi criada para você no <strong style="color:#4f46e5;">Plaelo</strong>. Agora você já pode colaborar com <strong>${clinicName}</strong> em um só lugar.</p>
     <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:18px;padding:22px;margin-bottom:26px;">
       <p style="margin:0 0 6px;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#6366f1;">Seu acesso</p>
       <p style="margin:0;font-size:14px;font-weight:800;color:#1e293b;">${email}</p>
@@ -331,8 +331,8 @@ function templateTeamWelcome({ name, email, clinicName, loginUrl }) {
       <li>Acompanhar pacientes e informações clínicas</li>
       <li>Usar os recursos liberados para o seu perfil</li>
     </ul>
-    <div style="text-align:center;"><a href="${loginUrl || 'https://painel.psiflux.com.br/login'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Acessar meu painel</a></div>`;
-  return baseTemplate('Sua conta no PsiFlux está pronta', content, 'Você está recebendo este e-mail porque uma conta foi criada para você.');
+    <div style="text-align:center;"><a href="${loginUrl || 'https://painel.plaelo.com.br/login'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Acessar meu painel</a></div>`;
+  return baseTemplate('Sua conta no Plaelo está pronta', content, 'Você está recebendo este e-mail porque uma conta foi criada para você.');
 }
 
 /** 9. Aviso de vencimento/assinatura vencida */
@@ -343,11 +343,11 @@ function templateSubscriptionReminder({ name, planName, expiresAt, daysLeft, ren
     <div style="background:${expired ? '#fff1f2' : '#fff7ed'};border:1px solid ${expired ? '#fecdd3' : '#fed7aa'};border-radius:18px;padding:24px;margin-bottom:24px;">
       <p style="margin:0 0 8px;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:${expired ? '#be123c' : '#c2410c'};">${expired ? 'Assinatura vencida' : 'Lembrete de renovação'}</p>
       <p style="margin:0;font-size:18px;font-weight:900;color:#1e293b;">${expired ? 'Seu acesso está limitado à renovação.' : `Sua assinatura vence em ${daysLeft} dia${daysLeft === 1 ? '' : 's'}.`}</p>
-      <p style="margin:10px 0 0;font-size:14px;color:#475569;">Plano: <strong>${planName || 'PsiFlux'}</strong>${expiresAt ? ` · Vencimento: <strong>${expiresAt}</strong>` : ''}</p>
+      <p style="margin:10px 0 0;font-size:14px;color:#475569;">Plano: <strong>${planName || 'Plaelo'}</strong>${expiresAt ? ` · Vencimento: <strong>${expiresAt}</strong>` : ''}</p>
     </div>
     <p style="margin:0 0 26px;font-size:14px;color:#64748b;">Renove agora para continuar usando todos os recursos do seu painel sem interrupções.</p>
-    <div style="text-align:center;"><a href="${renewalUrl || 'https://painel.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Renovar assinatura</a></div>`;
-  return baseTemplate(expired ? 'Sua assinatura venceu' : 'Sua assinatura está perto de vencer', content, 'Lembrete automático de assinatura do PsiFlux.');
+    <div style="text-align:center;"><a href="${renewalUrl || 'https://painel.plaelo.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Renovar assinatura</a></div>`;
+  return baseTemplate(expired ? 'Sua assinatura venceu' : 'Sua assinatura está perto de vencer', content, 'Lembrete automático de assinatura do Plaelo.');
 }
 
 /** 10. Aviso de fim do período de teste */
@@ -360,9 +360,9 @@ function templateTrialReminder({ name, endsAt, daysLeft, renewalUrl }) {
       <p style="margin:0;font-size:18px;font-weight:900;color:#1e293b;">${expired ? 'Seu acesso está limitado à escolha de um plano.' : `Faltam ${daysLeft} dia${daysLeft === 1 ? '' : 's'} para o fim do seu teste grátis.`}</p>
       ${endsAt ? `<p style="margin:10px 0 0;font-size:14px;color:#475569;">Data: <strong>${endsAt}</strong></p>` : ''}
     </div>
-    <p style="margin:0 0 26px;font-size:14px;color:#64748b;">Escolha seu plano para continuar aproveitando todos os recursos do PsiFlux.</p>
-    <div style="text-align:center;"><a href="${renewalUrl || 'https://painel.psiflux.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Escolher meu plano</a></div>`;
-  return baseTemplate(expired ? 'Seu teste PsiFlux terminou' : 'Seu teste PsiFlux está perto do fim', content, 'Lembrete automático do seu período de teste no PsiFlux.');
+    <p style="margin:0 0 26px;font-size:14px;color:#64748b;">Escolha seu plano para continuar aproveitando todos os recursos do Plaelo.</p>
+    <div style="text-align:center;"><a href="${renewalUrl || 'https://painel.plaelo.com.br/assinatura'}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Escolher meu plano</a></div>`;
+  return baseTemplate(expired ? 'Seu teste Plaelo terminou' : 'Seu teste Plaelo está perto do fim', content, 'Lembrete automático do seu período de teste no Plaelo.');
 }
 
 /** 11. Comunicados e novidades enviados pelo Super Admin */
@@ -372,14 +372,14 @@ function templatePlatformUpdate({ title, content, buttonText, buttonUrl }) {
   const cta = buttonText && buttonUrl
     ? `<div style="text-align:center;"><a href="${buttonUrl}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">${buttonText}</a></div>`
     : '';
-  return baseTemplate(title, contentHtml + cta, 'Comunicado enviado pela equipe PsiFlux.');
+  return baseTemplate(title, contentHtml + cta, 'Comunicado enviado pela equipe Plaelo.');
 }
 
 function templateNfseDelivered({ patientName, numero, verificationUrl }) {
   const content = `<p style="margin:0 0 18px;font-size:15px;color:#475569;">Olá, <strong>${patientName || 'paciente'}</strong>.</p>
     <p style="margin:0 0 22px;font-size:15px;line-height:1.7;color:#475569;">Sua Nota Fiscal de Serviço Eletrônica${numero ? ` nº <strong>${numero}</strong>` : ''} está disponível. O PDF segue anexado a este e-mail.</p>
     ${verificationUrl ? `<div style="text-align:center;"><a href="${verificationUrl}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:900;font-size:15px;padding:15px 34px;border-radius:14px;text-decoration:none;">Consultar nota fiscal</a></div>` : ''}`;
-  return baseTemplate('Sua Nota Fiscal está disponível', content, 'Mensagem enviada pelo consultório através do PsiFlux.');
+  return baseTemplate('Sua Nota Fiscal está disponível', content, 'Mensagem enviada pelo consultório através do Plaelo.');
 }
 
 /** 8. Pagamento recebido (Mercado Pago) */
