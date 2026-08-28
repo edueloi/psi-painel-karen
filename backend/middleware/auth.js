@@ -8,7 +8,12 @@ const { subscriptionAccessMiddleware } = require('./subscriptionAccess');
 // Paths that don't require authentication
 // /google/callback é chamado pelo próprio navegador do usuário voltando do
 // consentimento do Google — não carrega o header Authorization da SPA.
-const PUBLIC_PATHS = ['/virtual-rooms/public', '/patient-portal', '/google/callback'];
+// /asaas/webhook e /subscription/asaas-webhook são chamados pelo servidor da
+// Asaas (sem token de usuário nenhum).
+const PUBLIC_PATHS = [
+  '/virtual-rooms/public', '/patient-portal', '/google/callback',
+  '/asaas/webhook', '/subscription/asaas-webhook',
+];
 
 async function authMiddleware(req, res, next) {
   // For semi-public paths: try to decode JWT if present, but don't block if absent

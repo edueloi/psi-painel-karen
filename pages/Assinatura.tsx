@@ -40,14 +40,15 @@ interface Plan {
 }
 
 interface Checkout {
-  preference_id: string;
-  payment_url: string;
+  preference_id?: string;
+  payment_url: string | null;
   pix_qr_code: string | null;
   pix_qr_code_base64: string | null;
   pix_payment_id: string | null;
   amount: number;
   plan_name: string;
   description: string;
+  provider: 'mercadopago' | 'asaas';
 }
 
 interface Invoice {
@@ -90,6 +91,7 @@ export function Assinatura() {
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [period, setPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const [provider, setProvider] = useState<'mercadopago' | 'asaas'>('mercadopago');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkout, setCheckout] = useState<Checkout | null>(null);
   const [copied, setCopied] = useState(false);
@@ -131,8 +133,14 @@ export function Assinatura() {
     const planBeforePayment = status?.plan_id;
     const interval = setInterval(async () => {
       try {
-        const d = await api.get<any>(`/subscription/check-payment/${checkout.pix_payment_id}`);
-        if (d.status === 'approved') {
+        const endpoint = checkout.provider === 'asaas'
+          ? `/subscription/check-payment-asaas/${checkout.pix_payment_id}`
+          : `/subscription/check-payment/${checkout.pix_payment_id}`;
+        const d = await api.get<any>(endpoint);
+        const isPaid = checkout.provider === 'asaas'
+          ? ['CONFIRMED', 'RECEIVED'].includes(d.status)
+          : d.status === 'approved';
+        if (isPaid) {
           setPolling(false);
           setPaymentDone(true);
           setTimeout(async () => {
@@ -165,11 +173,26 @@ export function Assinatura() {
     if (!selectedPlan) return;
     setCheckoutLoading(true);
     try {
-      const data = await api.post<Checkout>('/subscription/checkout', {
+      const data = await api.post<any>('/subscription/checkout', {
         plan_id: selectedPlan.id,
         period,
+        provider,
       });
-      setCheckout(data);
+      // Normaliza a resposta da Asaas pro mesmo formato usado pelo Mercado Pago,
+      // pra não precisar duplicar toda a renderização/polling abaixo.
+      const normalized: Checkout = provider === 'asaas'
+        ? {
+            payment_url: data.invoice_url || null,
+            pix_qr_code: data.pix_copy_paste || null,
+            pix_qr_code_base64: data.pix_qr_code_base64 || null,
+            pix_payment_id: data.payment_id || null,
+            amount: data.amount,
+            plan_name: data.plan_name,
+            description: data.description,
+            provider: 'asaas',
+          }
+        : { ...data, provider: 'mercadopago' };
+      setCheckout(normalized);
       setPolling(true);
     } catch (e: any) {
       pushToast('error', e?.message || 'Erro ao gerar cobrança. Entre em contato com o suporte.');
@@ -519,6 +542,17 @@ export function Assinatura() {
                     </p>
                   </div>
 
+                  <div className="flex gap-2">
+                    <button onClick={() => setProvider('mercadopago')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'mercadopago' ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                      Mercado Pago
+                    </button>
+                    <button onClick={() => setProvider('asaas')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'asaas' ? 'bg-teal-600 text-white border-teal-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                      Asaas
+                    </button>
+                  </div>
+
                   <button
                     onClick={handleCheckout}
                     disabled={checkoutLoading}
@@ -530,7 +564,7 @@ export function Assinatura() {
                   </button>
 
                   <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400 flex-wrap">
-                    <span className="flex items-center gap-1"><Shield size={10} /> Pagamento seguro via Mercado Pago</span>
+                    <span className="flex items-center gap-1"><Shield size={10} /> Pagamento seguro via {provider === 'asaas' ? 'Asaas' : 'Mercado Pago'}</span>
                     <span className="flex items-center gap-1"><CheckCircle size={10} /> PIX instantâneo</span>
                     <span className="flex items-center gap-1"><CreditCard size={10} /> Cartão aceito</span>
                   </div>

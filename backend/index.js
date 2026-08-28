@@ -47,6 +47,7 @@ const patientHistoryRoutes = require('./routes/patient-history');
 const livekitTokenRoutes = require('./routes/livekit-token');
 const infinitePayRoutes = require('./routes/infinitepay');
 const mercadoPagoRoutes = require('./routes/mercadopago');
+const asaasRoutes = require('./routes/asaas');
 const subscriptionRoutes = require('./routes/subscription');
 const nfseRoutes = require('./routes/nfse');
 const emailCampaignsRoutes = require('./routes/email-campaigns');
@@ -177,6 +178,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/livekit`, livekitTokenRoutes);
   app.use(`${prefix}/infinitepay`, infinitePayRoutes);
   app.use(`${prefix}/mercadopago`, mercadoPagoRoutes);
+  app.use(`${prefix}/asaas`, asaasRoutes);
   // subscriptionRoutes já montado na seção de rotas públicas acima (cada rota
   // interna se protege com authMiddleware individualmente, exceto o webhook).
   app.use(`${prefix}/nfse`, nfseRoutes);

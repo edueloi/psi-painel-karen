@@ -6,7 +6,7 @@ import {
   Save, AlertTriangle, Clock, Send, Loader2, Calendar,
   BarChart2, FileText, UserCheck, Users2, ExternalLink, Zap, ClipboardList,
   MessageSquare, Video, FileCode, Plug, ArrowRight, Users, Shield,
-  Phone, Briefcase, CreditCard, Eye, EyeOff, Unplug, CheckCircle2, XCircle, Receipt
+  Phone, Briefcase, CreditCard, Eye, EyeOff, Unplug, CheckCircle2, XCircle, Receipt, Wallet
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { PageHeader } from '../components/UI/PageHeader';
@@ -263,6 +263,41 @@ export const Settings: React.FC = () => {
       pushToast('success', 'Conta Google desconectada.');
     } catch { pushToast('error', 'Erro ao desconectar conta Google.'); }
     finally { setGoogleDisconnecting(false); }
+  };
+
+  // ── Asaas (recebimentos de pacientes) ────────────────────────────────────
+  const [asaasStatus, setAsaasStatus] = useState<any>({ enabled: false, balance: null });
+  const [asaasSaving, setAsaasSaving] = useState(false);
+  const [asaasForm, setAsaasForm] = useState({ name: '', cpfCnpj: '', email: '', mobilePhone: '' });
+
+  useEffect(() => {
+    if (activeTab !== 'integracoes') return;
+    api.get<any>('/asaas/status').then((d: any) => setAsaasStatus(d)).catch(() => {});
+  }, [activeTab]);
+
+  const activateAsaas = async () => {
+    if (!asaasForm.name.trim() || !asaasForm.cpfCnpj.trim() || !asaasForm.email.trim()) {
+      pushToast('error', 'Preencha nome, CPF/CNPJ e e-mail.');
+      return;
+    }
+    setAsaasSaving(true);
+    try {
+      const res = await api.post<any>('/asaas/account', asaasForm);
+      setAsaasStatus({ enabled: true, accountId: res.accountId, walletId: res.walletId, balance: 0 });
+      pushToast('success', 'Recebimentos ativados! Já dá pra cobrar seus pacientes.');
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Erro ao ativar recebimentos.');
+    } finally { setAsaasSaving(false); }
+  };
+
+  const disableAsaas = async () => {
+    setAsaasSaving(true);
+    try {
+      await api.post('/asaas/disable', {});
+      setAsaasStatus({ enabled: false, balance: null });
+      pushToast('success', 'Recebimentos desativados.');
+    } catch { pushToast('error', 'Erro ao desativar.'); }
+    finally { setAsaasSaving(false); }
   };
 
   // ── NFS-e (Dados Fiscais) ────────────────────────────────────────────────
@@ -1419,6 +1454,92 @@ export const Settings: React.FC = () => {
                           {googleConnecting
                             ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Conectando...</span>
                             : 'Conectar com Google'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Asaas (recebimentos de pacientes) ───────────────────────── */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Pagamentos</p>
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
+                    <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 shrink-0">
+                      <Wallet size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-slate-800 text-sm">Asaas</p>
+                        {asaasStatus.enabled && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-100">
+                            Ativo
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Cobre seus pacientes por Pix, cartão ou boleto — o dinheiro cai direto na sua conta</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {asaasStatus.enabled ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                          <p className="text-xs text-emerald-700 font-medium">
+                            Recebimentos ativos{asaasStatus.balance != null ? ` · Saldo: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asaasStatus.balance)}` : ''}
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          Agora você pode gerar cobranças direto na ficha do paciente ou pela Comanda. O valor cai na sua própria conta Asaas.
+                        </p>
+                        <button onClick={disableAsaas} disabled={asaasSaving}
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
+                          <Unplug size={12} /> {asaasSaving ? 'Desativando...' : 'Desativar recebimentos'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="p-3 bg-teal-50 rounded-xl border border-teal-100 space-y-1.5">
+                          <p className="text-xs font-bold text-teal-700">Como funciona:</p>
+                          <p className="text-xs text-teal-800">
+                            Ativando, criamos automaticamente uma conta Asaas em seu nome. Os pagamentos dos seus pacientes
+                            caem direto nela — a Plaelo nunca recebe ou repassa esse dinheiro.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <input
+                            value={asaasForm.name}
+                            onChange={e => setAsaasForm(p => ({ ...p, name: e.target.value }))}
+                            placeholder="Nome completo"
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                          />
+                          <input
+                            value={asaasForm.cpfCnpj}
+                            onChange={e => setAsaasForm(p => ({ ...p, cpfCnpj: e.target.value }))}
+                            placeholder="CPF ou CNPJ"
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                          />
+                          <input
+                            value={asaasForm.email}
+                            onChange={e => setAsaasForm(p => ({ ...p, email: e.target.value }))}
+                            placeholder="E-mail"
+                            type="email"
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                          />
+                          <input
+                            value={asaasForm.mobilePhone}
+                            onChange={e => setAsaasForm(p => ({ ...p, mobilePhone: e.target.value }))}
+                            placeholder="Celular (com DDD)"
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                          />
+                        </div>
+                        <button onClick={activateAsaas} disabled={asaasSaving}
+                          className="w-full py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40">
+                          {asaasSaving
+                            ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Ativando...</span>
+                            : 'Ativar recebimentos'}
                         </button>
                       </div>
                     )}

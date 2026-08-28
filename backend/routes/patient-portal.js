@@ -2837,4 +2837,149 @@ router.get('/mercadopago/charge/:paymentId', portalAuth, async (req, res) => {
   }
 });
 
+// ─── Asaas: paciente gera cobrança via portal ────────────────────────────────
+// Espelha o bloco Mercado Pago acima, usando a subconta Asaas do profissional
+// responsável (o dinheiro cai direto na conta dele, nunca na da Plaelo).
+
+const { decrypt: asaasDecrypt } = require('../services/asaasCrypto');
+const ASAAS_BASE_PORTAL = process.env.ASAAS_ENV === 'production'
+  ? 'https://api.asaas.com/v3'
+  : 'https://sandbox.asaas.com/api/v3';
+
+async function asaasPortalRequest(apiKey, method, path, body) {
+  const res = await fetch(`${ASAAS_BASE_PORTAL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'access_token': apiKey },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data?.errors?.[0]?.description || data?.message || 'Erro na API do Asaas');
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+// GET /patient-portal/asaas/available
+router.get('/asaas/available', portalAuth, async (req, res) => {
+  try {
+    const { psychologist_id } = req.portalSession;
+    if (!psychologist_id) return res.json({ available: false });
+    const [rows] = await db.query(
+      'SELECT asaas_enabled, asaas_api_key FROM users WHERE id = ?',
+      [psychologist_id]
+    );
+    const u = rows[0];
+    res.json({ available: !!(u && u.asaas_enabled && u.asaas_api_key) });
+  } catch { res.json({ available: false }); }
+});
+
+// POST /patient-portal/asaas/charge — paciente cria cobrança Pix/cartão/boleto
+router.post('/asaas/charge', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    if (!session.psychologist_id) return res.status(400).json({ error: 'Sem profissional responsável configurado' });
+
+    const [rows] = await db.query(
+      'SELECT asaas_enabled, asaas_api_key FROM users WHERE id = ?',
+      [session.psychologist_id]
+    );
+    const u = rows[0];
+    if (!u || !u.asaas_enabled || !u.asaas_api_key) {
+      return res.status(400).json({ error: 'Pagamento online não disponível para este profissional.' });
+    }
+    const apiKey = asaasDecrypt(u.asaas_api_key);
+
+    const { amount, appointment_id, comanda_id, billing_type } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
+
+    const [[patient]] = await db.query(
+      'SELECT id, name, cpf, email, phone, asaas_customer_id FROM patients WHERE id = ? AND tenant_id = ?',
+      [session.patient_id, session.tenant_id]
+    );
+    if (!patient) return res.status(404).json({ error: 'Paciente não encontrado' });
+
+    let customerId = patient.asaas_customer_id;
+    if (!customerId) {
+      const customer = await asaasPortalRequest(apiKey, 'POST', '/customers', {
+        name: patient.name,
+        cpfCnpj: patient.cpf ? String(patient.cpf).replace(/\D/g, '') : undefined,
+        email: patient.email || undefined,
+        mobilePhone: patient.phone ? String(patient.phone).replace(/\D/g, '') : undefined,
+      });
+      customerId = customer.id;
+      await db.query('UPDATE patients SET asaas_customer_id = ? WHERE id = ?', [customerId, patient.id]);
+    }
+
+    // Respeita os métodos habilitados pelo profissional em tenants.portal_settings
+    const [[tenantRow]] = await db.query('SELECT portal_settings FROM tenants WHERE id = ? LIMIT 1', [session.tenant_id]);
+    const rawSettings = tenantRow?.portal_settings;
+    const portalSettings = rawSettings ? (typeof rawSettings === 'string' ? JSON.parse(rawSettings) : rawSettings) : {};
+    let effectiveBillingType = billing_type || 'PIX';
+    if (effectiveBillingType === 'PIX' && portalSettings.payment_pix_enabled === false) {
+      return res.status(400).json({ error: 'Pix desabilitado para este profissional.' });
+    }
+    if (effectiveBillingType === 'CREDIT_CARD' && portalSettings.payment_credit_enabled === false) {
+      return res.status(400).json({ error: 'Cartão desabilitado para este profissional.' });
+    }
+
+    const externalReference = JSON.stringify({
+      user_id: session.psychologist_id,
+      tenant_id: session.tenant_id,
+      comanda_id: comanda_id || null,
+      appointment_id: appointment_id || null,
+      patient_name: session.full_name || patient.name,
+    });
+
+    const payment = await asaasPortalRequest(apiKey, 'POST', '/payments', {
+      customer: customerId,
+      billingType: effectiveBillingType,
+      value: Number(amount),
+      dueDate: new Date().toISOString().slice(0, 10),
+      description: `Consulta — ${session.full_name || patient.name}`,
+      externalReference,
+    });
+
+    let pix = null;
+    if (effectiveBillingType === 'PIX') {
+      try {
+        const pixData = await asaasPortalRequest(apiKey, 'GET', `/payments/${payment.id}/pixQrCode`);
+        pix = { qrCodeImage: pixData?.encodedImage ? `data:image/png;base64,${pixData.encodedImage}` : null, copyPaste: pixData?.payload || null };
+      } catch (e) { console.warn('[Portal Asaas] Falha ao gerar QR Pix:', e.message); }
+    }
+
+    res.json({
+      payment_id: payment.id,
+      status: payment.status,
+      invoice_url: payment.invoiceUrl,
+      pix_qr_code_base64: pix?.qrCodeImage || null,
+      pix_copy_paste: pix?.copyPaste || null,
+      amount: Number(amount),
+    });
+  } catch (err) {
+    console.error('[Portal Asaas] Erro:', err.message);
+    res.status(err.status || 500).json({ error: err.message || 'Erro interno ao gerar cobrança' });
+  }
+});
+
+// GET /patient-portal/asaas/charge/:paymentId — paciente consulta status da cobrança
+router.get('/asaas/charge/:paymentId', portalAuth, async (req, res) => {
+  try {
+    const session = req.portalSession;
+    if (!session.psychologist_id) return res.status(400).json({ error: 'Sem profissional responsável configurado' });
+
+    const [rows] = await db.query('SELECT asaas_enabled, asaas_api_key FROM users WHERE id = ?', [session.psychologist_id]);
+    const u = rows[0];
+    if (!u || !u.asaas_enabled || !u.asaas_api_key) {
+      return res.status(400).json({ error: 'Pagamento online não disponível para este profissional.' });
+    }
+    const apiKey = asaasDecrypt(u.asaas_api_key);
+    const payment = await asaasPortalRequest(apiKey, 'GET', `/payments/${req.params.paymentId}`);
+    res.json({ payment_id: payment.id, status: payment.status, amount: payment.value });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: 'Erro ao consultar pagamento' });
+  }
+});
+
 module.exports = router;

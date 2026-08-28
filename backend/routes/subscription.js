@@ -3,6 +3,11 @@ const router = express.Router();
 const db = require('../db');
 const { authMiddleware, authorize } = require('../middleware/auth');
 const crypto = require('crypto');
+const { decrypt: asaasDecrypt } = require('../services/asaasCrypto');
+
+const ASAAS_BASE_SUB = process.env.ASAAS_ENV === 'production'
+  ? 'https://api.asaas.com/v3'
+  : 'https://sandbox.asaas.com/api/v3';
 
 // ── Auto-migrate: colunas de assinatura ──────────────────────────────────────
 async function ensureSubscriptionSchema() {
@@ -14,6 +19,9 @@ async function ensureSubscriptionSchema() {
     "ALTER TABLE tenants ADD COLUMN plan_id INT NULL",
     "ALTER TABLE tenants ADD COLUMN subscription_mp_preference_id VARCHAR(255) NULL",
     "ALTER TABLE tenants ADD COLUMN subscription_mp_payment_id VARCHAR(255) NULL",
+    "ALTER TABLE tenants ADD COLUMN subscription_asaas_payment_id VARCHAR(64) NULL",
+    "ALTER TABLE subscription_invoices ADD COLUMN provider VARCHAR(20) DEFAULT 'mercadopago'",
+    "ALTER TABLE subscription_invoices ADD COLUMN asaas_payment_id VARCHAR(64) NULL",
   ];
   for (const sql of stmts) {
     try { await db.query(sql); } catch { /* coluna já existe */ }
@@ -68,6 +76,27 @@ async function getPlatformToken() {
     try { return decrypt(rows[0].mercadopago_token); } catch { return null; }
   }
   return null;
+}
+
+// Chave Asaas da própria Plaelo (conta integradora), usada para cobrar a
+// mensalidade dos consultórios — nunca a subconta de um profissional.
+function getPlatformAsaasKey() {
+  return process.env.ASAAS_API_KEY || null;
+}
+
+async function asaasSubRequest(apiKey, method, path, body) {
+  const res = await fetch(`${ASAAS_BASE_SUB}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'access_token': apiKey },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data?.errors?.[0]?.description || data?.message || 'Erro na API do Asaas');
+    err.status = res.status;
+    throw err;
+  }
+  return data;
 }
 
 // ── GET /subscription/status ─────────────────────────────────────────────────
@@ -182,12 +211,16 @@ router.get('/status', authMiddleware, async (req, res) => {
 // ── POST /subscription/checkout — Gera cobrança para assinar ─────────────────
 router.post('/checkout', authMiddleware, async (req, res) => {
   try {
-    const { plan_id, period } = req.body; // period: 'monthly' | 'annual'
+    const { plan_id, period, provider } = req.body; // period: 'monthly' | 'annual'; provider: 'mercadopago' | 'asaas'
     if (!plan_id) return res.status(400).json({ error: 'Plano obrigatório' });
 
     const [[exemptCheck]] = await db.query('SELECT billing_exempt FROM tenants WHERE id = ?', [req.user.tenant_id]);
     if (exemptCheck?.billing_exempt) {
       return res.status(400).json({ error: 'Esta clínica está isenta de cobrança e não precisa assinar um plano.' });
+    }
+
+    if (provider === 'asaas') {
+      return checkoutViaAsaas(req, res);
     }
 
     const token = await getPlatformToken();
@@ -298,6 +331,170 @@ router.post('/checkout', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('[Sub] Erro ao criar checkout:', err);
     res.status(500).json({ error: 'Erro interno ao gerar cobrança' });
+  }
+});
+
+// ── Checkout de assinatura via Asaas (Pix/cartão) ────────────────────────────
+// Mesma lógica do checkout Mercado Pago acima, usando a conta Asaas da
+// própria Plaelo (nunca a subconta de um profissional).
+async function checkoutViaAsaas(req, res) {
+  try {
+    const { plan_id, period } = req.body;
+    const apiKey = getPlatformAsaasKey();
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Asaas não configurado no servidor. Entre em contato com o suporte.', no_payment: true });
+    }
+
+    const [planRows] = await db.query('SELECT * FROM plans WHERE id = ? AND active = 1', [plan_id]);
+    if (!planRows.length) return res.status(404).json({ error: 'Plano não encontrado' });
+    const plan = planRows[0];
+
+    const isAnnual = period === 'annual';
+    const months = isAnnual ? 12 : 1;
+    const discount = isAnnual ? 0.15 : 0;
+    const amount = parseFloat((plan.price * months * (1 - discount)).toFixed(2));
+    const description = `Plaelo — ${plan.name} (${isAnnual ? 'Anual' : 'Mensal'})`;
+
+    const [[tenant]] = await db.query('SELECT name, cnpj_cpf FROM tenants WHERE id = ?', [req.user.tenant_id]);
+
+    const externalReference = JSON.stringify({
+      type: 'subscription',
+      tenant_id: req.user.tenant_id,
+      plan_id,
+      period: isAnnual ? 'annual' : 'monthly',
+      months,
+    });
+
+    // Precisa de um customer Asaas para o tenant — cria na hora se não existir
+    // (não cacheia em coluna própria ainda; simples o bastante pro volume atual).
+    const customer = await asaasSubRequest(apiKey, 'POST', '/customers', {
+      name: tenant?.name || req.user.name,
+      cpfCnpj: tenant?.cnpj_cpf ? String(tenant.cnpj_cpf).replace(/\D/g, '') : undefined,
+      email: req.user.email || undefined,
+    });
+
+    const payment = await asaasSubRequest(apiKey, 'POST', '/payments', {
+      customer: customer.id,
+      billingType: 'PIX',
+      value: amount,
+      dueDate: new Date().toISOString().slice(0, 10),
+      description,
+      externalReference,
+    });
+
+    let pix = null;
+    try {
+      const pixData = await asaasSubRequest(apiKey, 'GET', `/payments/${payment.id}/pixQrCode`);
+      pix = { qrCodeImage: pixData?.encodedImage ? `data:image/png;base64,${pixData.encodedImage}` : null, copyPaste: pixData?.payload || null };
+    } catch (e) { console.warn('[Sub Asaas] Falha ao gerar QR Pix:', e.message); }
+
+    await db.query(
+      `INSERT INTO subscription_invoices
+        (tenant_id, plan_id, plan_name, period, amount, method, status, provider, asaas_payment_id)
+       VALUES (?, ?, ?, ?, ?, 'pix', 'pending', 'asaas', ?)`,
+      [req.user.tenant_id, plan_id, plan.name, isAnnual ? 'annual' : 'monthly', amount, String(payment.id)]
+    );
+
+    res.json({
+      payment_id: payment.id,
+      pix_qr_code_base64: pix?.qrCodeImage || null,
+      pix_copy_paste: pix?.copyPaste || null,
+      invoice_url: payment.invoiceUrl,
+      amount,
+      plan_name: plan.name,
+      description,
+      provider: 'asaas',
+    });
+  } catch (err) {
+    console.error('[Sub Asaas] Erro ao criar checkout:', err.message);
+    res.status(err.status || 500).json({ error: err.message || 'Erro interno ao gerar cobrança' });
+  }
+}
+
+// Mesma ideia de activateFromPayment(), mas para pagamentos vindos da Asaas —
+// mantida separada (não compartilha a coluna subscription_mp_payment_id) para
+// não arriscar a lógica do Mercado Pago que já está em produção.
+async function activateFromAsaasPayment(paymentData) {
+  const paymentId = paymentData.id;
+  let meta = {};
+  try { meta = JSON.parse(paymentData.externalReference || '{}'); } catch {}
+
+  if (meta.type !== 'subscription') return { action: 'not_subscription' };
+  const { tenant_id, plan_id, months } = meta;
+  if (!tenant_id || !months) return { action: 'missing_meta' };
+
+  const [existing] = await db.query(
+    'SELECT id FROM tenants WHERE id = ? AND subscription_asaas_payment_id = ?',
+    [tenant_id, String(paymentId)]
+  );
+  if (existing.length > 0) return { action: 'duplicate' };
+
+  const [tenantRows] = await db.query('SELECT expires_at, plan_id FROM tenants WHERE id = ?', [tenant_id]);
+  const currentExpires = tenantRows[0]?.expires_at ? new Date(tenantRows[0].expires_at) : new Date();
+  const base = currentExpires > new Date() ? currentExpires : new Date();
+  base.setMonth(base.getMonth() + parseInt(months));
+  const newExpiresAt = base.toISOString().slice(0, 19).replace('T', ' ');
+
+  await db.query(
+    `UPDATE tenants SET
+      expires_at = ?, trial_ends_at = NULL, status = 'active',
+      plan_id = ?, last_billing_at = NOW(), subscription_asaas_payment_id = ?
+     WHERE id = ?`,
+    [newExpiresAt, plan_id || tenantRows[0]?.plan_id, String(paymentId), tenant_id]
+  );
+
+  const [invoiceUpdate] = await db.query(
+    `UPDATE subscription_invoices SET status = 'approved', paid_at = NOW(), asaas_payment_id = ?
+     WHERE tenant_id = ? AND status = 'pending' AND provider = 'asaas'
+     ORDER BY created_at DESC LIMIT 1`,
+    [String(paymentId), tenant_id]
+  );
+  if (!invoiceUpdate.affectedRows) {
+    const [planRow] = await db.query('SELECT name FROM plans WHERE id = ?', [plan_id || tenantRows[0]?.plan_id]);
+    await db.query(
+      `INSERT INTO subscription_invoices
+        (tenant_id, plan_id, plan_name, period, amount, method, status, provider, asaas_payment_id, paid_at)
+       VALUES (?, ?, ?, ?, ?, 'pix', 'approved', 'asaas', ?, NOW())`,
+      [tenant_id, plan_id || tenantRows[0]?.plan_id, planRow[0]?.name || null,
+       months == 12 ? 'annual' : 'monthly', paymentData.value || 0, String(paymentId)]
+    );
+  }
+
+  console.log(`[Sub Asaas] ✅ Tenant #${tenant_id} assinatura ativa até ${newExpiresAt} | Plano #${plan_id} | Payment #${paymentId}`);
+  return { action: 'activated', expires_at: newExpiresAt };
+}
+
+// ── GET /subscription/check-payment-asaas/:paymentId — polling do Pix Asaas ──
+router.get('/check-payment-asaas/:paymentId', authMiddleware, async (req, res) => {
+  try {
+    const apiKey = getPlatformAsaasKey();
+    if (!apiKey) return res.status(400).json({ error: 'Sem chave Asaas configurada' });
+
+    const payment = await asaasSubRequest(apiKey, 'GET', `/payments/${req.params.paymentId}`);
+    if (['CONFIRMED', 'RECEIVED'].includes(payment.status)) {
+      try { await activateFromAsaasPayment(payment); } catch (e) { console.error('[Sub Asaas] Erro ao ativar via check-payment:', e.message); }
+    }
+    res.json({ payment_id: payment.id, status: payment.status, amount: payment.value });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: 'Erro ao consultar pagamento' });
+  }
+});
+
+// ── POST /subscription/asaas-webhook — Asaas notifica pagamento aprovado ─────
+// Rota PÚBLICA — chamada pela Asaas. Mesmo papel de reforço/backup que o
+// webhook do Mercado Pago já tem (a ativação "no calor da hora" acontece via
+// check-payment-asaas, polling do Pix na tela).
+router.post('/asaas-webhook', express.json(), async (req, res) => {
+  try {
+    const { event, payment } = req.body || {};
+    if (!['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'].includes(event) || !payment) {
+      return res.status(200).json({ received: true, action: 'ignored' });
+    }
+    const result = await activateFromAsaasPayment(payment);
+    res.status(200).json({ received: true, ...result });
+  } catch (err) {
+    console.error('[Sub Asaas Webhook] Erro:', err.message);
+    res.status(200).json({ received: true, action: 'error', message: err.message });
   }
 });
 

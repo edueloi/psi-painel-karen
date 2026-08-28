@@ -27,6 +27,15 @@ interface MpCharge {
   amount: number;
 }
 
+interface AsaasCharge {
+  payment_id: string;
+  invoice_url: string | null;
+  pix_qr_code_base64: string | null;
+  pix_copy_paste: string | null;
+  status: string;
+  amount: number;
+}
+
 const METHOD_CONFIG = {
   cash: { label: "Dinheiro",  icon: DollarSign,  activeBg: "bg-emerald-500", bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", activeText: "text-white" },
   card: { label: "Cartão",    icon: CreditCard,   activeBg: "bg-blue-500",    bg: "bg-blue-50 border-blue-200",       text: "text-blue-700",    activeText: "text-white" },
@@ -69,6 +78,15 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
   const [mpCopied, setMpCopied] = useState(false);
   const [mpPolling, setMpPolling] = useState(false);
 
+  // ── Asaas ─────────────────────────────────────────────────────────────────
+  const [asaasAvailable, setAsaasAvailable] = useState(false);
+  const [useAsaas, setUseAsaas] = useState(false);
+  const [asaasBillingType, setAsaasBillingType] = useState<'PIX' | 'CREDIT_CARD' | 'BOLETO'>('PIX');
+  const [asaasCharge, setAsaasCharge] = useState<AsaasCharge | null>(null);
+  const [asaasLoading, setAsaasLoading] = useState(false);
+  const [asaasCopied, setAsaasCopied] = useState(false);
+  const [asaasPolling, setAsaasPolling] = useState(false);
+
   const total      = comanda ? Number(comanda.total)       : 0;
   const alreadyPaid = comanda ? Number(comanda.paidAmount || 0) : 0;
   const remaining  = Math.max(0, total - alreadyPaid);
@@ -83,10 +101,16 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
       setUseMp(false);
       setMpCharge(null);
       setMpCopied(false);
-      // Verifica se o psicólogo tem Mercado Pago configurado
+      setUseAsaas(false);
+      setAsaasCharge(null);
+      setAsaasCopied(false);
+      // Verifica se o profissional tem Mercado Pago e/ou Asaas configurados
       api.get<any>('/mercadopago/config').then((d: any) => {
         setMpAvailable(d.configured && d.enabled);
       }).catch(() => setMpAvailable(false));
+      api.get<any>('/asaas/status').then((d: any) => {
+        setAsaasAvailable(!!d.enabled);
+      }).catch(() => setAsaasAvailable(false));
     }
   }, [isOpen]);
 
@@ -132,6 +156,47 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
     navigator.clipboard.writeText(mpCharge.payment_url);
     setMpCopied(true);
     setTimeout(() => setMpCopied(false), 2000);
+  };
+
+  // Polling do pagamento Asaas
+  useEffect(() => {
+    if (!asaasCharge || !asaasPolling) return;
+    const interval = setInterval(async () => {
+      try {
+        const d = await api.get<any>(`/asaas/charge/${asaasCharge.payment_id}`);
+        if (['CONFIRMED', 'RECEIVED'].includes((d as any).status)) {
+          setAsaasPolling(false);
+          setAsaasCharge(prev => prev ? { ...prev, status: 'CONFIRMED' } : null);
+        }
+      } catch { /* ignora */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [asaasCharge, asaasPolling]);
+
+  const createAsaasCharge = async () => {
+    setAsaasLoading(true);
+    try {
+      const amount = singleAmount ? parseBRL(singleAmount) : remaining;
+      const charge = await api.post<any>('/asaas/charge', {
+        amount,
+        patient_id: comanda?.patient_id,
+        comanda_id: comanda?.id,
+        billing_type: asaasBillingType,
+      });
+      setAsaasCharge(charge as any);
+      setAsaasPolling(true);
+    } catch (e: any) {
+      alert(e?.message || 'Erro ao criar cobrança no Asaas');
+    } finally {
+      setAsaasLoading(false);
+    }
+  };
+
+  const copyAsaasPix = () => {
+    if (!asaasCharge?.pix_copy_paste) return;
+    navigator.clipboard.writeText(asaasCharge.pix_copy_paste);
+    setAsaasCopied(true);
+    setTimeout(() => setAsaasCopied(false), 2000);
   };
 
   // ── Cálculos modo único ──────────────────────────────────────────────────────
@@ -378,8 +443,102 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                 </div>
               )}
 
-              {/* Campo de valor + Parcelamento (oculto quando Mercado Pago ativo) */}
-              {!useMp && (<>
+              {/* ── Asaas toggle ── */}
+              {asaasAvailable && (singleMethod === "card" || singleMethod === "pix") && (
+                <div className={cn(
+                  "rounded-2xl border-2 p-3 transition-all",
+                  useAsaas ? "border-teal-300 bg-teal-50" : "border-zinc-100 bg-zinc-50"
+                )}>
+                  <button
+                    onClick={() => { setUseAsaas(v => !v); setAsaasCharge(null); setAsaasPolling(false); }}
+                    className="w-full flex items-center gap-3"
+                  >
+                    <div className={cn("p-1.5 rounded-lg shrink-0", useAsaas ? "bg-teal-500 text-white" : "bg-zinc-200 text-zinc-400")}>
+                      <Zap size={13} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className={cn("text-xs font-black", useAsaas ? "text-teal-800" : "text-zinc-600")}>
+                        Cobrar via Asaas
+                      </p>
+                      <p className="text-[10px] text-zinc-400">Gera link/QR Code Pix, cartão ou boleto — cai direto na sua conta</p>
+                    </div>
+                    <div className={cn(
+                      "w-10 h-5 rounded-full transition-colors shrink-0",
+                      useAsaas ? "bg-teal-500" : "bg-zinc-200"
+                    )}>
+                      <div className={cn("w-4 h-4 mt-0.5 mx-0.5 bg-white rounded-full shadow transition-transform", useAsaas ? "translate-x-5" : "translate-x-0")} />
+                    </div>
+                  </button>
+
+                  {useAsaas && (
+                    <div className="mt-3 space-y-2">
+                      {!asaasCharge ? (
+                        <>
+                          <div className="flex gap-1.5">
+                            {(['PIX', 'CREDIT_CARD', 'BOLETO'] as const).map(bt => (
+                              <button key={bt} onClick={() => setAsaasBillingType(bt)}
+                                className={cn(
+                                  "flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all",
+                                  asaasBillingType === bt ? "bg-teal-600 text-white" : "bg-white border border-zinc-200 text-zinc-500"
+                                )}>
+                                {bt === 'PIX' ? 'Pix' : bt === 'CREDIT_CARD' ? 'Cartão' : 'Boleto'}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={createAsaasCharge}
+                            disabled={asaasLoading}
+                            className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                          >
+                            {asaasLoading
+                              ? <><Loader2 size={13} className="animate-spin" /> Gerando cobrança...</>
+                              : <><Zap size={13} /> Gerar cobrança ({fmtBRL(singleAmount ? parseBRL(singleAmount) : remaining)})</>}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className={cn(
+                            "flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold",
+                            asaasCharge.status === 'CONFIRMED' ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                          )}>
+                            {asaasCharge.status === 'CONFIRMED'
+                              ? <><CheckCircle size={13} /> Pagamento confirmado!</>
+                              : <><Loader2 size={13} className="animate-spin" /> Aguardando pagamento...</>}
+                          </div>
+
+                          {asaasCharge.pix_qr_code_base64 && (
+                            <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-zinc-100">
+                              <img src={asaasCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-36 h-36" />
+                              <p className="text-[10px] text-zinc-500 font-bold text-center">Escaneie o QR Code com o app do banco</p>
+                              {asaasCharge.pix_copy_paste && (
+                                <button onClick={copyAsaasPix}
+                                  className="flex items-center gap-1.5 text-[10px] font-bold text-teal-600 hover:text-teal-800">
+                                  <Copy size={11} /> {asaasCopied ? "Copiado!" : "Copiar código PIX"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {asaasCharge.invoice_url && (
+                            <a href={asaasCharge.invoice_url} target="_blank" rel="noreferrer"
+                              className="w-full flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
+                              <ExternalLink size={11} /> Abrir fatura
+                            </a>
+                          )}
+
+                          <button onClick={() => { setAsaasCharge(null); setAsaasPolling(false); }}
+                            className="w-full text-[10px] font-bold text-zinc-400 hover:text-zinc-600 py-1">
+                            Gerar nova cobrança
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Campo de valor + Parcelamento (oculto quando Mercado Pago/Asaas ativo) */}
+              {!useMp && !useAsaas && (<>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Valor a Pagar</p>
@@ -570,9 +729,9 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
           >
             Cancelar
           </button>
-          {useMp && mpCharge ? (
-            /* Mercado Pago: mostra botão de fechar quando pagamento confirmado */
-            mpCharge.status === 'approved' ? (
+          {(useMp && mpCharge) || (useAsaas && asaasCharge) ? (
+            /* Mercado Pago/Asaas: mostra botão de fechar quando pagamento confirmado */
+            (mpCharge?.status === 'approved' || asaasCharge?.status === 'CONFIRMED') ? (
               <button onClick={onClose}
                 className="flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-500 text-white shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-all">
                 <CheckCircle size={14} /> Pagamento Confirmado!
@@ -586,10 +745,10 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
           ) : (
           <button
             onClick={handleConfirm}
-            disabled={loading || (mode === "single" && (!canConfirmSingle || useMp)) || (mode === "mixed" && !canConfirmMixed)}
+            disabled={loading || (mode === "single" && (!canConfirmSingle || useMp || useAsaas)) || (mode === "mixed" && !canConfirmMixed)}
             className={cn(
               "flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg",
-              loading || (mode === "single" && (!canConfirmSingle || useMp)) || (mode === "mixed" && !canConfirmMixed)
+              loading || (mode === "single" && (!canConfirmSingle || useMp || useAsaas)) || (mode === "mixed" && !canConfirmMixed)
                 ? "bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none"
                 : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20 active:scale-95"
             )}

@@ -1657,6 +1657,59 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
     } finally { setMpLoading(false); }
   };
 
+  // ── Asaas ─────────────────────────────────────────────────────────────────
+  const [asaasAvailable, setAsaasAvailable] = useState(false);
+  const [showAsaasForm, setShowAsaasForm] = useState(false);
+  const [asaasAmount, setAsaasAmount] = useState("");
+  const [asaasBillingType, setAsaasBillingType] = useState<"PIX" | "CREDIT_CARD">("PIX");
+  const [asaasLoading, setAsaasLoading] = useState(false);
+  const [asaasCharge, setAsaasCharge] = useState<any>(null);
+  const [asaasCopied, setAsaasCopied] = useState(false);
+  const [asaasPolling, setAsaasPolling] = useState(false);
+
+  useEffect(() => {
+    portalFetch("/asaas/available")
+      .then(r => r.json())
+      .then((d: any) => setAsaasAvailable(!!d.available))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!asaasCharge || !asaasPolling) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await portalFetch(`/asaas/charge/${asaasCharge.payment_id}`);
+        const d = await res.json();
+        if (["CONFIRMED", "RECEIVED"].includes(d?.status)) {
+          setAsaasPolling(false);
+          setAsaasCharge((prev: any) => prev ? { ...prev, status: "CONFIRMED" } : null);
+          showToast("Pagamento confirmado! 🎉", "success");
+          onRefresh();
+        }
+      } catch { /* ignora */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [asaasCharge, asaasPolling]);
+
+  const createAsaasCharge = async () => {
+    if (!asaasAmount) return showToast("Informe o valor.", "error");
+    setAsaasLoading(true);
+    try {
+      const amount = parseFloat(asaasAmount.replace(",", "."));
+      const res = await portalFetch("/asaas/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, billing_type: asaasBillingType }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || "Erro ao gerar cobrança.", "error"); return; }
+      setAsaasCharge(data);
+      setAsaasPolling(true);
+    } catch (e: any) {
+      showToast(e?.message || "Erro ao gerar cobrança.", "error");
+    } finally { setAsaasLoading(false); }
+  };
+
   // Formas de pagamento disponíveis com base nas configurações
   const hasCfg = portalSettings.payment_pix_enabled !== undefined;
   const enabledMethods: { key: string; label: string }[] = [
@@ -1872,6 +1925,105 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
 
                   <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
                   <button onClick={() => { setMpCharge(null); setMpAmount(""); setMpPolling(false); }}
+                    className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 py-1">
+                    Gerar nova cobrança
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Pagar Online via Asaas ── */}
+      {asaasAvailable && (
+        <div className="bg-white rounded-2xl border border-teal-100 shadow-sm overflow-hidden">
+          <button
+            onClick={() => { setShowAsaasForm(v => !v); setAsaasCharge(null); setShowForm(false); }}
+            className="w-full flex items-center gap-3 p-4 text-left"
+          >
+            <div className="p-2 rounded-xl bg-teal-100 text-teal-600 shrink-0">
+              <CreditCard size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-black text-sm text-teal-800">Pagar Online (Asaas)</p>
+              <p className="text-[11px] text-slate-400">Pix ou cartão — confirmação automática</p>
+            </div>
+            <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-2 py-1 rounded-full">Disponível</span>
+          </button>
+
+          {showAsaasForm && (
+            <div className="border-t border-teal-100 p-4 space-y-3">
+              {!asaasCharge ? (
+                <>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Valor (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">R$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={asaasAmount}
+                        onChange={e => setAsaasAmount(e.target.value.replace(/[^0-9,\.]/g, ""))}
+                        placeholder="0,00"
+                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-lg font-black text-slate-900 outline-none focus:border-teal-400"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {(["PIX", "CREDIT_CARD"] as const).map(bt => (
+                      <button key={bt} onClick={() => setAsaasBillingType(bt)}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${asaasBillingType === bt ? "bg-teal-600 text-white border-teal-500" : "bg-slate-50 text-slate-600 border-slate-200"}`}>
+                        {bt === "PIX" ? "Pix" : "Cartão"}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={createAsaasCharge} disabled={asaasLoading || !asaasAmount}
+                    className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    {asaasLoading
+                      ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Gerando...</>
+                      : <><CreditCard size={15} /> Gerar cobrança</>}
+                  </button>
+                </>
+              ) : asaasCharge.status === "CONFIRMED" ? (
+                <div className="flex flex-col items-center gap-2 p-6 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <CheckCircle size={32} className="text-emerald-600" />
+                  <p className="text-sm font-black text-emerald-700">Pagamento confirmado!</p>
+                  <p className="text-[11px] text-emerald-600 text-center">Seu profissional já foi notificado.</p>
+                  <button onClick={() => { setAsaasCharge(null); setAsaasAmount(""); }}
+                    className="mt-2 text-xs font-bold text-emerald-700 hover:text-emerald-900 py-1">
+                    Fazer novo pagamento
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {asaasCharge.pix_qr_code_base64 && (
+                    <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
+                      <img src={asaasCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-40 h-40" />
+                      <p className="text-xs text-slate-500 font-bold text-center">Escaneie com o app do banco</p>
+                      {asaasCharge.pix_copy_paste && (
+                        <button onClick={() => { navigator.clipboard.writeText(asaasCharge.pix_copy_paste); setAsaasCopied(true); setTimeout(() => setAsaasCopied(false), 2000); }}
+                          className="text-xs font-bold text-teal-700 flex items-center gap-1">
+                          📋 {asaasCopied ? "Copiado!" : "Copiar código PIX"}
+                        </button>
+                      )}
+                      {asaasPolling && (
+                        <p className="text-[10px] text-teal-500 flex items-center gap-1">
+                          <span className="animate-spin inline-block w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full" /> Aguardando confirmação...
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {asaasCharge.invoice_url && (
+                    <a href={asaasCharge.invoice_url} target="_blank" rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-700 transition-all">
+                      Pagar agora (cartão)
+                    </a>
+                  )}
+
+                  <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
+                  <button onClick={() => { setAsaasCharge(null); setAsaasAmount(""); setAsaasPolling(false); }}
                     className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 py-1">
                     Gerar nova cobrança
                   </button>
