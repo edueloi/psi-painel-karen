@@ -24,20 +24,28 @@ export const PublicNavbar: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Login/dashboard vivem só em painel.psiflux.com.br (token em localStorage
-  // é isolado por domínio) — navegação real de browser, não SPA, evita cair
+  // Login/dashboard vivem só em painel.<dominio> (token em localStorage é
+  // isolado por domínio) — navegação real de browser, não SPA, evita cair
   // no /login deste domínio e ter que ser redirecionado de novo depois.
+  // Dois domínios convivem hoje (psiflux.com.br legado + plaelo.com.br novo),
+  // cada um vai pro próprio painel, nunca cruzando pra família errada.
+  const PUBLIC_ROOT_TO_PAINEL_HOST: Record<string, string> = {
+    'psiflux.com.br': 'painel.psiflux.com.br',
+    'www.psiflux.com.br': 'painel.psiflux.com.br',
+    'plaelo.com.br': 'painel.plaelo.com.br',
+    'www.plaelo.com.br': 'painel.plaelo.com.br',
+  };
   const go = () => {
     setMenuOpen(false);
     const path = isAuthenticated ? '/dashboard' : '/login';
-    // Só força ir pro domínio painel em produção (psiflux.com.br) — em
-    // localhost/dev isso mandaria o desenvolvedor pra produção sem querer.
+    // Só força ir pro domínio painel em produção — em localhost/dev isso
+    // mandaria o desenvolvedor pra produção sem querer.
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    const isPublicRootHost = hostname === 'psiflux.com.br' || hostname === 'www.psiflux.com.br';
-    if (!isPublicRootHost) {
+    const painelHost = PUBLIC_ROOT_TO_PAINEL_HOST[hostname];
+    if (!painelHost) {
       navigate(path);
     } else {
-      window.location.href = `https://painel.psiflux.com.br${path}`;
+      window.location.href = `https://${painelHost}${path}`;
     }
   };
 

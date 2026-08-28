@@ -279,17 +279,22 @@ const RedirectToSala: React.FC = () => {
   return <Navigate to={`/sala/${id || ''}`} replace />;
 };
 
-// painel.psiflux.com.br serve o mesmo build de psiflux.com.br — a raiz "/"
+// painel.<dominio> serve o mesmo build do site institucional — a raiz "/"
 // deve abrir o sistema (dashboard/login) ali, não o site institucional.
-const IS_PAINEL_HOST = typeof window !== 'undefined' && window.location.hostname === 'painel.psiflux.com.br';
+// Dois domínios convivem hoje (psiflux.com.br legado + plaelo.com.br novo,
+// migração em andamento sem desligar o antigo), cada família de domínio
+// redireciona só para o próprio painel, nunca cruzando pra família errada.
+const PAINEL_HOSTS = new Set(['painel.psiflux.com.br', 'painel.plaelo.com.br']);
+const IS_PAINEL_HOST = typeof window !== 'undefined' && PAINEL_HOSTS.has(window.location.hostname);
 
 // O login (token em localStorage) é isolado por domínio — logar em
 // psiflux.com.br e depois acabar em painel.psiflux.com.br (ou vice-versa)
 // faz a sessão "sumir" ao dar F5, pois cada origem tem seu próprio storage.
-// Por isso o painel/login só existe de fato em painel.psiflux.com.br; o
-// domínio raiz fica só com o site institucional, formulários e portal do
-// paciente — qualquer outra rota é redirecionada (navegação real de
-// browser, não SPA) para o host correto.
+// Por isso o painel/login só existe de fato em painel.<dominio>; o domínio
+// raiz fica só com o site institucional, formulários e portal do paciente —
+// qualquer outra rota é redirecionada (navegação real de browser, não SPA)
+// para o host correto, mantendo a mesma família de domínio (psiflux fica em
+// painel.psiflux, plaelo fica em painel.plaelo).
 const PUBLIC_ROOT_PATHS = new Set([
   '/', '/funcionalidades', '/planos', '/sobre', '/cadastro',
   '/termos-de-uso', '/politica-privacidade',
@@ -299,19 +304,26 @@ const PUBLIC_ROOT_PREFIXES = ['/f/', '/p/', '/portal'];
 const isPublicRootPath = (pathname: string) =>
   PUBLIC_ROOT_PATHS.has(pathname) || PUBLIC_ROOT_PREFIXES.some(prefix => pathname.startsWith(prefix));
 
-// O redirecionamento pro domínio painel só faz sentido no site público de
-// produção — em localhost/dev (ou qualquer outro host, ex: preview) isso
-// mandaria o desenvolvedor pra produção sem querer.
-const IS_PUBLIC_ROOT_HOST = typeof window !== 'undefined' &&
-  ['psiflux.com.br', 'www.psiflux.com.br'].includes(window.location.hostname);
+// Mapa domínio raiz -> domínio do painel correspondente. O redirecionamento só
+// faz sentido no site público de produção — em localhost/dev (ou qualquer
+// outro host, ex: preview) isso mandaria o desenvolvedor pra produção à toa.
+const PUBLIC_ROOT_TO_PAINEL_HOST: Record<string, string> = {
+  'psiflux.com.br': 'painel.psiflux.com.br',
+  'www.psiflux.com.br': 'painel.psiflux.com.br',
+  'plaelo.com.br': 'painel.plaelo.com.br',
+  'www.plaelo.com.br': 'painel.plaelo.com.br',
+};
 
 const AppRoutes: React.FC = () => {
   const { user, logout, isInitializing } = useAuth();
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === 'dark';
 
-  if (IS_PUBLIC_ROOT_HOST && !isPublicRootPath(window.location.pathname)) {
-    window.location.replace(`https://painel.psiflux.com.br${window.location.pathname}${window.location.search}`);
+  const painelHostForThisRoot = typeof window !== 'undefined'
+    ? PUBLIC_ROOT_TO_PAINEL_HOST[window.location.hostname]
+    : undefined;
+  if (painelHostForThisRoot && !isPublicRootPath(window.location.pathname)) {
+    window.location.replace(`https://${painelHostForThisRoot}${window.location.pathname}${window.location.search}`);
     return null;
   }
 
