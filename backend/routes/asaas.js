@@ -24,6 +24,7 @@ async function ensureAsaasColumns() {
     // Cliente Asaas (o paciente) criado sob a subconta do profissional — cacheado
     // pra nao recriar toda hora que a mesma pessoa e cobrada de novo.
     "ALTER TABLE patients ADD COLUMN asaas_customer_id VARCHAR(64) NULL",
+    "ALTER TABLE patients ADD COLUMN asaas_subscription_id VARCHAR(64) NULL",
   ];
   for (const sql of stmts) {
     try { await db.query(sql); } catch (e) { /* coluna já existe */ }
@@ -230,6 +231,97 @@ router.get('/charge/:paymentId', authMiddleware, async (req, res) => {
     res.json({ payment_id: payment.id, status: payment.status, amount: payment.value });
   } catch (err) {
     res.status(err.status || 500).json({ error: 'Erro ao consultar pagamento' });
+  }
+});
+
+// ── POST /asaas/subscription — cobrança RECORRENTE do paciente ──────────────
+// Igual ao /charge, mas cria uma Assinatura (POST /subscriptions) em vez de
+// uma cobrança avulsa: a Asaas gera e cobra automaticamente uma nova a cada
+// ciclo (semanal/mensal), sem o profissional precisar gerar de novo toda vez.
+// Mesma ressalva do lado da mensalidade da Plaelo: no Pix, isso gera um novo
+// QR a cada vencimento — o paciente ainda precisa pagar, não é débito
+// silencioso autorizado no banco.
+router.post('/subscription', authMiddleware, async (req, res) => {
+  try {
+    const apiKey = await getUserAsaasKey(req.user.id);
+    if (!apiKey) return res.status(400).json({ error: 'Asaas não configurado. Vá em Configurações → Integrações.' });
+
+    const { amount, patient_id, billing_type, cycle, description } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
+    if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
+    const validCycles = ['WEEKLY', 'BIWEEKLY', 'MONTHLY'];
+    const effectiveCycle = validCycles.includes(cycle) ? cycle : 'MONTHLY';
+
+    const [[patient]] = await db.query(
+      'SELECT id, name, cpf, email, phone, asaas_customer_id FROM patients WHERE id = ? AND tenant_id = ?',
+      [patient_id, req.user.tenant_id]
+    );
+    if (!patient) return res.status(404).json({ error: 'Paciente não encontrado' });
+
+    const customerId = await ensureAsaasCustomer(apiKey, patient);
+
+    const externalReference = JSON.stringify({
+      user_id: req.user.id,
+      tenant_id: req.user.tenant_id,
+      patient_id: patient.id,
+      patient_name: patient.name,
+    });
+
+    const subscription = await asaasRequest(apiKey, 'POST', '/subscriptions', {
+      customer: customerId,
+      billingType: billing_type || 'PIX',
+      value: Number(amount),
+      nextDueDate: new Date().toISOString().slice(0, 10),
+      cycle: effectiveCycle,
+      description: description || `Consultas recorrentes — ${patient.name}`,
+      externalReference,
+    });
+
+    await db.query('UPDATE patients SET asaas_subscription_id = ? WHERE id = ?', [subscription.id, patient.id]);
+
+    const firstPayments = await asaasRequest(apiKey, 'GET', `/payments?subscription=${subscription.id}&limit=1`);
+    const payment = firstPayments?.data?.[0];
+
+    let pix = null;
+    if (payment && (billing_type || 'PIX') === 'PIX') {
+      try {
+        const pixData = await asaasRequest(apiKey, 'GET', `/payments/${payment.id}/pixQrCode`);
+        pix = { qrCodeImage: pixData?.encodedImage ? `data:image/png;base64,${pixData.encodedImage}` : null, copyPaste: pixData?.payload || null };
+      } catch (e) { console.warn('[Asaas] Falha ao gerar QR Pix da assinatura:', e.message); }
+    }
+
+    res.status(201).json({
+      subscription_id: subscription.id,
+      payment_id: payment?.id || null,
+      invoice_url: payment?.invoiceUrl || null,
+      pix_qr_code_base64: pix?.qrCodeImage || null,
+      pix_copy_paste: pix?.copyPaste || null,
+      cycle: effectiveCycle,
+      amount,
+    });
+  } catch (err) {
+    console.error('[Asaas] Erro ao criar assinatura:', err.asaasResponse || err.message);
+    res.status(err.status || 500).json({ error: err.message || 'Erro ao criar cobrança recorrente' });
+  }
+});
+
+// ── DELETE /asaas/subscription/:patientId — cancela a recorrência do paciente ─
+router.delete('/subscription/:patientId', authMiddleware, async (req, res) => {
+  try {
+    const apiKey = await getUserAsaasKey(req.user.id);
+    if (!apiKey) return res.status(400).json({ error: 'Asaas não configurado' });
+
+    const [[patient]] = await db.query(
+      'SELECT asaas_subscription_id FROM patients WHERE id = ? AND tenant_id = ?',
+      [req.params.patientId, req.user.tenant_id]
+    );
+    if (!patient?.asaas_subscription_id) return res.status(400).json({ error: 'Este paciente não tem cobrança recorrente ativa.' });
+
+    await asaasRequest(apiKey, 'DELETE', `/subscriptions/${patient.asaas_subscription_id}`);
+    await db.query('UPDATE patients SET asaas_subscription_id = NULL WHERE id = ?', [req.params.patientId]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || 'Erro ao cancelar cobrança recorrente' });
   }
 });
 

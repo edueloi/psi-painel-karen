@@ -20,6 +20,8 @@ async function ensureSubscriptionSchema() {
     "ALTER TABLE tenants ADD COLUMN subscription_mp_preference_id VARCHAR(255) NULL",
     "ALTER TABLE tenants ADD COLUMN subscription_mp_payment_id VARCHAR(255) NULL",
     "ALTER TABLE tenants ADD COLUMN subscription_asaas_payment_id VARCHAR(64) NULL",
+    "ALTER TABLE tenants ADD COLUMN asaas_subscription_id VARCHAR(64) NULL",
+    "ALTER TABLE tenants ADD COLUMN asaas_customer_id VARCHAR(64) NULL",
     "ALTER TABLE subscription_invoices ADD COLUMN provider VARCHAR(20) DEFAULT 'mercadopago'",
     "ALTER TABLE subscription_invoices ADD COLUMN asaas_payment_id VARCHAR(64) NULL",
   ];
@@ -334,9 +336,17 @@ router.post('/checkout', authMiddleware, async (req, res) => {
   }
 });
 
-// ── Checkout de assinatura via Asaas (Pix/cartão) ────────────────────────────
-// Mesma lógica do checkout Mercado Pago acima, usando a conta Asaas da
-// própria Plaelo (nunca a subconta de um profissional).
+// ── Checkout de assinatura via Asaas — RECORRENTE de verdade ────────────────
+// Diferente do Mercado Pago (que gera uma cobrança avulsa por vez), aqui
+// criamos uma Assinatura na Asaas (POST /subscriptions): a partir da primeira
+// cobrança paga, a Asaas gera e cobra automaticamente uma nova a cada ciclo
+// (mensal/anual), sem o tenant precisar voltar aqui pra pagar de novo.
+//
+// Importante (limite real, não é "Pix Automático" bancário): para PIX, isso
+// significa que a Asaas GERA um novo QR Code a cada vencimento e o tenant
+// ainda precisa escanear/pagar (não é um débito silencioso autorizado no
+// banco). O débito silencioso de verdade é um recurso mais novo/específico da
+// Asaas que não foi implementado aqui — se precisar disso, é um passo à parte.
 async function checkoutViaAsaas(req, res) {
   try {
     const { plan_id, period } = req.body;
@@ -355,7 +365,7 @@ async function checkoutViaAsaas(req, res) {
     const amount = parseFloat((plan.price * months * (1 - discount)).toFixed(2));
     const description = `Plaelo — ${plan.name} (${isAnnual ? 'Anual' : 'Mensal'})`;
 
-    const [[tenant]] = await db.query('SELECT name, cnpj_cpf FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    const [[tenant]] = await db.query('SELECT name, cnpj_cpf, asaas_customer_id, asaas_subscription_id FROM tenants WHERE id = ?', [req.user.tenant_id]);
 
     const externalReference = JSON.stringify({
       type: 'subscription',
@@ -365,22 +375,42 @@ async function checkoutViaAsaas(req, res) {
       months,
     });
 
-    // Precisa de um customer Asaas para o tenant — cria na hora se não existir
-    // (não cacheia em coluna própria ainda; simples o bastante pro volume atual).
-    const customer = await asaasSubRequest(apiKey, 'POST', '/customers', {
-      name: tenant?.name || req.user.name,
-      cpfCnpj: tenant?.cnpj_cpf ? String(tenant.cnpj_cpf).replace(/\D/g, '') : undefined,
-      email: req.user.email || undefined,
-    });
+    // Cancela uma assinatura antiga (troca de plano) antes de criar a nova —
+    // a Asaas não deixa duas assinaturas ativas cobrando o mesmo tenant.
+    if (tenant?.asaas_subscription_id) {
+      try { await asaasSubRequest(apiKey, 'DELETE', `/subscriptions/${tenant.asaas_subscription_id}`); }
+      catch (e) { console.warn('[Sub Asaas] Falha ao cancelar assinatura antiga:', e.message); }
+    }
 
-    const payment = await asaasSubRequest(apiKey, 'POST', '/payments', {
-      customer: customer.id,
+    // Cliente Asaas do tenant — cacheado em tenants.asaas_customer_id
+    let customerId = tenant?.asaas_customer_id;
+    if (!customerId) {
+      const customer = await asaasSubRequest(apiKey, 'POST', '/customers', {
+        name: tenant?.name || req.user.name,
+        cpfCnpj: tenant?.cnpj_cpf ? String(tenant.cnpj_cpf).replace(/\D/g, '') : undefined,
+        email: req.user.email || undefined,
+      });
+      customerId = customer.id;
+      await db.query('UPDATE tenants SET asaas_customer_id = ? WHERE id = ?', [customerId, req.user.tenant_id]);
+    }
+
+    const subscription = await asaasSubRequest(apiKey, 'POST', '/subscriptions', {
+      customer: customerId,
       billingType: 'PIX',
       value: amount,
-      dueDate: new Date().toISOString().slice(0, 10),
+      nextDueDate: new Date().toISOString().slice(0, 10),
+      cycle: isAnnual ? 'YEARLY' : 'MONTHLY',
       description,
       externalReference,
     });
+
+    await db.query('UPDATE tenants SET asaas_subscription_id = ? WHERE id = ?', [subscription.id, req.user.tenant_id]);
+
+    // A criação da assinatura já gera a primeira cobrança — busca ela pra
+    // mostrar o QR Pix na hora, em vez de esperar o tenant voltar depois.
+    const firstPayments = await asaasSubRequest(apiKey, 'GET', `/payments?subscription=${subscription.id}&limit=1`);
+    const payment = firstPayments?.data?.[0];
+    if (!payment) return res.status(502).json({ error: 'Assinatura criada, mas não encontramos a primeira cobrança. Verifique no painel Asaas.' });
 
     let pix = null;
     try {
@@ -397,6 +427,7 @@ async function checkoutViaAsaas(req, res) {
 
     res.json({
       payment_id: payment.id,
+      subscription_id: subscription.id,
       pix_qr_code_base64: pix?.qrCodeImage || null,
       pix_copy_paste: pix?.copyPaste || null,
       invoice_url: payment.invoiceUrl,
@@ -410,6 +441,23 @@ async function checkoutViaAsaas(req, res) {
     res.status(err.status || 500).json({ error: err.message || 'Erro interno ao gerar cobrança' });
   }
 }
+
+// ── POST /subscription/cancel-asaas — cancela a recorrência ─────────────────
+router.post('/cancel-asaas', authMiddleware, async (req, res) => {
+  try {
+    const apiKey = getPlatformAsaasKey();
+    const [[tenant]] = await db.query('SELECT asaas_subscription_id FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    if (!apiKey || !tenant?.asaas_subscription_id) {
+      return res.status(400).json({ error: 'Nenhuma assinatura Asaas ativa para cancelar.' });
+    }
+    await asaasSubRequest(apiKey, 'DELETE', `/subscriptions/${tenant.asaas_subscription_id}`);
+    await db.query('UPDATE tenants SET asaas_subscription_id = NULL WHERE id = ?', [req.user.tenant_id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Sub Asaas] Erro ao cancelar assinatura:', err.message);
+    res.status(err.status || 500).json({ error: err.message || 'Erro ao cancelar assinatura' });
+  }
+});
 
 // Mesma ideia de activateFromPayment(), mas para pagamentos vindos da Asaas —
 // mantida separada (não compartilha a coluna subscription_mp_payment_id) para
