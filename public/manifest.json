@@ -2,12 +2,12 @@
   "name": "Plaelo",
   "short_name": "Plaelo",
   "description": "Sistema completo para profissionais e clínicas de saúde mental",
-  "start_url": "https://painel.psiflux.com.br/dashboard",
+  "start_url": "https://painel.plaelo.com.br/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "orientation": "portrait",
-  "scope": "https://painel.psiflux.com.br/",
+  "scope": "https://painel.plaelo.com.br/",
   "lang": "pt-BR",
   "icons": [
     {

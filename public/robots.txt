@@ -18,4 +18,4 @@ Disallow: /assinatura
 Disallow: /sala
 Disallow: /api/
 
-Sitemap: https://psiflux.com.br/sitemap.xml
+Sitemap: https://plaelo.com.br/sitemap.xml
