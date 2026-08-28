@@ -212,7 +212,7 @@ const DiscView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={28} className="text-indigo-400 animate-spin"/></div>
       ) : patientMap.length === 0 ? (
-        <div className="bg-white rounded-[28px] border border-slate-100 p-16 text-center shadow-sm">
+        <div className="bg-white rounded-2xl sm:rounded-[28px] border border-slate-100 p-8 sm:p-16 text-center shadow-sm">
           <Radar size={32} className="text-slate-200 mx-auto mb-4"/>
           <p className="font-bold text-slate-400">Nenhuma avaliação DISC ainda.</p>
         </div>
@@ -350,7 +350,7 @@ const DassView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={28} className="text-rose-400 animate-spin"/></div>
       ) : patients.length === 0 ? (
-        <div className="bg-white rounded-[28px] border border-slate-100 p-16 text-center shadow-sm">
+        <div className="bg-white rounded-2xl sm:rounded-[28px] border border-slate-100 p-8 sm:p-16 text-center shadow-sm">
           <Activity size={32} className="text-slate-200 mx-auto mb-4"/>
           <p className="font-bold text-slate-400">Nenhuma avaliação DASS-21 ainda.</p>
         </div>
@@ -496,7 +496,7 @@ const GenericView: React.FC<GenericViewProps> = ({
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 size={28} className={`${spinColor} animate-spin`}/></div>
       ) : patients.length === 0 ? (
-        <div className="bg-white rounded-[28px] border border-slate-100 p-16 text-center shadow-sm">
+        <div className="bg-white rounded-2xl sm:rounded-[28px] border border-slate-100 p-8 sm:p-16 text-center shadow-sm">
           <div className="opacity-20 mx-auto mb-4 w-8 h-8 flex items-center justify-center">{emptyIcon}</div>
           <p className="font-bold text-slate-400">Nenhuma avaliação {title} ainda.</p>
         </div>
@@ -710,11 +710,12 @@ export const Instruments: React.FC = () => {
       />
 
       {/* Banner */}
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl sm:rounded-[32px] p-5 sm:p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #4f46e5 0%, transparent 50%), radial-gradient(circle at 80% 50%, #701a75 0%, transparent 50%)' }}/>
-        <div className="relative flex flex-col lg:flex-row items-center gap-8">
-          <div className="w-20 h-20 bg-white/10 rounded-[28px] flex items-center justify-center shrink-0 border border-white/20 backdrop-blur-xl shadow-inner">
-            <Brain size={40} className="text-indigo-300"/>
+        <div className="relative flex flex-col lg:flex-row items-center gap-5 sm:gap-8">
+          <div className="w-14 h-14 sm:w-20 sm:h-20 bg-white/10 rounded-2xl sm:rounded-[28px] flex items-center justify-center shrink-0 border border-white/20 backdrop-blur-xl shadow-inner">
+            <Brain size={28} className="text-indigo-300 sm:hidden"/>
+            <Brain size={40} className="text-indigo-300 hidden sm:block"/>
           </div>
           <div className="flex-1 text-center lg:text-left">
             <h2 className="text-lg sm:text-xl lg:text-2xl font-black mb-1.5 tracking-tight">Hub de Instrumentos <span className="text-indigo-400">Plaelo</span></h2>

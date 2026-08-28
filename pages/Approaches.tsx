@@ -280,7 +280,7 @@ export const Approaches: React.FC = () => {
             {filteredApproaches.map((app) => (
                 <div 
                     key={app.id}
-                    className="group relative bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 transition-all duration-500 flex flex-col overflow-hidden min-h-[480px]"
+                    className="group relative bg-white rounded-2xl sm:rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 transition-all duration-500 flex flex-col overflow-hidden sm:min-h-[480px]"
                 >
                      {/* Status & Badge */}
                      <div className="absolute top-6 right-6 flex flex-col items-end gap-1.5 z-20">
@@ -290,9 +290,9 @@ export const Approaches: React.FC = () => {
                          <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest opacity-30">v.3.1</span>
                      </div>
 
-                     <div className="p-8 pb-4 flex-1 flex flex-col">
+                     <div className="p-5 sm:p-8 pb-4 flex-1 flex flex-col">
                          {/* Icon Box */}
-                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg mb-8 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} text-white`}>
+                         <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shadow-lg mb-5 sm:mb-8 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')} text-white`}>
                             {React.cloneElement(app.icon as React.ReactElement, { size: 28 })}
                          </div>
     
@@ -315,7 +315,7 @@ export const Approaches: React.FC = () => {
                          </div>
 
                          {/* Epistemology Info */}
-                         <div className="mt-8 p-5 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white group-hover:border-indigo-100 transition-colors">
+                         <div className="mt-5 sm:mt-8 p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white group-hover:border-indigo-100 transition-colors">
                              <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-100 text-indigo-600">
                                     <History size={14} />
@@ -329,7 +329,7 @@ export const Approaches: React.FC = () => {
                      </div>
  
                      {/* Integrated Bottom Action Footer */}
-                     <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between group-hover:bg-indigo-600 transition-all duration-500">
+                     <div className="px-5 sm:px-8 py-3 sm:py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between group-hover:bg-indigo-600 transition-all duration-500">
                          <Link 
                             to={app.path}
                             className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors`}
@@ -356,16 +356,16 @@ export const Approaches: React.FC = () => {
             </div>
 
             {filteredApproaches.map((app) => (
-                <div key={app.id} className="relative group bg-white border border-slate-100 rounded-[3rem] p-8 md:p-12 shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-700 overflow-hidden">
+                <div key={app.id} className="relative group bg-white border border-slate-100 rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] p-5 sm:p-8 md:p-12 shadow-xl hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-700 overflow-hidden">
                     {/* Watermark Icon */}
                     <div className="absolute -top-12 -right-12 p-12 opacity-[0.02] scale-150 rotate-12 group-hover:opacity-5 transition-opacity">
                         {app.icon}
                     </div>
                     
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-16 relative z-10">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10 md:gap-16 relative z-10">
                         {/* Information Section */}
                         <div className="lg:col-span-5 space-y-8 flex flex-col items-center lg:items-start text-center lg:text-left">
-                             <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-transform duration-700 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')}`}>
+                             <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-transform duration-700 bg-gradient-to-br ${colorVariants[app.color].split(' ').slice(0, 2).join(' ')}`}>
                                 {React.cloneElement(app.icon as React.ReactElement, { size: 40 })}
                              </div>
                              
@@ -398,7 +398,7 @@ export const Approaches: React.FC = () => {
                                         <p className="text-sm text-slate-600 leading-relaxed font-bold">{app.origin}</p>
                                     </div>
 
-                                    <div className="p-8 bg-indigo-50/50 rounded-[2.5rem] border border-indigo-100/50 group/box">
+                                    <div className="p-5 sm:p-8 bg-indigo-50/50 rounded-2xl sm:rounded-[2.5rem] border border-indigo-100/50 group/box">
                                         <h4 className="flex items-center gap-2 text-[10px] font-black text-indigo-900 uppercase tracking-widest mb-4">
                                             <Target size={14} className="text-indigo-600" /> Indicações Ouro
                                         </h4>
@@ -416,7 +416,7 @@ export const Approaches: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="p-8 bg-slate-950 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group/box">
+                                    <div className="p-5 sm:p-8 bg-slate-950 rounded-2xl sm:rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group/box">
                                         <div className="absolute -bottom-4 -right-4 opacity-10 group-hover/box:rotate-12 transition-transform"><Sparkles size={64}/></div>
                                         <h4 className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest opacity-40 mb-4">
                                             Interpretação da IA
@@ -438,58 +438,58 @@ export const Approaches: React.FC = () => {
       )}
 
       {/* SMART AGENT CTA */}
-      <div className="bg-gradient-to-br from-slate-950 to-indigo-950 rounded-[80px] p-16 md:p-24 text-white shadow-[0_80px_160px_rgba(0,0,0,0.3)] relative overflow-hidden mt-20 border border-slate-800 animate-pulse-subtle">
+      <div className="bg-gradient-to-br from-slate-950 to-indigo-950 rounded-[28px] sm:rounded-[48px] md:rounded-[80px] p-6 sm:p-12 md:p-16 lg:p-24 text-white shadow-[0_40px_80px_rgba(0,0,0,0.25)] sm:shadow-[0_80px_160px_rgba(0,0,0,0.3)] relative overflow-hidden mt-10 sm:mt-20 border border-slate-800 animate-pulse-subtle">
         <div className="absolute top-0 right-0 p-24 opacity-5 scale-[2] rotate-12">
            <Brain size={400} />
         </div>
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-20">
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8 sm:gap-12 lg:gap-20">
              <div className="lg:w-3/5 space-y-10 text-center lg:text-left">
-                 <div className="inline-flex items-center gap-4 px-8 py-3 bg-indigo-600/20 rounded-full border border-indigo-500/30 backdrop-blur-2xl">
+                 <div className="inline-flex items-center gap-2 sm:gap-4 px-4 py-2 sm:px-8 sm:py-3 bg-indigo-600/20 rounded-full border border-indigo-500/30 backdrop-blur-2xl">
                      <span className="text-[11px] font-black uppercase tracking-[0.4em] text-indigo-400">
                         Sincronização Ativa 3.1
                      </span>
                  </div>
                  <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter leading-none uppercase">Neuro-Epistemologia<br /><span className="text-indigo-500">Aumentada por IA.</span></h2>
-                 <p className="text-slate-400 text-xl font-medium leading-[1.8] max-w-2xl mx-auto lg:mx-0">
+                 <p className="text-slate-400 text-sm sm:text-base md:text-xl font-medium leading-relaxed md:leading-[1.8] max-w-2xl mx-auto lg:mx-0">
                     A Aurora não apenas escreve resumos, ela **pensa** como você. Sua abordagem clínica é o filtro intelectual que define como o sistema analisa padrões de fala, sonhos e distorções cognitivas.
                  </p>
-                 <div className="flex flex-col sm:flex-row gap-8 justify-center lg:justify-start">
+                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 justify-center lg:justify-start">
                     <Link 
                         to="/configuracoes"
-                        className="px-14 py-8 bg-indigo-600 text-white rounded-[40px] font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-indigo-600/20 hover:bg-white hover:text-indigo-900 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-4 group"
+                        className="px-8 py-4 sm:px-14 sm:py-8 bg-indigo-600 text-white rounded-2xl sm:rounded-[40px] font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-indigo-600/20 hover:bg-white hover:text-indigo-900 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-4 group"
                     >
                         Configurar Aurora <Sparkles size={20} className="group-hover:rotate-12 transition-transform" />
                     </Link>
                     <button 
                         onClick={() => success('Base Teórica Sincronizada', 'A Aurora IA agora opera sob o paradigma clínico selecionado.')}
-                        className="px-14 py-8 bg-slate-900 text-indigo-400 rounded-[40px] font-black uppercase tracking-[0.2em] text-xs hover:bg-slate-800 transition-all border border-slate-800 hover:border-indigo-500/50"
+                        className="px-8 py-4 sm:px-14 sm:py-8 bg-slate-900 text-indigo-400 rounded-2xl sm:rounded-[40px] font-black uppercase tracking-[0.2em] text-xs hover:bg-slate-800 transition-all border border-slate-800 hover:border-indigo-500/50"
                     >
                         Calibrar Motor Clínico
                     </button>
                  </div>
              </div>
              
-             <div className="lg:w-2/5 grid grid-cols-2 gap-8 relative lg:pt-20">
+             <div className="lg:w-2/5 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 relative lg:pt-20">
                  <div className="absolute inset-0 bg-indigo-500/10 blur-[150px] pointer-events-none"></div>
                  <div className="space-y-8 animate-float">
-                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-indigo-500/50 transition-all group">
+                     <div className="bg-slate-900/40 p-5 sm:p-8 rounded-2xl sm:rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-indigo-500/50 transition-all group">
                          <div className="w-12 h-12 bg-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><MessageSquare size={24}/></div>
                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Linguagem Técnica</p>
                          <p className="text-xs font-bold text-slate-200 leading-relaxed">Vocabulário ajustado perfeitamente ao seu referencial teórico (RPD, Interpretação, Modos).</p>
                      </div>
-                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-rose-500/50 transition-all group">
+                     <div className="bg-slate-900/40 p-5 sm:p-8 rounded-2xl sm:rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-rose-500/50 transition-all group">
                          <div className="w-12 h-12 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><Target size={24}/></div>
                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Estratégia de Caso</p>
                          <p className="text-xs font-bold text-slate-200 leading-relaxed">Sugestões de hipóteses e planejamentos terapêuticos baseados em evidência da sua escola.</p>
                      </div>
                  </div>
                  <div className="space-y-8 lg:translate-y-24 animate-float-delayed">
-                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-amber-500/50 transition-all group">
+                     <div className="bg-slate-900/40 p-5 sm:p-8 rounded-2xl sm:rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-amber-500/50 transition-all group">
                          <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><Gauge size={24}/></div>
                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Análise Métrica</p>
                          <p className="text-xs font-bold text-slate-200 leading-relaxed">Dashboards que mostram a evolução do paciente nos indicadores próprios da sua abordagem.</p>
                      </div>
-                     <div className="bg-slate-900/40 p-8 rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-emerald-500/50 transition-all group">
+                     <div className="bg-slate-900/40 p-5 sm:p-8 rounded-2xl sm:rounded-[48px] border border-slate-800 backdrop-blur-3xl hover:border-emerald-500/50 transition-all group">
                          <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><UserCheck size={24}/></div>
                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3">Relatórios Pro</p>
                          <p className="text-xs font-bold text-slate-200 leading-relaxed">Geração de documentos oficiais com fundamentação ética e teórica automática.</p>
