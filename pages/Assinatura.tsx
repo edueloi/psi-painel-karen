@@ -26,6 +26,7 @@ interface SubStatus {
   plan_price: number | null;
   plan_features: string[];
   has_payment_configured: boolean;
+  document_ok: boolean;
 }
 
 interface Plan {
@@ -60,6 +61,21 @@ interface Invoice {
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   paid_at: string | null;
   created_at: string;
+}
+
+function applyCpfCnpjMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 14);
+  if (digits.length <= 11) {
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  }
+  return digits
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
 }
 
 function ProgressBar({ value, total, warning = false }: { value: number; total: number; warning?: boolean }) {
@@ -100,6 +116,8 @@ export function Assinatura() {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [planChangedTo, setPlanChangedTo] = useState<string | null>(null);
   const [reloadCountdown, setReloadCountdown] = useState<number | null>(null);
+  const [documentInput, setDocumentInput] = useState('');
+  const [savingDocument, setSavingDocument] = useState(false);
 
   const returnStatus = searchParams.get('status');
 
@@ -168,6 +186,21 @@ export function Assinatura() {
     const t = setTimeout(() => setReloadCountdown(c => (c ?? 1) - 1), 1000);
     return () => clearTimeout(t);
   }, [reloadCountdown]);
+
+  const saveDocument = async () => {
+    if (!documentInput.trim()) return;
+    setSavingDocument(true);
+    try {
+      await api.post('/subscription/document', { cnpj_cpf: documentInput.trim() });
+      pushToast('success', 'CPF/CNPJ atualizado!');
+      setDocumentInput('');
+      loadData();
+    } catch (e: any) {
+      pushToast('error', e?.message || 'CPF/CNPJ inválido.');
+    } finally {
+      setSavingDocument(false);
+    }
+  };
 
   const handleCheckout = async () => {
     if (!selectedPlan) return;
@@ -553,9 +586,34 @@ export function Assinatura() {
                     </button>
                   </div>
 
+                  {provider === 'asaas' && status && !status.document_ok && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+                      <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                        <AlertTriangle size={13} /> CPF/CNPJ inválido ou não cadastrado
+                      </p>
+                      <p className="text-[11px] text-amber-700">A Asaas exige um documento válido para gerar a cobrança. Informe o CPF/CNPJ da clínica abaixo:</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={documentInput}
+                          onChange={e => setDocumentInput(applyCpfCnpjMask(e.target.value))}
+                          placeholder="CPF ou CNPJ"
+                          className="flex-1 px-3 py-2 text-sm border border-amber-200 rounded-xl outline-none focus:border-amber-400 font-mono"
+                        />
+                        <button
+                          onClick={saveDocument}
+                          disabled={savingDocument || !documentInput.trim()}
+                          className="px-4 py-2 text-xs font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition-all disabled:opacity-50"
+                        >
+                          {savingDocument ? <Loader2 size={13} className="animate-spin" /> : 'Salvar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleCheckout}
-                    disabled={checkoutLoading}
+                    disabled={checkoutLoading || (provider === 'asaas' && !status?.document_ok)}
                     className="w-full py-4 bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white font-black text-sm rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 disabled:opacity-60"
                   >
                     {checkoutLoading

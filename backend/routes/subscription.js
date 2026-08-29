@@ -111,12 +111,59 @@ async function asaasSubRequest(apiKey, method, path, body) {
   return data;
 }
 
+// Valida CPF/CNPJ por dígito verificador — a Asaas rejeita a cobrança se o
+// documento do tenant não bater (ex: dado de teste tipo "123.456.789-00"),
+// e o Mercado Pago nunca cobrou isso, então esse problema só aparece agora.
+function isValidCpfCnpj(raw) {
+  const doc = String(raw || '').replace(/\D/g, '');
+  if (doc.length === 11) {
+    if (/^(\d)\1{10}$/.test(doc)) return false;
+    const calc = (len) => {
+      let sum = 0;
+      for (let i = 0; i < len; i++) sum += Number(doc[i]) * (len + 1 - i);
+      const r = (sum * 10) % 11;
+      return r === 10 ? 0 : r;
+    };
+    return calc(9) === Number(doc[9]) && calc(10) === Number(doc[10]);
+  }
+  if (doc.length === 14) {
+    if (/^(\d)\1{13}$/.test(doc)) return false;
+    const calc = (len) => {
+      const weights = len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      let sum = 0;
+      for (let i = 0; i < len; i++) sum += Number(doc[i]) * weights[i];
+      const r = sum % 11;
+      return r < 2 ? 0 : 11 - r;
+    };
+    return calc(12) === Number(doc[12]) && calc(13) === Number(doc[13]);
+  }
+  return false;
+}
+
+// ── POST /subscription/document — clínica atualiza o próprio CPF/CNPJ ───────
+// Hoje só o super_admin edita tenants.cnpj_cpf (via /tenants/:id) — isso dá um
+// jeito da própria clínica corrigir na hora, direto da tela de Assinatura,
+// quando o documento cadastrado no signup for inválido/de teste.
+router.post('/document', authMiddleware, async (req, res) => {
+  try {
+    const { cnpj_cpf } = req.body;
+    if (!cnpj_cpf || !isValidCpfCnpj(cnpj_cpf)) {
+      return res.status(400).json({ error: 'CPF/CNPJ inválido.' });
+    }
+    await db.query('UPDATE tenants SET cnpj_cpf = ? WHERE id = ?', [cnpj_cpf.replace(/\D/g, ''), req.user.tenant_id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Sub] Erro ao salvar documento:', err);
+    res.status(500).json({ error: 'Erro ao salvar CPF/CNPJ' });
+  }
+});
+
 // ── GET /subscription/status ─────────────────────────────────────────────────
 router.get('/status', authMiddleware, async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT t.id, t.name, t.trial_ends_at, t.expires_at, t.status, t.last_billing_at, t.billing_exempt,
-              t.plan_id, p.name as plan_name, p.price as plan_price, p.features as plan_features
+              t.plan_id, t.cnpj_cpf, p.name as plan_name, p.price as plan_price, p.features as plan_features
        FROM tenants t
        LEFT JOIN plans p ON p.id = t.plan_id
        WHERE t.id = ?`,
@@ -156,6 +203,7 @@ router.get('/status', authMiddleware, async (req, res) => {
         plan_features: t.plan_features,
         has_payment_configured: false,
         billing_exempt: true,
+        document_ok: isValidCpfCnpj(t.cnpj_cpf),
       });
     }
 
@@ -213,6 +261,7 @@ router.get('/status', authMiddleware, async (req, res) => {
       plan_price: t.plan_price,
       plan_features: t.plan_features,
       has_payment_configured: hasPlatformToken,
+      document_ok: isValidCpfCnpj(t.cnpj_cpf),
     });
   } catch (err) {
     console.error('[Sub] Erro ao buscar status:', err);
@@ -376,6 +425,9 @@ async function checkoutViaAsaas(req, res) {
     const description = `Plaelo — ${plan.name} (${isAnnual ? 'Anual' : 'Mensal'})`;
 
     const [[tenant]] = await db.query('SELECT name, cnpj_cpf, asaas_customer_id, asaas_subscription_id FROM tenants WHERE id = ?', [req.user.tenant_id]);
+    if (!isValidCpfCnpj(tenant?.cnpj_cpf)) {
+      return res.status(400).json({ error: 'CPF/CNPJ da clínica inválido ou não cadastrado. Corrija na tela de Assinatura antes de pagar via Asaas.', invalid_document: true });
+    }
 
     const externalReference = JSON.stringify({
       type: 'subscription',
