@@ -368,9 +368,17 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [mpSaving, setMpSaving] = useState(false);
   const [mpTesting, setMpTesting] = useState(false);
 
+  // ── Pagamentos (Asaas da plataforma — cobra a mensalidade dos consultórios) ──
+  const [asaasConfig, setAsaasConfig] = useState({ configured: false, enabled: false });
+  const [asaasToken, setAsaasToken] = useState('');
+  const [asaasShowToken, setAsaasShowToken] = useState(false);
+  const [asaasSaving, setAsaasSaving] = useState(false);
+  const [asaasTesting, setAsaasTesting] = useState(false);
+
   useEffect(() => {
     if (tab !== 'pagamentos') return;
     api.get<any>('/mercadopago/config').then((d: any) => setMpConfig(d)).catch(() => {});
+    api.get<any>('/asaas/config').then((d: any) => setAsaasConfig(d)).catch(() => {});
   }, [tab]);
 
   // ── Faturas de assinatura ──────────────────────────────────────────────────
@@ -478,6 +486,45 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     try {
       await api.post('/mercadopago/config', { enabled: !mpConfig.enabled });
       setMpConfig(prev => ({ ...prev, enabled: !prev.enabled }));
+    } catch { toast('Erro ao alterar status.', 'error'); }
+  };
+
+  const saveAsaasToken = async () => {
+    if (!asaasToken.trim()) return;
+    setAsaasSaving(true);
+    try {
+      await api.post('/asaas/config', { token: asaasToken.trim() });
+      setAsaasConfig({ configured: true, enabled: true });
+      setAsaasToken('');
+      toast('Asaas configurado para receber assinaturas!', 'success');
+    } catch { toast('Erro ao salvar chave.', 'error'); }
+    finally { setAsaasSaving(false); }
+  };
+
+  const testAsaasToken = async () => {
+    if (!asaasToken.trim()) return;
+    setAsaasTesting(true);
+    try {
+      await api.post('/asaas/config/test', { token: asaasToken.trim() });
+      toast('Chave válida! Conexão com Asaas OK.', 'success');
+    } catch { toast('Chave inválida.', 'error'); }
+    finally { setAsaasTesting(false); }
+  };
+
+  const disconnectAsaas = async () => {
+    setAsaasSaving(true);
+    try {
+      await api.post('/asaas/config', { token: '' });
+      setAsaasConfig({ configured: false, enabled: false });
+      toast('Asaas desconectado.', 'success');
+    } catch { toast('Erro ao desconectar.', 'error'); }
+    finally { setAsaasSaving(false); }
+  };
+
+  const toggleAsaasEnabled = async () => {
+    try {
+      await api.post('/asaas/config', { enabled: !asaasConfig.enabled });
+      setAsaasConfig(prev => ({ ...prev, enabled: !prev.enabled }));
     } catch { toast('Erro ao alterar status.', 'error'); }
   };
 
@@ -1417,10 +1464,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                           </div>
                           <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-amber-200 text-amber-600 bg-amber-50">Em breve</span>
                         </div>
-                        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
                           {[
                             { icon: '💳', title: 'Stripe', desc: 'Cartão, boleto, Pix — recorrência automática.' },
-                            { icon: '🏦', title: 'Asaas', desc: 'Gateway nacional. Boleto, Pix e cartão.' },
                             { icon: '🔗', title: 'Hotmart / Eduzz', desc: 'Checkout externo via webhook.' },
                           ].map(g => (
                             <div key={g.title} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
@@ -1540,10 +1586,103 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                     </div>
                   </div>
 
+                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-4 p-4 border-b border-slate-100">
+                      <div className="p-2.5 rounded-xl bg-teal-100 text-teal-600 shrink-0">
+                        <DollarSign size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-800 text-sm">Asaas — Plataforma</p>
+                          {asaasConfig.configured && (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${asaasConfig.enabled ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                              {asaasConfig.enabled ? 'Ativo' : 'Pausado'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">Chave da conta Asaas da Plaelo para receber assinaturas dos consultórios</p>
+                      </div>
+                      {asaasConfig.configured && (
+                        <button onClick={toggleAsaasEnabled} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${asaasConfig.enabled ? 'bg-teal-500' : 'bg-slate-200'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${asaasConfig.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      {asaasConfig.configured ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+                            <p className="text-xs text-emerald-700 font-medium">Chave Asaas configurada. Assinaturas serão recebidas na conta da Plaelo.</p>
+                          </div>
+                          <p className="text-[11px] text-slate-400">Para trocar a chave, cole a nova abaixo:</p>
+                          <div className="relative">
+                            <input
+                              type={asaasShowToken ? 'text' : 'password'}
+                              value={asaasToken}
+                              onChange={e => setAsaasToken(e.target.value)}
+                              placeholder="Nova API Key ($aact_...)"
+                              className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-teal-400 font-mono"
+                            />
+                            <button onClick={() => setAsaasShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              {asaasShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          {asaasToken && (
+                            <div className="flex gap-2">
+                              <button onClick={testAsaasToken} disabled={asaasTesting || !asaasToken.trim()} className="flex-1 py-2 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all disabled:opacity-50">
+                                {asaasTesting ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Testar
+                              </button>
+                              <button onClick={saveAsaasToken} disabled={asaasSaving || !asaasToken.trim()} className="flex-1 py-2 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-50">
+                                {asaasSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Salvar
+                              </button>
+                            </div>
+                          )}
+                          <button onClick={disconnectAsaas} disabled={asaasSaving} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
+                            <X size={12} /> Desconectar Asaas
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="p-3 bg-teal-50 rounded-xl border border-teal-100 space-y-1.5">
+                            <p className="text-xs font-bold text-teal-700">Como configurar:</p>
+                            <ol className="text-xs text-teal-800 space-y-1 pl-3 list-decimal">
+                              <li>Acesse <strong>asaas.com</strong> com a conta integradora da Plaelo</li>
+                              <li>Vá em <strong>Integrações → Chaves de API</strong></li>
+                              <li>Gere e copie a <strong>API Key</strong> (começa com <code className="bg-teal-100 px-1 rounded">$aact_</code>)</li>
+                              <li>Cole abaixo e clique em <strong>Conectar</strong></li>
+                            </ol>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type={asaasShowToken ? 'text' : 'password'}
+                              value={asaasToken}
+                              onChange={e => setAsaasToken(e.target.value)}
+                              placeholder="API Key ($aact_...)"
+                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-teal-400 font-mono"
+                            />
+                            <button onClick={() => setAsaasShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              {asaasShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={testAsaasToken} disabled={!asaasToken.trim() || asaasTesting} className="flex-1 py-2.5 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all disabled:opacity-40">
+                              {asaasTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
+                            </button>
+                            <button onClick={saveAsaasToken} disabled={!asaasToken.trim() || asaasSaving} className="flex-1 py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40">
+                              {asaasSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl text-xs text-amber-800 space-y-1">
                     <p className="font-bold">Dois tokens, dois fluxos — nunca se misturam:</p>
-                    <p>• <strong>Este token (super_admin)</strong> → recebe as assinaturas mensais dos consultórios</p>
-                    <p>• <strong>Token do psicólogo</strong> (em Configurações → Integrações) → recebe pagamentos de pacientes</p>
+                    <p>• <strong>Estas chaves/tokens (super_admin, acima)</strong> → recebem as assinaturas mensais dos consultórios</p>
+                    <p>• <strong>Chave do psicólogo</strong> (em Configurações → Integrações) → recebe pagamentos de pacientes, direto na conta dele</p>
                   </div>
                 </div>
               )}

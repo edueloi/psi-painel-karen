@@ -67,6 +67,61 @@ async function getUserAsaasKey(userId) {
   try { return decrypt(rows[0].asaas_api_key); } catch { return null; }
 }
 
+// ── GET/POST /asaas/config — chave da PLAELO (conta integradora), colada  ───
+// direto pelo super_admin. Usa as mesmas colunas asaas_api_key/asaas_enabled
+// da linha do super_admin em `users` — é o mesmo padrão do card de Mercado
+// Pago em /mercadopago/config, só que aqui não criamos subconta nenhuma, é a
+// própria conta Asaas da Plaelo que cobra a mensalidade dos consultórios.
+router.get('/config', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT asaas_enabled, asaas_api_key FROM users WHERE id = ?', [req.user.id]);
+    if (!rows.length) return res.json({ configured: false, enabled: false });
+    res.json({ configured: !!rows[0].asaas_api_key, enabled: !!rows[0].asaas_enabled });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar configuração' });
+  }
+});
+
+router.post('/config', authMiddleware, async (req, res) => {
+  try {
+    const { token, enabled } = req.body;
+    const updates = [];
+    const values = [];
+
+    if (token !== undefined) {
+      if (token === '') {
+        updates.push('asaas_api_key = NULL', 'asaas_enabled = 0');
+      } else {
+        updates.push('asaas_api_key = ?', 'asaas_enabled = 1');
+        values.push(encrypt(token.trim()));
+      }
+    }
+    if (enabled !== undefined && token === undefined) {
+      updates.push('asaas_enabled = ?');
+      values.push(enabled ? 1 : 0);
+    }
+    if (!updates.length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+    values.push(req.user.id);
+    await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Asaas] Erro ao salvar config de plataforma:', err);
+    res.status(500).json({ error: 'Erro ao salvar configuração' });
+  }
+});
+
+router.post('/config/test', authMiddleware, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Chave obrigatória' });
+    await asaasRequest(token.trim(), 'GET', '/finance/balance');
+    res.json({ valid: true, message: 'Chave válida!' });
+  } catch (err) {
+    res.status(err.status === 401 ? 401 : 500).json({ valid: false, error: 'Chave inválida' });
+  }
+});
+
 // ── GET /asaas/status — subconta ativa? saldo? ───────────────────────────────
 router.get('/status', authMiddleware, async (req, res) => {
   try {

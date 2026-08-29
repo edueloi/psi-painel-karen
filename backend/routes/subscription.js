@@ -82,8 +82,18 @@ async function getPlatformToken() {
 
 // Chave Asaas da própria Plaelo (conta integradora), usada para cobrar a
 // mensalidade dos consultórios — nunca a subconta de um profissional.
-function getPlatformAsaasKey() {
-  return process.env.ASAAS_API_KEY || null;
+async function getPlatformAsaasKey() {
+  if (process.env.ASAAS_API_KEY) return process.env.ASAAS_API_KEY;
+
+  const [rows] = await db.query(
+    `SELECT asaas_api_key FROM users
+     WHERE role = 'super_admin' AND asaas_enabled = 1 AND asaas_api_key IS NOT NULL
+     ORDER BY id ASC LIMIT 1`
+  );
+  if (rows.length && rows[0].asaas_api_key) {
+    try { return asaasDecrypt(rows[0].asaas_api_key); } catch { return null; }
+  }
+  return null;
 }
 
 async function asaasSubRequest(apiKey, method, path, body) {
@@ -350,7 +360,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
 async function checkoutViaAsaas(req, res) {
   try {
     const { plan_id, period } = req.body;
-    const apiKey = getPlatformAsaasKey();
+    const apiKey = await getPlatformAsaasKey();
     if (!apiKey) {
       return res.status(400).json({ error: 'Asaas não configurado no servidor. Entre em contato com o suporte.', no_payment: true });
     }
@@ -445,7 +455,7 @@ async function checkoutViaAsaas(req, res) {
 // ── POST /subscription/cancel-asaas — cancela a recorrência ─────────────────
 router.post('/cancel-asaas', authMiddleware, async (req, res) => {
   try {
-    const apiKey = getPlatformAsaasKey();
+    const apiKey = await getPlatformAsaasKey();
     const [[tenant]] = await db.query('SELECT asaas_subscription_id FROM tenants WHERE id = ?', [req.user.tenant_id]);
     if (!apiKey || !tenant?.asaas_subscription_id) {
       return res.status(400).json({ error: 'Nenhuma assinatura Asaas ativa para cancelar.' });
@@ -515,7 +525,7 @@ async function activateFromAsaasPayment(paymentData) {
 // ── GET /subscription/check-payment-asaas/:paymentId — polling do Pix Asaas ──
 router.get('/check-payment-asaas/:paymentId', authMiddleware, async (req, res) => {
   try {
-    const apiKey = getPlatformAsaasKey();
+    const apiKey = await getPlatformAsaasKey();
     if (!apiKey) return res.status(400).json({ error: 'Sem chave Asaas configurada' });
 
     const payment = await asaasSubRequest(apiKey, 'GET', `/payments/${req.params.paymentId}`);
