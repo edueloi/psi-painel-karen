@@ -47,13 +47,13 @@ const MiniSparkline = () => (
   </svg>
 );
 
-// ── Painel direito — foto real do painel + cartões flutuantes animados ──────
+// ── Painel direito — foto real do painel (full-bleed) + cartões flutuantes ──
 const PlaeloHeroPanel = () => (
   <div
-    className="hidden lg:flex w-[46%] xl:w-[48%] relative flex-shrink-0 items-center justify-center overflow-hidden"
+    className="hidden lg:block w-[46%] xl:w-[48%] relative flex-shrink-0 overflow-hidden"
     style={{ background: 'linear-gradient(160deg, #FBFAFF 0%, #F2EEFF 55%, #ECE6FF 100%)' }}
   >
-    {/* Círculos decorativos suaves, como no mock */}
+    {/* Círculos decorativos suaves na faixa clara à esquerda da foto */}
     <div
       className="absolute -top-24 -left-20 w-[420px] h-[420px] rounded-full pointer-events-none"
       style={{ border: '1px solid rgba(109,66,245,0.14)', animation: 'plaeloSpin 60s linear infinite' }}
@@ -62,79 +62,60 @@ const PlaeloHeroPanel = () => (
       className="absolute -top-10 -left-8 w-[280px] h-[280px] rounded-full pointer-events-none"
       style={{ border: '1px solid rgba(109,66,245,0.10)' }}
     />
-    <div
-      className="absolute bottom-[-140px] right-[-100px] w-[380px] h-[380px] rounded-full pointer-events-none"
-      style={{ background: 'radial-gradient(circle, rgba(109,66,245,0.10) 0%, transparent 70%)' }}
-    />
 
-    <div className="relative w-full max-w-[560px] px-10 xl:px-14 animate-[slideUpFade_0.6s_ease-out]">
-      <div className="relative">
-        <div
-          className="relative rounded-[26px] overflow-hidden shadow-2xl ring-1 ring-black/5"
-          style={{ aspectRatio: '4 / 3.15' }}
-        >
-          <img src={capaLogoUrl} alt="Painel Plaelo em uso" className="w-full h-full object-cover" />
-        </div>
-
-        {/* Cartão: Agenda inteligente */}
-        <FloatingCard
-          className="left-[-8%] top-[6%] w-[210px]"
-          style={{ animation: 'plaeloFloat 5.5s ease-in-out infinite' }}
-        >
-          <div className="flex items-center gap-2 mb-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
-              <Calendar size={15} />
-            </div>
-            <span className="text-[13px] font-bold text-slate-700">Agenda inteligente</span>
-          </div>
-          <MiniBars />
-        </FloatingCard>
-
-        {/* Cartão: Financeiro */}
-        <FloatingCard
-          className="left-[52%] top-[2%] w-[190px]"
-          style={{ animation: 'plaeloFloat 6.2s ease-in-out infinite', animationDelay: '0.9s' }}
-        >
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(34,197,94,0.12)', color: '#16A34A' }}>
-              <TrendingUp size={13} />
-            </div>
-            <span className="text-[11px] font-bold text-slate-500">Financeiro</span>
-          </div>
-          <p className="text-[10px] text-slate-400 mb-0.5">Receitas do mês</p>
-          <div className="flex items-end justify-between gap-2">
-            <span className="text-[15px] font-extrabold text-slate-800 tracking-tight">R$ 18.240,00</span>
-          </div>
-          <div className="mt-1"><MiniSparkline /></div>
-        </FloatingCard>
-
-        {/* Cartão: Pacientes ativos */}
-        <FloatingCard
-          className="left-[38%] bottom-[-6%] w-[188px]"
-          style={{ animation: 'plaeloFloat 5.8s ease-in-out infinite', animationDelay: '1.6s' }}
-        >
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
-              <Users size={13} />
-            </div>
-            <span className="text-[11px] font-bold text-slate-500">Pacientes ativos</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-slate-800 tracking-tight">124</span>
-            <span className="text-[11px] font-bold text-emerald-500">+12%</span>
-          </div>
-        </FloatingCard>
-      </div>
-
-      <div className="text-center mt-16 px-6">
-        <h2 className="text-xl font-bold text-slate-800 tracking-tight">
-          Gestão para saúde mental
-        </h2>
-        <p className="text-sm mt-2 leading-relaxed max-w-xs mx-auto text-slate-500">
-          Agenda, prontuários, financeiro e relatórios — tudo integrado para sua prática fluir.
-        </p>
-      </div>
+    {/* Foto real do painel — cobre a altura inteira do painel, encostada na borda direita */}
+    <div className="absolute inset-y-0 right-0 w-[74%] animate-[fadeIn_0.6s_ease-out]">
+      <img src={capaLogoUrl} alt="Painel Plaelo em uso" className="w-full h-full object-cover object-[75%_center]" />
     </div>
+
+    {/* Cartão: Agenda inteligente */}
+    <FloatingCard
+      className="w-[220px]"
+      style={{ left: '7%', top: '9%', animation: 'plaeloFloat 5.5s ease-in-out infinite' }}
+    >
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
+          <Calendar size={15} />
+        </div>
+        <span className="text-[13px] font-bold text-slate-700">Agenda inteligente</span>
+      </div>
+      <MiniBars />
+    </FloatingCard>
+
+    {/* Cartão: Financeiro */}
+    <FloatingCard
+      className="w-[190px]"
+      style={{ left: '3%', top: '25%', animation: 'plaeloFloat 6.2s ease-in-out infinite', animationDelay: '0.9s' }}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(34,197,94,0.12)', color: '#16A34A' }}>
+          <TrendingUp size={13} />
+        </div>
+        <span className="text-[11px] font-bold text-slate-500">Financeiro</span>
+      </div>
+      <p className="text-[10px] text-slate-400 mb-0.5">Receitas do mês</p>
+      <div className="flex items-end justify-between gap-2">
+        <span className="text-[15px] font-extrabold text-slate-800 tracking-tight">R$ 18.240,00</span>
+      </div>
+      <div className="mt-1"><MiniSparkline /></div>
+    </FloatingCard>
+
+    {/* Cartão: Pacientes ativos */}
+    <FloatingCard
+      className="w-[188px]"
+      style={{ left: '27%', top: '27%', animation: 'plaeloFloat 5.8s ease-in-out infinite', animationDelay: '1.6s' }}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
+          <Users size={13} />
+        </div>
+        <span className="text-[11px] font-bold text-slate-500">Pacientes ativos</span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-2xl font-extrabold text-slate-800 tracking-tight">124</span>
+        <span className="text-[11px] font-bold text-emerald-500">+12%</span>
+      </div>
+    </FloatingCard>
   </div>
 );
 
