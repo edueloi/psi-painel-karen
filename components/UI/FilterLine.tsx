@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { Search, LayoutGrid, List as ListIcon, ChevronDown } from 'lucide-react';
 import { DatePicker } from './DatePicker';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
@@ -191,6 +191,50 @@ export const FilterLineSearch: React.FC<FilterLineSearchProps> = ({
       placeholder={placeholder}
       className="w-full bg-transparent text-xs font-bold text-zinc-800 outline-none placeholder:text-zinc-400 placeholder:font-normal"
     />
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FilterLineSelect — dropdown com label acima e ícone opcional, pegada ERP
+// (ex: "Envio ao Despachante ▾") — para filtros de coluna/data/status.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FilterLineSelectOption {
+  value: string;
+  label: string;
+}
+
+interface FilterLineSelectProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: FilterLineSelectOption[];
+  icon?: React.ReactNode;
+  className?: string;
+}
+
+export const FilterLineSelect: React.FC<FilterLineSelectProps> = ({
+  label, value, onChange, options, icon, className = '',
+}) => (
+  <div className={cx('flex flex-col gap-1 w-full sm:w-auto', className)}>
+    <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-0.5">{label}</label>
+    <div className="relative">
+      {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">{icon}</span>}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cx(
+          'h-10 w-full sm:w-[190px] appearance-none rounded-xl border border-zinc-200 bg-white pr-8 text-xs font-semibold text-zinc-700 outline-none transition-all',
+          'focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10',
+          icon ? 'pl-9' : 'pl-3',
+        )}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+    </div>
   </div>
 );
 

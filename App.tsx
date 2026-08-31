@@ -80,6 +80,7 @@ import { Professionals } from './pages/Professionals';
 import { Services } from './pages/Services';
 import { Products } from './pages/Products';
 import { Comandas } from './pages/Comandas';
+import { PaginaTeste } from './pages/PaginaTeste';
 import { LivroCaixa } from './pages/LivroCaixa';
 import { NotaFiscal } from './pages/NotaFiscal';
 import { Finance } from './pages/Finance';
@@ -461,6 +462,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/servicos" element={<ProtectedRoute requiredPermission="manage_services"><Services /></ProtectedRoute>} />
       <Route path="/produtos" element={<ProtectedRoute requiredPermission="manage_products"><Products /></ProtectedRoute>} />
       <Route path="/comandas" element={<ProtectedRoute requiredPermission="view_all_comandas"><Comandas /></ProtectedRoute>} />
+      {/* Sandbox interno — acesso direto por URL, sem entrada no menu */}
+      <Route path="/pagina-teste" element={<ProtectedRoute><PaginaTeste /></ProtectedRoute>} />
       <Route path="/livro-caixa" element={<ProtectedRoute requiredPermission="view_financial_reports"><LivroCaixa /></ProtectedRoute>} />
       <Route path="/nota-fiscal" element={<ProtectedRoute requiredPermission="view_financial_reports"><NotaFiscal /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute requiredPermission="view_financial_reports"><Finance /></ProtectedRoute>} />
