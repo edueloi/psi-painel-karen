@@ -1969,13 +1969,13 @@ export const LivroCaixa: React.FC = () => {
   // ─── Render Archive ───────────────────────────────────────────────────────────
 
   const renderArchive = () => (
-    <PageWrapper className="space-y-4 sm:space-y-6">
+    <PageWrapper className="space-y-4 sm:space-y-5">
       <SectionTitle
         icon={BookOpen}
         title="Arquivo Financeiro"
         description="Gestão de períodos consolidados"
         action={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
             <div className="flex items-center justify-between gap-2 sm:contents">
               {/* Year selector */}
               <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-9 shrink-0">
@@ -1989,7 +1989,7 @@ export const LivroCaixa: React.FC = () => {
               </div>
               <FilterLineViewToggle value={archiveLayout} onChange={v => { setArchiveLayout(v as 'grid' | 'list'); localStorage.setItem('livrocaixa_layout', v as string); }} gridValue="grid" listValue="list" />
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:contents">
+            <div className="contents">
               <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} className="w-full sm:w-auto"
                 onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}>
                 Importar
@@ -2002,12 +2002,12 @@ export const LivroCaixa: React.FC = () => {
         }
       />
 
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-4 sm:space-y-5">
 
       {/* Month Cards */}
       {isLoadingArchive ? (
-        <div className="flex flex-col items-center justify-center p-32 gap-4 text-slate-500">
-          <Loader2 className="animate-spin" size={48} />
+        <div className="flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-slate-500 sm:p-16">
+          <Loader2 className="animate-spin" size={32} />
           <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-40">Carregando Períodos...</span>
         </div>
       ) : monthSummaries.length === 0 ? (
@@ -2018,7 +2018,7 @@ export const LivroCaixa: React.FC = () => {
           action={<Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()}>Novo Lançamento</Button>}
         />
       ) : archiveLayout === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {monthSummaries.map((ms) => (
             <AppCard
               key={`${ms.year}-${ms.month}`}
@@ -2062,6 +2062,29 @@ export const LivroCaixa: React.FC = () => {
           data={monthSummaries}
           keyExtractor={(ms) => `${ms.year}-${ms.month}`}
           onRowClick={(ms) => openDetail(ms.month, ms.year)}
+          renderMobileItem={(ms) => (
+            <div className="w-full min-w-0 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-700">
+                  <BookOpen size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-bold text-slate-800">{ms.label}</p>
+                    <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase ${lockedMonths.includes(`${ms.year}-${ms.month}`) ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {lockedMonths.includes(`${ms.year}-${ms.month}`) ? 'Fechado' : 'Aberto'}
+                    </span>
+                  </div>
+                  <p className={`mt-1 text-base font-black ${ms.balance >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>{formatCurrency(ms.balance)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-2 text-[10px]">
+                <div><span className="block text-slate-400">Entradas</span><b className="text-emerald-600">{formatCurrency(ms.income)}</b></div>
+                <div><span className="block text-slate-400">Saídas</span><b className="text-rose-600">{formatCurrency(ms.expense)}</b></div>
+                <div><span className="block text-slate-400">Pendente</span><b className="text-amber-600">{formatCurrency(ms.pending)}</b></div>
+              </div>
+            </div>
+          )}
           columns={[
             {
               header: 'Período',
@@ -2151,18 +2174,18 @@ export const LivroCaixa: React.FC = () => {
       : '';
 
     return (
-      <PageWrapper className="space-y-4 sm:space-y-6">
+      <PageWrapper className="space-y-4 sm:space-y-5">
         <SectionTitle
           icon={BookOpen}
           title="Livro Caixa"
           description={displayMonth}
           action={
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()} className="w-full sm:w-auto">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()} className="col-span-2 justify-self-start sm:col-auto sm:justify-self-auto">
                 Voltar
               </Button>
 
-              <div className="grid grid-cols-2 gap-2 sm:contents">
+              <div className="contents">
                 {/* Export dropdown */}
                 <div className="relative" ref={exportRef}>
                   <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => setShowExportMenu(v => !v)} className="w-full sm:w-auto">
@@ -2230,17 +2253,17 @@ export const LivroCaixa: React.FC = () => {
           }
         />
 
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-5">
 
         {/* KPI + Search — sticky wrapper */}
         <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-4 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-3 sm:px-5 lg:px-6 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-4'}>
 
         {/* KPI Cards */}
         <StatGrid cols={4}>
-          <StatCard title="Entradas" value={formatCurrency(summary.income)} icon={TrendingUp} color="success" delay={0} />
-          <StatCard title="Saídas" value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" delay={1} />
-          <StatCard title="Pendente" value={formatCurrency(summary.pending)} icon={Clock} color="warning" delay={2} />
-          <StatCard title="Saldo Líquido" value={formatCurrency(summary.balance)} icon={Wallet} color={summary.balance >= 0 ? 'info' : 'danger'} delay={3} />
+          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Entradas" value={formatCurrency(summary.income)} icon={TrendingUp} color="success" delay={0} />
+          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Saídas" value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" delay={1} />
+          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Pendente" value={formatCurrency(summary.pending)} icon={Clock} color="warning" delay={2} />
+          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Saldo Líquido" value={formatCurrency(summary.balance)} icon={Wallet} color={summary.balance >= 0 ? 'info' : 'danger'} delay={3} />
         </StatGrid>
 
         {/* Filtros */}
@@ -2287,9 +2310,9 @@ export const LivroCaixa: React.FC = () => {
 
         {/* Bulk action bar */}
         {selectedTxIds.size > 0 && (
-          <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3">
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <span className="text-sm font-semibold text-amber-800">{selectedTxIds.size} selecionado(s)</span>
-            <div className="flex gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
               {hasPermission('manage_payments') && (
                 <>
                   <Button variant="outline" size="sm" iconLeft={<RefreshCw size={13} />} onClick={handleBulkRepeat} loading={isBulkProcessing}>
@@ -2307,8 +2330,8 @@ export const LivroCaixa: React.FC = () => {
 
         {/* Transactions Table */}
         {isLoadingDetail ? (
-          <div className="flex flex-col items-center justify-center p-32 gap-4 text-slate-500">
-            <Loader2 className="animate-spin" size={48} />
+          <div className="flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-slate-500 sm:p-16">
+            <Loader2 className="animate-spin" size={32} />
             <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-30">Processando Fluxo...</span>
           </div>
         ) : (() => {
@@ -2329,6 +2352,48 @@ export const LivroCaixa: React.FC = () => {
                 sortOrder={sortOrder}
                  onSort={handleSort}
                 onRowClick={(tx) => { setSelectedTxForDetails(tx); fetchPkgSessions(tx.id); }}
+                renderMobileItem={(tx) => {
+                  const status = getStatus(tx);
+                  const info = STATUS_INFO[status] || STATUS_INFO.pending;
+                  const StatusIcon = info.icon;
+                  return (
+                    <div className="w-full min-w-0 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${tx.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                            <p className="truncate text-sm font-bold text-slate-800">{tx.description || tx.category}</p>
+                          </div>
+                          <p className="mt-1 truncate text-[11px] text-slate-500">
+                            {formatDate(tx.date)} · {tx.patient_name || tx.beneficiary_name || tx.payer_name || tx.category}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={`text-sm font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                          </p>
+                          <span className={`mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase ${info.color}`}>
+                            <StatusIcon size={8} /> {info.label}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="min-w-0 truncate text-[10px] text-slate-400">{METHOD_LABEL[tx.payment_method] || tx.payment_method || 'Sem método'}</div>
+                        <div className="flex shrink-0 gap-1">
+                          {hasPermission('manage_payments') && tx.status !== 'paid' && tx.status !== 'confirmed' && (
+                            <IconButton variant="success" size="xs" title="Efetivar pagamento" onClick={() => handleQuickPay(tx)}><Check size={12} /></IconButton>
+                          )}
+                          {hasPermission('manage_payments') && (
+                            <>
+                              <IconButton variant="outline" size="xs" title="Editar" onClick={() => openEditTx(tx)}><Edit3 size={12} /></IconButton>
+                              <IconButton variant="danger" size="xs" title="Excluir" onClick={() => setDeleteConfirmId(tx.id)}><Trash2 size={12} /></IconButton>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }}
               />
               {filtered.length > 0 && (
                 <Pagination
@@ -2443,7 +2508,7 @@ export const LivroCaixa: React.FC = () => {
         ) : (
           /* ── Preview Step ── */
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:gap-3">
               <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
                 <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Receitas</p>
                 <p className="text-base font-black text-emerald-700">{previewRows.filter(r => r.type === 'income').length}</p>
@@ -2510,7 +2575,7 @@ export const LivroCaixa: React.FC = () => {
       >
         <div className="space-y-5">
           {/* Type + Date */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
             <div>
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Tipo de Movimentação</label>
               <div className="flex bg-slate-100 p-1.5 rounded-2xl">
@@ -2524,7 +2589,6 @@ export const LivroCaixa: React.FC = () => {
                 </button>
               </div>
             </div>
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data da Operação</label>
               <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
@@ -2533,7 +2597,6 @@ export const LivroCaixa: React.FC = () => {
               <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data de Vencimento</label>
               <DatePicker value={txDueDate} onChange={setTxDueDate} placeholder="Quando vence?" />
             </div>
-          </div>
           </div>
 
           <div>
@@ -2655,7 +2718,7 @@ export const LivroCaixa: React.FC = () => {
                 className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
             </div>
             {!txPayerIsPatient && (
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+              <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-2 sm:grid-cols-2">
                 <div>
                   <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nome do Pagador</label>
                   <input type="text" value={txPayerName} onChange={(e) => setTxPayerName(e.target.value)} placeholder="Nome completo do pagador"
@@ -2806,7 +2869,7 @@ export const LivroCaixa: React.FC = () => {
 
           {/* Amount + Discount + Method */}
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               <div>
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1 flex items-center justify-between">
                   <span>VALOR {txSelectedComandaId && txBaseAmount ? '(Da Parcela)' : '(R$)'}</span>
@@ -2984,7 +3047,7 @@ export const LivroCaixa: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
               <DatePicker

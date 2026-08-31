@@ -1,48 +1,139 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Calendar, Sparkles, TrendingUp, ShieldCheck, ChevronLeft, Smartphone, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Calendar, TrendingUp, Users, ShieldCheck, ChevronLeft, Smartphone, AlertCircle } from 'lucide-react';
 import logoUrl from '../../images/logo-sistema/logo.png';
+import capaLogoUrl from '../../images/capa-logo.png';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
-// ── Floating collage illustration (mesma linguagem visual do site público) ──
-const PlaeloIllustration = () => (
-  <div className="relative w-full max-w-md mx-auto" style={{ minHeight: 320 }}>
-    <div className="absolute rounded-3xl shadow-2xl p-5" style={{ top: 0, left: '2%', width: '68%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(6px)' }}>
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(167,139,250,0.18)', color: '#C4B5FD' }}>
-          <Calendar size={16} />
-        </div>
-        <span className="text-sm font-bold" style={{ color: '#E0DEFF' }}>Agenda de hoje</span>
-      </div>
-      {[['09:00', 'Sessão · Ana P.'], ['10:30', 'Retorno · Marcos S.'], ['14:00', 'Avaliação · Beatriz L.']].map(([time, label]) => (
-        <div key={time} className="flex gap-2.5 text-xs py-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <span style={{ color: '#A78BFA', fontWeight: 700 }}>{time}</span>
-          <span style={{ color: 'rgba(224,222,255,0.6)' }}>{label}</span>
-        </div>
-      ))}
-    </div>
+// ── Cartão flutuante genérico usado sobre a foto do painel ──────────────────
+const FloatingCard: React.FC<{
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}> = ({ className = '', style, children }) => (
+  <div
+    className={`absolute rounded-2xl bg-white shadow-[0_16px_40px_-12px_rgba(76,54,168,0.28)] border border-white/60 px-4 py-3.5 ${className}`}
+    style={style}
+  >
+    {children}
+  </div>
+);
 
-    <div className="absolute rounded-3xl shadow-2xl p-5" style={{ top: '42%', right: '0%', width: '56%', transform: 'rotate(2deg)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(6px)' }}>
-      <div className="flex items-center gap-2 mb-1.5" style={{ color: '#6EE7B7' }}>
-        <TrendingUp size={16} />
-        <span className="text-xs font-bold">Financeiro do mês</span>
-      </div>
-      <div className="text-2xl font-extrabold tracking-tight" style={{ color: '#fff' }}>R$ 18.240</div>
-      <div className="text-xs mt-0.5" style={{ color: 'rgba(224,222,255,0.5)' }}>42 atendimentos</div>
-    </div>
+// Mini gráfico de barras usado no cartão "Agenda inteligente"
+const MiniBars = () => (
+  <div className="flex items-end gap-[3px] h-6">
+    {[6, 10, 8, 16, 12, 20, 15].map((h, i) => (
+      <div
+        key={i}
+        className="w-[3px] rounded-full"
+        style={{ height: h, background: i === 5 ? '#6D42F5' : 'rgba(109,66,245,0.28)' }}
+      />
+    ))}
+  </div>
+);
 
-    <div className="absolute rounded-3xl shadow-2xl p-5" style={{ bottom: 0, left: '12%', width: '64%', transform: 'rotate(-2deg)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(6px)' }}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(110,231,183,0.15)', color: '#6EE7B7' }}>
-          <Sparkles size={13} />
+// Mini sparkline usado no cartão "Financeiro"
+const MiniSparkline = () => (
+  <svg width="64" height="20" viewBox="0 0 64 20" fill="none">
+    <path
+      d="M1 16 L11 12 L21 14 L31 8 L41 9 L51 4 L63 2"
+      stroke="#22C55E"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+// ── Painel direito — foto real do painel + cartões flutuantes animados ──────
+const PlaeloHeroPanel = () => (
+  <div
+    className="hidden lg:flex w-[46%] xl:w-[48%] relative flex-shrink-0 items-center justify-center overflow-hidden"
+    style={{ background: 'linear-gradient(160deg, #FBFAFF 0%, #F2EEFF 55%, #ECE6FF 100%)' }}
+  >
+    {/* Círculos decorativos suaves, como no mock */}
+    <div
+      className="absolute -top-24 -left-20 w-[420px] h-[420px] rounded-full pointer-events-none"
+      style={{ border: '1px solid rgba(109,66,245,0.14)', animation: 'plaeloSpin 60s linear infinite' }}
+    />
+    <div
+      className="absolute -top-10 -left-8 w-[280px] h-[280px] rounded-full pointer-events-none"
+      style={{ border: '1px solid rgba(109,66,245,0.10)' }}
+    />
+    <div
+      className="absolute bottom-[-140px] right-[-100px] w-[380px] h-[380px] rounded-full pointer-events-none"
+      style={{ background: 'radial-gradient(circle, rgba(109,66,245,0.10) 0%, transparent 70%)' }}
+    />
+
+    <div className="relative w-full max-w-[560px] px-10 xl:px-14 animate-[slideUpFade_0.6s_ease-out]">
+      <div className="relative">
+        <div
+          className="relative rounded-[26px] overflow-hidden shadow-2xl ring-1 ring-black/5"
+          style={{ aspectRatio: '4 / 3.15' }}
+        >
+          <img src={capaLogoUrl} alt="Painel Plaelo em uso" className="w-full h-full object-cover" />
         </div>
-        <span className="text-xs font-bold" style={{ color: '#E0DEFF' }}>Aurora IA</span>
+
+        {/* Cartão: Agenda inteligente */}
+        <FloatingCard
+          className="left-[-8%] top-[6%] w-[210px]"
+          style={{ animation: 'plaeloFloat 5.5s ease-in-out infinite' }}
+        >
+          <div className="flex items-center gap-2 mb-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
+              <Calendar size={15} />
+            </div>
+            <span className="text-[13px] font-bold text-slate-700">Agenda inteligente</span>
+          </div>
+          <MiniBars />
+        </FloatingCard>
+
+        {/* Cartão: Financeiro */}
+        <FloatingCard
+          className="left-[52%] top-[2%] w-[190px]"
+          style={{ animation: 'plaeloFloat 6.2s ease-in-out infinite', animationDelay: '0.9s' }}
+        >
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(34,197,94,0.12)', color: '#16A34A' }}>
+              <TrendingUp size={13} />
+            </div>
+            <span className="text-[11px] font-bold text-slate-500">Financeiro</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mb-0.5">Receitas do mês</p>
+          <div className="flex items-end justify-between gap-2">
+            <span className="text-[15px] font-extrabold text-slate-800 tracking-tight">R$ 18.240,00</span>
+          </div>
+          <div className="mt-1"><MiniSparkline /></div>
+        </FloatingCard>
+
+        {/* Cartão: Pacientes ativos */}
+        <FloatingCard
+          className="left-[38%] bottom-[-6%] w-[188px]"
+          style={{ animation: 'plaeloFloat 5.8s ease-in-out infinite', animationDelay: '1.6s' }}
+        >
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
+              <Users size={13} />
+            </div>
+            <span className="text-[11px] font-bold text-slate-500">Pacientes ativos</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold text-slate-800 tracking-tight">124</span>
+            <span className="text-[11px] font-bold text-emerald-500">+12%</span>
+          </div>
+        </FloatingCard>
       </div>
-      <p className="text-xs leading-relaxed" style={{ color: 'rgba(224,222,255,0.6)' }}>
-        "Resumo da última sessão pronto para revisão."
-      </p>
+
+      <div className="text-center mt-16 px-6">
+        <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+          Gestão para saúde mental
+        </h2>
+        <p className="text-sm mt-2 leading-relaxed max-w-xs mx-auto text-slate-500">
+          Agenda, prontuários, financeiro e relatórios — tudo integrado para sua prática fluir.
+        </p>
+      </div>
     </div>
   </div>
 );
@@ -174,75 +265,29 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
   return (
     <div className="min-h-screen w-full flex font-sans overflow-hidden">
+      <style>{`
+        @keyframes plaeloFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        @keyframes plaeloSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
 
-      {/* ── LEFT PANEL — dark, illustrated ───────────────────────────────── */}
-      <div
-        className="hidden lg:flex flex-col justify-between w-[52%] relative overflow-hidden flex-shrink-0"
-        style={{ background: 'linear-gradient(160deg, #120C2E 0%, #2A1F6B 100%)' }}
-      >
-        {/* Background glow layers */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse 70% 60% at 40% 35%, rgba(109,66,245,0.22) 0%, transparent 70%), ' +
-              'radial-gradient(ellipse 50% 50% at 75% 70%, rgba(18,183,106,0.12) 0%, transparent 65%)',
-          }}
-        />
-
-        {/* Top-left logo */}
-        <div className="relative z-10 flex items-center gap-3 p-10">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10 shadow-2xl bg-white p-2">
-            <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <h1 className="font-bold text-[26px] leading-none tracking-tight" style={{ fontWeight: 900, color: '#E0DEFF' }}>
-              Plaelo
-            </h1>
-            <p className="text-[11px] font-medium tracking-wide mt-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>
-              Conectando cuidado e gestão.
-            </p>
-          </div>
-        </div>
-
-        {/* Center illustration */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-10 -mt-6">
-          <div className="w-full max-w-[420px]">
-            <PlaeloIllustration />
-          </div>
-          <div className="text-center mt-8 px-6">
-            <h2 className="text-xl font-bold text-white/90 tracking-tight">
-              Gestão para saúde mental
-            </h2>
-            <p className="text-sm mt-2 leading-relaxed max-w-xs mx-auto" style={{ color: 'rgba(167,139,250,0.65)' }}>
-              Agenda, prontuários, financeiro e relatórios — tudo integrado para sua prática fluir.
-            </p>
-          </div>
-        </div>
-
-        {/* Subtle grid overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.025]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(167,139,250,1) 1px, transparent 1px), linear-gradient(90deg, rgba(167,139,250,1) 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }}
-        />
-      </div>
-
-      {/* ── RIGHT PANEL — white, form ────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto px-6 py-10 sm:px-10">
+      {/* ── LEFT PANEL — formulário ───────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto px-6 py-10 sm:px-10 lg:px-16 xl:px-24 relative z-10">
         <div className="w-full max-w-[420px]">
 
-          {/* Mobile-only logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-9 animate-[fadeIn_0.4s_ease-out]">
             <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-indigo-100 shadow-lg bg-white p-2">
               <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="font-black text-[22px] leading-none tracking-tight" style={{ color: '#1e295b' }}>Plaelo</h1>
-              <p className="text-[10px] font-medium mt-0.5 text-slate-400">Conectando cuidado e gestão.</p>
+              <p className="text-[11px] font-medium mt-0.5 text-slate-400">Conectando cuidado e gestão.</p>
             </div>
           </div>
 
@@ -383,7 +428,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
             <>
               <div className="mb-8 animate-[fadeIn_0.4s_ease-out]">
                 <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1.5">
-                  Bem-vindo de volta
+                  Bem-vinda de volta
                 </h2>
                 <p className="text-slate-400 text-sm">
                   Entre com suas credenciais para acessar o painel.
@@ -516,6 +561,9 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           )}
         </div>
       </div>
+
+      {/* ── RIGHT PANEL — foto real do painel com cartões flutuantes ────────── */}
+      <PlaeloHeroPanel />
     </div>
   );
 };
