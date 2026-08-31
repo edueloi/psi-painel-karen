@@ -1178,6 +1178,15 @@ router.get('/comandas', authMiddleware, async (req, res) => {
         }
         c.paidValue = parseFloat(c.paid_value || 0);
 
+        // Já tem lançamento real no Livro Caixa (qualquer que seja a origem)? Usado
+        // pelo seletor "Vincular Comanda" — uma comanda só pode ser vinculada a UM
+        // lançamento, senão o pagamento é contado em dobro (bug já corrigido antes).
+        const [[ftCount]] = await db.query(
+          'SELECT COUNT(*) as cnt FROM financial_transactions WHERE comanda_id = ? AND tenant_id = ?',
+          [c.id, req.user.tenant_id]
+        );
+        c.has_livrocaixa_entry = ftCount.cnt > 0;
+
         // Sincroniza o saldo de sessões, sem fechar uma comanda apenas porque foi paga.
         const statusAtual = (usedCount >= Number(c.sessions_total || 1) && Number(c.paid_value || 0) >= Number(c.total || 0)) ? 'closed' : 'open';
         c.status = statusAtual;

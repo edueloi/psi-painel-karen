@@ -2605,14 +2605,19 @@ export const LivroCaixa: React.FC = () => {
                         setTxSelectedComandaId('');
                         setTxPatientComandas([]);
                         api.get<any[]>('/finance/comandas').then((all: any[]) => {
-                          const open = (Array.isArray(all) ? all : [])
+                          // Mostra comandas em aberto com saldo pendente, E comandas já
+                          // fechadas/pagas que ainda não têm nenhum registro no Livro Caixa
+                          // (pra trazer o registro pra cá). Uma comanda que já tem lançamento
+                          // vinculado nunca aparece de novo — vincular duas vezes conta o
+                          // mesmo pagamento em dobro.
+                          const eligible = (Array.isArray(all) ? all : [])
                             .filter((c: any) => {
                               const isPatient = String(c.patient_id || c.patientId || '') === String(p.id);
-                              const isOpen = c.status === 'open';
+                              if (!isPatient || c.has_livrocaixa_entry) return false;
+                              if (c.status === 'closed') return true;
                               const totalVal = Number(c.totalValue || c.total || 0);
                               const paidVal = Number(c.paidValue || c.paid_value || 0);
-                              const hasPending = totalVal > paidVal;
-                              return isPatient && isOpen && hasPending;
+                              return c.status === 'open' && totalVal > paidVal;
                             })
                             .map((c: any) => {
                               const items: any[] = c.items || [];
@@ -2628,7 +2633,7 @@ export const LivroCaixa: React.FC = () => {
                                 status: c.status,
                               };
                             });
-                          setTxPatientComandas(open);
+                          setTxPatientComandas(eligible);
                         }).catch(() => {});
                       }}
                       className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
@@ -2679,7 +2684,7 @@ export const LivroCaixa: React.FC = () => {
           ) : !isExtraMode && txPatientComandas.length > 0 ? (
             <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-2">
               <label className="block text-[9px] font-black text-indigo-600 uppercase tracking-widest">
-                Vincular Comanda Aberta
+                Vincular Comanda
               </label>
               <select
                 value={txSelectedComandaId}
@@ -2689,11 +2694,14 @@ export const LivroCaixa: React.FC = () => {
                   if (id) {
                     const c = txPatientComandas.find(x => x.id === id);
                     if (c) {
+                      // Comanda fechada (já paga) sem registro ainda: traz o valor total
+                      // pago pra lançar retroativamente. Comanda aberta: traz o saldo pendente.
                       const pending = Math.max(0, c.totalValue - c.paidValue);
-                      if (pending > 0) {
-                        const pendingStr = pending.toFixed(2).replace('.', ',');
-                        setTxBaseAmount(pendingStr);
-                        setTxAmount(pendingStr);
+                      const valueToFill = c.status === 'closed' ? c.paidValue : pending;
+                      if (valueToFill > 0) {
+                        const valueStr = valueToFill.toFixed(2).replace('.', ',');
+                        setTxBaseAmount(valueStr);
+                        setTxAmount(valueStr);
                         setTxDiscount('');
                       }
                       if (!txDescription) setTxDescription(c.description);
@@ -2705,9 +2713,12 @@ export const LivroCaixa: React.FC = () => {
                 <option value="">— Selecionar comanda —</option>
                 {txPatientComandas.map(c => {
                   const pending = Math.max(0, c.totalValue - c.paidValue);
+                  const valueLabel = c.status === 'closed'
+                    ? `Fechada · Pago: R$ ${c.paidValue.toFixed(2).replace('.', ',')}`
+                    : `Pendente: R$ ${pending.toFixed(2).replace('.', ',')}`;
                   return (
                     <option key={c.id} value={c.id}>
-                      #{c.id} · {c.description} · Pendente: R$ {pending.toFixed(2).replace('.', ',')}
+                      #{c.id} · {c.description} · {valueLabel}
                     </option>
                   );
                 })}
