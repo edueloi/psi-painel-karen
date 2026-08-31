@@ -79,6 +79,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/forms`, formsRoutes);
   app.use(`${prefix}/disc`, discRoutes);
   app.use(`${prefix}/public-profile`, require('./routes/public-profile'));
+  app.use(prefix, require('./routes/sitemap'));
   app.use(`${prefix}/directory`, require('./routes/directory'));
   // Áreas de atuação públicas para o wizard de cadastro (sem auth)
   app.get(`${prefix}/professional-areas`, async (req, res) => {

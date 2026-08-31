@@ -5,6 +5,7 @@ import { Sparkles, Lock, ChevronRight, ArrowRight, CheckCircle } from 'lucide-re
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { features } from './publicSiteData';
 import logoUrl from '../../images/logo-sistema/logo.png';
+import { useSEO } from '../../hooks/useSEO';
 
 const STATS = [
   { value: '8', label: 'módulos integrados' },
@@ -16,6 +17,12 @@ export const Funcionalidades: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+
+  useSEO({
+    title: 'Funcionalidades — Plaelo',
+    description: 'Conheça os módulos do Plaelo: agenda inteligente, prontuário digital, atendimento remoto, financeiro, nota fiscal e inteligência artificial para clínicas e profissionais de saúde mental.',
+    path: '/funcionalidades',
+  });
 
   return (
     <PublicSiteShell>

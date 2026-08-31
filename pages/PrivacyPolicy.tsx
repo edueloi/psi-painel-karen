@@ -3,9 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Lock, Database, Users, Cookie, Mail, Clock, AlertCircle } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Button } from '../components/UI/Button';
+import { useSEO } from '../hooks/useSEO';
 
 export const PrivacyPolicy: React.FC = () => {
     const navigate = useNavigate();
+
+    useSEO({
+        title: 'Política de Privacidade — Plaelo',
+        description: 'Política de privacidade da Plaelo — como coletamos, usamos e protegemos os dados de profissionais, clínicas e pacientes em conformidade com a LGPD.',
+        path: '/politica-privacidade',
+    });
 
     const sections = [
         {

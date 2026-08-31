@@ -5,6 +5,7 @@ import { CheckCircle, ShieldCheck, Sparkles, HeadphonesIcon, ChevronDown } from 
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { FEATURE_LABELS, Plan } from './publicSiteData';
 import { api } from '../../services/api';
+import { useSEO } from '../../hooks/useSEO';
 
 const TRUST_BADGES = [
   { icon: CheckCircle, label: 'Sem fidelidade' },
@@ -47,6 +48,12 @@ export const Planos: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+
+  useSEO({
+    title: 'Planos e Preços — Plaelo',
+    description: 'Conheça os planos do Plaelo para psicólogos, psiquiatras e clínicas de saúde mental. Sem fidelidade, com IA inclusa e 7 dias de teste grátis.',
+    path: '/planos',
+  });
 
   useEffect(() => {
     api.get<Plan[]>('/plans')

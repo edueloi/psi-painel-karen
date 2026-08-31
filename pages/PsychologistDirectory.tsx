@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Instagram, Globe, Linkedin, Twitter, ArrowUpRight, ChevronRight, ChevronDown, X, SlidersHorizontal, Monitor } from 'lucide-react';
 import logoUrl from '../images/logo-sistema/logo.png';
 import { Combobox } from '../components/UI/Combobox';
+import { useSEO } from '../hooks/useSEO';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -398,6 +399,12 @@ const Pill: React.FC<PillProps> = ({ label, active, onClick }) => {
 /* ─── Página principal ─── */
 export const PsychologistDirectory: React.FC = () => {
   const navigate = useNavigate();
+
+  useSEO({
+    title: 'Encontre um Psicólogo ou Psiquiatra — Plaelo',
+    description: 'Encontre profissionais de saúde mental verificados — psicólogos, psiquiatras e terapeutas — por especialidade, abordagem e cidade. Agende sua consulta presencial ou online.',
+    path: '/encontrar-profissional',
+  });
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

@@ -8,11 +8,18 @@ import {
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { features, PROFESSIONAL_CATEGORIES } from './publicSiteData';
 import logoUrl from '../../images/logo-sistema/logo.png';
+import { useSEO } from '../../hooks/useSEO';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+
+  useSEO({
+    title: 'Plaelo — Sistema para Clínicas de Saúde Mental',
+    description: 'Plaelo é o sistema completo para profissionais e clínicas de saúde mental — psicólogos, psiquiatras, terapeutas e toda a rede de cuidado. Agenda inteligente, prontuário digital, atendimento remoto, financeiro e IA integrada.',
+    path: '/',
+  });
 
   return (
     <PublicSiteShell>

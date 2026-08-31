@@ -205,11 +205,20 @@ export const PublicProfile: React.FC = () => {
     setMeta('property', 'og:image:height',      '630');
     setMeta('property', 'og:type',              'website');
     setMeta('property', 'og:site_name',         displayName);
-    setMeta('property', 'og:url',               window.location.href);
+    setMeta('property', 'og:url',               `https://plaelo.com.br/p/${slug}`);
     setMeta('name',     'twitter:card',         'summary_large_image');
     setMeta('name',     'twitter:title',        `${displayName} — ${specialty}`);
     setMeta('name',     'twitter:description',  bio.slice(0, 200));
     setMeta('name',     'twitter:image',        ogImage);
+
+    const canonicalUrl = `https://plaelo.com.br/p/${slug}`;
+    let canonicalEl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonicalEl) {
+      canonicalEl = document.createElement('link');
+      canonicalEl.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonicalEl);
+    }
+    canonicalEl.setAttribute('href', canonicalUrl);
 
     // JSON-LD Person schema
     const existing = document.querySelector('#ld-json-person');
@@ -227,12 +236,12 @@ export const PublicProfile: React.FC = () => {
       telephone: data.phone,
       email: data.email,
       address: data.address ? { '@type': 'PostalAddress', streetAddress: data.address } : undefined,
-      url: window.location.href,
+      url: `https://plaelo.com.br/p/${slug}`,
     });
     document.head.appendChild(script);
 
     return () => { document.querySelector('#ld-json-person')?.remove(); };
-  }, [data]);
+  }, [data, slug]);
 
   // Scroll Reveal Observer
   useEffect(() => {

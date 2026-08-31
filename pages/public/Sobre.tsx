@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Heart, CheckCircle, ShieldCheck, Sparkles, Users2, Lock, ArrowRight, Quote } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import logoUrl from '../../images/logo-sistema/logo.png';
+import { useSEO } from '../../hooks/useSEO';
 
 const painPoints = [
   'Prontuários dispersos em papéis ou planilhas',
@@ -23,6 +24,12 @@ export const Sobre: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+
+  useSEO({
+    title: 'Sobre — Plaelo',
+    description: 'Conheça a Plaelo: a proposta, os valores e o propósito por trás do sistema de gestão criado para toda a rede de cuidado em saúde mental.',
+    path: '/sobre',
+  });
 
   return (
     <PublicSiteShell>

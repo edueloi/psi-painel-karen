@@ -3,9 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, Shield, Scale, Gavel, CheckCircle, ArrowLeft, Clock, AlertCircle } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
 import { Button } from '../components/UI/Button';
+import { useSEO } from '../hooks/useSEO';
 
 export const Terms: React.FC = () => {
     const navigate = useNavigate();
+
+    useSEO({
+        title: 'Termos de Uso — Plaelo',
+        description: 'Termos de uso da plataforma Plaelo — condições de acesso e utilização do sistema para profissionais e clínicas de saúde mental.',
+        path: '/termos-de-uso',
+    });
 
     const sections = [
         {

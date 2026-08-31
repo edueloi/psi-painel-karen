@@ -1,8 +1,14 @@
 User-agent: *
 Allow: /$
-Allow: /encontrar-psicologo
+Allow: /funcionalidades
+Allow: /planos
+Allow: /sobre
+Allow: /termos-de-uso
+Allow: /politica-privacidade
+Allow: /encontrar-profissional
 Allow: /p/
 Allow: /f/
+Allow: /api/sitemap-professionals.xml
 
 Disallow: /login
 Disallow: /cadastro
