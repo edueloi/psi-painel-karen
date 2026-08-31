@@ -103,7 +103,12 @@ export function DataGrid<T>({
             <tr>
               {isSelectable && (
                 <th
-                  className="sticky top-0 left-0 z-40 border-b border-zinc-200 bg-zinc-50 px-3 py-3 text-center"
+                  className={cn(
+                    'sticky top-0 left-0 z-40 border-b border-zinc-200 bg-zinc-50 px-3 py-3 text-center',
+                    lastStickyKey === '__checkbox__'
+                      ? 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]'
+                      : 'border-r border-zinc-200',
+                  )}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button onClick={onToggleSelectAll} className="text-zinc-400 hover:text-primary-600 transition-colors focus:outline-none">
@@ -115,7 +120,9 @@ export function DataGrid<T>({
                 <th
                   className={cn(
                     'sticky top-0 z-40 border-b border-zinc-200 bg-zinc-50 px-2 py-3',
-                    lastStickyKey === '__rowicon__' && 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]',
+                    lastStickyKey === '__rowicon__'
+                      ? 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]'
+                      : 'border-r border-zinc-200',
                   )}
                   style={{ left: isSelectable ? CHECKBOX_COL_WIDTH : 0 }}
                 />
@@ -127,7 +134,9 @@ export function DataGrid<T>({
                     'border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 whitespace-nowrap overflow-hidden text-ellipsis',
                     col.sticky ? 'sticky top-0 z-30' : 'sticky top-0 z-20',
                     alignClass(col.align),
-                    col.sticky && col.key === lastStickyKey && 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]',
+                    col.key === lastStickyKey
+                      ? 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]'
+                      : 'border-r border-zinc-200',
                     col.headerClassName,
                   )}
                   style={col.sticky ? { left: stickyOffsets[col.key] } : undefined}
@@ -176,7 +185,13 @@ export function DataGrid<T>({
                   >
                     {isSelectable && (
                       <td
-                        className={cn('sticky left-0 z-10 border-b border-zinc-100 px-3 py-3.5 text-center transition-colors', rowBg, hoverBg)}
+                        className={cn(
+                          'sticky left-0 z-10 border-b border-zinc-100 px-3 py-3.5 text-center transition-colors',
+                          rowBg, hoverBg,
+                          lastStickyKey === '__checkbox__'
+                            ? 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]'
+                            : 'border-r border-zinc-100',
+                        )}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button onClick={() => onToggleSelect!(id)} className="text-zinc-300 hover:text-primary-500 transition-colors">
@@ -190,7 +205,9 @@ export function DataGrid<T>({
                           'sticky z-10 border-b border-zinc-100 px-2 py-3.5 transition-colors',
                           rowBg,
                           hoverBg,
-                          lastStickyKey === '__rowicon__' && 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]',
+                          lastStickyKey === '__rowicon__'
+                            ? 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]'
+                            : 'border-r border-zinc-100',
                         )}
                         style={{ left: isSelectable ? CHECKBOX_COL_WIDTH : 0 }}
                       >
@@ -206,7 +223,9 @@ export function DataGrid<T>({
                           rowBg,
                           hoverBg,
                           alignClass(col.align),
-                          col.sticky && col.key === lastStickyKey && 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]',
+                          col.key === lastStickyKey
+                            ? 'after:absolute after:right-0 after:top-0 after:h-full after:w-px after:bg-zinc-200 after:shadow-[4px_0_8px_-4px_rgba(0,0,0,0.15)]'
+                            : 'border-r border-zinc-100',
                           col.cellClassName,
                         )}
                         style={col.sticky ? { left: stickyOffsets[col.key] } : undefined}

@@ -51,87 +51,64 @@ const MOCK_ROWS: EnvioRow[] = [
   },
 ];
 
-// Segundo exemplo — mesma grade, mas com conteúdo "rico" por célula (badge de
-// data, tags, nomes empilhados, valor colorido, cluster de ações), pra mostrar
-// como o DataGrid se comporta com o tipo de dado do Livro Caixa de verdade
-// (não só texto puro como no exemplo de despacho acima).
+// Segundo exemplo — mesma grade, mas com os campos do Livro Caixa de verdade,
+// cada um na sua própria coluna (nada empilhado numa célula só) — pra
+// comparar lado a lado com o texto puro do exemplo de despacho acima.
 interface LancamentoRow {
   id: number;
   diaMes: string;
   diaNum: string;
   descricao: string;
-  tags: string[];
+  tipoServico: string;
+  formaPagamento: string;
+  comanda: string;
   pagadorNome: string;
-  pagadorDoc?: string;
-  pacienteNome?: string;
-  pacienteDoc?: string;
+  pagadorDoc: string;
+  pacienteNome: string;
+  pacienteDoc: string;
   valor: number;
-  tipo: 'income' | 'expense';
+  natureza: 'income' | 'expense';
   status: 'PAGO' | 'PENDENTE';
 }
 
 const LANCAMENTO_ROWS: LancamentoRow[] = [
-  { id: 1, diaMes: 'AGO', diaNum: '30', descricao: 'Pagamento Comanda #236 – Primeira sessão', tags: ['CONSULTA', 'PIX', 'COMANDA #236'], pagadorNome: 'Gabrielle Villanova Pontes Castro', pagadorDoc: '451.115.958-05', pacienteNome: 'Gabrielle Villanova Pontes Castro', pacienteDoc: '451.115.958-05', valor: 250, tipo: 'income', status: 'PAGO' },
-  { id: 2, diaMes: 'AGO', diaNum: '29', descricao: 'Quinzenal – Camila Cerqueira da Costa', tags: ['PACOTE DE SESSÕES', 'PIX', 'COMANDA #251'], pagadorNome: 'Camila Cerqueira da Costa', pagadorDoc: '094.497.377-97', valor: 250, tipo: 'income', status: 'PAGO' },
-  { id: 3, diaMes: 'AGO', diaNum: '25', descricao: 'Pagamento Comanda #243 – Sessão avulsa', tags: ['CONSULTA', 'PIX', 'COMANDA #243'], pagadorNome: 'Erika Silva Alves', pagadorDoc: '349.911.318-50', pacienteNome: 'Erika Silva Alves', pacienteDoc: '349.911.318-50', valor: 130, tipo: 'income', status: 'PAGO' },
-  { id: 4, diaMes: 'AGO', diaNum: '20', descricao: 'INSS / IRPF de junho', tags: ['ALUGUEL/SUBLOCAÇÃO', 'PIX'], pagadorNome: '—', valor: 198.33, tipo: 'expense', status: 'PAGO' },
-  { id: 5, diaMes: 'AGO', diaNum: '20', descricao: 'Reserva Karen', tags: ['ALUGUEL/SUBLOCAÇÃO', 'PIX'], pagadorNome: '—', valor: 1200, tipo: 'expense', status: 'PAGO' },
-  { id: 6, diaMes: 'AGO', diaNum: '19', descricao: 'Pagamento Comanda #240 – Sessão', tags: ['CONSULTA', 'PIX', 'COMANDA #240'], pagadorNome: 'Lídia Marie Miazaki Cardoso', pagadorDoc: '430.434.278-19', pacienteNome: 'Lídia Marie Miazaki Cardoso', pacienteDoc: '430.434.278-19', valor: 440, tipo: 'income', status: 'PAGO' },
+  { id: 1, diaMes: 'AGO', diaNum: '30', descricao: 'Pagamento Comanda #236 – Primeira sessão', tipoServico: 'Consulta', formaPagamento: 'PIX', comanda: '#236', pagadorNome: 'Gabrielle Villanova Pontes Castro', pagadorDoc: '451.115.958-05', pacienteNome: 'Gabrielle Villanova Pontes Castro', pacienteDoc: '451.115.958-05', valor: 250, natureza: 'income', status: 'PAGO' },
+  { id: 2, diaMes: 'AGO', diaNum: '29', descricao: 'Quinzenal – Camila Cerqueira da Costa', tipoServico: 'Pacote de Sessões', formaPagamento: 'PIX', comanda: '#251', pagadorNome: 'Camila Cerqueira da Costa', pagadorDoc: '094.497.377-97', pacienteNome: 'Camila Cerqueira da Costa', pacienteDoc: '094.497.377-97', valor: 250, natureza: 'income', status: 'PAGO' },
+  { id: 3, diaMes: 'AGO', diaNum: '25', descricao: 'Pagamento Comanda #243 – Sessão avulsa', tipoServico: 'Consulta', formaPagamento: 'PIX', comanda: '#243', pagadorNome: 'Erika Silva Alves', pagadorDoc: '349.911.318-50', pacienteNome: 'Erika Silva Alves', pacienteDoc: '349.911.318-50', valor: 130, natureza: 'income', status: 'PAGO' },
+  { id: 4, diaMes: 'AGO', diaNum: '20', descricao: 'INSS / IRPF de junho', tipoServico: 'Aluguel/Sublocação', formaPagamento: 'PIX', comanda: '—', pagadorNome: '—', pagadorDoc: '—', pacienteNome: '—', pacienteDoc: '—', valor: 198.33, natureza: 'expense', status: 'PAGO' },
+  { id: 5, diaMes: 'AGO', diaNum: '20', descricao: 'Reserva Karen', tipoServico: 'Aluguel/Sublocação', formaPagamento: 'PIX', comanda: '—', pagadorNome: '—', pagadorDoc: '—', pacienteNome: '—', pacienteDoc: '—', valor: 1200, natureza: 'expense', status: 'PAGO' },
+  { id: 6, diaMes: 'AGO', diaNum: '19', descricao: 'Pagamento Comanda #240 – Sessão', tipoServico: 'Consulta', formaPagamento: 'PIX', comanda: '#240', pagadorNome: 'Lídia Marie Miazaki Cardoso', pagadorDoc: '430.434.278-19', pacienteNome: 'Lídia Marie Miazaki Cardoso', pacienteDoc: '430.434.278-19', valor: 440, natureza: 'income', status: 'PAGO' },
 ];
 
 const formatBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const LANCAMENTO_COLUMNS: DataGridColumn<LancamentoRow>[] = [
   {
-    key: 'data', header: 'Data', width: 70, sticky: true,
+    key: 'data', header: 'Data', width: 90, sticky: true,
+    render: (r) => <span className="font-bold text-zinc-800">{r.diaNum}/{r.diaMes}</span>,
+  },
+  { key: 'descricao', header: 'Descrição', width: 260, render: (r) => r.descricao },
+  { key: 'tipoServico', header: 'Tipo', width: 150, render: (r) => r.tipoServico },
+  { key: 'formaPagamento', header: 'Forma de Pagamento', width: 150, render: (r) => r.formaPagamento },
+  { key: 'comanda', header: 'Comanda', width: 100, render: (r) => r.comanda },
+  { key: 'pagadorNome', header: 'Pagador', width: 200, render: (r) => r.pagadorNome },
+  { key: 'pagadorDoc', header: 'CPF Pagador', width: 140, render: (r) => r.pagadorDoc },
+  { key: 'pacienteNome', header: 'Paciente', width: 200, render: (r) => r.pacienteNome },
+  { key: 'pacienteDoc', header: 'CPF Paciente', width: 140, render: (r) => r.pacienteDoc },
+  {
+    key: 'valor', header: 'Valor', width: 130, align: 'right',
     render: (r) => (
-      <div className="inline-flex flex-col items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-1 leading-none">
-        <span className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{r.diaMes}</span>
-        <span className="text-sm font-black text-zinc-700">{r.diaNum}</span>
-      </div>
+      <span className={cn('font-black', r.natureza === 'income' ? 'text-emerald-600' : 'text-rose-600')}>
+        {r.natureza === 'income' ? '+' : '-'}{formatBRL(r.valor)}
+      </span>
     ),
   },
   {
-    key: 'descricao', header: 'Descrição', width: 300,
+    key: 'status', header: 'Status', width: 110,
     render: (r) => (
-      <div className="flex flex-col gap-1.5 py-0.5 whitespace-normal">
-        <span className="font-bold text-zinc-800">{r.descricao}</span>
-        <div className="flex flex-wrap gap-1">
-          {r.tags.map((tag) => (
-            <span key={tag} className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-500">{tag}</span>
-          ))}
-        </div>
-      </div>
-    ),
-  },
-  {
-    key: 'pagador', header: 'Paciente / Pagador', width: 240,
-    render: (r) => (
-      <div className="flex flex-col gap-1 whitespace-normal">
-        <div>
-          <span className="block text-[9px] font-black uppercase tracking-widest text-zinc-400">Pagador{r.pagadorDoc ? ` · ${r.pagadorDoc}` : ''}</span>
-          <span className="text-xs font-semibold text-zinc-700">{r.pagadorNome}</span>
-        </div>
-        {r.pacienteNome && (
-          <div>
-            <span className="block text-[9px] font-black uppercase tracking-widest text-zinc-400">Paciente{r.pacienteDoc ? ` · ${r.pacienteDoc}` : ''}</span>
-            <span className="text-xs font-semibold text-zinc-700">{r.pacienteNome}</span>
-          </div>
-        )}
-      </div>
-    ),
-  },
-  {
-    key: 'valor', header: 'Valor', width: 150, align: 'right',
-    render: (r) => (
-      <div className="flex flex-col items-end gap-1">
-        <span className={cn('font-black', r.tipo === 'income' ? 'text-emerald-600' : 'text-rose-600')}>
-          {r.tipo === 'income' ? '+' : '-'}{formatBRL(r.valor)}
-        </span>
-        <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">
-          {r.status}
-        </span>
-      </div>
+      <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
+        {r.status}
+      </span>
     ),
   },
   {
@@ -163,6 +140,7 @@ export function PaginaTeste() {
   const [filtroAutorizacao, setFiltroAutorizacao] = useState('');
   const [filtroPrevisao, setFiltroPrevisao] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedLancIds, setSelectedLancIds] = useState<Set<string>>(new Set());
   const [isCustomizeOpen, setCustomizeOpen] = useState(false);
 
   const { page, pageSize, paginatedData, setPage, setPageSize } = usePagination(MOCK_ROWS, 50);
@@ -183,6 +161,19 @@ export function PaginaTeste() {
   const toggleSelectAll = () => {
     setSelectedIds((prev) =>
       prev.size === MOCK_ROWS.length ? new Set() : new Set(MOCK_ROWS.map((r) => String(r.id)))
+    );
+  };
+
+  const toggleSelectLanc = (id: string) => {
+    setSelectedLancIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAllLanc = () => {
+    setSelectedLancIds((prev) =>
+      prev.size === LANCAMENTO_ROWS.length ? new Set() : new Set(LANCAMENTO_ROWS.map((r) => String(r.id)))
     );
   };
 
@@ -312,6 +303,10 @@ export function PaginaTeste() {
               columns={LANCAMENTO_COLUMNS}
               data={lancPag.paginatedData}
               keyExtractor={(r) => r.id}
+              selectable
+              selectedIds={selectedLancIds}
+              onToggleSelect={toggleSelectLanc}
+              onToggleSelectAll={toggleSelectAllLanc}
             />
           ) : (
             <DataGrid
