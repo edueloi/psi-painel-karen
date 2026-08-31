@@ -64,10 +64,51 @@ function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+async function resolveTomadorFromPatient(patientId) {
+  const [[patient]] = await db.query(
+    `SELECT name, cpf, is_payer, payer_name, payer_cpf,
+            address_cep, address_logradouro, address_numero, address_complemento, address_bairro, address_municipio_ibge
+       FROM patients WHERE id = ?`,
+    [patientId]
+  );
+  if (!patient) return null;
+  // Endereço é sempre o do paciente cadastrado, mesmo quando quem paga (payer_*)
+  // é outra pessoa (ex: responsável de menor) -- não há um endereço separado do
+  // pagador hoje, e o grupo é opcional na NFS-e de qualquer forma.
+  const endereco = (patient.address_cep && patient.address_municipio_ibge
+    && patient.address_logradouro && patient.address_numero && patient.address_bairro)
+    ? {
+        cep: patient.address_cep,
+        municipioIbge: patient.address_municipio_ibge,
+        logradouro: patient.address_logradouro,
+        numero: patient.address_numero,
+        complemento: patient.address_complemento,
+        bairro: patient.address_bairro,
+      }
+    : null;
+  if (!patient.is_payer && (patient.payer_name || patient.payer_cpf)) {
+    return { nome: patient.payer_name, cpf: patient.payer_cpf, endereco };
+  }
+  return { nome: patient.name, cpf: patient.cpf, endereco };
+}
+
 // Resolve nome/CPF de quem contratou o serviço a partir do lançamento financeiro,
 // priorizando o pagador avulso (payer_name/payer_cpf) e caindo para o paciente
 // vinculado quando ele mesmo é quem paga (patients.is_payer).
 async function resolveTomador(transaction) {
+  // Lançamentos de pagamento de comanda (source='comanda_payment') têm payer_name/
+  // payer_cpf/beneficiary_name/beneficiary_cpf preenchidos automaticamente com uma
+  // FOTO do cadastro do paciente no momento do pagamento (ver finance.js) -- não são
+  // um pagador avulso digitado manualmente. Se o CPF do paciente for corrigido depois
+  // (Pacientes > editar), essa foto antiga ficava presa na transação e a nota seguia
+  // sendo rejeitada mesmo após a correção, inclusive ao clicar em "Tentar novamente".
+  // Por isso, para esse source, sempre buscamos o cadastro atual do paciente em vez de
+  // confiar na foto congelada -- diferente do lançamento avulso digitado no Livro
+  // Caixa (source='direct'), onde payer_name/payer_cpf são dados legitimamente
+  // independentes do cadastro do paciente.
+  if (transaction.patient_id && transaction.source === 'comanda_payment') {
+    return resolveTomadorFromPatient(transaction.patient_id);
+  }
   if (transaction.payer_name || transaction.payer_cpf) {
     return { nome: transaction.payer_name, cpf: transaction.payer_cpf };
   }
@@ -75,32 +116,7 @@ async function resolveTomador(transaction) {
     return { nome: transaction.beneficiary_name, cpf: transaction.beneficiary_cpf };
   }
   if (transaction.patient_id) {
-    const [[patient]] = await db.query(
-      `SELECT name, cpf, is_payer, payer_name, payer_cpf,
-              address_cep, address_logradouro, address_numero, address_complemento, address_bairro, address_municipio_ibge
-         FROM patients WHERE id = ?`,
-      [transaction.patient_id]
-    );
-    if (patient) {
-      // Endereço é sempre o do paciente cadastrado, mesmo quando quem paga (payer_*)
-      // é outra pessoa (ex: responsável de menor) -- não há um endereço separado do
-      // pagador hoje, e o grupo é opcional na NFS-e de qualquer forma.
-      const endereco = (patient.address_cep && patient.address_municipio_ibge
-        && patient.address_logradouro && patient.address_numero && patient.address_bairro)
-        ? {
-            cep: patient.address_cep,
-            municipioIbge: patient.address_municipio_ibge,
-            logradouro: patient.address_logradouro,
-            numero: patient.address_numero,
-            complemento: patient.address_complemento,
-            bairro: patient.address_bairro,
-          }
-        : null;
-      if (!patient.is_payer && (patient.payer_name || patient.payer_cpf)) {
-        return { nome: patient.payer_name, cpf: patient.payer_cpf, endereco };
-      }
-      return { nome: patient.name, cpf: patient.cpf, endereco };
-    }
+    return resolveTomadorFromPatient(transaction.patient_id);
   }
   return null;
 }
