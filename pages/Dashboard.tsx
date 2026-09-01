@@ -435,48 +435,65 @@ export const Dashboard: React.FC = () => {
     }
   }, [endOfDay, endOfMonth, endOfWeek, upcomingAll, upcomingFilter]);
 
+  // Janela de referência dos painéis "Status/Tipos/Modalidades" e do gráfico de
+  // barras ao lado — os 4 juntos formam uma linha só, então precisam mostrar o
+  // MESMO recorte de tempo (últimos 30 dias), senão não dá pra saber se um
+  // número é do mês, do ano ou da base inteira (era esse o problema antes:
+  // Status/Tipos/Modalidades somavam TODOS os agendamentos desde sempre, sem
+  // nenhuma indicação disso na tela).
+  const thirtyDaysAgo = useMemo(() => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 30);
+    return d;
+  }, [now]);
+
+  const periodLabel = useMemo(() => {
+    const locale = language === 'pt' ? 'pt-BR' : 'en-US';
+    const fmt = (d: Date) => d.toLocaleDateString(locale, { day: '2-digit', month: 'short' });
+    return `${fmt(thirtyDaysAgo)} – ${fmt(now)}`;
+  }, [thirtyDaysAgo, now, language]);
+
+  const recentAppointments = useMemo(
+    () => appointments.filter((a) => a.start >= thirtyDaysAgo && a.start <= now),
+    [appointments, thirtyDaysAgo, now]
+  );
+
   const statusCounts = useMemo(
     () =>
-      appointments.reduce((acc, appointment) => {
+      recentAppointments.reduce((acc, appointment) => {
         const status = appointment.status || 'scheduled';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
-    [appointments]
+    [recentAppointments]
   );
 
   const typeCounts = useMemo(
     () =>
-      appointments.reduce((acc, appointment) => {
+      recentAppointments.reduce((acc, appointment) => {
         const type = appointment.type || 'consulta';
         acc[type] = (acc[type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
-    [appointments]
+    [recentAppointments]
   );
 
   const modalityCounts = useMemo(
     () =>
-      appointments.reduce((acc, appointment) => {
+      recentAppointments.reduce((acc, appointment) => {
         const modality = appointment.modality || 'presencial';
         acc[modality] = (acc[modality] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
-    [appointments]
+    [recentAppointments]
   );
 
   const appointmentsByDayOfWeek = useMemo(() => {
     const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const counts = [0, 0, 0, 0, 0, 0, 0];
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    appointments.forEach((appointment) => {
-      if (
-        appointment.type === 'consulta' &&
-        appointment.start >= thirtyDaysAgo &&
-        appointment.start <= now
-      ) {
+    recentAppointments.forEach((appointment) => {
+      if (appointment.type === 'consulta') {
         counts[appointment.start.getDay()] += 1;
       }
     });
@@ -485,7 +502,7 @@ export const Dashboard: React.FC = () => {
       day,
       atendimentos: counts[index],
     }));
-  }, [appointments, now]);
+  }, [recentAppointments]);
 
   const busiestDay = useMemo(() => {
     const total = appointmentsByDayOfWeek.reduce((sum, d) => sum + d.atendimentos, 0);
@@ -557,7 +574,9 @@ export const Dashboard: React.FC = () => {
     return list.slice(0, 5);
   }, [now, patients, startOfDay]);
 
-  const totalAppointments = appointments.length;
+  // Escopado aos últimos 30 dias (mesma janela de statusCounts/typeCounts/
+  // modalityCounts) — não é mais a base inteira desde sempre.
+  const totalAppointments = recentAppointments.length;
   const totalConsultas =
     (statusCounts.completed || 0) +
     (statusCounts.confirmed || 0) +
@@ -1117,7 +1136,7 @@ export const Dashboard: React.FC = () => {
           <div className="grid gap-4 lg:grid-cols-2">
             <PanelCard
               title="Atendimentos nos últimos 30 dias"
-              description="Distribuição por dia da semana para leitura rápida do fluxo."
+              description={`Distribuição por dia da semana · ${periodLabel}`}
               icon={TrendingUp}
               iconWrapClassName="border-cyan-100 bg-cyan-50"
               iconClassName="text-cyan-600"
@@ -1172,7 +1191,7 @@ export const Dashboard: React.FC = () => {
 
             <PanelCard
               title="Status dos atendimentos"
-              description="Leitura consolidada da operação atual."
+              description={`Leitura consolidada · ${periodLabel}`}
               icon={UserCheck}
               iconWrapClassName="border-emerald-100 bg-emerald-50"
               iconClassName="text-emerald-600"
@@ -1244,7 +1263,7 @@ export const Dashboard: React.FC = () => {
           <div className="grid gap-4 lg:grid-cols-2">
             <PanelCard
               title="Tipos de atendimento"
-              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} na base atual.`}
+              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} · ${periodLabel}`}
               icon={Layers}
               iconWrapClassName="border-indigo-100 bg-indigo-50"
               iconClassName="text-indigo-600"
@@ -1272,7 +1291,7 @@ export const Dashboard: React.FC = () => {
 
             <PanelCard
               title="Modalidades"
-              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} na base atual.`}
+              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} · ${periodLabel}`}
               icon={Video}
               iconWrapClassName="border-emerald-100 bg-emerald-50"
               iconClassName="text-emerald-600"
