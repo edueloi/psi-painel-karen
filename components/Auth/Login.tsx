@@ -47,31 +47,41 @@ const MiniSparkline = () => (
   </svg>
 );
 
-// ── Painel direito — foto real do painel (full-bleed) + cartões flutuantes ──
+// ── Painel direito — foto real do painel full-bleed + cartões flutuantes ────
+// A própria foto já tem um fundo claro à esquerda, então ela cobre o painel
+// inteiro (sem tarja/gradiente por cima) e se funde com o branco do formulário.
 const PlaeloHeroPanel = () => (
-  <div
-    className="hidden lg:block w-[58%] xl:w-[60%] relative flex-shrink-0 overflow-hidden"
-    style={{ background: 'linear-gradient(160deg, #FBFAFF 0%, #F2EEFF 55%, #ECE6FF 100%)' }}
-  >
-    {/* Círculos decorativos suaves na faixa clara à esquerda da foto */}
+  <div className="hidden lg:block w-[52%] xl:w-[57%] 2xl:w-[60%] relative flex-shrink-0 overflow-hidden bg-[#FBFAFF]">
+    {/* Anel decorativo sutil sobre a área clara da foto */}
     <div
-      className="absolute -top-24 -left-20 w-[420px] h-[420px] rounded-full pointer-events-none"
-      style={{ border: '1px solid rgba(109,66,245,0.14)', animation: 'plaeloSpin 60s linear infinite' }}
-    />
-    <div
-      className="absolute -top-10 -left-8 w-[280px] h-[280px] rounded-full pointer-events-none"
-      style={{ border: '1px solid rgba(109,66,245,0.10)' }}
+      className="absolute -top-20 -left-20 w-[380px] h-[380px] rounded-full pointer-events-none"
+      style={{ border: '1px solid rgba(109,66,245,0.14)', animation: 'plaeloSpin 70s linear infinite' }}
     />
 
-    {/* Foto real do painel — cobre a altura inteira do painel, encostada na borda direita */}
-    <div className="absolute inset-y-0 right-0 w-[74%] animate-[fadeIn_0.6s_ease-out]">
-      <img src={capaLogoUrl} alt="Painel Plaelo em uso" className="w-full h-full object-cover object-[75%_center]" />
+    <img
+      src={capaLogoUrl}
+      alt="Painel Plaelo em uso"
+      className="absolute inset-0 w-full h-full object-cover object-[68%_center] animate-[fadeIn_0.6s_ease-out]"
+    />
+
+    {/* Tarja inferior para legibilidade da frase de marca */}
+    <div
+      className="absolute inset-x-0 bottom-0 h-48 pointer-events-none"
+      style={{ background: 'linear-gradient(0deg, rgba(15,10,38,0.62) 0%, rgba(15,10,38,0) 100%)' }}
+    />
+    <div className="absolute left-8 right-8 bottom-8 xl:left-10 xl:right-10 xl:bottom-10">
+      <p className="font-display font-bold text-white leading-snug drop-shadow-sm max-w-md text-[clamp(1.15rem,0.75rem+1.1vw,1.5rem)]">
+        Sua clínica, organizada em um só lugar.
+      </p>
+      <p className="text-white/70 font-medium mt-1.5 tracking-wide text-[clamp(0.75rem,0.65rem+0.25vw,0.8125rem)]">
+        Agenda, prontuários e financeiro — tudo integrado.
+      </p>
     </div>
 
     {/* Cartão: Agenda inteligente */}
     <FloatingCard
-      className="w-[220px]"
-      style={{ left: '7%', top: '9%', animation: 'plaeloFloat 5.5s ease-in-out infinite' }}
+      className="w-[218px]"
+      style={{ left: '6%', top: '8%', animation: 'plaeloFloat 5.5s ease-in-out infinite' }}
     >
       <div className="flex items-center gap-2 mb-2.5">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
@@ -84,8 +94,8 @@ const PlaeloHeroPanel = () => (
 
     {/* Cartão: Financeiro */}
     <FloatingCard
-      className="w-[190px]"
-      style={{ left: '3%', top: '25%', animation: 'plaeloFloat 6.2s ease-in-out infinite', animationDelay: '0.9s' }}
+      className="w-[188px]"
+      style={{ left: '4%', top: '25%', animation: 'plaeloFloat 6.2s ease-in-out infinite', animationDelay: '0.9s' }}
     >
       <div className="flex items-center gap-2 mb-1.5">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(34,197,94,0.12)', color: '#16A34A' }}>
@@ -102,8 +112,8 @@ const PlaeloHeroPanel = () => (
 
     {/* Cartão: Pacientes ativos */}
     <FloatingCard
-      className="w-[188px]"
-      style={{ left: '27%', top: '27%', animation: 'plaeloFloat 5.8s ease-in-out infinite', animationDelay: '1.6s' }}
+      className="w-[186px]"
+      style={{ left: '5%', top: '45%', animation: 'plaeloFloat 5.8s ease-in-out infinite', animationDelay: '1.6s' }}
     >
       <div className="flex items-center gap-2 mb-1.5">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
@@ -237,7 +247,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
   // ── Shared input class ──────────────────────────────────────────────────────
   const inputCls =
-    'w-full pl-11 pr-4 py-3.5 rounded-xl text-sm bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200';
+    'w-full pl-11 pr-4 py-3.5 rounded-xl text-[15px] bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200';
 
   // ── Error banner ────────────────────────────────────────────────────────────
   const ErrorBanner = () =>
@@ -272,17 +282,28 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       `}</style>
 
       {/* ── LEFT PANEL — formulário ───────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto px-[clamp(1.25rem,4vw,5rem)] py-[clamp(1rem,3vh,2rem)] relative z-10">
-        <div className="w-full max-w-[min(420px,100%)]">
+      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto overflow-x-hidden px-[clamp(1.5rem,5vw,5rem)] py-[clamp(1.5rem,4vh,2.5rem)] relative z-10 lg:min-w-[420px]">
+        {/* Manchas decorativas sutis — dão vida ao painel quando a foto some (tablet/mobile) */}
+        <div
+          className="absolute -top-24 -right-24 w-[340px] h-[340px] rounded-full pointer-events-none blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(109,66,245,0.10), transparent 70%)' }}
+        />
+        <div
+          className="absolute -bottom-28 -left-20 w-[300px] h-[300px] rounded-full pointer-events-none blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(109,66,245,0.07), transparent 70%)' }}
+        />
+
+        <div className="w-full max-w-[min(430px,100%)] relative">
+
 
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-5 lg:mb-6 animate-[fadeIn_0.4s_ease-out]">
+          <div className="flex items-center gap-3 mb-8 lg:mb-10 animate-[fadeIn_0.4s_ease-out]">
             <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-indigo-100 shadow-lg bg-white p-2">
               <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className="font-black text-[22px] leading-none tracking-tight" style={{ color: '#1e295b' }}>Plaelo</h1>
-              <p className="text-[11px] font-medium mt-0.5 text-slate-400">Conectando cuidado e gestão.</p>
+              <h1 className="font-black text-[clamp(1.25rem,1rem+0.7vw,1.5rem)] leading-none tracking-tight" style={{ color: '#1e295b' }}>Plaelo</h1>
+              <p className="text-[12px] font-medium mt-1 text-slate-400">Conectando cuidado e gestão.</p>
             </div>
           </div>
 
@@ -421,23 +442,20 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           /* ── MAIN LOGIN ── */
           ) : (
             <>
-              <div className="mb-5 lg:mb-6 animate-[fadeIn_0.4s_ease-out]">
-                <h2 className="text-[clamp(1.375rem,1rem+1.4vw,1.75rem)] font-bold text-slate-900 tracking-tight mb-1.5">
-                  Bem-vinda de volta
-                </h2>
-                <p className="text-slate-400 text-sm">
+              <div className="mb-7 lg:mb-8 animate-[fadeIn_0.4s_ease-out]">
+                <p className="text-slate-500 font-medium text-[clamp(0.9375rem,0.85rem+0.3vw,1.0625rem)] leading-relaxed">
                   Entre com suas credenciais para acessar o painel.
                 </p>
               </div>
 
               <ErrorBanner />
 
-              <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Email */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">E-mail</label>
                   <div className="relative">
-                    <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       required
@@ -456,13 +474,13 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                     <button
                       type="button"
                       onClick={() => setForgot(true)}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition hover:underline"
+                      className="text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 transition hover:underline"
                     >
                       Esqueci minha senha
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type={showPass ? 'text' : 'password'}
                       required
@@ -476,7 +494,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                       onClick={() => setShowPass(!showPass)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
                     >
-                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
@@ -501,27 +519,27 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                       </svg>
                     )}
                   </div>
-                  <span className="text-sm text-slate-600">Lembrar-me neste dispositivo</span>
+                  <span className="text-[14px] text-slate-600">Lembrar-me neste dispositivo</span>
                 </label>
 
                 {/* Submit */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 active:scale-[0.99] mt-1"
+                  className="w-full py-3.5 rounded-xl font-bold text-[15px] text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 active:scale-[0.99] mt-1"
                   style={{
                     background: 'linear-gradient(135deg, #120C2E 0%, #6D42F5 100%)',
                     boxShadow: '0 8px 28px rgba(109,66,245,0.40)',
                   }}
                 >
                   {loading
-                    ? <><Loader2 size={15} className="animate-spin" /> Entrando...</>
-                    : <>Entrar <ArrowRight size={15} /></>}
+                    ? <><Loader2 size={16} className="animate-spin" /> Entrando...</>
+                    : <>Entrar <ArrowRight size={16} /></>}
                 </button>
               </form>
 
               {/* Sign-up CTA */}
-              <div className="mt-5 lg:mt-6 text-center">
+              <div className="mt-6 lg:mt-7 text-center">
                 <span
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full mb-3"
                   style={{
@@ -533,7 +551,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                   <span style={{ fontSize: '10px' }}>✦</span>
                   7 dias grátis para testar
                 </span>
-                <p className="text-sm text-slate-400">
+                <p className="text-[14px] text-slate-400">
                   Ainda não tem conta?{' '}
                   <button
                     type="button"
@@ -546,7 +564,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
               </div>
 
               {/* Security footer */}
-              <div className="mt-4 pt-4 lg:mt-5 lg:pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
+              <div className="mt-5 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
                 <ShieldCheck size={12} className="text-slate-300" />
                 <p className="text-[11px] text-slate-400 tracking-wide">
                   Conexão segura · Dados criptografados · LGPD
