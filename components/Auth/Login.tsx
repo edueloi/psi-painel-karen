@@ -132,6 +132,20 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  // Trava o scroll do documento inteiro enquanto o login está montado — h-screen
+  // sozinho não é suficiente em todo navegador (arredondamento de vh com zoom/DPI
+  // do SO às vezes sobra 1px e cria uma barra de rolagem fantasma na página).
+  React.useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
+  }, []);
+
   const [email, setEmail]             = useState(() => localStorage.getItem('psi_remembered_email') || '');
   const [password, setPassword]       = useState('');
   const [remember, setRemember]       = useState(() => !!localStorage.getItem('psi_remembered_email'));
