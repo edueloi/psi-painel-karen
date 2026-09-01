@@ -74,6 +74,8 @@ import {
   Bar,
   BarChart,
   Cell,
+  Label,
+  LabelList,
   Legend,
   Pie,
   PieChart,
@@ -485,6 +487,13 @@ export const Dashboard: React.FC = () => {
     }));
   }, [appointments, now]);
 
+  const busiestDay = useMemo(() => {
+    const total = appointmentsByDayOfWeek.reduce((sum, d) => sum + d.atendimentos, 0);
+    if (total === 0) return null;
+    const top = appointmentsByDayOfWeek.reduce((max, d) => (d.atendimentos > max.atendimentos ? d : max));
+    return { ...top, total };
+  }, [appointmentsByDayOfWeek]);
+
   const statusPieData = useMemo(() => {
     const map: Record<string, { label: string; color: string }> = {
       completed: { label: 'Finalizado', color: '#4f8d67' },
@@ -511,6 +520,11 @@ export const Dashboard: React.FC = () => {
         };
       });
   }, [statusCounts]);
+
+  const statusPieTotal = useMemo(
+    () => statusPieData.reduce((sum, entry) => sum + entry.value, 0),
+    [statusPieData]
+  );
 
   const birthdays = useMemo(() => {
     const list = patients
@@ -1109,33 +1123,50 @@ export const Dashboard: React.FC = () => {
               iconClassName="text-cyan-600"
             >
               {isLoading ? (
-                <div className="flex h-[220px] items-center justify-center">
+                <div className="flex h-[220px] items-center justify-center sm:h-[240px]">
                   <Loader2 className="animate-spin text-zinc-300" />
                 </div>
               ) : (
-                <div className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={appointmentsByDayOfWeek} barSize={24}>
-                      <XAxis
-                        dataKey="day"
-                        tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis hide allowDecimals={false} />
-                      <Tooltip
-                        contentStyle={{
-                          fontSize: 11,
-                          borderRadius: 14,
-                          border: '1px solid #e4e4e7',
-                          boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
-                        }}
-                        formatter={(value: number) => [value, 'Atendimentos']}
-                      />
-                      <Bar dataKey="atendimentos" fill="#2a74ac" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <>
+                  <div className="h-[220px] sm:h-[240px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={appointmentsByDayOfWeek} barSize={24} margin={{ top: 20 }}>
+                        <XAxis
+                          dataKey="day"
+                          tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis hide allowDecimals={false} />
+                        <Tooltip
+                          cursor={{ fill: '#f1f5f9' }}
+                          contentStyle={{
+                            fontSize: 11,
+                            borderRadius: 14,
+                            border: '1px solid #e4e4e7',
+                            boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
+                          }}
+                          formatter={(value: number) => [value, 'Atendimentos']}
+                        />
+                        <Bar dataKey="atendimentos" fill="#2a74ac" radius={[8, 8, 0, 0]}>
+                          <LabelList
+                            dataKey="atendimentos"
+                            position="top"
+                            formatter={(value: number) => (value > 0 ? value : '')}
+                            style={{ fontSize: 11, fontWeight: 800, fill: '#334155' }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {busiestDay && (
+                    <p className="mt-2 border-t border-zinc-100 pt-2.5 text-xs text-zinc-500">
+                      Dia mais movimentado: <span className="font-bold text-zinc-800">{busiestDay.day}</span>
+                      {' '}com <span className="font-bold text-zinc-800">{busiestDay.atendimentos}</span> atendimento{busiestDay.atendimentos === 1 ? '' : 's'}
+                      {' '}· <span className="font-bold text-zinc-800">{busiestDay.total}</span> no período
+                    </p>
+                  )}
+                </>
               )}
             </PanelCard>
 
@@ -1158,7 +1189,7 @@ export const Dashboard: React.FC = () => {
                   className="h-[220px]"
                 />
               ) : (
-                <div className="h-[220px]">
+                <div className="h-[220px] sm:h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -1173,6 +1204,22 @@ export const Dashboard: React.FC = () => {
                         {statusPieData.map((entry, index) => (
                           <Cell key={`${entry.name}-${index}`} fill={entry.color} />
                         ))}
+                        <Label
+                          position="center"
+                          content={({ viewBox }: any) => {
+                            const { cx: lx, cy: ly } = viewBox;
+                            return (
+                              <g>
+                                <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 22, fontWeight: 900, fill: '#18181b' }}>
+                                  {statusPieTotal}
+                                </text>
+                                <text x={lx} y={ly + 13} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
+                                  TOTAL
+                                </text>
+                              </g>
+                            );
+                          }}
+                        />
                       </Pie>
                       <Tooltip
                         contentStyle={{
@@ -1181,7 +1228,10 @@ export const Dashboard: React.FC = () => {
                           border: '1px solid #e4e4e7',
                           boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
                         }}
-                        formatter={(value: number, name: string) => [value, name]}
+                        formatter={(value: number, name: string) => [
+                          `${value} (${statusPieTotal > 0 ? Math.round((value / statusPieTotal) * 100) : 0}%)`,
+                          name,
+                        ]}
                       />
                       <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
                     </PieChart>
@@ -1204,7 +1254,10 @@ export const Dashboard: React.FC = () => {
                   <div key={type} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-3 text-xs font-bold text-zinc-600">
                       <span className="uppercase">{type}</span>
-                      <span>{typeCounts[type] || 0}</span>
+                      <span className="tabular-nums">
+                        {typeCounts[type] || 0}
+                        <span className="ml-1.5 font-medium text-zinc-400">({ratio(typeCounts[type] || 0, totalAppointments)}%)</span>
+                      </span>
                     </div>
                     <div className="h-2 rounded-full bg-zinc-100">
                       <div
@@ -1229,7 +1282,10 @@ export const Dashboard: React.FC = () => {
                   <div key={modality} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-3 text-xs font-bold text-zinc-600">
                       <span className="uppercase">{modality}</span>
-                      <span>{modalityCounts[modality] || 0}</span>
+                      <span className="tabular-nums">
+                        {modalityCounts[modality] || 0}
+                        <span className="ml-1.5 font-medium text-zinc-400">({ratio(modalityCounts[modality] || 0, totalAppointments)}%)</span>
+                      </span>
                     </div>
                     <div className="h-2 rounded-full bg-zinc-100">
                       <div
