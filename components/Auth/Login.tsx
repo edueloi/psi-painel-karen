@@ -245,7 +245,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     ) : null;
 
   return (
-    <div className="min-h-screen w-full flex font-sans overflow-hidden">
+    <div className="h-screen w-full flex font-sans overflow-hidden">
       <style>{`
         @keyframes plaeloFloat {
           0%, 100% { transform: translateY(0); }
