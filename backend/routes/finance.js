@@ -1731,8 +1731,17 @@ router.put('/comandas/:id', authMiddleware, async (req, res) => {
             ]
         );
 
+        // Recalcula paid_value/status a partir dos pagamentos reais (comanda_payments +
+        // financial_transactions) -- NUNCA confia no paid_value que o formulário de edição
+        // mandou no corpo da requisição. Esse UPDATE acima grava pValue como valor
+        // provisório, mas é sobrescrito aqui: se o form de edição salvar sem o campo
+        // paidValue devidamente carregado (ex: abriu o modal de editar e ele veio 0/vazio),
+        // qualquer edição -- até só corrigir a descrição -- zerava o "Recebido" da comanda
+        // mesmo com o pagamento intacto em comanda_payments (a aba Pagamentos continuava
+        // certa, só o resumo no topo do modal ficava errado).
+        const { totalPaid: currentPaid } = await recalcComandaPaidValue(db, req.user.tenant_id, req.params.id);
+
         // Gerenciar lançamento no livro caixa
-        const currentPaid = parseFloat(paid_value || 0);
         if (newSync && !currentLcTxId) {
             // Ativar sync: criar lançamento pendente para o saldo e realizados para os pagamentos
             const txDate = lcDatePut;
