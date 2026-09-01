@@ -272,8 +272,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       `}</style>
 
       {/* ── LEFT PANEL — formulário ───────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto px-6 py-6 sm:px-10 sm:py-8 lg:px-14 lg:py-6 xl:px-20 relative z-10">
-        <div className="w-full max-w-[420px]">
+      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto px-[clamp(1.25rem,4vw,5rem)] py-[clamp(1rem,3vh,2rem)] relative z-10">
+        <div className="w-full max-w-[min(420px,100%)]">
 
           {/* Logo */}
           <div className="flex items-center gap-3 mb-5 lg:mb-6 animate-[fadeIn_0.4s_ease-out]">
@@ -422,7 +422,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           ) : (
             <>
               <div className="mb-5 lg:mb-6 animate-[fadeIn_0.4s_ease-out]">
-                <h2 className="text-2xl lg:text-[28px] font-bold text-slate-900 tracking-tight mb-1.5">
+                <h2 className="text-[clamp(1.375rem,1rem+1.4vw,1.75rem)] font-bold text-slate-900 tracking-tight mb-1.5">
                   Bem-vinda de volta
                 </h2>
                 <p className="text-slate-400 text-sm">
