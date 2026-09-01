@@ -50,7 +50,7 @@ const MiniSparkline = () => (
 // ── Painel direito — foto real do painel (full-bleed) + cartões flutuantes ──
 const PlaeloHeroPanel = () => (
   <div
-    className="hidden lg:block w-[46%] xl:w-[48%] relative flex-shrink-0 overflow-hidden"
+    className="hidden lg:block w-[58%] xl:w-[60%] relative flex-shrink-0 overflow-hidden"
     style={{ background: 'linear-gradient(160deg, #FBFAFF 0%, #F2EEFF 55%, #ECE6FF 100%)' }}
   >
     {/* Círculos decorativos suaves na faixa clara à esquerda da foto */}
@@ -258,12 +258,12 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       `}</style>
 
       {/* ── LEFT PANEL — formulário ───────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto px-6 py-10 sm:px-10 lg:px-16 xl:px-24 relative z-10">
+      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto px-6 py-6 sm:px-10 sm:py-8 lg:px-14 lg:py-6 xl:px-20 relative z-10">
         <div className="w-full max-w-[420px]">
 
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-9 animate-[fadeIn_0.4s_ease-out]">
-            <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-indigo-100 shadow-lg bg-white p-2">
+          <div className="flex items-center gap-3 mb-5 lg:mb-6 animate-[fadeIn_0.4s_ease-out]">
+            <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-indigo-100 shadow-lg bg-white p-2">
               <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div>
@@ -407,8 +407,8 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           /* ── MAIN LOGIN ── */
           ) : (
             <>
-              <div className="mb-8 animate-[fadeIn_0.4s_ease-out]">
-                <h2 className="text-[28px] font-bold text-slate-900 tracking-tight mb-1.5">
+              <div className="mb-5 lg:mb-6 animate-[fadeIn_0.4s_ease-out]">
+                <h2 className="text-2xl lg:text-[28px] font-bold text-slate-900 tracking-tight mb-1.5">
                   Bem-vinda de volta
                 </h2>
                 <p className="text-slate-400 text-sm">
@@ -418,7 +418,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
               <ErrorBanner />
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-5">
                 {/* Email */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">E-mail</label>
@@ -507,7 +507,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
               </form>
 
               {/* Sign-up CTA */}
-              <div className="mt-7 text-center">
+              <div className="mt-5 lg:mt-6 text-center">
                 <span
                   className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full mb-3"
                   style={{
@@ -532,7 +532,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
               </div>
 
               {/* Security footer */}
-              <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
+              <div className="mt-4 pt-4 lg:mt-5 lg:pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
                 <ShieldCheck size={12} className="text-slate-300" />
                 <p className="text-[11px] text-slate-400 tracking-wide">
                   Conexão segura · Dados criptografados · LGPD
