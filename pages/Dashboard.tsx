@@ -491,16 +491,25 @@ export const Dashboard: React.FC = () => {
       confirmed: { label: 'Confirmado', color: '#2a74ac' },
       scheduled: { label: 'Agendado', color: '#d9a21b' },
       cancelled: { label: 'Cancelado', color: '#aa403d' },
-      'no-show': { label: 'Falta', color: '#94a3b8' },
+      'no-show': { label: 'Faltou', color: '#94a3b8' },
+      rescheduled: { label: 'Reagendado', color: '#8b5cf6' },
+      falta_justificada: { label: 'Falta Justificada', color: '#f97316' },
     };
+    // O backend grava a falta como "no_show" (underscore) — normaliza pro
+    // mesmo hífen usado no resto do app (Agenda.tsx) antes de procurar no mapa,
+    // senão cai no fallback e mostra a chave crua em inglês na legenda.
+    const normalizeKey = (key: string) => key.replace(/_/g, '-');
 
     return Object.entries(statusCounts)
       .filter(([, value]) => value > 0)
-      .map(([key, value]) => ({
-        name: map[key]?.label || key,
-        value,
-        color: map[key]?.color || '#94a3b8',
-      }));
+      .map(([key, value]) => {
+        const entry = map[key] || map[normalizeKey(key)];
+        return {
+          name: entry?.label || key,
+          value,
+          color: entry?.color || '#94a3b8',
+        };
+      });
   }, [statusCounts]);
 
   const birthdays = useMemo(() => {
