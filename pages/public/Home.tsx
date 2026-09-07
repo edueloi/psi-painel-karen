@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   ArrowRight, CheckCircle, HeartHandshake, Shield, ChevronRight,
-  Calendar, Sparkles, TrendingUp,
+  Calendar, Sparkles, TrendingUp, ShieldCheck, Clock3, FileCheck2, UsersRound,
 } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { features, PROFESSIONAL_CATEGORIES } from './publicSiteData';
@@ -92,12 +92,33 @@ export const Home: React.FC = () => {
                 <div style={{ width: 26, height: 26, borderRadius: 8, background: '#E4F8EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0D9155' }}>
                   <Sparkles size={13} />
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>Aurora IA</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>Bia IA</span>
               </div>
               <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }}>
                 "Resumo da última sessão pronto para revisão."
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', padding: '0 0 clamp(56px,7vw,88px)' }}>
+        <div className="wrap">
+          <div className="site-proof">
+            {[
+              { icon: Clock3, value: '24/7', label: 'Acesso seguro em qualquer lugar' },
+              { icon: ShieldCheck, value: 'LGPD', label: 'Proteção para dados sensíveis' },
+              { icon: FileCheck2, value: 'Tudo integrado', label: 'Da agenda ao financeiro' },
+              { icon: UsersRound, value: 'Para sua equipe', label: 'Profissionais e clínicas' },
+            ].map(({ icon: Icon, value, label }) => (
+              <div className="site-proof-item" key={value}>
+                <span className="site-proof-icon"><Icon size={16} /></span>
+                <div>
+                  <div className="site-proof-value">{value}</div>
+                  <div className="site-proof-label">{label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -180,6 +201,35 @@ export const Home: React.FC = () => {
             <Link to="/funcionalidades" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
               Ver todas as funcionalidades <ChevronRight size={17} />
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" style={{ background: 'var(--surface)' }}>
+        <div className="wrap">
+          <div style={{ maxWidth: 600, marginBottom: 38 }}>
+            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Uma rotina mais leve</span>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
+              Da primeira consulta ao acompanhamento financeiro, tudo conversa entre si.
+            </h2>
+            <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)' }}>
+              Menos alternância entre ferramentas e mais tempo para decisões que realmente fazem diferença no cuidado.
+            </p>
+          </div>
+          <div className="journey-grid">
+            {[
+              { icon: Calendar, title: 'Organize sua agenda', desc: 'Centralize horários, modalidades de atendimento, lembretes e a disponibilidade de toda a equipe.' },
+              { icon: HeartHandshake, title: 'Cuide com contexto', desc: 'Acesse prontuários, formulários, planos terapêuticos e documentos no mesmo fluxo de trabalho.' },
+              { icon: TrendingUp, title: 'Acompanhe sua evolução', desc: 'Visualize indicadores clínicos e financeiros para conduzir sua prática com mais clareza.' },
+            ].map(({ icon: Icon, title, desc }) => (
+              <article className="journey-card" key={title}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', background: 'var(--accent-soft)', marginBottom: 18 }}>
+                  <Icon size={19} />
+                </div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 9 }}>{title}</h3>
+                <p>{desc}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>

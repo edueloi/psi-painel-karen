@@ -8,7 +8,7 @@ import logoUrl from '../../images/logo-sistema/logo.png';
 import { useSEO } from '../../hooks/useSEO';
 
 const STATS = [
-  { value: '8', label: 'módulos integrados' },
+  { value: '9', label: 'módulos integrados' },
   { value: '100%', label: 'em nuvem' },
   { value: '24/7', label: 'acesso de onde estiver' },
 ];
@@ -72,10 +72,10 @@ export const Funcionalidades: React.FC = () => {
                   <Sparkles size={13} /> Inteligência artificial
                 </span>
                 <h2 style={{ fontSize: 'clamp(24px,3.5vw,38px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 18 }}>
-                  Conheça a Aurora,<br />sua assistente IA
+                  Conheça a Bia,<br />sua assistente IA
                 </h2>
                 <p style={{ fontSize: 16, lineHeight: 1.75, color: 'var(--muted)', marginBottom: 12 }}>
-                  A Aurora organiza histórico clínico, automatiza relatórios e sistematiza dados clínicos — sempre como apoio ao profissional, nunca substituindo seu julgamento.
+                  A Bia organiza histórico clínico, automatiza relatórios e sistematiza dados clínicos — sempre como apoio ao profissional, nunca substituindo seu julgamento.
                 </p>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#fff', border: '1px solid #C7EDE7', borderRadius: 12, padding: '12px 16px', marginBottom: 28 }}>
                   <Lock size={15} style={{ color: 'var(--accent2)', flexShrink: 0, marginTop: 2 }} />
@@ -86,7 +86,7 @@ export const Funcionalidades: React.FC = () => {
                 <button onClick={go} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--accent2)', color: '#fff', fontWeight: 700, fontSize: 15, padding: '13px 26px', borderRadius: 13, border: 'none', cursor: 'pointer', transition: 'opacity .15s', boxShadow: '0 4px 16px rgba(14,169,139,.3)' }}
                   onMouseEnter={e => (e.currentTarget.style.opacity = '.88')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                  Conhecer a Aurora <ChevronRight size={17} />
+                  Conhecer a Bia <ChevronRight size={17} />
                 </button>
               </div>
 
@@ -96,7 +96,7 @@ export const Funcionalidades: React.FC = () => {
                     <Sparkles size={16} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>Aurora IA</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>Bia IA</div>
                     <div style={{ fontSize: 12, color: 'var(--accent2)', display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent2)', display: 'inline-block' }} />
                       Online agora

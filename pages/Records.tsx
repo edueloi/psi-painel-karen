@@ -974,7 +974,7 @@ const LinkedToolsSection: React.FC<{
       // Avaliação DISC
       const s = item.data?.scores || {};
       content += `Perfil DISC: D(${s.D || 0}), I(${s.I || 0}), S(${s.S || 0}), C(${s.C || 0})\n`;
-      if (item.auroraAnalysis) content += `Análise Aurora IA já disponível.\n`;
+      if (item.auroraAnalysis) content += `Análise Bia IA já disponível.\n`;
     } else if (item.data) {
        if (item.type === 'dass-21') {
          if (Array.isArray(item.data)) {
@@ -1059,7 +1059,7 @@ const LinkedToolsSection: React.FC<{
           contextStr += `  Estabilidade (S): ${s.S || 0}\n`;
           contextStr += `  Conformidade (C): ${s.C || 0}\n`;
           if (t.auroraAnalysis) {
-            contextStr += `  Análise Aurora IA anterior: ${String(t.auroraAnalysis).substring(0, 2000)}\n`;
+            contextStr += `  Análise Bia IA anterior: ${String(t.auroraAnalysis).substring(0, 2000)}\n`;
           }
 
         } else {
@@ -1098,8 +1098,8 @@ const LinkedToolsSection: React.FC<{
       }
 
       onSelectSource({ 
-        name: 'Síntese Clínica Aurora IA', 
-        summary: `\n## SÍNTESE CLÍNICA INTEGRADA (IA)\n**Abordagem:** ${approach}\n\n${content}\n\n[Nota: Esta análise foi gerada automaticamente pela Aurora IA integrando ${selectedIds.length} fontes de dados. Revise antes de aprovar.]`
+        name: 'Síntese Clínica Bia IA',
+        summary: `\n## SÍNTESE CLÍNICA INTEGRADA (IA)\n**Abordagem:** ${approach}\n\n${content}\n\n[Nota: Esta análise foi gerada automaticamente pela Bia IA integrando ${selectedIds.length} fontes de dados. Revise antes de aprovar.]`
       });
       
       pushToast('success', 'Síntese gerada com sucesso!');
@@ -1250,7 +1250,7 @@ const LinkedToolsSection: React.FC<{
         <div className="flex items-start gap-3">
           <Sparkles size={16} className="text-indigo-500 shrink-0 mt-0.5" />
           <p className="text-[10px] text-indigo-700 font-medium leading-relaxed">
-            <strong>Assistente Aurora:</strong> {selectedIds.length > 0 ? `Você selecionou ${selectedIds.length} fontes para análise.` : 'Selecione fontes para gerar uma síntese clínica.'}
+            <strong>Assistente Bia:</strong> {selectedIds.length > 0 ? `Você selecionou ${selectedIds.length} fontes para análise.` : 'Selecione fontes para gerar uma síntese clínica.'}
           </p>
         </div>
         
@@ -1274,7 +1274,7 @@ const LinkedToolsSection: React.FC<{
                  <Brain size={24} className="text-indigo-600 shrink-0" />
                  <div>
                     <h4 className="font-black text-indigo-900 text-xs uppercase tracking-widest mb-1">Análise Multidimensional</h4>
-                    <p className="text-[11px] text-indigo-700 font-medium">Aurora irá cruzar os dados das {selectedIds.length} fontes selecionadas para criar uma síntese clínica estruturada.</p>
+                    <p className="text-[11px] text-indigo-700 font-medium">Bia irá cruzar os dados das {selectedIds.length} fontes selecionadas para criar uma síntese clínica estruturada.</p>
                  </div>
               </div>
 
@@ -1502,7 +1502,7 @@ const RecordEditor: React.FC<{
       setOrganized(resp.organized);
       setReviewPoints(resp.review_points || resp.organized?.pontos_revisao || []);
       setStep('ai_result');
-      pushToast('success', 'Evolução organizada pela Aurora IA!');
+      pushToast('success', 'Evolução organizada pela Bia IA!');
     } catch (e: any) {
       pushToast('error', e?.response?.data?.error || 'Erro ao organizar com IA');
     } finally { setAiLoading(false); }
@@ -2426,7 +2426,7 @@ const AnamnesisResponseModal: React.FC<{
             <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <Brain size={16} className="text-indigo-600" />
-                <p className="font-black text-indigo-700 text-xs uppercase tracking-widest">Análise Clínica — Aurora IA</p>
+                <p className="font-black text-indigo-700 text-xs uppercase tracking-widest">Análise Clínica — Bia IA</p>
               </div>
               {tccDraft && (
                 <div className="space-y-2">
@@ -2456,7 +2456,7 @@ const AnamnesisResponseModal: React.FC<{
               className="w-full h-12 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-600 text-xs font-black uppercase tracking-widest hover:bg-indigo-50 transition flex items-center justify-center gap-2"
             >
               {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
-              {aiLoading ? 'Gerando análise IA...' : 'Gerar Análise com Aurora IA'}
+              {aiLoading ? 'Gerando análise IA...' : 'Gerar Análise com Bia IA'}
             </button>
           ) : null}
 

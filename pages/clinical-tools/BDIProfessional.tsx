@@ -631,7 +631,7 @@ export const BDIPage: React.FC = () => {
       });
       setHistory(updatedHistory);
       if (detailResult?.id === resultId) setDetailResult({ ...detailResult, analysis });
-      success('Aurora Analisou', 'Interpretação clínica gerada.');
+      success('Bia Analisou', 'Interpretação clínica gerada.');
     } catch (err) {
       error('Erro', 'Falha na análise.');
     } finally {
@@ -865,7 +865,7 @@ export const BDIPage: React.FC = () => {
                               <div className="flex items-center gap-2 shrink-0">
                                  <button
                                    onClick={() => generateAIResult(res.id)}
-                                   title="Análise Aurora"
+                                   title="Análise Bia"
                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${res.analysis ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300 hover:text-rose-500'}`}
                                  >
                                     <Sparkles size={13} className={analyzingId === res.id ? 'animate-spin' : ''} />
@@ -989,7 +989,7 @@ export const BDIPage: React.FC = () => {
                 {detailResult.analysis && (
                   <div className="bg-rose-600 rounded-xl p-5 text-white shadow-lg shadow-rose-100">
                      <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-3">
-                        <Sparkles size={14} className="text-amber-400" /> Análise Aurora (IA)
+                        <Sparkles size={14} className="text-amber-400" /> Análise Bia (IA)
                      </h3>
                      <div className="text-sm text-rose-100 space-y-0">
                         {renderMarkdown(detailResult.analysis!)}
@@ -1001,7 +1001,7 @@ export const BDIPage: React.FC = () => {
                   <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
                      <Sparkles size={32} className="text-slate-300 shrink-0" />
                      <div className="flex-1">
-                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Aurora — IA Clínica</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Bia — IA Clínica</p>
                         <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este resultado.</p>
                      </div>
                      <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-rose-600 text-white rounded-2xl px-6 py-3 shrink-0">Analisar</Button>

@@ -383,7 +383,7 @@ export const Approaches: React.FC = () => {
                                 <Link to={app.path} className="flex items-center justify-center gap-3 w-full py-5 bg-indigo-600 shadow-lg shadow-indigo-600/20 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-950 transition-all hover:scale-[1.02]">
                                     Configurar Clínica <ArrowRight size={16} />
                                 </Link>
-                                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Ajusta o motor Aurora AI automaticamente</p>
+                                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Ajusta o motor Bia AI automaticamente</p>
                              </div>
                         </div>
 
@@ -451,17 +451,17 @@ export const Approaches: React.FC = () => {
                  </div>
                  <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter leading-none uppercase">Neuro-Epistemologia<br /><span className="text-indigo-500">Aumentada por IA.</span></h2>
                  <p className="text-slate-400 text-sm sm:text-base md:text-xl font-medium leading-relaxed md:leading-[1.8] max-w-2xl mx-auto lg:mx-0">
-                    A Aurora não apenas escreve resumos, ela **pensa** como você. Sua abordagem clínica é o filtro intelectual que define como o sistema analisa padrões de fala, sonhos e distorções cognitivas.
+                    A Bia não apenas escreve resumos, ela **pensa** como você. Sua abordagem clínica é o filtro intelectual que define como o sistema analisa padrões de fala, sonhos e distorções cognitivas.
                  </p>
                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 justify-center lg:justify-start">
                     <Link 
                         to="/configuracoes"
                         className="px-8 py-4 sm:px-14 sm:py-8 bg-indigo-600 text-white rounded-2xl sm:rounded-[40px] font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-indigo-600/20 hover:bg-white hover:text-indigo-900 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-4 group"
                     >
-                        Configurar Aurora <Sparkles size={20} className="group-hover:rotate-12 transition-transform" />
+                        Configurar Bia <Sparkles size={20} className="group-hover:rotate-12 transition-transform" />
                     </Link>
                     <button 
-                        onClick={() => success('Base Teórica Sincronizada', 'A Aurora IA agora opera sob o paradigma clínico selecionado.')}
+                        onClick={() => success('Base Teórica Sincronizada', 'A Bia IA agora opera sob o paradigma clínico selecionado.')}
                         className="px-8 py-4 sm:px-14 sm:py-8 bg-slate-900 text-indigo-400 rounded-2xl sm:rounded-[40px] font-black uppercase tracking-[0.2em] text-xs hover:bg-slate-800 transition-all border border-slate-800 hover:border-indigo-500/50"
                     >
                         Calibrar Motor Clínico

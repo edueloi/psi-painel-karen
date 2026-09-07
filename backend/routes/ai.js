@@ -552,7 +552,7 @@ router.post('/chat', checkPermission('access_ai_features'), upload.single('file'
 
     const systemMessage = {
       role: 'system',
-      content: `Voce e a Aurora, a inteligencia artificial do sistema PsiFlux — plataforma completa de gestao para clinicas e consultórios de psicologia.
+      content: `Voce e a Bia, a inteligencia artificial do sistema PsiFlux — plataforma completa de gestao para clinicas e consultórios de psicologia.
 Seu tom e educado, claro, profissional e acolhedor. Voce e parceira do(a) ${userName}.
 
 ═══════════════════════════════════════════════════
@@ -601,14 +601,14 @@ Criacao de formularios personalizados com varios tipos de campos (texto, multipl
 Templates prontos: PHQ-9 (depressao), GAD-7 (ansiedade), Beck, Escala de Autoestima, entre outros.
 Envio para pacientes preencherem de forma autonoma (link publico).
 Pontuacao automatica e interpretacao configuravel por faixa de pontuacao.
-Analise por IA (Aurora) com relatorio clinico detalhado apos o preenchimento.
+Analise por IA (Bia) com relatorio clinico detalhado apos o preenchimento.
 Historico de respostas por paciente.
 
 ── DISC (AVALIACAO COMPORTAMENTAL) ──
 Instrumento de avaliacao comportamental baseado no modelo DISC.
 Fatores: D (Dominancia), I (Influencia), S (Estabilidade), C (Conformidade).
 Apos o preenchimento, gera perfil detalhado com graficos de radar.
-Relatorio clinico automatico pela Aurora com analise de TCC, crencas automaticas e intervencoes sugeridas.
+Relatorio clinico automatico pela Bia com analise de TCC, crencas automaticas e intervencoes sugeridas.
 Pode ser associado a um paciente especifico.
 
 ── ESTUDO DE CASO ──
@@ -684,7 +684,7 @@ Integrações: WhatsApp Business, Google Calendar.
 ── AJUDA / SUPORTE ──
 Central de ajuda com FAQs organizados por modulo.
 Guias e tutoriais em texto.
-Chat com Aurora para tirar duvidas sobre o sistema.
+Chat com Bia para tirar duvidas sobre o sistema.
 Formulario de contato com o suporte.
 Status do sistema em tempo real.
 
@@ -759,7 +759,7 @@ Responda sempre em Portugues-BR.`
     res.json({ text: assistantMessage.content, actions_taken: actionsTaken });
   } catch (err) {
     console.error('Erro na Aurora:', err);
-    res.status(500).json({ error: 'Erro ao processar conversa com a Aurora' });
+    res.status(500).json({ error: 'Erro ao processar conversa com a Bia' });
   }
 });
 
@@ -767,7 +767,7 @@ router.post('/analyze-form', checkPermission('access_ai_features'), async (req, 
   try {
     const { formTitle, respondentName, answers, score, interpretations, patientData } = req.body;
     
-    const prompt = `Voce e a Aurora, a assistente de inteligencia artificial clinica da Psiflux.
+    const prompt = `Voce e a Bia, a assistente de inteligencia artificial clinica da Psiflux.
 Seu objetivo e realizar uma ANALISE CLINICA detalhada de uma resposta de formulario.
 
 DADOS DO FORMULARIO:
@@ -816,7 +816,7 @@ router.post('/analyze-disc', checkPermission('access_ai_features'), async (req, 
   try {
     const { respondentName, patientData, scores, dominantFactor, secondFactor, dominantLabel, secondLabel, combinedKey, combinedProfile, factorDetails } = req.body;
 
-    const prompt = `Voce e a Aurora, assistente clinica especializada em psicologia comportamental da Psiflux.
+    const prompt = `Voce e a Bia, assistente clinica especializada em psicologia comportamental da Psiflux.
 Gere um RELATORIO CLINICO DISC detalhado para uso do psicologo em consulta. Seja profissional, clinico e preciso.
 
 DADOS DO AVALIADO:
@@ -1141,7 +1141,7 @@ router.post('/analyze-clinical-tool', checkPermission('access_ai_features'), asy
       console.warn(`Tentativa de acesso a paciente ${patientId} por outro tenant: ${req.user.tenant_id}`);
     }
     
-    const prompt = `Voce e a Aurora, a assistente de inteligencia artificial clinica da Psiflux.
+    const prompt = `Voce e a Bia, a assistente de inteligencia artificial clinica da Psiflux.
 Seu objetivo e realizar uma ANALISE CLINICA detalhada de uma ferramenta de avaliacao psicolgica.
 
 DADOS DA FERRAMENTA:

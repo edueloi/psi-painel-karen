@@ -53,7 +53,7 @@ const FEATURES_OPTIONS = [
   { key: 'relatorios',           label: 'Relatórios & Desempenho',          group: 'Financeiro', premium: true },
   // ── Comunicação ───────────────────────────────────────────────────────────
   { key: 'mensagens',            label: 'Mensagens Internas',               group: 'Comunicação' },
-  { key: 'aurora_ai',            label: 'Aurora AI',                        group: 'Comunicação', premium: true },
+  { key: 'aurora_ai',            label: 'Bia AI',                        group: 'Comunicação', premium: true },
   { key: 'whatsapp_bot',         label: 'WhatsApp Bot',                     group: 'Comunicação', premium: true },
 ];
 

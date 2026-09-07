@@ -54,7 +54,7 @@ const MODULES = [
   { key: 'view_performance_reports',label: 'Relatórios & Desempenho & Melhores Clientes', Icon: BarChart2, group: 'Financeiro' },
   // Comunicação
   { key: 'access_messages',         label: 'Mensagens',                          Icon: MessageCircle, group: 'Comunicação' },
-  { key: 'aurora_ai',               label: 'Aurora AI',                          Icon: Sparkles,      group: 'Comunicação', requiredFeature: 'aurora_ai' },
+  { key: 'aurora_ai',               label: 'Bia AI',                          Icon: Sparkles,      group: 'Comunicação', requiredFeature: 'aurora_ai' },
   // Sistema
   { key: 'manage_clinic_settings',  label: 'Configurações',                      Icon: Settings,      group: 'Sistema' },
   { key: 'manage_bot_integration',  label: 'WhatsApp Bot',                       Icon: Smartphone,    group: 'Sistema', requiredFeature: 'whatsapp_bot' },

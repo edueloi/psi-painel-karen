@@ -1004,7 +1004,7 @@ router.get('/:id/history', async (req, res) => {
       ...discResponses.map(dr => ({
         id: `disc-${dr.id}`, type: 'disc', date: dr.date,
         title: 'Avaliação DISC respondida',
-        subtitle: dr.aurora_analysis ? 'Com análise Aurora' : null,
+        subtitle: dr.aurora_analysis ? 'Com análise Bia' : null,
       })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 

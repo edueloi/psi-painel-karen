@@ -16,8 +16,8 @@ const ALL_FEATURES = [
   { Icon: Users,      color: 'bg-indigo-500',  label: 'Gestão de Pacientes',  desc: 'Prontuários, histórico e formulários clínicos',   feature: 'pacientes' },
   { Icon: DollarSign, color: 'bg-emerald-500', label: 'Financeiro Completo',  desc: 'Comandas, NFS-e e relatórios detalhados',          feature: 'financeiro' },
   { Icon: Video,      color: 'bg-violet-500',  label: 'Sala Virtual',         desc: 'Videoconsultas integradas sem apps externos',       feature: 'salas_virtuais' },
-  { Icon: BookOpen,   color: 'bg-amber-500',   label: 'Formulários & DISC',   desc: 'Avaliações com análise inteligente da Aurora',      feature: 'formularios' },
-  { Icon: Sparkles,   color: 'bg-rose-500',    label: 'Aurora IA',            desc: 'Assistente que gerencia sua clínica por você',     feature: 'aurora_ai' },
+  { Icon: BookOpen,   color: 'bg-amber-500',   label: 'Formulários & DISC',   desc: 'Avaliações com análise inteligente da Bia',      feature: 'formularios' },
+  { Icon: Sparkles,   color: 'bg-rose-500',    label: 'Bia IA',            desc: 'Assistente que gerencia sua clínica por você',     feature: 'aurora_ai' },
 ];
 
 export const WelcomeModal: React.FC<WelcomeModalProps> = ({ userName, onStartTour, onSkip }) => {
@@ -77,7 +77,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ userName, onStartTou
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl sm:rounded-2xl p-3 sm:p-4 mb-4 sm:mb-5 flex items-start gap-2.5">
             <Zap size={14} className="text-indigo-500 shrink-0 mt-0.5" />
             <p className="text-[11px] sm:text-xs text-indigo-700 leading-relaxed">
-              <span className="font-bold">Dica:</span> A Aurora pode criar agendamentos e gerar relatórios apenas com texto!
+              <span className="font-bold">Dica:</span> A Bia pode criar agendamentos e gerar relatórios apenas com texto!
             </p>
           </div>
 

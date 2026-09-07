@@ -634,7 +634,7 @@ router.delete('/:id', authMiddleware, checkPermission('edit_medical_record'), as
 /* ──────────────────────────────────────────────────────────
    PROMPT PARA SÍNTESE CLÍNICA (IA)
 ────────────────────────────────────────────────────────── */
-const CLINICAL_SYNTHESIS_PROMPT = `Você é uma assistente de síntese clínica avançada (Aurora IA).
+const CLINICAL_SYNTHESIS_PROMPT = `Você é uma assistente de síntese clínica avançada (Bia IA).
 Sua função é integrar múltiplos dados de um paciente (Anamneses, Escalas, Outros Instrumentos) em uma FORMULAÇÃO DE CASO coesa e estruturada.
 Você deve utilizar estritamente a abordagem teórica especificada pelo profissional.
 

@@ -159,7 +159,7 @@ export const FormResponses: React.FC = () => {
         heightLeft -= pageHeight;
       }
 
-      pdf.save(`Relatorio_Aurora_${respondentName.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`Relatorio_Bia_${respondentName.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
     } finally {
@@ -459,7 +459,7 @@ export const FormResponses: React.FC = () => {
                <div className="flex items-center gap-3 bg-indigo-600/20 p-4 rounded-2xl border border-indigo-500/20 text-left">
                   <Sparkles size={18} className="text-indigo-400 shrink-0" />
                   <p className="text-[10px] font-bold text-indigo-200 leading-tight text-left">
-                    Aurora AI está ativada. Você pode gerar análises automáticas para cada resposta.
+                    Bia AI está ativada. Você pode gerar análises automáticas para cada resposta.
                   </p>
                </div>
             </div>
@@ -575,7 +575,7 @@ export const FormResponses: React.FC = () => {
                                       <Sparkles size={22} />
                                    </div>
                                    <div>
-                                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">Análise da Aurora AI</h4>
+                                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest">Análise da Bia AI</h4>
                                       <p className="text-[10px] font-bold text-indigo-500">Insights Clínicos e Sugestões</p>
                                    </div>
                                 </div>
@@ -666,7 +666,7 @@ export const FormResponses: React.FC = () => {
                                 <div className="mt-32 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
                                    <div className="max-w-[300px]">
                                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Tecnologia Plaelo</p>
-                                      <p className="text-[9px] leading-relaxed text-slate-400 italic">Este documento foi gerado pela inteligência artificial Aurora e deve ser validado pelo profissional responsável para fins legais e clínicos.</p>
+                                      <p className="text-[9px] leading-relaxed text-slate-400 italic">Este documento foi gerado pela inteligência artificial Bia e deve ser validado pelo profissional responsável para fins legais e clínicos.</p>
                                    </div>
                                    <div className="text-right flex flex-col items-center">
                                       <div className="w-64 h-px bg-slate-300 mb-4"></div>
@@ -683,7 +683,7 @@ export const FormResponses: React.FC = () => {
                                    <Bot size={20} className={isAnalyzing ? 'animate-spin' : ''} />
                                 </div>
                                 <div>
-                                   <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Deseja uma análise da Aurora?</p>
+                                   <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Deseja uma análise da Bia?</p>
                                    <p className="text-[10px] font-bold text-slate-400">Gere um insight clínico automático baseado nestas respostas.</p>
                                 </div>
                              </div>

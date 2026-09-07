@@ -3315,7 +3315,7 @@ const RoomInner: React.FC<{
               <button onClick={onOpenAurora} style={btnActive(false)}>
                 <Sparkles size={22} />
               </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Aurora</span>
+              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Bia</span>
             </div>
           )}
 
@@ -3512,7 +3512,7 @@ const EndSummaryScreen: React.FC<{
             onClick={() => navigate(`/prontuario?patient_id=${patientId}&new_session=1`)}
             style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
           >
-            Revisar e gerar evolução com Aurora
+            Revisar e gerar evolução com Bia
           </button>
         </div>
 

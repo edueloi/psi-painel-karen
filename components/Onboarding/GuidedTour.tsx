@@ -68,15 +68,15 @@ const ALL_STEPS: TourStep[] = [
   },
   {
     title: 'Formulários & DISC',
-    description: 'Aplique formulários clínicos (PHQ-9, GAD-7, Beck) e avaliações DISC. A Aurora analisa os resultados e gera relatórios clínicos detalhados com sugestões terapêuticas.',
+    description: 'Aplique formulários clínicos (PHQ-9, GAD-7, Beck) e avaliações DISC. A Bia analisa os resultados e gera relatórios clínicos detalhados com sugestões terapêuticas.',
     target: '[data-tour="formularios"]',
     position: 'right',
     emoji: '📊',
     requiredFeature: 'formularios',
   },
   {
-    title: 'Aurora — Sua IA',
-    description: 'A Aurora é sua assistente inteligente. Pergunte qualquer coisa sobre seus pacientes, peça para criar agendamentos, gerar relatórios ou tirar dúvidas sobre o sistema. Toque no botão ✨ no canto da tela.',
+    title: 'Bia — Sua IA',
+    description: 'A Bia é sua assistente inteligente. Pergunte qualquer coisa sobre seus pacientes, peça para criar agendamentos, gerar relatórios ou tirar dúvidas sobre o sistema. Toque no botão ✨ no canto da tela.',
     target: '[data-tour="aurora"]',
     position: 'top',
     emoji: '✨',
@@ -113,7 +113,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
     // Ajusta o texto final se não houver Aurora
     const last = filtered[filtered.length - 1];
     if (last && last.title === 'Tudo pronto!' && user?.plan_features?.includes('aurora_ai')) {
-      last.description = 'Você conhece os principais recursos do Plaelo. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda) ou converse com a Aurora a qualquer momento. Bom trabalho! 🎉';
+      last.description = 'Você conhece os principais recursos do Plaelo. Se tiver dúvidas, acesse a Central de Ajuda (menu > Ajuda) ou converse com a Bia a qualquer momento. Bom trabalho! 🎉';
     }
 
     return filtered;

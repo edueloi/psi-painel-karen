@@ -446,7 +446,7 @@ export const ClinicalTools: React.FC = () => {
              <div className="space-y-8 text-center lg:text-left flex-1">
                 <div className="space-y-3">
                     <div className="inline-flex items-center gap-3 px-6 py-2 bg-indigo-500/20 rounded-full border border-indigo-500/30">
-                        <span className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-400">Aurora AI High Performance</span>
+                        <span className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-400">Bia AI High Performance</span>
                     </div>
                     <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter leading-none uppercase">A inteligência que<br /><span className="text-indigo-500">potencializa</span> sua clínica.</h2>
                 </div>

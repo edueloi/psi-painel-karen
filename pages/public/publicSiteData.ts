@@ -27,7 +27,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   financeiro: 'Financeiro & Livro Caixa',
   relatorios: 'Relatórios & Desempenho',
   mensagens: 'Mensagens internas',
-  aurora_ai: 'Aurora IA',
+  aurora_ai: 'Bia IA',
   whatsapp_bot: 'WhatsApp Bot',
   profissionais: 'Múltiplos profissionais',
   servicos: 'Serviços e produtos',
@@ -44,7 +44,7 @@ export const features = [
   { icon: FileText,      title: 'Documentos & PEI',     desc: 'Planos terapêuticos individualizados e relatórios com um clique.',          color: '#0D9155', bg: '#E4F8EE' },
   { icon: BarChart2,     title: 'Financeiro',           desc: 'Receitas, despesas, comandas e relatórios financeiros detalhados.',         color: '#6D42F5', bg: '#EFE9FF' },
   { icon: Receipt,       title: 'Nota Fiscal de Serviço', desc: 'Emita a NFS-e em poucos cliques, direto da comanda do atendimento — sem complicação.', color: '#0D9155', bg: '#E4F8EE' },
-  { icon: Sparkles,      title: 'Aurora IA',            desc: 'Organiza dados clínicos e automatiza relatórios — o julgamento é sempre seu.', color: '#6D42F5', bg: '#EFE9FF' },
+  { icon: Sparkles,      title: 'Bia IA',            desc: 'Organiza dados clínicos e automatiza relatórios — o julgamento é sempre seu.', color: '#6D42F5', bg: '#EFE9FF' },
   { icon: ClipboardList, title: 'Formulários',          desc: 'Anamneses digitais, avaliações e formulários personalizados.',              color: '#0D9155', bg: '#E4F8EE' },
   { icon: MessageSquare, title: 'Mensagens',            desc: 'Comunicação interna e notificações automáticas para pacientes.',            color: '#6D42F5', bg: '#EFE9FF' },
 ];

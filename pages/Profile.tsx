@@ -230,7 +230,7 @@ export const Profile: React.FC = () => {
     { key: 'patients',     label: 'Quantas pessoas você já atendeu (aproximadamente)?',                      placeholder: 'Ex: +100, mais de 200...' },
     { key: 'bio',          label: 'Descreva brevemente sua abordagem e diferenciais como profissional.',     placeholder: 'Fale sobre sua filosofia de trabalho, método, o que te diferencia...' },
     { key: 'specialties',  label: 'Liste suas áreas de atuação (separadas por vírgula).',                   placeholder: 'Ex: Ansiedade, Depressão, Luto, Relacionamentos...' },
-    { key: 'hero_title',   label: 'Qual seria o título de impacto da sua página? (opcional)',               placeholder: 'Ex: Apoio Psicológico de Confiança. Ou deixe em branco para a Aurora criar.' },
+    { key: 'hero_title',   label: 'Qual seria o título de impacto da sua página? (opcional)',               placeholder: 'Ex: Apoio Psicológico de Confiança. Ou deixe em branco para a Bia criar.' },
     { key: 'faq',          label: 'Liste 3 dúvidas frequentes dos seus pacientes (uma por linha).',         placeholder: 'Ex:\nQual o valor da sessão?\nVocê atende online?\nPreciso de encaminhamento?' },
   ];
 
@@ -592,7 +592,7 @@ Gere o seguinte JSON:
       setAuroraOpen(false);
       setAuroraStep(0);
       setAuroraAnswers({});
-      pushToast('success', 'Aurora montou sua página! Revise e salve as alterações.');
+      pushToast('success', 'Bia montou sua página! Revise e salve as alterações.');
     } catch (e: any) {
       pushToast('error', 'Erro ao gerar conteúdo. Tente novamente.');
     } finally {
@@ -1180,7 +1180,7 @@ Gere o seguinte JSON:
                             <Sparkles size={18} className="text-white" />
                           </div>
                           <div className="flex-1">
-                            <p className="font-black text-slate-800 text-sm">Aurora monta sua página por você</p>
+                            <p className="font-black text-slate-800 text-sm">Bia monta sua página por você</p>
                             <p className="text-xs text-slate-500 mt-0.5">Responda perguntas rápidas e a IA preenche o conteúdo automaticamente.</p>
                           </div>
                           <Button
@@ -1767,7 +1767,7 @@ Gere o seguinte JSON:
       <Modal
         isOpen={auroraOpen}
         onClose={() => setAuroraOpen(false)}
-        title="Aurora — Construtor de Perfil"
+        title="Bia — Construtor de Perfil"
         subtitle={`Passo ${auroraStep + 1} de ${AURORA_QUESTIONS.length}`}
         size="lg"
         footer={

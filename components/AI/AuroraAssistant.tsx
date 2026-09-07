@@ -32,7 +32,7 @@ export const AuroraAssistant: React.FC = () => {
     {
       id: 'welcome',
       role: 'model',
-      text: `${getGreeting()}! Sou a Aurora, sua assistente inteligente do Plaelo. 🧠✨\n\nSou uma parceira para te ajudar na gestão da clínica e também com dúvidas sobre sua prática clínica. Posso consultar seus pacientes, agenda e até realizar marcações para você. Como posso ser útil hoje?`,
+      text: `${getGreeting()}! Sou a Bia, sua assistente inteligente do Plaelo. 🧠✨\n\nSou uma parceira para te ajudar na gestão da clínica e também com dúvidas sobre sua prática clínica. Posso consultar seus pacientes, agenda e até realizar marcações para você. Como posso ser útil hoje?`,
       timestamp: new Date()
     }
   ]);
@@ -203,7 +203,7 @@ export const AuroraAssistant: React.FC = () => {
                         <Bot size={20} className="text-white" />
                     </div>
                     <div>
-                        <h3 className="font-display font-bold text-lg leading-none">Aurora</h3>
+                        <h3 className="font-display font-bold text-lg leading-none">Bia</h3>
                         <span className="text-[10px] font-medium text-indigo-100 flex items-center gap-1 opacity-80">
                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Online
                         </span>
@@ -326,7 +326,7 @@ export const AuroraAssistant: React.FC = () => {
             </div>
 
             <div className="text-center mt-2">
-                <span className="text-[10px] text-slate-400">Powered by Aurora AI • Plaelo</span>
+                <span className="text-[10px] text-slate-400">Powered by Bia AI • Plaelo</span>
             </div>
         </div>
       </div>

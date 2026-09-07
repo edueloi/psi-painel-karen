@@ -436,7 +436,7 @@ export default function Disc() {
       setAiMap(prev => ({ ...prev, [result.id]: clean }));
       await api.patch(`/disc/${result.id}/aurora`, { analysis: clean });
     } catch {
-      showToast('Erro ao gerar análise Aurora', 'error');
+      showToast('Erro ao gerar análise Bia', 'error');
     } finally {
       setAnalyzingId(null);
     }
@@ -568,7 +568,7 @@ export default function Disc() {
                         className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full border">
                         {dominant.key} dominante
                       </span>
-                      {aurora && <span className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">✦ Aurora</span>}
+                      {aurora && <span className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">✦ Bia</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <Clock size={10} className="text-slate-300" />
@@ -731,7 +731,7 @@ export default function Disc() {
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-violet-700 uppercase tracking-widest leading-none">Análise Clínica DISC</p>
-                      <p className="text-[9px] text-violet-400 font-medium mt-0.5">Aurora IA — Metodologia Marston</p>
+                      <p className="text-[9px] text-violet-400 font-medium mt-0.5">Bia IA — Metodologia Marston</p>
                     </div>
                   </div>
                   <Button size="xs" variant={drAurora ? 'ghost' : 'primary'} radius="xl"
@@ -783,7 +783,7 @@ export default function Disc() {
                     <div>
                       <p className="text-sm font-bold text-slate-700 mb-1">Relatório clínico DISC com IA</p>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        A Aurora gera um relatório clínico completo: perfil comportamental, análise dos fatores D/I/S/C, crenças automáticas, pontos de desenvolvimento e intervenções TCC baseadas na metodologia Marston.
+                        A Bia gera um relatório clínico completo: perfil comportamental, análise dos fatores D/I/S/C, crenças automáticas, pontos de desenvolvimento e intervenções TCC baseadas na metodologia Marston.
                       </p>
                     </div>
                   </div>
@@ -1041,7 +1041,7 @@ export default function Disc() {
       >
         <div className="flex gap-3 p-4 bg-rose-50 rounded-2xl border border-rose-100">
           <AlertCircle size={20} className="text-rose-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-slate-700">Tem certeza que deseja excluir esta avaliação DISC? Todos os dados, incluindo a análise da Aurora, serão perdidos permanentemente.</p>
+          <p className="text-sm text-slate-700">Tem certeza que deseja excluir esta avaliação DISC? Todos os dados, incluindo a análise da Bia, serão perdidos permanentemente.</p>
         </div>
       </Modal>
 

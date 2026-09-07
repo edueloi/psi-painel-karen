@@ -264,7 +264,7 @@ function templateWelcome({ name, email, loginUrl }) {
     ['🤖', 'Bot de WhatsApp', 'Lembretes e confirmações automáticas'],
     ['🎥', 'Sala Virtual', 'Atendimento online com Meet automático'],
     ['🌐', 'Portal do Paciente', 'Link exclusivo para seus pacientes'],
-    ['✨', 'Aurora IA', 'Organiza dados clínicos e relatórios'],
+    ['✨', 'Bia IA', 'Organiza dados clínicos e relatórios'],
   ];
   const rows = features.map((f, i) => featureRow(f[0], f[1], f[2], i === features.length - 1)).join('');
 

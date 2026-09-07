@@ -56,7 +56,7 @@ const FAQ_CATEGORIES = [
       { q: 'Como gerar um relatório financeiro?', a: 'Em Financeiro, defina o período com os filtros de data, escolha categoria ou profissional, e clique em "Exportar". O relatório é gerado em PDF ou CSV pronto para enviar ao contador.' },
       { q: 'O sistema emite notas fiscais (NFS-e)?', a: 'Sim. Configure em Configurações > Fiscal: insira seu CPF/CNPJ, código do município e credenciais da prefeitura. Após configurado, as notas são emitidas automaticamente ao fechar uma comanda paga.' },
       { q: 'Como registrar uma despesa?', a: 'Em Financeiro, clique em "+ Nova Transação" e selecione o tipo "Despesa". Preencha valor, data, categoria (aluguel, material, software, etc.) e descrição. As despesas são subtraídas do saldo.' },
-      { q: 'Como funciona o controle de inadimplência?', a: 'Use o filtro "Status: Pendente" em Financeiro para ver todos os pagamentos em aberto. A Aurora também pode listar os pacientes com maior inadimplência — basta perguntar a ela.' },
+      { q: 'Como funciona o controle de inadimplência?', a: 'Use o filtro "Status: Pendente" em Financeiro para ver todos os pagamentos em aberto. A Bia também pode listar os pacientes com maior inadimplência — basta perguntar a ela.' },
       { q: 'O que é uma Comanda?', a: 'A comanda é a "conta" do atendimento. Ao iniciar uma sessão, abre-se uma comanda com os serviços/produtos consumidos. Ao fechar, o pagamento é registrado automaticamente no financeiro e a NFS-e é emitida se configurada.' },
       { q: 'Posso ver o financeiro por profissional?', a: 'Sim. Use o filtro de profissional em Financeiro para ver receitas e despesas de cada membro da equipe. Isso é útil para calcular comissões e avaliar performance individual.' },
     ]
@@ -83,7 +83,7 @@ const FAQ_CATEGORIES = [
       { q: 'Quais formulários estão disponíveis?', a: 'O Plaelo inclui templates prontos: PHQ-9 (depressão), GAD-7 (ansiedade), Escala de Beck, Escala de Autoestima de Rosenberg, SRQ-20, AUDIT (álcool) e outros. Você também pode criar formulários completamente personalizados.' },
       { q: 'Como enviar um formulário para o paciente?', a: 'No perfil do paciente > Formulários, ou em Formulários na barra lateral, selecione o formulário e clique em "Enviar". O sistema gera um link único que o paciente acessa pelo celular sem precisar de cadastro.' },
       { q: 'Como a pontuação funciona?', a: 'Cada opção de resposta tem um peso configurável. O sistema soma os pesos e classifica automaticamente por faixas (ex: PHQ-9: 0-4 mínimo, 5-9 leve, 10-14 moderado, 15+ grave). As faixas e interpretações são personalizáveis.' },
-      { q: 'Como a Aurora analisa os formulários?', a: 'Após o preenchimento, clique em "Analisar com IA" no formulário respondido. A Aurora gera um relatório clínico completo com sumário do caso, análise de sintomas, pontos de atenção e diretrizes terapêuticas baseadas em evidências.' },
+      { q: 'Como a Bia analisa os formulários?', a: 'Após o preenchimento, clique em "Analisar com IA" no formulário respondido. A Bia gera um relatório clínico completo com sumário do caso, análise de sintomas, pontos de atenção e diretrizes terapêuticas baseadas em evidências.' },
       { q: 'Posso criar meu próprio formulário?', a: 'Sim. Em Formulários > "Novo Formulário", adicione perguntas de vários tipos: texto livre, múltipla escolha, escala Likert, número, data. Configure pesos e faixas de interpretação personalizadas.' },
       { q: 'Onde vejo as respostas dos pacientes?', a: 'Em Formulários > Respostas, ou no perfil do paciente > aba Formulários. Você vê a data de preenchimento, a pontuação obtida e pode abrir cada resposta para ver os detalhes.' },
     ]
@@ -191,7 +191,7 @@ export const Help: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([{
     id: 'welcome',
     role: 'model',
-    text: `${getSaudacao()}! Sou a Aurora, sua assistente do Plaelo. ✨\n\nEstou aqui na Central de Ajuda para responder qualquer dúvida sobre o sistema. Como posso te ajudar?`,
+    text: `${getSaudacao()}! Sou a Bia, sua assistente do Plaelo. ✨\n\nEstou aqui na Central de Ajuda para responder qualquer dúvida sobre o sistema. Como posso te ajudar?`,
   }]);
   const [chatInput, setChatInput]   = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -232,7 +232,7 @@ export const Help: React.FC = () => {
       setChatMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: 'Ocorreu um erro ao conectar com a Aurora. Verifique sua conexão e tente novamente.',
+        text: 'Ocorreu um erro ao conectar com a Bia. Verifique sua conexão e tente novamente.',
       }]);
     } finally {
       setIsChatLoading(false);
@@ -254,7 +254,7 @@ export const Help: React.FC = () => {
       <PageHeader
         icon={<HelpCircle />}
         title="Central de Ajuda & Suporte"
-        subtitle="Encontre respostas nas perguntas frequentes, guias detalhados ou converse diretamente com a Aurora."
+        subtitle="Encontre respostas nas perguntas frequentes, guias detalhados ou converse diretamente com a Bia."
         containerClassName="mb-0"
         showBackButton
         onBackClick={() => navigate('/')}
@@ -329,7 +329,7 @@ export const Help: React.FC = () => {
                 <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
                   <HelpCircle size={32} className="text-slate-300 mx-auto mb-3" />
                   <p className="font-bold text-slate-500">Nenhum resultado encontrado</p>
-                  <p className="text-sm text-slate-400 mt-1">Tente outros termos ou pergunte à Aurora →</p>
+                  <p className="text-sm text-slate-400 mt-1">Tente outros termos ou pergunte à Bia →</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -461,7 +461,7 @@ export const Help: React.FC = () => {
                 <Sparkles size={17} className="text-white" />
               </div>
               <div>
-                <p className="font-bold text-white text-sm">Aurora</p>
+                <p className="font-bold text-white text-sm">Bia</p>
                 <p className="text-[10px] text-indigo-200">Assistente inteligente · Online agora</p>
               </div>
               <div className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]" />
@@ -523,7 +523,7 @@ export const Help: React.FC = () => {
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  placeholder="Pergunte à Aurora..."
+                  placeholder="Pergunte à Bia..."
                   disabled={isChatLoading}
                   className="flex-1 text-sm px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 disabled:opacity-60"
                 />
@@ -548,7 +548,7 @@ export const Help: React.FC = () => {
                 { label: 'Plataforma Web',     ok: true },
                 { label: 'API / Dados',        ok: true },
                 { label: 'Agendamentos',       ok: true },
-                { label: 'IA / Aurora',        ok: true },
+                { label: 'IA / Bia',        ok: true },
                 { label: 'Vídeo Consultas',    ok: true },
                 { label: 'Notificações',       ok: true },
               ].map((s, i) => (
@@ -615,7 +615,7 @@ export const Help: React.FC = () => {
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3 mt-4">
                 <AlertCircle size={16} className="text-indigo-500 mt-0.5" />
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Dica: Você também pode pedir para a <b>Aurora</b> te mostrar como realizar essas funções na prática. Basta perguntar a ela no chat ao lado!
+                    Dica: Você também pode pedir para a <b>Bia</b> te mostrar como realizar essas funções na prática. Basta perguntar a ela no chat ao lado!
                 </p>
             </div>
 
