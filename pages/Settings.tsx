@@ -20,6 +20,8 @@ import { useToast } from '../contexts/ToastContext';
 import { api, getStaticUrl } from '../services/api';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
+import { maskCpfCnpj, maskPhoneBR } from '../src/lib/masks';
+import { fetchAddressByCep, applyCepMask } from '../src/lib/cep';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type EmailPrefs = {
@@ -268,21 +270,49 @@ export const Settings: React.FC = () => {
   // ── Asaas (recebimentos de pacientes) ────────────────────────────────────
   const [asaasStatus, setAsaasStatus] = useState<any>({ enabled: false, balance: null });
   const [asaasSaving, setAsaasSaving] = useState(false);
-  const [asaasForm, setAsaasForm] = useState({ name: '', cpfCnpj: '', email: '', mobilePhone: '' });
+  const [asaasForm, setAsaasForm] = useState({
+    name: '', cpfCnpj: '', email: '', mobilePhone: '',
+    postalCode: '', address: '', addressNumber: '', province: '',
+  });
+  const [asaasCepLoading, setAsaasCepLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'integracoes') return;
     api.get<any>('/asaas/status').then((d: any) => setAsaasStatus(d)).catch(() => {});
   }, [activeTab]);
 
+  const handleAsaasCepChange = async (raw: string) => {
+    const masked = applyCepMask(raw);
+    setAsaasForm(p => ({ ...p, postalCode: masked }));
+    const digits = masked.replace(/\D/g, '');
+    if (digits.length === 8) {
+      setAsaasCepLoading(true);
+      try {
+        const found = await fetchAddressByCep(digits);
+        if (found) {
+          setAsaasForm(p => ({ ...p, address: found.street || p.address, province: found.neighborhood || p.province }));
+        }
+      } finally { setAsaasCepLoading(false); }
+    }
+  };
+
   const activateAsaas = async () => {
     if (!asaasForm.name.trim() || !asaasForm.cpfCnpj.trim() || !asaasForm.email.trim()) {
       pushToast('error', 'Preencha nome, CPF/CNPJ e e-mail.');
       return;
     }
+    if (!asaasForm.postalCode.trim() || !asaasForm.address.trim() || !asaasForm.addressNumber.trim()) {
+      pushToast('error', 'A Asaas exige o endereço completo (CEP, rua e número) para criar sua conta de recebimentos.');
+      return;
+    }
     setAsaasSaving(true);
     try {
-      const res = await api.post<any>('/asaas/account', asaasForm);
+      const res = await api.post<any>('/asaas/account', {
+        ...asaasForm,
+        cpfCnpj: asaasForm.cpfCnpj.replace(/\D/g, ''),
+        mobilePhone: asaasForm.mobilePhone.replace(/\D/g, ''),
+        postalCode: asaasForm.postalCode.replace(/\D/g, ''),
+      });
       setAsaasStatus({ enabled: true, accountId: res.accountId, walletId: res.walletId, balance: 0 });
       pushToast('success', 'Recebimentos ativados! Já dá pra cobrar seus pacientes.');
     } catch (e: any) {
@@ -1517,7 +1547,7 @@ export const Settings: React.FC = () => {
                           />
                           <input
                             value={asaasForm.cpfCnpj}
-                            onChange={e => setAsaasForm(p => ({ ...p, cpfCnpj: e.target.value }))}
+                            onChange={e => setAsaasForm(p => ({ ...p, cpfCnpj: maskCpfCnpj(e.target.value) }))}
                             placeholder="CPF ou CNPJ"
                             className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
                           />
@@ -1530,8 +1560,35 @@ export const Settings: React.FC = () => {
                           />
                           <input
                             value={asaasForm.mobilePhone}
-                            onChange={e => setAsaasForm(p => ({ ...p, mobilePhone: e.target.value }))}
+                            onChange={e => setAsaasForm(p => ({ ...p, mobilePhone: maskPhoneBR(e.target.value) }))}
                             placeholder="Celular (com DDD)"
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                          />
+                        </div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pt-1">Endereço (exigido pela Asaas)</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <input
+                            value={asaasForm.postalCode}
+                            onChange={e => handleAsaasCepChange(e.target.value)}
+                            placeholder={asaasCepLoading ? 'Buscando CEP...' : 'CEP'}
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                          />
+                          <input
+                            value={asaasForm.province}
+                            onChange={e => setAsaasForm(p => ({ ...p, province: e.target.value }))}
+                            placeholder="Bairro"
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                          />
+                          <input
+                            value={asaasForm.address}
+                            onChange={e => setAsaasForm(p => ({ ...p, address: e.target.value }))}
+                            placeholder="Rua / Logradouro"
+                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 sm:col-span-2"
+                          />
+                          <input
+                            value={asaasForm.addressNumber}
+                            onChange={e => setAsaasForm(p => ({ ...p, addressNumber: e.target.value }))}
+                            placeholder="Número"
                             className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
                           />
                         </div>

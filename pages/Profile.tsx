@@ -36,6 +36,7 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Calendar as AvailabilityCalendar } from '../components/UI/Calendar';
+import { maskPhoneBR, maskCpf, maskCpfCnpj } from '../src/lib/masks';
 
 type DayKey =
   | 'monday'
@@ -257,7 +258,7 @@ export const Profile: React.FC = () => {
             name: data.name || '',
             email: data.email || '',
             role: data.role || UserRole.PSYCHOLOGIST,
-            phone: data.phone || '',
+            phone: data.phone ? maskPhoneBR(data.phone) : '',
             crp: data.crp || '',
             specialty: data.specialty || '',
             professionalAreaId: data.professional_area_id || '',
@@ -306,8 +307,8 @@ export const Profile: React.FC = () => {
               trajectory_url: data.profile_theme?.trajectory_url || '',
             },
             gender: data.gender || 'female',
-            cpf: data.cpf || '',
-            cnpj: data.cnpj || '',
+            cpf: data.cpf ? maskCpfCnpj(data.cpf) : '',
+            cnpj: data.cnpj ? maskCpfCnpj(data.cnpj) : '',
           });
         }
 
@@ -780,14 +781,8 @@ Gere o seguinte JSON:
                       <ProfileInput
                         label="Telefone / WhatsApp"
                         icon={<Phone size={16} />} 
-                        value={user.phone} 
-                        onChange={v => {
-                          let val = v.replace(/\D/g, '');
-                          if (val.length > 11) val = val.slice(0, 11);
-                          if (val.length > 2) val = `(${val.slice(0, 2)}) ${val.slice(2)}`;
-                          if (val.length > 9) val = `${val.slice(0, 10)}-${val.slice(10)}`;
-                          setUser(p => ({ ...p, phone: val }));
-                        }} 
+                        value={user.phone}
+                        onChange={v => setUser(p => ({ ...p, phone: maskPhoneBR(v) }))}
                       />
                       <Combobox
                         label="Área de Atuação"
@@ -815,28 +810,13 @@ Gere o seguinte JSON:
                         label="CPF"
                         icon={<Shield size={16} />}
                         value={user.cpf}
-                        onChange={v => {
-                          let val = v.replace(/\D/g, '');
-                          if (val.length > 11) val = val.slice(0, 11);
-                          if (val.length > 9) val = `${val.slice(0,3)}.${val.slice(3,6)}.${val.slice(6,9)}-${val.slice(9)}`;
-                          else if (val.length > 6) val = `${val.slice(0,3)}.${val.slice(3,6)}.${val.slice(6)}`;
-                          else if (val.length > 3) val = `${val.slice(0,3)}.${val.slice(3)}`;
-                          setUser(p => ({ ...p, cpf: val }));
-                        }}
+                        onChange={v => setUser(p => ({ ...p, cpf: maskCpf(v) }))}
                       />
                       <ProfileInput
                         label="CNPJ"
                         icon={<Building2 size={16} />}
                         value={user.cnpj}
-                        onChange={v => {
-                          let val = v.replace(/\D/g, '');
-                          if (val.length > 14) val = val.slice(0, 14);
-                          if (val.length > 12) val = `${val.slice(0,2)}.${val.slice(2,5)}.${val.slice(5,8)}/${val.slice(8,12)}-${val.slice(12)}`;
-                          else if (val.length > 8) val = `${val.slice(0,2)}.${val.slice(2,5)}.${val.slice(5,8)}/${val.slice(8)}`;
-                          else if (val.length > 5) val = `${val.slice(0,2)}.${val.slice(2,5)}.${val.slice(5)}`;
-                          else if (val.length > 2) val = `${val.slice(0,2)}.${val.slice(2)}`;
-                          setUser(p => ({ ...p, cnpj: val }));
-                        }}
+                        onChange={v => setUser(p => ({ ...p, cnpj: maskCpfCnpj(v) }))}
                       />
                     </div>
                     <Textarea

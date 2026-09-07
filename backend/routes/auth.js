@@ -443,18 +443,23 @@ router.post('/register', registerLimiter, async (req, res) => {
     let scheduleJson = null;
     try { scheduleJson = schedule ? JSON.stringify(JSON.parse(schedule)) : null; } catch { scheduleJson = null; }
 
+    const cnpjCpfDigits = cnpj_cpf ? String(cnpj_cpf).replace(/\D/g, '') : null;
+    const isCpf = cnpjCpfDigits && cnpjCpfDigits.length <= 11;
+
     await conn.query(
       `INSERT INTO users
          (tenant_id, name, email, password, role, specialty, crp, phone,
           company_name, gender, bio, public_slug, profile_theme, active,
-          professional_area_id, registry_number, schedule)
-       VALUES (?, ?, ?, ?, 'admin', ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?)`,
+          professional_area_id, registry_number, schedule, cpf, cnpj)
+       VALUES (?, ?, ?, ?, 'admin', ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?, ?, ?)`,
       [
         tenantId, name, email, hashedPassword,
         specialtiesList[0] || null,
         crp || null, phone || null, company_name || null,
         gender || null, bio || null, profSlug, profileTheme,
         professional_area_id || null, registry_number || null, scheduleJson,
+        isCpf ? cnpjCpfDigits : null,
+        !isCpf ? cnpjCpfDigits : null,
       ]
     );
 
