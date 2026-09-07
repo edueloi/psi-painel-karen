@@ -109,6 +109,7 @@ interface PortalComanda {
   start_date: string;
   total?: number;
   received?: number;
+  service_name?: string | null;
   upcoming_appointments: { id: number; start_time: string; status: string; modality: string }[];
 }
 
@@ -579,6 +580,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   interface AvailablePackage {
     id: number; name: string; description?: string;
     sessions_count: number; display_price: number;
+    services?: { service_id: number; service_name: string; quantity: number }[];
     // campos legados do backend sem config individual
     price?: number; totalPrice?: number; discountType?: string; discountValue?: number;
   }
@@ -1024,6 +1026,11 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                           {pkg.sessions_count} sessão{pkg.sessions_count !== 1 ? "ões" : ""}
                           {pricePerSession > 0 ? ` · ${fmtCurrency(pricePerSession)}/sessão` : ""}
                         </p>
+                        {pkg.services && pkg.services.length > 0 && (
+                          <p className="text-xs font-bold text-primary-600 truncate mt-0.5">
+                            {pkg.services.map(s => `${s.quantity}x ${s.service_name}`).join(" + ")}
+                          </p>
+                        )}
                         {pkg.description && <p className="text-xs text-slate-400 truncate mt-0.5">{pkg.description}</p>}
                       </div>
                     </div>
@@ -1561,7 +1568,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             <span className="text-[10px] font-bold text-primary-500 bg-primary-100 px-2 py-0.5 rounded-full">ABERTO</span>
           </div>
           <div className="px-4 py-3">
-            <p className="text-xs font-bold text-slate-600 mb-2 truncate">{activeComanda.description}</p>
+            <p className="text-xs font-bold text-slate-600 truncate">{activeComanda.description}</p>
+            {activeComanda.service_name && (
+              <p className="text-[11px] font-bold text-primary-600 mb-2">{activeComanda.sessions_total}x {activeComanda.service_name}</p>
+            )}
             {/* Barra de progresso */}
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -1616,6 +1626,9 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           </div>
           <div className="px-4 py-3 space-y-2">
             <p className="text-xs font-bold text-slate-600 truncate">{pendingComanda.description}</p>
+            {pendingComanda.service_name && (
+              <p className="text-[11px] font-bold text-amber-600">{pendingComanda.sessions_total}x {pendingComanda.service_name}</p>
+            )}
             <p className="text-xs text-slate-400">
               {fmtCurrency((pendingComanda.total || 0) - pendingComanda.received)} restante — o pacote libera o agendamento assim que o pagamento for confirmado.
             </p>

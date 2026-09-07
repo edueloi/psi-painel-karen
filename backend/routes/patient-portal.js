@@ -1546,6 +1546,14 @@ router.post('/appointments', portalAuth, async (req, res) => {
       ? JSON.stringify({ freq, count: sessionsTotal, source: 'portal' })
       : null;
 
+    // Herda o serviço vinculado à comanda (pacote contratado) para o agendamento,
+    // para o registro final refletir qual serviço foi de fato utilizado.
+    let comandaServiceId = null;
+    if (comandaId) {
+      const [[comandaRow]] = await db.query('SELECT service_id FROM comandas WHERE id = ? AND tenant_id = ?', [comandaId, tenant_id]);
+      comandaServiceId = comandaRow?.service_id || null;
+    }
+
     // Insere todas as ocorrências — start_time e end_time em UTC
     const created = [];
     for (const o of occurrences) {
@@ -1557,10 +1565,10 @@ router.post('/appointments', portalAuth, async (req, res) => {
       const [ins] = await db.query(
         `INSERT INTO appointments
          (tenant_id, patient_id, professional_id, start_time, end_time, duration_minutes,
-          status, modality, notes, type, comanda_id, recurrence_rule, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 'sessao', ?, ?, NOW())`,
+          status, modality, notes, type, comanda_id, service_id, recurrence_rule, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 'sessao', ?, ?, ?, NOW())`,
         [tenant_id, patient_id, professional_id, sStr, eStr, duration,
-         modality || 'online', notes || null, comandaId, recurrenceRule]
+         modality || 'online', notes || null, comandaId, comandaServiceId, recurrenceRule]
       );
       created.push({ id: ins.insertId, start_time: sStr });
     }
@@ -1785,7 +1793,7 @@ router.get('/comandas', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
     const [rows] = await db.query(
-      `SELECT c.*,
+      `SELECT c.*, s.name AS service_name,
         (SELECT COUNT(*) FROM appointments a
          WHERE a.comanda_id = c.id AND a.status IN ('scheduled','confirmed')) AS sessions_scheduled,
         (SELECT COUNT(*) FROM appointments a
@@ -1793,6 +1801,7 @@ router.get('/comandas', portalAuth, async (req, res) => {
         (SELECT COUNT(*) FROM appointments a
          WHERE a.comanda_id = c.id AND a.status NOT IN ('cancelled')) AS sessions_active
        FROM comandas c
+       LEFT JOIN services s ON s.id = c.service_id
        WHERE c.patient_id = ? AND c.tenant_id = ? AND c.status = 'open'
        ORDER BY c.created_at DESC`,
       [patient_id, tenant_id]
@@ -1818,6 +1827,7 @@ router.get('/comandas', portalAuth, async (req, res) => {
         start_date: c.start_date,
         total: Number(c.total) || 0,
         received: Number(c.paid_value) || 0,
+        service_name: c.service_name || null,
         upcoming_appointments: appts,
       });
     }
@@ -1857,6 +1867,22 @@ router.get('/packages', portalAuth, async (req, res) => {
       if (!byPackageId.has(r.package_id)) byPackageId.set(r.package_id, r);
     }
 
+    const packageIds = Array.from(byPackageId.keys());
+    let itemsByPackage = new Map();
+    if (packageIds.length) {
+      const [items] = await db.query(
+        `SELECT pi.package_id, pi.service_id, pi.quantity, s.name AS service_name
+         FROM package_items pi
+         JOIN services s ON s.id = pi.service_id
+         WHERE pi.package_id IN (?)`,
+        [packageIds]
+      );
+      for (const it of items) {
+        if (!itemsByPackage.has(it.package_id)) itemsByPackage.set(it.package_id, []);
+        itemsByPackage.get(it.package_id).push({ service_id: it.service_id, service_name: it.service_name, quantity: it.quantity });
+      }
+    }
+
     const rows = Array.from(byPackageId.values()).map(r => ({
       id: r.package_id,
       name: r.name,
@@ -1864,6 +1890,7 @@ router.get('/packages', portalAuth, async (req, res) => {
       sessions_count: r.sessions_count,
       // Preço final: custom_price se definido, senão totalPrice do pacote
       display_price: r.custom_price !== null ? parseFloat(r.custom_price) : parseFloat(r.totalPrice || 0),
+      services: itemsByPackage.get(r.package_id) || [],
     }));
     res.json(rows);
   } catch (e) {
@@ -1903,14 +1930,26 @@ router.post('/comandas', portalAuth, async (req, res) => {
     const patientName = patRows[0]?.name || 'Paciente';
     const desc = description || `Pacote de ${sessions_total} sessões — ${patientName}`;
 
+    // Herda o serviço do pacote (quando tiver exatamente um vinculado) para a
+    // comanda já nascer com service_id preenchido — usado na NFS-e e para
+    // exibir/validar o serviço contratado no agendamento pelo portal.
+    let serviceId = null;
+    if (req.body.package_id) {
+      const [pkgServices] = await db.query(
+        'SELECT service_id FROM package_items WHERE package_id = ?',
+        [req.body.package_id]
+      );
+      if (pkgServices.length === 1) serviceId = pkgServices[0].service_id;
+    }
+
     const [ins] = await db.query(
       `INSERT INTO comandas
        (tenant_id, patient_id, professional_id, description, total, total_net, discount,
-        sessions_total, sessions_used, status, start_date, duration_minutes, package_id, source, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', NOW(), ?, ?, 'portal', NOW())`,
+        sessions_total, sessions_used, status, start_date, duration_minutes, package_id, service_id, source, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'open', NOW(), ?, ?, ?, 'portal', NOW())`,
       [tenant_id, patient_id, professional_id, desc,
        req.body.total || 0, req.body.total_net || req.body.total || 0,
-       req.body.discount || 0, sessions_total, duration, req.body.package_id || null]
+       req.body.discount || 0, sessions_total, duration, req.body.package_id || null, serviceId]
     );
     res.json({ ok: true, comanda_id: ins.insertId, description: desc, sessions_total });
   } catch (e) {
