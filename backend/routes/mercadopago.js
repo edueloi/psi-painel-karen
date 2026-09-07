@@ -200,9 +200,11 @@ router.post('/charge', authMiddleware, async (req, res) => {
           qr_code: pd.point_of_interaction.transaction_data.qr_code,
           qr_code_base64: pd.point_of_interaction.transaction_data.qr_code_base64,
         };
+      } else if (!pixRes.ok) {
+        console.warn('[MP] PIX não gerado:', pd?.message || pd?.cause?.[0]?.description || JSON.stringify(pd));
       }
     } catch (e) {
-      console.warn('[MP] PIX não gerado:', e.message);
+      console.warn('[MP] PIX não gerado (exceção):', e.message);
     }
 
     res.json({
