@@ -528,7 +528,7 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
 }
 
 // ─── Tab: Agenda ──────────────────────────────────────────────────────────────
-function AgendaTab({ appointments, requests, professionals, onRefresh, allowSchedule, showToast, comandas }: {
+function AgendaTab({ appointments, requests, professionals, onRefresh, allowSchedule, showToast, comandas, mpAvailable, mpInterestRate, asaasAvailable }: {
   appointments: PortalAppointment[];
   requests: ScheduleRequest[];
   professionals: { id: number; name: string; specialty?: string }[];
@@ -536,8 +536,11 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   allowSchedule: boolean;
   showToast: (msg: string, type?: ToastType) => void;
   comandas: PortalComanda[];
+  mpAvailable: boolean;
+  mpInterestRate: number;
+  asaasAvailable: boolean;
 }) {
-  const [mode, setMode] = useState<"list" | "schedule" | "reschedule" | "new-comanda">("list");
+  const [mode, setMode] = useState<"list" | "schedule" | "reschedule" | "new-comanda" | "pay-comanda">("list");
   const [loading, setLoading] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [rescheduleAppt, setRescheduleAppt] = useState<PortalAppointment | null>(null);
@@ -583,6 +586,14 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [creatingComanda, setCreatingComanda] = useState(false);
+  // Comanda recém-criada aguardando pagamento (ou já pendente de uma sessão anterior)
+  const [payingComanda, setPayingComanda] = useState<PortalComanda | null>(null);
+  const [pkgMpCharge, setPkgMpCharge] = useState<any>(null);
+  const [pkgMpLoading, setPkgMpLoading] = useState(false);
+  const [pkgMpCopied, setPkgMpCopied] = useState(false);
+  const [pkgAsaasCharge, setPkgAsaasCharge] = useState<any>(null);
+  const [pkgAsaasLoading, setPkgAsaasLoading] = useState(false);
+  const [pkgAsaasCopied, setPkgAsaasCopied] = useState(false);
 
   const loadPackages = useCallback(async () => {
     setPackagesLoading(true);
@@ -614,16 +625,104 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         body.discount = 0;
       }
       const res = await portalFetch("/comandas", { method: "POST", body: JSON.stringify(body) });
-      if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao criar pacote.", "error"); return; }
-      showToast("Pacote criado! Agora agende suas sessões.", "success");
-      setMode("list");
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || "Erro ao criar pacote.", "error"); return; }
       setSelectedPackageId(null);
+      setPkgMpCharge(null);
+      setPkgAsaasCharge(null);
+      setPayingComanda({
+        id: data.comanda_id,
+        description: body.description || "Pacote",
+        sessions_total: body.sessions_total,
+        sessions_done: 0,
+        sessions_scheduled: 0,
+        sessions_remaining: body.sessions_total,
+        status: "open",
+        start_date: new Date().toISOString(),
+        total: body.total || 0,
+        received: 0,
+        upcoming_appointments: [],
+      });
+      setMode("pay-comanda");
       onRefresh();
     } finally { setCreatingComanda(false); }
   };
 
-  // Comanda ativa (aberta com sessões disponíveis)
-  const activeComanda = comandas.find(c => c.sessions_remaining > 0);
+  const createPkgMpCharge = async () => {
+    if (!payingComanda) return;
+    setPkgMpLoading(true);
+    try {
+      const res = await portalFetch("/mercadopago/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: payingComanda.total, comanda_id: payingComanda.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || "Erro ao gerar cobrança.", "error"); return; }
+      setPkgMpCharge(data);
+    } catch (e: any) {
+      showToast(e?.message || "Erro ao gerar cobrança.", "error");
+    } finally { setPkgMpLoading(false); }
+  };
+
+  const createPkgAsaasCharge = async (billingType: "PIX" | "CREDIT_CARD") => {
+    if (!payingComanda) return;
+    setPkgAsaasLoading(true);
+    try {
+      const res = await portalFetch("/asaas/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: payingComanda.total, comanda_id: payingComanda.id, billing_type: billingType }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || "Erro ao gerar cobrança.", "error"); return; }
+      setPkgAsaasCharge(data);
+    } catch (e: any) {
+      showToast(e?.message || "Erro ao gerar cobrança.", "error");
+    } finally { setPkgAsaasLoading(false); }
+  };
+
+  // Polling do pagamento do pacote (Mercado Pago) — atualiza sem precisar F5
+  useEffect(() => {
+    if (!pkgMpCharge || pkgMpCharge.status === "approved" || !pkgMpCharge.pix_payment_id) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await portalFetch(`/mercadopago/charge/${pkgMpCharge.pix_payment_id}`);
+        const d = await res.json();
+        if (["approved", "paid"].includes((d?.status || "").toLowerCase())) {
+          setPkgMpCharge((prev: any) => prev ? { ...prev, status: "approved" } : null);
+          showToast("Pagamento confirmado! Pacote liberado. 🎉", "success");
+          onRefresh();
+        }
+      } catch { /* ignora */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [pkgMpCharge]);
+
+  // Polling do pagamento do pacote (Asaas)
+  useEffect(() => {
+    if (!pkgAsaasCharge || ["CONFIRMED", "RECEIVED"].includes(pkgAsaasCharge.status)) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await portalFetch(`/asaas/charge/${pkgAsaasCharge.payment_id}`);
+        const d = await res.json();
+        if (["CONFIRMED", "RECEIVED"].includes(d?.status)) {
+          setPkgAsaasCharge((prev: any) => prev ? { ...prev, status: d.status } : null);
+          showToast("Pagamento confirmado! Pacote liberado. 🎉", "success");
+          onRefresh();
+        }
+      } catch { /* ignora */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [pkgAsaasCharge]);
+
+  // Uma comanda com valor (pacote comprado) só libera agendamento depois de paga.
+  // Comandas sem total (ex: sessão avulsa não cobrada online) continuam liberadas como antes.
+  const isComandaPaid = (c: PortalComanda) => !c.total || c.received >= c.total;
+  // Comanda ativa (aberta, paga e com sessões disponíveis)
+  const activeComanda = comandas.find(c => c.sessions_remaining > 0 && isComandaPaid(c));
+  // Pacote comprado mas ainda aguardando pagamento — bloqueia o agendamento até quitar
+  const pendingComanda = comandas.find(c => c.sessions_remaining > 0 && !isComandaPaid(c));
   // Sessões já agendadas na comanda ativa
   const scheduledInComanda = activeComanda
     ? appointments.filter(a => ["scheduled","confirmed"].includes(a.status) && new Date(a.start_date) > new Date()).length
@@ -941,7 +1040,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               <span>{selectedPkg.sessions_count} sessões</span>
               <span className="font-bold">{fmtCurrency(selectedPkg.display_price ?? selectedPkg.totalPrice ?? 0)}</span>
             </div>
-            <p className="text-[11px] text-primary-500">Após confirmar, agende cada sessão individualmente na sua agenda.</p>
+            <p className="text-[11px] text-primary-500">Após confirmar, você paga o pacote e já pode agendar cada sessão.</p>
           </div>
         )}
 
@@ -952,6 +1051,131 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700 disabled:opacity-50">
           {selectedPkg ? `Contratar: ${selectedPkg.name}` : "Selecione um pacote acima"}
         </Button>
+      </div>
+    );
+  }
+
+  // ─── PAY COMANDA FLOW (pagamento do pacote recém-contratado ou pendente) ────
+  if (mode === "pay-comanda" && payingComanda) {
+    const pkgAmountDue = (payingComanda.total || 0) - payingComanda.received;
+    const mpApproved = pkgMpCharge?.status === "approved";
+    const asaasApproved = pkgAsaasCharge && ["CONFIRMED", "RECEIVED"].includes(pkgAsaasCharge.status);
+    return (
+      <div className="space-y-4 pb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <button onClick={() => { setMode("list"); setPayingComanda(null); }} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-all">
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h2 className="text-base font-black text-slate-800">Pagar Pacote</h2>
+            <p className="text-xs text-slate-400">{payingComanda.description}</p>
+          </div>
+        </div>
+
+        {(mpApproved || asaasApproved) ? (
+          <div className="flex flex-col items-center gap-2 p-6 bg-emerald-50 rounded-xl border border-emerald-100">
+            <CheckCircle size={32} className="text-emerald-600" />
+            <p className="text-sm font-black text-emerald-700">Pagamento confirmado!</p>
+            <p className="text-[11px] text-emerald-600 text-center">Seu pacote já está liberado — agende suas sessões.</p>
+            <Button variant="primary" size="sm" onClick={() => { setMode("list"); setPayingComanda(null); }}
+              className="mt-2 bg-emerald-600 border-emerald-600 hover:bg-emerald-700">
+              Ver meu pacote
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="bg-primary-50 border border-primary-200 rounded-2xl px-4 py-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-primary-700">Valor a pagar</span>
+              <span className="text-lg font-black text-primary-700">{fmtCurrency(pkgAmountDue)}</span>
+            </div>
+
+            {!mpAvailable && !asaasAvailable && (
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                <p className="text-xs text-amber-700 font-bold">Pagamento online não disponível</p>
+                <p className="text-[11px] text-amber-600 mt-1">Combine com seu psicólogo a forma de pagamento deste pacote.</p>
+              </div>
+            )}
+
+            {mpAvailable && !pkgMpCharge && (
+              <Button variant="primary" onClick={createPkgMpCharge} loading={pkgMpLoading} loadingText="Gerando..."
+                iconLeft={<CreditCard size={15} />}
+                className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
+                Pagar com Mercado Pago
+              </Button>
+            )}
+
+            {pkgMpCharge && !mpApproved && (
+              <div className="bg-white rounded-2xl border border-primary-100 p-4 space-y-3">
+                {pkgMpCharge.pix_qr_code_base64 && (
+                  <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
+                    <img src={pkgMpCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-40 h-40" />
+                    <p className="text-xs text-slate-500 font-bold text-center">Escaneie com o app do banco</p>
+                    {pkgMpCharge.pix_qr_code && (
+                      <button onClick={() => { navigator.clipboard.writeText(pkgMpCharge.pix_qr_code); setPkgMpCopied(true); setTimeout(() => setPkgMpCopied(false), 2000); }}
+                        className="text-xs font-bold text-primary-700 flex items-center gap-1">
+                        📋 {pkgMpCopied ? "Copiado!" : "Copiar código PIX"}
+                      </button>
+                    )}
+                    <p className="text-[10px] text-primary-500 flex items-center gap-1">
+                      <span className="animate-spin inline-block w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full" /> Aguardando confirmação...
+                    </p>
+                  </div>
+                )}
+                {pkgMpCharge.payment_url && (
+                  <a href={pkgMpCharge.payment_url} target="_blank" rel="noreferrer"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 text-white text-sm font-bold rounded-xl hover:bg-primary-700 transition-all">
+                    Pagar agora (cartão)
+                  </a>
+                )}
+                <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
+              </div>
+            )}
+
+            {asaasAvailable && !pkgAsaasCharge && (
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => createPkgAsaasCharge("PIX")} loading={pkgAsaasLoading} loadingText="Gerando..."
+                  className="flex-1 border-teal-200 text-teal-700 hover:bg-teal-50">
+                  Pix (Asaas)
+                </Button>
+                <Button variant="secondary" onClick={() => createPkgAsaasCharge("CREDIT_CARD")} loading={pkgAsaasLoading} loadingText="Gerando..."
+                  className="flex-1 border-teal-200 text-teal-700 hover:bg-teal-50">
+                  Cartão (Asaas)
+                </Button>
+              </div>
+            )}
+
+            {pkgAsaasCharge && !asaasApproved && (
+              <div className="bg-white rounded-2xl border border-teal-100 p-4 space-y-3">
+                {pkgAsaasCharge.pix_qr_code_base64 && (
+                  <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
+                    <img src={pkgAsaasCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-40 h-40" />
+                    <p className="text-xs text-slate-500 font-bold text-center">Escaneie com o app do banco</p>
+                    {pkgAsaasCharge.pix_copy_paste && (
+                      <button onClick={() => { navigator.clipboard.writeText(pkgAsaasCharge.pix_copy_paste); setPkgAsaasCopied(true); setTimeout(() => setPkgAsaasCopied(false), 2000); }}
+                        className="text-xs font-bold text-teal-700 flex items-center gap-1">
+                        📋 {pkgAsaasCopied ? "Copiado!" : "Copiar código PIX"}
+                      </button>
+                    )}
+                    <p className="text-[10px] text-teal-500 flex items-center gap-1">
+                      <span className="animate-spin inline-block w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full" /> Aguardando confirmação...
+                    </p>
+                  </div>
+                )}
+                {pkgAsaasCharge.invoice_url && (
+                  <a href={pkgAsaasCharge.invoice_url} target="_blank" rel="noreferrer"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-700 transition-all">
+                    Pagar agora (cartão)
+                  </a>
+                )}
+                <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
+              </div>
+            )}
+
+            <Button variant="ghost" size="sm" onClick={() => { setMode("list"); setPayingComanda(null); }} className="w-full text-slate-400">
+              Pagar depois
+            </Button>
+          </>
+        )}
       </div>
     );
   }
@@ -1371,6 +1595,32 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         </div>
       )}
 
+      {/* Banner do pacote pendente de pagamento */}
+      {pendingComanda && (
+        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+          <div className="bg-amber-50 border-b border-amber-100 px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
+                <Gem size={12} className="text-white" />
+              </div>
+              <span className="text-xs font-black text-amber-700">Pacote aguardando pagamento</span>
+            </div>
+            <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">PENDENTE</span>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            <p className="text-xs font-bold text-slate-600 truncate">{pendingComanda.description}</p>
+            <p className="text-xs text-slate-400">
+              {fmtCurrency((pendingComanda.total || 0) - pendingComanda.received)} restante — o pacote libera o agendamento assim que o pagamento for confirmado.
+            </p>
+            <Button variant="primary" size="sm"
+              onClick={() => { setPayingComanda(pendingComanda); setPkgMpCharge(null); setPkgAsaasCharge(null); setMode("pay-comanda"); }}
+              className="w-full bg-amber-500 border-amber-500 hover:bg-amber-600">
+              Pagar agora
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Botões de ação */}
       {allowSchedule && (
         <div className="flex gap-2">
@@ -1568,13 +1818,16 @@ function PixCard({ pix_key, pix_owner_name, pix_instructions }: {
 }
 
 // ─── Tab: Pagamentos ──────────────────────────────────────────────────────────
-function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, portalSettings }: {
+function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, portalSettings, mpAvailable, mpInterestRate, asaasAvailable }: {
   payments: PortalPayment[];
   appointments: PortalAppointment[];
   comandas: PortalComanda[];
   onRefresh: () => void;
   showToast: (msg: string, type?: ToastType) => void;
   portalSettings: PortalSettings;
+  mpAvailable: boolean;
+  mpInterestRate: number;
+  asaasAvailable: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1594,8 +1847,6 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
   });
 
   // ── Mercado Pago ─────────────────────────────────────────────────────────
-  const [mpAvailable, setMpAvailable] = useState(false);
-  const [mpInterestRate, setMpInterestRate] = useState(0); // % ao mês, definido pelo psicólogo
   const [showMpForm, setShowMpForm] = useState(false);
   const [mpAmount, setMpAmount] = useState("");
   const [mpInstallments, setMpInstallments] = useState(1);
@@ -1603,13 +1854,6 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
   const [mpCharge, setMpCharge] = useState<any>(null);
   const [mpCopied, setMpCopied] = useState(false);
   const [mpPolling, setMpPolling] = useState(false);
-
-  useEffect(() => {
-    portalFetch("/mercadopago/available")
-      .then(r => r.json())
-      .then((d: any) => { setMpAvailable(d.available); setMpInterestRate(Number(d.interest_rate) || 0); })
-      .catch(() => {});
-  }, []);
 
   // Calcula o valor total com juros compostos para n parcelas (juros só incide a partir de 2x)
   const mpInstallmentTotal = (baseAmount: number, n: number) => {
@@ -1658,7 +1902,6 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
   };
 
   // ── Asaas ─────────────────────────────────────────────────────────────────
-  const [asaasAvailable, setAsaasAvailable] = useState(false);
   const [showAsaasForm, setShowAsaasForm] = useState(false);
   const [asaasAmount, setAsaasAmount] = useState("");
   const [asaasBillingType, setAsaasBillingType] = useState<"PIX" | "CREDIT_CARD">("PIX");
@@ -1666,13 +1909,6 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
   const [asaasCharge, setAsaasCharge] = useState<any>(null);
   const [asaasCopied, setAsaasCopied] = useState(false);
   const [asaasPolling, setAsaasPolling] = useState(false);
-
-  useEffect(() => {
-    portalFetch("/asaas/available")
-      .then(r => r.json())
-      .then((d: any) => setAsaasAvailable(!!d.available))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!asaasCharge || !asaasPolling) return;
@@ -3053,6 +3289,9 @@ export const PatientPortal: React.FC = () => {
   const [comandas, setComandas] = useState<PortalComanda[]>([]);
   const [loading, setLoading] = useState(true);
   const [allowSchedule, setAllowSchedule] = useState(true);
+  const [mpAvailable, setMpAvailable] = useState(false);
+  const [mpInterestRate, setMpInterestRate] = useState(0);
+  const [asaasAvailable, setAsaasAvailable] = useState(false);
   const globalToast = useToast();
 
   const session = getSession();
@@ -3060,6 +3299,14 @@ export const PatientPortal: React.FC = () => {
   useEffect(() => {
     if (!session) { navigate("/portal"); return; }
     loadAll();
+    portalFetch("/mercadopago/available")
+      .then(r => r.json())
+      .then((d: any) => { setMpAvailable(d.available); setMpInterestRate(Number(d.interest_rate) || 0); })
+      .catch(() => {});
+    portalFetch("/asaas/available")
+      .then(r => r.json())
+      .then((d: any) => setAsaasAvailable(d.available))
+      .catch(() => {});
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -3228,11 +3475,11 @@ export const PatientPortal: React.FC = () => {
         <main className="flex-1 px-4 md:px-8 pt-4 pb-6 overflow-y-auto">
           <div className="max-w-full 2xl:max-w-[1400px] w-full mx-auto">
             {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
-            {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} />}
+            {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} mpAvailable={mpAvailable} mpInterestRate={mpInterestRate} asaasAvailable={asaasAvailable} />}
             {tab === "messages"  && <MessagesTab professionalName={professionals[0]?.name} />}
             {tab === "documents" && <DocumentsTab data={documents} />}
             {tab === "nfse"      && <NfseTab invoices={nfseInvoices} />}
-            {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} comandas={comandas} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
+            {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} comandas={comandas} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} mpAvailable={mpAvailable} mpInterestRate={mpInterestRate} asaasAvailable={asaasAvailable} />}
             {tab === "profile"   && <ProfileTab patient={patient} onLogout={handleLogout} onPatientUpdate={loadAll} showToast={globalToast.show} />}
           </div>
         </main>
