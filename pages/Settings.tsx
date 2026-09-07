@@ -20,7 +20,7 @@ import { useToast } from '../contexts/ToastContext';
 import { api, getStaticUrl } from '../services/api';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
-import { maskCpfCnpj, maskPhoneBR } from '../src/lib/masks';
+import { maskCpfCnpj, maskPhoneBR, isValidCpfCnpj } from '../src/lib/masks';
 import { fetchAddressByCep, applyCepMask } from '../src/lib/cep';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -273,8 +273,13 @@ export const Settings: React.FC = () => {
   const [asaasForm, setAsaasForm] = useState({
     name: '', cpfCnpj: '', email: '', mobilePhone: '',
     postalCode: '', address: '', addressNumber: '', province: '',
+    companyType: '', birthDate: '',
   });
   const [asaasCepLoading, setAsaasCepLoading] = useState(false);
+  const [asaasStep, setAsaasStep] = useState<1 | 2 | 3>(1);
+  const [asaasJustActivated, setAsaasJustActivated] = useState(false);
+  const asaasIsCnpj = asaasForm.cpfCnpj.replace(/\D/g, '').length > 11;
+  const ASAAS_LOGIN_URL = 'https://www.asaas.com/login';
 
   useEffect(() => {
     if (activeTab !== 'integracoes') return;
@@ -296,12 +301,33 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const activateAsaas = async () => {
-    if (!asaasForm.name.trim() || !asaasForm.cpfCnpj.trim() || !asaasForm.email.trim()) {
-      pushToast('error', 'Preencha nome, CPF/CNPJ e e-mail.');
-      return;
+  const asaasStep1Valid = asaasForm.name.trim() && asaasForm.email.trim()
+    && isValidCpfCnpj(asaasForm.cpfCnpj) && asaasForm.mobilePhone.replace(/\D/g, '').length >= 10
+    && (asaasIsCnpj ? !!asaasForm.companyType : !!asaasForm.birthDate);
+
+  const asaasStep2Valid = asaasForm.postalCode.trim() && asaasForm.address.trim() && asaasForm.addressNumber.trim();
+
+  const goAsaasStep2 = () => {
+    if (!asaasForm.name.trim() || !asaasForm.email.trim()) {
+      pushToast('error', 'Preencha nome e e-mail.'); return;
     }
-    if (!asaasForm.postalCode.trim() || !asaasForm.address.trim() || !asaasForm.addressNumber.trim()) {
+    if (!isValidCpfCnpj(asaasForm.cpfCnpj)) {
+      pushToast('error', 'O CPF/CNPJ informado é inválido. Confira os números digitados.'); return;
+    }
+    if (asaasForm.mobilePhone.replace(/\D/g, '').length < 10) {
+      pushToast('error', 'Informe um celular válido com DDD.'); return;
+    }
+    if (asaasIsCnpj && !asaasForm.companyType) {
+      pushToast('error', 'Selecione o tipo de empresa (exigido pela Asaas para CNPJ).'); return;
+    }
+    if (!asaasIsCnpj && !asaasForm.birthDate) {
+      pushToast('error', 'Informe a data de nascimento (exigida pela Asaas para CPF).'); return;
+    }
+    setAsaasStep(2);
+  };
+
+  const activateAsaas = async () => {
+    if (!asaasStep2Valid) {
       pushToast('error', 'A Asaas exige o endereço completo (CEP, rua e número) para criar sua conta de recebimentos.');
       return;
     }
@@ -312,9 +338,12 @@ export const Settings: React.FC = () => {
         cpfCnpj: asaasForm.cpfCnpj.replace(/\D/g, ''),
         mobilePhone: asaasForm.mobilePhone.replace(/\D/g, ''),
         postalCode: asaasForm.postalCode.replace(/\D/g, ''),
+        companyType: asaasIsCnpj ? asaasForm.companyType : undefined,
+        birthDate: !asaasIsCnpj ? asaasForm.birthDate : undefined,
       });
       setAsaasStatus({ enabled: true, accountId: res.accountId, walletId: res.walletId, balance: 0 });
-      pushToast('success', 'Recebimentos ativados! Já dá pra cobrar seus pacientes.');
+      setAsaasJustActivated(true);
+      pushToast('success', 'Conta criada! Falta só um passo pra você poder sacar.');
     } catch (e: any) {
       pushToast('error', e?.message || 'Erro ao ativar recebimentos.');
     } finally { setAsaasSaving(false); }
@@ -325,6 +354,8 @@ export const Settings: React.FC = () => {
     try {
       await api.post('/asaas/disable', {});
       setAsaasStatus({ enabled: false, balance: null });
+      setAsaasStep(1);
+      setAsaasJustActivated(false);
       pushToast('success', 'Recebimentos desativados.');
     } catch { pushToast('error', 'Erro ao desativar.'); }
     finally { setAsaasSaving(false); }
@@ -1296,10 +1327,17 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
-              {/* ── Mercado Pago ─────────────────────────────────────────────── */}
+              {/* ── Pagamentos (Mercado Pago OU Asaas — escolha um) ────────────── */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Pagamentos</p>
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <p className="text-[11px] text-slate-400 -mt-2 mb-3 pl-1">
+                  Escolha <strong>um</strong> gateway pra cobrar seus pacientes online — usar os dois ao mesmo tempo confunde quem for pagar.
+                </p>
+              </div>
+
+              {/* ── Mercado Pago ─────────────────────────────────────────────── */}
+              <div>
+                <div className={cx('rounded-2xl border bg-white overflow-hidden', mpConfig.configured && mpConfig.enabled ? 'border-primary-200' : 'border-slate-200')}>
                   <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
                     <div className="p-2.5 rounded-xl bg-primary-100 text-primary-600 shrink-0">
                       <CreditCard size={20} />
@@ -1382,6 +1420,13 @@ export const Settings: React.FC = () => {
                           className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
                           <Unplug size={12} /> Desconectar Mercado Pago
                         </button>
+                      </div>
+                    ) : asaasStatus.enabled ? (
+                      <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                        <ShieldCheck size={15} className="text-amber-600 shrink-0" />
+                        <p className="text-xs text-amber-700 font-medium">
+                          Você já usa a Asaas para receber. Desative-a abaixo antes de conectar o Mercado Pago.
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -1493,8 +1538,7 @@ export const Settings: React.FC = () => {
 
               {/* ── Asaas (recebimentos de pacientes) ───────────────────────── */}
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Pagamentos</p>
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                <div className={cx('rounded-2xl border bg-white overflow-hidden', asaasStatus.enabled ? 'border-teal-200' : 'border-slate-200')}>
                   <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
                     <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 shrink-0">
                       <Wallet size={20} />
@@ -1515,6 +1559,20 @@ export const Settings: React.FC = () => {
                   <div className="p-4 space-y-3">
                     {asaasStatus.enabled ? (
                       <div className="space-y-3">
+                        {asaasJustActivated && (
+                          <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
+                            <p className="text-xs font-bold text-blue-700 flex items-center gap-1.5"><CheckCircle2 size={14} /> Falta 1 passo pra você sacar</p>
+                            <p className="text-xs text-blue-800">
+                              Sua conta na Asaas já foi criada com o e-mail <strong>{asaasForm.email}</strong>. Acesse o site
+                              da Asaas com esse e-mail (você define uma senha lá na primeira vez), cadastre sua conta
+                              bancária e verifique seu documento — só depois disso dá pra transferir o saldo pra sua conta.
+                            </p>
+                            <a href={ASAAS_LOGIN_URL} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 transition-colors">
+                              Acessar minha conta na Asaas <ExternalLink size={12} />
+                            </a>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                           <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                           <p className="text-xs text-emerald-700 font-medium">
@@ -1522,82 +1580,152 @@ export const Settings: React.FC = () => {
                           </p>
                         </div>
                         <p className="text-[11px] text-slate-400">
-                          Agora você pode gerar cobranças direto na ficha do paciente ou pela Comanda. O valor cai na sua própria conta Asaas.
+                          Agora você pode gerar cobranças direto na ficha do paciente ou pela Comanda. Para sacar o saldo, acesse{' '}
+                          <a href={ASAAS_LOGIN_URL} target="_blank" rel="noopener noreferrer" className="font-bold text-teal-600 hover:text-teal-800">
+                            sua conta na Asaas
+                          </a>.
                         </p>
                         <button onClick={disableAsaas} disabled={asaasSaving}
                           className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
                           <Unplug size={12} /> {asaasSaving ? 'Desativando...' : 'Desativar recebimentos'}
                         </button>
                       </div>
+                    ) : mpConfig.configured && mpConfig.enabled ? (
+                      <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                        <ShieldCheck size={15} className="text-amber-600 shrink-0" />
+                        <p className="text-xs text-amber-700 font-medium">
+                          Você já usa o Mercado Pago para receber. Desconecte-o acima antes de ativar a Asaas.
+                        </p>
+                      </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
+                        {/* Indicador de etapas */}
+                        <div className="flex items-center gap-2">
+                          {[1, 2].map(step => (
+                            <div key={step} className="flex items-center gap-2 flex-1">
+                              <div className={cx(
+                                'w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0',
+                                asaasStep === step ? 'bg-teal-600 text-white' : asaasStep > step ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-400'
+                              )}>
+                                {asaasStep > step ? <Check size={13} /> : step}
+                              </div>
+                              <p className={cx('text-[11px] font-semibold', asaasStep === step ? 'text-teal-700' : 'text-slate-400')}>
+                                {step === 1 ? 'Seus dados' : 'Endereço'}
+                              </p>
+                              {step === 1 && <div className={cx('flex-1 h-0.5 rounded', asaasStep > 1 ? 'bg-teal-200' : 'bg-slate-100')} />}
+                            </div>
+                          ))}
+                        </div>
+
                         <div className="p-3 bg-teal-50 rounded-xl border border-teal-100 space-y-1.5">
                           <p className="text-xs font-bold text-teal-700">Como funciona:</p>
                           <p className="text-xs text-teal-800">
-                            Ativando, criamos automaticamente uma conta Asaas em seu nome. Os pagamentos dos seus pacientes
+                            Ao concluir, criamos automaticamente uma conta Asaas em seu nome. Os pagamentos dos seus pacientes
                             caem direto nela — a Plaelo nunca recebe ou repassa esse dinheiro.
                           </p>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          <input
-                            value={asaasForm.name}
-                            onChange={e => setAsaasForm(p => ({ ...p, name: e.target.value }))}
-                            placeholder="Nome completo"
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                          />
-                          <input
-                            value={asaasForm.cpfCnpj}
-                            onChange={e => setAsaasForm(p => ({ ...p, cpfCnpj: maskCpfCnpj(e.target.value) }))}
-                            placeholder="CPF ou CNPJ"
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                          />
-                          <input
-                            value={asaasForm.email}
-                            onChange={e => setAsaasForm(p => ({ ...p, email: e.target.value }))}
-                            placeholder="E-mail"
-                            type="email"
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                          />
-                          <input
-                            value={asaasForm.mobilePhone}
-                            onChange={e => setAsaasForm(p => ({ ...p, mobilePhone: maskPhoneBR(e.target.value) }))}
-                            placeholder="Celular (com DDD)"
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                          />
-                        </div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pt-1">Endereço (exigido pela Asaas)</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          <input
-                            value={asaasForm.postalCode}
-                            onChange={e => handleAsaasCepChange(e.target.value)}
-                            placeholder={asaasCepLoading ? 'Buscando CEP...' : 'CEP'}
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                          />
-                          <input
-                            value={asaasForm.province}
-                            onChange={e => setAsaasForm(p => ({ ...p, province: e.target.value }))}
-                            placeholder="Bairro"
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                          />
-                          <input
-                            value={asaasForm.address}
-                            onChange={e => setAsaasForm(p => ({ ...p, address: e.target.value }))}
-                            placeholder="Rua / Logradouro"
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 sm:col-span-2"
-                          />
-                          <input
-                            value={asaasForm.addressNumber}
-                            onChange={e => setAsaasForm(p => ({ ...p, addressNumber: e.target.value }))}
-                            placeholder="Número"
-                            className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                          />
-                        </div>
-                        <button onClick={activateAsaas} disabled={asaasSaving}
-                          className="w-full py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40">
-                          {asaasSaving
-                            ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Ativando...</span>
-                            : 'Ativar recebimentos'}
-                        </button>
+
+                        {asaasStep === 1 && (
+                          <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              <input
+                                value={asaasForm.name}
+                                onChange={e => setAsaasForm(p => ({ ...p, name: e.target.value }))}
+                                placeholder="Nome completo"
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                              />
+                              <input
+                                value={asaasForm.cpfCnpj}
+                                onChange={e => setAsaasForm(p => ({ ...p, cpfCnpj: maskCpfCnpj(e.target.value) }))}
+                                placeholder="CPF ou CNPJ"
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                              />
+                              <input
+                                value={asaasForm.email}
+                                onChange={e => setAsaasForm(p => ({ ...p, email: e.target.value }))}
+                                placeholder="E-mail"
+                                type="email"
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                              />
+                              <input
+                                value={asaasForm.mobilePhone}
+                                onChange={e => setAsaasForm(p => ({ ...p, mobilePhone: maskPhoneBR(e.target.value) }))}
+                                placeholder="Celular (com DDD)"
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                              />
+                              {asaasIsCnpj ? (
+                                <select
+                                  value={asaasForm.companyType}
+                                  onChange={e => setAsaasForm(p => ({ ...p, companyType: e.target.value }))}
+                                  className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 bg-white sm:col-span-2"
+                                >
+                                  <option value="">Tipo de empresa (exigido p/ CNPJ)</option>
+                                  <option value="MEI">MEI</option>
+                                  <option value="LIMITED">Limitada (LTDA)</option>
+                                  <option value="INDIVIDUAL">Empresário Individual</option>
+                                  <option value="ASSOCIATION">Associação</option>
+                                </select>
+                              ) : (
+                                <div className="sm:col-span-2">
+                                  <input
+                                    type="date"
+                                    value={asaasForm.birthDate}
+                                    onChange={e => setAsaasForm(p => ({ ...p, birthDate: e.target.value }))}
+                                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                                  />
+                                  <p className="text-[10px] text-slate-400 mt-1 pl-1">Data de nascimento (exigida p/ CPF)</p>
+                                </div>
+                              )}
+                            </div>
+                            <button onClick={goAsaasStep2} disabled={!asaasStep1Valid}
+                              className="w-full py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40 flex items-center justify-center gap-1.5">
+                              Continuar <ChevronRight size={14} />
+                            </button>
+                          </>
+                        )}
+
+                        {asaasStep === 2 && (
+                          <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              <input
+                                value={asaasForm.postalCode}
+                                onChange={e => handleAsaasCepChange(e.target.value)}
+                                placeholder={asaasCepLoading ? 'Buscando CEP...' : 'CEP'}
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                              />
+                              <input
+                                value={asaasForm.province}
+                                onChange={e => setAsaasForm(p => ({ ...p, province: e.target.value }))}
+                                placeholder="Bairro"
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                              />
+                              <input
+                                value={asaasForm.address}
+                                onChange={e => setAsaasForm(p => ({ ...p, address: e.target.value }))}
+                                placeholder="Rua / Logradouro"
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 sm:col-span-2"
+                              />
+                              <input
+                                value={asaasForm.addressNumber}
+                                onChange={e => setAsaasForm(p => ({ ...p, addressNumber: e.target.value }))}
+                                placeholder="Número"
+                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => setAsaasStep(1)} disabled={asaasSaving}
+                                className="py-2.5 px-4 text-xs font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all disabled:opacity-40">
+                                Voltar
+                              </button>
+                              <button onClick={activateAsaas} disabled={asaasSaving || !asaasStep2Valid}
+                                className="flex-1 py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40">
+                                {asaasSaving
+                                  ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Ativando...</span>
+                                  : 'Ativar recebimentos'}
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
