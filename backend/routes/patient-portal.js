@@ -27,6 +27,28 @@ function nowBRT() {
   return new Date(Date.now() - BRT_OFFSET_MS);
 }
 
+// Avisa o psicólogo que o Pix falhou por falta de configuração na conta dele
+// (ex: sem chave Pix cadastrada no Mercado Pago) — no máximo 1 alerta a cada 6h
+// por psicólogo, para não spammar a cada tentativa do paciente.
+const _pixMisconfigNotifiedAt = new Map();
+async function notifyPixMisconfig(psychologistId, tenantId, rawMsg) {
+  if (!psychologistId || !tenantId) return;
+  const last = _pixMisconfigNotifiedAt.get(psychologistId);
+  if (last && Date.now() - last < 6 * 60 * 60 * 1000) return;
+  _pixMisconfigNotifiedAt.set(psychologistId, Date.now());
+  const isKeyMissing = rawMsg.includes('Collector user without key enabled for QR render');
+  const message = isKeyMissing
+    ? 'Um paciente tentou pagar via Pix pelo Portal, mas sua conta Mercado Pago ainda não tem uma chave Pix cadastrada. Acesse mercadopago.com.br e cadastre uma chave Pix para habilitar essa forma de pagamento.'
+    : 'Um paciente tentou pagar via Pix pelo Portal e a geração falhou. Verifique sua conta Mercado Pago.';
+  try {
+    await db.query(
+      `INSERT INTO system_alerts (tenant_id, title, message, type, link)
+       VALUES (?, ?, ?, 'warning', '/configuracoes')`,
+      [tenantId, 'Pix indisponível para pacientes ⚠️', message]
+    );
+  } catch (e) { console.warn('[notifyPixMisconfig] falha ao gravar alerta:', e.message); }
+}
+
 // ─── Auto-migrate: garante colunas do portal na tabela patients ──────────────
 let portalSchemaReady = false;
 async function ensurePortalPatientColumns() {
@@ -2746,6 +2768,7 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
 
     // Gera PIX (só se habilitado nas configs do portal)
     let pixData = null;
+    let pixError = null;
     try {
       if (!pixEnabled) throw new Error('pix desabilitado');
       const pixRes = await fetch('https://api.mercadopago.com/v1/payments', {
@@ -2772,7 +2795,12 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
           qr_code_base64: pd.point_of_interaction.transaction_data.qr_code_base64,
         };
       } else if (!pixRes.ok) {
-        console.warn('[Portal MP] PIX não gerado:', pd?.message || pd?.cause?.[0]?.description || JSON.stringify(pd));
+        const rawMsg = pd?.message || pd?.cause?.[0]?.description || JSON.stringify(pd);
+        console.warn('[Portal MP] PIX não gerado:', rawMsg);
+        pixError = rawMsg.includes('Collector user without key enabled for QR render')
+          ? 'Seu psicólogo ainda não cadastrou uma chave Pix na conta Mercado Pago dele. Pague pelo link de cartão abaixo, ou peça para ele cadastrar uma chave Pix em mercadopago.com.br.'
+          : 'Não foi possível gerar o Pix agora. Use o link de pagamento por cartão abaixo.';
+        notifyPixMisconfig(session.psychologist_id, session.tenant_id, rawMsg).catch(() => {});
       }
     } catch (e) { console.warn('[Portal MP] PIX não gerado (exceção):', e.message); }
 
@@ -2802,6 +2830,7 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
       pix_qr_code: pixData?.qr_code || null,
       pix_qr_code_base64: pixData ? `data:image/png;base64,${pixData.qr_code_base64}` : null,
       pix_payment_id: pixData?.payment_id || null,
+      pix_error: pixError,
       status: 'pending',
       amount: Number(amount),
     });

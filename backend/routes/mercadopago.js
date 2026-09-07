@@ -175,6 +175,7 @@ router.post('/charge', authMiddleware, async (req, res) => {
 
     // Gera PIX separadamente
     let pixData = null;
+    let pixError = null;
     try {
       const pixPayload = {
         transaction_amount: Number(amount),
@@ -201,7 +202,11 @@ router.post('/charge', authMiddleware, async (req, res) => {
           qr_code_base64: pd.point_of_interaction.transaction_data.qr_code_base64,
         };
       } else if (!pixRes.ok) {
-        console.warn('[MP] PIX não gerado:', pd?.message || pd?.cause?.[0]?.description || JSON.stringify(pd));
+        const rawMsg = pd?.message || pd?.cause?.[0]?.description || JSON.stringify(pd);
+        console.warn('[MP] PIX não gerado:', rawMsg);
+        pixError = rawMsg.includes('Collector user without key enabled for QR render')
+          ? 'Sua conta Mercado Pago ainda não tem uma chave Pix cadastrada. Acesse mercadopago.com.br → Pix e cadastre uma chave para poder gerar cobranças via Pix.'
+          : 'Não foi possível gerar o Pix agora. O link de pagamento por cartão ainda funciona normalmente.';
       }
     } catch (e) {
       console.warn('[MP] PIX não gerado (exceção):', e.message);
@@ -213,6 +218,7 @@ router.post('/charge', authMiddleware, async (req, res) => {
       pix_qr_code: pixData?.qr_code || null,
       pix_qr_code_base64: pixData ? `data:image/png;base64,${pixData.qr_code_base64}` : null,
       pix_payment_id: pixData?.payment_id || null,
+      pix_error: pixError,
       status: 'pending',
       amount,
     });

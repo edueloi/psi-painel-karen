@@ -1114,6 +1114,11 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
             {pkgMpCharge && !mpApproved && (
               <div className="bg-white rounded-2xl border border-primary-100 p-4 space-y-3">
+                {pkgMpCharge.pix_error && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                    <p className="text-[11px] text-amber-700 font-medium">{pkgMpCharge.pix_error}</p>
+                  </div>
+                )}
                 {pkgMpCharge.pix_qr_code_base64 && (
                   <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
                     <img src={pkgMpCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-40 h-40" />
@@ -2134,6 +2139,11 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {mpCharge.pix_error && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                      <p className="text-[11px] text-amber-700 font-medium">{mpCharge.pix_error}</p>
+                    </div>
+                  )}
                   {/* QR Code PIX */}
                   {mpCharge.pix_qr_code_base64 && (
                     <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
