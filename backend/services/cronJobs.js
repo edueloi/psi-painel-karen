@@ -75,10 +75,10 @@ async function checkSubscriptionReminders() {
     `);
 
     const [recipients] = await db.query(`
-      SELECT t.id AS tenant_id, t.name AS tenant_name,
+      SELECT t.id AS tenant_id, t.name AS tenant_name, t.phone AS tenant_phone,
              CASE WHEN t.expires_at IS NULL THEN t.trial_ends_at ELSE t.expires_at END AS ends_at,
              CASE WHEN t.expires_at IS NULL THEN 'trial' ELSE 'subscription' END AS cycle_type,
-             p.name AS plan_name, u.id AS user_id, u.name, u.email,
+             p.name AS plan_name, u.id AS user_id, u.name, u.email, u.phone AS admin_phone,
              DATEDIFF(DATE(CASE WHEN t.expires_at IS NULL THEN t.trial_ends_at ELSE t.expires_at END), CURDATE()) AS days_left
       FROM tenants t
       JOIN users u ON u.tenant_id = t.id AND u.role = 'admin' AND u.active = true
@@ -122,6 +122,30 @@ async function checkSubscriptionReminders() {
           'INSERT IGNORE INTO subscription_email_log (tenant_id, user_id, event_key) VALUES (?, ?, ?)',
           [recipient.tenant_id, recipient.user_id, eventKey]
         );
+      }
+
+      // Trial vencido hoje: avisa também via WhatsApp (Master Bot), além do e-mail
+      if (isTrial && daysLeft === 0) {
+        const phone = recipient.admin_phone || recipient.tenant_phone;
+        if (phone) {
+          try {
+            const masterTenantId = await getMasterTenantId();
+            if (masterTenantId) {
+              const firstName = String(recipient.name).trim().split(' ')[0];
+              const renewalUrl = `${process.env.APP_URL || 'https://painel.psiflux.com.br'}/assinatura`;
+              const content = `💙 Olá, ${firstName}! Seu período de teste no Plaelo chegou ao fim.\n\n` +
+                `Esperamos que esses dias tenham te ajudado a ver como o Plaelo pode facilitar sua rotina com agenda, pacientes, financeiro e muito mais. ✨\n\n` +
+                `Para continuar aproveitando todos os recursos sem interrupção, é só escolher um plano — leva menos de 2 minutos: ${renewalUrl}\n\n` +
+                `Qualquer dúvida, estou por aqui! 😊\nEquipe Plaelo`;
+              await notificationService.enqueue({
+                tenant_id: masterTenantId,
+                recipient_phone: phone,
+                content,
+                metadata: { type: 'trial-expired-message', tenant_id: recipient.tenant_id },
+              });
+            }
+          } catch (e) { console.warn('[Cron] Falha ao enfileirar WhatsApp de trial vencido:', e.message); }
+        }
       }
     }
   } catch (err) {

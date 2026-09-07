@@ -284,7 +284,7 @@ function templateWelcome({ name, email, loginUrl }) {
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#150F2E;border-radius:14px;margin-bottom:32px;">
       <tr><td style="padding:14px 18px;">
-        <p style="margin:0;font-size:13px;font-weight:700;color:#fff;">🎁 7 dias grátis, sem cartão &nbsp;·&nbsp; <span style="color:#C9B8FF;font-weight:500;">aproveite todos os recursos do Plaelo</span></p>
+        <p style="margin:0;font-size:13px;font-weight:700;color:#fff;">🎁 14 dias grátis, sem cartão &nbsp;·&nbsp; <span style="color:#C9B8FF;font-weight:500;">aproveite todos os recursos do Plaelo</span></p>
       </td></tr>
     </table>
 

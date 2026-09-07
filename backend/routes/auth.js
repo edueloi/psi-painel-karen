@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const speakeasy = require('speakeasy');
 const db = require('../db');
 const { sendMail, templates } = require('../services/emailService');
+const notificationService = require('../services/notificationService');
 const rateLimit = require('express-rate-limit');
 
 // Bloqueio de Força Bruta (Rate Limiters)
@@ -385,7 +386,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
     }
 
-    // Trial de 7 dias libera o plano mais completo (Enterprise) para o cliente
+    // Trial de 14 dias libera o plano mais completo (Enterprise) para o cliente
     // experimentar tudo antes de decidir — depois do trial, escolhe o plano que quiser.
     const [[defaultPlan]] = await conn.query(
       'SELECT id FROM plans WHERE active = true ORDER BY price DESC LIMIT 1'
@@ -401,8 +402,8 @@ router.post('/register', registerLimiter, async (req, res) => {
     const uniqueSuffix = crypto.randomBytes(3).toString('hex');
     const tenantSlug = `${baseSlug}-${uniqueSuffix}`;
 
-    // trial_ends_at = agora + 7 dias
-    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // trial_ends_at = agora + 14 dias
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
     const [tenantResult] = await conn.query(
       `INSERT INTO tenants
@@ -475,6 +476,30 @@ router.post('/register', registerLimiter, async (req, res) => {
         loginUrl: `${process.env.APP_URL || 'https://painel.psiflux.com.br'}/login`,
       })
     ).catch(() => {});
+
+    // Mensagem de boas-vindas via WhatsApp (Master Bot), não bloqueia a resposta
+    if (phone) {
+      (async () => {
+        try {
+          const [[masterRow]] = await db.query(`SELECT tenant_id FROM users WHERE role = 'super_admin' LIMIT 1`);
+          const masterTenantId = masterRow?.tenant_id;
+          if (!masterTenantId) return;
+          const firstName = String(name).trim().split(' ')[0];
+          const content = `💙 Olá, ${firstName}! Seja muito bem-vindo(a) ao Plaelo!\n\n` +
+            `Ficamos muito felizes em ter você conosco. ✨\n\n` +
+            `Durante seu período de teste, aproveite para explorar a plataforma e conhecer os recursos que podem facilitar sua rotina com agenda, pacientes, prontuários, financeiro e muito mais.\n\n` +
+            `Se tiver qualquer dúvida ou quiser conhecer melhor alguma funcionalidade, estou à disposição para te ajudar. 😊\n\n` +
+            `Se preferir, também podemos fazer uma breve apresentação do sistema para você começar com mais facilidade.\n\n` +
+            `Seja muito bem-vindo(a)! 💙\nEquipe Plaelo`;
+          await notificationService.enqueue({
+            tenant_id: masterTenantId,
+            recipient_phone: phone,
+            content,
+            metadata: { type: 'welcome-message', tenant_id: tenantId },
+          });
+        } catch (e) { console.warn('[Registro] Falha ao enfileirar WhatsApp de boas-vindas:', e.message); }
+      })();
+    }
 
     res.status(201).json({ message: 'Cadastro realizado! Faça login para acessar seu painel.' });
   } catch (err) {
