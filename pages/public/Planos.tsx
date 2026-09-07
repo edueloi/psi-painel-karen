@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { CheckCircle, ShieldCheck, Sparkles, HeadphonesIcon, ChevronDown } from 'lucide-react';
+import { CheckCircle, ShieldCheck, Sparkles, HeadphonesIcon, ChevronDown, CreditCard, RefreshCw } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { FEATURE_LABELS, Plan } from './publicSiteData';
 import { api } from '../../services/api';
@@ -47,6 +47,7 @@ export const Planos: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
 
   useSEO({
@@ -58,7 +59,8 @@ export const Planos: React.FC = () => {
   useEffect(() => {
     api.get<Plan[]>('/plans')
       .then((data) => { if (Array.isArray(data)) setPlans(data); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPlansLoading(false));
   }, []);
 
   return (
@@ -84,9 +86,18 @@ export const Planos: React.FC = () => {
 
       <section className="section" style={{ background: '#fff', paddingTop: 'clamp(24px,3vw,40px)' }}>
         <div className="wrap">
-          {plans.length === 0 ? (
+          {plansLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 14 }}>
               Carregando planos...
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="card" style={{ maxWidth: 620, margin: '0 auto', textAlign: 'center' }}>
+              <Sparkles size={22} style={{ color: 'var(--accent)', marginBottom: 12 }} />
+              <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Planos em atualização</h2>
+              <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>
+                Fale com a nossa equipe para conhecer as opções disponíveis para sua clínica.
+              </p>
+              <button className="btn-p" onClick={go}>Quero conhecer a Plaelo</button>
             </div>
           ) : (
           <div className="plan-grid">
@@ -140,6 +151,27 @@ export const Planos: React.FC = () => {
             })}
           </div>
           )}
+        </div>
+      </section>
+
+      <section style={{ background: '#fff', padding: '0 0 clamp(56px,7vw,88px)' }}>
+        <div className="wrap">
+          <div className="site-proof">
+            {[
+              { icon: Sparkles, value: '14 dias', label: 'Para conhecer a plataforma' },
+              { icon: RefreshCw, value: 'Sem fidelidade', label: 'Cancele ou altere quando precisar' },
+              { icon: CreditCard, value: 'Pix ou cartão', label: 'Escolha a melhor forma de pagar' },
+              { icon: HeadphonesIcon, value: 'Suporte humano', label: 'Ajuda para sua equipe começar' },
+            ].map(({ icon: Icon, value, label }) => (
+              <div className="site-proof-item" key={value}>
+                <span className="site-proof-icon"><Icon size={16} /></span>
+                <div>
+                  <div className="site-proof-value">{value}</div>
+                  <div className="site-proof-label">{label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

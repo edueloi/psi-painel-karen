@@ -149,11 +149,47 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
           radial-gradient(circle at 85% 15%, rgba(18,183,106,.08) 0%, transparent 40%);
       }
 
+      .hero-bg::before {
+        content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+        background-image: linear-gradient(rgba(109,66,245,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(109,66,245,.05) 1px, transparent 1px);
+        background-size: 44px 44px;
+        mask-image: linear-gradient(to bottom, #000, transparent 78%);
+      }
+
+      .site-proof {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+        border: 1px solid var(--border); border-radius: 22px; overflow: hidden;
+        background: rgba(255,255,255,.9); box-shadow: 0 14px 36px rgba(18,12,46,.06);
+      }
+      .site-proof-item { padding: 18px 20px; display: flex; align-items: center; gap: 11px; }
+      .site-proof-item + .site-proof-item { border-left: 1px solid var(--border); }
+      .site-proof-icon { width: 34px; height: 34px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .site-proof-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.15; }
+      .site-proof-label { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+      @media (max-width: 720px) {
+        .site-proof { grid-template-columns: repeat(2, 1fr); }
+        .site-proof-item + .site-proof-item { border-left: 0; }
+        .site-proof-item:nth-child(even) { border-left: 1px solid var(--border); }
+        .site-proof-item:nth-child(n+3) { border-top: 1px solid var(--border); }
+      }
+      @media (max-width: 390px) { .site-proof { grid-template-columns: 1fr; } .site-proof-item:nth-child(even) { border-left: 0; } .site-proof-item + .site-proof-item { border-top: 1px solid var(--border); } }
+
+      .journey-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: journey; }
+      .journey-card { position: relative; padding: 28px; border: 1px solid var(--border); background: #fff; border-radius: 22px; overflow: hidden; }
+      .journey-card::after { counter-increment: journey; content: '0' counter(journey); position: absolute; top: 14px; right: 18px; font: 800 36px/1 'Plus Jakarta Sans', sans-serif; color: var(--accent-soft); }
+      .journey-card p { font-size: 13px; line-height: 1.7; color: var(--muted); max-width: 260px; }
+      @media (max-width: 720px) { .journey-grid { grid-template-columns: 1fr; } }
+
       /* Floating collage cards (hero visual) */
-      .float-stack { position: relative; min-height: 360px; }
+      .float-stack { position: relative; min-height: 360px; isolation: isolate; }
       .float-card {
         position: absolute; background: #fff; border: 1px solid var(--border); border-radius: 20px;
         box-shadow: 0 20px 50px rgba(18,12,46,.14); padding: 18px 20px;
+      }
+      .float-stack::after { content: ''; position: absolute; width: 110px; height: 110px; border: 18px solid rgba(109,66,245,.14); border-radius: 50%; right: -28px; bottom: 7px; z-index: -1; }
+      @media (max-width: 480px) {
+        .float-stack { min-height: 320px; margin: 0 -4px; }
+        .float-card { padding: 14px; border-radius: 16px; }
       }
 
       .footer-dark { background: var(--ink); color: rgba(255,255,255,.7); }
