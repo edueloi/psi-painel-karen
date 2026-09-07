@@ -682,6 +682,15 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     } finally { setPkgAsaasLoading(false); }
   };
 
+  // Ao abrir a tela de pagamento do pacote, já gera a cobrança na hora (Pix/QR
+  // aparecem direto, sem precisar de um clique extra) — prioriza Mercado Pago
+  // quando os dois estiverem ativos, já que a exclusividade impede ambos juntos.
+  useEffect(() => {
+    if (mode !== "pay-comanda" || !payingComanda) return;
+    if (mpAvailable && !pkgMpCharge && !pkgMpLoading) { createPkgMpCharge(); return; }
+    if (!mpAvailable && asaasAvailable && !pkgAsaasCharge && !pkgAsaasLoading) { createPkgAsaasCharge("PIX"); }
+  }, [mode, payingComanda, mpAvailable, asaasAvailable]);
+
   // Polling do pagamento do pacote (Mercado Pago) — atualiza sem precisar F5
   useEffect(() => {
     if (!pkgMpCharge || pkgMpCharge.status === "approved" || !pkgMpCharge.pix_payment_id) return;
@@ -1097,11 +1106,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             )}
 
             {mpAvailable && !pkgMpCharge && (
-              <Button variant="primary" onClick={createPkgMpCharge} loading={pkgMpLoading} loadingText="Gerando..."
-                iconLeft={<CreditCard size={15} />}
-                className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
-                Pagar com Mercado Pago
-              </Button>
+              <div className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="animate-spin inline-block w-5 h-5 border-2 border-primary-400 border-t-transparent rounded-full" />
+                <p className="text-xs text-slate-500 font-bold">Gerando Pix e link de pagamento...</p>
+              </div>
             )}
 
             {pkgMpCharge && !mpApproved && (
@@ -1131,16 +1139,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               </div>
             )}
 
-            {asaasAvailable && !pkgAsaasCharge && (
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => createPkgAsaasCharge("PIX")} loading={pkgAsaasLoading} loadingText="Gerando..."
-                  className="flex-1 border-teal-200 text-teal-700 hover:bg-teal-50">
-                  Pix (Asaas)
-                </Button>
-                <Button variant="secondary" onClick={() => createPkgAsaasCharge("CREDIT_CARD")} loading={pkgAsaasLoading} loadingText="Gerando..."
-                  className="flex-1 border-teal-200 text-teal-700 hover:bg-teal-50">
-                  Cartão (Asaas)
-                </Button>
+            {!mpAvailable && asaasAvailable && !pkgAsaasCharge && (
+              <div className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="animate-spin inline-block w-5 h-5 border-2 border-teal-400 border-t-transparent rounded-full" />
+                <p className="text-xs text-slate-500 font-bold">Gerando Pix e link de pagamento...</p>
               </div>
             )}
 
