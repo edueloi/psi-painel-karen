@@ -277,6 +277,7 @@ export const Patients: React.FC = () => {
         phone2: prefixPhone(data.phone2 || null, phone2Country),
         phone_country: phoneCountry,
         phone2_country: phone2Country,
+        country: (data as any).country || 'BR',
         birth_date: data.birth_date || null,
         cpf: data.cpf_cnpj || data.cpf || null,
         rg: data.rg || null,

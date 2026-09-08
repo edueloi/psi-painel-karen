@@ -51,6 +51,11 @@ async function ensurePatientColumns() {
     "ALTER TABLE patients ADD COLUMN address_bairro VARCHAR(100) NULL",
     "ALTER TABLE patients ADD COLUMN address_municipio_ibge VARCHAR(10) NULL",
     "ALTER TABLE patients ADD COLUMN address_uf VARCHAR(2) NULL",
+    // País de residência do paciente — separado do DDI do telefone (phone_country),
+    // que reflete só o código de discagem, não onde a pessoa mora. Usado para o
+    // card "Pacientes no Mundo" do Dashboard. Default BR: a imensa maioria dos
+    // pacientes é brasileira e o cadastro (CEP/cidade/UF) já é pensado pro Brasil.
+    "ALTER TABLE patients ADD COLUMN country VARCHAR(2) DEFAULT 'BR'",
   ];
   for (const sql of cols) {
     try { await db.query(sql); } catch (e) { if (!e.message.includes('Duplicate column')) console.warn('Patients schema warning:', e.message); }
@@ -342,7 +347,7 @@ router.post('/', async (req, res) => {
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis,
       is_payer, payer_name, payer_cpf, payer_phone,
-      phone_country, phone2_country,
+      phone_country, phone2_country, country,
       address_cep, address_logradouro, address_numero, address_complemento,
       address_bairro, address_municipio_ibge, address_uf
     } = req.body;
@@ -367,10 +372,10 @@ router.post('/', async (req, res) => {
         responsible_professional_id, responsible_name,
         responsible_phone, health_plan, diagnosis,
         is_payer, payer_name, payer_cpf, payer_phone,
-        phone_country, phone2_country,
+        phone_country, phone2_country, country,
         address_cep, address_logradouro, address_numero, address_complemento,
         address_bairro, address_municipio_ibge, address_uf
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.tenant_id, name, email || null, phone || null, whatsapp || phone || null, phone2 || null,
         birth_date || null, cpf || null, rg || null, gender || null,
@@ -385,7 +390,7 @@ router.post('/', async (req, res) => {
         responsible_phone || null, health_plan || null, diagnosis || null,
         is_payer === undefined ? 1 : (is_payer ? 1 : 0),
         payer_name || null, payer_cpf || null, payer_phone || null,
-        phone_country || 'BR', phone2_country || 'BR',
+        phone_country || 'BR', phone2_country || 'BR', country || 'BR',
         address_cep || null, address_logradouro || null, address_numero || null, address_complemento || null,
         address_bairro || null, address_municipio_ibge || null, address_uf || null
       ]
@@ -413,7 +418,7 @@ router.put('/:id', async (req, res) => {
       responsible_professional_id, responsible_name,
       responsible_phone, health_plan, diagnosis,
       is_payer, payer_name, payer_cpf, payer_phone,
-      phone_country, phone2_country,
+      phone_country, phone2_country, country,
       address_cep, address_logradouro, address_numero, address_complemento,
       address_bairro, address_municipio_ibge, address_uf
     } = req.body;
@@ -471,6 +476,7 @@ router.put('/:id', async (req, res) => {
         payer_phone = ?,
         phone_country = COALESCE(?, phone_country),
         phone2_country = COALESCE(?, phone2_country),
+        country = COALESCE(?, country),
         address_cep = ?,
         address_logradouro = ?,
         address_numero = ?,
@@ -515,7 +521,7 @@ router.put('/:id', async (req, res) => {
         payer_name !== undefined ? (payer_name || null) : existing[0].payer_name,
         payer_cpf !== undefined ? (payer_cpf || null) : existing[0].payer_cpf,
         payer_phone !== undefined ? (payer_phone || null) : existing[0].payer_phone,
-        phone_country ?? null, phone2_country ?? null,
+        phone_country ?? null, phone2_country ?? null, country ?? null,
         address_cep !== undefined ? (address_cep || null) : existing[0].address_cep,
         address_logradouro !== undefined ? (address_logradouro || null) : existing[0].address_logradouro,
         address_numero !== undefined ? (address_numero || null) : existing[0].address_numero,

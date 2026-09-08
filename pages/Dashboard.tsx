@@ -68,6 +68,8 @@ import {
   StatCard,
   StatGrid,
 } from '../components/UI';
+import { COUNTRIES } from '../components/UI/CountrySelect';
+import { WorldMap } from '../components/Charts/WorldMap';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
@@ -574,6 +576,105 @@ export const Dashboard: React.FC = () => {
     list.sort((a, b) => a.next.getTime() - b.next.getTime());
     return list.slice(0, 5);
   }, [now, patients, startOfDay]);
+
+  // Considera toda a base de pacientes ativos, não só os atendidos no período
+  // (gênero/idade/localização são atributos do cadastro, não do atendimento).
+  const activePatients = useMemo(
+    () => patients.filter((p) => p.status === 'ativo' || p.status === 'active'),
+    [patients]
+  );
+
+  const GENDER_COLORS: Record<string, string> = {
+    feminino: '#ec4899',
+    masculino: '#2a74ac',
+    outro: '#8b5cf6',
+    'não informado': '#94a3b8',
+  };
+
+  const genderPieData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of activePatients) {
+      const raw = (p.gender || '').toString().trim().toLowerCase();
+      const key = raw === 'feminino' || raw === 'masculino' ? raw
+        : raw ? 'outro'
+        : 'não informado';
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    const labels: Record<string, string> = {
+      feminino: 'Feminino', masculino: 'Masculino', outro: 'Outro', 'não informado': 'Não informado',
+    };
+    return Object.entries(counts)
+      .filter(([, value]) => value > 0)
+      .map(([key, value]) => ({ name: labels[key], value, color: GENDER_COLORS[key] }));
+  }, [activePatients]);
+
+  const genderPieTotal = useMemo(
+    () => genderPieData.reduce((sum, entry) => sum + entry.value, 0),
+    [genderPieData]
+  );
+
+  const AGE_BRACKETS: Array<{ label: string; min: number; max: number }> = [
+    { label: '0-12', min: 0, max: 12 },
+    { label: '13-17', min: 13, max: 17 },
+    { label: '18-29', min: 18, max: 29 },
+    { label: '30-44', min: 30, max: 44 },
+    { label: '45-59', min: 45, max: 59 },
+    { label: '60+', min: 60, max: Infinity },
+  ];
+
+  const ageDistribution = useMemo(() => {
+    const counts = AGE_BRACKETS.map(() => 0);
+    let withoutBirthDate = 0;
+    for (const p of activePatients) {
+      const dateStr = p.birth_date || p.birthDate;
+      if (!dateStr) { withoutBirthDate++; continue; }
+      // Parse local sem timezone (mesmo padrão de birthdays acima)
+      const parts = dateStr.split('T')[0].split('-');
+      const birthDate = parts.length === 3
+        ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+        : new Date(dateStr);
+      if (Number.isNaN(birthDate.getTime())) { withoutBirthDate++; continue; }
+      let age = now.getFullYear() - birthDate.getFullYear();
+      const beforeBirthdayThisYear = now.getMonth() < birthDate.getMonth()
+        || (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
+      if (beforeBirthdayThisYear) age--;
+      const idx = AGE_BRACKETS.findIndex((b) => age >= b.min && age <= b.max);
+      if (idx >= 0) counts[idx]++; else withoutBirthDate++;
+    }
+    return AGE_BRACKETS.map((b, i) => ({ label: b.label, value: counts[i] })).concat(
+      withoutBirthDate > 0 ? [{ label: 'Não informado', value: withoutBirthDate }] : []
+    );
+  }, [activePatients, now]);
+
+  const ageDistributionTotal = useMemo(
+    () => ageDistribution.reduce((sum, entry) => sum + entry.value, 0),
+    [ageDistribution]
+  );
+
+  const countryDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const p of activePatients) {
+      // country é explícito quando o profissional preencheu; senão infere pelo
+      // estado (UF válida → Brasil) ou cai em "não identificado".
+      const explicit = (p as any).country as string | undefined;
+      const state = (p.state || '').toString().trim().toUpperCase();
+      const validUf = /^(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/.test(state);
+      const code = explicit || (validUf ? 'BR' : (p.city || p.state ? 'BR' : ''));
+      if (!code) continue;
+      counts[code] = (counts[code] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([code, value]) => {
+        const info = COUNTRIES.find((c) => c.code === code);
+        return { code, name: info?.name || code, flag: info?.flag || '🌐', value };
+      })
+      .sort((a, b) => b.value - a.value);
+  }, [activePatients]);
+
+  const countryDistributionTotal = useMemo(
+    () => countryDistribution.reduce((sum, entry) => sum + entry.value, 0),
+    [countryDistribution]
+  );
 
   // Escopado aos últimos 30 dias (mesma janela de statusCounts/typeCounts/
   // modalityCounts) — não é mais a base inteira desde sempre.
@@ -1635,6 +1736,165 @@ export const Dashboard: React.FC = () => {
                 </a>
               ))}
             </div>
+          </PanelCard>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <PanelCard
+            title="Distribuição por Gênero"
+            description="Pacientes ativos cadastrados."
+            icon={Users}
+            iconWrapClassName="border-pink-100 bg-pink-50"
+            iconClassName="text-pink-600"
+          >
+            {isLoading ? (
+              <div className="flex h-[200px] items-center justify-center">
+                <Loader2 className="animate-spin text-zinc-300" />
+              </div>
+            ) : genderPieData.length === 0 ? (
+              <EmptyState
+                title="Sem dados para exibir"
+                description="Cadastre o gênero dos pacientes para ver esta distribuição."
+                icon={Users}
+                className="h-[200px]"
+              />
+            ) : (
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={genderPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={44}
+                      outerRadius={72}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {genderPieData.map((entry, index) => (
+                        <Cell key={`${entry.name}-${index}`} fill={entry.color} />
+                      ))}
+                      <Label
+                        position="center"
+                        content={({ viewBox }: any) => {
+                          const { cx: lx, cy: ly } = viewBox;
+                          return (
+                            <g>
+                              <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 20, fontWeight: 900, fill: '#18181b' }}>
+                                {genderPieTotal}
+                              </text>
+                              <text x={lx} y={ly + 12} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
+                                TOTAL
+                              </text>
+                            </g>
+                          );
+                        }}
+                      />
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
+                      formatter={(value: number, name: string) => [
+                        `${value} (${genderPieTotal > 0 ? Math.round((value / genderPieTotal) * 100) : 0}%)`,
+                        name,
+                      ]}
+                    />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </PanelCard>
+
+          <PanelCard
+            title="Faixa Etária"
+            description="Pacientes ativos por idade."
+            icon={Users}
+            iconWrapClassName="border-violet-100 bg-violet-50"
+            iconClassName="text-violet-600"
+          >
+            {isLoading ? (
+              <div className="flex h-[200px] items-center justify-center">
+                <Loader2 className="animate-spin text-zinc-300" />
+              </div>
+            ) : ageDistributionTotal === 0 ? (
+              <EmptyState
+                title="Nenhum paciente atendido neste período"
+                description="Cadastre a data de nascimento dos pacientes para ver esta distribuição."
+                icon={Users}
+                className="h-[200px]"
+              />
+            ) : (
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ageDistribution} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <XAxis type="number" hide allowDecimals={false} />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={72}
+                    />
+                    <Tooltip
+                      cursor={{ fill: '#f1f5f9' }}
+                      contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
+                      formatter={(value: number) => [value, 'Pacientes']}
+                    />
+                    <Bar dataKey="value" fill="#8b5cf6" radius={[0, 8, 8, 0]}>
+                      <LabelList
+                        dataKey="value"
+                        position="right"
+                        formatter={(value: number) => (value > 0 ? value : '')}
+                        style={{ fontSize: 11, fontWeight: 800, fill: '#334155' }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </PanelCard>
+
+          <PanelCard
+            title="Pacientes no Mundo"
+            description="Localização por país cadastrado."
+            icon={Globe}
+            iconWrapClassName="border-sky-100 bg-sky-50"
+            iconClassName="text-sky-600"
+          >
+            {isLoading ? (
+              <div className="flex h-[200px] items-center justify-center">
+                <Loader2 className="animate-spin text-zinc-300" />
+              </div>
+            ) : countryDistributionTotal === 0 ? (
+              <EmptyState
+                title="Sem dados para exibir"
+                description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
+                icon={Globe}
+                className="h-[200px]"
+              />
+            ) : (
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-2xl bg-zinc-50">
+                  <WorldMap
+                    countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
+                    height={140}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {countryDistribution.slice(0, 6).map((c) => (
+                    <span
+                      key={c.code}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-zinc-100 bg-zinc-50/80 px-2.5 py-1 text-[11px] font-bold text-zinc-600"
+                    >
+                      <span>{c.flag}</span>
+                      <span>{c.code}</span>
+                      <span className="text-zinc-400">{c.value}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </PanelCard>
         </div>
       </div>

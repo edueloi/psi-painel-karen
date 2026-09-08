@@ -124,9 +124,13 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         border-radius: 32px; overflow: hidden;
       }
 
-      /* Navbar mobile/tablet — barra fixa cheia, sem pill flutuante nem margens */
+      /* Navbar mobile/tablet — barra fixa cheia, sem pill flutuante nem margens.
+         display fica de fora daqui de propósito: é controlado via classe
+         Tailwind (flex/hidden) no JSX, pra não competir em especificidade com
+         md:hidden — como os dois viram regras "uma classe" (0,1,0), a ordem de
+         injeção do Tailwind CDN decide quem ganha, o que é frágil/imprevisível. */
       .nav-pill {
-        display: flex; align-items: center; justify-content: space-between;
+        align-items: center; justify-content: space-between;
         background: rgba(255,255,255,.96); backdrop-filter: blur(14px);
         border-bottom: 1px solid var(--border);
         padding: 14px 20px;

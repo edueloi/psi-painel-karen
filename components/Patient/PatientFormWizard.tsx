@@ -69,6 +69,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       is_payer: true,
       phone_country: 'BR',
       phone2_country: 'BR',
+      country: 'BR',
       ...initialData
     };
 
@@ -400,12 +401,24 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             </div>
             <div className="md:col-span-1 space-y-2">
               <label className="text-xs font-semibold text-slate-600">{t('wizard.state')}</label>
-              <input 
+              <input
                 type="text" maxLength={2}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-                value={formData.state || ''} 
+                value={formData.state || ''}
                 onChange={e => updateField('state', e.target.value.toUpperCase())}
               />
+            </div>
+            <div className="md:col-span-3 space-y-2">
+              <label className="text-xs font-semibold text-slate-600">País</label>
+              <select
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                value={formData.country || 'BR'}
+                onChange={e => updateField('country', e.target.value)}
+              >
+                {COUNTRIES.filter(c => c.code !== 'OTHER').map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                ))}
+              </select>
             </div>
           </div>
         );

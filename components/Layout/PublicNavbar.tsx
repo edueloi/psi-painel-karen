@@ -99,7 +99,7 @@ export const PublicNavbar: React.FC = () => {
       </header>
 
       {/* Mobile/tablet — barra fixa cheia, colada no topo */}
-      <nav className="nav-pill md:hidden">
+      <nav className="nav-pill flex md:hidden">
         <Logo size={34} />
         <button
           onClick={() => setMenuOpen(o => !o)}
