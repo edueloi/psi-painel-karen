@@ -6,7 +6,8 @@ import {
   Save, AlertTriangle, Clock, Send, Loader2, Calendar,
   BarChart2, FileText, UserCheck, Users2, ExternalLink, Zap, ClipboardList,
   MessageSquare, Video, FileCode, Plug, ArrowRight, Users, Shield,
-  Phone, Briefcase, CreditCard, Eye, EyeOff, Unplug, CheckCircle2, XCircle, Receipt, Wallet
+  Phone, Briefcase, CreditCard, Eye, EyeOff, Unplug, CheckCircle2, XCircle, Receipt, Wallet,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
 import { PageHeader } from '../components/UI/PageHeader';
@@ -109,6 +110,38 @@ export const Settings: React.FC = () => {
       setTeam(Array.isArray(data) ? data : []);
     }).catch(() => setTeam([])).finally(() => setTeamLoading(false));
   }, [activeTab]);
+
+  // ── Conformidade ética e legal (histórico de aceites de termos) ─────────────
+  const [termsHistory, setTermsHistory] = useState<Array<{ id: number; type: string; version: string; title: string; summary: string | null; content: string; accepted_at: string | null }>>([]);
+  const [termsLoading, setTermsLoading] = useState(false);
+  const [expandedTermId, setExpandedTermId] = useState<number | null>(null);
+  const [acceptingTermId, setAcceptingTermId] = useState<number | null>(null);
+  const [termChecks, setTermChecks] = useState<Record<number, boolean>>({});
+
+  const loadTermsHistory = useCallback(() => {
+    setTermsLoading(true);
+    api.get<{ items: typeof termsHistory }>('/terms/my-history')
+      .then(data => setTermsHistory(data.items || []))
+      .catch(() => setTermsHistory([]))
+      .finally(() => setTermsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'conformidade') loadTermsHistory();
+  }, [activeTab, loadTermsHistory]);
+
+  const handleAcceptTerm = async (id: number) => {
+    setAcceptingTermId(id);
+    try {
+      await api.post(`/terms/${id}/accept`, {});
+      pushToast('success', 'Aceite registrado com sucesso!');
+      loadTermsHistory();
+    } catch {
+      pushToast('error', 'Não foi possível registrar o aceite.');
+    } finally {
+      setAcceptingTermId(null);
+    }
+  };
 
   // ── Email Preferences ────────────────────────────────────────────────────
   const [emailPrefs, setEmailPrefs] = useState<EmailPrefs>(DEFAULT_EMAIL_PREFS);
@@ -465,6 +498,7 @@ export const Settings: React.FC = () => {
     { id: 'aparencia',    label: 'Aparência',      icon: <Palette size={18} />,      desc: 'Cores e modo visual' },
     { id: 'geral',        label: 'Geral',           icon: <SettingsIcon size={18} />, desc: 'Idioma e preferências' },
     { id: 'sessoes',      label: 'Sessões',         icon: <Video size={18} />,        desc: 'Gravação e transcrição' },
+    { id: 'conformidade', label: 'Conformidade',    icon: <ShieldCheck size={18} />,  desc: 'Termos aceitos e histórico' },
     ...(hasPermission('manage_clinic_settings') ? [{ id: 'notificacoes', label: 'Notificações', icon: <Bell size={18} />, desc: 'Emails automáticos' }] : []),
     ...(hasPermission('manage_payments') ? [{ id: 'dados-fiscais', label: 'Dados Fiscais', icon: <FileText size={18} />, desc: 'NFS-e e certificado digital' }] : []),
     ...(hasPermission('manage_professionals') && (user?.plan_features?.includes('profissionais')) ? [{ id: 'equipe', label: 'Equipe', icon: <Users size={18} />, desc: 'Profissionais da clínica' }] : []),
@@ -755,6 +789,96 @@ export const Settings: React.FC = () => {
                   </Button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── CONFORMIDADE ÉTICA E LEGAL ───────────────────────────────── */}
+          {activeTab === 'conformidade' && (
+            <div className="space-y-6 max-w-2xl">
+              <SectionHeader icon={<ShieldCheck size={20} />} title="Conformidade ética e legal" desc="Trilha dos aceites que você registrou na plataforma, com data e hora." />
+
+              <div className="flex items-start gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                <ShieldCheck size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-indigo-800 leading-relaxed">
+                  A Plaelo lida com dados de pacientes, então a LGPD exige que esses aceites fiquem registrados com data e hora — é o que protege você e quem você atende.
+                </p>
+              </div>
+
+              {termsLoading ? (
+                <div className="flex items-center justify-center py-10 text-slate-400 text-sm font-bold gap-2">
+                  <Loader2 size={16} className="animate-spin" /> Carregando...
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {termsHistory.map(term => {
+                    const expanded = expandedTermId === term.id;
+                    const isPending = !term.accepted_at;
+                    return (
+                      <div key={term.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="p-5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-black text-slate-900 text-sm">{term.title}</h3>
+                                <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">v{term.version}</span>
+                              </div>
+                              {term.summary && <p className="text-xs text-slate-500 mt-1">{term.summary}</p>}
+                              <div className="mt-2">
+                                {isPending ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                                    <Clock size={12} /> Pendente
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
+                                    <CheckCircle2 size={12} /> Aceito em {new Date(term.accepted_at!).toLocaleString('pt-BR')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setExpandedTermId(expanded ? null : term.id)}
+                              className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700 shrink-0"
+                            >
+                              {expanded ? 'Ocultar' : 'Ver conteúdo'} {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          </div>
+
+                          {expanded && (
+                            <div className="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-4 max-h-72 overflow-y-auto text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                              {term.content}
+                            </div>
+                          )}
+
+                          {isPending && (
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={!!termChecks[term.id]}
+                                  onChange={e => setTermChecks(prev => ({ ...prev, [term.id]: e.target.checked }))}
+                                  className="w-4 h-4 mt-0.5 accent-indigo-600"
+                                />
+                                <span className="text-sm text-slate-600">Li integralmente e concordo com {term.title}.</span>
+                              </label>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                radius="xl"
+                                className="mt-3"
+                                disabled={!termChecks[term.id] || acceptingTermId === term.id}
+                                leftIcon={acceptingTermId === term.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                                onClick={() => handleAcceptTerm(term.id)}
+                              >
+                                Aceitar e salvar
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

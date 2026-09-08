@@ -9,6 +9,8 @@ import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Topbar } from './components/Layout/Topbar';
 import { AuroraAssistant } from './components/AI/AuroraAssistant';
+import { InstallPWAPrompt } from './components/Layout/InstallPWAPrompt';
+import { TrialBanner } from './components/Layout/TrialBanner';
 import { OnboardingController } from './components/Onboarding/OnboardingController';
 import { Home } from './pages/public/Home';
 import { Funcionalidades } from './pages/public/Funcionalidades';
@@ -98,6 +100,7 @@ import { Terms } from './pages/Terms';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Help } from './pages/Help';
 import { Assinatura } from './pages/Assinatura';
+import { TermsAcceptance } from './pages/TermsAcceptance';
 import logoUrl from './images/logo-sistema/logo.png';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 import { api } from './services/api';
@@ -145,6 +148,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <div className="flex h-screen w-full bg-slate-50/80 text-slate-800 font-sans overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={logout} />
       <div className="flex-1 flex min-w-0 flex-col h-full transition-all duration-300 lg:ml-[256px]">
+        <TrialBanner />
         <Topbar onMenuClick={() => setSidebarOpen(!isSidebarOpen)} user={user as any} onLogout={logout} />
         <main className="flex-1 overflow-y-auto">
           <div className="w-full max-w-[1600px] lg:mx-auto">{children}</div>
@@ -169,6 +173,8 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </div>
       )}
+
+      <InstallPWAPrompt />
     </div>
   );
 };
@@ -230,7 +236,43 @@ const SubscriptionAccessGate: React.FC<{ children: React.ReactNode; afterContent
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <MainLayout>{children}{afterContent}</MainLayout>;
+  return <TermsAcceptanceGate>{children}{afterContent}</TermsAcceptanceGate>;
+};
+
+// Bloqueia acesso ao painel até o usuário aceitar todas as versões vigentes
+// dos termos (Termos de Uso, Diretrizes Éticas da IA, Direitos Autorais).
+// Consultado uma vez por sessão de navegação — cada aceite some da lista de
+// pendências assim que confirmado, sem precisar recarregar a página.
+const TermsAcceptanceGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const [checked, setChecked] = useState(false);
+  const [hasPending, setHasPending] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    if (user?.role === 'super_admin') {
+      setHasPending(false);
+      setChecked(true);
+      return () => { mounted = false; };
+    }
+
+    api.get<{ has_pending: boolean }>('/terms/pending-status')
+      .then(status => { if (mounted) setHasPending(status.has_pending); })
+      // Em caso de indisponibilidade temporária, não bloqueia o acesso.
+      .catch(() => { if (mounted) setHasPending(false); })
+      .finally(() => { if (mounted) setChecked(true); });
+    return () => { mounted = false; };
+  }, [user?.id, user?.role]);
+
+  if (!checked) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-sm font-bold">Verificando conformidade...</div>;
+  }
+
+  if (hasPending) {
+    return <TermsAcceptance onAllAccepted={() => setHasPending(false)} />;
+  }
+
+  return <MainLayout>{children}</MainLayout>;
 };
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[]; requiredPermission?: string; requiredCapability?: 'does_psychotherapy' }> = ({ children, allowedRoles, requiredPermission, requiredCapability }) => {

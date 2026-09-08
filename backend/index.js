@@ -185,6 +185,7 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/nfse`, nfseRoutes);
   app.use(`${prefix}/email-campaigns`, emailCampaignsRoutes);
   app.use(`${prefix}/google`, require('./routes/google-calendar'));
+  app.use(`${prefix}/terms`, require('./routes/terms'));
 }
 
 // ---- Middlewares globais ----
