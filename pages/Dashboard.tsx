@@ -1216,16 +1216,16 @@ export const Dashboard: React.FC = () => {
                 {upcomingFiltered.slice(0, 10).map((appointment) => (
                   <div
                     key={appointment.id}
-                    className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-zinc-50/70 sm:px-6 sm:py-4 lg:gap-4"
+                    className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-50/70 sm:gap-4 sm:px-6"
                   >
-                    <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-700 sm:h-14 sm:w-14 lg:h-[52px] lg:w-[68px]">
-                      <span className="text-[10px] font-black uppercase sm:text-[11px]">
+                    <div className="flex w-14 shrink-0 flex-col items-center justify-center text-center sm:w-16">
+                      <span className="text-[10px] font-black uppercase leading-tight text-zinc-400 sm:text-[11px]">
                         {appointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
                           day: '2-digit',
                           month: 'short',
                         })}
                       </span>
-                      <span className="text-[9px] font-bold text-sky-600 sm:text-[10px]">
+                      <span className="text-sm font-black leading-tight text-zinc-800 sm:text-base">
                         {appointment.start.toLocaleTimeString([], {
                           hour: '2-digit',
                           minute: '2-digit',
@@ -1233,55 +1233,40 @@ export const Dashboard: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <h4 className="truncate text-sm font-black text-zinc-900 sm:text-base">
+                    <span className="h-8 w-px shrink-0 bg-zinc-100" aria-hidden />
+
+                    <div className="min-w-0 flex-1 py-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h4 className="truncate text-sm font-bold text-zinc-900">
                           {appointment.patient_name || 'Consulta'}
                         </h4>
                         {renderAppointmentStatus(appointment.status)}
                       </div>
-
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <Badge color="info">{appointment.type || 'consulta'}</Badge>
-                        <Badge color="teal">{appointment.modality || 'presencial'}</Badge>
-                      </div>
-
-                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 lg:hidden">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/pacientes?search=${encodeURIComponent(appointment.patient_name || '')}`)
-                          }
-                          className="text-xs font-bold text-[#295b85] transition-colors hover:text-[#143a59]"
-                        >
-                          Ver paciente
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/agenda?appointmentId=${appointment.id}`)}
-                          className="text-xs font-bold text-zinc-500 transition-colors hover:text-zinc-900"
-                        >
-                          Abrir agenda
-                        </button>
-                      </div>
+                      <p className="mt-0.5 truncate text-xs text-zinc-400">
+                        {(appointment.type || 'consulta')}
+                        <span className="mx-1 text-zinc-300">·</span>
+                        {(appointment.modality || 'presencial')}
+                      </p>
                     </div>
 
-                    <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                    <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
+                        title="Ver paciente"
                         onClick={() =>
                           navigate(`/pacientes?search=${encodeURIComponent(appointment.patient_name || '')}`)
                         }
-                        className="text-xs font-bold text-[#295b85] transition-colors hover:text-[#143a59]"
+                        className="rounded-lg p-2 text-[#295b85] transition-colors hover:bg-sky-50 hover:text-[#143a59]"
                       >
-                        Ver paciente
+                        <Users size={15} />
                       </button>
                       <button
                         type="button"
+                        title="Abrir agenda"
                         onClick={() => navigate(`/agenda?appointmentId=${appointment.id}`)}
-                        className="text-xs font-bold text-zinc-500 transition-colors hover:text-zinc-900"
+                        className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
                       >
-                        Abrir agenda
+                        <Calendar size={15} />
                       </button>
                     </div>
                   </div>
@@ -1794,6 +1779,16 @@ export const Dashboard: React.FC = () => {
           </PanelCard>
         </div>
 
+        <div className="flex items-center gap-3 pt-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600">
+            <Users size={15} />
+          </span>
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Perfil dos pacientes</h2>
+            <p className="text-xs text-zinc-400">Como sua base de pacientes ativos está distribuída.</p>
+          </div>
+        </div>
+
         <div className="grid gap-4 lg:grid-cols-2">
           <PanelCard
             title="Distribuição por Gênero"
@@ -1803,7 +1798,7 @@ export const Dashboard: React.FC = () => {
             iconClassName="text-pink-600"
           >
             {isLoading ? (
-              <div className="flex h-[220px] items-center justify-center sm:h-[240px]">
+              <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
                 <Loader2 className="animate-spin text-zinc-300" />
               </div>
             ) : genderPieData.length === 0 ? (
@@ -1811,18 +1806,18 @@ export const Dashboard: React.FC = () => {
                 title="Sem dados para exibir"
                 description="Cadastre o gênero dos pacientes para ver esta distribuição."
                 icon={Users}
-                className="h-[220px] sm:h-[240px]"
+                className="h-[280px] sm:h-[320px]"
               />
             ) : (
-              <div className="h-[220px] sm:h-[240px]">
+              <div className="h-[280px] sm:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={genderPieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={48}
-                      outerRadius={78}
+                      innerRadius={64}
+                      outerRadius={100}
                       paddingAngle={4}
                       dataKey="value"
                     >
@@ -1868,7 +1863,7 @@ export const Dashboard: React.FC = () => {
             iconClassName="text-violet-600"
           >
             {isLoading ? (
-              <div className="flex h-[220px] items-center justify-center sm:h-[240px]">
+              <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
                 <Loader2 className="animate-spin text-zinc-300" />
               </div>
             ) : ageDistributionTotal === 0 ? (
@@ -1876,10 +1871,10 @@ export const Dashboard: React.FC = () => {
                 title="Sem dados para exibir"
                 description="Cadastre a data de nascimento dos pacientes para ver esta distribuição."
                 icon={Users}
-                className="h-[220px] sm:h-[240px]"
+                className="h-[280px] sm:h-[320px]"
               />
             ) : (
-              <div className="h-[220px] sm:h-[240px]">
+              <div className="h-[280px] sm:h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={ageDistribution} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 0 }}>
                     <XAxis type="number" hide allowDecimals={false} />
@@ -1919,7 +1914,7 @@ export const Dashboard: React.FC = () => {
           iconClassName="text-sky-600"
         >
           {isLoading ? (
-            <div className="flex h-[640px] items-center justify-center">
+            <div className="flex h-[520px] items-center justify-center">
               <Loader2 className="animate-spin text-zinc-300" />
             </div>
           ) : countryDistributionTotal === 0 ? (
@@ -1927,19 +1922,19 @@ export const Dashboard: React.FC = () => {
               title="Sem dados para exibir"
               description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
               icon={Globe}
-              className="h-[640px]"
+              className="h-[520px]"
             />
           ) : (
-            <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
+            <div className="space-y-5">
               <div className="overflow-hidden rounded-2xl bg-zinc-50 p-3">
                 <WorldMap
                   countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
                   stateCounts={Object.fromEntries(stateDistribution.map((s) => [s.uf, s.value]))}
                   cityCountsByState={cityDistributionByState}
-                  height={640}
+                  height={520}
                 />
               </div>
-              <div className="flex flex-col gap-2 xl:max-h-[640px] xl:overflow-y-auto xl:pr-1">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {countryDistribution.map((c) => {
                   const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
                   return (

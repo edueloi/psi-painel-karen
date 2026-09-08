@@ -149,14 +149,17 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
   }, [containerWidth, height, brazilHighlighted, brazilGeo]);
   const brazilPath = useMemo(() => geoPath(brazilProjection as any), [brazilProjection]);
 
-  const goBack = () => setView(view.level === 'state' ? { level: 'brazil' } : { level: 'world' });
+  const goBack = () => {
+    setHovered(null);
+    setView(view.level === 'state' ? { level: 'brazil' } : { level: 'world' });
+  };
 
   // ── Nível ESTADO (lista de cidades, sem geometria própria) ──────────────
   if (view.level === 'state') {
     const cities = cityCountsByState[view.uf] || [];
     const total = cities.reduce((s, c) => s + c.value, 0);
     return (
-      <div style={{ width: '100%', height, overflowY: 'auto' }}>
+      <div style={{ width: '100%', maxHeight: height, overflowY: 'auto' }}>
         <button
           onClick={goBack}
           className="mb-3 flex items-center gap-1.5 text-xs font-bold text-zinc-500 hover:text-zinc-800 transition-colors"
@@ -218,7 +221,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
                   stroke="#fff"
                   strokeWidth={0.8}
                   style={{ cursor: hasCities ? 'pointer' : 'default', transition: 'fill .15s' }}
-                  onClick={() => hasCities && setView({ level: 'state', uf })}
+                  onClick={() => { if (hasCities) { setHovered(null); setView({ level: 'state', uf }); } }}
                   onMouseEnter={(e) => {
                     if (!count) return;
                     const rect = containerRef.current?.getBoundingClientRect();
@@ -255,20 +258,20 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
         <div className="flex h-full items-center justify-center text-xs font-bold text-zinc-300">Carregando mapa...</div>
       ) : (
         <svg width="100%" height={height} viewBox={`0 0 ${containerWidth} ${height}`} role="img" aria-label="Distribuição de pacientes no mundo">
-          {worldGeo.map((geo) => {
+          {worldGeo.map((geo, idx) => {
             const count = numericCountryCounts[geo.id] || 0;
             const intensity = count > 0 ? 0.35 + 0.55 * (count / maxCountryCount) : 0;
             const isBrazil = geo.id === ALPHA2_TO_NUMERIC.BR;
             const clickable = isBrazil && hasBrazilDrilldown;
             return (
               <path
-                key={geo.id}
+                key={geo.id ?? `geo-${idx}`}
                 d={worldPath(geo) || undefined}
                 fill={count > 0 ? `rgba(41, 91, 133, ${intensity})` : '#e2e5eb'}
                 stroke="#fff"
                 strokeWidth={0.6}
                 style={{ cursor: clickable ? 'pointer' : count > 0 ? 'default' : 'default', transition: 'fill .15s' }}
-                onClick={() => clickable && setView({ level: 'brazil' })}
+                onClick={() => { if (clickable) { setHovered(null); setView({ level: 'brazil' }); } }}
                 onMouseEnter={(e) => {
                   if (!count) return;
                   const rect = containerRef.current?.getBoundingClientRect();
