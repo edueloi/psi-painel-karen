@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { PortalInstallPrompt } from "../components/Portal/PortalInstallPrompt";
 import {
   Calendar, Clock, CreditCard, User, LogOut, Video,
   MapPin, Plus, CheckCircle, XCircle, AlertCircle, Paperclip,
@@ -934,6 +935,17 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     } finally { setLoading(false); setCancelId(null); }
   };
 
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const confirmAttendance = async (id: number) => {
+    setConfirmingId(id);
+    try {
+      const res = await portalFetch(`/appointments/${id}/confirm-attendance`, { method: "PATCH", body: "{}" });
+      if (!res.ok) { const e = await res.json(); showToast(e.error || "Erro ao confirmar presença.", "error"); return; }
+      showToast("Presença confirmada!", "success");
+      onRefresh();
+    } finally { setConfirmingId(null); }
+  };
+
   const startReschedule = (appt: PortalAppointment) => {
     setRescheduleAppt(appt);
     setActionApptId(null);
@@ -1711,6 +1723,18 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
+
+                    {a.status === "scheduled" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => confirmAttendance(a.id)}
+                        loading={confirmingId === a.id}
+                        className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 gap-1"
+                      >
+                        <Check size={11} /> Confirmar presença
+                      </Button>
+                    )}
 
                     {/* Ações: só disponível se modifiable (>24h) */}
                     {modifiable ? (
@@ -3210,6 +3234,8 @@ export const PatientPortal: React.FC = () => {
         </nav>
 
       </div>
+
+      <PortalInstallPrompt />
     </div>
   );
 };

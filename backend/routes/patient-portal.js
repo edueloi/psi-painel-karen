@@ -967,6 +967,62 @@ router.patch('/appointments/:id/cancel', portalAuth, async (req, res) => {
   }
 });
 
+// PATCH /patient-portal/appointments/:id/confirm-attendance — paciente confirma presença
+router.patch('/appointments/:id/confirm-attendance', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const [rows] = await db.query(
+      `SELECT id, status, start_time FROM appointments WHERE id = ? AND patient_id = ? AND tenant_id = ?`,
+      [req.params.id, patient_id, tenant_id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Consulta não encontrada.' });
+    const appt = rows[0];
+    if (appt.status !== 'scheduled')
+      return res.status(409).json({ error: 'Esta consulta não está mais aguardando confirmação.' });
+    if (new Date(appt.start_time) < new Date())
+      return res.status(409).json({ error: 'Esta consulta já passou.' });
+
+    await db.query(`UPDATE appointments SET status = 'confirmed' WHERE id = ?`, [req.params.id]);
+    res.json({ ok: true });
+
+    // Aviso via WhatsApp (Master Bot) ao profissional — mesmo padrão do cancelamento acima
+    setImmediate(async () => {
+      try {
+        const [[full]] = await db.query(
+          `SELECT a.professional_id, a.start_time, p.name as patient_name
+           FROM appointments a LEFT JOIN patients p ON p.id = a.patient_id WHERE a.id = ?`,
+          [req.params.id]
+        );
+        if (!full || !full.professional_id) return;
+        const [[prof]] = await db.query(
+          'SELECT id, phone, email_preferences FROM users WHERE id = ? LIMIT 1',
+          [full.professional_id]
+        ).catch(() => [[null]]);
+        if (!prof || !prof.phone) return;
+
+        const { enqueueProfessionalWpp, getMasterTenantId } = require('../services/cronJobs');
+        const masterTenantId = await getMasterTenantId();
+        if (!masterTenantId) return;
+
+        const dateStr = new Date(full.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' });
+        const timeStr = new Date(full.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+        const wppMsg = `✅ *Presença confirmada pelo paciente*\n\n👤 *Paciente:* ${full.patient_name || '—'}\n📆 *Data:* ${dateStr}\n🕒 *Horário:* ${timeStr}\n\n_⚠️ Esta é uma mensagem automática, favor não responder._`;
+        await enqueueProfessionalWpp({
+          masterTenantId,
+          professional: prof,
+          masterKey: 'confirmed_appointment_professional_enabled',
+          profKey: 'wpp_confirmed_appointment',
+          content: wppMsg,
+          aptId: req.params.id,
+          type: 'confirmed-appointment-professional',
+        });
+      } catch { /* silencioso */ }
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 // PATCH /patient-portal/appointments/:id/reschedule — reagendar com 24h de antecedência
 router.patch('/appointments/:id/reschedule', portalAuth, async (req, res) => {
   try {
@@ -2590,6 +2646,55 @@ router.post('/auth/push-token', portalAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.json({ ok: false });
+  }
+});
+
+// ── Web Push (VAPID) — funciona no navegador/PWA, ao contrário do token
+// Expo acima (que só serve pra app nativo) ─────────────────────────────
+const { VAPID_PUBLIC_KEY } = require('../services/pushService');
+
+// GET /patient-portal/push/vapid-public-key — chave pública pro navegador
+// gerar a subscription (não é secreta, mas fica atrás de portalAuth pra
+// não expor a chave a quem não estiver logado no portal).
+router.get('/push/vapid-public-key', portalAuth, async (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY || null });
+});
+
+// POST /patient-portal/push/subscribe — registra a subscription do navegador
+router.post('/push/subscribe', portalAuth, async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body?.subscription || req.body || {};
+    if (!endpoint || !keys?.p256dh || !keys?.auth) {
+      return res.status(400).json({ error: 'Subscription inválida.' });
+    }
+    const session = req.portalSession;
+    await db.query(
+      `INSERT INTO patient_web_push_subscriptions (patient_id, tenant_id, endpoint, p256dh, auth, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth), user_agent = VALUES(user_agent)`,
+      [session.patient_id, session.tenant_id, endpoint, keys.p256dh, keys.auth, (req.headers['user-agent'] || '').slice(0, 255)]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[push subscribe]', e?.message || e);
+    res.status(500).json({ error: 'Erro ao registrar notificações.' });
+  }
+});
+
+// POST /patient-portal/push/unsubscribe — remove a subscription (paciente desativou nas configurações)
+router.post('/push/unsubscribe', portalAuth, async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    const session = req.portalSession;
+    if (endpoint) {
+      await db.query(
+        'DELETE FROM patient_web_push_subscriptions WHERE patient_id = ? AND endpoint = ?',
+        [session.patient_id, endpoint]
+      );
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro interno.' });
   }
 });
 

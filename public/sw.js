@@ -68,3 +68,36 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// ── Web Push — usado hoje pelo Portal do Paciente (lembrete de sessão,
+// confirmação de presença, avisos de falta/pagamento). O payload sempre
+// chega como JSON: { title, body, data }.
+self.addEventListener('push', (event) => {
+  let payload = { title: 'Plaelo', body: 'Você tem uma nova notificação.', data: {} };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {}
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/app_plaelo.png',
+      badge: '/app_plaelo.png',
+      data: payload.data || {},
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetPath = event.notification.data?.url || '/portal/inicio';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((c) => c.url.includes(targetPath));
+      if (existing) return existing.focus();
+      const client = clients[0];
+      if (client) { client.focus(); return client.navigate(targetPath); }
+      return self.clients.openWindow(targetPath);
+    })
+  );
+});

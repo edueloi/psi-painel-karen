@@ -1048,6 +1048,7 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
         cancelled:  { title: '❌ Consulta cancelada', body: `Sua consulta de ${dateStr} às ${timeStr} foi cancelada.` },
         scheduled:  { title: '🗓 Consulta agendada', body: `${dateStr} às ${timeStr}` },
         completed:  { title: '✔️ Consulta realizada', body: `Sua sessão de ${dateStr} foi registrada.` },
+        no_show:    { title: '⚠️ Falta registrada', body: `Você não compareceu à consulta de ${dateStr} às ${timeStr}.` },
       };
       const msg = pushMap[dbStatus];
       if (msg) {
