@@ -37,6 +37,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Calendar as AvailabilityCalendar } from '../components/UI/Calendar';
 import { maskPhoneBR, maskCpf, maskCpfCnpj } from '../src/lib/masks';
+import { getPublicBaseUrl } from '../src/lib/publicLinks';
 
 type DayKey =
   | 'monday'
@@ -213,10 +214,16 @@ export const Profile: React.FC = () => {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
   };
 
+  // A rota "Meu Site" (menu próprio) abre este mesmo componente já direto na
+  // aba "Página Externa", escondendo as demais — evita duplicar toda a lógica
+  // de load/save do perfil (compartilhada por todas as abas) num arquivo novo.
+  const isMySiteRoute = window.location.pathname === '/meu-site';
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic' | 'external'>(() =>
-    new URLSearchParams(window.location.search).get('tab') === 'schedule' ? 'schedule' : 'info'
-  );
+  const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic' | 'external'>(() => {
+    if (isMySiteRoute) return 'external';
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    return tab === 'schedule' ? 'schedule' : tab === 'external' ? 'external' : 'info';
+  });
 
   // Aurora profile builder
   const [auroraOpen, setAuroraOpen] = useState(false);
@@ -738,7 +745,8 @@ Gere o seguinte JSON:
               </div>
             </div>
 
-            {/* Tabs */}
+            {/* Tabs — na rota "Meu Site" só a aba de página externa faz sentido */}
+            {!isMySiteRoute && (
             <div className="flex items-center gap-1.5 mt-5 border-t border-slate-100 pt-4 overflow-x-auto no-scrollbar">
               {[
                 { id: 'info', label: 'Dados Pessoais', icon: <User size={13} /> },
@@ -759,6 +767,7 @@ Gere o seguinte JSON:
                 </button>
               ))}
             </div>
+            )}
           </div>
         </div>
       </div>
@@ -1074,7 +1083,7 @@ Gere o seguinte JSON:
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Seu Link Personalizado</label>
                       <div className="flex items-center gap-2">
                         <Input
-                          addonLeft={<span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">psiflux.com.br/p/</span>}
+                          addonLeft={<span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{getPublicBaseUrl().replace('https://', '')}/p/</span>}
                           value={user.public_slug}
                           onChange={e => {
                             const val = e.target.value
@@ -1092,7 +1101,7 @@ Gere o seguinte JSON:
                         {user.public_slug && (
                           <Button
                             onClick={() => {
-                              navigator.clipboard.writeText(`https://psiflux.com.br/p/${user.public_slug}`);
+                              navigator.clipboard.writeText(`${getPublicBaseUrl()}/p/${user.public_slug}`);
                               pushToast('success', 'Link copiado!');
                             }}
                             variant="soft"

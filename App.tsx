@@ -473,6 +473,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/configuracoes" element={<ProtectedRoute requiredPermission="manage_clinic_settings"><Settings /></ProtectedRoute>} />
       <Route path="/portal-paciente" element={<ProtectedRoute requiredPermission="manage_patient_portal"><PortalPaciente /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/meu-site" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/personalizar-menu" element={<ProtectedRoute><MenuCustomizer /></ProtectedRoute>} />
       <Route path="/assinatura" element={<ProtectedRoute><Assinatura /></ProtectedRoute>} />
       <Route path="/privacidade" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />

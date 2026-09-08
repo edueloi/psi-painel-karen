@@ -50,6 +50,7 @@ export const NAV_SECTIONS = [
       { label: 'nav.services',       path: '/servicos',         icon: <Briefcase size={18} />,   requiredPermission: 'manage_services',          requiredFeature: 'servicos' },
       { label: 'nav.products',       path: '/produtos',         icon: <Package size={18} />,     requiredPermission: 'manage_products',          requiredFeature: 'produtos' },
       { label: 'nav.comandas',       path: '/comandas',         icon: <ShoppingBag size={18} />, requiredPermission: 'view_all_comandas',        requiredFeature: 'comandas' },
+      { label: 'nav.mySite',         path: '/meu-site',         icon: <Globe size={18} />,       requiredPermission: 'manage_clinic_settings' },
     ]
   },
   {

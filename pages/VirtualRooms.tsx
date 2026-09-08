@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getToken } from '../services/tokenStorage';
 import {
+  AlertTriangle,
   ArrowRight,
   Calendar,
   Check,
@@ -1014,6 +1015,16 @@ export const VirtualRooms: React.FC = () => {
         {/* ── TRANSCRIÇÕES TAB ── */}
         {activeTab === 'transcricoes' && (
           <div className="space-y-5">
+            {/* Aviso: funcionalidade em evolução */}
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+              <p className="text-xs text-amber-800">
+                <span className="font-bold">A transcrição automática ainda está em evolução.</span>{' '}
+                Você pode notar pequenas inconsistências no texto gerado — seguimos ajustando a qualidade.
+                A funcionalidade continua liberada para uso; revise o conteúdo antes de considerá-lo definitivo.
+              </p>
+            </div>
+
             {/* Histórico */}
             <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4 space-y-3">

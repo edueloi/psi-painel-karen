@@ -40,6 +40,7 @@ import {
   Settings,
   Shield,
   ShoppingCart,
+  Smartphone,
   Smile,
   Sparkles,
   Star,
@@ -1542,6 +1543,43 @@ export const Dashboard: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </PanelCard>
+
+          <PanelCard
+            title="Presença digital"
+            description="Configure os canais que conectam você aos seus pacientes."
+            icon={Sparkles}
+            iconWrapClassName="border-violet-100 bg-violet-50"
+            iconClassName="text-violet-600"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/bot')}
+                className="group/dp flex items-center gap-3 rounded-3xl border border-zinc-100 bg-zinc-50/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-sm">
+                  <Smartphone size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-zinc-800">Bot de WhatsApp</p>
+                  <p className="text-[11px] text-zinc-400 line-clamp-2">Lembretes e avisos automáticos para seus pacientes</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/meu-site')}
+                className="group/dp flex items-center gap-3 rounded-3xl border border-zinc-100 bg-zinc-50/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pink-500 text-white shadow-sm">
+                  <Globe size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black text-zinc-800">Meu Site</p>
+                  <p className="text-[11px] text-zinc-400 line-clamp-2">Sua página pública para bio do Instagram e anúncios</p>
+                </div>
+              </button>
+            </div>
           </PanelCard>
 
           <PanelCard

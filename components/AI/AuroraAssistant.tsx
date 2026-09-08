@@ -171,14 +171,14 @@ export const AuroraAssistant: React.FC = () => {
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           data-tour="aurora"
-          className="relative group w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+          className="relative group w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
         >
           {/* Animated Background */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-[spin_4s_linear_infinite] opacity-80 blur-sm group-hover:opacity-100 group-hover:blur-md transition-all"></div>
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-[spin_4s_linear_infinite] opacity-80 group-hover:opacity-100 transition-all"></div>
           <div className="absolute inset-0.5 rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
              {/* Inner Glow */}
              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-transparent"></div>
-             <Sparkles className="text-white relative z-10 w-7 h-7 animate-pulse" />
+             <Sparkles className="text-white relative z-10 w-5 h-5 animate-pulse" />
           </div>
         </button>
       </div>
