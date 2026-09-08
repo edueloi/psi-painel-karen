@@ -134,6 +134,12 @@ function applyRegistryMask(raw: string, mask?: string | null): string {
       result += mask[i];
     }
   }
+  // Alguns conselhos regionais emitem registros com mais dígitos do que o
+  // padrão da máscara prevê — em vez de travar, os dígitos excedentes são
+  // anexados ao final para não impedir o usuário de digitar o número real.
+  if (di < digits.length) {
+    result += digits.slice(di);
+  }
   return result;
 }
 
