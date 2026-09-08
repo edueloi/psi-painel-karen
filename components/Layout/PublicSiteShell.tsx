@@ -257,16 +257,23 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .float-card { padding: 14px; border-radius: 16px; }
       }
 
-      /* Foto do hero — consultório acolhedor no lugar dos cards de UI */
-      .hero-photo { position: relative; border-radius: 28px; overflow: hidden; box-shadow: 0 24px 60px rgba(18,12,46,.14); }
-      .hero-photo-img { width: 100%; height: clamp(280px, 34vw, 420px); object-fit: cover; display: block; }
+      /* Hero em tela cheia — foto do consultório como fundo, texto sobreposto */
+      .hero-photo-bg { position: relative; min-height: clamp(600px, 82vh, 800px); display: flex; align-items: center; overflow: hidden; }
+      .hero-photo-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
+      .hero-photo-bg-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, rgba(21,15,46,.72) 0%, rgba(21,15,46,.5) 42%, rgba(21,15,46,.14) 68%, rgba(21,15,46,0) 100%);
+      }
+      .hero-photo-bg-content { position: relative; z-index: 1; max-width: 620px; padding: clamp(70px,10vw,110px) 24px clamp(110px,14vw,150px); }
+      .hero-photo-bg-content .tag { background: rgba(255,255,255,.14); color: #fff; }
       .hero-photo-badge {
-        position: absolute; bottom: 20px; left: 20px; width: min(210px, 56%);
+        margin-top: 28px; width: min(260px, 100%);
         padding: 14px 16px; border-radius: 16px;
       }
-      @media (max-width: 480px) {
-        .hero-photo-img { height: 260px; }
-        .hero-photo-badge { left: 12px; bottom: 12px; padding: 12px 14px; }
+      @media (max-width: 720px) {
+        .hero-photo-bg { min-height: 640px; }
+        .hero-photo-bg-overlay { background: linear-gradient(180deg, rgba(21,15,46,.35) 0%, rgba(21,15,46,.78) 62%, rgba(21,15,46,.9) 100%); }
+        .hero-photo-bg-content { padding-top: clamp(200px,44vw,260px); max-width: 100%; }
       }
 
       .footer-dark { background: var(--ink); color: rgba(255,255,255,.7); }
