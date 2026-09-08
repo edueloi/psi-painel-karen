@@ -794,6 +794,39 @@ router.post('/public/:id/transcribe', transcribeAudioUpload.single('audio'), asy
   }
 });
 
+// POST /virtual-rooms/public/:id/recordings — convidado aprovado envia o
+// áudio bruto do próprio microfone (mesma faixa isolada usada para
+// transcrever), pra ficar disponível no prontuário como arquivo separado por
+// pessoa, em vez de só o áudio mixado com todo mundo junto.
+router.post('/public/:id/recordings', uploadAudio.single('audio'), async (req, res) => {
+  try {
+    const key = getRoomKey(req.params.id);
+    const approvedGuest = [...(waitingMap.get(key)?.values() || [])]
+      .find(entry => entry.token === req.body?.waiting_token && entry.status === 'approved');
+    if (!approvedGuest) return res.status(403).json({ error: 'Participante não autorizado para esta sala.' });
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+
+    const room = await resolveRoomContext({ roomIdentifier: req.params.id });
+    const speakerName = String(req.body?.speaker_name || approvedGuest.guest_name || 'Paciente').slice(0, 150);
+    const sessionKey = String(req.body?.session_key || key).slice(0, 190);
+    const fileUrl = `/uploads-static/room-recordings/${req.file.filename}`;
+
+    if (!room?.id) {
+      return res.json({ file_url: fileUrl, warning: 'room_not_found' });
+    }
+
+    const [ins] = await db.query(
+      `INSERT INTO room_recordings (room_id, tenant_id, session_key, file_name, file_url, file_size, speaker_role, speaker_name)
+       VALUES (?, ?, ?, ?, ?, ?, 'guest', ?)`,
+      [room.id, room.tenant_id, sessionKey, req.file.originalname, fileUrl, req.file.size, speakerName]
+    );
+    res.json({ id: ins.insertId, file_url: fileUrl });
+  } catch (error) {
+    console.error('[Guest recording upload]', error);
+    res.status(500).json({ error: 'Não foi possível salvar a gravação deste segmento.' });
+  }
+});
+
 // POST /virtual-rooms/public/:id/transcripts  (guest — persiste no banco)
 router.post('/public/:id/transcripts', async (req, res) => {
   const key = getRoomKey(req.params.id);

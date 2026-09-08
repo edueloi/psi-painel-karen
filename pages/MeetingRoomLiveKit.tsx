@@ -2482,10 +2482,31 @@ const RoomInner: React.FC<{
     if (!chunks.length) return;
 
     setTranscribing(true);
+    const actualMime = mr.mimeType || 'audio/webm';
+    const ext = actualMime.includes('ogg') ? 'ogg' : actualMime.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type: actualMime });
+
+    // Grava o segmento bruto do próprio microfone como arquivo — isolado por
+    // pessoa, ao contrário do áudio mixado (host+paciente juntos) salvo em
+    // stopAudioRecordingFile. Não bloqueia nem derruba a transcrição se falhar.
+    if (preferences.sessions?.saveAudioRecording) {
+      const rf = new FormData();
+      rf.append('audio', blob, `mic-${participantName}.${ext}`);
+      rf.append('speaker_role', isHost ? 'host' : 'guest');
+      rf.append('speaker_name', participantName);
+      if (isHost) {
+        api.post<any>(`/virtual-rooms/${roomId}/sessions/${sessionKeyRef.current}/recordings`, rf)
+          .catch(() => { /* segmento perdido não deve travar a sessão */ });
+      } else {
+        rf.append('waiting_token', guestAccessToken || '');
+        rf.append('session_key', sessionKeyRef.current);
+        fetch(`${API_BASE_URL}/virtual-rooms/public/${encodeURIComponent(roomCode)}/recordings`, {
+          method: 'POST', body: rf,
+        }).catch(() => {});
+      }
+    }
+
     try {
-      const actualMime = mr.mimeType || 'audio/webm';
-      const ext = actualMime.includes('ogg') ? 'ogg' : actualMime.includes('mp4') ? 'mp4' : 'webm';
-      const blob = new Blob(chunks, { type: actualMime });
       const tf = new FormData();
       tf.append('audio', blob, `mic.${ext}`);
       tf.append('language', 'pt');
@@ -2521,7 +2542,7 @@ const RoomInner: React.FC<{
       setRecordingError(err?.message || 'Não foi possível transcrever este segmento.');
     }
     setTranscribing(false);
-  }, [roomId, roomCode, isHost, participantName, guestAccessToken]);
+  }, [roomId, roomCode, isHost, participantName, guestAccessToken, preferences.sessions?.saveAudioRecording]);
 
   // Sinaliza início/parada de transcrição pro outro lado via canal de dados do
   // LiveKit — reaproveita a conexão já existente, sem depender do backend antigo.
