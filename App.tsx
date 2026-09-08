@@ -150,7 +150,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className="flex-1 flex min-w-0 flex-col h-full transition-all duration-300 lg:ml-[256px]">
         <TrialBanner />
         <Topbar onMenuClick={() => setSidebarOpen(!isSidebarOpen)} user={user as any} onLogout={logout} />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="w-full max-w-[1600px] lg:mx-auto">{children}</div>
         </main>
       </div>

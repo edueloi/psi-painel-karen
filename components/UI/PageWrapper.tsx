@@ -124,7 +124,7 @@ export function StatGrid({
   };
 
   return (
-    <div className={cn("grid gap-3 sm:gap-4", colsMap[cols], className)} {...props}>
+    <div className={cn("grid min-w-0 gap-3 [&>*]:min-w-0 sm:gap-4", colsMap[cols], className)} {...props}>
       {children}
     </div>
   );

@@ -1275,7 +1275,7 @@ export const Dashboard: React.FC = () => {
             )}
           </PanelCard>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-2">
             <PanelCard
               title="Atendimentos nos últimos 30 dias"
               description={`Distribuição por dia da semana · ${periodLabel}`}
@@ -1402,7 +1402,7 @@ export const Dashboard: React.FC = () => {
             </PanelCard>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-2">
             <PanelCard
               title="Tipos de atendimento"
               description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} · ${periodLabel}`}
@@ -1778,192 +1778,192 @@ export const Dashboard: React.FC = () => {
             </div>
           </PanelCard>
         </div>
+      </div>
 
-        <div className="flex items-center gap-3 pt-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600">
-            <Users size={15} />
-          </span>
-          <div>
-            <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Perfil dos pacientes</h2>
-            <p className="text-xs text-zinc-400">Como sua base de pacientes ativos está distribuída.</p>
-          </div>
+      <div className="flex items-center gap-3 pt-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600">
+          <Users size={15} />
+        </span>
+        <div>
+          <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Perfil dos pacientes</h2>
+          <p className="text-xs text-zinc-400">Como sua base de pacientes ativos está distribuída.</p>
         </div>
+      </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <PanelCard
-            title="Distribuição por Gênero"
-            description="Pacientes ativos cadastrados."
-            icon={Users}
-            iconWrapClassName="border-pink-100 bg-pink-50"
-            iconClassName="text-pink-600"
-          >
-            {isLoading ? (
-              <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
-                <Loader2 className="animate-spin text-zinc-300" />
-              </div>
-            ) : genderPieData.length === 0 ? (
-              <EmptyState
-                title="Sem dados para exibir"
-                description="Cadastre o gênero dos pacientes para ver esta distribuição."
-                icon={Users}
-                className="h-[280px] sm:h-[320px]"
-              />
-            ) : (
-              <div className="h-[280px] sm:h-[320px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={genderPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={64}
-                      outerRadius={100}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {genderPieData.map((entry, index) => (
-                        <Cell key={`${entry.name}-${index}`} fill={entry.color} />
-                      ))}
-                      <Label
-                        position="center"
-                        content={({ viewBox }: any) => {
-                          const { cx: lx, cy: ly } = viewBox;
-                          return (
-                            <g>
-                              <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 22, fontWeight: 900, fill: '#18181b' }}>
-                                {genderPieTotal}
-                              </text>
-                              <text x={lx} y={ly + 13} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
-                                TOTAL
-                              </text>
-                            </g>
-                          );
-                        }}
-                      />
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
-                      formatter={(value: number, name: string) => [
-                        `${value} (${genderPieTotal > 0 ? Math.round((value / genderPieTotal) * 100) : 0}%)`,
-                        name,
-                      ]}
-                    />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </PanelCard>
-
-          <PanelCard
-            title="Faixa Etária"
-            description="Pacientes ativos por idade."
-            icon={Users}
-            iconWrapClassName="border-violet-100 bg-violet-50"
-            iconClassName="text-violet-600"
-          >
-            {isLoading ? (
-              <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
-                <Loader2 className="animate-spin text-zinc-300" />
-              </div>
-            ) : ageDistributionTotal === 0 ? (
-              <EmptyState
-                title="Sem dados para exibir"
-                description="Cadastre a data de nascimento dos pacientes para ver esta distribuição."
-                icon={Users}
-                className="h-[280px] sm:h-[320px]"
-              />
-            ) : (
-              <div className="h-[280px] sm:h-[320px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={ageDistribution} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 0 }}>
-                    <XAxis type="number" hide allowDecimals={false} />
-                    <YAxis
-                      type="category"
-                      dataKey="label"
-                      tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={78}
-                    />
-                    <Tooltip
-                      cursor={{ fill: '#f1f5f9' }}
-                      contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
-                      formatter={(value: number) => [value, 'Pacientes']}
-                    />
-                    <Bar dataKey="value" fill="#8b5cf6" radius={[0, 8, 8, 0]} maxBarSize={22}>
-                      <LabelList
-                        dataKey="value"
-                        position="right"
-                        formatter={(value: number) => (value > 0 ? value : '')}
-                        style={{ fontSize: 11, fontWeight: 800, fill: '#334155' }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </PanelCard>
-        </div>
-
+      <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-2">
         <PanelCard
-          title="Pacientes no Mundo"
-          description="Localização por país cadastrado."
-          icon={Globe}
-          iconWrapClassName="border-sky-100 bg-sky-50"
-          iconClassName="text-sky-600"
+          title="Distribuição por Gênero"
+          description="Pacientes ativos cadastrados."
+          icon={Users}
+          iconWrapClassName="border-pink-100 bg-pink-50"
+          iconClassName="text-pink-600"
         >
           {isLoading ? (
-            <div className="flex h-[520px] items-center justify-center">
+            <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
               <Loader2 className="animate-spin text-zinc-300" />
             </div>
-          ) : countryDistributionTotal === 0 ? (
+          ) : genderPieData.length === 0 ? (
             <EmptyState
               title="Sem dados para exibir"
-              description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
-              icon={Globe}
-              className="h-[520px]"
+              description="Cadastre o gênero dos pacientes para ver esta distribuição."
+              icon={Users}
+              className="h-[280px] sm:h-[320px]"
             />
           ) : (
-            <div className="space-y-5">
-              <div className="overflow-hidden rounded-2xl bg-zinc-50 p-3">
-                <WorldMap
-                  countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
-                  stateCounts={Object.fromEntries(stateDistribution.map((s) => [s.uf, s.value]))}
-                  cityCountsByState={cityDistributionByState}
-                  height={520}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {countryDistribution.map((c) => {
-                  const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
-                  return (
-                    <div
-                      key={c.code}
-                      className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-3.5 py-2.5"
-                    >
-                      <span className="text-lg leading-none">{c.flag}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-black text-zinc-800">{c.name}</p>
-                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
-                          <div
-                            className="h-full rounded-full bg-[#295b85]"
-                            style={{ width: `${Math.max(pct, 4)}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-xs font-black text-zinc-900">{c.value}</p>
-                        <p className="text-[10px] font-bold text-zinc-400">{pct}%</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="h-[280px] sm:h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={genderPieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={64}
+                    outerRadius={100}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {genderPieData.map((entry, index) => (
+                      <Cell key={`${entry.name}-${index}`} fill={entry.color} />
+                    ))}
+                    <Label
+                      position="center"
+                      content={({ viewBox }: any) => {
+                        const { cx: lx, cy: ly } = viewBox;
+                        return (
+                          <g>
+                            <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 22, fontWeight: 900, fill: '#18181b' }}>
+                              {genderPieTotal}
+                            </text>
+                            <text x={lx} y={ly + 13} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
+                              TOTAL
+                            </text>
+                          </g>
+                        );
+                      }}
+                    />
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
+                    formatter={(value: number, name: string) => [
+                      `${value} (${genderPieTotal > 0 ? Math.round((value / genderPieTotal) * 100) : 0}%)`,
+                      name,
+                    ]}
+                  />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </PanelCard>
+
+        <PanelCard
+          title="Faixa Etária"
+          description="Pacientes ativos por idade."
+          icon={Users}
+          iconWrapClassName="border-violet-100 bg-violet-50"
+          iconClassName="text-violet-600"
+        >
+          {isLoading ? (
+            <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
+              <Loader2 className="animate-spin text-zinc-300" />
+            </div>
+          ) : ageDistributionTotal === 0 ? (
+            <EmptyState
+              title="Sem dados para exibir"
+              description="Cadastre a data de nascimento dos pacientes para ver esta distribuição."
+              icon={Users}
+              className="h-[280px] sm:h-[320px]"
+            />
+          ) : (
+            <div className="h-[280px] sm:h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={ageDistribution} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 0 }}>
+                  <XAxis type="number" hide allowDecimals={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={78}
+                  />
+                  <Tooltip
+                    cursor={{ fill: '#f1f5f9' }}
+                    contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
+                    formatter={(value: number) => [value, 'Pacientes']}
+                  />
+                  <Bar dataKey="value" fill="#8b5cf6" radius={[0, 8, 8, 0]} maxBarSize={22}>
+                    <LabelList
+                      dataKey="value"
+                      position="right"
+                      formatter={(value: number) => (value > 0 ? value : '')}
+                      style={{ fontSize: 11, fontWeight: 800, fill: '#334155' }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )}
         </PanelCard>
       </div>
+
+      <PanelCard
+        title="Pacientes no Mundo"
+        description="Localização por país cadastrado."
+        icon={Globe}
+        iconWrapClassName="border-sky-100 bg-sky-50"
+        iconClassName="text-sky-600"
+      >
+        {isLoading ? (
+          <div className="flex h-[520px] items-center justify-center">
+            <Loader2 className="animate-spin text-zinc-300" />
+          </div>
+        ) : countryDistributionTotal === 0 ? (
+          <EmptyState
+            title="Sem dados para exibir"
+            description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
+            icon={Globe}
+            className="h-[520px]"
+          />
+        ) : (
+          <div className="space-y-5">
+            <div className="overflow-hidden rounded-2xl bg-zinc-50 p-3">
+              <WorldMap
+                countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
+                stateCounts={Object.fromEntries(stateDistribution.map((s) => [s.uf, s.value]))}
+                cityCountsByState={cityDistributionByState}
+                height={520}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {countryDistribution.map((c) => {
+                const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
+                return (
+                  <div
+                    key={c.code}
+                    className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-3.5 py-2.5"
+                  >
+                    <span className="text-lg leading-none">{c.flag}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-black text-zinc-800">{c.name}</p>
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                        <div
+                          className="h-full rounded-full bg-[#295b85]"
+                          style={{ width: `${Math.max(pct, 4)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-xs font-black text-zinc-900">{c.value}</p>
+                      <p className="text-[10px] font-bold text-zinc-400">{pct}%</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </PanelCard>
 
       <Modal
         isOpen={isAddShortcutOpen}
