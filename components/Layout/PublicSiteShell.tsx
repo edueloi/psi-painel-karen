@@ -3,7 +3,7 @@ import { PublicNavbar } from './PublicNavbar';
 import { PublicFooter } from './PublicFooter';
 
 export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: '#fff', color: '#150F2E', minHeight: '100vh', overflowX: 'hidden' }}>
+  <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: '#fff', color: '#150F2E', minHeight: '100vh', overflowX: 'clip' }}>
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap');
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -81,6 +81,20 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       @media (max-width: 520px) { .plan-grid { grid-template-columns: 1fr; } }
       .area-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 
+      /* Lista de áreas atendidas — uma linha por categoria, sem pills nem corte */
+      .area-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 22px; background: #fff; overflow: hidden; }
+      .area-row { display: grid; grid-template-columns: 260px 1fr; gap: 28px; align-items: center; padding: 22px 28px; }
+      .area-row + .area-row { border-top: 1px solid var(--border); }
+      .area-row-head { display: flex; align-items: center; gap: 13px; }
+      .area-row-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .area-row-title { font-weight: 700; font-size: 15px; line-height: 1.3; }
+      .area-row-count { font-size: 12px; color: var(--muted); font-weight: 500; }
+      .area-row-professions { font-size: 14px; line-height: 1.7; color: var(--muted); }
+      @media (max-width: 720px) {
+        .area-row { grid-template-columns: 1fr; gap: 10px; padding: 18px 20px; }
+        .area-row-professions { font-size: 13px; }
+      }
+
       .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px,6vw,80px); align-items: center; }
       @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
 
@@ -92,13 +106,64 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         border-radius: 32px; overflow: hidden;
       }
 
-      /* Floating pill navbar */
+      /* Floating pill navbar (mobile) */
       .nav-pill {
         display: flex; align-items: center; justify-content: space-between;
         background: rgba(255,255,255,.88); backdrop-filter: blur(14px);
         border: 1px solid var(--border); border-radius: 999px;
         padding: 10px 10px 10px 22px;
         box-shadow: 0 8px 32px rgba(18,12,46,.08);
+      }
+
+      /* Desktop header — barra plana e ampla, sem tudo empilhado numa pill só */
+      .site-header {
+        background: rgba(255,255,255,.85); backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--border);
+      }
+      .site-header-inner {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 40px; padding: 16px 24px;
+      }
+      .site-header-nav { display: flex; align-items: center; gap: 32px; }
+      .site-header-tab { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; }
+      .site-header-tab-underline {
+        width: 100%; height: 2px; border-radius: 2px; background: var(--accent);
+        transition: opacity .15s;
+      }
+      .site-header-actions { display: flex; align-items: center; gap: 22px; }
+      .site-header-find {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 14px; font-weight: 600; color: var(--muted);
+        text-decoration: none; transition: color .15s;
+      }
+      .site-header-find:hover { color: var(--accent); }
+      .site-header-login {
+        background: none; border: none; cursor: pointer;
+        font-size: 14px; font-weight: 600; color: var(--muted);
+        transition: color .15s;
+      }
+      .site-header-login:hover { color: var(--text); }
+
+      /* CTA final — largura ampla em telas grandes, texto + prova social lado a lado */
+      .cta-final {
+        background: linear-gradient(135deg, var(--ink) 0%, #2A1F6B 100%);
+        border-radius: 32px;
+        padding: clamp(40px,5vw,64px) clamp(28px,5vw,64px);
+        display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; align-items: center;
+      }
+      .cta-final-proof { display: flex; flex-direction: column; gap: 14px; justify-self: end; width: 100%; max-width: 280px; }
+      .cta-final-proof-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 14px 18px; border-radius: 16px;
+        background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+        color: #fff; font-size: 14px; font-weight: 600;
+      }
+      .cta-final-proof-item svg { color: var(--accent2); flex-shrink: 0; }
+      @media (max-width: 860px) {
+        .cta-final { grid-template-columns: 1fr; text-align: center; }
+        .cta-final-text { display: flex; flex-direction: column; align-items: center; }
+        .cta-final-text img { margin-left: auto; margin-right: auto; }
+        .cta-final-proof { justify-self: center; max-width: 360px; }
       }
 
       .mob-drawer-overlay {
@@ -209,6 +274,8 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .footer-grid { grid-template-columns: 1.3fr 1fr; gap: 40px; }
         .footer-links-grid { grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 4vw, 56px); }
       }
+      .footer-bottom { border-top: 1px solid rgba(255,255,255,.12); padding: 22px 0; }
+      .footer-bottom-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; }
 
       .page-head { padding: clamp(56px,7vw,88px) 0 clamp(24px,3vw,40px); background: var(--surface); }
     `}</style>

@@ -133,43 +133,23 @@ export const Home: React.FC = () => {
           <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto 52px' }}>
             De psicólogos a psiquiatras, de terapeutas ocupacionais a assistentes sociais — a Plaelo se adapta ao registro profissional e à rotina de cada especialidade.
           </p>
-          <div className="area-grid" style={{ textAlign: 'left', alignItems: 'stretch' }}>
-            {PROFESSIONAL_CATEGORIES.map(cat => {
-              const MAX_SHOWN = 4;
-              const shown = cat.professions.slice(0, MAX_SHOWN);
-              const extra = cat.professions.length - shown.length;
-              return (
-                <div key={cat.key} style={{
-                  display: 'flex', flexDirection: 'column', height: '100%',
-                  background: '#fff', border: '1px solid var(--border)', borderRadius: 22,
-                  padding: '26px 26px 24px', position: 'relative', overflow: 'hidden',
-                  boxShadow: '0 1px 3px rgba(18,12,46,.04)', transition: 'box-shadow .2s, transform .2s',
-                }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: cat.color }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 13, background: cat.bg, color: cat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <cat.icon size={20} />
-                    </div>
-                    <div>
-                      <h3 style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>{cat.title}</h3>
-                      <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>{cat.professions.length} profissões</span>
-                    </div>
+          <div className="area-list">
+            {PROFESSIONAL_CATEGORIES.map(cat => (
+              <div className="area-row" key={cat.key}>
+                <div className="area-row-head">
+                  <div className="area-row-icon" style={{ background: cat.bg, color: cat.color }}>
+                    <cat.icon size={19} />
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 'auto' }}>
-                    {shown.map(p => (
-                      <span key={p} style={{ fontSize: 12, fontWeight: 600, color: cat.color, background: cat.bg, borderRadius: 999, padding: '5px 11px' }}>
-                        {p}
-                      </span>
-                    ))}
-                    {extra > 0 && (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999, padding: '5px 11px' }}>
-                        +{extra}
-                      </span>
-                    )}
+                  <div>
+                    <h3 className="area-row-title">{cat.title}</h3>
+                    <span className="area-row-count">{cat.professions.length} profissões</span>
                   </div>
                 </div>
-              );
-            })}
+                <p className="area-row-professions">
+                  {cat.professions.join(' · ')}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -236,26 +216,31 @@ export const Home: React.FC = () => {
 
       {/* ═══ CTA FINAL ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
-        <div className="wrap-xs" style={{ textAlign: 'center' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, var(--ink) 0%, #2A1F6B 100%)',
-            borderRadius: 32,
-            padding: 'clamp(40px,6vw,72px) clamp(24px,5vw,60px)',
-          }}>
-            <img src={logoUrl} alt="Plaelo" style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 16, margin: '0 auto 24px', background: '#fff', padding: 6 }} />
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 16, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-              Pronto para simplificar<br />sua rotina clínica?
-            </h2>
-            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'rgba(255,255,255,.7)', maxWidth: 420, margin: '0 auto 32px' }}>
-              Agende uma demonstração gratuita e veja a Plaelo na prática — sem compromisso, sem fidelidade.
-            </p>
-            <button className="btn-p" onClick={go} style={{ fontSize: 16, background: '#fff', color: 'var(--ink)' }}>
-              Quero uma demonstração <ArrowRight size={18} />
-            </button>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px 18px', marginTop: 22, fontSize: 13, color: 'rgba(255,255,255,.6)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Shield size={13} /> LGPD compliant</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={13} /> Gestão completa</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={13} /> Cancele quando quiser</span>
+        <div className="wrap">
+          <div className="cta-final">
+            <div className="cta-final-text">
+              <img src={logoUrl} alt="Plaelo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 15, marginBottom: 24, background: '#fff', padding: 6 }} />
+              <h2 style={{ fontSize: 'clamp(28px,3.6vw,42px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, marginBottom: 16, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
+                Pronto para simplificar<br />sua rotina clínica?
+              </h2>
+              <p style={{ fontSize: 17, lineHeight: 1.7, color: 'rgba(255,255,255,.7)', maxWidth: 420, marginBottom: 32 }}>
+                Agende uma demonstração gratuita e veja a Plaelo na prática — sem compromisso, sem fidelidade.
+              </p>
+              <button className="btn-p" onClick={go} style={{ fontSize: 16, background: '#fff', color: 'var(--ink)' }}>
+                Quero uma demonstração <ArrowRight size={18} />
+              </button>
+            </div>
+            <div className="cta-final-proof">
+              {[
+                { icon: Shield, label: 'LGPD compliant' },
+                { icon: CheckCircle, label: 'Gestão completa' },
+                { icon: CheckCircle, label: 'Cancele quando quiser' },
+              ].map(({ icon: Icon, label }) => (
+                <div className="cta-final-proof-item" key={label}>
+                  <Icon size={17} />
+                  <span>{label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

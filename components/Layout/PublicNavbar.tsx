@@ -57,48 +57,53 @@ export const PublicNavbar: React.FC = () => {
   }, [menuOpen]);
 
   const navTabStyle = ({ isActive }: { isActive: boolean }) => ({
-    fontSize: 14, fontWeight: isActive ? 700 : 600,
+    fontSize: 14.5, fontWeight: isActive ? 700 : 600,
     color: isActive ? 'var(--text)' : 'var(--muted)',
     textDecoration: 'none',
-    padding: '9px 16px',
-    borderRadius: 999,
-    background: isActive ? 'var(--surface2)' : 'transparent',
-    transition: 'background .15s, color .15s',
+    padding: '6px 2px',
+    position: 'relative' as const,
   });
 
   return (
-    <div style={{ position: 'sticky', top: 14, zIndex: 100 }}>
-      <div className="wrap">
-        <nav className="nav-pill">
-          <Logo size={34} />
+    <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+      {/* Desktop — barra ampla e respirada, sem tudo empilhado numa única pill */}
+      <header className="hidden md:block site-header">
+        <div className="wrap site-header-inner">
+          <Logo size={32} />
 
-          <div className="hidden md:flex" style={{ alignItems: 'center', gap: 4, background: '#fff', borderRadius: 999 }}>
+          <nav className="site-header-nav">
             {NAV_LINKS.map(([href, label]) => (
-              <NavLink key={href} to={href} end className="nav-a" style={navTabStyle}>{label}</NavLink>
+              <NavLink key={href} to={href} end className="site-header-tab" style={navTabStyle}>
+                {({ isActive }: any) => (
+                  <>
+                    {label}
+                    <span className="site-header-tab-underline" style={{ opacity: isActive ? 1 : 0 }} />
+                  </>
+                )}
+              </NavLink>
             ))}
-          </div>
+          </nav>
 
-          <div className="hidden md:flex" style={{ alignItems: 'center', gap: 10 }}>
-            <NavLink to="/encontrar-profissional" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 14, fontWeight: 700, color: 'var(--accent)',
-              textDecoration: 'none', padding: '9px 16px', borderRadius: 999,
-              background: 'var(--accent-soft)',
-            }}>
+          <div className="site-header-actions">
+            <NavLink to="/encontrar-profissional" className="site-header-find">
               <Search size={14} /> Encontrar Profissional
             </NavLink>
-            <div style={{ width: 1, height: 22, background: 'var(--border)' }} />
-            <button onClick={go} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: 'var(--muted)', padding: '8px 10px' }}>
+            <button onClick={go} className="site-header-login">
               Entrar
             </button>
-            <button className="btn-p" onClick={go} style={{ padding: '10px 18px', fontSize: 14 }}>
+            <button className="btn-p" onClick={go} style={{ padding: '11px 20px', fontSize: 14 }}>
               Demo gratuita <ArrowRight size={15} />
             </button>
           </div>
+        </div>
+      </header>
 
+      {/* Mobile — mantido como estava */}
+      <div className="wrap md:hidden" style={{ paddingTop: 14 }}>
+        <nav className="nav-pill">
+          <Logo size={34} />
           <button
             onClick={() => setMenuOpen(o => !o)}
-            className="md:hidden"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'var(--text)' }}
             aria-label="Abrir menu"
             aria-expanded={menuOpen}

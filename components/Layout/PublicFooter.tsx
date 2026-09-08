@@ -9,13 +9,16 @@ export const PublicFooter: React.FC = () => {
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
 
   return (
-    <footer className="footer-dark" style={{ padding: 'clamp(48px,6vw,72px) 0 clamp(28px,4vw,36px)', marginTop: 0 }}>
-      <div className="wrap footer-grid" style={{ paddingBottom: 32, borderBottom: '1px solid rgba(255,255,255,.12)' }}>
+    <footer className="footer-dark" style={{ padding: 'clamp(48px,6vw,72px) 0 0', marginTop: 0 }}>
+      <div className="wrap footer-grid" style={{ paddingBottom: 40 }}>
         <div style={{ maxWidth: 320 }}>
           <Logo size={32} wordmarkColor="#fff" />
-          <p style={{ fontSize: 13, lineHeight: 1.7, marginTop: 14, color: 'rgba(255,255,255,.55)' }}>
+          <p style={{ fontSize: 14, lineHeight: 1.7, marginTop: 16, color: 'rgba(255,255,255,.55)' }}>
             Sistema de gestão para profissionais e clínicas de saúde mental.
           </p>
+          <button className="btn-p" onClick={go} style={{ marginTop: 22, fontSize: 14, padding: '11px 20px', background: '#fff', color: 'var(--ink)' }}>
+            Começar agora
+          </button>
         </div>
         <div className="footer-links-grid">
           <div>
@@ -43,8 +46,11 @@ export const PublicFooter: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="wrap" style={{ paddingTop: 24 }}>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,.45)' }}>© {new Date().getFullYear()} Plaelo. Todos os direitos reservados.</p>
+      <div className="footer-bottom">
+        <div className="wrap footer-bottom-inner">
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.45)' }}>© {new Date().getFullYear()} Plaelo. Todos os direitos reservados.</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.4)' }}>Feito para quem cuida da saúde mental.</p>
+        </div>
       </div>
     </footer>
   );
