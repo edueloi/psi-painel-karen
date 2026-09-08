@@ -162,7 +162,7 @@ export const AuroraAssistant: React.FC = () => {
       <div className={`fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2 transition-all duration-300 ${isOpen ? 'translate-y-[20px] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
         
         {/* Tooltip / Welcome Bubble */}
-        <div className={`bg-white px-4 py-2 rounded-xl shadow-lg border border-indigo-100 mb-2 transition-all duration-500 origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-90 opacity-0 translate-y-4'}`}>
+        <div className={`bg-white px-4 py-2 rounded-xl shadow-lg border border-indigo-100 mb-2 transition-all duration-500 origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-90 opacity-0 translate-y-4 pointer-events-none'}`}>
             <p className="text-sm font-medium text-slate-700">{getGreeting()}! Posso ajudar? 👋</p>
         </div>
 
@@ -171,7 +171,7 @@ export const AuroraAssistant: React.FC = () => {
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           data-tour="aurora"
-          className="relative group w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+          className="relative group w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95 shrink-0"
         >
           {/* Animated Background */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-[spin_4s_linear_infinite] opacity-80 group-hover:opacity-100 transition-all"></div>

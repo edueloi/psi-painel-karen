@@ -6,6 +6,7 @@ const { google } = require('googleapis');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { encrypt, decrypt } = require('../services/googleCrypto');
+const { getAppBaseUrl } = require('../utils/publicUrl');
 
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
@@ -101,7 +102,7 @@ router.get('/connect', authMiddleware, async (req, res) => {
     const oauth2Client = getOAuthClient();
     // "state" identifica o usuário na volta do callback (que não carrega o
     // header Authorization, pois é o navegador que navega direto pra lá).
-    const state = jwt.sign({ uid: req.user.id }, process.env.JWT_SECRET, { expiresIn: '10m' });
+    const state = jwt.sign({ uid: req.user.id, appBaseUrl: getAppBaseUrl(req) }, process.env.JWT_SECRET, { expiresIn: '10m' });
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       // Força o Google a reemitir o refresh_token mesmo numa reconexão
@@ -119,7 +120,7 @@ router.get('/connect', authMiddleware, async (req, res) => {
 
 // ── GET /google/callback — o Google redireciona o navegador pra cá ──────────
 router.get('/callback', async (req, res) => {
-  const frontendBase = process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
+  let frontendBase = process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
   const fail = () => res.redirect(`${frontendBase}/configuracoes?tab=integracoes&google=error`);
 
   try {
@@ -128,7 +129,9 @@ router.get('/callback', async (req, res) => {
 
     let uid;
     try {
-      ({ uid } = jwt.verify(state, process.env.JWT_SECRET));
+      const decoded = jwt.verify(state, process.env.JWT_SECRET);
+      uid = decoded.uid;
+      if (decoded.appBaseUrl) frontendBase = decoded.appBaseUrl;
     } catch {
       return fail();
     }

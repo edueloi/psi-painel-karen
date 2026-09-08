@@ -38,7 +38,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { PageHeader } from '../../components/UI/PageHeader';
-import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { Button } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { Patient } from '../../types';
@@ -194,7 +194,7 @@ export const BDIPage: React.FC = () => {
   }, [selectedPatientId]);
 
   const getShareLink = () => {
-    const baseUrl = PUBLIC_BASE_URL;
+    const baseUrl = getPublicBaseUrl();
     return `${baseUrl}/f/bdi-ii?u=${user?.shareToken}&p=${selectedPatientId}`;
   };
 

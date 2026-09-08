@@ -640,6 +640,30 @@ export const CaseStudies: React.FC = () => {
       setIsCardDetailOpen(true);
   };
 
+  const handleDeleteCard = () => {
+      if (!selectedCard || !activeBoardId) return;
+      const card = selectedCard;
+      const boardId = activeBoardId;
+      openDeleteModal(
+          'Excluir Card',
+          `Tem certeza que deseja excluir "${card.patientName || card.title}"? Esta ação não pode ser desfeita.`,
+          async () => {
+              try {
+                  await api.delete(`/case-studies/cards/${card.id}`);
+                  await loadBoardDetail(boardId);
+                  logActivity(`Card excluído: "${card.patientName || card.title}"`);
+                  pushToast('success', 'Card excluído com sucesso!');
+                  setIsCardDetailOpen(false);
+                  setSelectedCard(null);
+                  setIsEditingCard(false);
+              } catch (err) {
+                  console.error(err);
+                  pushToast('error', 'Erro ao excluir card.');
+              }
+          }
+      );
+  };
+
   const handleUpdateCard = async () => {
       if (!selectedCard || !activeBoardId) return;
       const patientName = editCardPatientName.trim();
@@ -1229,12 +1253,16 @@ export const CaseStudies: React.FC = () => {
         title={selectedCard?.patientName || ''}
         size="2xl"
         footer={isEditingCard ? (
-          <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setIsEditingCard(false)}>Cancelar</Button>
-            <Button variant="primary" size="sm" onClick={handleUpdateCard}>Salvar</Button>
+          <div className="flex w-full items-center justify-between gap-3">
+            <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleDeleteCard}>Excluir</Button>
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={() => setIsEditingCard(false)}>Cancelar</Button>
+              <Button variant="primary" size="sm" onClick={handleUpdateCard}>Salvar</Button>
+            </div>
           </div>
         ) : (
-          <div className="flex w-full items-center justify-end gap-3">
+          <div className="flex w-full items-center justify-between gap-3">
+            <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleDeleteCard}>Excluir</Button>
             <Button variant="secondary" size="sm" onClick={() => setIsEditingCard(true)}>Editar</Button>
           </div>
         )}

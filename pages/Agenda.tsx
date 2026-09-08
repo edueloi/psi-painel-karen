@@ -16,7 +16,7 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -1371,7 +1371,7 @@ export const Agenda: React.FC = () => {
           const titleText = `Sessão: ${patient?.full_name || 'Paciente'} - ${new Date(formData.appointment_date).toLocaleDateString()}`;
           const roomData = { title: titleText, code: roomCode, patient_id: formData.patient_id, professional_id: formData.psychologist_id || formData.professional_id, appointment_id: savedAppointment.id, scheduled_start: localToUtc2(formData.appointment_date), provider: 'interno' };
           const room = await api.post<any>('/virtual-rooms', roomData);
-          const meetingUrl = `${PUBLIC_BASE_URL}/sala/${room.code || roomCode}`;
+          const meetingUrl = `${getPublicBaseUrl()}/sala/${room.code || roomCode}`;
           await api.put(`/appointments/${savedAppointment.id}`, { ...payload, meeting_url: meetingUrl });
         } catch (roomError) { console.error('Erro ao criar sala virtual:', roomError); }
       }

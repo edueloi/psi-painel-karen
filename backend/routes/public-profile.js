@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { getFrontendUrl } = require('../utils/publicUrl');
 
 // GET /public-profile/:slug — Busca dados públicos do profissional
 router.get('/:slug', async (req, res) => {
@@ -690,15 +691,30 @@ router.get('/cadastro/validate', async (req, res) => {
     patient.has_children = !!patient.has_children;
     patient.is_payer = patient.is_payer === null || patient.is_payer === undefined ? true : !!patient.is_payer;
 
-    const [[prof]] = await db.query('SELECT name FROM users WHERE id = ?', [link.professional_id]);
+    const [[prof]] = await db.query(
+      'SELECT name, crp, specialty, company_name, avatar_url, clinic_logo_url FROM users WHERE id = ?',
+      [link.professional_id]
+    );
 
     if (!link.opened_at) {
       await db.query('UPDATE patient_registration_links SET opened_at = NOW() WHERE token = ?', [token]);
     }
 
+    const toPublicUrl = (url) => {
+      if (!url) return null;
+      if (url.startsWith('http')) return url;
+      const base = getFrontendUrl(req);
+      return url.startsWith('/uploads-static/') ? `${base}/api${url}` : `${base}${url}`;
+    };
+
     res.json({
       patient,
       professional_name: prof?.name || null,
+      professional_crp: prof?.crp || null,
+      professional_specialty: prof?.specialty || null,
+      clinic_name: prof?.company_name || null,
+      professional_avatar_url: toPublicUrl(prof?.avatar_url),
+      clinic_logo_url: toPublicUrl(prof?.clinic_logo_url),
       already_submitted: !!link.submitted_at,
     });
   } catch (err) {

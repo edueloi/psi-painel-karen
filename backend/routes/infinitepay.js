@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
+const { getAppBaseUrl } = require('../utils/publicUrl');
 
 // ── Auto-migrate: colunas InfinitePay na tabela users ────────────────────────
 async function ensureInfinitePayColumns() {
@@ -151,7 +152,7 @@ router.post('/charge', authMiddleware, async (req, res) => {
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
 
     const amountInCents = Math.round(amount * 100);
-    const baseUrl = process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
+    const baseUrl = getAppBaseUrl(req);
 
     const payload = {
       amount: amountInCents,

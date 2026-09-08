@@ -112,6 +112,11 @@ export const RegistrationUpdatePublic: React.FC = () => {
   const [step, setStep] = useState<'loading' | 'error' | 'form' | 'submitted' | 'already_done'>('loading');
   const [error, setError] = useState('');
   const [professionalName, setProfessionalName] = useState<string | null>(null);
+  const [professionalCrp, setProfessionalCrp] = useState<string | null>(null);
+  const [professionalSpecialty, setProfessionalSpecialty] = useState<string | null>(null);
+  const [clinicName, setClinicName] = useState<string | null>(null);
+  const [professionalAvatarUrl, setProfessionalAvatarUrl] = useState<string | null>(null);
+  const [clinicLogoUrl, setClinicLogoUrl] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
@@ -128,6 +133,11 @@ export const RegistrationUpdatePublic: React.FC = () => {
     api.get(`/public-profile/cadastro/validate?t=${token}`)
       .then((data: any) => {
         setProfessionalName(data.professional_name || null);
+        setProfessionalCrp(data.professional_crp || null);
+        setProfessionalSpecialty(data.professional_specialty || null);
+        setClinicName(data.clinic_name || null);
+        setProfessionalAvatarUrl(data.professional_avatar_url || null);
+        setClinicLogoUrl(data.clinic_logo_url || null);
         const patient = data.patient || {};
         setForm(prev => ({
           ...prev,
@@ -254,22 +264,55 @@ export const RegistrationUpdatePublic: React.FC = () => {
 
   const currentKey = STEPS[stepIndex].key;
 
+  const professionalSubtitle = [professionalSpecialty, professionalCrp ? `CRP ${professionalCrp}` : null]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6">
+    <div className="min-h-screen bg-slate-50 py-6 sm:py-10 px-3 sm:px-6">
       <div className="max-w-xl mx-auto">
-        <div className="flex items-center gap-3 justify-center mb-8">
-          <img src={logoUrl} alt="Plaelo" className="w-10 h-10 object-contain rounded-xl" />
-          <span className="font-black text-xl tracking-tight text-slate-900">Plaelo</span>
+        <div className="flex items-center gap-3 justify-center mb-6 sm:mb-8">
+          <img src={logoUrl} alt="Plaelo" className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-xl" />
+          <span className="font-black text-lg sm:text-xl tracking-tight text-slate-900">Plaelo</span>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8">
+        {/* Identificação do profissional / clínica */}
+        {(professionalName || clinicLogoUrl) && (
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-5 mb-4 flex items-center gap-3.5">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 flex items-center justify-center">
+              {professionalAvatarUrl ? (
+                <img src={professionalAvatarUrl} alt={professionalName || ''} className="w-full h-full object-cover" />
+              ) : clinicLogoUrl ? (
+                <img src={clinicLogoUrl} alt={clinicName || ''} className="w-full h-full object-contain p-1.5" />
+              ) : (
+                <User size={22} className="text-slate-300" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="font-black text-slate-900 text-[15px] sm:text-base leading-tight truncate">
+                {professionalName || clinicName}
+              </p>
+              {professionalSubtitle && (
+                <p className="text-xs sm:text-[13px] text-slate-400 font-semibold mt-0.5 truncate">{professionalSubtitle}</p>
+              )}
+              {clinicName && professionalName && clinicName !== professionalName && (
+                <p className="text-[11px] text-slate-400 mt-0.5 truncate">{clinicName}</p>
+              )}
+            </div>
+            {clinicLogoUrl && professionalAvatarUrl && (
+              <img src={clinicLogoUrl} alt={clinicName || ''} className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-lg flex-shrink-0 ml-auto" />
+            )}
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-8">
           {/* Step indicator */}
-          <div className="flex items-center gap-1.5 mb-8 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-1.5 mb-6 sm:mb-8 flex-wrap">
             {STEPS.map((s, i) => (
               <React.Fragment key={s.key}>
                 <div className="flex items-center gap-1.5">
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                    className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                     style={i < stepIndex
                       ? { background: '#0D9155', color: '#fff' }
                       : i === stepIndex
@@ -280,13 +323,13 @@ export const RegistrationUpdatePublic: React.FC = () => {
                   </div>
                   <span className={`text-[11px] font-bold ${i === stepIndex ? 'text-slate-800' : 'text-slate-400'} hidden sm:inline`}>{s.label}</span>
                 </div>
-                {i < STEPS.length - 1 && <div className="flex-1 h-px bg-slate-200 min-w-[10px]" />}
+                {i < STEPS.length - 1 && <div className="flex-1 h-px bg-slate-200 min-w-[8px] sm:min-w-[10px]" />}
               </React.Fragment>
             ))}
           </div>
 
-          <h2 className="text-xl font-black text-slate-900 mb-1">
-            {professionalName ? `Cadastro — ${professionalName}` : 'Atualize seu cadastro'}
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 mb-1">
+            {STEPS[stepIndex].label}
           </h2>
           <p className="text-sm text-slate-400 mb-6">Confira e atualize os dados que estiverem desatualizados.</p>
 

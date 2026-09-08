@@ -4,6 +4,7 @@ const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
 const { sendMail } = require('../services/emailService');
+const { getAppBaseUrl } = require('../utils/publicUrl');
 
 // ── Auto-migrate ──────────────────────────────────────────────────────────────
 async function ensureMPColumns() {
@@ -130,7 +131,7 @@ router.post('/charge', authMiddleware, async (req, res) => {
     const { amount, patient_name, patient_email, patient_cpf, comanda_id, appointment_id, installments, payment_type } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Valor inválido' });
 
-    const baseUrl = process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
+    const baseUrl = getAppBaseUrl(req);
     const external_reference = JSON.stringify({
       user_id: req.user.id,
       tenant_id: req.user.tenant_id,

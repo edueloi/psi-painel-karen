@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
-import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
@@ -186,7 +186,7 @@ export const FormsList: React.FC = () => {
 
   const getShareLink = () => {
     if (!selectedForm) return '';
-    let url = `${PUBLIC_BASE_URL}/f/${selectedForm.hash}`;
+    let url = `${getPublicBaseUrl()}/f/${selectedForm.hash}`;
     const params = new URLSearchParams();
     if (shareTab === 'patient' && selectedPatientId) params.set('p', selectedPatientId);
     if (user?.shareToken) params.set('u', user.shareToken);
@@ -198,7 +198,7 @@ export const FormsList: React.FC = () => {
   // Passa pelo backend que serve os OG meta tags corretos (logo da clínica, nome do formulário, etc.)
   const getOgShareLink = () => {
     if (!selectedForm) return '';
-    const apiBase = (import.meta as any).env?.VITE_API_URL || 'https://psiflux.com.br/api';
+    const apiBase = `${getPublicBaseUrl()}/api`;
     let url = `${apiBase}/forms/og/${selectedForm.hash}`;
     const params = new URLSearchParams();
     if (shareTab === 'patient' && selectedPatientId) params.set('p', selectedPatientId);

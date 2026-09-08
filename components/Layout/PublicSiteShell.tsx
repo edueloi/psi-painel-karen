@@ -124,13 +124,13 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         border-radius: 32px; overflow: hidden;
       }
 
-      /* Floating pill navbar (mobile) */
+      /* Navbar mobile/tablet — barra fixa cheia, sem pill flutuante nem margens */
       .nav-pill {
         display: flex; align-items: center; justify-content: space-between;
-        background: rgba(255,255,255,.88); backdrop-filter: blur(14px);
-        border: 1px solid var(--border); border-radius: 999px;
-        padding: 10px 10px 10px 22px;
-        box-shadow: 0 8px 32px rgba(18,12,46,.08);
+        background: rgba(255,255,255,.96); backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--border);
+        padding: 14px 20px;
+        box-shadow: 0 2px 16px rgba(18,12,46,.06);
       }
 
       /* Desktop header — barra plana e ampla, sem tudo empilhado numa pill só */
@@ -276,22 +276,23 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       /* Hero em tela cheia — foto do consultório como fundo, texto sobreposto */
-      .hero-photo-bg { position: relative; min-height: clamp(600px, 82vh, 800px); display: flex; align-items: center; overflow: hidden; }
+      .hero-photo-bg { position: relative; min-height: clamp(600px, 82vh, 800px); height: auto; display: flex; align-items: center; overflow: clip; }
       .hero-photo-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
       .hero-photo-bg-overlay {
         position: absolute; inset: 0;
         background: linear-gradient(90deg, rgba(21,15,46,.72) 0%, rgba(21,15,46,.5) 42%, rgba(21,15,46,.14) 68%, rgba(21,15,46,0) 100%);
       }
-      .hero-photo-bg-content { position: relative; z-index: 1; max-width: 620px; padding: clamp(70px,10vw,110px) 24px clamp(110px,14vw,150px); }
+      .hero-photo-bg-content { position: relative; z-index: 1; max-width: 620px; padding: clamp(70px,10vw,110px) 24px clamp(110px,14vw,150px); flex-shrink: 0; }
       .hero-photo-bg-content .tag { background: rgba(255,255,255,.14); color: #fff; }
       .hero-photo-badge {
-        margin-top: 28px; width: min(260px, 100%);
+        position: relative; margin-top: 28px; width: min(260px, 100%);
         padding: 14px 16px; border-radius: 16px;
       }
       @media (max-width: 720px) {
-        .hero-photo-bg { min-height: 640px; }
+        .hero-photo-bg { min-height: 640px; height: auto; }
         .hero-photo-bg-overlay { background: linear-gradient(180deg, rgba(21,15,46,.35) 0%, rgba(21,15,46,.78) 62%, rgba(21,15,46,.9) 100%); }
-        .hero-photo-bg-content { padding-top: clamp(200px,44vw,260px); max-width: 100%; }
+        .hero-photo-bg-content { padding-top: clamp(200px,44vw,260px); padding-bottom: 40px; max-width: 100%; }
+        .hero-photo-badge { margin-bottom: 8px; }
       }
 
       .footer-dark { background: var(--ink); color: rgba(255,255,255,.7); }

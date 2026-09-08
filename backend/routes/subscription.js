@@ -4,6 +4,7 @@ const db = require('../db');
 const { authMiddleware, authorize } = require('../middleware/auth');
 const crypto = require('crypto');
 const { decrypt: asaasDecrypt } = require('../services/asaasCrypto');
+const { getAppBaseUrl } = require('../utils/publicUrl');
 
 const ASAAS_BASE_SUB = process.env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/v3'
@@ -310,7 +311,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     const [tenantRows] = await db.query('SELECT * FROM tenants WHERE id = ?', [req.user.tenant_id]);
     const tenant = tenantRows[0];
 
-    const baseUrl = process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
+    const baseUrl = getAppBaseUrl(req);
     const external_reference = JSON.stringify({
       type: 'subscription',
       tenant_id: req.user.tenant_id,

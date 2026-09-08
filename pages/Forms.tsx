@@ -21,7 +21,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { PageHeader } from '../components/UI/PageHeader';
-import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 
 export const Forms: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ export const Forms: React.FC = () => {
     const params = new URLSearchParams();
     if (user?.shareToken) params.set('u', user.shareToken);
     const qs = params.toString();
-    const link = `${PUBLIC_BASE_URL}/f/${form.hash}${qs ? `?${qs}` : ''}`;
+    const link = `${getPublicBaseUrl()}/f/${form.hash}${qs ? `?${qs}` : ''}`;
     navigator.clipboard.writeText(link).then(() => {
       setCopiedFormId(form.id);
       setTimeout(() => setCopiedFormId(null), 2000);

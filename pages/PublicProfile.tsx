@@ -334,7 +334,7 @@ export const PublicProfile: React.FC = () => {
           <Info size={60} className="mx-auto text-slate-300 mb-6" />
           <h1 className="text-2xl font-black text-slate-800 mb-4">Perfil não disponível</h1>
           <p className="text-slate-500 mb-8">{error || 'O link pode estar incorreto ou o profissional desativou esta página.'}</p>
-          <a href="https://psiflux.com.br" className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">Voltar para Home</a>
+          <a href={typeof window !== 'undefined' ? window.location.origin : 'https://psiflux.com.br'} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">Voltar para Home</a>
        </div>
     </div>
   );

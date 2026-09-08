@@ -4,6 +4,7 @@ const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
 const notificationService = require('../services/notificationService');
+const { getFrontendUrl } = require('../utils/publicUrl');
 
 /* ─────────────────────────────────────────────────────────────
    HELPERS
@@ -228,7 +229,7 @@ router.post('/', authMiddleware, async (req, res) => {
         throw new Error('Erro ao recuperar registro após inserção');
     }
 
-    const publicLink = `${process.env.FRONTEND_URL || 'https://psiflux.com.br'}/f/anamnese?t=${token}`;
+    const publicLink = `${getFrontendUrl(req)}/f/anamnese?t=${token}`;
 
     // 7. Agendar lembrete automático via bot do tenant (se reminder_hours configurado e paciente tem telefone)
     const patientPhone = (patient.phone || '').replace(/\D/g, '');
@@ -307,7 +308,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     }
 
     const publicLink = send.secure_token
-      ? `${process.env.FRONTEND_URL || 'https://psiflux.com.br'}/f/anamnese?t=${send.secure_token}`
+      ? `${getFrontendUrl(req)}/f/anamnese?t=${send.secure_token}`
       : null;
 
     res.json({
@@ -431,7 +432,7 @@ router.post('/:id/resend', authMiddleware, async (req, res) => {
       ['sent', req.params.id]
     );
 
-    const publicLink = `${process.env.FRONTEND_URL || 'https://psiflux.com.br'}/f/anamnese?t=${token}`;
+    const publicLink = `${getFrontendUrl(req)}/f/anamnese?t=${token}`;
     res.json({ ok: true, secure_token: token, public_link: publicLink });
   } catch (err) {
     console.error('[anamnesis-send POST /:id/resend]', err);
@@ -629,7 +630,7 @@ router.post('/:id/send-reminder', authMiddleware, async (req, res) => {
     if (send.status === 'cancelled') return res.status(400).json({ error: 'Envio cancelado' });
     if (send.is_revoked) return res.status(400).json({ error: 'Link revogado' });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+    const frontendUrl = getFrontendUrl(req);
     const publicLink = `${frontendUrl}/f/anamnese?t=${send.secure_token}`;
     const reminderMsg = `Olá, ${send.patient_name}! 😊\n\nPassando para lembrar que o formulário de anamnese *${send.title}* ainda está aguardando o seu preenchimento.\n\nEsse formulário é importante para me ajudar a compreender melhor o seu momento e conduzir seu atendimento com mais cuidado e atenção. 💙\n\nQuando puder, é só acessar pelo link abaixo:\n${publicLink}\n\nSe tiver qualquer dúvida ou dificuldade para preencher, estou à disposição. 🔒`;
 

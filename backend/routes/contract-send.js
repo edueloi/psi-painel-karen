@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const crypto = require('crypto');
 const { CONTRACT_TEMPLATES, renderContract } = require('../templates/contractTemplates');
+const { getFrontendUrl } = require('../utils/publicUrl');
 
 function generateSecureToken() {
   return crypto.randomBytes(40).toString('hex');
@@ -174,7 +175,7 @@ router.get('/:patientId', async (req, res) => {
       signature = sig || null;
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+    const frontendUrl = getFrontendUrl(req);
     res.json({
       ...send,
       public_link: send.secure_token ? `${frontendUrl}/f/contrato?t=${send.secure_token}` : null,
@@ -230,7 +231,7 @@ router.post('/', async (req, res) => {
 
     await connection.commit();
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+    const frontendUrl = getFrontendUrl(req);
     res.status(201).json({
       id: sendId,
       patient_name: patient.name,
@@ -265,7 +266,7 @@ router.post('/:id/resend', async (req, res) => {
     );
     await db.query(`UPDATE contract_sends SET status = 'sent', sent_at = NOW() WHERE id = ?`, [req.params.id]);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+    const frontendUrl = getFrontendUrl(req);
     res.json({ ok: true, public_link: `${frontendUrl}/f/contrato?t=${token}` });
   } catch (err) {
     console.error('[contract-send POST /:id/resend]', err);

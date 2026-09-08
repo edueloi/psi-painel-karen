@@ -30,7 +30,10 @@ export function PageWrapper({
         "w-full max-w-none min-w-0",
         "px-3 sm:px-5 lg:px-6 xl:px-8",
         "pt-3 sm:pt-4 lg:pt-5",
-        mobileBottomPad ? "pb-24 sm:pb-6 lg:pb-8" : "pb-0",
+        // pb generoso em todos os breakpoints: o assistente Bia é fixed
+        // bottom-right e não pode sobrepor/bloquear cliques em controles
+        // no rodapé da página (ex: seletor "por página" da paginação).
+        mobileBottomPad ? "pb-24 sm:pb-24 lg:pb-24" : "pb-0",
         className
       )}
       {...props}

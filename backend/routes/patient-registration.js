@@ -4,6 +4,7 @@ const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
 const notificationService = require('../services/notificationService');
+const { getFrontendUrl } = require('../utils/publicUrl');
 
 /** Gera token único seguro para o link do paciente */
 function generateSecureToken() {
@@ -76,7 +77,7 @@ router.post('/send', authMiddleware, async (req, res) => {
       [token, Number(patient_id), Number(req.user.id), Number(req.user.tenant_id), expiresAt]
     );
 
-    const publicLink = `${process.env.FRONTEND_URL || 'https://psiflux.com.br'}/f/cadastro?t=${token}`;
+    const publicLink = `${getFrontendUrl(req)}/f/cadastro?t=${token}`;
     const message = `Olá, ${patient.name}! 😊\n\nPor gentileza, atualize seu cadastro conosco clicando no link abaixo:\n${publicLink}\n\nLeva menos de 2 minutos. Qualquer dúvida, estou à disposição.`;
 
     const patientPhone = (patient.phone || '').replace(/\D/g, '');

@@ -14,7 +14,7 @@ import {
 import { Switch } from '../components/UI/Switch';
 import { Select, Input, Textarea } from '../components/UI/Input';
 import { Combobox } from '../components/UI/Combobox';
-import { PORTAL_BASE_URL } from '@/src/lib/portal';
+import { getPortalBaseUrl } from '@/src/lib/portal';
 
 interface PortalToken {
   id: number;
@@ -102,7 +102,7 @@ export const PortalPaciente: React.FC = () => {
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
 
-  const baseUrl = PORTAL_BASE_URL;
+  const baseUrl = getPortalBaseUrl();
 
   const fetchTokens = useCallback(async () => {
     setLoading(true);

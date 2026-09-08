@@ -8,6 +8,7 @@ const fs = require('fs');
 const axios = require('axios');
 const notificationService = require('../services/notificationService');
 const { transcribeAudioBuffer } = require('../services/audioTranscription');
+const { getFrontendUrl } = require('../utils/publicUrl');
 
 const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
@@ -290,7 +291,7 @@ router.post('/', async (req, res) => {
         );
         if (patient?.phone) {
           const sendAt = new Date(new Date(scheduled_start).getTime() - 60000);
-          const publicUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+          const publicUrl = getFrontendUrl(req);
           const roomUrl = `${publicUrl}/sala/${roomCode}`;
           const content = await buildRoomLinkMessage(req.user.tenant_id, {
             patientName: patient.name, professionalName: req.user.name, roomUrl,
@@ -974,7 +975,7 @@ router.post('/:id/notify-patient', async (req, res) => {
     if (!room.patient_id) return res.status(422).json({ error: 'Esta sala não tem paciente vinculado.' });
     if (!room.patient_phone) return res.status(422).json({ error: 'Este paciente não possui WhatsApp cadastrado.' });
 
-    const publicUrl = process.env.FRONTEND_URL || 'https://psiflux.com.br';
+    const publicUrl = getFrontendUrl(req);
     const roomUrl = `${publicUrl}/sala/${room.code || room.hash}`;
     const message = req.body?.message || await buildRoomLinkMessage(tenantId, {
       patientName: room.patient_name, professionalName: room.host_name, roomUrl,

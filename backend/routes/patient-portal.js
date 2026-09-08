@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { checkPermission } = require('../middleware/auth');
+const { getPortalUrl } = require('../utils/publicUrl');
 
 // ─── Fuso de Brasília (UTC-3) ─────────────────────────────────────────────────
 // O servidor roda em UTC. Para agendamentos do portal usamos o horário civil de
@@ -2105,7 +2106,7 @@ router.post('/tokens', checkPermission('manage_patient_portal'), async (req, res
        req.user.id]
     );
 
-    const portalUrl = `${process.env.PORTAL_URL || 'https://portal.psiflux.com.br'}/portal/entrar/${token}`;
+    const portalUrl = `${getPortalUrl(req)}/portal/entrar/${token}`;
     res.json({ token, url: portalUrl, expires_at: expiresAt });
   } catch (e) {
     console.error(e);
@@ -2786,7 +2787,7 @@ router.post('/mercadopago/charge', portalAuth, async (req, res) => {
 
     // back_urls leva o PACIENTE de volta ao Portal do Paciente após pagar — precisa
     // ser o domínio do portal, não o do painel do profissional.
-    const baseUrl = process.env.PORTAL_URL || 'https://portal.psiflux.com.br';
+    const baseUrl = getPortalUrl(req);
     const patientName = session.full_name || 'Paciente';
     const patientEmail = session.email || 'pagamento@psiflux.com.br';
 

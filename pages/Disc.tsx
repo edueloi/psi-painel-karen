@@ -13,7 +13,7 @@ import { Combobox } from '../components/UI/Combobox';
 import { Modal } from '../components/UI/Modal';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { useToast } from '../contexts/ToastContext';
-import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { DatePicker } from '../components/UI/DatePicker';
 import { PageHeader } from '../components/UI/PageHeader';
@@ -372,7 +372,7 @@ export default function Disc() {
 
   const getShareLink = () => {
     if (!discForm) return '';
-    const base = `${PUBLIC_BASE_URL}/f/${discForm.hash}`;
+    const base = `${getPublicBaseUrl()}/f/${discForm.hash}`;
     const params = new URLSearchParams();
     if (shareTab === 'patient' && sharePatientId) params.set('p', sharePatientId);
     if (user?.shareToken) params.set('u', user.shareToken);

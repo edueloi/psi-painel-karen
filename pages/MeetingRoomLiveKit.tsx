@@ -27,7 +27,7 @@ import { useToast } from "../contexts/ToastContext";
 import { api, API_BASE_URL } from "../services/api";
 import { useUserPreferences } from "../contexts/UserPreferencesContext";
 import logoUrl from '../images/logo-sistema/logo.png';
-import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { PaymentModal } from '../components/UI/PaymentModal';
 import { DatePicker } from '../components/UI/DatePicker';
 import { AuroraAssistant } from '../components/AI/AuroraAssistant';
@@ -149,7 +149,7 @@ const Lobby: React.FC<{
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  const guestUrl = `${PUBLIC_BASE_URL}/sala/${roomCode}`;
+  const guestUrl = `${getPublicBaseUrl()}/sala/${roomCode}`;
 
   useEffect(() => {
     if (!roomCode) return;
@@ -595,7 +595,7 @@ const Lobby: React.FC<{
 // ── Painel de Convidar ────────────────────────────────────────────────────────
 const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ roomCode, onClose }) => {
   const [copied, setCopied] = useState(false);
-  const guestUrl = `${PUBLIC_BASE_URL}/sala/${roomCode}`;
+  const guestUrl = `${getPublicBaseUrl()}/sala/${roomCode}`;
 
   const copy = () => {
     navigator.clipboard.writeText(guestUrl);
@@ -1266,7 +1266,7 @@ const InstrumentPanel: React.FC<{ patientId: number | null; isHost: boolean; onC
   }, [room]);
 
   const handleSend = (form: FormListItem) => {
-    const base = `${PUBLIC_BASE_URL}/f/${form.hash}`;
+    const base = `${getPublicBaseUrl()}/f/${form.hash}`;
     const url = patientId ? `${base}?p=${patientId}` : base;
     try {
       localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'psi-instrument', title: form.title, url })), { reliable: true });

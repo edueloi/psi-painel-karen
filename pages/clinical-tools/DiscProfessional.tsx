@@ -25,7 +25,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { PageHeader } from '../../components/UI/PageHeader';
-import { PUBLIC_BASE_URL } from '@/src/lib/publicLinks';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { Button } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -211,7 +211,7 @@ export const DISCProfessionalPage: React.FC = () => {
   const [showAnswers, setShowAnswers] = useState(false);
 
   const getShareLink = () => {
-    const base = `${PUBLIC_BASE_URL}/f/disc`;
+    const base = `${getPublicBaseUrl()}/f/disc`;
     const params = new URLSearchParams();
     if (selectedPatientId) params.set('p', selectedPatientId);
     if (user?.shareToken) params.set('u', user.shareToken);

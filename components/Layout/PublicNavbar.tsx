@@ -98,20 +98,18 @@ export const PublicNavbar: React.FC = () => {
         </div>
       </header>
 
-      {/* Mobile — mantido como estava */}
-      <div className="wrap md:hidden" style={{ paddingTop: 14 }}>
-        <nav className="nav-pill">
-          <Logo size={34} />
-          <button
-            onClick={() => setMenuOpen(o => !o)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'var(--text)' }}
-            aria-label="Abrir menu"
-            aria-expanded={menuOpen}
-          >
-            <Menu size={22} />
-          </button>
-        </nav>
-      </div>
+      {/* Mobile/tablet — barra fixa cheia, colada no topo */}
+      <nav className="nav-pill md:hidden">
+        <Logo size={34} />
+        <button
+          onClick={() => setMenuOpen(o => !o)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'var(--text)' }}
+          aria-label="Abrir menu"
+          aria-expanded={menuOpen}
+        >
+          <Menu size={22} />
+        </button>
+      </nav>
 
       {/* Overlay — só existe no mobile; no desktop o menu lateral não é usado */}
       <div
