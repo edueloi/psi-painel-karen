@@ -202,6 +202,8 @@ router.get('/status', authMiddleware, async (req, res) => {
         plan_price: t.plan_price,
         plan_features: t.plan_features,
         has_payment_configured: false,
+        mercadopago_available: false,
+        asaas_available: false,
         billing_exempt: true,
         document_ok: isValidCpfCnpj(t.cnpj_cpf),
       });
@@ -245,6 +247,7 @@ router.get('/status', authMiddleware, async (req, res) => {
       `SELECT COUNT(*) as cnt FROM users WHERE role = 'super_admin' AND mercadopago_enabled = 1 AND mercadopago_token IS NOT NULL`
     );
     const hasPlatformToken = !!(process.env.MP_PLATFORM_TOKEN || mpRows[0]?.cnt > 0);
+    const hasAsaasToken = !!(await getPlatformAsaasKey());
 
     res.json({
       subscription_type: subscriptionType,
@@ -260,7 +263,9 @@ router.get('/status', authMiddleware, async (req, res) => {
       plan_name: t.plan_name,
       plan_price: t.plan_price,
       plan_features: t.plan_features,
-      has_payment_configured: hasPlatformToken,
+      has_payment_configured: hasPlatformToken || hasAsaasToken,
+      mercadopago_available: hasPlatformToken,
+      asaas_available: hasAsaasToken,
       document_ok: isValidCpfCnpj(t.cnpj_cpf),
     });
   } catch (err) {

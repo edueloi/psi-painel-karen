@@ -26,6 +26,8 @@ interface SubStatus {
   plan_price: number | null;
   plan_features: string[];
   has_payment_configured: boolean;
+  mercadopago_available: boolean;
+  asaas_available: boolean;
   document_ok: boolean;
 }
 
@@ -130,6 +132,10 @@ export function Assinatura() {
         api.get<Invoice[]>('/subscription/my-invoices').catch(() => []),
       ]);
       setStatus(sub);
+      // Se só um gateway estiver configurado pela plataforma, usa ele direto
+      // — não faz sentido mostrar a escolha entre os dois.
+      if (sub.mercadopago_available && !sub.asaas_available) setProvider('mercadopago');
+      else if (sub.asaas_available && !sub.mercadopago_available) setProvider('asaas');
       setPlans(plansData);
       setInvoices(invoicesData);
       if (plansData.length > 0) {
@@ -575,16 +581,18 @@ export function Assinatura() {
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button onClick={() => setProvider('mercadopago')}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'mercadopago' ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                      Mercado Pago
-                    </button>
-                    <button onClick={() => setProvider('asaas')}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'asaas' ? 'bg-teal-600 text-white border-teal-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                      Asaas
-                    </button>
-                  </div>
+                  {!!status?.mercadopago_available && !!status?.asaas_available && (
+                    <div className="flex gap-2">
+                      <button onClick={() => setProvider('mercadopago')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'mercadopago' ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                        Mercado Pago
+                      </button>
+                      <button onClick={() => setProvider('asaas')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'asaas' ? 'bg-teal-600 text-white border-teal-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                        Asaas
+                      </button>
+                    </div>
+                  )}
 
                   {provider === 'asaas' && status && !status.document_ok && (
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
