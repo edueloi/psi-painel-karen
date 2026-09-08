@@ -257,15 +257,16 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .float-card { padding: 14px; border-radius: 16px; }
       }
 
-      /* Ilustração do hero — cena de atendimento no lugar dos cards de UI */
-      .hero-illustration { position: relative; }
-      .hero-illustration-svg { width: 100%; height: auto; display: block; }
-      .hero-illustration-badge {
-        position: absolute; bottom: -2%; left: 6%; width: min(200px, 52%);
+      /* Foto do hero — consultório acolhedor no lugar dos cards de UI */
+      .hero-photo { position: relative; border-radius: 28px; overflow: hidden; box-shadow: 0 24px 60px rgba(18,12,46,.14); }
+      .hero-photo-img { width: 100%; height: clamp(280px, 34vw, 420px); object-fit: cover; display: block; }
+      .hero-photo-badge {
+        position: absolute; bottom: 20px; left: 20px; width: min(210px, 56%);
         padding: 14px 16px; border-radius: 16px;
       }
       @media (max-width: 480px) {
-        .hero-illustration-badge { left: 2%; bottom: -4%; padding: 12px 14px; }
+        .hero-photo-img { height: 260px; }
+        .hero-photo-badge { left: 12px; bottom: 12px; padding: 12px 14px; }
       }
 
       .footer-dark { background: var(--ink); color: rgba(255,255,255,.7); }

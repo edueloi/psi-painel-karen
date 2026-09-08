@@ -8,8 +8,8 @@ import {
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { features, PROFESSIONAL_CATEGORIES } from './publicSiteData';
 import logoUrl from '../../images/logo-sistema/logo.png';
+import heroPhotoUrl from '../../images/hero-consultorio.png';
 import { useSEO } from '../../hooks/useSEO';
-import { TherapySessionIllustration } from '../../components/illustrations/TherapySessionIllustration';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -57,10 +57,10 @@ export const Home: React.FC = () => {
             </div>
           </div>
 
-          {/* Ilustração — cena de atendimento, sem mockups genéricos de UI */}
-          <div className="hero-illustration">
-            <TherapySessionIllustration className="hero-illustration-svg" />
-            <div className="float-card hero-illustration-badge">
+          {/* Foto ambiente — consultório acolhedor, no lugar de mockups genéricos de UI */}
+          <div className="hero-photo">
+            <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-photo-img" />
+            <div className="float-card hero-photo-badge">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <div style={{ width: 26, height: 26, borderRadius: 8, background: '#E4F8EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0D9155' }}>
                   <Sparkles size={13} />
