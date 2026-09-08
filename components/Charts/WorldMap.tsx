@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { geoMercator, geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
+import { COUNTRIES } from '../UI/CountrySelect';
 
 // ISO 3166-1 alpha-2 -> código numérico usado no topojson (world-atlas).
 // Cobre só os países já suportados em components/UI/CountrySelect.tsx.
@@ -11,6 +12,17 @@ const ALPHA2_TO_NUMERIC: Record<string, string> = {
   ES: '724', FR: '250', IT: '380', CH: '756', NL: '528', BE: '056', IE: '372',
   IL: '376', AE: '784', AU: '036', JP: '392', CN: '156',
 };
+const NUMERIC_TO_ALPHA2: Record<string, string> = Object.fromEntries(
+  Object.entries(ALPHA2_TO_NUMERIC).map(([a2, num]) => [num, a2])
+);
+// Nome em português pra exibir no tooltip — o geojson mundial só traz o nome
+// em inglês ("United States of America"); cai pro nome cru só se o país não
+// estiver na nossa lista (caso raro, fora do CountrySelect).
+function countryDisplayName(numericId: string, fallbackRawName: string): string {
+  const alpha2 = NUMERIC_TO_ALPHA2[numericId];
+  const info = alpha2 && COUNTRIES.find((c) => c.code === alpha2);
+  return info ? info.name : fallbackRawName;
+}
 
 const STATE_NAMES: Record<string, string> = {
   AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará',
@@ -151,25 +163,25 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
         >
           <ArrowLeft size={13} /> Voltar para o Brasil
         </button>
-        <p className="mb-2 text-xs font-black uppercase tracking-widest text-zinc-400">
+        <p className="mb-3 text-sm font-black uppercase tracking-widest text-zinc-400">
           {STATE_NAMES[view.uf] || view.uf} · {total} paciente{total === 1 ? '' : 's'}
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {cities.length === 0 ? (
-            <p className="text-xs text-zinc-400">Sem cidade cadastrada para este estado.</p>
+            <p className="text-sm text-zinc-400">Sem cidade cadastrada para este estado.</p>
           ) : cities.map((c) => {
             const pct = total > 0 ? Math.round((c.value / total) * 100) : 0;
             return (
-              <div key={c.city} className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-3.5 py-2.5">
+              <div key={c.city} className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-4 py-3.5">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-black text-zinc-800">{c.city}</p>
-                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                  <p className="truncate text-sm font-black text-zinc-800" title={c.city}>{c.city}</p>
+                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-zinc-200">
                     <div className="h-full rounded-full bg-[#295b85]" style={{ width: `${Math.max(pct, 4)}%` }} />
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-xs font-black text-zinc-900">{c.value}</p>
-                  <p className="text-[10px] font-bold text-zinc-400">{pct}%</p>
+                  <p className="text-sm font-black text-zinc-900">{c.value}</p>
+                  <p className="text-[11px] font-bold text-zinc-400">{pct}%</p>
                 </div>
               </div>
             );
@@ -260,7 +272,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
                 onMouseEnter={(e) => {
                   if (!count) return;
                   const rect = containerRef.current?.getBoundingClientRect();
-                  setHovered({ name: geo.properties?.name || '', count, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
+                  setHovered({ name: countryDisplayName(geo.id, geo.properties?.name || ''), count, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) });
                 }}
                 onMouseMove={(e) => {
                   if (!count) return;
@@ -281,7 +293,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
         >
           <span className="text-zinc-800">{hovered.name}</span>
           <span className="ml-1.5 text-zinc-400">{hovered.count} paciente{hovered.count === 1 ? '' : 's'}</span>
-          {hovered.name === 'Brazil' && hasBrazilDrilldown && (
+          {hovered.name === 'Brasil' && hasBrazilDrilldown && (
             <div className="mt-0.5 text-[10px] font-bold text-indigo-500">Clique para ver os estados</div>
           )}
         </div>

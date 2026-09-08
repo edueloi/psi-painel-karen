@@ -705,12 +705,14 @@ export const Dashboard: React.FC = () => {
       .sort((a, b) => b.value - a.value);
   }, [activePatients]);
 
-  // Agregação por cidade — usada no drill-down ao clicar num estado.
+  // Agregação por cidade — usada no drill-down ao clicar num estado. Remove
+  // pontuação solta no início/fim (ex: "– Vila Maria Alta" digitado por
+  // engano) sem tentar adivinhar o resto do dado.
   const cityDistributionByState = useMemo(() => {
     const byState: Record<string, Record<string, number>> = {};
     for (const p of activePatients) {
       const state = (p.state || '').toString().trim().toUpperCase();
-      const city = (p.city || '').toString().trim();
+      const city = (p.city || '').toString().trim().replace(/^[-–—,.\s]+|[-–—,.\s]+$/g, '');
       if (!state || !city) continue;
       byState[state] = byState[state] || {};
       byState[state][city] = (byState[state][city] || 0) + 1;
@@ -1917,7 +1919,7 @@ export const Dashboard: React.FC = () => {
           iconClassName="text-sky-600"
         >
           {isLoading ? (
-            <div className="flex h-[420px] items-center justify-center">
+            <div className="flex h-[640px] items-center justify-center">
               <Loader2 className="animate-spin text-zinc-300" />
             </div>
           ) : countryDistributionTotal === 0 ? (
@@ -1925,19 +1927,19 @@ export const Dashboard: React.FC = () => {
               title="Sem dados para exibir"
               description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
               icon={Globe}
-              className="h-[420px]"
+              className="h-[640px]"
             />
           ) : (
-            <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
-              <div className="overflow-hidden rounded-2xl bg-zinc-50 p-2">
+            <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
+              <div className="overflow-hidden rounded-2xl bg-zinc-50 p-3">
                 <WorldMap
                   countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
                   stateCounts={Object.fromEntries(stateDistribution.map((s) => [s.uf, s.value]))}
                   cityCountsByState={cityDistributionByState}
-                  height={420}
+                  height={640}
                 />
               </div>
-              <div className="flex flex-col gap-2 lg:max-h-[420px] lg:overflow-y-auto lg:pr-1">
+              <div className="flex flex-col gap-2 xl:max-h-[640px] xl:overflow-y-auto xl:pr-1">
                 {countryDistribution.map((c) => {
                   const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
                   return (
