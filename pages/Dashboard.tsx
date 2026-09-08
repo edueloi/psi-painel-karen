@@ -1739,7 +1739,7 @@ export const Dashboard: React.FC = () => {
           </PanelCard>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-2">
           <PanelCard
             title="Distribuição por Gênero"
             description="Pacientes ativos cadastrados."
@@ -1748,7 +1748,7 @@ export const Dashboard: React.FC = () => {
             iconClassName="text-pink-600"
           >
             {isLoading ? (
-              <div className="flex h-[200px] items-center justify-center">
+              <div className="flex h-[220px] items-center justify-center sm:h-[240px]">
                 <Loader2 className="animate-spin text-zinc-300" />
               </div>
             ) : genderPieData.length === 0 ? (
@@ -1756,18 +1756,18 @@ export const Dashboard: React.FC = () => {
                 title="Sem dados para exibir"
                 description="Cadastre o gênero dos pacientes para ver esta distribuição."
                 icon={Users}
-                className="h-[200px]"
+                className="h-[220px] sm:h-[240px]"
               />
             ) : (
-              <div className="h-[200px]">
+              <div className="h-[220px] sm:h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={genderPieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={44}
-                      outerRadius={72}
+                      innerRadius={48}
+                      outerRadius={78}
                       paddingAngle={4}
                       dataKey="value"
                     >
@@ -1780,10 +1780,10 @@ export const Dashboard: React.FC = () => {
                           const { cx: lx, cy: ly } = viewBox;
                           return (
                             <g>
-                              <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 20, fontWeight: 900, fill: '#18181b' }}>
+                              <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 22, fontWeight: 900, fill: '#18181b' }}>
                                 {genderPieTotal}
                               </text>
-                              <text x={lx} y={ly + 12} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
+                              <text x={lx} y={ly + 13} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
                                 TOTAL
                               </text>
                             </g>
@@ -1813,20 +1813,20 @@ export const Dashboard: React.FC = () => {
             iconClassName="text-violet-600"
           >
             {isLoading ? (
-              <div className="flex h-[200px] items-center justify-center">
+              <div className="flex h-[220px] items-center justify-center sm:h-[240px]">
                 <Loader2 className="animate-spin text-zinc-300" />
               </div>
             ) : ageDistributionTotal === 0 ? (
               <EmptyState
-                title="Nenhum paciente atendido neste período"
+                title="Sem dados para exibir"
                 description="Cadastre a data de nascimento dos pacientes para ver esta distribuição."
                 icon={Users}
-                className="h-[200px]"
+                className="h-[220px] sm:h-[240px]"
               />
             ) : (
-              <div className="h-[200px]">
+              <div className="h-[220px] sm:h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={ageDistribution} layout="vertical" margin={{ left: 8, right: 16 }}>
+                  <BarChart data={ageDistribution} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 0 }}>
                     <XAxis type="number" hide allowDecimals={false} />
                     <YAxis
                       type="category"
@@ -1834,14 +1834,14 @@ export const Dashboard: React.FC = () => {
                       tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
                       axisLine={false}
                       tickLine={false}
-                      width={72}
+                      width={78}
                     />
                     <Tooltip
                       cursor={{ fill: '#f1f5f9' }}
                       contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
                       formatter={(value: number) => [value, 'Pacientes']}
                     />
-                    <Bar dataKey="value" fill="#8b5cf6" radius={[0, 8, 8, 0]}>
+                    <Bar dataKey="value" fill="#8b5cf6" radius={[0, 8, 8, 0]} maxBarSize={22}>
                       <LabelList
                         dataKey="value"
                         position="right"
@@ -1854,49 +1854,63 @@ export const Dashboard: React.FC = () => {
               </div>
             )}
           </PanelCard>
-
-          <PanelCard
-            title="Pacientes no Mundo"
-            description="Localização por país cadastrado."
-            icon={Globe}
-            iconWrapClassName="border-sky-100 bg-sky-50"
-            iconClassName="text-sky-600"
-          >
-            {isLoading ? (
-              <div className="flex h-[200px] items-center justify-center">
-                <Loader2 className="animate-spin text-zinc-300" />
-              </div>
-            ) : countryDistributionTotal === 0 ? (
-              <EmptyState
-                title="Sem dados para exibir"
-                description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
-                icon={Globe}
-                className="h-[200px]"
-              />
-            ) : (
-              <div className="space-y-3">
-                <div className="overflow-hidden rounded-2xl bg-zinc-50">
-                  <WorldMap
-                    countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
-                    height={140}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {countryDistribution.slice(0, 6).map((c) => (
-                    <span
-                      key={c.code}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-zinc-100 bg-zinc-50/80 px-2.5 py-1 text-[11px] font-bold text-zinc-600"
-                    >
-                      <span>{c.flag}</span>
-                      <span>{c.code}</span>
-                      <span className="text-zinc-400">{c.value}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </PanelCard>
         </div>
+
+        <PanelCard
+          title="Pacientes no Mundo"
+          description="Localização por país cadastrado."
+          icon={Globe}
+          iconWrapClassName="border-sky-100 bg-sky-50"
+          iconClassName="text-sky-600"
+        >
+          {isLoading ? (
+            <div className="flex h-[280px] items-center justify-center">
+              <Loader2 className="animate-spin text-zinc-300" />
+            </div>
+          ) : countryDistributionTotal === 0 ? (
+            <EmptyState
+              title="Sem dados para exibir"
+              description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
+              icon={Globe}
+              className="h-[280px]"
+            />
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-[1fr_240px]">
+              <div className="overflow-hidden rounded-2xl bg-zinc-50 p-2">
+                <WorldMap
+                  countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
+                  height={320}
+                />
+              </div>
+              <div className="flex flex-col gap-2 lg:max-h-[320px] lg:overflow-y-auto lg:pr-1">
+                {countryDistribution.map((c) => {
+                  const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
+                  return (
+                    <div
+                      key={c.code}
+                      className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-3.5 py-2.5"
+                    >
+                      <span className="text-lg leading-none">{c.flag}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-black text-zinc-800">{c.name}</p>
+                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                          <div
+                            className="h-full rounded-full bg-[#295b85]"
+                            style={{ width: `${Math.max(pct, 4)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs font-black text-zinc-900">{c.value}</p>
+                        <p className="text-[10px] font-bold text-zinc-400">{pct}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </PanelCard>
       </div>
 
       <Modal
