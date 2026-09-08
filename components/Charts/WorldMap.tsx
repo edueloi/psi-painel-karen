@@ -65,10 +65,29 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, height = 260 
     [numericCounts]
   );
 
-  const projection = useMemo(
-    () => geoNaturalEarth1().fitSize([containerWidth, height], { type: 'Sphere' } as any),
-    [containerWidth, height]
+  // Foca automaticamente na região com pacientes (em vez de sempre mostrar o
+  // globo inteiro) — com só 1-2 países cadastrados, o mapa mundial completo
+  // fica majoritariamente vazio e o destaque real (ex: Brasil) sai minúsculo.
+  // fitExtent com um FeatureCollection só dos países com dado + margem faz o
+  // d3 calcular o zoom/centro ideal sozinho.
+  const highlighted = useMemo(
+    () => (geographies || []).filter((g) => numericCounts[g.id] > 0),
+    [geographies, numericCounts]
   );
+
+  const projection = useMemo(() => {
+    const proj = geoNaturalEarth1();
+    const margin = 24;
+    if (highlighted.length > 0) {
+      proj.fitExtent(
+        [[margin, margin], [containerWidth - margin, height - margin]],
+        { type: 'FeatureCollection', features: highlighted } as any
+      );
+    } else {
+      proj.fitSize([containerWidth, height], { type: 'Sphere' } as any);
+    }
+    return proj;
+  }, [containerWidth, height, highlighted]);
   const pathGenerator = useMemo(() => geoPath(projection as any), [projection]);
 
   return (

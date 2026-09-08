@@ -330,6 +330,19 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 onChange={val => updateField('birth_date', val)}
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-600">Gênero</label>
+              <select
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                value={(formData as any).gender || ''}
+                onChange={e => updateField('gender' as any, e.target.value as any)}
+              >
+                <option value="">Não informado</option>
+                <option value="feminino">Feminino</option>
+                <option value="masculino">Masculino</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
             <div className="md:col-span-2 space-y-2">
               <label className="text-xs font-semibold text-slate-600">Observações / Referência</label>
               <textarea 

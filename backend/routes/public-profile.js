@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { getFrontendUrl } = require('../utils/publicUrl');
+const { getFrontendUrl, getPortalUrl } = require('../utils/publicUrl');
 
 // GET /public-profile/:slug — Busca dados públicos do profissional
 router.get('/:slug', async (req, res) => {
@@ -880,6 +880,7 @@ router.get('/contrato/validate', async (req, res) => {
       professional: prof,
       already_signed: link.send_status === 'signed',
       signature: existingSignature,
+      portal_url: `${getPortalUrl(req)}/portal`,
     });
   } catch (err) {
     console.error('Erro validar contrato token:', err);

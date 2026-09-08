@@ -20,6 +20,7 @@ interface ContractData {
   } | null;
   already_signed: boolean;
   signature: { signer_name: string; signer_cpf: string; signed_at: string } | null;
+  portal_url: string;
 }
 
 export const ContractPublic: React.FC = () => {
@@ -173,7 +174,7 @@ export const ContractPublic: React.FC = () => {
   /* ── SUBMITTED ── */
   if (step === 'submitted') return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center p-6">
-      <div className="bg-white rounded-[2rem] sm:rounded-[3rem] shadow-2xl p-8 sm:p-12 max-w-lg w-full space-y-8 sm:space-y-10 text-center animate-in fade-in zoom-in duration-700">
+      <div className="bg-white rounded-[2rem] sm:rounded-[3rem] shadow-2xl p-8 sm:p-12 max-w-lg w-full space-y-8 text-center animate-in fade-in zoom-in duration-700">
         <div className="relative">
           <div className="w-24 h-24 sm:w-28 sm:h-28 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-xl shadow-indigo-200">
             <FileSignature size={48} className="text-white" />
@@ -183,29 +184,28 @@ export const ContractPublic: React.FC = () => {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight leading-none">Contrato assinado!</h2>
+        <div className="space-y-3">
+          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight leading-none">Tudo certo!</h2>
           <p className="text-slate-500 font-medium leading-relaxed text-base">
-            Sua assinatura foi registrada com segurança. Seu(sua) psicólogo(a) foi notificado(a) automaticamente.
+            Sua assinatura foi registrada com segurança{prof?.name ? ` e ${prof.name} foi notificado(a) automaticamente` : ''}.
           </p>
-          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 text-left space-y-2">
-            <p className="text-indigo-700 font-black text-xs uppercase tracking-widest">Próximos passos</p>
-            <ul className="space-y-2">
-              {[
-                'A nota fiscal referente aos serviços é emitida e enviada ao final de cada mês',
-                'O pagamento das sessões é sempre antecipado, conforme combinado no contrato',
-                'A cada 3 meses você receberá os inventários BDI-II e BAI para acompanhamento do seu progresso',
-              ].map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-indigo-700 font-medium">
-                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
 
-        <div className="pt-4 flex items-center justify-center gap-2 opacity-40">
+        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 text-left space-y-3">
+          <p className="text-indigo-700 font-black text-xs uppercase tracking-widest">Próximo passo</p>
+          <p className="text-sm text-indigo-700 font-medium leading-relaxed">
+            Acesse o Portal do Paciente para acompanhar suas sessões, confirmar presença e ver seus documentos.
+          </p>
+        </div>
+
+        <a
+          href={data?.portal_url || '#'}
+          className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-3"
+        >
+          Ir para o Portal <ArrowRight size={20} />
+        </a>
+
+        <div className="flex items-center justify-center gap-2 opacity-40">
           <ShieldCheck size={14} className="text-indigo-400" />
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Assinatura Eletrônica • Criptografia Plaelo</span>
         </div>
