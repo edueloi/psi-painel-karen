@@ -140,10 +140,12 @@ async function resolveSession(req, res) {
   const sessionToken = req.headers['x-portal-token'] || req.query.session;
   if (!sessionToken) return null;
   const [rows] = await db.query(
-    `SELECT pps.*, p.name AS full_name, p.email, p.phone AS whatsapp, p.tenant_id, p.responsible_professional_id AS psychologist_id,
+    `SELECT pps.*, p.name AS full_name, p.email, p.phone AS whatsapp, p.tenant_id,
+            COALESCE(p.responsible_professional_id, ppt.professional_id) AS psychologist_id,
             pps.token_id
      FROM patient_portal_sessions pps
      JOIN patients p ON p.id = pps.patient_id
+     LEFT JOIN patient_portal_tokens ppt ON ppt.id = pps.token_id
      WHERE pps.session_token = ? AND pps.expires_at > NOW()`,
     [sessionToken]
   );
@@ -540,7 +542,7 @@ router.get('/me', portalAuth, async (req, res) => {
       try { p.emergency_contacts = JSON.parse(p.emergency_contacts); } catch { p.emergency_contacts = []; }
     }
     p.has_children = Boolean(p.has_children);
-    // fallback: se responsible_professional_id não estiver setado, usa o profissional do último agendamento
+    // fallback 1: se responsible_professional_id não estiver setado, usa o profissional do último agendamento
     if (!p.psychologist_id) {
       try {
         const [apRows] = await db.query(
@@ -557,6 +559,27 @@ router.get('/me', portalAuth, async (req, res) => {
           p.specialty         = apRows[0].specialty;
           p.crp               = apRows[0].crp;
           p.prof_avatar       = apRows[0].prof_avatar;
+        }
+      } catch {}
+    }
+    // fallback 2: paciente novo sem nenhum agendamento ainda — usa quem gerou
+    // o convite de acesso ao portal (mesmo caso do contrato pendente).
+    if (!p.psychologist_id) {
+      try {
+        const [tkRows] = await db.query(
+          `SELECT ppt.professional_id, u.name AS professional_name, u.specialty, u.crp, u.avatar_url AS prof_avatar
+           FROM patient_portal_tokens ppt
+           JOIN users u ON u.id = ppt.professional_id
+           WHERE ppt.patient_id = ? AND ppt.tenant_id = ? AND ppt.professional_id IS NOT NULL
+           ORDER BY ppt.created_at DESC LIMIT 1`,
+          [patient_id, tenant_id]
+        );
+        if (tkRows[0]) {
+          p.psychologist_id   = tkRows[0].professional_id;
+          p.professional_name = tkRows[0].professional_name;
+          p.specialty         = tkRows[0].specialty;
+          p.crp               = tkRows[0].crp;
+          p.prof_avatar       = tkRows[0].prof_avatar;
         }
       } catch {}
     }
@@ -743,7 +766,7 @@ router.get('/me/pending-contract', portalAuth, async (req, res) => {
     }
 
     let professionalId = psychologist_id;
-    // Fallback: mesmo critério usado em GET /me — se o paciente não tem
+    // Fallback 1: mesmo critério usado em GET /me — se o paciente não tem
     // responsible_professional_id setado, usa o profissional do último agendamento.
     if (!professionalId) {
       const [[lastApt]] = await db.query(
@@ -752,12 +775,25 @@ router.get('/me/pending-contract', portalAuth, async (req, res) => {
          ORDER BY start_time DESC LIMIT 1`,
         [patient_id, tenant_id]
       );
-      if (lastApt?.professional_id) {
-        professionalId = lastApt.professional_id;
-        // Persiste para não depender do fallback novamente
-        await db.query('UPDATE patients SET responsible_professional_id = ? WHERE id = ? AND tenant_id = ?',
-          [professionalId, patient_id, tenant_id]);
-      }
+      if (lastApt?.professional_id) professionalId = lastApt.professional_id;
+    }
+    // Fallback 2: paciente novo, sem agendamento ainda (justamente o caso do
+    // convite de portal, onde o contrato precisa ser assinado ANTES do
+    // primeiro agendamento) — usa quem gerou o convite deste paciente,
+    // mesmo que a sessão atual não carregue token_id (login por senha).
+    if (!professionalId) {
+      const [[lastToken]] = await db.query(
+        `SELECT professional_id FROM patient_portal_tokens
+         WHERE patient_id = ? AND tenant_id = ? AND professional_id IS NOT NULL
+         ORDER BY created_at DESC LIMIT 1`,
+        [patient_id, tenant_id]
+      );
+      if (lastToken?.professional_id) professionalId = lastToken.professional_id;
+    }
+    if (professionalId) {
+      // Persiste para não depender do fallback novamente
+      await db.query('UPDATE patients SET responsible_professional_id = ? WHERE id = ? AND tenant_id = ?',
+        [professionalId, patient_id, tenant_id]);
     }
     if (!professionalId) return res.status(400).json({ error: 'Profissional responsável não definido para este paciente.' });
 
