@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sparkles, Lock, ChevronRight, ArrowRight, CheckCircle } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
+import { Reveal } from '../../components/Layout/Reveal';
+import { AnimatedNumber } from '../../components/Layout/AnimatedNumber';
 import { features } from './publicSiteData';
 import logoUrl from '../../images/logo-sistema/logo.png';
 import { useSEO } from '../../hooks/useSEO';
 
 const STATS = [
-  { value: '9', label: 'módulos integrados' },
-  { value: '100%', label: 'em nuvem' },
-  { value: '24/7', label: 'acesso de onde estiver' },
+  { value: 9, suffix: '', label: 'módulos integrados' },
+  { value: 100, suffix: '%', label: 'em nuvem' },
+  { value: null, display: '24/7', label: 'acesso de onde estiver' },
 ];
 
 export const Funcionalidades: React.FC = () => {
@@ -28,35 +30,42 @@ export const Funcionalidades: React.FC = () => {
     <PublicSiteShell>
       <section className="page-head">
         <div className="wrap" style={{ textAlign: 'center' }}>
-          <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Funcionalidades</span>
-          <h1 style={{ fontSize: 'clamp(28px,4.5vw,48px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
-            Tudo que sua clínica precisa,<br />em um único lugar
-          </h1>
-          <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto 32px' }}>
-            Uma plataforma que substitui múltiplos sistemas — para você focar no cuidado com o paciente.
-          </p>
+          <Reveal>
+            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Funcionalidades</span>
+            <h1 style={{ fontSize: 'clamp(28px,4.5vw,48px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
+              Tudo que sua clínica precisa,<br />em um único lugar
+            </h1>
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto 32px' }}>
+              Uma plataforma que substitui múltiplos sistemas — para você focar no cuidado com o paciente.
+            </p>
+          </Reveal>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'clamp(12px,4vw,48px)', maxWidth: 460, margin: '0 auto' }}>
-            {STATS.map(s => (
-              <div key={s.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 'clamp(20px,5vw,28px)', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--accent)' }}>{s.value}</div>
+            {STATS.map((s, i) => (
+              <Reveal key={s.label} delay={i * 100} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 'clamp(20px,5vw,28px)', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--accent)' }}>
+                  {s.value !== null
+                    ? <AnimatedNumber value={s.value} suffix={s.suffix} />
+                    : s.display}
+                </div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>{s.label}</div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
       <section className="section" style={{ background: '#fff', paddingTop: 'clamp(24px,3vw,40px)' }}>
+        <span className="bg-blob" style={{ width: 260, height: 260, top: 10, right: '-6%', background: 'var(--accent-soft)' }} />
         <div className="wrap">
           <div className="feat-grid">
-            {features.map(({ icon: Icon, title, desc, color, bg }) => (
-              <div className="card" key={title}>
+            {features.map(({ icon: Icon, title, desc, color, bg }, i) => (
+              <Reveal className="card hover-lift" key={title} delay={i * 60}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, color }}>
                   <Icon size={20} />
                 </div>
                 <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{title}</h3>
                 <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted)' }}>{desc}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -65,7 +74,7 @@ export const Funcionalidades: React.FC = () => {
       {/* ═══ AURORA IA ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="wrap">
-          <div className="aurora-band">
+          <Reveal className="aurora-band">
             <div style={{ padding: 'clamp(36px,5vw,64px)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 'clamp(32px,5vw,64px)', alignItems: 'center' }}>
               <div>
                 <span className="tag-green tag" style={{ marginBottom: 20, display: 'inline-flex' }}>
@@ -123,14 +132,14 @@ export const Funcionalidades: React.FC = () => {
                 ))}
               </div>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ═══ CTA FINAL ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="wrap-xs" style={{ textAlign: 'center' }}>
-          <div style={{ background: 'linear-gradient(135deg, var(--ink) 0%, #2A1F6B 100%)', borderRadius: 32, padding: 'clamp(40px,6vw,64px) clamp(24px,5vw,56px)' }}>
+          <Reveal style={{ background: 'linear-gradient(135deg, var(--ink) 0%, #2A1F6B 100%)', borderRadius: 32, padding: 'clamp(40px,6vw,64px) clamp(24px,5vw,56px)' }}>
             <img src={logoUrl} alt="Plaelo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 14, margin: '0 auto 22px', background: '#fff', padding: 6 }} />
             <h2 style={{ fontSize: 'clamp(22px,3.4vw,34px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.2, marginBottom: 14, color: '#fff' }}>
               Veja todas as funcionalidades em ação
@@ -145,7 +154,7 @@ export const Funcionalidades: React.FC = () => {
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={13} /> Sem fidelidade</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><CheckCircle size={13} /> 14 dias grátis</span>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
     </PublicSiteShell>

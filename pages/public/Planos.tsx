@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { CheckCircle, ShieldCheck, Sparkles, HeadphonesIcon, ChevronDown, CreditCard, RefreshCw } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
+import { Reveal } from '../../components/Layout/Reveal';
+import { AnimatedNumber } from '../../components/Layout/AnimatedNumber';
 import { FEATURE_LABELS, Plan } from './publicSiteData';
 import { api } from '../../services/api';
 import { useSEO } from '../../hooks/useSEO';
@@ -67,24 +69,27 @@ export const Planos: React.FC = () => {
     <PublicSiteShell>
       <section className="page-head">
         <div className="wrap" style={{ textAlign: 'center' }}>
-          <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Planos</span>
-          <h1 style={{ fontSize: 'clamp(28px,4.5vw,48px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
-            Simples e transparente
-          </h1>
-          <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 480, margin: '0 auto 28px' }}>
-            A solução completa para sua prática clínica e financeira — escolha o plano e comece hoje.
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px 22px' }}>
-            {TRUST_BADGES.map(b => (
-              <span key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>
-                <b.icon size={14} style={{ color: 'var(--accent2)' }} /> {b.label}
-              </span>
-            ))}
-          </div>
+          <Reveal>
+            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Planos</span>
+            <h1 style={{ fontSize: 'clamp(28px,4.5vw,48px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
+              Simples e transparente
+            </h1>
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 480, margin: '0 auto 28px' }}>
+              A solução completa para sua prática clínica e financeira — escolha o plano e comece hoje.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px 22px' }}>
+              {TRUST_BADGES.map(b => (
+                <span key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>
+                  <b.icon size={14} style={{ color: 'var(--accent2)' }} /> {b.label}
+                </span>
+              ))}
+            </div>
+          </Reveal>
         </div>
       </section>
 
       <section className="section" style={{ background: '#fff', paddingTop: 'clamp(24px,3vw,40px)' }}>
+        <span className="bg-blob" style={{ width: 260, height: 260, top: 40, left: '-6%', background: 'var(--accent-soft)' }} />
         <div className="wrap">
           {plansLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 14 }}>
@@ -101,16 +106,15 @@ export const Planos: React.FC = () => {
             </div>
           ) : (
           <div className="plan-grid">
-            {plans.map(plan => {
+            {plans.map((plan, i) => {
               const hl = Boolean(plan.highlighted);
               return (
-              <div key={plan.id} style={{
+              <Reveal as="div" key={plan.id} delay={i * 90} className={hl ? undefined : 'hover-lift'} style={{
                 background: hl ? 'linear-gradient(160deg, var(--ink) 0%, #2A1F6B 100%)' : '#fff',
                 border: `2px solid ${hl ? 'transparent' : 'var(--border)'}`,
                 borderRadius: 24, padding: '32px 28px',
                 display: 'flex', flexDirection: 'column',
                 boxShadow: hl ? '0 24px 60px rgba(18,12,46,.35)' : '0 1px 4px rgba(0,0,0,.04)',
-                transition: 'box-shadow .2s, transform .2s',
                 transform: hl ? 'scale(1.02)' : 'none',
               }}>
                 {hl && (
@@ -121,9 +125,11 @@ export const Planos: React.FC = () => {
                 <h3 style={{ fontWeight: 700, fontSize: 20, color: hl ? '#fff' : 'var(--text)', marginBottom: 4 }}>{plan.name}</h3>
                 <p style={{ fontSize: 13, color: hl ? 'rgba(255,255,255,.6)' : 'var(--muted)', marginBottom: 22, minHeight: 18 }}>{plan.description || ''}</p>
                 <div style={{ marginBottom: 24 }}>
-                  <span style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', color: hl ? '#fff' : 'var(--text)' }}>
-                    {Number(plan.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
+                  <AnimatedNumber
+                    value={Number(plan.price)}
+                    prefix="R$ "
+                    style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.04em', color: hl ? '#fff' : 'var(--text)' }}
+                  />
                   <span style={{ fontSize: 13, color: hl ? 'rgba(255,255,255,.5)' : 'var(--muted)', marginLeft: 4 }}>/mês</span>
                 </div>
                 <ul style={{ listStyle: 'none', flex: 1, marginBottom: 26 }}>
@@ -146,7 +152,7 @@ export const Planos: React.FC = () => {
                   onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                   Começar
                 </button>
-              </div>
+              </Reveal>
               );
             })}
           </div>
@@ -162,14 +168,14 @@ export const Planos: React.FC = () => {
               { icon: RefreshCw, value: 'Sem fidelidade', label: 'Cancele ou altere quando precisar' },
               { icon: CreditCard, value: 'Pix ou cartão', label: 'Escolha a melhor forma de pagar' },
               { icon: HeadphonesIcon, value: 'Suporte humano', label: 'Ajuda para sua equipe começar' },
-            ].map(({ icon: Icon, value, label }) => (
-              <div className="site-proof-item" key={value}>
+            ].map(({ icon: Icon, value, label }, i) => (
+              <Reveal className="site-proof-item" key={value} delay={i * 90}>
                 <span className="site-proof-icon"><Icon size={16} /></span>
                 <div>
                   <div className="site-proof-value">{value}</div>
                   <div className="site-proof-label">{label}</div>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -178,14 +184,18 @@ export const Planos: React.FC = () => {
       {/* ═══ FAQ ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="wrap-sm">
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: 40 }}>
             <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Dúvidas frequentes</span>
             <h2 style={{ fontSize: 'clamp(22px,3.4vw,34px)', fontWeight: 800, letterSpacing: '-0.03em', marginTop: 16 }}>
               Perguntas sobre os planos
             </h2>
-          </div>
+          </Reveal>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {FAQ.map(item => <FaqItem key={item.q} q={item.q} a={item.a} />)}
+            {FAQ.map((item, i) => (
+              <Reveal key={item.q} delay={i * 60}>
+                <FaqItem q={item.q} a={item.a} />
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>

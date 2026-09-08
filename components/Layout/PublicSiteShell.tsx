@@ -66,6 +66,23 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       }
       .card:hover { box-shadow: 0 14px 40px rgba(18,12,46,.10); transform: translateY(-3px); }
 
+      /* Micro-interação de hover reutilizável — usada em cards de destaque */
+      .hover-lift { transition: box-shadow .25s ease, transform .25s ease, border-color .25s ease; }
+      .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 18px 44px rgba(18,12,46,.12); border-color: var(--accent-soft); }
+
+      .link-arrow svg { transition: transform .2s ease; }
+      .link-arrow:hover svg { transform: translateX(4px); }
+
+      /* Formas flutuantes decorativas de fundo — usadas nas seções de marketing */
+      .bg-blob { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: 0; opacity: .5; animation: bg-blob-float 14s ease-in-out infinite; }
+      @keyframes bg-blob-float {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(-18px, 22px) scale(1.06); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .bg-blob { animation: none; }
+      }
+
       .wrap  { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
       .wrap-sm { max-width: 860px; margin: 0 auto; padding: 0 24px; }
       .wrap-xs { max-width: 660px; margin: 0 auto; padding: 0 24px; }
@@ -73,7 +90,8 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .wrap, .wrap-sm, .wrap-xs { padding: 0 16px; }
       }
 
-      .section { padding: clamp(64px, 8vw, 112px) 0; }
+      .section { padding: clamp(64px, 8vw, 112px) 0; position: relative; }
+      .section > .wrap, .section > .wrap-sm { position: relative; z-index: 1; }
       .section + .section { border-top: 1px solid var(--border); }
 
       .feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }

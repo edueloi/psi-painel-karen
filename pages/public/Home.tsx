@@ -6,6 +6,7 @@ import {
   Calendar, Sparkles, TrendingUp, ShieldCheck, Clock3, FileCheck2, UsersRound,
 } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
+import { Reveal } from '../../components/Layout/Reveal';
 import { features, PROFESSIONAL_CATEGORIES } from './publicSiteData';
 import logoUrl from '../../images/logo-sistema/logo.png';
 import heroPhotoUrl from '../../images/hero-consultorio.png';
@@ -28,7 +29,7 @@ export const Home: React.FC = () => {
       <section className="hero-photo-bg">
         <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-photo-bg-img" />
         <div className="hero-photo-bg-overlay" />
-        <div className="wrap hero-photo-bg-content">
+        <Reveal className="wrap hero-photo-bg-content">
           <span className="tag" style={{ marginBottom: 22, display: 'inline-flex' }}>
             <HeartHandshake size={13} /> Gestão para saúde mental
           </span>
@@ -69,7 +70,7 @@ export const Home: React.FC = () => {
               "Resumo da sessão pronto para revisão."
             </p>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <section style={{ background: '#fff', padding: '0 0 clamp(56px,7vw,88px)' }}>
@@ -80,14 +81,14 @@ export const Home: React.FC = () => {
               { icon: ShieldCheck, value: 'LGPD', label: 'Proteção para dados sensíveis' },
               { icon: FileCheck2, value: 'Tudo integrado', label: 'Da agenda ao financeiro' },
               { icon: UsersRound, value: 'Para sua equipe', label: 'Profissionais e clínicas' },
-            ].map(({ icon: Icon, value, label }) => (
-              <div className="site-proof-item" key={value}>
+            ].map(({ icon: Icon, value, label }, i) => (
+              <Reveal className="site-proof-item" key={value} delay={i * 90}>
                 <span className="site-proof-icon"><Icon size={16} /></span>
                 <div>
                   <div className="site-proof-value">{value}</div>
                   <div className="site-proof-label">{label}</div>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -96,16 +97,18 @@ export const Home: React.FC = () => {
       {/* ═══ ÁREAS ATENDIDAS ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="wrap-sm" style={{ textAlign: 'center' }}>
-          <span className="tag" style={{ marginBottom: 20, display: 'inline-flex' }}>Para todo o time de cuidado</span>
-          <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 16, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-            Feito para quem cuida da saúde mental
-          </h2>
-          <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto 52px' }}>
-            De psicólogos a psiquiatras, de terapeutas ocupacionais a assistentes sociais — a Plaelo se adapta ao registro profissional e à rotina de cada especialidade.
-          </p>
+          <Reveal>
+            <span className="tag" style={{ marginBottom: 20, display: 'inline-flex' }}>Para todo o time de cuidado</span>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 16, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
+              Feito para quem cuida da saúde mental
+            </h2>
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto 52px' }}>
+              De psicólogos a psiquiatras, de terapeutas ocupacionais a assistentes sociais — a Plaelo se adapta ao registro profissional e à rotina de cada especialidade.
+            </p>
+          </Reveal>
           <div className="area-list">
-            {PROFESSIONAL_CATEGORIES.map(cat => (
-              <div className="area-row" key={cat.key}>
+            {PROFESSIONAL_CATEGORIES.map((cat, i) => (
+              <Reveal className="area-row" key={cat.key} delay={i * 70}>
                 <div className="area-row-head">
                   <div className="area-row-icon" style={{ background: cat.bg, color: cat.color }}>
                     <cat.icon size={19} />
@@ -118,7 +121,7 @@ export const Home: React.FC = () => {
                 <p className="area-row-professions">
                   {cat.professions.join(' · ')}
                 </p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -126,8 +129,10 @@ export const Home: React.FC = () => {
 
       {/* ═══ FUNCIONALIDADES (resumo) ═══ */}
       <section className="section" style={{ background: '#fff' }}>
+        <span className="bg-blob" style={{ width: 280, height: 280, top: -60, right: '-6%', background: 'var(--accent-soft)' }} />
+        <span className="bg-blob" style={{ width: 200, height: 200, bottom: 20, left: '-4%', background: '#E4F8EE', animationDelay: '-6s' }} />
         <div className="wrap">
-          <div style={{ textAlign: 'center', marginBottom: 'clamp(40px,5vw,60px)' }}>
+          <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(40px,5vw,60px)' }}>
             <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Funcionalidades</span>
             <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
               Tudo que sua clínica precisa,<br />em um único lugar
@@ -135,20 +140,20 @@ export const Home: React.FC = () => {
             <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 500, margin: '0 auto' }}>
               Uma plataforma que substitui múltiplos sistemas — para você focar no cuidado com o paciente.
             </p>
-          </div>
+          </Reveal>
           <div className="feat-grid">
-            {features.slice(0, 4).map(({ icon: Icon, title, desc, color, bg }) => (
-              <div className="card" key={title}>
+            {features.slice(0, 4).map(({ icon: Icon, title, desc, color, bg }, i) => (
+              <Reveal className="card hover-lift" key={title} delay={i * 80}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, color }}>
                   <Icon size={20} />
                 </div>
                 <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{title}</h3>
                 <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted)' }}>{desc}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: 32 }}>
-            <Link to="/funcionalidades" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
+            <Link to="/funcionalidades" className="link-arrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
               Ver todas as funcionalidades <ChevronRight size={17} />
             </Link>
           </div>
@@ -156,8 +161,9 @@ export const Home: React.FC = () => {
       </section>
 
       <section className="section" style={{ background: 'var(--surface)' }}>
+        <span className="bg-blob" style={{ width: 320, height: 320, top: '10%', right: '-8%', background: '#fff', animationDelay: '-3s' }} />
         <div className="wrap">
-          <div style={{ maxWidth: 600, marginBottom: 38 }}>
+          <Reveal style={{ maxWidth: 600, marginBottom: 38 }}>
             <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Uma rotina mais leve</span>
             <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
               Da primeira consulta ao acompanhamento financeiro, tudo conversa entre si.
@@ -165,20 +171,20 @@ export const Home: React.FC = () => {
             <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)' }}>
               Menos alternância entre ferramentas e mais tempo para decisões que realmente fazem diferença no cuidado.
             </p>
-          </div>
+          </Reveal>
           <div className="journey-grid">
             {[
               { icon: Calendar, title: 'Organize sua agenda', desc: 'Centralize horários, modalidades de atendimento, lembretes e a disponibilidade de toda a equipe.' },
               { icon: HeartHandshake, title: 'Cuide com contexto', desc: 'Acesse prontuários, formulários, planos terapêuticos e documentos no mesmo fluxo de trabalho.' },
               { icon: TrendingUp, title: 'Acompanhe sua evolução', desc: 'Visualize indicadores clínicos e financeiros para conduzir sua prática com mais clareza.' },
-            ].map(({ icon: Icon, title, desc }) => (
-              <article className="journey-card" key={title}>
+            ].map(({ icon: Icon, title, desc }, i) => (
+              <Reveal as="article" className="journey-card hover-lift" key={title} delay={i * 100}>
                 <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', background: 'var(--accent-soft)', marginBottom: 18 }}>
                   <Icon size={19} />
                 </div>
                 <h3 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 9 }}>{title}</h3>
                 <p>{desc}</p>
-              </article>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -187,7 +193,7 @@ export const Home: React.FC = () => {
       {/* ═══ CTA FINAL ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="wrap">
-          <div className="cta-final">
+          <Reveal className="cta-final">
             <div className="cta-final-text">
               <img src={logoUrl} alt="Plaelo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 15, marginBottom: 24, background: '#fff', padding: 6 }} />
               <h2 style={{ fontSize: 'clamp(28px,3.6vw,42px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, marginBottom: 16, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
@@ -212,7 +218,7 @@ export const Home: React.FC = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
     </PublicSiteShell>
