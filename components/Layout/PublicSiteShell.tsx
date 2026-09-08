@@ -257,6 +257,17 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .float-card { padding: 14px; border-radius: 16px; }
       }
 
+      /* Ilustração do hero — cena de atendimento no lugar dos cards de UI */
+      .hero-illustration { position: relative; }
+      .hero-illustration-svg { width: 100%; height: auto; display: block; }
+      .hero-illustration-badge {
+        position: absolute; bottom: -2%; left: 6%; width: min(200px, 52%);
+        padding: 14px 16px; border-radius: 16px;
+      }
+      @media (max-width: 480px) {
+        .hero-illustration-badge { left: 2%; bottom: -4%; padding: 12px 14px; }
+      }
+
       .footer-dark { background: var(--ink); color: rgba(255,255,255,.7); }
       .footer-dark a { color: rgba(255,255,255,.65); }
       .footer-dark a:hover { color: #fff; }

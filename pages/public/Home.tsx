@@ -9,6 +9,7 @@ import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { features, PROFESSIONAL_CATEGORIES } from './publicSiteData';
 import logoUrl from '../../images/logo-sistema/logo.png';
 import { useSEO } from '../../hooks/useSEO';
+import { TherapySessionIllustration } from '../../components/illustrations/TherapySessionIllustration';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -56,46 +57,18 @@ export const Home: React.FC = () => {
             </div>
           </div>
 
-          {/* Visual collage */}
-          <div className="float-stack">
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: 32,
-              background: 'linear-gradient(135deg, var(--accent-soft) 0%, #E4F8EE 100%)',
-            }} />
-
-            <div className="float-card" style={{ top: '6%', left: '4%', width: 'min(280px, 62%)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
-                  <Calendar size={16} />
-                </div>
-                <span style={{ fontWeight: 700, fontSize: 13 }}>Agenda de hoje</span>
-              </div>
-              {[['09:00', 'Sessão · Ana P.'], ['10:30', 'Retorno · Marcos S.'], ['14:00', 'Avaliação · Beatriz L.']].map(([time, label]) => (
-                <div key={time} style={{ display: 'flex', gap: 10, fontSize: 12, padding: '7px 0', borderTop: '1px solid var(--border)' }}>
-                  <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{time}</span>
-                  <span style={{ color: 'var(--muted)' }}>{label}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="float-card" style={{ top: '46%', right: '2%', width: 'min(220px, 58%)', transform: 'rotate(2deg)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0D9155', marginBottom: 8 }}>
-                <TrendingUp size={16} />
-                <span style={{ fontSize: 12, fontWeight: 700 }}>Financeiro do mês</span>
-              </div>
-              <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em' }}>R$ 18.240</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>42 atendimentos</div>
-            </div>
-
-            <div className="float-card" style={{ bottom: '4%', left: '14%', width: 'min(260px, 70%)', transform: 'rotate(-2deg)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          {/* Ilustração — cena de atendimento, sem mockups genéricos de UI */}
+          <div className="hero-illustration">
+            <TherapySessionIllustration className="hero-illustration-svg" />
+            <div className="float-card hero-illustration-badge">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <div style={{ width: 26, height: 26, borderRadius: 8, background: '#E4F8EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0D9155' }}>
                   <Sparkles size={13} />
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700 }}>Bia IA</span>
               </div>
               <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }}>
-                "Resumo da última sessão pronto para revisão."
+                "Resumo da sessão pronto para revisão."
               </p>
             </div>
           </div>
