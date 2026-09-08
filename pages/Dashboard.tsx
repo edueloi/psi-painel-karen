@@ -654,12 +654,30 @@ export const Dashboard: React.FC = () => {
   const countryDistribution = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const p of activePatients) {
-      // country é explícito quando o profissional preencheu; senão infere pelo
-      // estado (UF válida → Brasil) ou cai em "não identificado".
-      const explicit = (p as any).country as string | undefined;
+      const explicit = ((p as any).country || '').toString().trim().toUpperCase();
       const state = (p.state || '').toString().trim().toUpperCase();
       const validUf = /^(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/.test(state);
-      const code = explicit || (validUf ? 'BR' : (p.city || p.state ? 'BR' : ''));
+      const phoneCountry = ((p as any).phone_country || '').toString().trim().toUpperCase();
+
+      // O campo `country` tem default 'BR' no banco (coluna nova, retroativa
+      // pra cadastros antigos que nunca preencheram) — não dá pra confiar
+      // cegamente nele quando vem 'BR': se o estado bate com uma UF válida,
+      // Brasil realmente é o sinal mais forte; senão, o DDI do telefone
+      // (ex: paciente com número da Espanha) é pista melhor de onde a
+      // pessoa mora do que o default. Um `country` explicitamente diferente
+      // de BR sempre vence, pois aí o profissional preencheu de propósito.
+      let code: string;
+      if (explicit && explicit !== 'BR') {
+        code = explicit;
+      } else if (validUf) {
+        code = 'BR';
+      } else if (phoneCountry && phoneCountry !== 'BR' && phoneCountry !== 'OTHER') {
+        code = phoneCountry;
+      } else if (explicit === 'BR' || p.city || p.state) {
+        code = 'BR';
+      } else {
+        code = '';
+      }
       if (!code) continue;
       counts[code] = (counts[code] || 0) + 1;
     }
@@ -669,6 +687,41 @@ export const Dashboard: React.FC = () => {
         return { code, name: info?.name || code, flag: info?.flag || '🌐', value };
       })
       .sort((a, b) => b.value - a.value);
+  }, [activePatients]);
+
+  // Agregação por estado (UF) — usada no drill-down do mapa ao clicar em
+  // Brasil. Só entram pacientes com UF válida (mesmo critério de
+  // countryDistribution), senão contariam estrangeiros como "sem estado".
+  const stateDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const validUfs = new Set(['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']);
+    for (const p of activePatients) {
+      const state = (p.state || '').toString().trim().toUpperCase();
+      if (!validUfs.has(state)) continue;
+      counts[state] = (counts[state] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([uf, value]) => ({ uf, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [activePatients]);
+
+  // Agregação por cidade — usada no drill-down ao clicar num estado.
+  const cityDistributionByState = useMemo(() => {
+    const byState: Record<string, Record<string, number>> = {};
+    for (const p of activePatients) {
+      const state = (p.state || '').toString().trim().toUpperCase();
+      const city = (p.city || '').toString().trim();
+      if (!state || !city) continue;
+      byState[state] = byState[state] || {};
+      byState[state][city] = (byState[state][city] || 0) + 1;
+    }
+    const result: Record<string, Array<{ city: string; value: number }>> = {};
+    for (const [uf, cities] of Object.entries(byState)) {
+      result[uf] = Object.entries(cities)
+        .map(([city, value]) => ({ city, value }))
+        .sort((a, b) => b.value - a.value);
+    }
+    return result;
   }, [activePatients]);
 
   const countryDistributionTotal = useMemo(
@@ -1864,7 +1917,7 @@ export const Dashboard: React.FC = () => {
           iconClassName="text-sky-600"
         >
           {isLoading ? (
-            <div className="flex h-[280px] items-center justify-center">
+            <div className="flex h-[420px] items-center justify-center">
               <Loader2 className="animate-spin text-zinc-300" />
             </div>
           ) : countryDistributionTotal === 0 ? (
@@ -1872,17 +1925,19 @@ export const Dashboard: React.FC = () => {
               title="Sem dados para exibir"
               description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
               icon={Globe}
-              className="h-[280px]"
+              className="h-[420px]"
             />
           ) : (
-            <div className="grid gap-5 lg:grid-cols-[1fr_240px]">
+            <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
               <div className="overflow-hidden rounded-2xl bg-zinc-50 p-2">
                 <WorldMap
                   countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
-                  height={320}
+                  stateCounts={Object.fromEntries(stateDistribution.map((s) => [s.uf, s.value]))}
+                  cityCountsByState={cityDistributionByState}
+                  height={420}
                 />
               </div>
-              <div className="flex flex-col gap-2 lg:max-h-[320px] lg:overflow-y-auto lg:pr-1">
+              <div className="flex flex-col gap-2 lg:max-h-[420px] lg:overflow-y-auto lg:pr-1">
                 {countryDistribution.map((c) => {
                   const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
                   return (

@@ -240,6 +240,17 @@ router.put('/password', async (req, res) => {
 });
 
 // PATCH /profile/preferences — salva ui_preferences e/ou forms_archived sem tocar no perfil
+//
+// ui_preferences é escrito por múltiplos lugares independentes (o contexto
+// global de preferências, o Dashboard ao salvar atalhos/tarefas, o
+// MenuCustomizer ao salvar layouts de menu, etc.), cada um com sua própria
+// cópia local desse objeto — sem coordenação entre si. Um UPDATE de
+// substituição total (`ui_preferences = ?`) fazia o último a chamar apagar
+// silenciosamente qualquer campo que os outros tivessem acabado de salvar
+// (ex: layout de menu customizado sumindo ao criar um atalho no Dashboard,
+// porque o Dashboard mandava um snapshot antigo do objeto inteiro). Usar
+// JSON_MERGE_PATCH faz o merge no próprio banco — a fonte de verdade — em
+// vez de cada chamador precisar ter a cópia mais recente antes de salvar.
 router.patch('/preferences', async (req, res) => {
   try {
     const { ui_preferences, forms_archived, forms_favorites } = req.body;
@@ -247,7 +258,7 @@ router.patch('/preferences', async (req, res) => {
     const values = [];
 
     if (ui_preferences !== undefined) {
-      updates.push('ui_preferences = ?');
+      updates.push(`ui_preferences = JSON_MERGE_PATCH(COALESCE(ui_preferences, '{}'), ?)`);
       values.push(JSON.stringify(ui_preferences));
     }
     if (forms_archived !== undefined) {
