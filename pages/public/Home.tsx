@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   ArrowRight, CheckCircle, HeartHandshake, Shield, ChevronRight, Plus,
-  Calendar, Sparkles, TrendingUp, ShieldCheck, Clock3, FileCheck2, UsersRound,
+  Calendar, Sparkles, TrendingUp, ShieldCheck, UsersRound,
   Building2, Video, BarChart2, Lock, FileLock2, Server, ScanEye,
 } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
@@ -91,72 +91,54 @@ export const Home: React.FC = () => {
 
   return (
     <PublicSiteShell>
-      {/* ═══ HERO — foto do consultório em tela cheia, texto sobreposto ═══ */}
-      <section className="hero-photo-bg">
-        <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-photo-bg-img" />
-        <div className="hero-photo-bg-overlay" />
-        <Reveal className="hero-photo-bg-content">
-          <span className="tag" style={{ marginBottom: 16, display: 'inline-flex' }}>
-            <HeartHandshake size={13} /> Gestão para saúde mental
-          </span>
+      {/* ═══ HERO — texto à esquerda, foto à direita ═══ */}
+      <section className="hero-split">
+        <div className="wrap hero-split-grid">
+          <Reveal className="hero-split-text">
+            <span className="tag" style={{ marginBottom: 16, display: 'inline-flex' }}>
+              <HeartHandshake size={13} /> Gestão para saúde mental
+            </span>
 
-          <h1 style={{ fontSize: 'clamp(30px,4.6vw,54px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.1, marginBottom: 16, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-            O sistema criado para <span className="hero-accent">o cuidado</span> em saúde mental.
-          </h1>
+            <h1 style={{ fontSize: 'clamp(30px,4.2vw,50px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.08, marginBottom: 16, color: 'var(--ink)', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
+              Profissionais livres para <span className="hero-accent">cuidar</span>.
+            </h1>
 
-          <p style={{ fontSize: 'clamp(15px,1.3vw,17px)', lineHeight: 1.6, color: 'rgba(255,255,255,.82)', maxWidth: 440, marginBottom: 24 }}>
-            Agenda, prontuário, atendimento remoto, financeiro e IA — em uma plataforma pensada para psicólogos, psiquiatras, terapeutas e toda a rede de cuidado em saúde mental.
-          </p>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
-            <button className="btn-p" onClick={go} style={{ background: '#fff', color: 'var(--ink)' }}>
-              Quero uma demonstração <ArrowRight size={17} />
-            </button>
-            <button className="btn-g" onClick={go} style={{ background: 'rgba(255,255,255,.1)', color: '#fff', borderColor: 'rgba(255,255,255,.35)' }}>
-              Acessar o sistema
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: 13, color: 'rgba(255,255,255,.75)' }}>
-            {['Sem fidelidade', 'IA inclusa', 'LGPD compliant'].map(label => (
-              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <CheckCircle size={13} style={{ color: '#7ED9A8' }} /> {label}
-              </span>
-            ))}
-          </div>
-
-          <div className="float-card hero-photo-badge">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <div style={{ width: 26, height: 26, borderRadius: 8, background: '#E4F8EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0D9155' }}>
-                <Sparkles size={13} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>Bia IA</span>
-            </div>
-            <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }}>
-              "Resumo da sessão pronto para revisão."
+            <p style={{ fontSize: 'clamp(15px,1.2vw,17px)', lineHeight: 1.6, color: 'var(--muted)', marginBottom: 28 }}>
+              Agenda, prontuário, financeiro e IA em uma única plataforma para psicólogos, psiquiatras e terapeutas.
             </p>
-          </div>
-        </Reveal>
-      </section>
 
-      <section style={{ background: '#fff', padding: '0 0 clamp(56px,7vw,88px)' }}>
-        <div className="wrap">
-          <div className="site-proof">
-            {[
-              { icon: Clock3, value: '24/7', label: 'Acesso seguro em qualquer lugar' },
-              { icon: ShieldCheck, value: 'LGPD', label: 'Proteção para dados sensíveis' },
-              { icon: FileCheck2, value: 'Tudo integrado', label: 'Da agenda ao financeiro' },
-              { icon: UsersRound, value: 'Para sua equipe', label: 'Profissionais e clínicas' },
-            ].map(({ icon: Icon, value, label }, i) => (
-              <Reveal className="site-proof-item" key={value} delay={i * 90}>
-                <span className="site-proof-icon"><Icon size={16} /></span>
-                <div>
-                  <div className="site-proof-value">{value}</div>
-                  <div className="site-proof-label">{label}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+              <button className="btn-p" onClick={go}>
+                Criar conta grátis <ArrowRight size={17} />
+              </button>
+              <button className="btn-g" onClick={go}>
+                Acessar o sistema
+              </button>
+            </div>
+
+            <p style={{ fontSize: 13, color: 'var(--muted)' }}>7 dias grátis. Sem cartão de crédito.</p>
+
+            <div className="hero-split-stats">
+              {[
+                { value: '+40 mil', label: 'Psicólogos ativos' },
+                { value: '11 anos', label: 'De mercado' },
+                { value: 'IA', label: 'Inclusa no plano' },
+              ].map((s) => (
+                <div className="hero-split-stat" key={s.label}>
+                  <strong>{s.value}</strong>
+                  <span>{s.label}</span>
                 </div>
-              </Reveal>
-            ))}
-          </div>
+              ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={100} className="hero-split-media">
+            <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-split-media-img" />
+            <div className="hero-split-badge">
+              <strong>Bia IA</strong>
+              <span>Resumo pronto p/ revisão</span>
+            </div>
+          </Reveal>
         </div>
       </section>
 

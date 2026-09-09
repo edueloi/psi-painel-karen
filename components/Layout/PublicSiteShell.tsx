@@ -279,27 +279,41 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .float-card { padding: 14px; border-radius: 16px; }
       }
 
-      /* Hero em tela cheia — foto do consultório como fundo, texto sobreposto */
-      .hero-photo-bg { position: relative; min-height: clamp(560px, 74vh, 720px); height: auto; display: flex; align-items: center; overflow: clip; }
-      .hero-photo-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
-      .hero-photo-bg-overlay {
-        position: absolute; inset: 0;
-        background: linear-gradient(90deg, rgba(21,15,46,.72) 0%, rgba(21,15,46,.5) 42%, rgba(21,15,46,.14) 68%, rgba(21,15,46,0) 100%);
+      /* Hero — texto à esquerda, foto à direita (fundo claro, lado a lado) */
+      .hero-split {
+        position: relative; background: #fff; overflow: clip;
+        padding: clamp(28px,4vw,48px) 0 clamp(40px,5vw,64px);
       }
-      .hero-photo-bg-content {
-        position: relative; z-index: 1; max-width: 700px; flex-shrink: 0;
-        padding: 48px 24px 48px max(24px, calc((100vw - 1180px) / 2));
+      .hero-split-grid {
+        display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        gap: clamp(28px,4vw,56px); align-items: center;
       }
-      .hero-photo-bg-content .tag { background: rgba(255,255,255,.14); color: #fff; }
-      .hero-photo-badge {
-        position: relative; margin-top: 20px; width: min(260px, 100%);
-        padding: 12px 16px; border-radius: 16px;
+      .hero-split-text { max-width: 540px; }
+      .hero-split-media { position: relative; }
+      .hero-split-media-img {
+        width: 100%; aspect-ratio: 4/3.1; object-fit: cover; object-position: center 25%;
+        border-radius: 28px; display: block;
       }
-      @media (max-width: 720px) {
-        .hero-photo-bg { min-height: 640px; height: auto; }
-        .hero-photo-bg-overlay { background: linear-gradient(180deg, rgba(21,15,46,.35) 0%, rgba(21,15,46,.78) 62%, rgba(21,15,46,.9) 100%); }
-        .hero-photo-bg-content { padding-top: clamp(200px,44vw,260px); padding-bottom: 40px; max-width: 100%; }
-        .hero-photo-badge { margin-bottom: 8px; }
+      .hero-split-badge {
+        position: absolute; top: 20px; right: 20px;
+        background: #fff; border-radius: 14px; padding: 10px 16px;
+        box-shadow: 0 14px 34px rgba(18,12,46,.16);
+      }
+      .hero-split-badge strong { display: block; font-size: 13px; font-weight: 800; color: var(--ink); }
+      .hero-split-badge span { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+      .hero-split-stats {
+        display: flex; flex-wrap: wrap; gap: clamp(20px,3vw,40px);
+        margin-top: clamp(28px,3.5vw,40px);
+      }
+      .hero-split-stat strong {
+        display: block; font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: clamp(22px,2.4vw,30px); font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
+      }
+      .hero-split-stat span { display: block; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+      @media (max-width: 860px) {
+        .hero-split-grid { grid-template-columns: 1fr; }
+        .hero-split-media { order: -1; }
+        .hero-split-media-img { aspect-ratio: 16/10; }
       }
 
       .footer-dark { background: var(--ink); color: rgba(255,255,255,.7); }
