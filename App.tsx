@@ -13,6 +13,7 @@ import { InstallPWAPrompt } from './components/Layout/InstallPWAPrompt';
 import { TrialBanner } from './components/Layout/TrialBanner';
 import { OnboardingController } from './components/Onboarding/OnboardingController';
 import { Home } from './pages/public/Home';
+import { Individual } from './pages/public/Individual';
 import { Funcionalidades } from './pages/public/Funcionalidades';
 import { Planos } from './pages/public/Planos';
 import { Sobre } from './pages/public/Sobre';
@@ -409,6 +410,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={IS_PAINEL_HOST ? <Navigate to="/dashboard" replace /> : <Home />} />
+      <Route path="/individual" element={<Individual />} />
       <Route path="/funcionalidades" element={<Funcionalidades />} />
       <Route path="/planos" element={<Planos />} />
       <Route path="/sobre" element={<Sobre />} />

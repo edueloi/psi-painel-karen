@@ -116,9 +116,6 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px,6vw,80px); align-items: center; }
       @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
 
-      .hero-split { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(32px,5vw,64px); align-items: center; }
-      @media (max-width: 880px) { .hero-split { grid-template-columns: 1fr; } }
-
       .aurora-band {
         background: linear-gradient(135deg, var(--surface2) 0%, #E4F8EE 100%);
         border-radius: 32px; overflow: hidden;
@@ -285,13 +282,13 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         padding: clamp(28px,4vw,48px) 0 clamp(40px,5vw,64px);
       }
       .hero-split-grid {
-        display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
-        gap: clamp(28px,4vw,56px); align-items: center;
+        display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr);
+        gap: clamp(28px,4vw,56px); align-items: center; max-width: 1180px; margin: 0 auto;
       }
-      .hero-split-text { max-width: 540px; }
+      .hero-split-text { max-width: 460px; }
       .hero-split-media { position: relative; }
       .hero-split-media-img {
-        width: 100%; aspect-ratio: 4/3.1; object-fit: cover; object-position: center 25%;
+        width: 100%; aspect-ratio: 5/4.6; object-fit: cover; object-position: center 25%;
         border-radius: 28px; display: block;
       }
       .hero-split-badge {
@@ -314,6 +311,122 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .hero-split-grid { grid-template-columns: 1fr; }
         .hero-split-media { order: -1; }
         .hero-split-media-img { aspect-ratio: 16/10; }
+      }
+
+      /* Hub radial — página /individual, "sua prática clínica" */
+      .hub-section { background: linear-gradient(180deg, #0F0B2E 0%, #150F3D 100%); overflow: clip; }
+      .hub-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: clamp(32px,5vw,64px); align-items: center; }
+      .hub-feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 28px; max-width: 460px; }
+      .hub-diagram {
+        position: relative; width: 100%; aspect-ratio: 1/1; max-width: 460px; margin: 0 auto;
+      }
+      .hub-core {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+        width: clamp(96px,20%,132px); height: clamp(96px,20%,132px); border-radius: 50%;
+        background: radial-gradient(circle, rgba(127,212,247,.35) 0%, rgba(127,212,247,.06) 62%, transparent 72%);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        z-index: 1;
+      }
+      .hub-core::before {
+        content: ''; position: absolute; inset: 14%; border-radius: 50%;
+        background: #171240; border: 1px solid rgba(127,212,247,.35); z-index: -1;
+      }
+      .hub-core span { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: rgba(255,255,255,.55); }
+      .hub-core strong { font-size: clamp(13px,2vw,15px); font-weight: 800; color: #fff; line-height: 1.25; margin-top: 2px; }
+      .hub-node {
+        position: absolute; top: 50%; left: 50%; width: 0; height: 0;
+        transform: rotate(var(--angle)) translate(clamp(120px,42%,190px)) rotate(calc(-1 * var(--angle)));
+      }
+      .hub-node-inner {
+        transform: translate(-50%,-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; width: max-content;
+      }
+      .hub-node-icon {
+        width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        background: #1B1650; border: 1px solid rgba(127,212,247,.4); color: #7FD4F7;
+      }
+      .hub-node-label { font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,.72); text-align: center; }
+      @media (max-width: 760px) {
+        .hub-grid { grid-template-columns: 1fr; }
+        .hub-feature-grid { max-width: 100%; }
+        .hub-diagram { max-width: 340px; }
+      }
+      @media (max-width: 420px) {
+        .hub-node-label { display: none; }
+      }
+
+      /* Jornada em 4 etapas — página /individual */
+      .journey-steps { display: flex; flex-direction: column; gap: clamp(56px,7vw,88px); }
+      .journey-step {
+        display: grid; grid-template-columns: auto minmax(0,1fr) minmax(0,1fr);
+        gap: clamp(20px,3vw,40px); align-items: center;
+      }
+      .journey-step.reverse { grid-template-columns: auto minmax(0,1fr) minmax(0,1fr); }
+      .journey-step.reverse .journey-step-visual { order: -1; }
+      .journey-step-num {
+        font-family: 'Plus Jakarta Sans', sans-serif; font-size: clamp(40px,5vw,64px); font-weight: 800;
+        color: var(--accent-soft); line-height: 1;
+      }
+      .journey-step-info h3 { font-size: clamp(20px,2.4vw,28px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.25; margin-bottom: 12px; }
+      .journey-step-info p { font-size: 15px; line-height: 1.7; color: var(--muted); }
+      .journey-step-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+      .chip { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+      @media (max-width: 860px) {
+        .journey-step, .journey-step.reverse { grid-template-columns: 1fr; }
+        .journey-step-num { font-size: 34px; }
+        .journey-step.reverse .journey-step-visual { order: 0; }
+      }
+
+      /* Mockups de produto usados na jornada */
+      .mock-card {
+        background: #fff; border: 1px solid var(--border); border-radius: 20px; padding: 18px;
+        box-shadow: 0 20px 50px rgba(18,12,46,.10);
+      }
+      .mock-card-dark { background: #171240; border-color: rgba(127,212,247,.2); }
+      .mock-card-head { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--ink); margin-bottom: 14px; gap: 6px; }
+      .mock-card-dark .mock-card-head { color: #fff; }
+      .mock-card-head span:first-child { display: flex; align-items: center; gap: 6px; }
+      .mock-muted { font-size: 11px; font-weight: 600; color: var(--muted); }
+      .mock-card-dark .mock-muted { color: rgba(255,255,255,.5); }
+      .mock-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px; }
+      .mock-row:first-of-type { border-top: none; }
+      .mock-time { font-weight: 700; color: var(--ink); width: 42px; flex-shrink: 0; }
+      .mock-name { color: var(--text); }
+      .mock-pill {
+        margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+        color: #0D9155; background: #E4F8EE; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+      }
+      .mock-quote { font-size: 12.5px; font-style: italic; color: rgba(255,255,255,.75); background: rgba(255,255,255,.05); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.6; }
+      .mock-list-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+      .mock-list-icon { width: 26px; height: 26px; border-radius: 8px; background: rgba(127,212,247,.14); color: #7FD4F7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .mock-list-item strong { display: block; font-size: 12.5px; font-weight: 700; color: #fff; }
+      .mock-list-item span { font-size: 11px; color: rgba(255,255,255,.5); }
+      .mock-insight { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; color: #7FD4F7; background: rgba(127,212,247,.08); border-radius: 10px; padding: 10px 12px; margin-top: 10px; line-height: 1.6; }
+      .mock-bars { display: flex; align-items: flex-end; gap: 6px; height: 56px; margin-top: 14px; }
+      .mock-bars span { flex: 1; background: linear-gradient(180deg, var(--accent) 0%, #A78BFA 100%); border-radius: 4px; }
+      .mock-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
+      .mock-stat { background: var(--surface); border-radius: 12px; padding: 12px 10px; }
+      .mock-stat strong { display: block; font-size: 14px; font-weight: 800; color: var(--ink); }
+      .mock-stat span { display: block; font-size: 10px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .03em; }
+      .mock-status-dot { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); margin-top: 14px; }
+      .mock-status-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+      @media (max-width: 420px) { .mock-stats-row { grid-template-columns: 1fr; } }
+
+      /* Banner de fechamento com foto de fundo — usado no fim de páginas como /individual */
+      .hero-photo-bg { position: relative; min-height: clamp(420px, 52vh, 560px); height: auto; display: flex; align-items: center; overflow: clip; }
+      .hero-photo-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
+      .hero-photo-bg-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, rgba(21,15,46,.72) 0%, rgba(21,15,46,.5) 42%, rgba(21,15,46,.14) 68%, rgba(21,15,46,0) 100%);
+      }
+      .hero-photo-bg-content {
+        position: relative; z-index: 1; max-width: 620px; flex-shrink: 0;
+        padding: clamp(40px,6vw,64px) 24px clamp(40px,6vw,64px) max(24px, calc((100vw - 1180px) / 2));
+      }
+      .hero-photo-bg-content .tag { background: rgba(255,255,255,.14); color: #fff; }
+      @media (max-width: 720px) {
+        .hero-photo-bg { min-height: 480px; height: auto; }
+        .hero-photo-bg-overlay { background: linear-gradient(180deg, rgba(21,15,46,.35) 0%, rgba(21,15,46,.78) 62%, rgba(21,15,46,.9) 100%); }
+        .hero-photo-bg-content { padding-top: clamp(160px,36vw,220px); padding-bottom: 32px; max-width: 100%; }
       }
 
       .footer-dark { background: var(--ink); color: rgba(255,255,255,.7); }

@@ -116,18 +116,13 @@ export const Home: React.FC = () => {
               </button>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--muted)' }}>7 dias grátis. Sem cartão de crédito.</p>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>7 dias grátis. Sem cartão de crédito.</p>
 
-            <div className="hero-split-stats">
-              {[
-                { value: '+40 mil', label: 'Psicólogos ativos' },
-                { value: '11 anos', label: 'De mercado' },
-                { value: 'IA', label: 'Inclusa no plano' },
-              ].map((s) => (
-                <div className="hero-split-stat" key={s.label}>
-                  <strong>{s.value}</strong>
-                  <span>{s.label}</span>
-                </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: 13, color: 'var(--muted)' }}>
+              {['Sem fidelidade', 'IA inclusa', 'LGPD compliant'].map((label) => (
+                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <CheckCircle size={13} style={{ color: 'var(--accent2)' }} /> {label}
+                </span>
               ))}
             </div>
           </Reveal>

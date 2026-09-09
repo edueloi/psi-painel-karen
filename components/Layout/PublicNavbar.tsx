@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowRight, Menu, X, Search, Home, Sparkles, CreditCard, Info } from 'lucide-react';
+import { ArrowRight, Menu, X, Search, Home, User, Sparkles, CreditCard, Info } from 'lucide-react';
 import logoUrl from '../../images/logo-sistema/logo.png';
 
 const NAV_LINKS: [string, string, React.ComponentType<{ size?: number }>][] = [
   ['/', 'Início', Home],
+  ['/individual', 'Individual', User],
   ['/funcionalidades', 'Funcionalidades', Sparkles],
   ['/planos', 'Planos', CreditCard],
   ['/sobre', 'Sobre', Info],
