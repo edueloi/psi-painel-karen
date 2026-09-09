@@ -96,19 +96,19 @@ export const Home: React.FC = () => {
         <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-photo-bg-img" />
         <div className="hero-photo-bg-overlay" />
         <Reveal className="hero-photo-bg-content">
-          <span className="tag" style={{ marginBottom: 22, display: 'inline-flex' }}>
+          <span className="tag" style={{ marginBottom: 16, display: 'inline-flex' }}>
             <HeartHandshake size={13} /> Gestão para saúde mental
           </span>
 
-          <h1 style={{ fontSize: 'clamp(34px,5.4vw,64px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.08, marginBottom: 22, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
+          <h1 style={{ fontSize: 'clamp(30px,4.6vw,54px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.1, marginBottom: 16, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
             O sistema criado para <span className="hero-accent">o cuidado</span> em saúde mental.
           </h1>
 
-          <p style={{ fontSize: 'clamp(16px,1.6vw,18px)', lineHeight: 1.7, color: 'rgba(255,255,255,.82)', maxWidth: 460, marginBottom: 32 }}>
+          <p style={{ fontSize: 'clamp(15px,1.3vw,17px)', lineHeight: 1.6, color: 'rgba(255,255,255,.82)', maxWidth: 440, marginBottom: 24 }}>
             Agenda, prontuário, atendimento remoto, financeiro e IA — em uma plataforma pensada para psicólogos, psiquiatras, terapeutas e toda a rede de cuidado em saúde mental.
           </p>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 32 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
             <button className="btn-p" onClick={go} style={{ background: '#fff', color: 'var(--ink)' }}>
               Quero uma demonstração <ArrowRight size={17} />
             </button>

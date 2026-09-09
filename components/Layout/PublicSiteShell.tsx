@@ -280,7 +280,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       /* Hero em tela cheia — foto do consultório como fundo, texto sobreposto */
-      .hero-photo-bg { position: relative; min-height: clamp(600px, 82vh, 800px); height: auto; display: flex; align-items: flex-start; overflow: clip; }
+      .hero-photo-bg { position: relative; min-height: clamp(560px, 74vh, 720px); height: auto; display: flex; align-items: center; overflow: clip; }
       .hero-photo-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
       .hero-photo-bg-overlay {
         position: absolute; inset: 0;
@@ -288,12 +288,12 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       }
       .hero-photo-bg-content {
         position: relative; z-index: 1; max-width: 700px; flex-shrink: 0;
-        padding: clamp(48px,7vw,84px) 24px 56px max(24px, calc((100vw - 1180px) / 2));
+        padding: 48px 24px 48px max(24px, calc((100vw - 1180px) / 2));
       }
       .hero-photo-bg-content .tag { background: rgba(255,255,255,.14); color: #fff; }
       .hero-photo-badge {
-        position: relative; margin-top: 28px; width: min(260px, 100%);
-        padding: 14px 16px; border-radius: 16px;
+        position: relative; margin-top: 20px; width: min(260px, 100%);
+        padding: 12px 16px; border-radius: 16px;
       }
       @media (max-width: 720px) {
         .hero-photo-bg { min-height: 640px; height: auto; }
