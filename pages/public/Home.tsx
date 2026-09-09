@@ -95,7 +95,7 @@ export const Home: React.FC = () => {
       <section className="hero-photo-bg">
         <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-photo-bg-img" />
         <div className="hero-photo-bg-overlay" />
-        <Reveal className="wrap hero-photo-bg-content">
+        <Reveal className="hero-photo-bg-content">
           <span className="tag" style={{ marginBottom: 22, display: 'inline-flex' }}>
             <HeartHandshake size={13} /> Gestão para saúde mental
           </span>

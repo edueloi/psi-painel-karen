@@ -286,7 +286,10 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         position: absolute; inset: 0;
         background: linear-gradient(90deg, rgba(21,15,46,.72) 0%, rgba(21,15,46,.5) 42%, rgba(21,15,46,.14) 68%, rgba(21,15,46,0) 100%);
       }
-      .hero-photo-bg-content { position: relative; z-index: 1; max-width: 620px; padding: clamp(70px,10vw,110px) 24px clamp(110px,14vw,150px); flex-shrink: 0; }
+      .hero-photo-bg-content {
+        position: relative; z-index: 1; max-width: 700px; flex-shrink: 0;
+        padding: clamp(70px,10vw,110px) 24px clamp(110px,14vw,150px) max(24px, calc((100vw - 1180px) / 2));
+      }
       .hero-photo-bg-content .tag { background: rgba(255,255,255,.14); color: #fff; }
       .hero-photo-badge {
         position: relative; margin-top: 28px; width: min(260px, 100%);
