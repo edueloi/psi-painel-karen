@@ -12,7 +12,8 @@ export const Reveal: React.FC<{
   className?: string;
   style?: React.CSSProperties;
   as?: keyof React.JSX.IntrinsicElements;
-}> = ({ children, delay = 0, className, style, as = 'div' }) => {
+  onClick?: () => void;
+}> = ({ children, delay = 0, className, style, as = 'div', onClick }) => {
   const { ref, visible } = useScrollReveal<HTMLDivElement>();
   const Tag = as as React.ElementType;
 
@@ -20,6 +21,7 @@ export const Reveal: React.FC<{
     <Tag
       ref={ref}
       className={className}
+      onClick={onClick}
       style={{
         ...style,
         opacity: visible ? 1 : 0,

@@ -320,6 +320,90 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .footer-bottom-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; }
 
       .page-head { padding: clamp(56px,7vw,88px) 0 clamp(24px,3vw,40px); background: var(--surface); }
+
+      /* "Para quem é" — duas personas (individual / clínica) lado a lado */
+      .persona-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+      @media (max-width: 760px) { .persona-grid { grid-template-columns: 1fr; } }
+      .persona-card {
+        position: relative; border-radius: 28px; overflow: hidden; min-height: 420px;
+        display: flex; align-items: flex-end; text-decoration: none;
+      }
+      .persona-card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      .persona-card-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(180deg, rgba(18,12,46,0) 30%, rgba(18,12,46,.86) 100%);
+      }
+      .persona-card-tag {
+        position: absolute; top: 18px; left: 18px; z-index: 1;
+        background: rgba(255,255,255,.92); backdrop-filter: blur(6px);
+        border-radius: 14px; padding: 8px 14px;
+      }
+      .persona-card-tag strong { display: block; font-size: 12.5px; font-weight: 800; color: var(--text); }
+      .persona-card-tag span { font-size: 11px; color: var(--muted); }
+      .persona-card-content { position: relative; z-index: 1; padding: 32px; color: #fff; }
+      .persona-card-content h3 { font-size: clamp(20px,2.4vw,26px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 10px; }
+      .persona-card-content p { font-size: 14px; line-height: 1.65; color: rgba(255,255,255,.78); max-width: 340px; margin-bottom: 20px; }
+      .persona-card-cta {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: #fff; color: var(--ink); font-weight: 700; font-size: 14px;
+        padding: 11px 20px; border-radius: 999px; transition: transform .15s, box-shadow .15s;
+      }
+      .persona-card:hover .persona-card-cta { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.25); }
+
+      /* Recursos — tabs horizontais + preview de produto ao lado */
+      .res-tabs { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 40px; }
+      .res-tab {
+        display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
+        background: #fff; border: 1.5px solid var(--border); border-radius: 999px;
+        padding: 11px 18px 11px 14px; font-family: 'Plus Jakarta Sans','Inter',sans-serif;
+        transition: border-color .15s, background .15s, box-shadow .15s;
+      }
+      .res-tab-icon {
+        width: 26px; height: 26px; border-radius: 9px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--accent-soft); color: var(--accent);
+      }
+      .res-tab-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+      .res-tab-sub { font-size: 11px; color: var(--muted); display: block; }
+      .res-tab.active { border-color: var(--ink); background: var(--ink); box-shadow: 0 10px 26px rgba(18,12,46,.22); }
+      .res-tab.active .res-tab-icon { background: rgba(255,255,255,.14); color: #fff; }
+      .res-tab.active .res-tab-title { color: #fff; }
+      .res-tab.active .res-tab-sub { color: rgba(255,255,255,.65); }
+
+      .res-panel { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 0; border: 1px solid var(--border); border-radius: 28px; overflow: hidden; background: #fff; }
+      @media (max-width: 860px) { .res-panel { grid-template-columns: 1fr; } }
+      .res-panel-visual { position: relative; background: var(--surface); padding: clamp(24px,3vw,40px); display: flex; align-items: center; }
+      .res-panel-visual img { width: 100%; border-radius: 16px; box-shadow: 0 20px 50px rgba(18,12,46,.14); }
+      .res-panel-info { padding: clamp(28px,3.5vw,44px); display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+      .res-panel-info h3 { font-size: clamp(20px,2.4vw,26px); font-weight: 800; letter-spacing: -0.02em; }
+      .res-panel-info p { font-size: 15px; line-height: 1.7; color: var(--muted); }
+      .res-panel-list { display: flex; flex-direction: column; gap: 12px; }
+      .res-panel-list-item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text); }
+      .res-panel-list-item svg { color: var(--accent2); flex-shrink: 0; margin-top: 2px; }
+
+      /* Segurança — grid de itens com ícone */
+      .security-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      @media (max-width: 760px) { .security-grid { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 480px) { .security-grid { grid-template-columns: 1fr; } }
+      .security-item { display: flex; align-items: flex-start; gap: 13px; padding: 20px; border-radius: 18px; background: #fff; border: 1px solid var(--border); }
+      .security-item-icon { width: 38px; height: 38px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .security-item h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+      .security-item p { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
+      /* FAQ — accordion simples */
+      .faq-list { display: flex; flex-direction: column; }
+      .faq-item { border-bottom: 1px solid var(--border); padding: 22px 0; cursor: pointer; }
+      .faq-item:first-child { border-top: 1px solid var(--border); }
+      .faq-q { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      .faq-q h4 { font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; }
+      .faq-q-icon {
+        width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
+        border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+        color: var(--muted); transition: transform .2s, background .2s, color .2s, border-color .2s;
+      }
+      .faq-item.open .faq-q-icon { background: var(--ink); border-color: var(--ink); color: #fff; transform: rotate(45deg); }
+      .faq-a { font-size: 14px; line-height: 1.7; color: var(--muted); max-width: 640px; overflow: hidden; max-height: 0; transition: max-height .3s ease, margin-top .3s ease; }
+      .faq-item.open .faq-a { max-height: 240px; margin-top: 14px; }
     `}</style>
 
     <PublicNavbar />

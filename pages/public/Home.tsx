@@ -1,21 +1,87 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  ArrowRight, CheckCircle, HeartHandshake, Shield, ChevronRight,
+  ArrowRight, CheckCircle, HeartHandshake, Shield, ChevronRight, Plus,
   Calendar, Sparkles, TrendingUp, ShieldCheck, Clock3, FileCheck2, UsersRound,
+  Building2, Video, BarChart2, Lock, FileLock2, Server, ScanEye,
 } from 'lucide-react';
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { Reveal } from '../../components/Layout/Reveal';
-import { features, PROFESSIONAL_CATEGORIES } from './publicSiteData';
+import { PROFESSIONAL_CATEGORIES } from './publicSiteData';
 import logoUrl from '../../images/logo-sistema/logo.png';
 import heroPhotoUrl from '../../images/hero-consultorio.png';
 import { useSEO } from '../../hooks/useSEO';
+
+const RESOURCE_TABS = [
+  {
+    key: 'agenda', icon: Calendar, title: 'Agenda', sub: 'Sua rotina organizada',
+    heading: 'A manhã já começa organizada',
+    desc: 'Consultas, lembretes automáticos e disponibilidade de cada profissional em um só calendário — online e presencial, sem conflito de horário.',
+    bullets: ['Confirmação de presença automática por WhatsApp', 'Bloqueios de agenda e pausas protegidas', 'Reagendamento sem trocar mensagens manuais'],
+  },
+  {
+    key: 'prontuario', icon: HeartHandshake, title: 'Prontuário', sub: 'Histórico em um lugar só',
+    heading: 'Todo o histórico do paciente, sempre à mão',
+    desc: 'Evolução clínica, documentos, formulários e planos terapêuticos no mesmo fluxo — sem pasta física e sem procurar em outro sistema.',
+    bullets: ['Prontuário eletrônico com histórico de evolução', 'Formulários e anamneses digitais', 'Planos terapêuticos individualizados (PEI)'],
+  },
+  {
+    key: 'ia', icon: Sparkles, title: 'Bia IA', sub: 'Apoio na documentação',
+    heading: 'Apoio na burocracia, sem substituir seu julgamento clínico',
+    desc: 'A Bia organiza anotações e ajuda a estruturar relatórios a partir do que você já registrou — a decisão clínica continua sempre sua.',
+    bullets: ['Organização de anotações de sessão', 'Apoio na estruturação de relatórios', 'Você revisa e aprova tudo antes de salvar'],
+  },
+  {
+    key: 'financeiro', icon: BarChart2, title: 'Financeiro', sub: 'Contas em dia',
+    heading: 'O financeiro se fecha sem depender de planilha',
+    desc: 'Receitas, comandas, repasses e emissão de NFS-e direto do atendimento — visão clara de quanto entrou e quanto falta receber.',
+    bullets: ['Comandas vinculadas ao atendimento', 'Emissão de nota fiscal de serviço (NFS-e)', 'Relatórios financeiros por período'],
+  },
+  {
+    key: 'portal', icon: Video, title: 'Portal do Paciente', sub: 'Autonomia pro paciente',
+    heading: 'O cuidado continua entre as sessões',
+    desc: 'Seu paciente acessa a própria agenda, documentos, pagamentos e notas fiscais sem precisar te chamar no WhatsApp para cada dúvida.',
+    bullets: ['Agenda e histórico próprios do paciente', 'Download de documentos e nota fiscal', 'Sala virtual para atendimento remoto'],
+  },
+  {
+    key: 'clinica', icon: Building2, title: 'Gestão de Clínica', sub: 'Toda a equipe junta',
+    heading: 'Toda a equipe em sintonia, com a visão que cada um precisa',
+    desc: 'Múltiplos profissionais, salas e permissões por papel — cada pessoa vê exatamente o que precisa para trabalhar, sem bagunça.',
+    bullets: ['Múltiplos profissionais e salas na mesma conta', 'Permissões de acesso por papel', 'Indicadores consolidados da clínica'],
+  },
+] as const;
+
+const FAQ_ITEMS = [
+  {
+    q: 'O que é a Plaelo?',
+    a: 'A Plaelo é um sistema de gestão para profissionais e clínicas de saúde mental — psicólogos, psiquiatras, terapeutas e toda a rede de cuidado. Reúne agenda, prontuário, financeiro, documentos e comunicação com pacientes em um único lugar.',
+  },
+  {
+    q: 'Funciona para clínicas com vários profissionais?',
+    a: 'Sim. Além do plano individual, a Plaelo atende clínicas com múltiplos profissionais, salas e permissões de acesso configuráveis por papel dentro da equipe.',
+  },
+  {
+    q: 'A Plaelo atende online e presencial?',
+    a: 'Sim, os dois. Você organiza consultas presenciais e remotas na mesma agenda, e conta com sala virtual integrada para o atendimento online.',
+  },
+  {
+    q: 'É seguro guardar dados de pacientes na Plaelo?',
+    a: 'Sim. Os dados são tratados com criptografia e a plataforma segue os princípios da LGPD para dados sensíveis de saúde.',
+  },
+  {
+    q: 'Como funciona o suporte da Plaelo?',
+    a: 'Você fala diretamente com nosso time durante a configuração inicial e sempre que precisar de ajuda — sem depender só de central de ajuda automatizada.',
+  },
+] as const;
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+  const [activeTab, setActiveTab] = useState<typeof RESOURCE_TABS[number]['key']>('agenda');
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const activeResource = RESOURCE_TABS.find((t) => t.key === activeTab) || RESOURCE_TABS[0];
 
   useSEO({
     title: 'Plaelo — Sistema para Clínicas de Saúde Mental',
@@ -94,6 +160,46 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* ═══ PARA QUEM É ═══ */}
+      <section className="section" style={{ background: '#fff' }}>
+        <div className="wrap">
+          <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(36px,4.5vw,52px)' }}>
+            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Cada jornada, uma plataforma</span>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
+              Para quem é a Plaelo?
+            </h2>
+          </Reveal>
+          <div className="persona-grid">
+            <Reveal as="a" className="persona-card hover-lift" style={{ cursor: 'pointer' }} onClick={go}>
+              <img src={heroPhotoUrl} alt="Psicólogo atendendo individualmente" className="persona-card-img" />
+              <div className="persona-card-overlay" />
+              <div className="persona-card-tag">
+                <strong>Ana Beatriz</strong>
+                <span>Psicóloga clínica</span>
+              </div>
+              <div className="persona-card-content">
+                <h3>Para psicólogos individuais</h3>
+                <p>Para quem atende sozinho e quer organizar agenda, pacientes, prontuário e financeiro em um único sistema.</p>
+                <span className="persona-card-cta">Sou individual <ArrowRight size={15} /></span>
+              </div>
+            </Reveal>
+            <Reveal as="a" delay={90} className="persona-card hover-lift" style={{ cursor: 'pointer' }} onClick={go}>
+              <img src={heroPhotoUrl} alt="Equipe de clínica de psicologia" className="persona-card-img" />
+              <div className="persona-card-overlay" />
+              <div className="persona-card-tag">
+                <strong>Clínica EntreNós</strong>
+                <span>Equipe multiprofissional</span>
+              </div>
+              <div className="persona-card-content">
+                <h3>Para clínicas de psicologia</h3>
+                <p>Para clínicas com vários profissionais, salas, atendimentos e gestão financeira centralizados.</p>
+                <span className="persona-card-cta">Sou clínica <ArrowRight size={15} /></span>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
       {/* ═══ ÁREAS ATENDIDAS ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="wrap-sm" style={{ textAlign: 'center' }}>
@@ -127,31 +233,58 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══ FUNCIONALIDADES (resumo) ═══ */}
+      {/* ═══ RECURSOS (tabs interativas) ═══ */}
       <section className="section" style={{ background: '#fff' }}>
         <span className="bg-blob" style={{ width: 280, height: 280, top: -60, right: '-6%', background: 'var(--accent-soft)' }} />
         <span className="bg-blob" style={{ width: 200, height: 200, bottom: 20, left: '-4%', background: '#E4F8EE', animationDelay: '-6s' }} />
         <div className="wrap">
-          <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(40px,5vw,60px)' }}>
-            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Funcionalidades</span>
+          <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(36px,4.5vw,52px)' }}>
+            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Recursos</span>
             <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-              Tudo que sua clínica precisa,<br />em um único lugar
+              Toda a rotina clínica, acontecendo em silêncio
             </h2>
-            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 500, margin: '0 auto' }}>
-              Uma plataforma que substitui múltiplos sistemas — para você focar no cuidado com o paciente.
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto' }}>
+              Agenda, prontuário, financeiro, pacientes e IA trabalhando juntos em um único sistema para saúde mental.
             </p>
           </Reveal>
-          <div className="feat-grid">
-            {features.slice(0, 4).map(({ icon: Icon, title, desc, color, bg }, i) => (
-              <Reveal className="card hover-lift" key={title} delay={i * 80}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, color }}>
-                  <Icon size={20} />
-                </div>
-                <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{title}</h3>
-                <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted)' }}>{desc}</p>
-              </Reveal>
+
+          <div className="res-tabs">
+            {RESOURCE_TABS.map(({ key, icon: Icon, title, sub }) => (
+              <button
+                key={key}
+                type="button"
+                className={`res-tab${activeTab === key ? ' active' : ''}`}
+                onClick={() => setActiveTab(key)}
+              >
+                <span className="res-tab-icon"><Icon size={13} /></span>
+                <span>
+                  <span className="res-tab-title">{title}</span>
+                  <span className="res-tab-sub">{sub}</span>
+                </span>
+              </button>
             ))}
           </div>
+
+          <Reveal key={activeResource.key} className="res-panel">
+            <div className="res-panel-visual">
+              <img src={heroPhotoUrl} alt={activeResource.heading} />
+            </div>
+            <div className="res-panel-info">
+              <span className="tag" style={{ alignSelf: 'flex-start' }}>
+                <activeResource.icon size={13} /> {activeResource.title}
+              </span>
+              <h3>{activeResource.heading}</h3>
+              <p>{activeResource.desc}</p>
+              <div className="res-panel-list">
+                {activeResource.bullets.map((b) => (
+                  <div className="res-panel-list-item" key={b}>
+                    <CheckCircle size={16} /> <span>{b}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
           <div style={{ textAlign: 'center', marginTop: 32 }}>
             <Link to="/funcionalidades" className="link-arrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
               Ver todas as funcionalidades <ChevronRight size={17} />
@@ -186,6 +319,71 @@ export const Home: React.FC = () => {
                 <p>{desc}</p>
               </Reveal>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ SEGURANÇA ═══ */}
+      <section className="section" style={{ background: 'var(--surface)' }}>
+        <div className="wrap-sm" style={{ textAlign: 'center' }}>
+          <Reveal>
+            <span className="tag tag-green" style={{ marginBottom: 18, display: 'inline-flex' }}>
+              <ShieldCheck size={13} /> Infraestrutura Plaelo
+            </span>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
+              Máxima segurança
+            </h2>
+            <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 480, margin: '0 auto 40px' }}>
+              Segurança para prontuários, documentos e dados clínicos dos seus pacientes.
+            </p>
+          </Reveal>
+          <div className="security-grid">
+            {[
+              { icon: Lock, title: 'Criptografia', desc: 'Dados protegidos em trânsito e em repouso.' },
+              { icon: FileLock2, title: 'Conformidade com a LGPD', desc: 'Tratamento de dados sensíveis de saúde dentro da lei.' },
+              { icon: ScanEye, title: 'Os dados pertencem a você', desc: 'Exportação e portabilidade dos seus dados quando precisar.' },
+              { icon: Server, title: 'Infraestrutura dedicada', desc: 'Ambiente preparado para a demanda da sua clínica.' },
+              { icon: Shield, title: 'Backups regulares', desc: 'Rotina de backup para reduzir risco de perda de dado.' },
+              { icon: UsersRound, title: 'Permissões por papel', desc: 'Cada pessoa da equipe acessa só o que precisa.' },
+            ].map(({ icon: Icon, title, desc }, i) => (
+              <Reveal className="security-item" key={title} delay={i * 60}>
+                <span className="security-item-icon"><Icon size={17} /></span>
+                <div>
+                  <h4>{title}</h4>
+                  <p>{desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ FAQ ═══ */}
+      <section className="section" style={{ background: '#fff' }}>
+        <div className="wrap-sm">
+          <Reveal style={{ marginBottom: 36 }}>
+            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Antes de começar</span>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16 }}>
+              Algumas respostas importantes
+            </h2>
+          </Reveal>
+          <div className="faq-list">
+            {FAQ_ITEMS.map((item, i) => {
+              const open = openFaq === i;
+              return (
+                <div
+                  key={item.q}
+                  className={`faq-item${open ? ' open' : ''}`}
+                  onClick={() => setOpenFaq(open ? null : i)}
+                >
+                  <div className="faq-q">
+                    <h4>{item.q}</h4>
+                    <span className="faq-q-icon"><Plus size={14} /></span>
+                  </div>
+                  <p className="faq-a">{item.a}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
