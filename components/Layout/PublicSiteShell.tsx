@@ -276,41 +276,36 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .float-card { padding: 14px; border-radius: 16px; }
       }
 
-      /* Hero — texto à esquerda, foto à direita (fundo claro, lado a lado) */
+      /* Hero — texto à esquerda dentro do container, foto em tela cheia (full-bleed) à direita */
       .hero-split {
         position: relative; background: #fff; overflow: clip;
-        padding: clamp(28px,4vw,48px) 0 clamp(40px,5vw,64px);
+        min-height: clamp(520px, 74vh, 680px); display: flex; align-items: center;
+        padding: clamp(28px,4vw,48px) 0;
       }
-      .hero-split-grid {
-        display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr);
-        gap: clamp(28px,4vw,56px); align-items: center; max-width: 1180px; margin: 0 auto;
+      .hero-split-media {
+        position: absolute; top: 0; right: 0; bottom: 0;
+        left: max(56%, calc((100vw - 1180px) / 2 + 620px));
       }
+      .hero-split-media-img { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; display: block; }
+      .hero-split-media-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0) 8%);
+      }
+      .hero-split-grid { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; }
       .hero-split-text { max-width: 460px; }
-      .hero-split-media { position: relative; }
-      .hero-split-media-img {
-        width: 100%; aspect-ratio: 5/4.6; object-fit: cover; object-position: center 25%;
-        border-radius: 28px; display: block;
-      }
       .hero-split-badge {
-        position: absolute; top: 20px; right: 20px;
+        position: absolute; z-index: 1; top: 24px; right: 24px;
         background: #fff; border-radius: 14px; padding: 10px 16px;
         box-shadow: 0 14px 34px rgba(18,12,46,.16);
       }
       .hero-split-badge strong { display: block; font-size: 13px; font-weight: 800; color: var(--ink); }
       .hero-split-badge span { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
-      .hero-split-stats {
-        display: flex; flex-wrap: wrap; gap: clamp(20px,3vw,40px);
-        margin-top: clamp(28px,3.5vw,40px);
-      }
-      .hero-split-stat strong {
-        display: block; font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: clamp(22px,2.4vw,30px); font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
-      }
-      .hero-split-stat span { display: block; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
       @media (max-width: 860px) {
-        .hero-split-grid { grid-template-columns: 1fr; }
-        .hero-split-media { order: -1; }
-        .hero-split-media-img { aspect-ratio: 16/10; }
+        .hero-split { flex-direction: column; min-height: auto; padding-top: 0; }
+        .hero-split-media { position: relative; left: 0; height: 46vh; min-height: 280px; order: -1; margin-bottom: 28px; }
+        .hero-split-media-overlay { background: linear-gradient(180deg, rgba(255,255,255,0) 55%, rgba(255,255,255,1) 100%); }
+        .hero-split-badge { top: auto; bottom: 16px; right: 16px; }
+        .hero-split-grid { padding: 0 24px; }
       }
 
       /* Hub radial — página /individual, "sua prática clínica" */

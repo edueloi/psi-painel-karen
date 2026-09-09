@@ -37,7 +37,7 @@ export const Individual: React.FC = () => {
 
   useSEO({
     title: 'Plaelo para Psicólogos Individuais',
-    description: 'O sistema para psicólogos que organiza agenda, prontuário, financeiro e atendimento em um só lugar. 7 dias grátis, sem cartão de crédito.',
+    description: 'O sistema para psicólogos que organiza agenda, prontuário, financeiro e atendimento em um só lugar. 14 dias grátis, sem cartão de crédito.',
     path: '/individual',
   });
 
@@ -62,7 +62,7 @@ export const Individual: React.FC = () => {
                 Ver como funciona
               </a>
             </div>
-            <p style={{ fontSize: 13, color: 'var(--muted)' }}>7 dias grátis. Sem cartão de crédito.</p>
+            <p style={{ fontSize: 13, color: 'var(--muted)' }}>14 dias grátis. Sem cartão de crédito.</p>
           </Reveal>
 
           <Reveal delay={100} className="hero-split-media">
@@ -282,7 +282,7 @@ export const Individual: React.FC = () => {
           <button className="btn-p" onClick={go} style={{ background: '#fff', color: 'var(--ink)' }}>
             Criar conta grátis <ArrowRight size={17} />
           </button>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.7)', marginTop: 12 }}>7 dias grátis. Sem cartão de crédito.</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.7)', marginTop: 12 }}>14 dias grátis. Sem cartão de crédito.</p>
         </Reveal>
       </section>
     </PublicSiteShell>

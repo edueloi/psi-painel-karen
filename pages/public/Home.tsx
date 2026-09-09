@@ -91,8 +91,17 @@ export const Home: React.FC = () => {
 
   return (
     <PublicSiteShell>
-      {/* ═══ HERO — texto à esquerda, foto à direita ═══ */}
+      {/* ═══ HERO — texto à esquerda, foto em tela cheia à direita ═══ */}
       <section className="hero-split">
+        <Reveal delay={100} className="hero-split-media">
+          <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-split-media-img" />
+          <div className="hero-split-media-overlay" />
+          <div className="hero-split-badge">
+            <strong>Bia IA</strong>
+            <span>Resumo pronto p/ revisão</span>
+          </div>
+        </Reveal>
+
         <div className="wrap hero-split-grid">
           <Reveal className="hero-split-text">
             <span className="tag" style={{ marginBottom: 16, display: 'inline-flex' }}>
@@ -116,7 +125,7 @@ export const Home: React.FC = () => {
               </button>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>7 dias grátis. Sem cartão de crédito.</p>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>14 dias grátis. Sem cartão de crédito.</p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: 13, color: 'var(--muted)' }}>
               {['Sem fidelidade', 'IA inclusa', 'LGPD compliant'].map((label) => (
@@ -124,14 +133,6 @@ export const Home: React.FC = () => {
                   <CheckCircle size={13} style={{ color: 'var(--accent2)' }} /> {label}
                 </span>
               ))}
-            </div>
-          </Reveal>
-
-          <Reveal delay={100} className="hero-split-media">
-            <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-split-media-img" />
-            <div className="hero-split-badge">
-              <strong>Bia IA</strong>
-              <span>Resumo pronto p/ revisão</span>
             </div>
           </Reveal>
         </div>
