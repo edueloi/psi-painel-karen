@@ -254,23 +254,42 @@ interface ProfessionalDateEntry {
 // a ocorrência (ano) é calculada em runtime a partir de "hoje".
 const PROFESSIONAL_DATES: ProfessionalDateEntry[] = [
   { month: 1, day: 1, emoji: '🤍', label: 'Janeiro Branco', note: 'Campanha de conscientização sobre saúde mental durante todo o mês.' },
-  { month: 4, day: 2, emoji: '♾️', label: 'Dia Mundial de Conscientização sobre o Autismo', note: 'Data mundial de conscientização.' },
+  { month: 2, day: 1, emoji: '💜', label: 'Fevereiro Roxo', note: 'Campanha de conscientização sobre Alzheimer, Lúpus e Fibromialgia durante todo o mês.' },
+  { month: 3, day: 8, emoji: '♀️', label: 'Dia Internacional da Mulher', note: 'Data oficializada pela ONU em 1975.' },
+  { month: 4, day: 1, emoji: '💙', label: 'Abril Azul', note: 'Campanha de conscientização sobre o autismo durante todo o mês.' },
+  { month: 4, day: 2, emoji: '♾️', label: 'Dia Mundial de Conscientização sobre o Autismo', note: 'Data instituída pela ONU, celebrada mundialmente.' },
+  { month: 4, day: 22, emoji: '🎨', label: 'Dia do Arteterapeuta', note: 'Data definida pela UBAAT (União Brasileira das Associações de Arteterapia).' },
   { month: 5, day: 6, emoji: '🧠', label: 'Dia do Psicanalista', note: 'Em São Paulo, a data é instituída por lei estadual.' },
   { month: 5, day: 12, emoji: '🩺', label: 'Dia da Enfermagem / Enfermeiro', note: 'Importante para equipes multiprofissionais de saúde mental.' },
   { month: 5, day: 15, emoji: '🤝', label: 'Dia do Assistente Social', note: 'Data celebrada nacionalmente pelo CFESS.' },
+  { month: 5, day: 17, emoji: '🏳️‍🌈', label: 'Dia Internacional Contra a LGBTfobia', note: 'Escolhida porque em 17/05/1990 a OMS retirou a homossexualidade da CID — relevância direta com saúde mental.' },
   { month: 5, day: 18, emoji: '🧠', label: 'Dia Nacional da Luta Antimanicomial', note: 'Data nacional de conscientização.' },
+  { month: 5, day: 20, emoji: '📚', label: 'Dia do Pedagogo', note: 'Instituído pela Lei nº 13.083/2015.' },
+  { month: 5, day: 20, emoji: '🩹', label: 'Dia do Técnico e Auxiliar de Enfermagem', note: 'Instituído por Resolução do COFEN nº 294/2004.' },
   { month: 8, day: 13, emoji: '🧠', label: 'Dia do Psiquiatra', note: 'Instituído pela Associação Brasileira de Psiquiatria; também é oficial no Estado de SP.' },
   { month: 8, day: 27, emoji: '💙', label: 'Dia Nacional da Psicóloga e do Psicólogo', note: 'Data oficial nacional.' },
+  { month: 8, day: 31, emoji: '🥗', label: 'Dia do Nutricionista', note: 'Marca a criação da Associação Brasileira dos Nutricionistas (1949), hoje Asbran.' },
   { month: 9, day: 1, emoji: '💛', label: 'Setembro Amarelo', note: 'Campanha de prevenção ao suicídio durante todo o mês.' },
+  { month: 9, day: 1, emoji: '🏃', label: 'Dia do Educador Físico', note: 'Instituído pela Lei nº 11.342/2006.' },
   { month: 9, day: 10, emoji: '💛', label: 'Dia Mundial de Prevenção do Suicídio', note: 'Data mundial de conscientização.' },
+  { month: 9, day: 15, emoji: '🎵', label: 'Dia do Musicoterapeuta', note: 'Origem em decreto estadual de SP (1991), adotada nacionalmente pela UBAM.' },
   { month: 9, day: 21, emoji: '🧠', label: 'Dia Mundial do Alzheimer', note: 'Data mundial de conscientização.' },
+  { month: 10, day: 1, emoji: '🎗️', label: 'Outubro Rosa', note: 'Campanha de conscientização sobre o câncer de mama, instituída pela Lei nº 13.733/2018.' },
+  { month: 10, day: 1, emoji: '👴', label: 'Dia Nacional do Idoso', note: 'Transferido de 27/set para 1º/out pela Lei nº 11.433/2006.' },
+  { month: 10, day: 6, emoji: '🧠', label: 'Dia do Neuropsicólogo', note: 'Data amplamente reconhecida por associações da categoria.' },
   { month: 10, day: 10, emoji: '💚', label: 'Dia Mundial da Saúde Mental', note: 'Data mundial de conscientização.' },
-  { month: 10, day: 13, emoji: '🧩', label: 'Dia do Terapeuta Ocupacional', note: 'Data nacional instituída por lei.' },
+  { month: 10, day: 12, emoji: '🧒', label: 'Dia das Crianças', note: 'Data comemorada só no Brasil, desde 1924 — diferente do Dia Mundial da Criança (20/nov, ONU).' },
+  { month: 10, day: 13, emoji: '🧩', label: 'Dia do Terapeuta Ocupacional e do Fisioterapeuta', note: 'Ambos instituídos pela Lei nº 13.084/2015, referente ao Decreto-Lei nº 938/1969.' },
   { month: 10, day: 15, emoji: '🧠', label: 'Dia do Neurologista', note: 'Celebrado pela Academia Brasileira de Neurologia.' },
   { month: 10, day: 18, emoji: '🩺', label: 'Dia do Médico', note: 'Boa data para homenagear também profissionais médicos da saúde mental.' },
   { month: 10, day: 27, emoji: '🧩', label: 'Dia Mundial do Terapeuta Ocupacional', note: 'Outra oportunidade para homenagear TOs.' },
   { month: 10, day: 29, emoji: '🧠', label: 'Dia Mundial do AVC', note: 'Data mundial de conscientização.' },
+  { month: 11, day: 1, emoji: '🎗️', label: 'Novembro Azul', note: 'Campanha de conscientização sobre o câncer de próstata durante todo o mês.' },
   { month: 11, day: 12, emoji: '📚', label: 'Dia do Psicopedagogo', note: 'Tradicionalmente celebrado nessa data; já é oficial em algumas localidades.' },
+  { month: 11, day: 17, emoji: '🎗️', label: 'Dia Mundial de Combate ao Câncer de Próstata', note: 'Data de destaque dentro da campanha Novembro Azul.' },
+  { month: 11, day: 20, emoji: '🌍', label: 'Dia Mundial da Criança', note: 'Data da ONU (Declaração Universal dos Direitos da Criança) — diferente do Dia das Crianças no Brasil (12/out).' },
+  { month: 12, day: 1, emoji: '🎗️', label: 'Dezembro Laranja', note: 'Campanha de conscientização sobre o câncer de pele, criada pela Sociedade Brasileira de Dermatologia.' },
+  { month: 12, day: 4, emoji: '🧭', label: 'Dia do Orientador Educacional', note: 'Data consolidada por veículos de educação, ligada à regulamentação da profissão.' },
   { month: 12, day: 9, emoji: '🗣️', label: 'Dia do Fonoaudiólogo', note: 'Data oficial da Fonoaudiologia.' },
 ];
 
@@ -1185,8 +1204,8 @@ export const Dashboard: React.FC = () => {
             );
           })()}
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            {upcomingProfessionalDates.slice(1, 7).map((entry) => (
+          <div className="grid max-h-[340px] grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2">
+            {upcomingProfessionalDates.slice(1, 10).map((entry) => (
               <div
                 key={`${entry.month}-${entry.day}-${entry.label}`}
                 className="flex items-start gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 p-3.5"
