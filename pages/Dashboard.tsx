@@ -34,6 +34,7 @@ import {
   Mic,
   MonitorPlay,
   Music,
+  PartyPopper,
   Phone,
   Plus,
   Send,
@@ -240,6 +241,39 @@ function renderAppointmentStatus(status?: string) {
   return null;
 }
 
+interface ProfessionalDateEntry {
+  month: number; // 1-12
+  day: number;
+  emoji: string;
+  label: string;
+  note: string;
+}
+
+// Datas comemorativas de profissionais da saúde mental e datas de
+// conscientização relevantes para o público da clínica — mês/dia fixos,
+// a ocorrência (ano) é calculada em runtime a partir de "hoje".
+const PROFESSIONAL_DATES: ProfessionalDateEntry[] = [
+  { month: 1, day: 1, emoji: '🤍', label: 'Janeiro Branco', note: 'Campanha de conscientização sobre saúde mental durante todo o mês.' },
+  { month: 4, day: 2, emoji: '♾️', label: 'Dia Mundial de Conscientização sobre o Autismo', note: 'Data mundial de conscientização.' },
+  { month: 5, day: 6, emoji: '🧠', label: 'Dia do Psicanalista', note: 'Em São Paulo, a data é instituída por lei estadual.' },
+  { month: 5, day: 12, emoji: '🩺', label: 'Dia da Enfermagem / Enfermeiro', note: 'Importante para equipes multiprofissionais de saúde mental.' },
+  { month: 5, day: 15, emoji: '🤝', label: 'Dia do Assistente Social', note: 'Data celebrada nacionalmente pelo CFESS.' },
+  { month: 5, day: 18, emoji: '🧠', label: 'Dia Nacional da Luta Antimanicomial', note: 'Data nacional de conscientização.' },
+  { month: 8, day: 13, emoji: '🧠', label: 'Dia do Psiquiatra', note: 'Instituído pela Associação Brasileira de Psiquiatria; também é oficial no Estado de SP.' },
+  { month: 8, day: 27, emoji: '💙', label: 'Dia Nacional da Psicóloga e do Psicólogo', note: 'Data oficial nacional.' },
+  { month: 9, day: 1, emoji: '💛', label: 'Setembro Amarelo', note: 'Campanha de prevenção ao suicídio durante todo o mês.' },
+  { month: 9, day: 10, emoji: '💛', label: 'Dia Mundial de Prevenção do Suicídio', note: 'Data mundial de conscientização.' },
+  { month: 9, day: 21, emoji: '🧠', label: 'Dia Mundial do Alzheimer', note: 'Data mundial de conscientização.' },
+  { month: 10, day: 10, emoji: '💚', label: 'Dia Mundial da Saúde Mental', note: 'Data mundial de conscientização.' },
+  { month: 10, day: 13, emoji: '🧩', label: 'Dia do Terapeuta Ocupacional', note: 'Data nacional instituída por lei.' },
+  { month: 10, day: 15, emoji: '🧠', label: 'Dia do Neurologista', note: 'Celebrado pela Academia Brasileira de Neurologia.' },
+  { month: 10, day: 18, emoji: '🩺', label: 'Dia do Médico', note: 'Boa data para homenagear também profissionais médicos da saúde mental.' },
+  { month: 10, day: 27, emoji: '🧩', label: 'Dia Mundial do Terapeuta Ocupacional', note: 'Outra oportunidade para homenagear TOs.' },
+  { month: 10, day: 29, emoji: '🧠', label: 'Dia Mundial do AVC', note: 'Data mundial de conscientização.' },
+  { month: 11, day: 12, emoji: '📚', label: 'Dia do Psicopedagogo', note: 'Tradicionalmente celebrado nessa data; já é oficial em algumas localidades.' },
+  { month: 12, day: 9, emoji: '🗣️', label: 'Dia do Fonoaudiólogo', note: 'Data oficial da Fonoaudiologia.' },
+];
+
 export const Dashboard: React.FC = () => {
   const { t, language } = useLanguage();
   const { user, updateUser } = useAuth();
@@ -264,6 +298,16 @@ export const Dashboard: React.FC = () => {
   const [newTodo, setNewTodo] = useState('');
 
   const now = useMemo(() => new Date(), []);
+
+  const upcomingProfessionalDates = useMemo(() => {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return PROFESSIONAL_DATES.map((entry) => {
+      let next = new Date(today.getFullYear(), entry.month - 1, entry.day);
+      if (next < today) next = new Date(today.getFullYear() + 1, entry.month - 1, entry.day);
+      const daysUntil = Math.round((next.getTime() - today.getTime()) / 86400000);
+      return { ...entry, next, daysUntil, isToday: daysUntil === 0 };
+    }).sort((a, b) => a.next.getTime() - b.next.getTime());
+  }, [now]);
 
   const defaultShortcuts: Shortcut[] = useMemo(
     () => [
@@ -1109,6 +1153,56 @@ export const Dashboard: React.FC = () => {
                   : `${pendingTodosCount} tarefa${pendingTodosCount === 1 ? '' : 's'} aguardando ação.`}
               </p>
             </div>
+          </div>
+        </div>
+      </PanelCard>
+
+      <PanelCard
+        title="Datas dos Profissionais"
+        description="Datas comemorativas da saúde mental para lembrar e comemorar com sua equipe e pacientes."
+        icon={PartyPopper}
+        iconWrapClassName="border-fuchsia-100 bg-fuchsia-50"
+        iconClassName="text-fuchsia-600"
+      >
+        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+          {(() => {
+            const next = upcomingProfessionalDates[0];
+            if (!next) return null;
+            return (
+              <div className="flex flex-col justify-center rounded-3xl bg-gradient-to-br from-fuchsia-600 to-violet-700 p-5 text-white">
+                <span className="text-4xl leading-none">{next.emoji}</span>
+                <p className="mt-3 text-[11px] font-black uppercase tracking-[0.14em] text-fuchsia-100">
+                  {next.isToday
+                    ? 'É hoje!'
+                    : `Em ${next.daysUntil} dia${next.daysUntil === 1 ? '' : 's'}`}
+                </p>
+                <h3 className="mt-1 text-lg font-black leading-snug">{next.label}</h3>
+                <p className="mt-2 text-xs leading-relaxed text-white/80">{next.note}</p>
+                <p className="mt-3 text-xs font-bold text-fuchsia-100">
+                  {next.next.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                </p>
+              </div>
+            );
+          })()}
+
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {upcomingProfessionalDates.slice(1, 7).map((entry) => (
+              <div
+                key={`${entry.month}-${entry.day}-${entry.label}`}
+                className="flex items-start gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 p-3.5"
+              >
+                <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-zinc-100 bg-white text-xs font-black text-zinc-500">
+                  <span>{String(entry.next.getDate()).padStart(2, '0')}</span>
+                  <span>{String(entry.next.getMonth() + 1).padStart(2, '0')}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-zinc-800">
+                    {entry.emoji} {entry.label}
+                  </p>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-zinc-400">{entry.note}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </PanelCard>
