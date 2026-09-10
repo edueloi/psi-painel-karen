@@ -3123,12 +3123,6 @@ const RoomInner: React.FC<{
           </div>
         )}
 
-        {!isHost && localMicCapturing && (
-          <div style={{ position: "absolute", top: poorConnection ? 82 : 46, left: "50%", transform: "translateX(-50%)", zIndex: 5, display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, background: "rgba(220,38,38,0.85)", color: "#fff", fontSize: 11, fontWeight: 700 }}>
-            <Circle size={8} style={{ fill: "#fff" }} /> Esta sessão está sendo transcrita
-          </div>
-        )}
-
         {/* Painel lateral */}
         {sidePanel && (
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" || sidePanel === "billing" || sidePanel === "whiteboard" ? "min(420px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
