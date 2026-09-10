@@ -593,9 +593,19 @@ const Lobby: React.FC<{
 
 
 // ── Painel de Convidar ────────────────────────────────────────────────────────
-const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ roomCode, onClose }) => {
+const InvitePanel: React.FC<{ roomId: string; roomCode: string; patientId?: number | null; onClose: () => void }> = ({ roomId, roomCode, patientId, onClose }) => {
   const [copied, setCopied] = useState(false);
+  const [botStatus, setBotStatus] = useState<'connected' | 'disconnected' | 'connecting' | 'checking'>('checking');
+  const [sendingBotMsg, setSendingBotMsg] = useState(false);
+  const [botMsgSent, setBotMsgSent] = useState(false);
+  const [botMsgError, setBotMsgError] = useState<string | null>(null);
   const guestUrl = `${getPublicBaseUrl()}/sala/${roomCode}`;
+
+  useEffect(() => {
+    api.get<{ status?: string }>('/whatsapp/status')
+      .then((data) => setBotStatus((data?.status as any) || 'disconnected'))
+      .catch(() => setBotStatus('disconnected'));
+  }, []);
 
   const copy = () => {
     navigator.clipboard.writeText(guestUrl);
@@ -607,6 +617,22 @@ const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ room
     const msg = `Olá! Sua consulta vai começar em breve.\n\nAcesse sua sala virtual pelo link abaixo:\n${guestUrl}\n\n_Você não precisa de login para entrar._`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
+
+  const sendViaBot = async () => {
+    setSendingBotMsg(true);
+    setBotMsgError(null);
+    try {
+      await api.post(`/virtual-rooms/${roomId}/notify-patient`, {});
+      setBotMsgSent(true);
+      setTimeout(() => setBotMsgSent(false), 4000);
+    } catch (err: any) {
+      setBotMsgError(err?.message || 'Não foi possível enviar a mensagem.');
+    } finally {
+      setSendingBotMsg(false);
+    }
+  };
+
+  const canSendViaBot = botStatus === 'connected' && !!patientId;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
@@ -634,9 +660,33 @@ const InvitePanel: React.FC<{ roomCode: string; onClose: () => void }> = ({ room
           </div>
         </div>
 
+        {canSendViaBot && (
+          <button
+            onClick={sendViaBot}
+            disabled={sendingBotMsg}
+            style={{ width: "100%", height: 44, borderRadius: 12, background: botMsgSent ? "rgba(34,197,94,0.18)" : "#6366f1", border: botMsgSent ? "1px solid rgba(34,197,94,0.4)" : "none", cursor: sendingBotMsg ? "not-allowed" : "pointer", color: botMsgSent ? "#86efac" : "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: sendingBotMsg ? 0.7 : 1 }}
+          >
+            {sendingBotMsg
+              ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Enviando…</>
+              : botMsgSent
+              ? <><Check size={16} /> Enviado ao paciente!</>
+              : <>Enviar link automaticamente (bot da clínica)</>}
+          </button>
+        )}
+        {botMsgError && (
+          <p style={{ fontSize: 12, color: "#f87171", margin: 0 }}>{botMsgError}</p>
+        )}
+
         <button onClick={whatsapp} style={{ width: "100%", height: 44, borderRadius: 12, background: "#16a34a", border: "none", cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          Enviar via WhatsApp
+          Enviar pelo meu WhatsApp
         </button>
+        {botStatus !== 'checking' && !canSendViaBot && (
+          <p style={{ fontSize: 11, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+            {botStatus !== 'connected'
+              ? 'Conecte o bot de WhatsApp da clínica em Configurações para enviar o link automaticamente.'
+              : 'Esta sala não tem um paciente vinculado, então o envio automático não está disponível.'}
+          </p>
+        )}
 
         <div style={{ padding: 12, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 12 }}>
           <p style={{ fontSize: 12, color: "#818cf8", lineHeight: 1.6 }}>
@@ -3163,7 +3213,7 @@ const RoomInner: React.FC<{
               ? <InstrumentPanel patientId={patientId} isHost={isHost} onClose={() => setSidePanel(null)} />
               : sidePanel === "breakout"
               ? <BreakoutPanel roomId={roomId} roomCode={roomCode} remoteParticipants={remoteParticipants} onClose={() => setSidePanel(null)} />
-              : <InvitePanel roomCode={roomCode} onClose={() => setSidePanel(null)} />
+              : <InvitePanel roomId={roomId} roomCode={roomCode} patientId={patientId} onClose={() => setSidePanel(null)} />
             }
           </div>
         )}
