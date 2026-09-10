@@ -9,6 +9,7 @@ import {
   Heart, BookOpen, Dumbbell, Smile,
   FileSignature, PauseCircle, PlayCircle,
 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Patient } from '../types';
@@ -1065,10 +1066,70 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
 };
 
 // ─── Tab: Prontuário ──────────────────────────────────────────────────────────
+const SESSION_MOOD_MAP: Record<number, { emoji: string; label: string; color: string }> = {
+  1: { emoji: '😞', label: 'Muito abalado', color: '#ef4444' },
+  2: { emoji: '😕', label: 'Abalado', color: '#f97316' },
+  3: { emoji: '😐', label: 'Neutro', color: '#eab308' },
+  4: { emoji: '🙂', label: 'Bem', color: '#22c55e' },
+  5: { emoji: '😄', label: 'Muito bem', color: '#0ea5e9' },
+};
+
+const MoodHistoryPanel: React.FC<{ patientId: string }> = ({ patientId }) => {
+  const [logs, setLogs] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    api.get<any[]>(`/patients/${patientId}/mood-logs`)
+      .then((rows) => setLogs(Array.isArray(rows) ? rows : []))
+      .catch(() => setLogs([]));
+  }, [patientId]);
+
+  if (logs === null) return null;
+  if (logs.length === 0) return null;
+
+  const chartData = [...logs]
+    .reverse()
+    .map((l) => ({
+      date: formatDate(l.recorded_at),
+      score: l.mood_score,
+      fullDate: l.recorded_at,
+    }));
+
+  const latest = logs[0];
+  const latestInfo = SESSION_MOOD_MAP[latest.mood_score];
+
+  return (
+    <PanelCard>
+      <SectionTitle icon={Smile} title="Humor observado pelo profissional" />
+      <div className="flex items-center gap-3 mb-4 mt-2">
+        <span className="text-3xl">{latestInfo?.emoji}</span>
+        <div>
+          <p className="text-sm font-bold" style={{ color: latestInfo?.color }}>{latestInfo?.label}</p>
+          <p className="text-[11px] text-slate-400">Última sessão · {formatDate(latest.recorded_at)}</p>
+        </div>
+      </div>
+      <div className="h-[140px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 6, right: 12, bottom: 0, left: -20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+            <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={24} />
+            <Tooltip
+              contentStyle={{ fontSize: 11, borderRadius: 12, border: '1px solid #e4e4e7' }}
+              formatter={(value: number) => [SESSION_MOOD_MAP[value]?.label || value, 'Humor']}
+            />
+            <Line type="monotone" dataKey="score" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1' }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </PanelCard>
+  );
+};
+
 const TabProntuario: React.FC<{ records: any[]; loading: boolean; patientId: string; navigate: (p: string) => void }> = ({ records, loading, patientId, navigate }) => {
   if (loading) return <TabLoader />;
   return (
     <div className="space-y-3">
+      <MoodHistoryPanel patientId={patientId} />
       <div className="flex items-center justify-between">
         <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{records.length} registro(s)</span>
         <button onClick={() => navigate(`/prontuario?patient_id=${patientId}`)} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:underline">

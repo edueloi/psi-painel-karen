@@ -19,7 +19,7 @@ import {
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
   ChevronDown, Settings, Circle, Loader2, FileText, SwitchCamera,
   Sparkles, Receipt, NotebookPen, CalendarPlus, FileOutput, PenTool, Eraser, Trash2,
-  FileSignature, Upload, ClipboardList, ExternalLink,
+  FileSignature, Upload, ClipboardList, ExternalLink, Smile,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -818,10 +818,21 @@ const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = (
 // ── Painel de anotações rápidas da sessão ─────────────────────────────────────
 type QuickNote = { id: number | string; content: string; created_at: string };
 
+const SESSION_MOOD_SCALE = [
+  { score: 1, emoji: '😞', label: 'Muito abalado' },
+  { score: 2, emoji: '😕', label: 'Abalado' },
+  { score: 3, emoji: '😐', label: 'Neutro' },
+  { score: 4, emoji: '🙂', label: 'Bem' },
+  { score: 5, emoji: '😄', label: 'Muito bem' },
+] as const;
+
 const NotesPanel: React.FC<{ patientId: number; appointmentId: number | null; onClose: () => void }> = ({ patientId, appointmentId, onClose }) => {
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedNotes, setSavedNotes] = useState<QuickNote[]>([]);
+  const [moodScore, setMoodScore] = useState<number | null>(null);
+  const [savingMood, setSavingMood] = useState(false);
+  const [moodSaved, setMoodSaved] = useState(false);
   const { success: toastSuccess, error: toastError } = useToast();
 
   const handleSave = async () => {
@@ -846,6 +857,23 @@ const NotesPanel: React.FC<{ patientId: number; appointmentId: number | null; on
     }
   };
 
+  const handleSaveMood = async (score: number) => {
+    setMoodScore(score);
+    setSavingMood(true);
+    setMoodSaved(false);
+    try {
+      await api.post(`/patients/${patientId}/mood-logs`, {
+        mood_score: score,
+        appointment_id: appointmentId || undefined,
+      });
+      setMoodSaved(true);
+    } catch (err: any) {
+      toastError('Erro ao registrar humor', err?.message || '');
+    } finally {
+      setSavingMood(false);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
@@ -858,6 +886,37 @@ const NotesPanel: React.FC<{ patientId: number; appointmentId: number | null; on
       </div>
 
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".06em", display: "flex", alignItems: "center", gap: 6 }}>
+            <Smile size={13} color="#6366f1" /> Como o paciente pareceu nesta sessão?
+          </span>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+            {SESSION_MOOD_SCALE.map((m) => (
+              <button
+                key={m.score}
+                onClick={() => handleSaveMood(m.score)}
+                disabled={savingMood}
+                title={m.label}
+                style={{
+                  flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  padding: "8px 4px", borderRadius: 10, cursor: savingMood ? "not-allowed" : "pointer",
+                  border: `1px solid ${moodScore === m.score ? "#6366f1" : "rgba(255,255,255,.1)"}`,
+                  background: moodScore === m.score ? "rgba(99,102,241,.18)" : "rgba(255,255,255,.03)",
+                  opacity: savingMood && moodScore !== m.score ? 0.5 : 1,
+                }}
+              >
+                <span style={{ fontSize: 20, lineHeight: 1 }}>{m.emoji}</span>
+                <span style={{ fontSize: 9, color: "#94a3b8", fontWeight: 600 }}>{m.label}</span>
+              </button>
+            ))}
+          </div>
+          {moodSaved && (
+            <p style={{ fontSize: 11, color: "#4ade80", margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
+              <Check size={12} /> Humor registrado no histórico do paciente.
+            </p>
+          )}
+        </div>
+
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -876,6 +935,14 @@ const NotesPanel: React.FC<{ patientId: number; appointmentId: number | null; on
         <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
           Salva direto no prontuário como rascunho de evolução — revise e finalize depois na ficha do paciente.
         </p>
+        {savedNotes.length > 0 && (
+          <button
+            onClick={() => window.open(`/prontuario?patient_id=${patientId}`, '_blank', 'noopener,noreferrer')}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: "1px solid rgba(99,102,241,.35)", borderRadius: 10, padding: "8px 12px", color: "#a5b4fc", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+          >
+            <ExternalLink size={13} /> Ver no prontuário do paciente
+          </button>
+        )}
 
         {savedNotes.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
@@ -3493,24 +3560,89 @@ const WaitingToastHost: React.FC<{
 // mesmas rotas que os painéis da sala usam, sem precisar do contexto LiveKit
 // (a chamada já foi encerrada nesse ponto).
 const EndSummaryScreen: React.FC<{
-  patientId: number; transcript: string; onDone: () => void;
-}> = ({ patientId, transcript, onDone }) => {
+  patientId: number; professionalId?: number | null; transcript: string; onDone: () => void;
+}> = ({ patientId, professionalId, transcript, onDone }) => {
   const navigate = useNavigate();
   const { success: toastSuccess, error: toastError } = useToast();
 
   const [comandas, setComandas] = useState<ComandaSummary[] | null>(null);
   const [paying, setPaying] = useState<ComandaSummary | null>(null);
 
-  const [date, setDate] = useState("");
+  const localDateISO = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const [date, setDate] = useState(() => localDateISO(tomorrow));
   const [time, setTime] = useState("");
+  const [manualTime, setManualTime] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [scheduled, setScheduled] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [profileSchedule, setProfileSchedule] = useState<any[]>([]);
+  const [closedDates, setClosedDates] = useState<{ date: string; label?: string }[]>([]);
+  const [dayAppointments, setDayAppointments] = useState<any[]>([]);
 
   useEffect(() => {
     api.get<ComandaSummary[]>(`/finance/comandas/patient/${patientId}`)
       .then(rows => setComandas(rows || []))
       .catch(() => setComandas([]));
   }, [patientId]);
+
+  useEffect(() => {
+    api.get<any>('/profile/me').then(profile => {
+      const parse = (value: any, fallback: any[]) => {
+        if (Array.isArray(value)) return value;
+        try { return JSON.parse(value || '[]'); } catch { return fallback; }
+      };
+      setProfileSchedule(parse(profile?.schedule, []));
+      setClosedDates(parse(profile?.closed_dates, []));
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!date) return;
+    setLoadingSlots(true);
+    setTime('');
+    api.get<any[]>('/appointments', professionalId ? { professional_id: String(professionalId) } : undefined)
+      .then(rows => setDayAppointments(rows || []))
+      .catch(() => setDayAppointments([]))
+      .finally(() => setLoadingSlots(false));
+  }, [date, professionalId]);
+
+  const availableSlots = useMemo(() => {
+    if (!date) return [] as string[];
+    if (closedDates.some(item => String(item.date).slice(0, 10) === date)) return [] as string[];
+    const selectedDate = new Date(`${date}T12:00:00`);
+    const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const workDay = profileSchedule.find(item => item.dayKey === dayKeys[selectedDate.getDay()]);
+    if (!workDay?.active || !workDay.start || !workDay.end) return [] as string[];
+    const toMinutes = (value: string) => {
+      const [hours, minutes] = value.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    const formatMinutes = (value: number) => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+    const breaks = (workDay.breaks || (workDay.lunchStart ? [{ start: workDay.lunchStart, end: workDay.lunchEnd }] : []))
+      .filter((item: any) => item.start && item.end)
+      .map((item: any) => ({ start: toMinutes(item.start), end: toMinutes(item.end) }));
+    const duration = 50;
+    const occupied = dayAppointments
+      .filter(item => !['cancelled', 'rescheduled'].includes(item.status))
+      .map(item => {
+        const raw = String(item.start_time || item.appointment_date || '').replace(' ', 'T');
+        const start = new Date(raw && !raw.endsWith('Z') && !raw.includes('+') ? `${raw}Z` : raw);
+        return { start, end: new Date(start.getTime() + (Number(item.duration_minutes) || 50) * 60000) };
+      });
+    const slots: string[] = [];
+    const now = new Date();
+    for (let minute = toMinutes(workDay.start); minute + duration <= toMinutes(workDay.end); minute += 30) {
+      const slotTime = formatMinutes(minute);
+      const slotStart = new Date(`${date}T${slotTime}:00`);
+      const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+      const inBreak = breaks.some((pause: any) => minute < pause.end && minute + duration > pause.start);
+      const conflict = occupied.some(item => slotStart < item.end && slotEnd > item.start);
+      if (!inBreak && !conflict && slotStart > now) slots.push(slotTime);
+    }
+    return slots;
+  }, [date, profileSchedule, closedDates, dayAppointments]);
 
   const pendingComanda = (comandas || []).find(c => {
     const total = Number(c.total || 0);
@@ -3524,6 +3656,7 @@ const EndSummaryScreen: React.FC<{
     try {
       await api.post('/appointments', {
         patient_id: patientId,
+        professional_id: professionalId || undefined,
         start_time: `${date}T${time}:00`,
         duration_minutes: 50,
         title: 'Retorno',
@@ -3586,17 +3719,41 @@ const EndSummaryScreen: React.FC<{
           {scheduled ? (
             <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>Retorno agendado ✓</p>
           ) : (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
+            <>
+              <input type="date" value={date} onChange={e => { setDate(e.target.value); setManualTime(false); }} style={inputStyle} />
+              <div>
+                {loadingSlots ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#94a3b8', fontSize: 12 }}>
+                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Consultando agenda…
+                  </div>
+                ) : availableSlots.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7 }}>
+                    {availableSlots.map(slot => (
+                      <button
+                        key={slot}
+                        onClick={() => { setTime(slot); setManualTime(false); }}
+                        style={{ padding: '8px 4px', borderRadius: 9, border: `1px solid ${time === slot && !manualTime ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: time === slot && !manualTime ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12, color: '#f59e0b', margin: 0 }}>Não há horários livres configurados nesta data.</p>
+                )}
+                <button onClick={() => { setManualTime(true); setTime(''); }} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, color: '#a5b4fc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  + Criar horário fora da disponibilidade
+                </button>
+                {manualTime && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginTop: 8 }} />}
+              </div>
               <button
                 onClick={handleSchedule}
                 disabled={scheduling || !date || !time}
                 style={{ padding: "9px 16px", borderRadius: 10, border: "none", cursor: scheduling || !date || !time ? "not-allowed" : "pointer", background: scheduling || !date || !time ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
               >
-                Agendar
+                {scheduling ? 'Agendando…' : 'Agendar'}
               </button>
-            </div>
+            </>
           )}
         </div>
 
@@ -4058,6 +4215,7 @@ export const MeetingRoomLiveKit: React.FC<MeetingRoomLiveKitProps> = ({ isGuest:
     return (
       <EndSummaryScreen
         patientId={endSummary.patientId}
+        professionalId={user?.id}
         transcript={endSummary.transcript}
         onDone={() => navigate('/agenda')}
       />

@@ -1245,6 +1245,24 @@ async function migrate() {
       await conn.query(`ALTER TABLE room_sessions ADD COLUMN patient_id INT NULL`).catch(() => {});
   }
 
+  // ---- REGISTRO DE HUMOR/EMOÇÃO DA SESSÃO (preenchido pelo profissional) ----
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS patient_mood_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      patient_id INT NOT NULL,
+      professional_id INT NULL,
+      appointment_id INT NULL,
+      mood_score TINYINT NOT NULL,
+      emotions VARCHAR(255) NULL,
+      note TEXT NULL,
+      recorded_at DATETIME NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pml_patient (tenant_id, patient_id),
+      INDEX idx_pml_recorded (recorded_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   console.log('✅ Migração concluída com sucesso!');
   await conn.end();
 }

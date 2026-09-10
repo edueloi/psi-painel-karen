@@ -1132,4 +1132,51 @@ router.get('/:id/wellbeing/activities', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Registro de humor observado pelo profissional (sessão a sessão) ──────────
+router.get('/:id/mood-logs', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, mood_score, emotions, note, recorded_at, created_at
+       FROM patient_mood_logs WHERE patient_id = ? AND tenant_id = ? ORDER BY recorded_at DESC LIMIT 100`,
+      [req.params.id, req.user.tenant_id]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/mood-logs', async (req, res) => {
+  try {
+    const { mood_score, emotions, note, appointment_id } = req.body;
+    const score = Number(mood_score);
+    if (!score || score < 1 || score > 5) {
+      return res.status(400).json({ error: 'mood_score deve ser um número entre 1 e 5' });
+    }
+    const [result] = await db.query(
+      `INSERT INTO patient_mood_logs
+         (tenant_id, patient_id, professional_id, appointment_id, mood_score, emotions, note, recorded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        req.user.tenant_id,
+        req.params.id,
+        req.user.id,
+        appointment_id || null,
+        score,
+        Array.isArray(emotions) ? emotions.join(',') : (emotions || null),
+        note || null,
+      ]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/:id/mood-logs/:logId', async (req, res) => {
+  try {
+    await db.query(
+      `DELETE FROM patient_mood_logs WHERE id = ? AND patient_id = ? AND tenant_id = ?`,
+      [req.params.logId, req.params.id, req.user.tenant_id]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;
