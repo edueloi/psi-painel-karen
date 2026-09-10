@@ -2559,6 +2559,17 @@ const RoomInner: React.FC<{
   const micRotationRef = useRef(false);
   const [localMicCapturing, setLocalMicCapturing] = useState(false);
 
+  // Avisa o outro lado da chamada (via canal de dados do LiveKit) quando a
+  // transcrição do lado local falha — sem isso, um erro no microfone/áudio do
+  // paciente ficava visível só na tela dele, e o host nunca sabia que aquele
+  // trecho da sessão ficou sem transcrição.
+  const broadcastRecordProblem = useCallback((reason: string) => {
+    const payload = new TextEncoder().encode(JSON.stringify({
+      type: 'psi-record-error', reason, participantName,
+    }));
+    void localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+  }, [localParticipant, participantName]);
+
   const startMicOnlyCapture = useCallback(async () => {
     if (micOnlyRecorderRef.current && micOnlyRecorderRef.current.state !== 'inactive') return;
     try {
@@ -2577,10 +2588,12 @@ const RoomInner: React.FC<{
       setLocalMicCapturing(true);
       return true;
     } catch (err: any) {
-      setRecordingError(`Não foi possível capturar o microfone para transcrição: ${mediaErrorMessage(err)}`);
+      const message = `Não foi possível capturar o microfone para transcrição: ${mediaErrorMessage(err)}`;
+      setRecordingError(message);
+      if (!isHost) broadcastRecordProblem(`${participantName} está sem microfone disponível — a fala dele(a) não será transcrita.`);
       return false;
     }
-  }, [localParticipant]);
+  }, [localParticipant, isHost, participantName, broadcastRecordProblem]);
 
   const stopMicOnlyCaptureAndUpload = useCallback(async () => {
     const mr = micOnlyRecorderRef.current;
@@ -2656,10 +2669,15 @@ const RoomInner: React.FC<{
         setTimeout(() => setTranscriptDone(false), 5000);
       }
     } catch (err: any) {
-      setRecordingError(err?.message || 'Não foi possível transcrever este segmento.');
+      const message = err?.message || 'Não foi possível transcrever este segmento.';
+      setRecordingError(message);
+      // "Sem fala detectada" é o caso mais comum (silêncio, mic mudo) — sem isso
+      // o host nunca fica sabendo que um trecho da fala do paciente ficou de
+      // fora da transcrição/evolução gerada ao final.
+      if (!isHost) broadcastRecordProblem(`Um trecho da fala de ${participantName} não pôde ser transcrito: ${message}`);
     }
     setTranscribing(false);
-  }, [roomId, roomCode, isHost, participantName, guestAccessToken, preferences.sessions?.saveAudioRecording]);
+  }, [roomId, roomCode, isHost, participantName, guestAccessToken, preferences.sessions?.saveAudioRecording, broadcastRecordProblem]);
 
   // Sinaliza início/parada de transcrição pro outro lado via canal de dados do
   // LiveKit — reaproveita a conexão já existente, sem depender do backend antigo.
@@ -2684,6 +2702,21 @@ const RoomInner: React.FC<{
     room.on(RoomEvent.DataReceived, onData);
     return () => { room.off(RoomEvent.DataReceived, onData); };
   }, [isHost, room]);
+
+  // Avisa o host quando a transcrição do lado do paciente falha (mic sem
+  // permissão, ou trecho sem fala detectável) — sem isso, esses erros ficavam
+  // visíveis só na tela do próprio paciente.
+  useEffect(() => {
+    if (!isHost) return;
+    const onData = (payload: Uint8Array) => {
+      let message: any;
+      try { message = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
+      if (message?.type !== 'psi-record-error') return;
+      toastError('Falha na transcrição do paciente', message.reason || 'Um trecho da sessão pode ter ficado sem transcrição.');
+    };
+    room.on(RoomEvent.DataReceived, onData);
+    return () => { room.off(RoomEvent.DataReceived, onData); };
+  }, [isHost, room, toastError]);
 
   // Se a gravação já estiver ativa quando alguém entrar, envia o estado atual.
   // Sem isso o paciente admitido depois do clique em "Gravar" nunca iniciava a captura.
