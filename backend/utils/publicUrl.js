@@ -39,17 +39,17 @@ function extractHost(req) {
 
 function getFrontendUrl(req) {
   const host = extractHost(req);
-  return PAINEL_HOST_TO_PUBLIC_ROOT[host] || process.env.FRONTEND_URL || 'https://psiflux.com.br';
+  return PAINEL_HOST_TO_PUBLIC_ROOT[host] || process.env.FRONTEND_URL || 'https://plaelo.com.br';
 }
 
 function getPortalUrl(req) {
   const host = extractHost(req);
-  return PAINEL_HOST_TO_PORTAL_ROOT[host] || process.env.PORTAL_URL || 'https://portal.psiflux.com.br';
+  return PAINEL_HOST_TO_PORTAL_ROOT[host] || process.env.PORTAL_URL || 'https://portal.plaelo.com.br';
 }
 
 function getAppBaseUrl(req) {
   const host = extractHost(req);
-  return PAINEL_HOST_TO_APP_ROOT[host] || process.env.APP_BASE_URL || 'https://painel.psiflux.com.br';
+  return PAINEL_HOST_TO_APP_ROOT[host] || process.env.APP_BASE_URL || 'https://painel.plaelo.com.br';
 }
 
 module.exports = { getFrontendUrl, getPortalUrl, getAppBaseUrl };
