@@ -22,6 +22,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 
 const ProductPanel = () => (
   <aside className="login-product-panel" aria-hidden="true">
@@ -96,6 +97,14 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
   const navigate = useNavigate();
 
   const isDark = resolvedMode === 'dark';
+
+  // O login roda no domínio do painel (painel.plaelo.com.br), mas o site
+  // institucional vive no domínio raiz (plaelo.com.br) — navigate('/') do
+  // React Router só troca de rota dentro do próprio host, então precisa de
+  // uma navegação real de página pra sair do painel de volta ao site.
+  const goToPublicSite = () => {
+    window.location.href = getPublicBaseUrl();
+  };
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -1567,7 +1576,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           <button
             type="button"
             className="login-brand"
-            onClick={() => navigate('/')}
+            onClick={goToPublicSite}
             aria-label="Voltar para a página inicial da Plaelo"
           >
             <span className="login-brand-mark">
@@ -1579,7 +1588,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
           <button
             type="button"
             className="login-back"
-            onClick={() => navigate('/')}
+            onClick={goToPublicSite}
           >
             <ArrowLeft size={13} />
             <span>Voltar ao site</span>
@@ -1767,12 +1776,12 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
                     <Mail size={15} />
                     <input
                       className="login-input"
-                      type="email"
+                      type="text"
                       required
                       value={email}
                       onChange={event => setEmail(event.target.value)}
                       placeholder="seu@email.com"
-                      autoComplete="email"
+                      autoComplete="username"
                     />
                   </span>
                 </label>
