@@ -1,5 +1,21 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Calendar, TrendingUp, Users, ShieldCheck, ChevronLeft, Smartphone, AlertCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  FileText,
+  Lock,
+  Mail,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+} from 'lucide-react';
+
 import logoUrl from '../../images/logo-sistema/logo.png';
 import capaLogoUrl from '../../images/capa-logo.png';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -7,134 +23,79 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
-// ── Cartão flutuante genérico usado sobre a foto do painel ──────────────────
-const FloatingCard: React.FC<{
-  className?: string;
-  style?: React.CSSProperties;
-  children: React.ReactNode;
-}> = ({ className = '', style, children }) => (
-  <div
-    className={`absolute rounded-2xl bg-white shadow-[0_16px_40px_-12px_rgba(76,54,168,0.28)] border border-white/60 px-4 py-3.5 ${className}`}
-    style={style}
-  >
-    {children}
-  </div>
-);
-
-// Mini gráfico de barras usado no cartão "Agenda inteligente"
-const MiniBars = () => (
-  <div className="flex items-end gap-[3px] h-6">
-    {[6, 10, 8, 16, 12, 20, 15].map((h, i) => (
-      <div
-        key={i}
-        className="w-[3px] rounded-full"
-        style={{ height: h, background: i === 5 ? '#6D42F5' : 'rgba(109,66,245,0.28)' }}
-      />
-    ))}
-  </div>
-);
-
-// Mini sparkline usado no cartão "Financeiro"
-const MiniSparkline = () => (
-  <svg width="64" height="20" viewBox="0 0 64 20" fill="none">
-    <path
-      d="M1 16 L11 12 L21 14 L31 8 L41 9 L51 4 L63 2"
-      stroke="#22C55E"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-// ── Painel direito — foto real do painel full-bleed + cartões flutuantes ────
-// A própria foto já tem um fundo claro à esquerda, então ela cobre o painel
-// inteiro (sem tarja/gradiente por cima) e se funde com o branco do formulário.
-const PlaeloHeroPanel = () => (
-  <div className="hidden lg:block w-[52%] xl:w-[57%] 2xl:w-[60%] relative flex-shrink-0 overflow-hidden bg-[#FBFAFF]">
-    {/* Anel decorativo sutil sobre a área clara da foto */}
-    <div
-      className="absolute -top-20 -left-20 w-[380px] h-[380px] rounded-full pointer-events-none"
-      style={{ border: '1px solid rgba(109,66,245,0.14)', animation: 'plaeloSpin 70s linear infinite' }}
-    />
-
+const ProductPanel = () => (
+  <aside className="login-product-panel" aria-hidden="true">
     <img
       src={capaLogoUrl}
-      alt="Painel Plaelo em uso"
-      className="absolute inset-0 w-full h-full object-cover object-[68%_center] animate-[fadeIn_0.6s_ease-out]"
+      alt=""
+      className="login-product-photo"
     />
 
-    {/* Tarja inferior para legibilidade da frase de marca */}
-    <div
-      className="absolute inset-x-0 bottom-0 h-48 pointer-events-none"
-      style={{ background: 'linear-gradient(0deg, rgba(15,10,38,0.62) 0%, rgba(15,10,38,0) 100%)' }}
-    />
-    <div className="absolute left-8 right-8 bottom-8 xl:left-10 xl:right-10 xl:bottom-10">
-      <p className="font-display font-bold text-white leading-snug drop-shadow-sm max-w-md text-[clamp(1.15rem,0.75rem+1.1vw,1.5rem)]">
-        Sua clínica, organizada em um só lugar.
-      </p>
-      <p className="text-white/70 font-medium mt-1.5 tracking-wide text-[clamp(0.75rem,0.65rem+0.25vw,0.8125rem)]">
-        Agenda, prontuários e financeiro — tudo integrado.
-      </p>
+    <div className="login-product-overlay" />
+    <div className="login-product-grid" />
+
+    <div className="login-product-top">
+      <span className="login-product-kicker">
+        <Sparkles size={14} />
+        Plaelo para sua rotina
+      </span>
     </div>
 
-    {/* Cartão: Agenda inteligente */}
-    <FloatingCard
-      className="w-[218px]"
-      style={{ left: '6%', top: '8%', animation: 'plaeloFloat 5.5s ease-in-out infinite' }}
-    >
-      <div className="flex items-center gap-2 mb-2.5">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
-          <Calendar size={15} />
-        </div>
-        <span className="text-[13px] font-bold text-slate-700">Agenda inteligente</span>
-      </div>
-      <MiniBars />
-    </FloatingCard>
+    <div className="login-product-copy login-product-copy-v2">
+      <h2>
+        Menos gestão.
+        <span> Mais tempo para cuidar.</span>
+      </h2>
 
-    {/* Cartão: Financeiro */}
-    <FloatingCard
-      className="w-[188px]"
-      style={{ left: '4%', top: '25%', animation: 'plaeloFloat 6.2s ease-in-out infinite', animationDelay: '0.9s' }}
-    >
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(34,197,94,0.12)', color: '#16A34A' }}>
-          <TrendingUp size={13} />
-        </div>
-        <span className="text-[11px] font-bold text-slate-500">Financeiro</span>
-      </div>
-      <p className="text-[10px] text-slate-400 mb-0.5">Receitas do mês</p>
-      <div className="flex items-end justify-between gap-2">
-        <span className="text-[15px] font-extrabold text-slate-800 tracking-tight">R$ 18.240,00</span>
-      </div>
-      <div className="mt-1"><MiniSparkline /></div>
-    </FloatingCard>
+      <p>
+        Agenda, prontuário, financeiro, documentos, automações e Bia IA em
+        um único fluxo.
+      </p>
 
-    {/* Cartão: Pacientes ativos */}
-    <FloatingCard
-      className="w-[186px]"
-      style={{ left: '5%', top: '45%', animation: 'plaeloFloat 5.8s ease-in-out infinite', animationDelay: '1.6s' }}
-    >
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,66,245,0.12)', color: '#6D42F5' }}>
-          <Users size={13} />
-        </div>
-        <span className="text-[11px] font-bold text-slate-500">Pacientes ativos</span>
+      <div className="login-product-benefits">
+        <span>
+          <CheckCircle2 size={14} />
+          Tudo conectado
+        </span>
+        <span>
+          <ShieldCheck size={14} />
+          Privacidade em foco
+        </span>
       </div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-extrabold text-slate-800 tracking-tight">124</span>
-        <span className="text-[11px] font-bold text-emerald-500">+12%</span>
+    </div>
+
+    <div className="login-float-card login-float-ai-v2">
+      <span className="login-float-icon purple">
+        <Sparkles size={15} />
+      </span>
+      <div>
+        <strong>Bia IA</strong>
+        <small>Apoio dentro da própria plataforma</small>
       </div>
-    </FloatingCard>
-  </div>
+    </div>
+
+    <div className="login-float-card login-float-agenda-v2">
+      <span className="login-float-icon">
+        <Calendar size={15} />
+      </span>
+      <div>
+        <strong>Agenda organizada</strong>
+        <small>Atendimentos e lembretes no mesmo lugar</small>
+      </div>
+    </div>
+
+    <div className="login-product-footer">
+      <span>Feito para profissionais e clínicas de saúde mental.</span>
+    </div>
+  </aside>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 export const Login: React.FC<{ onLogin: () => void }> = () => {
   const { login, isAuthenticated } = useAuth();
   const { resolvedMode } = useTheme();
+  const navigate = useNavigate();
+
   const isDark = resolvedMode === 'dark';
-  const navigate  = useNavigate();
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -142,65 +103,78 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  // Trava o scroll do documento inteiro enquanto o login está montado — h-screen
-  // sozinho não é suficiente em todo navegador (arredondamento de vh com zoom/DPI
-  // do SO às vezes sobra 1px e cria uma barra de rolagem fantasma na página).
   React.useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
+
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+
     return () => {
       document.documentElement.style.overflow = prevHtmlOverflow;
       document.body.style.overflow = prevBodyOverflow;
     };
   }, []);
 
-  const [email, setEmail]             = useState(() => localStorage.getItem('psi_remembered_email') || '');
-  const [password, setPassword]       = useState('');
-  const [remember, setRemember]       = useState(() => !!localStorage.getItem('psi_remembered_email'));
-  const [showPass, setShowPass]       = useState(false);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState('');
-  const [forgot, setForgot]           = useState(false);
+  const [email, setEmail] = useState(
+    () => localStorage.getItem('psi_remembered_email') || '',
+  );
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(
+    () => !!localStorage.getItem('psi_remembered_email'),
+  );
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [forgot, setForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSent, setForgotSent]   = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
 
-  // 2FA States
-  const [is2FA, setIs2FA]             = useState(false);
+  const [is2FA, setIs2FA] = useState(false);
   const [twoFactorToken, setTwoFactorToken] = useState('');
-  const [tempUserId, setTempUserId]   = useState('');
+  const [tempUserId, setTempUserId] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
+    setIsSuspended(false);
+
     try {
-      const res = await api.post<any>('/auth/login', { email, password, remember });
+      const res = await api.post<any>('/auth/login', {
+        email,
+        password,
+        remember,
+      });
 
       if (res.requires_2fa) {
-          setTempUserId(res.userId);
-          setIs2FA(true);
-          setLoading(false);
-          return;
+        setTempUserId(res.userId);
+        setIs2FA(true);
+        setLoading(false);
+        return;
       }
 
-      if (remember) localStorage.setItem('psi_remembered_email', email);
-      else localStorage.removeItem('psi_remembered_email');
+      if (remember) {
+        localStorage.setItem('psi_remembered_email', email);
+      } else {
+        localStorage.removeItem('psi_remembered_email');
+      }
 
       login(res.token, remember);
       navigate('/dashboard');
     } catch (err: any) {
-      const msg = (err.message || '').toLowerCase();
-      const isBlocked = msg.includes('suspensa') ||
-                        msg.includes('desativada') ||
-                        msg.includes('inativa') ||
-                        msg.includes('clínica') ||
-                        msg.includes('forbidden') ||
-                        msg.includes('403');
+      const message = (err.message || '').toLowerCase();
 
-      if (isBlocked) {
+      const blocked =
+        message.includes('suspensa') ||
+        message.includes('desativada') ||
+        message.includes('inativa') ||
+        message.includes('clínica') ||
+        message.includes('forbidden') ||
+        message.includes('403');
+
+      if (blocked) {
         setIsSuspended(true);
       } else {
         setError(err.message || 'E-mail ou senha incorretos.');
@@ -210,31 +184,36 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     }
   };
 
-  const handle2FAVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handle2FAVerify = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
-    try {
-        const res = await api.post<any>('/auth/verify-2fa', {
-            userId: tempUserId,
-            token: twoFactorToken,
-            remember,
-        });
 
-        if (remember) localStorage.setItem('psi_remembered_email', email);
-        login(res.token, remember);
-        navigate('/dashboard');
+    try {
+      const res = await api.post<any>('/auth/verify-2fa', {
+        userId: tempUserId,
+        token: twoFactorToken,
+        remember,
+      });
+
+      if (remember) {
+        localStorage.setItem('psi_remembered_email', email);
+      }
+
+      login(res.token, remember);
+      navigate('/dashboard');
     } catch (err: any) {
-        setError(err.message || 'Código 2FA inválido ou expirado.');
+      setError(err.message || 'Código 2FA inválido ou expirado.');
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleForgot = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleForgot = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
+
     try {
       await api.post('/auth/forgot-password', { email: forgotEmail });
       setForgotSent(true);
@@ -245,338 +224,1653 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
     }
   };
 
-  // ── Shared input class ──────────────────────────────────────────────────────
-  const inputCls =
-    'w-full pl-11 pr-4 py-3.5 rounded-xl text-[15px] bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-200';
-
-  // ── Error banner ────────────────────────────────────────────────────────────
   const ErrorBanner = () =>
-    (error || isSuspended) ? (
-      <div className={`flex items-start gap-3 border text-sm px-4 py-3 rounded-xl mb-6 ${
-        isSuspended
-          ? 'bg-amber-50 border-amber-200 text-amber-700'
-          : 'bg-red-50 border-red-200 text-red-600'
-      }`}>
-        {isSuspended
-          ? <AlertCircle size={17} className="mt-0.5 flex-shrink-0" />
-          : <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-2 flex-shrink-0" />}
-        <p className={isSuspended ? 'font-medium' : ''}>
+    error || isSuspended ? (
+      <div className={`login-alert ${isSuspended ? 'warning' : 'error'}`}>
+        <span className="login-alert-icon">
+          <AlertCircle size={16} />
+        </span>
+
+        <p>
           {isSuspended
-            ? 'Sua conta ou clínica foi suspensa. Entre em contato com o suporte para regularizar seu acesso.'
+            ? 'Sua conta ou clínica está com o acesso suspenso. Entre em contato com o suporte para regularizar.'
             : error}
         </p>
       </div>
     ) : null;
 
   return (
-    <div className="h-screen w-full flex font-sans overflow-hidden">
+    <div className={`login-shell${isDark ? ' dark' : ''}`}>
       <style>{`
-        @keyframes plaeloFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+        *, *::before, *::after {
+          box-sizing: border-box;
         }
-        @keyframes plaeloSpin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+
+        .login-shell {
+          --login-bg: #FBFAFF;
+          --login-panel: #FFFFFF;
+          --login-text: #150F2E;
+          --login-muted: #746E88;
+          --login-border: #E7E2F7;
+          --login-input: #F8F6FF;
+          --login-accent: #6D42F5;
+          --login-ink: #120C2E;
+
+          width: 100%;
+          height: 100dvh;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: minmax(420px, 43%) minmax(0, 57%);
+          overflow: hidden;
+          color: var(--login-text);
+          background: var(--login-bg);
+          font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+        }
+
+        .login-shell.dark {
+          --login-bg: #100D1B;
+          --login-panel: #151120;
+          --login-text: #F5F2FF;
+          --login-muted: #A9A1BE;
+          --login-border: #2A2440;
+          --login-input: #1B1628;
+        }
+
+        .login-form-panel {
+          position: relative;
+          z-index: 2;
+          width: auto;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 15% 8%, rgba(109,66,245,.07), transparent 28%),
+            var(--login-panel);
+        }
+
+        .login-form-panel::after {
+          content: '';
+          position: absolute;
+          z-index: -1;
+          width: 290px;
+          height: 290px;
+          left: -130px;
+          bottom: 0;
+          border-radius: 50%;
+          background: rgba(109,66,245,.06);
+          filter: blur(55px);
+          pointer-events: none;
+        }
+
+        .login-topbar {
+          position: relative;
+          z-index: 1;
+          min-height: 68px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 12px clamp(20px,3vw,38px);
+        }
+
+        .login-brand {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          border: 0;
+          padding: 0;
+          color: var(--login-text);
+          background: none;
+          cursor: pointer;
+        }
+
+        .login-brand-mark {
+          width: 40px;
+          height: 40px;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          border: 1px solid var(--login-border);
+          border-radius: 12px;
+          background: #fff;
+          box-shadow: 0 8px 20px rgba(18,12,46,.07);
+        }
+
+        .login-brand-mark img {
+          width: 31px;
+          height: 31px;
+          object-fit: contain;
+        }
+
+        .login-brand strong {
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 17px;
+          letter-spacing: -.04em;
+        }
+
+        .login-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 11px;
+          border: 1px solid var(--login-border);
+          border-radius: 999px;
+          color: var(--login-muted);
+          background: rgba(255,255,255,.50);
+          font-size: 10.5px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .dark .login-back {
+          background: rgba(255,255,255,.03);
+        }
+
+        .login-form-wrap {
+          position: relative;
+          z-index: 1;
+          width: min(100% - 44px, 430px);
+          margin: auto;
+          padding: 14px 0 22px;
+        }
+
+        .login-heading {
+          margin-bottom: 20px;
+        }
+
+        .login-heading-kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 10px;
+          color: var(--login-accent);
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: .07em;
+          text-transform: uppercase;
+        }
+
+        .login-heading h1,
+        .login-heading h2 {
+          margin: 0;
+          color: var(--login-text);
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: clamp(27px,2.6vw,34px);
+          line-height: 1.08;
+          letter-spacing: -.045em;
+          font-weight: 800;
+        }
+
+        .login-heading p {
+          max-width: 390px;
+          margin: 8px 0 0;
+          color: var(--login-muted);
+          font-size: 12.5px;
+          line-height: 1.55;
+        }
+
+        .login-form {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .login-field {
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+        }
+
+        .login-field-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .login-label {
+          color: var(--login-muted);
+          font-size: 9.5px;
+          font-weight: 800;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+        }
+
+        .login-forgot {
+          padding: 0;
+          border: 0;
+          color: var(--login-accent);
+          background: none;
+          font-size: 10.5px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .login-input-wrap {
+          position: relative;
+        }
+
+        .login-input-wrap > svg {
+          position: absolute;
+          left: 15px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #9A93AC;
+          pointer-events: none;
+        }
+
+        .login-input {
+          width: 100%;
+          min-height: 46px;
+          padding: 0 45px;
+          border: 1px solid var(--login-border);
+          border-radius: 14px;
+          outline: 0;
+          color: var(--login-text);
+          background: var(--login-input);
+          font-size: 13px;
+          transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+        }
+
+        .login-input::placeholder {
+          color: #A39CB3;
+        }
+
+        .login-input:focus {
+          border-color: rgba(109,66,245,.55);
+          background: var(--login-panel);
+          box-shadow: 0 0 0 4px rgba(109,66,245,.08);
+        }
+
+        .login-show-password {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          transform: translateY(-50%);
+          border: 0;
+          border-radius: 9px;
+          color: #9A93AC;
+          background: transparent;
+          cursor: pointer;
+        }
+
+        .login-remember {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          color: var(--login-muted);
+          font-size: 11.5px;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .login-remember input {
+          position: absolute;
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .login-checkbox {
+          width: 19px;
+          height: 19px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          border: 1.5px solid #CFC8DE;
+          border-radius: 6px;
+          color: #fff;
+          background: var(--login-panel);
+          transition: .15s ease;
+        }
+
+        .login-checkbox.checked {
+          border-color: var(--login-accent);
+          background: var(--login-accent);
+          box-shadow: 0 4px 12px rgba(109,66,245,.20);
+        }
+
+        .login-submit {
+          width: 100%;
+          min-height: 51px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 2px;
+          border: 0;
+          border-radius: 999px;
+          color: #fff;
+          background:
+            linear-gradient(135deg, var(--login-ink) 0%, var(--login-accent) 100%);
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 12.5px;
+          font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 14px 30px rgba(109,66,245,.24);
+          transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+        }
+
+        .login-submit:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 38px rgba(109,66,245,.31);
+        }
+
+        .login-submit:disabled {
+          opacity: .58;
+          cursor: not-allowed;
+        }
+
+        .login-signup {
+          margin-top: 17px;
+          padding-top: 16px;
+          border-top: 1px solid var(--login-border);
+          text-align: center;
+        }
+
+        .login-trial {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 10px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          color: var(--login-accent);
+          background: rgba(109,66,245,.08);
+          font-size: 9.5px;
+          font-weight: 800;
+        }
+
+        .login-signup p {
+          margin: 0;
+          color: var(--login-muted);
+          font-size: 11.5px;
+        }
+
+        .login-signup button {
+          padding: 0;
+          border: 0;
+          color: var(--login-accent);
+          background: none;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .login-security {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 12px;
+          color: #A59DB5;
+          font-size: 9.5px;
+        }
+
+        .login-alert {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin-bottom: 20px;
+          padding: 12px 13px;
+          border: 1px solid;
+          border-radius: 13px;
+          font-size: 11px;
+          line-height: 1.55;
+        }
+
+        .login-alert.error {
+          border-color: #F6C7C7;
+          color: #B42318;
+          background: #FFF5F5;
+        }
+
+        .login-alert.warning {
+          border-color: #F3D7A5;
+          color: #9A6700;
+          background: #FFF9EB;
+        }
+
+        .login-alert-icon {
+          margin-top: 1px;
+          flex-shrink: 0;
+        }
+
+        .login-alert p {
+          margin: 0;
+        }
+
+        .login-return {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          margin-bottom: 25px;
+          padding: 0;
+          border: 0;
+          color: var(--login-muted);
+          background: none;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .login-success {
+          padding: 18px 0 8px;
+          text-align: center;
+        }
+
+        .login-success-icon,
+        .login-2fa-icon {
+          width: 58px;
+          height: 58px;
+          display: grid;
+          place-items: center;
+          margin: 0 auto 18px;
+          border-radius: 18px;
+          color: #fff;
+          background: linear-gradient(135deg, var(--login-ink), var(--login-accent));
+          box-shadow: 0 14px 30px rgba(109,66,245,.22);
+        }
+
+        .login-success h2 {
+          margin: 0;
+          color: var(--login-text);
+          font-size: 24px;
+        }
+
+        .login-success p {
+          max-width: 340px;
+          margin: 10px auto 20px;
+          color: var(--login-muted);
+          font-size: 12px;
+          line-height: 1.65;
+        }
+
+        .login-success button {
+          border: 0;
+          color: var(--login-accent);
+          background: none;
+          font-size: 11.5px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .login-2fa-icon {
+          margin-left: 0;
+        }
+
+        .login-2fa-input {
+          width: 100%;
+          min-height: 58px;
+          padding: 0 16px;
+          border: 1px solid var(--login-border);
+          border-radius: 14px;
+          outline: 0;
+          color: var(--login-accent);
+          background: var(--login-input);
+          font-size: 24px;
+          font-weight: 800;
+          letter-spacing: .32em;
+          text-align: center;
+        }
+
+        .login-2fa-input:focus {
+          border-color: rgba(109,66,245,.55);
+          box-shadow: 0 0 0 4px rgba(109,66,245,.08);
+        }
+
+        /* Product panel */
+        .login-product-panel {
+          position: relative;
+          width: auto;
+          min-width: 0;
+          overflow: hidden;
+          color: #fff;
+          background:
+            radial-gradient(circle at 78% 14%, rgba(109,66,245,.34), transparent 30%),
+            radial-gradient(circle at 18% 88%, rgba(18,183,106,.08), transparent 26%),
+            linear-gradient(135deg, #0B0723 0%, #130D35 50%, #251966 100%);
+        }
+
+        .login-product-grid {
+          position: absolute;
+          inset: 0;
+          opacity: .18;
+          background-image:
+            linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+          background-size: 48px 48px;
+          mask-image: linear-gradient(to bottom, #000, transparent 90%);
+          pointer-events: none;
+        }
+
+        .login-product-glow {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(70px);
+          pointer-events: none;
+        }
+
+        .login-product-glow-a {
+          width: 360px;
+          height: 360px;
+          right: 2%;
+          top: -130px;
+          background: rgba(139,92,246,.26);
+        }
+
+        .login-product-glow-b {
+          width: 280px;
+          height: 280px;
+          left: -80px;
+          bottom: -110px;
+          background: rgba(18,183,106,.08);
+        }
+
+        .login-product-copy {
+          position: absolute;
+          z-index: 2;
+          left: clamp(34px,5vw,72px);
+          top: clamp(48px,7vh,78px);
+          max-width: 560px;
+        }
+
+        .login-product-kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          color: #C9B9FF;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .07em;
+          text-transform: uppercase;
+        }
+
+        .login-product-copy h2 {
+          max-width: 560px;
+          margin: 14px 0 0;
+          color: #fff;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: clamp(31px,3.5vw,50px);
+          line-height: 1.03;
+          letter-spacing: -.05em;
+          font-weight: 800;
+        }
+
+        .login-product-copy h2 span {
+          color: #BCA9FF;
+        }
+
+        .login-product-copy p {
+          max-width: 500px;
+          margin: 15px 0 0;
+          color: rgba(255,255,255,.58);
+          font-size: 12.5px;
+          line-height: 1.7;
+        }
+
+        .login-product-stage {
+          position: absolute;
+          z-index: 2;
+          left: clamp(34px,5vw,72px);
+          right: clamp(30px,4vw,62px);
+          top: 38%;
+          bottom: 76px;
+          min-height: 330px;
+        }
+
+        .login-product-window {
+          position: absolute;
+          left: 4%;
+          right: 1%;
+          bottom: 0;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,.16);
+          border-radius: 24px;
+          background: #fff;
+          box-shadow: 0 38px 100px rgba(0,0,0,.34);
+          transform: perspective(1400px) rotateY(-3deg) rotateX(1deg);
+        }
+
+        .login-product-window-top {
+          min-height: 47px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          padding: 10px 14px;
+          border-bottom: 1px solid #E9E4F5;
+          background: #FBFAFF;
+        }
+
+        .login-product-brand {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #150F2E;
+          font-size: 10px;
+        }
+
+        .login-product-brand img {
+          width: 23px;
+          height: 23px;
+          object-fit: contain;
+        }
+
+        .login-product-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: #746E88;
+          font-size: 8.5px;
+          font-weight: 700;
+        }
+
+        .login-product-status i {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #12B76A;
+          box-shadow: 0 0 0 4px rgba(18,183,106,.10);
+        }
+
+        .login-product-window-body {
+          display: grid;
+          grid-template-columns: 62px 1fr;
+          min-height: 280px;
+        }
+
+        .login-product-sidebar {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          padding: 15px 8px;
+          border-right: 1px solid #E9E4F5;
+          background: #FAF9FF;
+        }
+
+        .login-product-sidebar span {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border-radius: 10px;
+          color: #807A94;
+        }
+
+        .login-product-sidebar span.active {
+          color: #6D42F5;
+          background: #EFE9FF;
+        }
+
+        .login-product-preview {
+          position: relative;
+          min-height: 280px;
+          overflow: hidden;
+          background: #F6F3FF;
+        }
+
+        .login-product-preview img {
+          width: 100%;
+          height: 100%;
+          min-height: 280px;
+          display: block;
+          object-fit: cover;
+          object-position: center;
+          opacity: .94;
+        }
+
+        .login-product-preview::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(180deg, transparent 48%, rgba(12,8,37,.50) 100%);
+          pointer-events: none;
+        }
+
+        .login-product-preview-overlay {
+          position: absolute;
+          z-index: 2;
+          left: 20px;
+          bottom: 18px;
+        }
+
+        .login-product-preview-overlay span,
+        .login-product-preview-overlay strong {
+          display: block;
+        }
+
+        .login-product-preview-overlay span {
+          color: rgba(255,255,255,.64);
+          font-size: 8.5px;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+        }
+
+        .login-product-preview-overlay strong {
+          margin-top: 3px;
+          color: #fff;
+          font-size: 13px;
+        }
+
+        .login-float-card {
+          position: absolute;
+          z-index: 4;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          min-width: 190px;
+          padding: 10px 12px;
+          border: 1px solid rgba(255,255,255,.78);
+          border-radius: 14px;
+          background: rgba(255,255,255,.96);
+          box-shadow: 0 18px 44px rgba(0,0,0,.22);
+          backdrop-filter: blur(12px);
+        }
+
+        .login-float-card strong,
+        .login-float-card small {
+          display: block;
+        }
+
+        .login-float-card strong {
+          color: #150F2E;
+          font-size: 9.5px;
+        }
+
+        .login-float-card small {
+          margin-top: 2px;
+          color: #746E88;
+          font-size: 7.8px;
+        }
+
+        .login-float-icon {
+          width: 31px;
+          height: 31px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          border-radius: 9px;
+          color: #6D42F5;
+          background: #EFE9FF;
+        }
+
+        .login-float-icon.green {
+          color: #0D9155;
+          background: #E4F8EE;
+        }
+
+        .login-float-icon.purple {
+          color: #7B55F6;
+          background: #F0EAFF;
+        }
+
+        .login-float-agenda {
+          left: 0;
+          top: 3%;
+        }
+
+        .login-float-ai {
+          right: -8px;
+          top: 26%;
+        }
+
+        .login-float-security {
+          left: 8%;
+          bottom: -16px;
+        }
+
+        .login-product-footer {
+          position: absolute;
+          z-index: 2;
+          left: clamp(34px,5vw,72px);
+          bottom: 28px;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          color: rgba(255,255,255,.40);
+          font-size: 9.5px;
+        }
+
+        .login-product-footer svg {
+          color: #6EE7B7;
+        }
+
+
+        /* V2 — painel visual mais limpo e fotográfico */
+        .login-form-panel {
+          width: auto;
+          min-width: 0;
+          background:
+            radial-gradient(circle at 12% 8%, rgba(109,66,245,.055), transparent 26%),
+            #fff;
+        }
+
+        .dark .login-form-panel {
+          background:
+            radial-gradient(circle at 12% 8%, rgba(109,66,245,.07), transparent 26%),
+            var(--login-panel);
+        }
+
+        .login-form-wrap {
+          width: min(100% - 44px, 430px);
+          padding-top: 8px;
+        }
+
+        .login-heading {
+          margin-bottom: 24px;
+        }
+
+        .login-heading h1,
+        .login-heading h2 {
+          font-size: clamp(27px,2.5vw,34px);
+        }
+
+        .login-product-panel {
+          width: auto;
+          position: relative;
+          isolation: isolate;
+          overflow: hidden;
+          background: #120C2E;
+        }
+
+        .login-product-photo {
+          position: absolute;
+          inset: 0;
+          z-index: -4;
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+          object-position: 67% center;
+          transform: scale(1.015);
+        }
+
+        .login-product-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: -3;
+          background:
+            linear-gradient(
+              90deg,
+              rgba(10,6,31,.88) 0%,
+              rgba(14,8,39,.72) 24%,
+              rgba(14,8,39,.30) 55%,
+              rgba(14,8,39,.10) 100%
+            ),
+            linear-gradient(
+              0deg,
+              rgba(9,5,29,.84) 0%,
+              rgba(9,5,29,.20) 48%,
+              rgba(9,5,29,.22) 100%
+            );
+        }
+
+        .login-product-grid {
+          z-index: -2;
+          opacity: .09;
+          background-size: 54px 54px;
+        }
+
+        .login-product-glow,
+        .login-product-stage {
+          display: none;
+        }
+
+        .login-product-top {
+          position: absolute;
+          left: clamp(38px,5vw,74px);
+          top: clamp(46px,6vh,70px);
+          z-index: 3;
+        }
+
+        .login-product-kicker {
+          padding: 7px 11px;
+          border: 1px solid rgba(255,255,255,.13);
+          border-radius: 999px;
+          color: #E3DBFF;
+          background: rgba(20,13,54,.34);
+          backdrop-filter: blur(12px);
+        }
+
+        .login-product-copy-v2 {
+          position: absolute;
+          z-index: 3;
+          left: clamp(38px,5vw,74px);
+          right: clamp(34px,4vw,64px);
+          top: auto;
+          bottom: clamp(52px,7vh,78px);
+          max-width: 520px;
+        }
+
+        .login-product-copy-v2 h2 {
+          max-width: 560px;
+          margin: 0;
+          color: #fff;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: clamp(34px,3.5vw,50px);
+          line-height: 1.01;
+          letter-spacing: -.055em;
+          font-weight: 800;
+          text-wrap: balance;
+          text-shadow: 0 4px 24px rgba(0,0,0,.20);
+        }
+
+        .login-product-copy-v2 h2 span {
+          color: #C4B5FD;
+        }
+
+        .login-product-copy-v2 p {
+          max-width: 500px;
+          margin: 12px 0 0;
+          color: rgba(255,255,255,.72);
+          font-size: 12px;
+          line-height: 1.6;
+          text-shadow: 0 2px 16px rgba(0,0,0,.18);
+        }
+
+        .login-product-benefits {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px 14px;
+          margin-top: 14px;
+        }
+
+        .login-product-benefits span {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: rgba(255,255,255,.72);
+          font-size: 10.5px;
+          font-weight: 700;
+        }
+
+        .login-product-benefits svg {
+          color: #77E2AD;
+        }
+
+        .login-float-card {
+          min-width: 0;
+          max-width: 250px;
+          padding: 10px 12px;
+          border-color: rgba(255,255,255,.72);
+          background: rgba(255,255,255,.93);
+          box-shadow: 0 18px 40px rgba(0,0,0,.20);
+        }
+
+        .login-float-ai-v2 {
+          top: 18%;
+          right: clamp(26px,3vw,48px);
+        }
+
+        .login-float-agenda-v2 {
+          top: 39%;
+          left: clamp(24px,4vw,56px);
+        }
+
+        .login-product-footer {
+          left: auto;
+          right: clamp(28px,4vw,58px);
+          bottom: 24px;
+          color: rgba(255,255,255,.42);
+          font-size: 9px;
+        }
+
+        .login-submit {
+          min-height: 48px;
+        }
+
+        .login-signup {
+          margin-top: 16px;
+          padding-top: 15px;
+        }
+
+        /* Notebook / telas com pouca altura */
+        @media (min-width: 1001px) and (max-height: 900px) {
+          .login-topbar {
+            min-height: 60px;
+            padding-top: 9px;
+            padding-bottom: 9px;
+          }
+
+          .login-brand-mark {
+            width: 36px;
+            height: 36px;
+          }
+
+          .login-brand-mark img {
+            width: 28px;
+            height: 28px;
+          }
+
+          .login-brand strong {
+            font-size: 16px;
+          }
+
+          .login-form-wrap {
+            width: min(100% - 40px, 410px);
+            padding: 8px 0 14px;
+          }
+
+          .login-heading {
+            margin-bottom: 15px;
+          }
+
+          .login-heading-kicker {
+            margin-bottom: 7px;
+            font-size: 9.5px;
+          }
+
+          .login-heading h1,
+          .login-heading h2 {
+            font-size: clamp(25px,2.25vw,31px);
+          }
+
+          .login-heading p {
+            margin-top: 6px;
+            font-size: 11.5px;
+            line-height: 1.5;
+          }
+
+          .login-form {
+            gap: 11px;
+          }
+
+          .login-field {
+            gap: 5px;
+          }
+
+          .login-label,
+          .login-forgot {
+            font-size: 9px;
+          }
+
+          .login-input {
+            min-height: 43px;
+            font-size: 12px;
+          }
+
+          .login-remember {
+            font-size: 10.5px;
+          }
+
+          .login-checkbox {
+            width: 17px;
+            height: 17px;
+          }
+
+          .login-submit {
+            min-height: 44px;
+          }
+
+          .login-signup {
+            margin-top: 13px;
+            padding-top: 12px;
+          }
+
+          .login-trial {
+            margin-bottom: 7px;
+            padding: 5px 9px;
+            font-size: 8.8px;
+          }
+
+          .login-signup p {
+            font-size: 10.5px;
+          }
+
+          .login-security {
+            margin-top: 9px;
+            font-size: 8.8px;
+          }
+
+          .login-product-top {
+            left: 34px;
+            top: 34px;
+          }
+
+          .login-product-kicker {
+            padding: 6px 10px;
+            font-size: 9px;
+          }
+
+          .login-product-copy-v2 {
+            left: 34px;
+            right: 30px;
+            bottom: 44px;
+            max-width: 470px;
+          }
+
+          .login-product-copy-v2 h2 {
+            font-size: clamp(31px,3vw,44px);
+          }
+
+          .login-product-copy-v2 p {
+            margin-top: 9px;
+            font-size: 11px;
+          }
+
+          .login-product-benefits {
+            margin-top: 11px;
+          }
+
+          .login-product-benefits span {
+            font-size: 9.5px;
+          }
+
+          .login-float-card {
+            transform: scale(.90);
+          }
+
+          .login-float-ai-v2 {
+            top: 18%;
+            right: 18px;
+            transform-origin: right top;
+          }
+
+          .login-float-agenda-v2 {
+            top: 39%;
+            left: 18px;
+            transform-origin: left top;
+          }
+
+          .login-product-footer {
+            bottom: 18px;
+            right: 24px;
+            font-size: 8px;
+          }
+        }
+
+        @media (min-width: 1001px) and (max-height: 760px) {
+          .login-float-card {
+            display: none;
+          }
+
+          .login-product-copy-v2 {
+            bottom: 30px;
+          }
+
+          .login-product-copy-v2 h2 {
+            font-size: clamp(29px,2.7vw,39px);
+          }
+
+          .login-product-copy-v2 p {
+            max-width: 430px;
+            font-size: 10.5px;
+          }
+
+          .login-form-wrap {
+            padding-top: 4px;
+            padding-bottom: 8px;
+          }
+
+          .login-heading {
+            margin-bottom: 12px;
+          }
+
+          .login-form {
+            gap: 9px;
+          }
+
+          .login-signup {
+            margin-top: 10px;
+            padding-top: 10px;
+          }
+        }
+
+        /* Reduz a divisão antes de virar layout único */
+        @media (max-width: 1240px) {
+          .login-shell {
+            grid-template-columns: minmax(400px, 47%) minmax(0,53%);
+          }
+
+          .login-product-copy-v2,
+          .login-product-top {
+            left: 30px;
+          }
+
+          .login-product-copy-v2 {
+            right: 26px;
+          }
+        }
+
+        /* Tablet / notebook estreito: remove o painel visual e centraliza o acesso */
+        @media (max-width: 1000px) {
+          .login-shell {
+            display: block;
+            height: 100dvh;
+            overflow: hidden;
+          }
+
+          .login-product-panel {
+            display: none;
+          }
+
+          .login-form-panel {
+            width: 100%;
+            height: 100dvh;
+            min-width: 0;
+          }
+
+          .login-form-wrap {
+            width: min(100% - 36px, 430px);
+          }
+
+          .login-topbar {
+            padding-left: 22px;
+            padding-right: 22px;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .login-topbar {
+            min-height: 62px;
+            padding: 10px 14px;
+          }
+
+          .login-brand-mark {
+            width: 36px;
+            height: 36px;
+          }
+
+          .login-brand-mark img {
+            width: 28px;
+            height: 28px;
+          }
+
+          .login-brand strong {
+            font-size: 15px;
+          }
+
+          .login-back {
+            padding: 7px 9px;
+          }
+
+          .login-back span {
+            display: none;
+          }
+
+          .login-form-wrap {
+            width: min(100% - 24px, 430px);
+            padding-top: 6px;
+            padding-bottom: 12px;
+          }
+
+          .login-heading {
+            margin-bottom: 16px;
+          }
+
+          .login-heading h1,
+          .login-heading h2 {
+            font-size: 27px;
+          }
+
+          .login-heading p {
+            font-size: 11.5px;
+          }
+
+          .login-form {
+            gap: 12px;
+          }
+
+          .login-input {
+            min-height: 44px;
+          }
+
+          .login-submit {
+            min-height: 46px;
+          }
+
+          .login-signup {
+            margin-top: 13px;
+            padding-top: 12px;
+          }
+        }
+
+        @media (max-width: 1000px) and (max-height: 650px) {
+          .login-heading p,
+          .login-security {
+            display: none;
+          }
+
+          .login-heading {
+            margin-bottom: 12px;
+          }
+
+          .login-form-wrap {
+            padding-top: 2px;
+            padding-bottom: 8px;
+          }
+
+          .login-signup {
+            margin-top: 10px;
+            padding-top: 9px;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            transition-duration: .01ms !important;
+            animation-duration: .01ms !important;
+          }
         }
       `}</style>
 
-      {/* ── LEFT PANEL — formulário ───────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center bg-white overflow-y-auto overflow-x-hidden px-[clamp(1.5rem,5vw,5rem)] py-[clamp(1.5rem,4vh,2.5rem)] relative z-10 lg:min-w-[420px]">
-        {/* Manchas decorativas sutis — dão vida ao painel quando a foto some (tablet/mobile) */}
-        <div
-          className="absolute -top-24 -right-24 w-[340px] h-[340px] rounded-full pointer-events-none blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(109,66,245,0.10), transparent 70%)' }}
-        />
-        <div
-          className="absolute -bottom-28 -left-20 w-[300px] h-[300px] rounded-full pointer-events-none blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(109,66,245,0.07), transparent 70%)' }}
-        />
+      <section className="login-form-panel">
+        <div className="login-topbar">
+          <button
+            type="button"
+            className="login-brand"
+            onClick={() => navigate('/')}
+            aria-label="Voltar para a página inicial da Plaelo"
+          >
+            <span className="login-brand-mark">
+              <img src={logoUrl} alt="" />
+            </span>
+            <strong>Plaelo</strong>
+          </button>
 
-        <div className="w-full max-w-[min(430px,100%)] relative">
+          <button
+            type="button"
+            className="login-back"
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft size={13} />
+            <span>Voltar ao site</span>
+          </button>
+        </div>
 
-
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8 lg:mb-10 animate-[fadeIn_0.4s_ease-out]">
-            <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-indigo-100 shadow-lg bg-white p-2">
-              <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
-            </div>
-            <div>
-              <h1 className="font-black text-[clamp(1.25rem,1rem+0.7vw,1.5rem)] leading-none tracking-tight" style={{ color: '#1e295b' }}>Plaelo</h1>
-              <p className="text-[12px] font-medium mt-1 text-slate-400">Conectando cuidado e gestão.</p>
-            </div>
-          </div>
-
-          {/* ── FORGOT PASSWORD ── */}
+        <div className="login-form-wrap">
           {forgot ? (
-            <div className="animate-[fadeIn_0.4s_ease-out]">
+            <>
               <button
-                onClick={() => { setForgot(false); setForgotSent(false); setForgotEmail(''); setError(''); }}
-                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-8 transition-colors"
+                type="button"
+                className="login-return"
+                onClick={() => {
+                  setForgot(false);
+                  setForgotSent(false);
+                  setForgotEmail('');
+                  setError('');
+                }}
               >
-                <ChevronLeft size={15} /> Voltar ao login
+                <ChevronLeft size={14} />
+                Voltar ao login
               </button>
 
               {forgotSent ? (
-                <div className="text-center py-4">
-                  <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                    style={{ background: 'linear-gradient(135deg, #120C2E, #6D42F5)' }}
-                  >
-                    <Mail size={26} className="text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">E-mail enviado!</h2>
-                  <p className="text-slate-500 text-sm max-w-xs mx-auto mb-6 leading-relaxed">
-                    Verifique sua caixa de entrada em{' '}
-                    <span className="font-semibold text-slate-700">{forgotEmail}</span>{' '}
+                <div className="login-success">
+                  <span className="login-success-icon">
+                    <Mail size={24} />
+                  </span>
+
+                  <h2>E-mail enviado</h2>
+
+                  <p>
+                    Verifique sua caixa de entrada em <strong>{forgotEmail}</strong>{' '}
                     e siga as instruções para redefinir sua senha.
                   </p>
+
                   <button
-                    onClick={() => { setForgot(false); setForgotSent(false); setError(''); }}
-                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition hover:underline"
+                    type="button"
+                    onClick={() => {
+                      setForgot(false);
+                      setForgotSent(false);
+                      setError('');
+                    }}
                   >
                     Voltar ao login
                   </button>
                 </div>
               ) : (
                 <>
-                  <h2 className="text-[26px] font-bold text-slate-900 tracking-tight mb-1">Recuperar senha</h2>
-                  <p className="text-slate-400 text-sm mb-8">Informe seu e-mail e enviaremos as instruções.</p>
+                  <div className="login-heading">
+                    <span className="login-heading-kicker">
+                      <Mail size={13} />
+                      Recuperação de acesso
+                    </span>
+                    <h2>Vamos ajudar você a recuperar sua senha.</h2>
+                    <p>
+                      Informe o e-mail cadastrado e enviaremos as instruções para
+                      redefinição.
+                    </p>
+                  </div>
+
                   <ErrorBanner />
-                  <form onSubmit={handleForgot} className="space-y-5">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                        E-mail cadastrado
-                      </label>
-                      <div className="relative">
-                        <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+
+                  <form className="login-form" onSubmit={handleForgot}>
+                    <label className="login-field">
+                      <span className="login-label">E-mail cadastrado</span>
+
+                      <span className="login-input-wrap">
+                        <Mail size={15} />
                         <input
+                          className="login-input"
                           type="email"
                           required
                           value={forgotEmail}
-                          onChange={e => setForgotEmail(e.target.value)}
+                          onChange={event => setForgotEmail(event.target.value)}
                           placeholder="seu@email.com"
-                          className={inputCls}
                         />
-                      </div>
-                    </div>
+                      </span>
+                    </label>
+
                     <button
                       type="submit"
+                      className="login-submit"
                       disabled={loading}
-                      className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 active:scale-[0.99]"
-                      style={{
-                        background: 'linear-gradient(135deg, #120C2E 0%, #6D42F5 100%)',
-                        boxShadow: '0 8px 24px rgba(109,66,245,0.35)',
-                      }}
                     >
-                      {loading ? <><Loader2 size={15} className="animate-spin" /> Enviando...</> : 'Enviar instruções'}
+                      {loading ? (
+                        <>
+                          <span>Enviando...</span>
+                        </>
+                      ) : (
+                        <>
+                          Enviar instruções
+                          <ArrowRight size={15} />
+                        </>
+                      )}
                     </button>
                   </form>
                 </>
               )}
-            </div>
-
-          /* ── 2FA ── */
+            </>
           ) : is2FA ? (
-            <div className="animate-[fadeIn_0.4s_ease-out]">
+            <>
               <button
-                onClick={() => { setIs2FA(false); setTwoFactorToken(''); setError(''); }}
-                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-700 text-sm mb-8 transition-colors"
+                type="button"
+                className="login-return"
+                onClick={() => {
+                  setIs2FA(false);
+                  setTwoFactorToken('');
+                  setError('');
+                }}
               >
-                <ChevronLeft size={15} /> Voltar
+                <ChevronLeft size={14} />
+                Voltar
               </button>
 
-              <div className="mb-8">
-                <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-                  style={{ background: 'linear-gradient(135deg, #120C2E, #6D42F5)', boxShadow: '0 8px 24px rgba(18,12,46,0.35)' }}
-                >
-                  <ShieldCheck size={30} className="text-white" />
-                </div>
-                <h2 className="text-[26px] font-bold text-slate-900 tracking-tight mb-1.5">
-                  Verificação de Segurança
-                </h2>
-                <p className="text-slate-400 text-sm leading-relaxed">
-                  Insira o código de 6 dígitos gerado pelo seu aplicativo autenticador.
+              <span className="login-2fa-icon">
+                <ShieldCheck size={27} />
+              </span>
+
+              <div className="login-heading">
+                <span className="login-heading-kicker">
+                  <ShieldCheck size={13} />
+                  Segurança
+                </span>
+
+                <h2>Confirme sua identidade.</h2>
+
+                <p>
+                  Digite o código de 6 dígitos gerado pelo seu aplicativo
+                  autenticador.
                 </p>
               </div>
 
               <ErrorBanner />
 
-              <form onSubmit={handle2FAVerify} className="space-y-6">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    Código de Autenticação
-                  </label>
-                  <div className="relative">
-                    <Smartphone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <form className="login-form" onSubmit={handle2FAVerify}>
+                <label className="login-field">
+                  <span className="login-label">Código de autenticação</span>
+
+                  <span className="login-input-wrap">
+                    <Smartphone size={15} />
                     <input
+                      className="login-2fa-input"
                       type="text"
                       required
                       maxLength={6}
                       value={twoFactorToken}
-                      onChange={e => setTwoFactorToken(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="000 000"
+                      onChange={event =>
+                        setTwoFactorToken(
+                          event.target.value.replace(/[^0-9]/g, ''),
+                        )
+                      }
+                      placeholder="000000"
                       autoFocus
-                      className="w-full pl-11 pr-4 py-4 rounded-xl text-2xl font-black tracking-[0.35em] bg-slate-50 border border-slate-200 text-indigo-600 placeholder:text-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition text-center"
                     />
-                  </div>
-                </div>
+                  </span>
+                </label>
 
                 <button
                   type="submit"
+                  className="login-submit"
                   disabled={loading || twoFactorToken.length < 6}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
-                  style={{
-                    background: 'linear-gradient(135deg, #120C2E 0%, #6D42F5 100%)',
-                    boxShadow: '0 8px 24px rgba(109,66,245,0.35)',
-                  }}
                 >
-                  {loading
-                    ? <><Loader2 size={15} className="animate-spin" /> Verificando...</>
-                    : <>Confirmar e Entrar <ArrowRight size={15} /></>}
+                  {loading ? (
+                    'Verificando...'
+                  ) : (
+                    <>
+                      Confirmar e entrar
+                      <ArrowRight size={15} />
+                    </>
+                  )}
                 </button>
               </form>
-            </div>
-
-          /* ── MAIN LOGIN ── */
+            </>
           ) : (
             <>
-              <div className="mb-7 lg:mb-8 animate-[fadeIn_0.4s_ease-out]">
-                <p className="text-slate-500 font-medium text-[clamp(0.9375rem,0.85rem+0.3vw,1.0625rem)] leading-relaxed">
-                  Entre com suas credenciais para acessar o painel.
-                </p>
-              </div>
 
               <ErrorBanner />
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Email */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">E-mail</label>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <form className="login-form" onSubmit={handleSubmit}>
+                <label className="login-field">
+                  <span className="login-label">E-mail</span>
+
+                  <span className="login-input-wrap">
+                    <Mail size={15} />
                     <input
-                      type="text"
+                      className="login-input"
+                      type="email"
                       required
                       value={email}
-                      onChange={e => setEmail(e.target.value)}
+                      onChange={event => setEmail(event.target.value)}
                       placeholder="seu@email.com"
-                      className={inputCls}
+                      autoComplete="email"
                     />
-                  </div>
-                </div>
+                  </span>
+                </label>
 
-                {/* Password */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Senha</label>
+                <label className="login-field">
+                  <span className="login-field-row">
+                    <span className="login-label">Senha</span>
+
                     <button
                       type="button"
-                      onClick={() => setForgot(true)}
-                      className="text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 transition hover:underline"
+                      className="login-forgot"
+                      onClick={() => {
+                        setForgot(true);
+                        setForgotEmail(email);
+                        setError('');
+                      }}
                     >
                       Esqueci minha senha
                     </button>
-                  </div>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </span>
+
+                  <span className="login-input-wrap">
+                    <Lock size={15} />
                     <input
+                      className="login-input"
                       type={showPass ? 'text' : 'password'}
                       required
                       value={password}
-                      onChange={e => setPassword(e.target.value)}
+                      onChange={event => setPassword(event.target.value)}
                       placeholder="••••••••"
-                      className={`${inputCls} pr-11`}
+                      autoComplete="current-password"
                     />
+
                     <button
                       type="button"
-                      onClick={() => setShowPass(!showPass)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                      className="login-show-password"
+                      onClick={() => setShowPass(current => !current)}
+                      aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'}
                     >
                       {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
-                  </div>
-                </div>
-
-                {/* Remember me */}
-                <label className="flex items-center gap-3 cursor-pointer select-none group">
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={remember}
-                    onChange={e => setRemember(e.target.checked)}
-                  />
-                  <div
-                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
-                      remember ? 'border-indigo-600' : 'bg-white border-slate-300 group-hover:border-indigo-400'
-                    }`}
-                    style={remember ? { background: 'linear-gradient(135deg, #120C2E, #6D42F5)' } : {}}
-                  >
-                    {remember && (
-                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                        <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className="text-[14px] text-slate-600">Lembrar-me neste dispositivo</span>
+                  </span>
                 </label>
 
-                {/* Submit */}
+                <label className="login-remember">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={event => setRemember(event.target.checked)}
+                  />
+
+                  <span className={`login-checkbox${remember ? ' checked' : ''}`}>
+                    {remember && <CheckCircle2 size={12} />}
+                  </span>
+
+                  <span>Lembrar neste dispositivo</span>
+                </label>
+
                 <button
                   type="submit"
+                  className="login-submit"
                   disabled={loading}
-                  className="w-full py-3.5 rounded-xl font-bold text-[15px] text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60 active:scale-[0.99] mt-1"
-                  style={{
-                    background: 'linear-gradient(135deg, #120C2E 0%, #6D42F5 100%)',
-                    boxShadow: '0 8px 28px rgba(109,66,245,0.40)',
-                  }}
                 >
-                  {loading
-                    ? <><Loader2 size={16} className="animate-spin" /> Entrando...</>
-                    : <>Entrar <ArrowRight size={16} /></>}
+                  {loading ? (
+                    'Entrando...'
+                  ) : (
+                    <>
+                      Entrar
+                      <ArrowRight size={16} />
+                    </>
+                  )}
                 </button>
               </form>
 
-              {/* Sign-up CTA */}
-              <div className="mt-6 lg:mt-7 text-center">
-                <span
-                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full mb-3"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(99,85,216,0.08), rgba(139,124,246,0.12))',
-                    color: '#120C2E',
-                    border: '1px solid rgba(99,85,216,0.2)',
-                  }}
-                >
-                  <span style={{ fontSize: '10px' }}>✦</span>
-                  14 dias grátis para testar
+              <div className="login-signup">
+                <span className="login-trial">
+                  <Sparkles size={11} />
+                  14 dias grátis para conhecer
                 </span>
-                <p className="text-[14px] text-slate-400">
+
+                <p>
                   Ainda não tem conta?{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/cadastro')}
-                    className="font-semibold text-indigo-600 hover:text-indigo-700 transition hover:underline"
-                  >
-                    Cadastre-se grátis
+                  <button type="button" onClick={() => navigate('/cadastro')}>
+                    Criar conta grátis
                   </button>
                 </p>
               </div>
 
-              {/* Security footer */}
-              <div className="mt-5 pt-5 border-t border-slate-100 flex items-center justify-center gap-2">
-                <ShieldCheck size={12} className="text-slate-300" />
-                <p className="text-[11px] text-slate-400 tracking-wide">
-                  Conexão segura · Dados criptografados · LGPD
-                </p>
+              <div className="login-security">
+                <ShieldCheck size={12} />
+                <span>Ambiente de acesso protegido</span>
               </div>
             </>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* ── RIGHT PANEL — foto real do painel com cartões flutuantes ────────── */}
-      <PlaeloHeroPanel />
+      <ProductPanel />
     </div>
   );
 };

@@ -3,9 +3,11 @@ import {
   Mail, Lock, Eye, EyeOff, Loader2, User, Phone,
   ChevronLeft, CheckCircle2, Building2, Hash, UserCircle2,
   FileText, MapPin, Home, Briefcase, Stethoscope,
+  ArrowLeft, Sparkles, ShieldCheck, Calendar,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logoUrl from '../images/logo-sistema/logo.png';
+import capaLogoUrl from '../images/capa-logo.png';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
 import { Combobox } from '../components/UI/Combobox';
@@ -21,119 +23,6 @@ interface ProfessionalArea {
 }
 
 const PSYCHOLOGY_CATEGORY = 'Núcleo Principal - Diagnóstico e Tratamento';
-
-// ── SVG Brain/Nodes Illustration (dark panel) ──────────────────────────────────
-const BrainIllustration = () => (
-  <svg viewBox="0 0 520 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full max-w-md mx-auto">
-    <defs>
-      <radialGradient id="rg-glow1" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#8B7CF6" stopOpacity="0.35" />
-        <stop offset="100%" stopColor="#8B7CF6" stopOpacity="0" />
-      </radialGradient>
-      <radialGradient id="rg-glow2" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#6D42F5" stopOpacity="0.25" />
-        <stop offset="100%" stopColor="#6D42F5" stopOpacity="0" />
-      </radialGradient>
-      <radialGradient id="rg-orb" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.9" />
-        <stop offset="60%" stopColor="#6D42F5" stopOpacity="0.7" />
-        <stop offset="100%" stopColor="#4338CA" stopOpacity="0.4" />
-      </radialGradient>
-      <filter id="reg-blur1"><feGaussianBlur stdDeviation="18" /></filter>
-      <filter id="reg-blur2"><feGaussianBlur stdDeviation="10" /></filter>
-      <filter id="reg-nodeglow">
-        <feGaussianBlur stdDeviation="3" result="b" />
-        <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-      </filter>
-    </defs>
-    {/* Ambient glow */}
-    <ellipse cx="260" cy="230" rx="180" ry="160" fill="url(#rg-glow1)" filter="url(#reg-blur1)" />
-    <ellipse cx="180" cy="160" rx="120" ry="100" fill="url(#rg-glow2)" filter="url(#reg-blur1)" />
-    <ellipse cx="360" cy="320" rx="100" ry="90" fill="url(#rg-glow2)" filter="url(#reg-blur1)" />
-    {/* Outer ring connections */}
-    <line x1="140" y1="130" x2="210" y2="100" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="210" y1="100" x2="290" y2="90" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="290" y1="90" x2="370" y2="120" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="370" y1="120" x2="400" y2="190" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="400" y1="190" x2="390" y2="270" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="390" y1="270" x2="360" y2="350" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="360" y1="350" x2="290" y2="390" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="290" y1="390" x2="210" y2="380" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="210" y1="380" x2="145" y2="340" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.4" />
-    <line x1="145" y1="340" x2="120" y2="265" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="120" y1="265" x2="130" y2="190" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
-    <line x1="130" y1="190" x2="140" y2="130" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.5" />
-    {/* Inner ring */}
-    <line x1="200" y1="165" x2="260" y2="160" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="260" y1="160" x2="330" y2="180" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="330" y1="180" x2="340" y2="250" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="340" y1="250" x2="310" y2="320" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.5" />
-    <line x1="310" y1="320" x2="240" y2="330" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.5" />
-    <line x1="240" y1="330" x2="175" y2="300" stroke="#A78BFA" strokeWidth="1.2" strokeOpacity="0.5" />
-    <line x1="175" y1="300" x2="170" y2="230" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
-    <line x1="170" y1="230" x2="200" y2="165" stroke="#8B7CF6" strokeWidth="1.2" strokeOpacity="0.6" />
-    {/* Spokes to center */}
-    <line x1="200" y1="165" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="260" y1="160" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="330" y1="180" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="340" y1="250" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="310" y1="320" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="240" y1="330" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="175" y1="300" x2="260" y2="245" stroke="#A78BFA" strokeWidth="0.8" strokeOpacity="0.4" />
-    <line x1="170" y1="230" x2="260" y2="245" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.4" />
-    {/* Cross connections */}
-    <line x1="140" y1="130" x2="200" y2="165" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="210" y1="100" x2="260" y2="160" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="370" y1="120" x2="330" y2="180" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="400" y1="190" x2="340" y2="250" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="360" y1="350" x2="310" y2="320" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="210" y1="380" x2="240" y2="330" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="120" y1="265" x2="170" y2="230" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
-    <line x1="145" y1="340" x2="175" y2="300" stroke="#6D42F5" strokeWidth="0.8" strokeOpacity="0.35" />
-    {/* Hexagons */}
-    <polygon points="260,195 280,207 280,231 260,243 240,231 240,207" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.3" fill="none" />
-    <polygon points="260,140 290,157 290,191 260,208 230,191 230,157" stroke="#8B7CF6" strokeWidth="0.8" strokeOpacity="0.2" fill="none" />
-    {/* Outer nodes */}
-    <circle cx="140" cy="130" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="210" cy="100" r="8" fill="#6D42F5" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="290" cy="90" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="370" cy="120" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="400" cy="190" r="9" fill="#6D42F5" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
-    <circle cx="390" cy="270" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="360" cy="350" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="290" cy="390" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="210" cy="380" r="7" fill="#6D42F5" fillOpacity="0.6" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="145" cy="340" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    <circle cx="120" cy="265" r="8" fill="#6D42F5" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" filter="url(#reg-nodeglow)" />
-    <circle cx="130" cy="190" r="6" fill="#6D42F5" fillOpacity="0.5" stroke="#8B7CF6" strokeWidth="1.5" />
-    {/* Inner nodes */}
-    <circle cx="200" cy="165" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
-    <circle cx="260" cy="160" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
-    <circle cx="330" cy="180" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
-    <circle cx="340" cy="250" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
-    <circle cx="310" cy="320" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
-    <circle cx="240" cy="330" r="7" fill="#8B7CF6" fillOpacity="0.7" stroke="#A78BFA" strokeWidth="1.5" />
-    <circle cx="175" cy="300" r="9" fill="#8B7CF6" fillOpacity="0.8" stroke="#A78BFA" strokeWidth="2" filter="url(#reg-nodeglow)" />
-    <circle cx="170" cy="230" r="8" fill="#8B7CF6" fillOpacity="0.75" stroke="#A78BFA" strokeWidth="2" />
-    {/* Center orb */}
-    <circle cx="260" cy="245" r="28" fill="url(#rg-orb)" filter="url(#reg-blur2)" />
-    <circle cx="260" cy="245" r="20" fill="#7C6FF7" fillOpacity="0.9" stroke="#A78BFA" strokeWidth="2.5" filter="url(#reg-nodeglow)" />
-    <circle cx="260" cy="245" r="10" fill="#C4B5FD" fillOpacity="0.6" />
-    <circle cx="255" cy="240" r="4" fill="white" fillOpacity="0.4" />
-    {/* Accent dots */}
-    <circle cx="450" cy="100" r="3" fill="#A78BFA" fillOpacity="0.5" />
-    <circle cx="465" cy="115" r="2" fill="#8B7CF6" fillOpacity="0.4" />
-    <circle cx="75" cy="400" r="3" fill="#A78BFA" fillOpacity="0.5" />
-    <circle cx="60" cy="415" r="2" fill="#8B7CF6" fillOpacity="0.4" />
-    <circle cx="460" cy="380" r="2.5" fill="#A78BFA" fillOpacity="0.4" />
-    {/* Pulse rings */}
-    <circle cx="400" cy="190" r="16" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.25" fill="none" />
-    <circle cx="200" cy="165" r="15" stroke="#8B7CF6" strokeWidth="1" strokeOpacity="0.25" fill="none" />
-    <circle cx="310" cy="320" r="15" stroke="#A78BFA" strokeWidth="1" strokeOpacity="0.25" fill="none" />
-    <circle cx="260" cy="245" r="36" stroke="#8B7CF6" strokeWidth="1.5" strokeOpacity="0.2" fill="none" />
-    <circle cx="260" cy="245" r="50" stroke="#6D42F5" strokeWidth="1" strokeOpacity="0.12" fill="none" />
-  </svg>
-);
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const STEPS = ['Acesso', 'Área', 'Perfil', 'Endereço', 'Rotina', 'Boas-vindas'] as const;
@@ -450,101 +339,737 @@ export const Register: React.FC = () => {
 
   // ── Shared input class ─────────────────────────────────────────────────────
   const inputCls =
-    'w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200';
+    'w-full pl-11 pr-4 py-2.5 min-h-[46px] rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200';
 
   // ── Accent button ──────────────────────────────────────────────────────────
   const accentBtn =
-    'w-full py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed';
+    'w-full py-3 min-h-[46px] rounded-xl font-bold text-[13px] text-white flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed';
 
   const firstName = name.split(' ')[0];
 
   return (
-    <div className="h-screen w-full flex font-sans overflow-hidden">
+    <div className={`register-shell${isDark ? ' dark' : ''}`}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-      {/* ── LEFT PANEL — dark, fixo (não rola) ───────────────────────────────── */}
-      <div
-        className="hidden lg:flex flex-col justify-between w-[48%] flex-shrink-0 h-full relative overflow-hidden"
-        style={{ background: '#0C0B1A' }}
-      >
-        {/* Glow layers */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
+        *, *::before, *::after { box-sizing: border-box; }
+
+        .register-shell {
+          --reg-panel: #fff;
+          --reg-bg: #F8F6FF;
+          --reg-text: #150F2E;
+          --reg-muted: #746E88;
+          --reg-border: #E7E2F7;
+          --reg-accent: #6D42F5;
+          width: 100%;
+          height: 100dvh;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: minmax(0, 45%) minmax(500px, 55%);
+          overflow: hidden;
+          color: var(--reg-text);
+          background: var(--reg-bg);
+          font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+        }
+
+        .register-shell.dark {
+          --reg-panel: #151120;
+          --reg-bg: #100D1B;
+          --reg-text: #F5F2FF;
+          --reg-muted: #A9A1BE;
+          --reg-border: #2A2440;
+        }
+
+        .register-visual {
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+          background: #120C2E;
+        }
+
+        .register-visual-photo {
+          position: absolute;
+          inset: 0;
+          z-index: -4;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: 68% center;
+          transform: scale(1.02);
+        }
+
+        .register-visual-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: -3;
+          background:
+            linear-gradient(90deg, rgba(9,5,29,.92) 0%, rgba(10,6,31,.78) 27%, rgba(10,6,31,.38) 57%, rgba(10,6,31,.12) 100%),
+            linear-gradient(0deg, rgba(9,5,29,.88) 0%, rgba(9,5,29,.16) 50%, rgba(9,5,29,.22) 100%);
+        }
+
+        .register-visual-grid {
+          position: absolute;
+          inset: 0;
+          z-index: -2;
+          opacity: .09;
+          background-image:
+            linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+          background-size: 54px 54px;
+          mask-image: linear-gradient(to bottom, #000, transparent 92%);
+        }
+
+        .register-visual-brand {
+          position: absolute;
+          left: clamp(30px,4vw,58px);
+          top: clamp(30px,5vh,48px);
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: #fff;
+        }
+
+        .register-visual-brand img {
+          width: 40px;
+          height: 40px;
+          object-fit: contain;
+          border-radius: 12px;
+          background: #fff;
+          box-shadow: 0 10px 26px rgba(0,0,0,.18);
+        }
+
+        .register-visual-brand strong {
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 17px;
+          letter-spacing: -.04em;
+        }
+
+        .register-visual-copy {
+          position: absolute;
+          left: clamp(34px,5vw,68px);
+          right: clamp(28px,4vw,58px);
+          bottom: clamp(38px,6vh,64px);
+          z-index: 2;
+          max-width: 500px;
+        }
+
+        .register-visual-kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 7px 11px;
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 999px;
+          color: #E2D9FF;
+          background: rgba(20,13,54,.34);
+          backdrop-filter: blur(12px);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .07em;
+          text-transform: uppercase;
+        }
+
+        .register-visual-copy h2 {
+          margin: 17px 0 0;
+          color: #fff;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: clamp(32px,3.3vw,48px);
+          line-height: 1.02;
+          letter-spacing: -.055em;
+          font-weight: 800;
+          text-wrap: balance;
+          text-shadow: 0 4px 24px rgba(0,0,0,.18);
+        }
+
+        .register-visual-copy h2 span { color: #C4B5FD; }
+
+        .register-visual-copy p {
+          max-width: 470px;
+          margin: 11px 0 0;
+          color: rgba(255,255,255,.72);
+          font-size: 12px;
+          line-height: 1.6;
+        }
+
+        .register-visual-benefits {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px 14px;
+          margin-top: 13px;
+        }
+
+        .register-visual-benefits span {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: rgba(255,255,255,.72);
+          font-size: 10.5px;
+          font-weight: 700;
+        }
+
+        .register-visual-benefits svg { color: #77E2AD; }
+
+        .register-float-card {
+          position: absolute;
+          z-index: 3;
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          max-width: 245px;
+          padding: 10px 12px;
+          border: 1px solid rgba(255,255,255,.74);
+          border-radius: 14px;
+          background: rgba(255,255,255,.93);
+          box-shadow: 0 18px 40px rgba(0,0,0,.20);
+          backdrop-filter: blur(12px);
+        }
+
+        .register-float-card strong,
+        .register-float-card small { display: block; }
+
+        .register-float-card strong {
+          color: #150F2E;
+          font-size: 9.5px;
+        }
+
+        .register-float-card small {
+          margin-top: 2px;
+          color: #746E88;
+          font-size: 7.8px;
+        }
+
+        .register-float-icon {
+          width: 31px;
+          height: 31px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          border-radius: 9px;
+          color: #6D42F5;
+          background: #EFE9FF;
+        }
+
+        .register-float-icon.green {
+          color: #0D9155;
+          background: #E4F8EE;
+        }
+
+        .register-float-a { top: 20%; left: clamp(24px,3vw,48px); }
+        .register-float-b { top: 39%; right: clamp(20px,3vw,42px); }
+
+        .register-form-panel {
+          min-width: 0;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+          background:
+            radial-gradient(circle at 12% 8%, rgba(109,66,245,.055), transparent 26%),
+            var(--reg-panel);
+        }
+
+        .register-form-topbar {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          min-height: 64px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 10px clamp(18px,2.6vw,32px);
+          border-bottom: 1px solid rgba(231,226,247,.72);
+          background: color-mix(in srgb, var(--reg-panel) 91%, transparent);
+          backdrop-filter: blur(14px);
+        }
+
+        .register-form-brand {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          color: var(--reg-text);
+          background: none;
+          border: 0;
+          cursor: pointer;
+        }
+
+        .register-form-brand img {
+          width: 36px;
+          height: 36px;
+          object-fit: contain;
+          border-radius: 11px;
+          background: #fff;
+        }
+
+        .register-form-brand strong {
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 16px;
+          letter-spacing: -.04em;
+        }
+
+        .register-form-login {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 11px;
+          border: 1px solid var(--reg-border);
+          border-radius: 999px;
+          color: var(--reg-muted);
+          background: rgba(255,255,255,.55);
+          font-size: 10.5px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .register-form-inner {
+          width: min(100% - 40px, 520px);
+          margin: auto;
+          padding: 18px 0 24px;
+        }
+
+        .register-mobile-hero {
+          display: none;
+        }
+
+        .register-stepper {
+          margin-bottom: 20px;
+          padding: 10px 12px;
+          border: 1px solid var(--reg-border);
+          border-radius: 18px;
+          background: rgba(248,246,255,.72);
+        }
+
+        .dark .register-stepper {
+          background: rgba(255,255,255,.03);
+        }
+
+        .register-stepper > div { min-width: 0; }
+
+        /* Notebook / desktop com pouca altura:
+           mantém tudo dentro da viewport sem scrollbar no passo inicial. */
+        @media (min-width: 1025px) and (max-height: 920px) {
+          .register-visual-brand {
+            left: 34px;
+            top: 24px;
+          }
+
+          .register-visual-brand img {
+            width: 34px;
+            height: 34px;
+          }
+
+          .register-visual-brand strong {
+            font-size: 15px;
+          }
+
+          .register-visual-copy {
+            left: 36px;
+            right: 28px;
+            bottom: 28px;
+            max-width: 480px;
+          }
+
+          .register-visual-kicker {
+            padding: 6px 10px;
+            font-size: 9px;
+          }
+
+          .register-visual-copy h2 {
+            margin-top: 11px;
+            font-size: clamp(29px, 3vw, 42px);
+            line-height: 1;
+          }
+
+          .register-visual-copy p {
+            margin-top: 9px;
+            max-width: 440px;
+            font-size: 11px;
+            line-height: 1.5;
+          }
+
+          .register-visual-benefits {
+            margin-top: 10px;
+          }
+
+          .register-visual-benefits span {
+            font-size: 9.5px;
+          }
+
+          .register-float-card {
+            transform: scale(.90);
+            transform-origin: left top;
+          }
+
+          .register-float-a {
+            top: 18%;
+            left: 28px;
+          }
+
+          .register-float-b {
+            top: 39%;
+            right: 18px;
+            transform-origin: right top;
+          }
+
+          .register-form-topbar {
+            min-height: 58px;
+            padding: 7px 24px;
+          }
+
+          .register-form-brand img {
+            width: 31px;
+            height: 31px;
+          }
+
+          .register-form-brand strong {
+            font-size: 15px;
+          }
+
+          .register-form-login {
+            padding: 7px 10px;
+            font-size: 10px;
+          }
+
+          .register-form-inner {
+            width: min(100% - 40px, 500px);
+            padding: 12px 0 16px;
+          }
+
+          .register-stepper {
+            margin-bottom: 14px;
+            padding: 8px 10px;
+            border-radius: 15px;
+          }
+
+          .register-stepper .w-7 {
+            width: 24px !important;
+            height: 24px !important;
+          }
+
+          .register-stepper .text-xs {
+            font-size: 10px !important;
+          }
+
+          .register-form-inner .mb-5 {
+            margin-bottom: 14px !important;
+          }
+
+          .register-form-inner .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 10px !important;
+          }
+
+          .register-form-inner .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 12px !important;
+          }
+
+          .register-form-inner label.text-xs {
+            font-size: 10px !important;
+          }
+
+          .register-form-inner input {
+            min-height: 43px;
+          }
+
+          .register-form-inner button[class*="accentBtn"] {
+            min-height: 43px;
+          }
+
+          .register-form-inner .mt-5 {
+            margin-top: 14px !important;
+          }
+
+          .register-form-inner .mt-4 {
+            margin-top: 12px !important;
+          }
+
+          .register-form-inner .mt-5.text-center,
+          .register-form-inner p.text-center.mt-5 {
+            margin-top: 12px !important;
+            font-size: 12px !important;
+          }
+        }
+
+        @media (min-width: 1025px) and (max-height: 790px) {
+          .register-float-card {
+            display: none;
+          }
+
+          .register-visual-copy h2 {
+            font-size: clamp(28px, 2.7vw, 38px);
+          }
+
+          .register-visual-copy p {
+            font-size: 10.5px;
+          }
+
+          .register-form-topbar {
+            min-height: 54px;
+          }
+
+          .register-form-inner {
+            padding-top: 9px;
+            padding-bottom: 10px;
+          }
+
+          .register-stepper {
+            margin-bottom: 11px;
+            padding: 7px 9px;
+          }
+
+          .register-form-inner .mb-5 {
+            margin-bottom: 11px !important;
+          }
+        }
+
+        @media (max-width: 1260px) {
+          .register-shell {
+            grid-template-columns: minmax(0, 42%) minmax(500px, 58%);
+          }
+
+          .register-visual-copy {
+            left: 30px;
+            right: 24px;
+          }
+        }
+
+        @media (max-width: 1024px) {
+          .register-shell {
+            display: block;
+            height: 100dvh;
+            overflow: hidden;
+          }
+
+          .register-visual { display: none; }
+
+          .register-form-panel {
+            width: 100%;
+            height: 100dvh;
+          }
+
+          .register-form-inner {
+            width: min(100% - 28px, 560px);
+            padding: 18px 0 26px;
+          }
+
+          .register-mobile-hero {
+            position: relative;
+            display: block;
+            min-height: 132px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            border: 1px solid var(--reg-border);
+            border-radius: 24px;
+            background: #120C2E;
+            box-shadow: 0 18px 42px rgba(18,12,46,.10);
+          }
+
+          .register-mobile-hero img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+          }
+
+          .register-mobile-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
             background:
-              'radial-gradient(ellipse 70% 60% at 40% 35%, rgba(99,85,216,0.18) 0%, transparent 70%), ' +
-              'radial-gradient(ellipse 50% 50% at 75% 70%, rgba(139,124,246,0.10) 0%, transparent 65%)',
-          }}
-        />
+              linear-gradient(90deg, rgba(10,6,31,.88) 0%, rgba(10,6,31,.58) 50%, rgba(10,6,31,.22) 100%),
+              linear-gradient(0deg, rgba(10,6,31,.72), rgba(10,6,31,.08));
+          }
 
-        {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3 p-10">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/10 shadow-2xl bg-white p-2">
-            <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
-          </div>
+          .register-mobile-hero-copy {
+            position: relative;
+            z-index: 2;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 16px;
+            color: #fff;
+          }
+
+          .register-mobile-hero-copy strong {
+            font-family: 'Plus Jakarta Sans',sans-serif;
+            font-size: 22px;
+            line-height: 1.04;
+            letter-spacing: -.04em;
+          }
+
+          .register-mobile-hero-copy strong span {
+            color: #C4B5FD;
+          }
+
+          .register-mobile-hero-copy small {
+            max-width: 380px;
+            margin-top: 6px;
+            color: rgba(255,255,255,.72);
+            font-size: 10.5px;
+            line-height: 1.55;
+          }
+        }
+
+        @media (max-width: 1024px) and (max-height: 720px) {
+          .register-mobile-hero {
+            display: none;
+          }
+
+          .register-form-topbar {
+            min-height: 56px;
+          }
+
+          .register-form-inner {
+            padding-top: 10px;
+            padding-bottom: 14px;
+          }
+
+          .register-stepper {
+            margin-bottom: 11px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .register-form-topbar {
+            min-height: 60px;
+            padding: 9px 12px;
+          }
+
+          .register-form-login span { display: none; }
+
+          .register-form-inner {
+            width: min(100% - 20px, 520px);
+            padding-top: 12px;
+          }
+
+          .register-mobile-hero {
+            min-height: 116px;
+            border-radius: 18px;
+          }
+
+          .register-mobile-hero-copy {
+            padding: 14px;
+          }
+
+          .register-mobile-hero-copy strong {
+            font-size: 20px;
+          }
+
+          .register-stepper {
+            overflow: hidden;
+            margin-bottom: 14px;
+            padding: 8px 9px;
+          }
+
+          .register-stepper .w-7 {
+            width: 23px !important;
+            height: 23px !important;
+          }
+
+          .register-stepper .text-xs {
+            font-size: 9px !important;
+          }
+
+          .register-form-inner .mb-5 {
+            margin-bottom: 14px !important;
+          }
+
+          .register-form-inner .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 10px !important;
+          }
+
+          .register-form-inner .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 12px !important;
+          }
+        }
+      `}</style>
+
+      {/* ── LEFT: imagem / posicionamento da marca ── */}
+      <aside className="register-visual" aria-hidden="true">
+        <img src={capaLogoUrl} alt="" className="register-visual-photo" />
+        <div className="register-visual-overlay" />
+        <div className="register-visual-grid" />
+
+        <div className="register-visual-brand">
+          <img src={logoUrl} alt="" />
+          <strong>Plaelo</strong>
+        </div>
+
+        <div className="register-float-card register-float-a">
+          <span className="register-float-icon">
+            <Calendar size={15} />
+          </span>
           <div>
-            <h1 className="font-bold text-[26px] leading-none tracking-tight" style={{ fontWeight: 900, color: '#E0DEFF' }}>
-              Plaelo
-            </h1>
-            <p className="text-[11px] font-medium tracking-wide mt-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>
-              Conectando cuidado e gestão.
-            </p>
+            <strong>Comece organizado</strong>
+            <small>Agenda e rotina no mesmo lugar</small>
           </div>
         </div>
 
-        {/* Illustration + headline */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-10 -mt-6">
-          <div className="w-full max-w-[420px]">
-            <BrainIllustration />
-          </div>
-          <div className="text-center mt-2 px-6">
-            <h2 className="text-xl font-bold leading-tight" style={{ color: 'rgba(255,255,255,0.92)' }}>
-              Crie sua conta grátis
-            </h2>
-            <p className="text-sm mt-2 leading-relaxed max-w-xs mx-auto" style={{ color: 'rgba(167,139,250,0.65)' }}>
-              14 dias sem compromisso. Cancele quando quiser.
-            </p>
+        <div className="register-float-card register-float-b">
+          <span className="register-float-icon green">
+            <ShieldCheck size={15} />
+          </span>
+          <div>
+            <strong>Privacidade em foco</strong>
+            <small>Estrutura pensada para dados sensíveis</small>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="relative z-10 flex items-center justify-center gap-3 p-10 pt-6">
-          {[
-            { value: '14 dias', label: 'Teste grátis' },
-            { value: 'Pix', label: 'ou assinatura' },
-          ].map(({ value, label }) => (
-            <div
-              key={label}
-              className="text-center px-5 py-3 rounded-2xl border"
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                borderColor: 'rgba(167,139,250,0.18)',
-              }}
-            >
-              <p className="font-bold text-[18px] leading-none" style={{ color: '#E0DEFF' }}>{value}</p>
-              <p className="text-[11px] mt-1 font-medium" style={{ color: 'rgba(167,139,250,0.55)' }}>{label}</p>
-            </div>
-          ))}
+        <div className="register-visual-copy">
+          <span className="register-visual-kicker">
+            <Sparkles size={13} />
+            14 dias para conhecer a Plaelo
+          </span>
+
+          <h2>
+            Comece simples.
+            <span> Organize sua rotina desde o início.</span>
+          </h2>
+
+          <p>
+            Configure seu perfil, sua agenda e as informações essenciais.
+            Depois, a Plaelo acompanha o crescimento da sua prática ou clínica.
+          </p>
+
+          <div className="register-visual-benefits">
+            <span><CheckCircle2 size={14} /> Sem cartão de crédito</span>
+            <span><CheckCircle2 size={14} /> Sem fidelidade</span>
+          </div>
         </div>
-      </div>
+      </aside>
 
-      {/* ── RIGHT PANEL — form, único painel com scroll ──────────────────────── */}
-      <div className="flex-1 h-full flex flex-col bg-white overflow-y-auto">
-        <div className="w-full max-w-[480px] mx-auto px-6 sm:px-8 py-10 flex-1 flex flex-col justify-center">
+      {/* ── RIGHT: cadastro ── */}
+      <section className="register-form-panel">
+        <div className="register-form-topbar">
+          <button type="button" className="register-form-brand" onClick={() => navigate('/')}>
+            <img src={logoUrl} alt="" />
+            <strong>Plaelo</strong>
+          </button>
 
-          {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md ring-2 ring-slate-100 flex-shrink-0 bg-white">
-              <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
-            </div>
-            <div>
-              <p className="font-bold text-[20px] tracking-tight leading-none" style={{ color: '#1e295b' }}>Plaelo</p>
-              <p className="text-slate-400 text-[10px] mt-0.5 font-medium">Conectando cuidado e gestão.</p>
+          <button type="button" className="register-form-login" onClick={() => navigate('/login')}>
+            <ArrowLeft size={13} />
+            <span>Já tenho conta</span>
+          </button>
+        </div>
+
+        <div className="register-form-inner">
+          <div className="register-mobile-hero" aria-hidden="true">
+            <img src={capaLogoUrl} alt="" />
+            <div className="register-mobile-hero-copy">
+              <strong>
+                Comece simples.
+                <span> Organize sua rotina desde o início.</span>
+              </strong>
+              <small>14 dias grátis para conhecer a Plaelo. Sem cartão de crédito.</small>
             </div>
           </div>
 
           {/* Stepper (steps 0-4) */}
           {step < 5 && (
-            <div className="flex items-center gap-1.5 mb-8">
+            <div className="register-stepper flex items-center gap-1.5">
               {STEPS.slice(0, 5).map((label, i) => (
                 <React.Fragment key={label}>
                   <div className="flex items-center gap-1.5" title={label}>
@@ -561,7 +1086,7 @@ export const Register: React.FC = () => {
                       {i < step ? <CheckCircle2 size={14} /> : i + 1}
                     </div>
                     <span
-                      className="text-xs font-semibold hidden lg:block transition-colors"
+                      className="text-xs font-semibold hidden sm:block transition-colors"
                       style={{ color: i === step ? '#1E293B' : '#94A3B8' }}
                     >
                       {label}
@@ -581,7 +1106,7 @@ export const Register: React.FC = () => {
           {/* ── Step 0: Acesso ─────────────────────────────────────────────── */}
           {step === 0 && (
             <div key="step-0" className="animate-[fadeIn_.35s_ease-out]">
-              <div className="mb-7">
+              <div className="mb-5">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Crie sua conta</h2>
                 <p className="text-slate-400 text-sm">Comece agora — sem cartão de crédito.</p>
               </div>
@@ -659,7 +1184,7 @@ export const Register: React.FC = () => {
                       onChange={e => setConfirm(e.target.value)}
                       placeholder="Repita a senha"
                       autoComplete="new-password"
-                      className={`w-full pl-11 pr-12 py-3.5 rounded-xl bg-slate-50 border text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all duration-200
+                      className={`w-full pl-11 pr-12 py-2.5 min-h-[46px] rounded-xl bg-slate-50 border text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all duration-200
                         ${confirm && confirm !== password
                           ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
                           : 'border-slate-200 focus:border-[#6D42F5] focus:ring-[#6D42F5]/15'}`}
@@ -677,7 +1202,7 @@ export const Register: React.FC = () => {
 
               <button
                 onClick={goNext}
-                className={`${accentBtn} mt-7 shadow-lg`}
+                className={`${accentBtn} mt-4 shadow-lg`}
                 style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
@@ -706,7 +1231,7 @@ export const Register: React.FC = () => {
                 <ChevronLeft size={15} /> Voltar
               </button>
 
-              <div className="mb-7">
+              <div className="mb-5">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Sua área de atuação</h2>
                 <p className="text-slate-400 text-sm">Isso ajuda a personalizar o sistema para o seu dia a dia.</p>
               </div>
@@ -768,7 +1293,7 @@ export const Register: React.FC = () => {
 
               <button
                 onClick={goNext}
-                className={`${accentBtn} mt-7 shadow-lg`}
+                className={`${accentBtn} mt-4 shadow-lg`}
                 style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
@@ -786,7 +1311,7 @@ export const Register: React.FC = () => {
                 <ChevronLeft size={15} /> Voltar
               </button>
 
-              <div className="mb-7">
+              <div className="mb-5">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Perfil profissional</h2>
                 <p className="text-slate-400 text-sm">Essas informações poderão aparecer no seu perfil público.</p>
               </div>
@@ -879,7 +1404,7 @@ export const Register: React.FC = () => {
                       value={bio} onChange={e => setBio(e.target.value)}
                       placeholder="Conte um pouco sobre você e sua abordagem…"
                       rows={3}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200 resize-none"
+                      className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#6D42F5] focus:ring-2 focus:ring-[#6D42F5]/15 transition-all duration-200 resize-none"
                     />
                   </div>
                 </div>
@@ -917,7 +1442,7 @@ export const Register: React.FC = () => {
 
               <button
                 onClick={goNext}
-                className={`${accentBtn} mt-7 shadow-lg`}
+                className={`${accentBtn} mt-4 shadow-lg`}
                 style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
@@ -935,7 +1460,7 @@ export const Register: React.FC = () => {
                 <ChevronLeft size={15} /> Voltar
               </button>
 
-              <div className="mb-7">
+              <div className="mb-5">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Endereço</h2>
                 <p className="text-slate-400 text-sm">Onde você atende ou onde fica sua clínica.</p>
               </div>
@@ -1027,7 +1552,7 @@ export const Register: React.FC = () => {
 
               <button
                 onClick={goNext}
-                className={`${accentBtn} mt-7 shadow-lg`}
+                className={`${accentBtn} mt-4 shadow-lg`}
                 style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#5447C4')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#6D42F5')}
@@ -1045,7 +1570,7 @@ export const Register: React.FC = () => {
                 <ChevronLeft size={15} /> Voltar
               </button>
 
-              <div className="mb-7">
+              <div className="mb-5">
                 <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 tracking-tight mb-1">Rotina semanal</h2>
                 <p className="text-slate-400 text-sm">Defina seus horários de atendimento. Você pode ajustar isso depois.</p>
               </div>
@@ -1070,7 +1595,7 @@ export const Register: React.FC = () => {
               <button
                 onClick={goNext}
                 disabled={loading}
-                className={`${accentBtn} mt-5 shadow-lg`}
+                className={`${accentBtn} mt-4 shadow-lg`}
                 style={{ background: '#6D42F5', boxShadow: '0 4px 20px rgba(99,85,216,.30)' }}
                 onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#5447C4'; }}
                 onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#6D42F5'; }}
@@ -1141,7 +1666,7 @@ export const Register: React.FC = () => {
           )}
 
         </div>
-      </div>
+      </section>
     </div>
   );
 };
