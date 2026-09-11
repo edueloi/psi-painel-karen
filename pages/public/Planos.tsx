@@ -74,6 +74,8 @@ export const Planos: React.FC = () => {
 
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const ANNUAL_DISCOUNT = 0.2;
 
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
 
@@ -218,6 +220,57 @@ export const Planos: React.FC = () => {
 
         .pricing-trust svg {
           color: #63D89F;
+        }
+
+        .pricing-billing-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 30px;
+          padding: 5px;
+          border-radius: 999px;
+          background: rgba(255,255,255,.08);
+          border: 1px solid rgba(255,255,255,.14);
+        }
+
+        .pricing-billing-toggle button {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: none;
+          background: transparent;
+          color: rgba(255,255,255,.62);
+          font-family: 'Plus Jakarta Sans','Inter',sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 9px 18px;
+          border-radius: 999px;
+          cursor: pointer;
+          transition: background .18s ease, color .18s ease;
+        }
+
+        .pricing-billing-toggle button:hover {
+          color: #fff;
+        }
+
+        .pricing-billing-toggle button.active {
+          background: #fff;
+          color: #14103A;
+        }
+
+        .pricing-billing-badge {
+          display: inline-flex;
+          align-items: center;
+          font-size: 10.5px;
+          font-weight: 800;
+          padding: 2px 7px;
+          border-radius: 999px;
+          background: #10b981;
+          color: #fff;
+        }
+
+        .pricing-billing-toggle button.active .pricing-billing-badge {
+          background: #0D9155;
         }
 
         /* ═══ PLANOS ═══ */
@@ -406,6 +459,17 @@ export const Planos: React.FC = () => {
 
         .pricing-card.highlighted .pricing-price small {
           color: rgba(255,255,255,.44);
+        }
+
+        .pricing-annual-note {
+          margin-top: 4px;
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .pricing-card.highlighted .pricing-annual-note {
+          color: rgba(255,255,255,.5);
         }
 
         .pricing-divider {
@@ -953,6 +1017,26 @@ export const Planos: React.FC = () => {
                   </span>
                 ))}
               </div>
+
+              {plans.length > 0 && (
+                <div className="pricing-billing-toggle">
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('monthly')}
+                    className={billingPeriod === 'monthly' ? 'active' : ''}
+                  >
+                    Mensal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('annual')}
+                    className={billingPeriod === 'annual' ? 'active' : ''}
+                  >
+                    Anual
+                    <span className="pricing-billing-badge">-{ANNUAL_DISCOUNT * 100}%</span>
+                  </button>
+                </div>
+              )}
             </Reveal>
           </div>
         </section>
@@ -991,6 +1075,9 @@ export const Planos: React.FC = () => {
                     ? (plan.features || []).filter(f => !previousFeatures.has(f))
                     : (plan.features || []);
 
+                  const monthlyPrice = Number(plan.price);
+                  const displayPrice = billingPeriod === 'annual' ? monthlyPrice * (1 - ANNUAL_DISCOUNT) : monthlyPrice;
+
                   return (
                     <Reveal
                       as="article"
@@ -1014,13 +1101,18 @@ export const Planos: React.FC = () => {
 
                         <div className="pricing-price">
                           <AnimatedNumber
-                            value={Number(plan.price)}
+                            value={displayPrice}
                             prefix="R$ "
                             decimals={2}
                             className="pricing-number"
                           />
-                          <small>/mês</small>
+                          <small>/mês{billingPeriod === 'annual' ? ' (anual)' : ''}</small>
                         </div>
+                        {billingPeriod === 'annual' && (
+                          <p className="pricing-annual-note">
+                            Equivale a R$ {(displayPrice * 12).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano
+                          </p>
+                        )}
 
                         <div className="pricing-divider" />
                       </div>
