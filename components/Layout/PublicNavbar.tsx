@@ -15,7 +15,7 @@ const NAV_LINKS: [string, string, React.ComponentType<{ size?: number }>][] = [
 export const Logo: React.FC<{ size?: number; wordmarkColor?: string }> = ({ size = 36, wordmarkColor }) => (
   <Link to="/" className="flex items-center gap-2.5" style={{ textDecoration: 'none' }}>
     <img src={logoUrl} alt="Plaelo" style={{ width: size, height: size }} className="rounded-xl object-contain" />
-    <span className="font-bold text-xl" style={{ color: wordmarkColor || '#150F2E', letterSpacing: '-0.02em', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>Plaelo</span>
+    <span className="font-bold text-xl" style={{ color: wordmarkColor || '#33291D', letterSpacing: '-0.02em', fontFamily: "'Fraunces','Inter',serif" }}>Plaelo</span>
   </Link>
 );
 

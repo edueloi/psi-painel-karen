@@ -38,15 +38,15 @@ export const FEATURE_LABELS: Record<string, string> = {
 };
 
 export const features = [
-  { icon: Calendar,      title: 'Agenda Inteligente',  desc: 'Consultas, lembretes automáticos e controle de horários por profissional.', color: '#6D42F5', bg: '#EFE9FF' },
-  { icon: Video,         title: 'Salas Virtuais',       desc: 'Atendimento remoto com lousa interativa, chat e compartilhamento de tela.',  color: '#0D9155', bg: '#E4F8EE' },
-  { icon: Users,         title: 'Prontuário Digital',   desc: 'Histórico clínico, evolução do paciente e documentos em um só lugar.',      color: '#6D42F5', bg: '#EFE9FF' },
-  { icon: FileText,      title: 'Documentos & PEI',     desc: 'Planos terapêuticos individualizados e relatórios com um clique.',          color: '#0D9155', bg: '#E4F8EE' },
-  { icon: BarChart2,     title: 'Financeiro',           desc: 'Receitas, despesas, comandas e relatórios financeiros detalhados.',         color: '#6D42F5', bg: '#EFE9FF' },
-  { icon: Receipt,       title: 'Nota Fiscal de Serviço', desc: 'Emita a NFS-e em poucos cliques, direto da comanda do atendimento — sem complicação.', color: '#0D9155', bg: '#E4F8EE' },
-  { icon: Sparkles,      title: 'Bia IA',            desc: 'Organiza dados clínicos e automatiza relatórios — o julgamento é sempre seu.', color: '#6D42F5', bg: '#EFE9FF' },
-  { icon: ClipboardList, title: 'Formulários',          desc: 'Anamneses digitais, avaliações e formulários personalizados.',              color: '#0D9155', bg: '#E4F8EE' },
-  { icon: MessageSquare, title: 'Mensagens',            desc: 'Comunicação interna e notificações automáticas para pacientes.',            color: '#6D42F5', bg: '#EFE9FF' },
+  { icon: Calendar,      title: 'Agenda Inteligente',  desc: 'Consultas, lembretes automáticos e controle de horários por profissional.', color: '#C1613D', bg: '#F3E4D8' },
+  { icon: Video,         title: 'Salas Virtuais',       desc: 'Atendimento remoto com lousa interativa, chat e compartilhamento de tela.',  color: '#4C6650', bg: '#E5EDE3' },
+  { icon: Users,         title: 'Prontuário Digital',   desc: 'Histórico clínico, evolução do paciente e documentos em um só lugar.',      color: '#C1613D', bg: '#F3E4D8' },
+  { icon: FileText,      title: 'Documentos & PEI',     desc: 'Planos terapêuticos individualizados e relatórios com um clique.',          color: '#4C6650', bg: '#E5EDE3' },
+  { icon: BarChart2,     title: 'Financeiro',           desc: 'Receitas, despesas, comandas e relatórios financeiros detalhados.',         color: '#C1613D', bg: '#F3E4D8' },
+  { icon: Receipt,       title: 'Nota Fiscal de Serviço', desc: 'Emita a NFS-e em poucos cliques, direto da comanda do atendimento — sem complicação.', color: '#4C6650', bg: '#E5EDE3' },
+  { icon: Sparkles,      title: 'Bia IA',            desc: 'Organiza dados clínicos e automatiza relatórios — o julgamento é sempre seu.', color: '#C1613D', bg: '#F3E4D8' },
+  { icon: ClipboardList, title: 'Formulários',          desc: 'Anamneses digitais, avaliações e formulários personalizados.',              color: '#4C6650', bg: '#E5EDE3' },
+  { icon: MessageSquare, title: 'Mensagens',            desc: 'Comunicação interna e notificações automáticas para pacientes.',            color: '#C1613D', bg: '#F3E4D8' },
 ];
 
 export interface ProfessionalCategory {
@@ -60,16 +60,16 @@ export interface ProfessionalCategory {
 
 /* Reflete as áreas cadastradas em professional_areas no backend. */
 export const PROFESSIONAL_CATEGORIES: ProfessionalCategory[] = [
-  { key: 'nucleo', title: 'Diagnóstico e Tratamento', icon: Brain, color: '#6D42F5', bg: '#EFE9FF',
+  { key: 'nucleo', title: 'Diagnóstico e Tratamento', icon: Brain, color: '#C1613D', bg: '#F3E4D8',
     professions: ['Psiquiatra (CRM)', 'Psicólogo (CRP)', 'Psicanalista'] },
-  { key: 'neuro', title: 'Neurologia e Cognição', icon: Sparkle, color: '#0D9155', bg: '#E4F8EE',
+  { key: 'neuro', title: 'Neurologia e Cognição', icon: Sparkle, color: '#4C6650', bg: '#E5EDE3',
     professions: ['Neurologista (CRM)', 'Neuropsicólogo (CRP)', 'Neuropsicopedagogo'] },
-  { key: 'enfermagem', title: 'Enfermagem e Cuidado', icon: HeartPulse, color: '#DB2777', bg: '#FCE7F3',
+  { key: 'enfermagem', title: 'Enfermagem e Cuidado', icon: HeartPulse, color: '#A85D6B', bg: '#F3E1E4',
     professions: ['Enfermeiro de Saúde Mental (COREN)', 'Técnico de Enfermagem (COREN)'] },
-  { key: 'terapias', title: 'Terapias e Reabilitação', icon: Activity, color: '#2563EB', bg: '#DBEAFE',
+  { key: 'terapias', title: 'Terapias e Reabilitação', icon: Activity, color: '#5B7A8C', bg: '#E4EBEE',
     professions: ['Terapeuta Ocupacional (CREFITO)', 'Fonoaudiólogo (CRFa)', 'Fisioterapeuta (CREFITO)', 'Arteterapeuta', 'Musicoterapeuta', 'Dançaterapeuta / Corporal'] },
-  { key: 'social', title: 'Apoio Social e Familiar', icon: HandHeart, color: '#D97706', bg: '#FEF3C7',
+  { key: 'social', title: 'Apoio Social e Familiar', icon: HandHeart, color: '#A8752E', bg: '#F1E6D3',
     professions: ['Assistente Social (CRESS)', 'Pedagogo', 'Orientador Educacional'] },
-  { key: 'outras', title: 'Outras Áreas da Saúde Mental', icon: Stethoscope, color: '#0891B2', bg: '#CFFAFE',
+  { key: 'outras', title: 'Outras Áreas da Saúde Mental', icon: Stethoscope, color: '#4A7A73', bg: '#E1ECE9',
     professions: ['Médico de Família / Clínico Geral (CRM)', 'Geriatra (CRM)', 'Nutricionista (CRN)', 'Educador Físico (CREF)', 'Aconselhador / Coach de Vida'] },
 ];
