@@ -252,6 +252,19 @@
   <body class="bg-slate-50 text-slate-800 antialiased">
 
     <!-- Splash screen: some antes do React montar -->
+    <style>
+      @keyframes splashPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(0.94); opacity: 0.75; }
+      }
+      @keyframes splashRing {
+        0% { transform: scale(0.85); opacity: 0.5; }
+        100% { transform: scale(1.35); opacity: 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #pwa-splash-logo, #pwa-splash-ring { animation: none !important; }
+      }
+    </style>
     <div id="pwa-splash" style="
       position:fixed;inset:0;z-index:9999;
       background:#ffffff;
@@ -259,7 +272,17 @@
       flex-direction:column;gap:20px;
       transition:opacity 0.4s ease;
     ">
-      <img src="/app_plaelo.png" alt="Plaelo" style="width:120px;height:120px;object-fit:contain;border-radius:24px;" />
+      <div style="position:relative;width:120px;height:120px;display:flex;align-items:center;justify-content:center;">
+        <span id="pwa-splash-ring" style="
+          position:absolute;inset:0;border-radius:24px;
+          border:2px solid #6D42F5;
+          animation:splashRing 1.8s cubic-bezier(.4,0,.2,1) infinite;
+        "></span>
+        <img id="pwa-splash-logo" src="/app_plaelo.png" alt="Plaelo" style="
+          width:120px;height:120px;object-fit:contain;border-radius:24px;
+          animation:splashPulse 1.8s ease-in-out infinite;
+        " />
+      </div>
     </div>
 
     <div id="root"></div>
