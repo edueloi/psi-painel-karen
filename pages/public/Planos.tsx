@@ -981,6 +981,16 @@ export const Planos: React.FC = () => {
                 {plans.map((plan, index) => {
                   const highlighted = Boolean(plan.highlighted);
 
+                  // Planos vêm ordenados por preço (ORDER BY price no backend) —
+                  // a partir do 2º, mostramos só o que é NOVO em relação ao
+                  // plano anterior, prefixado por "Tudo do [anterior], mais:",
+                  // em vez de repetir a lista inteira em cada card.
+                  const previousPlan = index > 0 ? plans[index - 1] : null;
+                  const previousFeatures = new Set(previousPlan?.features || []);
+                  const newFeatures = previousPlan
+                    ? (plan.features || []).filter(f => !previousFeatures.has(f))
+                    : (plan.features || []);
+
                   return (
                     <Reveal
                       as="article"
@@ -1016,11 +1026,11 @@ export const Planos: React.FC = () => {
                       </div>
 
                       <span className="pricing-features-label">
-                        O que está incluído
+                        {previousPlan ? `Tudo do ${previousPlan.name}, mais:` : 'O que está incluído'}
                       </span>
 
                       <ul className="pricing-card-features">
-                        {(plan.features || []).map(feature => (
+                        {newFeatures.map(feature => (
                           <li key={feature}>
                             <Check size={14} strokeWidth={2.4} />
                             <span>{FEATURE_LABELS[feature] || feature}</span>
