@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Heart, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
+
 import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from './PublicNavbar';
 
@@ -9,47 +11,70 @@ export const PublicFooter: React.FC = () => {
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
 
   return (
-    <footer className="footer-dark" style={{ padding: 'clamp(48px,6vw,72px) 0 0', marginTop: 0 }}>
-      <div className="wrap footer-grid" style={{ paddingBottom: 40 }}>
-        <div style={{ maxWidth: 320 }}>
-          <Logo size={32} wordmarkColor="#fff" />
-          <p style={{ fontSize: 14, lineHeight: 1.7, marginTop: 16, color: 'rgba(255,255,255,.55)' }}>
-            Sistema de gestão para profissionais e clínicas de saúde mental.
-          </p>
-          <button className="btn-p" onClick={go} style={{ marginTop: 22, fontSize: 14, padding: '11px 20px', background: '#fff', color: 'var(--ink)' }}>
-            Começar agora
-          </button>
+    <footer className="footer-dark footer-premium">
+      <div className="footer-premium-glow footer-premium-glow-a" />
+      <div className="footer-premium-glow footer-premium-glow-b" />
+
+      <div className="wrap footer-premium-inner">
+        <div className="footer-premium-top">
+          <div className="footer-brand">
+            <Logo size={36} wordmarkColor="#fff" />
+
+            <p className="footer-brand-copy">
+              Gestão mais simples para quem dedica o dia a cuidar de pessoas.
+            </p>
+
+            <div className="footer-brand-badges">
+              <span><ShieldCheck size={14} /> LGPD</span>
+              <span><LockKeyhole size={14} /> Dados protegidos</span>
+            </div>
+
+            <button className="footer-main-cta" onClick={go}>
+              {isAuthenticated ? 'Ir para o sistema' : 'Começar agora'}
+              <ArrowRight size={16} />
+            </button>
+          </div>
+
+          <div className="footer-nav">
+            <div className="footer-nav-col">
+              <p className="footer-nav-title">Produto</p>
+              <Link to="/funcionalidades">Funcionalidades</Link>
+              <Link to="/planos">Planos</Link>
+              <Link to="/encontrar-profissional">Encontrar profissional</Link>
+            </div>
+
+            <div className="footer-nav-col">
+              <p className="footer-nav-title">Plaelo</p>
+              <Link to="/sobre">Sobre</Link>
+              <Link to="/ajuda">Suporte</Link>
+              <button onClick={go}>Entrar</button>
+            </div>
+
+            <div className="footer-nav-col">
+              <p className="footer-nav-title">Legal</p>
+              <Link to="/termos-de-uso">Termos de uso</Link>
+              <Link to="/politica-privacidade">Privacidade</Link>
+            </div>
+          </div>
         </div>
-        <div className="footer-links-grid">
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 14 }}>Produto</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Link to="/funcionalidades" style={{ fontSize: 14, textDecoration: 'none' }}>Funcionalidades</Link>
-              <Link to="/planos" style={{ fontSize: 14, textDecoration: 'none' }}>Planos</Link>
-              <Link to="/encontrar-profissional" style={{ fontSize: 14, textDecoration: 'none' }}>Encontrar Profissional</Link>
-            </div>
+
+        <div className="footer-highlight">
+          <div className="footer-highlight-icon">
+            <Sparkles size={18} />
           </div>
           <div>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 14 }}>Empresa</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Link to="/sobre" style={{ fontSize: 14, textDecoration: 'none' }}>Sobre</Link>
-              <Link to="/ajuda" style={{ fontSize: 14, textDecoration: 'none' }}>Suporte</Link>
-              <button onClick={go} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, textAlign: 'left', padding: 0, color: 'rgba(255,255,255,.65)' }}>Login</button>
-            </div>
-          </div>
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.4)', marginBottom: 14 }}>Legal</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Link to="/termos-de-uso" style={{ fontSize: 14, textDecoration: 'none' }}>Termos de Uso</Link>
-              <Link to="/politica-privacidade" style={{ fontSize: 14, textDecoration: 'none' }}>Privacidade</Link>
-            </div>
+            <strong>Menos burocracia. Mais presença.</strong>
+            <span>Agenda, prontuário, financeiro e tecnologia trabalhando juntos.</span>
           </div>
         </div>
-      </div>
-      <div className="footer-bottom">
-        <div className="wrap footer-bottom-inner">
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.45)' }}>© {new Date().getFullYear()} Plaelo. Todos os direitos reservados.</p>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.4)' }}>Feito para quem cuida da saúde mental.</p>
+
+        <div className="footer-premium-bottom">
+          <p>© {new Date().getFullYear()} Plaelo. Todos os direitos reservados.</p>
+
+          <div className="footer-made-with-care">
+            <Heart size={14} fill="currentColor" />
+            <span>Feito para quem cuida da saúde mental.</span>
+          </div>
         </div>
       </div>
     </footer>

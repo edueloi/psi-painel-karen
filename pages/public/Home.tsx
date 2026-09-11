@@ -6,6 +6,7 @@ import {
   Calendar, Sparkles, TrendingUp, ShieldCheck, UsersRound,
   Building2, Video, BarChart2, Lock, FileLock2, Server, ScanEye,
 } from 'lucide-react';
+
 import { PublicSiteShell } from '../../components/Layout/PublicSiteShell';
 import { Reveal } from '../../components/Layout/Reveal';
 import { PROFESSIONAL_CATEGORIES } from './publicSiteData';
@@ -15,63 +16,105 @@ import { useSEO } from '../../hooks/useSEO';
 
 const RESOURCE_TABS = [
   {
-    key: 'agenda', icon: Calendar, title: 'Agenda', sub: 'Sua rotina organizada',
-    heading: 'A manhã já começa organizada',
-    desc: 'Consultas, lembretes automáticos e disponibilidade de cada profissional em um só calendário — online e presencial, sem conflito de horário.',
-    bullets: ['Confirmação de presença automática por WhatsApp', 'Bloqueios de agenda e pausas protegidas', 'Reagendamento sem trocar mensagens manuais'],
+    key: 'agenda',
+    icon: Calendar,
+    title: 'Agenda',
+    sub: 'Sua rotina organizada',
+    heading: 'Sua agenda trabalha junto com você',
+    desc: 'Consultas, disponibilidade, modalidades de atendimento e lembretes automáticos no mesmo fluxo — sem depender de planilhas ou conversas soltas.',
+    bullets: [
+      'Confirmação de presença automática por WhatsApp',
+      'Bloqueios, pausas e disponibilidade em um só calendário',
+      'Reagendamento com menos troca de mensagens',
+    ],
   },
   {
-    key: 'prontuario', icon: HeartHandshake, title: 'Prontuário', sub: 'Histórico em um lugar só',
-    heading: 'Todo o histórico do paciente, sempre à mão',
-    desc: 'Evolução clínica, documentos, formulários e planos terapêuticos no mesmo fluxo — sem pasta física e sem procurar em outro sistema.',
-    bullets: ['Prontuário eletrônico com histórico de evolução', 'Formulários e anamneses digitais', 'Planos terapêuticos individualizados (PEI)'],
+    key: 'prontuario',
+    icon: HeartHandshake,
+    title: 'Prontuário',
+    sub: 'Histórico em um lugar só',
+    heading: 'O contexto clínico fica onde você precisa',
+    desc: 'Evoluções, formulários, documentos e planos terapêuticos organizados para reduzir procura manual e manter o histórico do paciente acessível.',
+    bullets: [
+      'Prontuário eletrônico com histórico de evolução',
+      'Formulários e anamneses digitais',
+      'Planos terapêuticos individualizados',
+    ],
   },
   {
-    key: 'ia', icon: Sparkles, title: 'Bia IA', sub: 'Apoio na documentação',
-    heading: 'Apoio na burocracia, sem substituir seu julgamento clínico',
-    desc: 'A Bia organiza anotações e ajuda a estruturar relatórios a partir do que você já registrou — a decisão clínica continua sempre sua.',
-    bullets: ['Organização de anotações de sessão', 'Apoio na estruturação de relatórios', 'Você revisa e aprova tudo antes de salvar'],
+    key: 'ia',
+    icon: Sparkles,
+    title: 'Bia IA',
+    sub: 'Apoio para a rotina',
+    heading: 'IA para apoiar tarefas, sem substituir seu julgamento',
+    desc: 'A Bia ajuda a organizar informações, estruturar documentos e apoiar rotinas administrativas a partir do que você já registrou.',
+    bullets: [
+      'Apoio na organização de anotações',
+      'Estruturação assistida de relatórios e documentos',
+      'Você revisa e aprova antes de salvar',
+    ],
   },
   {
-    key: 'financeiro', icon: BarChart2, title: 'Financeiro', sub: 'Contas em dia',
-    heading: 'O financeiro se fecha sem depender de planilha',
-    desc: 'Receitas, comandas, repasses e emissão de NFS-e direto do atendimento — visão clara de quanto entrou e quanto falta receber.',
-    bullets: ['Comandas vinculadas ao atendimento', 'Emissão de nota fiscal de serviço (NFS-e)', 'Relatórios financeiros por período'],
+    key: 'financeiro',
+    icon: BarChart2,
+    title: 'Financeiro',
+    sub: 'Visão clara do caixa',
+    heading: 'Menos planilha para entender o financeiro',
+    desc: 'Receitas, recebimentos, repasses e emissão de NFS-e conectados ao atendimento para facilitar a visão do que entrou e do que ainda está pendente.',
+    bullets: [
+      'Recebimentos vinculados aos atendimentos',
+      'Emissão de NFS-e dentro do fluxo',
+      'Relatórios financeiros por período',
+    ],
   },
   {
-    key: 'portal', icon: Video, title: 'Portal do Paciente', sub: 'Autonomia pro paciente',
-    heading: 'O cuidado continua entre as sessões',
-    desc: 'Seu paciente acessa a própria agenda, documentos, pagamentos e notas fiscais sem precisar te chamar no WhatsApp para cada dúvida.',
-    bullets: ['Agenda e histórico próprios do paciente', 'Download de documentos e nota fiscal', 'Sala virtual para atendimento remoto'],
+    key: 'portal',
+    icon: Video,
+    title: 'Portal do Paciente',
+    sub: 'Mais autonomia',
+    heading: 'O paciente encontra o que precisa sem depender do WhatsApp',
+    desc: 'Agenda, documentos, pagamentos, notas fiscais e acesso ao atendimento remoto ficam disponíveis em um espaço próprio.',
+    bullets: [
+      'Agenda e histórico do próprio paciente',
+      'Acesso a documentos e notas fiscais',
+      'Sala virtual para atendimento remoto',
+    ],
   },
   {
-    key: 'clinica', icon: Building2, title: 'Gestão de Clínica', sub: 'Toda a equipe junta',
-    heading: 'Toda a equipe em sintonia, com a visão que cada um precisa',
-    desc: 'Múltiplos profissionais, salas e permissões por papel — cada pessoa vê exatamente o que precisa para trabalhar, sem bagunça.',
-    bullets: ['Múltiplos profissionais e salas na mesma conta', 'Permissões de acesso por papel', 'Indicadores consolidados da clínica'],
+    key: 'clinica',
+    icon: Building2,
+    title: 'Gestão de Clínica',
+    sub: 'Equipe em sintonia',
+    heading: 'Uma visão para a clínica, outra para cada profissional',
+    desc: 'Profissionais, salas, permissões e indicadores em uma única estrutura, respeitando o que cada pessoa precisa acessar.',
+    bullets: [
+      'Múltiplos profissionais e salas',
+      'Permissões de acesso por papel',
+      'Indicadores consolidados da operação',
+    ],
   },
 ] as const;
 
 const FAQ_ITEMS = [
   {
     q: 'O que é a Plaelo?',
-    a: 'A Plaelo é um sistema de gestão para profissionais e clínicas de saúde mental — psicólogos, psiquiatras, terapeutas e toda a rede de cuidado. Reúne agenda, prontuário, financeiro, documentos e comunicação com pacientes em um único lugar.',
+    a: 'A Plaelo é uma plataforma de gestão para profissionais e clínicas de saúde mental. Reúne agenda, prontuário, financeiro, documentos, comunicação com pacientes e outros recursos em um único ambiente.',
   },
   {
     q: 'Funciona para clínicas com vários profissionais?',
-    a: 'Sim. Além do plano individual, a Plaelo atende clínicas com múltiplos profissionais, salas e permissões de acesso configuráveis por papel dentro da equipe.',
+    a: 'Sim. A Plaelo atende tanto profissionais individuais quanto clínicas com múltiplos profissionais, salas e permissões de acesso por perfil.',
   },
   {
     q: 'A Plaelo atende online e presencial?',
-    a: 'Sim, os dois. Você organiza consultas presenciais e remotas na mesma agenda, e conta com sala virtual integrada para o atendimento online.',
+    a: 'Sim. É possível organizar consultas presenciais e remotas na mesma agenda e utilizar recursos voltados ao atendimento online.',
   },
   {
-    q: 'É seguro guardar dados de pacientes na Plaelo?',
-    a: 'Sim. Os dados são tratados com criptografia e a plataforma segue os princípios da LGPD para dados sensíveis de saúde.',
+    q: 'Como a Plaelo trata os dados dos pacientes?',
+    a: 'A plataforma foi pensada para trabalhar com dados sensíveis de saúde, com controles de acesso e recursos voltados à privacidade e aos princípios da LGPD.',
   },
   {
-    q: 'Como funciona o suporte da Plaelo?',
-    a: 'Você fala diretamente com nosso time durante a configuração inicial e sempre que precisar de ajuda — sem depender só de central de ajuda automatizada.',
+    q: 'Como funciona o suporte?',
+    a: 'Durante a configuração e o uso da plataforma, você pode contar com suporte para dúvidas sobre a utilização dos recursos e a organização inicial do sistema.',
   },
 ] as const;
 
@@ -79,221 +122,448 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
-  const [activeTab, setActiveTab] = useState<typeof RESOURCE_TABS[number]['key']>('agenda');
+
+  const [activeTab, setActiveTab] =
+    useState<typeof RESOURCE_TABS[number]['key']>('agenda');
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-  const activeResource = RESOURCE_TABS.find((t) => t.key === activeTab) || RESOURCE_TABS[0];
+
+  const activeResource =
+    RESOURCE_TABS.find((item) => item.key === activeTab) || RESOURCE_TABS[0];
+
+  const ActiveResourceIcon = activeResource.icon;
 
   useSEO({
-    title: 'Plaelo — Sistema para Clínicas de Saúde Mental',
-    description: 'Plaelo é o sistema completo para profissionais e clínicas de saúde mental — psicólogos, psiquiatras, terapeutas e toda a rede de cuidado. Agenda inteligente, prontuário digital, atendimento remoto, financeiro e IA integrada.',
+    title: 'Plaelo — Gestão para Profissionais e Clínicas de Saúde Mental',
+    description:
+      'Agenda, prontuário, financeiro, documentos, automações e IA em uma única plataforma para profissionais e clínicas de saúde mental.',
     path: '/',
   });
 
   return (
     <PublicSiteShell>
-      {/* ═══ HERO — texto à esquerda, foto em tela cheia à direita ═══ */}
-      <section className="hero-split">
-        <Reveal delay={100} className="hero-split-media">
-          <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-split-media-img" />
-          <div className="hero-split-media-overlay" />
-          <div className="hero-split-badge">
-            <strong>Bia IA</strong>
-            <span>Resumo pronto p/ revisão</span>
-          </div>
-        </Reveal>
+      {/* ═══ HERO ═══ */}
+      <section className="hero-home">
+        <div className="hero-home-bg" aria-hidden="true">
+          <img src={heroPhotoUrl} alt="" className="hero-home-bg-img" />
+        </div>
 
-        <div className="wrap hero-split-grid">
-          <Reveal className="hero-split-text">
-            <span className="tag" style={{ marginBottom: 16, display: 'inline-flex' }}>
-              <HeartHandshake size={13} /> Gestão para saúde mental
+        <div className="hero-home-overlay" aria-hidden="true" />
+        <div className="hero-home-glow hero-home-glow-a" aria-hidden="true" />
+        <div className="hero-home-glow hero-home-glow-b" aria-hidden="true" />
+
+        <div className="wrap hero-home-grid">
+          <Reveal className="hero-home-copy">
+            <span className="tag hero-home-tag">
+              <HeartHandshake size={13} />
+              Plataforma completa para profissionais da saúde
             </span>
 
-            <h1 style={{ fontSize: 'clamp(30px,4.2vw,50px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.08, marginBottom: 16, color: 'var(--ink)', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-              Profissionais livres para <span className="hero-accent">cuidar</span>.
+            <h1 className="hero-home-title">
+              Menos gestão.
+              <span className="hero-accent"> Mais tempo</span>
+              <br />
+              para cuidar.
             </h1>
 
-            <p style={{ fontSize: 'clamp(15px,1.2vw,17px)', lineHeight: 1.6, color: 'var(--muted)', marginBottom: 28 }}>
-              Agenda, prontuário, financeiro e IA em uma única plataforma para psicólogos, psiquiatras e terapeutas.
+            <p className="hero-home-subtitle">
+              Agenda, prontuário, financeiro, documentos, NFS-e, lembretes
+              automáticos e IA em um só lugar para deixar sua rotina mais leve.
             </p>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
-              <button className="btn-p" onClick={go}>
-                Criar conta grátis <ArrowRight size={17} />
+            <div className="hero-home-actions">
+              <button className="btn-p hero-home-primary" onClick={go}>
+                Começar grátis por 14 dias <ArrowRight size={17} />
               </button>
-              <button className="btn-g" onClick={go}>
-                Acessar o sistema
-              </button>
+
+              <Link to="/funcionalidades" className="btn-g hero-home-secondary">
+                Conhecer a plataforma
+              </Link>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>14 dias grátis. Sem cartão de crédito.</p>
+            <p className="hero-home-note">
+              Sem cartão de crédito. Cancele quando quiser.
+            </p>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: 13, color: 'var(--muted)' }}>
-              {['Sem fidelidade', 'IA inclusa', 'LGPD compliant'].map((label) => (
-                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <CheckCircle size={13} style={{ color: 'var(--accent2)' }} /> {label}
+            <div className="hero-home-benefits">
+              {['Sem fidelidade', 'IA integrada', 'Privacidade e LGPD'].map((label) => (
+                <span key={label}>
+                  <CheckCircle size={14} /> {label}
                 </span>
               ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={100} className="hero-home-visual">
+            <div className="hero-product-card">
+              <div className="hero-product-topbar">
+                <div className="hero-product-brand">
+                  <img src={logoUrl} alt="" />
+                  <span>Plaelo</span>
+                </div>
+                <span className="hero-product-status">
+                  <i /> Rotina organizada
+                </span>
+              </div>
+
+              <div className="hero-product-body">
+                <div className="hero-product-sidebar">
+                  <span className="active"><Calendar size={13} /> Agenda</span>
+                  <span><HeartHandshake size={13} /> Pacientes</span>
+                  <span><BarChart2 size={13} /> Financeiro</span>
+                </div>
+
+                <div className="hero-product-main">
+                  <div className="hero-product-heading">
+                    <div>
+                      <span>Hoje</span>
+                      <strong>Sua agenda</strong>
+                    </div>
+                    <Calendar size={18} />
+                  </div>
+
+                  <div className="hero-appointment">
+                    <time>09:00</time>
+                    <div><strong>Consulta</strong><span>Presencial</span></div>
+                    <em>Confirmada</em>
+                  </div>
+
+                  <div className="hero-appointment">
+                    <time>10:30</time>
+                    <div><strong>Retorno</strong><span>Online</span></div>
+                    <em>Confirmada</em>
+                  </div>
+
+                  <div className="hero-appointment muted">
+                    <time>14:00</time>
+                    <div><strong>Primeira consulta</strong><span>Online</span></div>
+                    <em>Pendente</em>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="hero-float-card hero-float-ai">
+              <span className="hero-float-icon"><Sparkles size={16} /></span>
+              <div>
+                <strong>Bia IA</strong>
+                <small>Resumo pronto para revisão</small>
+              </div>
+            </div>
+
+            <div className="hero-float-card hero-float-reminder">
+              <span className="hero-float-icon green"><CheckCircle size={16} /></span>
+              <div>
+                <strong>Lembrete automático</strong>
+                <small>Paciente avisado pelo WhatsApp</small>
+              </div>
             </div>
           </Reveal>
         </div>
       </section>
 
       {/* ═══ PARA QUEM É ═══ */}
-      <section className="section" style={{ background: '#fff' }}>
+      <section className="home-section home-audience">
         <div className="wrap">
-          <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(36px,4.5vw,52px)' }}>
-            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Cada jornada, uma plataforma</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-              Para quem é a Plaelo?
-            </h2>
-          </Reveal>
-          <div className="persona-grid">
-            <Reveal as="a" className="persona-card hover-lift" style={{ cursor: 'pointer' }} onClick={go}>
-              <img src={heroPhotoUrl} alt="Psicólogo atendendo individualmente" className="persona-card-img" />
-              <div className="persona-card-overlay" />
-              <div className="persona-card-tag">
-                <strong>Ana Beatriz</strong>
-                <span>Psicóloga clínica</span>
-              </div>
-              <div className="persona-card-content">
-                <h3>Para psicólogos individuais</h3>
-                <p>Para quem atende sozinho e quer organizar agenda, pacientes, prontuário e financeiro em um único sistema.</p>
-                <span className="persona-card-cta">Sou individual <ArrowRight size={15} /></span>
-              </div>
-            </Reveal>
-            <Reveal as="a" delay={90} className="persona-card hover-lift" style={{ cursor: 'pointer' }} onClick={go}>
-              <img src={heroPhotoUrl} alt="Equipe de clínica de psicologia" className="persona-card-img" />
-              <div className="persona-card-overlay" />
-              <div className="persona-card-tag">
-                <strong>Clínica EntreNós</strong>
-                <span>Equipe multiprofissional</span>
-              </div>
-              <div className="persona-card-content">
-                <h3>Para clínicas de psicologia</h3>
-                <p>Para clínicas com vários profissionais, salas, atendimentos e gestão financeira centralizados.</p>
-                <span className="persona-card-cta">Sou clínica <ArrowRight size={15} /></span>
-              </div>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ ÁREAS ATENDIDAS ═══ */}
-      <section className="section" style={{ background: 'var(--surface)' }}>
-        <div className="wrap-sm" style={{ textAlign: 'center' }}>
-          <Reveal>
-            <span className="tag" style={{ marginBottom: 20, display: 'inline-flex' }}>Para todo o time de cuidado</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 16, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-              Feito para quem cuida da saúde mental
-            </h2>
-            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto 52px' }}>
-              De psicólogos a psiquiatras, de terapeutas ocupacionais a assistentes sociais — a Plaelo se adapta ao registro profissional e à rotina de cada especialidade.
+          <Reveal className="home-section-head">
+            <span className="tag">Uma plataforma, duas formas de trabalhar</span>
+            <h2>Do consultório individual à clínica com toda a equipe.</h2>
+            <p>
+              A Plaelo se adapta à sua rotina sem transformar uma operação simples
+              em algo complicado.
             </p>
           </Reveal>
-          <div className="area-list">
-            {PROFESSIONAL_CATEGORIES.map((cat, i) => (
-              <Reveal className="area-row" key={cat.key} delay={i * 70}>
-                <div className="area-row-head">
-                  <div className="area-row-icon" style={{ background: cat.bg, color: cat.color }}>
-                    <cat.icon size={19} />
-                  </div>
-                  <div>
-                    <h3 className="area-row-title">{cat.title}</h3>
-                    <span className="area-row-count">{cat.professions.length} profissões</span>
-                  </div>
-                </div>
-                <p className="area-row-professions">
-                  {cat.professions.join(' · ')}
+
+          <div className="home-audience-grid">
+            <Reveal className="home-audience-card home-audience-card-individual">
+              <div className="home-audience-icon">
+                <HeartHandshake size={22} />
+              </div>
+
+              <div className="home-audience-copy">
+                <span>Para quem atende sozinho</span>
+                <h3>Seu consultório organizado sem perder a leveza.</h3>
+                <p>
+                  Agenda, pacientes, prontuário, documentos e financeiro conectados
+                  em um fluxo simples para o dia a dia.
                 </p>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ RECURSOS (tabs interativas) ═══ */}
-      <section className="section" style={{ background: '#fff' }}>
-        <span className="bg-blob" style={{ width: 280, height: 280, top: -60, right: '-6%', background: 'var(--accent-soft)' }} />
-        <span className="bg-blob" style={{ width: 200, height: 200, bottom: 20, left: '-4%', background: '#E4F8EE', animationDelay: '-6s' }} />
-        <div className="wrap">
-          <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(36px,4.5vw,52px)' }}>
-            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Recursos</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-              Toda a rotina clínica, acontecendo em silêncio
-            </h2>
-            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto' }}>
-              Agenda, prontuário, financeiro, pacientes e IA trabalhando juntos em um único sistema para saúde mental.
-            </p>
-          </Reveal>
-
-          <div className="res-tabs">
-            {RESOURCE_TABS.map(({ key, icon: Icon, title, sub }) => (
-              <button
-                key={key}
-                type="button"
-                className={`res-tab${activeTab === key ? ' active' : ''}`}
-                onClick={() => setActiveTab(key)}
-              >
-                <span className="res-tab-icon"><Icon size={13} /></span>
-                <span>
-                  <span className="res-tab-title">{title}</span>
-                  <span className="res-tab-sub">{sub}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <Reveal key={activeResource.key} className="res-panel">
-            <div className="res-panel-visual">
-              <img src={heroPhotoUrl} alt={activeResource.heading} />
-            </div>
-            <div className="res-panel-info">
-              <span className="tag" style={{ alignSelf: 'flex-start' }}>
-                <activeResource.icon size={13} /> {activeResource.title}
-              </span>
-              <h3>{activeResource.heading}</h3>
-              <p>{activeResource.desc}</p>
-              <div className="res-panel-list">
-                {activeResource.bullets.map((b) => (
-                  <div className="res-panel-list-item" key={b}>
-                    <CheckCircle size={16} /> <span>{b}</span>
-                  </div>
-                ))}
               </div>
-            </div>
-          </Reveal>
 
-          <div style={{ textAlign: 'center', marginTop: 32 }}>
-            <Link to="/funcionalidades" className="link-arrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
-              Ver todas as funcionalidades <ChevronRight size={17} />
-            </Link>
+              <div className="home-audience-mini-ui">
+                <div className="home-mini-top">
+                  <span>Hoje</span>
+                  <strong>4 atendimentos</strong>
+                </div>
+                <div className="home-mini-row">
+                  <i />
+                  <div><strong>09:00</strong><span>Consulta presencial</span></div>
+                  <CheckCircle size={15} />
+                </div>
+                <div className="home-mini-row">
+                  <i />
+                  <div><strong>11:30</strong><span>Atendimento online</span></div>
+                  <CheckCircle size={15} />
+                </div>
+              </div>
+
+              <button className="home-text-link" onClick={go}>
+                Começar como profissional <ArrowRight size={16} />
+              </button>
+            </Reveal>
+
+            <Reveal delay={90} className="home-audience-card home-audience-card-clinic">
+              <div className="home-audience-icon">
+                <Building2 size={22} />
+              </div>
+
+              <div className="home-audience-copy">
+                <span>Para clínicas e equipes</span>
+                <h3>Visão central da operação, sem tirar autonomia do time.</h3>
+                <p>
+                  Organize profissionais, salas, agenda, permissões e indicadores em
+                  uma única estrutura.
+                </p>
+              </div>
+
+              <div className="home-clinic-grid">
+                <div>
+                  <UsersRound size={17} />
+                  <strong>Equipe</strong>
+                  <span>Perfis e permissões</span>
+                </div>
+                <div>
+                  <Calendar size={17} />
+                  <strong>Agenda</strong>
+                  <span>Salas e profissionais</span>
+                </div>
+                <div>
+                  <BarChart2 size={17} />
+                  <strong>Gestão</strong>
+                  <span>Visão consolidada</span>
+                </div>
+              </div>
+
+              <button className="home-text-link" onClick={go}>
+                Conhecer para clínicas <ArrowRight size={16} />
+              </button>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      <section className="section" style={{ background: 'var(--surface)' }}>
-        <span className="bg-blob" style={{ width: 320, height: 320, top: '10%', right: '-8%', background: '#fff', animationDelay: '-3s' }} />
+      {/* ═══ PROFISSIONAIS ═══ */}
+      <section className="home-section home-professions">
         <div className="wrap">
-          <Reveal style={{ maxWidth: 600, marginBottom: 38 }}>
-            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Uma rotina mais leve</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
-              Da primeira consulta ao acompanhamento financeiro, tudo conversa entre si.
-            </h2>
-            <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)' }}>
-              Menos alternância entre ferramentas e mais tempo para decisões que realmente fazem diferença no cuidado.
+          <div className="home-professions-layout">
+            <Reveal className="home-professions-copy">
+              <span className="tag">Para todo o time de cuidado</span>
+              <h2>Feita para diferentes rotinas da saúde mental.</h2>
+              <p>
+                A estrutura da Plaelo acompanha diferentes especialidades sem
+                deixar a experiência pesada ou genérica.
+              </p>
+
+              <Link to="/funcionalidades" className="home-inline-link">
+                Ver funcionalidades <ChevronRight size={17} />
+              </Link>
+            </Reveal>
+
+            <div className="home-profession-stack">
+              {PROFESSIONAL_CATEGORIES.map((cat, index) => (
+                <Reveal
+                  className="home-profession-row"
+                  key={cat.key}
+                  delay={index * 55}
+                >
+                  <div
+                    className="home-profession-row-icon"
+                    style={{ background: cat.bg, color: cat.color }}
+                  >
+                    <cat.icon size={18} />
+                  </div>
+
+                  <div className="home-profession-row-main">
+                    <strong>{cat.title}</strong>
+                    <span>{cat.professions.join(' · ')}</span>
+                  </div>
+
+                  <small>{cat.professions.length} áreas</small>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ RECURSOS ═══ */}
+      <section className="home-section home-features">
+        <div className="home-feature-glow" aria-hidden="true" />
+
+        <div className="wrap">
+          <Reveal className="home-section-head home-section-head-left">
+            <span className="tag">Tudo conectado</span>
+            <h2>Uma plataforma que acompanha o atendimento do início ao fim.</h2>
+            <p>
+              Escolha um recurso para ver como cada parte da rotina se conecta
+              dentro da Plaelo.
             </p>
           </Reveal>
-          <div className="journey-grid">
-            {[
-              { icon: Calendar, title: 'Organize sua agenda', desc: 'Centralize horários, modalidades de atendimento, lembretes e a disponibilidade de toda a equipe.' },
-              { icon: HeartHandshake, title: 'Cuide com contexto', desc: 'Acesse prontuários, formulários, planos terapêuticos e documentos no mesmo fluxo de trabalho.' },
-              { icon: TrendingUp, title: 'Acompanhe sua evolução', desc: 'Visualize indicadores clínicos e financeiros para conduzir sua prática com mais clareza.' },
-            ].map(({ icon: Icon, title, desc }, i) => (
-              <Reveal as="article" className="journey-card hover-lift" key={title} delay={i * 100}>
-                <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', background: 'var(--accent-soft)', marginBottom: 18 }}>
-                  <Icon size={19} />
+
+          <div className="home-feature-shell">
+            <div className="home-feature-tabs">
+              {RESOURCE_TABS.map(({ key, icon: Icon, title, sub }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`home-feature-tab${activeTab === key ? ' active' : ''}`}
+                  onClick={() => setActiveTab(key)}
+                >
+                  <span className="home-feature-tab-icon">
+                    <Icon size={17} />
+                  </span>
+
+                  <span className="home-feature-tab-copy">
+                    <strong>{title}</strong>
+                    <small>{sub}</small>
+                  </span>
+
+                  <ChevronRight size={17} className="home-feature-tab-arrow" />
+                </button>
+              ))}
+            </div>
+
+            <Reveal key={activeResource.key} className="home-feature-panel">
+              <div className="home-feature-panel-copy">
+                <span className="home-feature-panel-label">
+                  <ActiveResourceIcon size={14} />
+                  {activeResource.title}
+                </span>
+
+                <h3>{activeResource.heading}</h3>
+                <p>{activeResource.desc}</p>
+
+                <div className="home-feature-list">
+                  {activeResource.bullets.map((item) => (
+                    <div key={item}>
+                      <CheckCircle size={16} />
+                      <span>{item}</span>
+                    </div>
+                  ))}
                 </div>
-                <h3 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 9 }}>{title}</h3>
+
+                <Link to="/funcionalidades" className="home-inline-link">
+                  Explorar todos os recursos <ArrowRight size={16} />
+                </Link>
+              </div>
+
+              <div className="home-feature-demo">
+                <div className="home-feature-demo-window">
+                  <div className="home-feature-demo-topbar">
+                    <div>
+                      <i />
+                      <i />
+                      <i />
+                    </div>
+                    <span>plaelo.com.br</span>
+                  </div>
+
+                  <div className="home-feature-demo-body">
+                    <aside>
+                      <img src={logoUrl} alt="" />
+                      {RESOURCE_TABS.slice(0, 4).map(({ key, icon: Icon }) => (
+                        <span
+                          key={key}
+                          className={key === activeTab ? 'active' : ''}
+                        >
+                          <Icon size={14} />
+                        </span>
+                      ))}
+                    </aside>
+
+                    <main>
+                      <div className="home-feature-demo-heading">
+                        <span>Visão geral</span>
+                        <strong>{activeResource.title}</strong>
+                      </div>
+
+                      <div className="home-feature-demo-metrics">
+                        <div>
+                          <span>Hoje</span>
+                          <strong>Organizado</strong>
+                        </div>
+                        <div>
+                          <span>Status</span>
+                          <strong>Em dia</strong>
+                        </div>
+                      </div>
+
+                      <div className="home-feature-demo-card">
+                        <div className="home-feature-demo-card-title">
+                          <ActiveResourceIcon size={16} />
+                          <strong>{activeResource.heading}</strong>
+                        </div>
+
+                        {activeResource.bullets.map((item) => (
+                          <div className="home-feature-demo-line" key={item}>
+                            <span />
+                            <p>{item}</p>
+                            <CheckCircle size={14} />
+                          </div>
+                        ))}
+                      </div>
+                    </main>
+                  </div>
+                </div>
+
+                <div className="home-feature-float">
+                  <Sparkles size={16} />
+                  <div>
+                    <strong>Bia</strong>
+                    <span>apoio dentro da plataforma</span>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ FLUXO ═══ */}
+      <section className="home-section home-flow">
+        <div className="wrap">
+          <Reveal className="home-section-head">
+            <span className="tag">Uma rotina mais leve</span>
+            <h2>Menos troca de ferramenta. Mais continuidade no trabalho.</h2>
+            <p>
+              A informação acompanha o atendimento para você não precisar
+              reconstruir o contexto a cada etapa.
+            </p>
+          </Reveal>
+
+          <div className="home-flow-grid">
+            {[
+              {
+                icon: Calendar,
+                step: '01',
+                title: 'Organize',
+                desc: 'Agenda, disponibilidade, lembretes e modalidades de atendimento no mesmo fluxo.',
+              },
+              {
+                icon: HeartHandshake,
+                step: '02',
+                title: 'Atenda',
+                desc: 'Acesse prontuário, formulários, documentos e histórico sem sair da rotina.',
+              },
+              {
+                icon: TrendingUp,
+                step: '03',
+                title: 'Acompanhe',
+                desc: 'Visualize financeiro, pendências e indicadores para conduzir a prática com clareza.',
+              },
+            ].map(({ icon: Icon, step, title, desc }, index) => (
+              <Reveal className="home-flow-card" key={step} delay={index * 90}>
+                <span className="home-flow-number">{step}</span>
+                <div className="home-flow-icon"><Icon size={20} /></div>
+                <h3>{title}</h3>
                 <p>{desc}</p>
               </Reveal>
             ))}
@@ -302,32 +572,56 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ═══ SEGURANÇA ═══ */}
-      <section className="section" style={{ background: 'var(--surface)' }}>
-        <div className="wrap-sm" style={{ textAlign: 'center' }}>
-          <Reveal>
-            <span className="tag tag-green" style={{ marginBottom: 18, display: 'inline-flex' }}>
-              <ShieldCheck size={13} /> Infraestrutura Plaelo
+      <section className="home-security">
+        <div className="wrap home-security-grid">
+          <Reveal className="home-security-copy">
+            <span className="home-security-kicker">
+              <ShieldCheck size={15} /> Segurança e privacidade
             </span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-              Máxima segurança
-            </h2>
-            <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 480, margin: '0 auto 40px' }}>
-              Segurança para prontuários, documentos e dados clínicos dos seus pacientes.
+
+            <h2>Dados de saúde merecem uma estrutura pensada para eles.</h2>
+
+            <p>
+              Controles de acesso, privacidade e recursos de proteção fazem parte
+              da experiência da Plaelo para profissionais e equipes.
             </p>
+
+            <Link to="/sobre" className="home-security-link">
+              Conhecer a Plaelo <ArrowRight size={16} />
+            </Link>
           </Reveal>
-          <div className="security-grid">
+
+          <div className="home-security-cards">
             {[
-              { icon: Lock, title: 'Criptografia', desc: 'Dados protegidos em trânsito e em repouso.' },
-              { icon: FileLock2, title: 'Conformidade com a LGPD', desc: 'Tratamento de dados sensíveis de saúde dentro da lei.' },
-              { icon: ScanEye, title: 'Os dados pertencem a você', desc: 'Exportação e portabilidade dos seus dados quando precisar.' },
-              { icon: Server, title: 'Infraestrutura dedicada', desc: 'Ambiente preparado para a demanda da sua clínica.' },
-              { icon: Shield, title: 'Backups regulares', desc: 'Rotina de backup para reduzir risco de perda de dado.' },
-              { icon: UsersRound, title: 'Permissões por papel', desc: 'Cada pessoa da equipe acessa só o que precisa.' },
-            ].map(({ icon: Icon, title, desc }, i) => (
-              <Reveal className="security-item" key={title} delay={i * 60}>
-                <span className="security-item-icon"><Icon size={17} /></span>
+              {
+                icon: Lock,
+                title: 'Proteção de acesso',
+                desc: 'Controle de acesso aos dados e às áreas da plataforma.',
+              },
+              {
+                icon: FileLock2,
+                title: 'Privacidade e LGPD',
+                desc: 'Fluxos pensados para o tratamento responsável de dados sensíveis.',
+              },
+              {
+                icon: ScanEye,
+                title: 'Permissões por perfil',
+                desc: 'Cada pessoa da equipe acessa apenas o que precisa para trabalhar.',
+              },
+              {
+                icon: Server,
+                title: 'Continuidade da operação',
+                desc: 'Estrutura preparada para apoiar a rotina de profissionais e clínicas.',
+              },
+            ].map(({ icon: Icon, title, desc }, index) => (
+              <Reveal
+                className="home-security-card"
+                key={title}
+                delay={index * 60}
+              >
+                <span><Icon size={18} /></span>
                 <div>
-                  <h4>{title}</h4>
+                  <strong>{title}</strong>
                   <p>{desc}</p>
                 </div>
               </Reveal>
@@ -337,29 +631,38 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ═══ FAQ ═══ */}
-      <section className="section" style={{ background: '#fff' }}>
-        <div className="wrap-sm">
-          <Reveal style={{ marginBottom: 36 }}>
-            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Antes de começar</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16 }}>
-              Algumas respostas importantes
-            </h2>
+      <section className="home-section home-faq">
+        <div className="wrap home-faq-grid">
+          <Reveal className="home-faq-copy">
+            <span className="tag">Antes de começar</span>
+            <h2>Dúvidas comuns sobre a Plaelo.</h2>
+            <p>
+              O essencial para entender como a plataforma se encaixa na sua rotina.
+            </p>
+
+            <Link to="/ajuda" className="home-inline-link">
+              Ver central de ajuda <ArrowRight size={16} />
+            </Link>
           </Reveal>
-          <div className="faq-list">
-            {FAQ_ITEMS.map((item, i) => {
-              const open = openFaq === i;
+
+          <div className="home-faq-list">
+            {FAQ_ITEMS.map((item, index) => {
+              const open = openFaq === index;
+
               return (
-                <div
+                <button
+                  type="button"
+                  className={`home-faq-item${open ? ' open' : ''}`}
                   key={item.q}
-                  className={`faq-item${open ? ' open' : ''}`}
-                  onClick={() => setOpenFaq(open ? null : i)}
+                  onClick={() => setOpenFaq(open ? null : index)}
                 >
-                  <div className="faq-q">
-                    <h4>{item.q}</h4>
-                    <span className="faq-q-icon"><Plus size={14} /></span>
-                  </div>
-                  <p className="faq-a">{item.a}</p>
-                </div>
+                  <span className="home-faq-question">
+                    <strong>{item.q}</strong>
+                    <span className="home-faq-plus"><Plus size={16} /></span>
+                  </span>
+
+                  <span className="home-faq-answer">{item.a}</span>
+                </button>
               );
             })}
           </div>
@@ -367,30 +670,53 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ═══ CTA FINAL ═══ */}
-      <section className="section" style={{ background: 'var(--surface)' }}>
+      <section className="home-final">
+        <div className="home-final-glow home-final-glow-a" aria-hidden="true" />
+        <div className="home-final-glow home-final-glow-b" aria-hidden="true" />
+
         <div className="wrap">
-          <Reveal className="cta-final">
-            <div className="cta-final-text">
-              <img src={logoUrl} alt="Plaelo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 15, marginBottom: 24, background: '#fff', padding: 6 }} />
-              <h2 style={{ fontSize: 'clamp(28px,3.6vw,42px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, marginBottom: 16, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
-                Pronto para simplificar<br />sua rotina clínica?
+          <Reveal className="home-final-card">
+            <div className="home-final-copy">
+              <span className="home-final-kicker">
+                <Sparkles size={15} /> Comece no seu ritmo
+              </span>
+
+              <h2>
+                Sua rotina pode ser mais simples
+                <span> a partir do próximo atendimento.</span>
               </h2>
-              <p style={{ fontSize: 17, lineHeight: 1.7, color: 'rgba(255,255,255,.7)', maxWidth: 420, marginBottom: 32 }}>
-                Agende uma demonstração gratuita e veja a Plaelo na prática — sem compromisso, sem fidelidade.
+
+              <p>
+                Experimente a Plaelo e veja como agenda, prontuário, financeiro,
+                documentos e automações podem trabalhar juntos.
               </p>
-              <button className="btn-p" onClick={go} style={{ fontSize: 16, background: '#fff', color: 'var(--ink)' }}>
-                Quero uma demonstração <ArrowRight size={18} />
-              </button>
+
+              <div className="home-final-actions">
+                <button className="home-final-primary" onClick={go}>
+                  Começar grátis por 14 dias
+                  <ArrowRight size={18} />
+                </button>
+
+                <Link to="/planos" className="home-final-secondary">
+                  Ver planos
+                </Link>
+              </div>
+
+              <small>Sem cartão de crédito. Sem fidelidade.</small>
             </div>
-            <div className="cta-final-proof">
+
+            <div className="home-final-points">
               {[
-                { icon: Shield, label: 'LGPD compliant' },
-                { icon: CheckCircle, label: 'Gestão completa' },
-                { icon: CheckCircle, label: 'Cancele quando quiser' },
-              ].map(({ icon: Icon, label }) => (
-                <div className="cta-final-proof-item" key={label}>
-                  <Icon size={17} />
-                  <span>{label}</span>
+                { icon: Calendar, title: 'Tudo em um só lugar', text: 'Menos alternância entre ferramentas.' },
+                { icon: Sparkles, title: 'IA integrada', text: 'Apoio para tarefas e documentação.' },
+                { icon: Shield, title: 'Privacidade em foco', text: 'Estrutura pensada para dados sensíveis.' },
+              ].map(({ icon: Icon, title, text }) => (
+                <div className="home-final-point" key={title}>
+                  <span><Icon size={18} /></span>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{text}</p>
+                  </div>
                 </div>
               ))}
             </div>

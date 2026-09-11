@@ -1,6 +1,24 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Instagram, Globe, Linkedin, Twitter, ArrowUpRight, ChevronRight, ChevronDown, X, SlidersHorizontal, Monitor } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  CheckCircle2,
+  ChevronDown,
+  Filter,
+  Globe,
+  Instagram,
+  Linkedin,
+  MapPin,
+  Monitor,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  Twitter,
+  X,
+} from 'lucide-react';
+
 import logoUrl from '../images/logo-sistema/logo.png';
 import { Combobox } from '../components/UI/Combobox';
 import { useSEO } from '../hooks/useSEO';
@@ -26,414 +44,255 @@ interface Psychologist {
   } | null;
 }
 
-/* ─── Paleta do projeto ─── */
 const C = {
-  accent:  '#6D42F5',
+  accent: '#6D42F5',
   accent2: '#0D9155',
-  text:    '#150F2E',
-  muted:   '#665F82',
-  border:  '#E7E2F7',
+  text: '#150F2E',
+  muted: '#665F82',
+  border: '#E7E2F7',
   surface: '#F8F6FF',
 };
 
-/* ─── Listas de filtro ─── */
 const ABORDAGENS = [
-  'TCC', 'ACT', 'DBT', 'Terapia dos Esquemas', 'Psicanálise',
-  'Psicoterapia Junguiana', 'Behaviorismo', 'Gestalt-terapia', 'Humanista',
-  'Psicologia positiva', 'Fenomenológico-Existencial', 'Terapia familiar',
-  'Terapia de casal', 'Logoterapia', 'EMDR', 'Mindfulness',
+  'TCC',
+  'ACT',
+  'DBT',
+  'Terapia dos Esquemas',
+  'Psicanálise',
+  'Psicoterapia Junguiana',
+  'Behaviorismo',
+  'Gestalt-terapia',
+  'Humanista',
+  'Psicologia positiva',
+  'Fenomenológico-Existencial',
+  'Terapia familiar',
+  'Terapia de casal',
+  'Logoterapia',
+  'EMDR',
+  'Mindfulness',
 ];
 
 const ESPECIALIDADES = [
-  'Ansiedade', 'Depressão', 'TDAH', 'Relacionamentos', 'Trauma e TEPT',
-  'Luto', 'Burnout', 'Transição de Carreira', 'Autoestima',
-  'Transtornos Alimentares', 'Infantil', 'Adolescência', 'Autismo (TEA)',
-  'Orientação Vocacional', 'Dependência Química', 'Síndrome do Pânico',
-  'Abuso Sexual', 'Abuso Psicológico', 'Problemas Familiares', 'Sexualidade',
-  'Identidade de Gênero', 'Ansiedade Social', 'Fobias', 'Insônia',
-  'Dor Crônica', 'Neurodivergências',
+  'Ansiedade',
+  'Depressão',
+  'TDAH',
+  'Relacionamentos',
+  'Trauma e TEPT',
+  'Luto',
+  'Burnout',
+  'Transição de Carreira',
+  'Autoestima',
+  'Transtornos Alimentares',
+  'Infantil',
+  'Adolescência',
+  'Autismo (TEA)',
+  'Orientação Vocacional',
+  'Dependência Química',
+  'Síndrome do Pânico',
+  'Abuso Sexual',
+  'Abuso Psicológico',
+  'Problemas Familiares',
+  'Sexualidade',
+  'Identidade de Gênero',
+  'Ansiedade Social',
+  'Fobias',
+  'Insônia',
+  'Dor Crônica',
+  'Neurodivergências',
 ];
 
 const DISPONIBILIDADE_OPTS = ['Manhã', 'Tarde', 'Noite'];
 const MODALIDADE_OPTS = ['Presencial', 'Remoto'];
 
-/* ─── Gradientes de capa para cards — determinísticos pelo nome ─── */
-const CARD_GRADIENTS = [
-  ['#6D42F5','#A78BFA'],
-  ['#0EA98B','#34D399'],
-  ['#7C3AED','#C084FC'],
-  ['#0369A1','#38BDF8'],
-  ['#B45309','#FCD34D'],
-  ['#BE185D','#F9A8D4'],
-  ['#065F46','#6EE7B7'],
-  ['#1E40AF','#93C5FD'],
-];
-function cardGradient(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  const [a, b] = CARD_GRADIENTS[h % CARD_GRADIENTS.length];
-  return `linear-gradient(135deg, ${a} 0%, ${b} 100%)`;
-}
-
 function getInitials(name: string) {
-  return name.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase();
 }
 
 function getSocialIcon(platform: string) {
-  const p = platform.toLowerCase();
-  if (p.includes('instagram')) return <Instagram size={14} />;
-  if (p.includes('linkedin'))  return <Linkedin  size={14} />;
-  if (p.includes('twitter') || p.includes('x.com')) return <Twitter size={14} />;
+  const normalized = platform.toLowerCase();
+
+  if (normalized.includes('instagram')) return <Instagram size={14} />;
+  if (normalized.includes('linkedin')) return <Linkedin size={14} />;
+  if (normalized.includes('twitter') || normalized.includes('x.com')) {
+    return <Twitter size={14} />;
+  }
+
   return <Globe size={14} />;
 }
 
-/* ─── Partículas canvas na hero ─── */
-const HeroCanvas: React.FC = () => {
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
-    let raf: number;
-    let W = 0, H = 0;
-
-    const dots: { x: number; y: number; r: number; vx: number; vy: number; a: number; va: number }[] = [];
-
-    const resize = () => {
-      W = canvas.offsetWidth; H = canvas.offsetHeight;
-      canvas.width = W; canvas.height = H;
-    };
-
-    const init = () => {
-      dots.length = 0;
-      const n = Math.min(60, Math.floor((W * H) / 12000));
-      for (let i = 0; i < n; i++) {
-        dots.push({
-          x: Math.random() * W, y: Math.random() * H,
-          r: Math.random() * 2.2 + 0.4,
-          vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3,
-          a: Math.random(), va: (Math.random() - .5) * .005,
-        });
-      }
-    };
-
-    const draw = () => {
-      ctx.clearRect(0, 0, W, H);
-      dots.forEach(d => {
-        d.x += d.vx; d.y += d.vy; d.a += d.va;
-        if (d.x < 0) d.x = W; if (d.x > W) d.x = 0;
-        if (d.y < 0) d.y = H; if (d.y > H) d.y = 0;
-        if (d.a < 0.05) d.va = Math.abs(d.va);
-        if (d.a > 0.7)  d.va = -Math.abs(d.va);
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(180,170,255,${d.a})`;
-        ctx.fill();
-      });
-
-      for (let i = 0; i < dots.length; i++) {
-        for (let j = i + 1; j < dots.length; j++) {
-          const dx = dots[i].x - dots[j].x, dy = dots[i].y - dots[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 110) {
-            ctx.beginPath();
-            ctx.moveTo(dots[i].x, dots[i].y);
-            ctx.lineTo(dots[j].x, dots[j].y);
-            ctx.strokeStyle = `rgba(140,120,255,${0.08 * (1 - dist / 110)})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-          }
-        }
-      }
-      raf = requestAnimationFrame(draw);
-    };
-
-    const ro = new ResizeObserver(() => { resize(); init(); });
-    ro.observe(canvas);
-    resize(); init(); draw();
-
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
-  }, []);
-
-  return (
-    <canvas
-      ref={ref}
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-      aria-hidden="true"
-    />
-  );
-};
-
-/* ─── Skeleton card ─── */
 const SkeletonCard: React.FC = () => (
-  <div style={{
-    background: '#fff', borderRadius: 24, overflow: 'hidden',
-    border: `1.5px solid ${C.border}`,
-  }}>
-    <div style={{ height: 88, background: '#F1F5F9', animation: 'dir-pulse 1.4s ease-in-out infinite' }} />
-    <div style={{ padding: '52px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {[120, 80, 200, 140].map((w, i) => (
-        <div key={i} style={{
-          height: i === 0 ? 18 : i === 1 ? 14 : 13,
-          width: w, background: '#F1F5F9', borderRadius: 6,
-          animation: `dir-pulse 1.4s ease-in-out ${i * 0.1}s infinite`,
-        }} />
-      ))}
+  <div className="directory-card directory-skeleton">
+    <div className="directory-skeleton-top" />
+    <div className="directory-skeleton-body">
+      <div className="directory-skeleton-avatar" />
+      <div className="directory-skeleton-line w1" />
+      <div className="directory-skeleton-line w2" />
+      <div className="directory-skeleton-line w3" />
+      <div className="directory-skeleton-line w4" />
     </div>
   </div>
 );
 
-/* ─── Card de psicólogo ─── */
 const PsychCard: React.FC<{ p: Psychologist; index: number }> = ({ p, index }) => {
-  const [hovered, setHovered] = useState(false);
+  const specialties =
+    p.profile_theme?.specialties_list?.length
+      ? p.profile_theme.specialties_list
+      : p.specialty
+        ? [p.specialty]
+        : [];
 
-  const specialties: string[] = p.profile_theme?.specialties_list?.length
-    ? p.profile_theme.specialties_list
-    : p.specialty ? [p.specialty] : [];
+  const accent = p.profile_theme?.accent_color || C.accent;
 
-  const gradient = cardGradient(p.name);
-  const accentColor = p.profile_theme?.accent_color || C.accent;
+  const openProfile = () =>
+    window.open(`/p/${p.public_slug}`, '_blank', 'noopener,noreferrer');
 
   return (
-    <div
+    <article
+      className="directory-card"
       role="link"
       tabIndex={0}
-      onClick={() => window.open(`/p/${p.public_slug}`, '_blank', 'noopener,noreferrer')}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') window.open(`/p/${p.public_slug}`, '_blank', 'noopener,noreferrer'); }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: '#fff',
-        border: `1.5px solid ${hovered ? accentColor + '55' : C.border}`,
-        borderRadius: 24,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        textDecoration: 'none',
-        color: 'inherit',
-        transition: 'box-shadow .25s, border-color .25s, transform .25s',
-        boxShadow: hovered ? `0 16px 48px ${accentColor}22, 0 2px 8px rgba(0,0,0,.06)` : '0 1px 4px rgba(0,0,0,.04)',
-        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-        display: 'flex',
-        flexDirection: 'column',
-        animationDelay: `${index * 0.05}s`,
-        animation: 'dir-fade-up .4s ease both',
+      style={
+        {
+          '--profile-accent': accent,
+          animationDelay: `${Math.min(index, 8) * 0.045}s`,
+        } as React.CSSProperties
+      }
+      onClick={openProfile}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') openProfile();
       }}
     >
-      {/* Capa colorida */}
-      <div style={{ position: 'relative', height: 88, background: gradient, flexShrink: 0 }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0px, rgba(255,255,255,.03) 1px, transparent 1px, transparent 10px)',
-        }} />
-        {p.crp && (
-          <span style={{
-            position: 'absolute', top: 12, right: 12,
-            background: 'rgba(0,0,0,.35)', backdropFilter: 'blur(6px)',
-            color: '#fff', fontSize: 11, fontWeight: 700,
-            padding: '3px 9px', borderRadius: 99, letterSpacing: '.03em',
-          }}>
-            CRP {p.crp}
-          </span>
-        )}
-      </div>
+      <div className="directory-card-accent" />
 
-      {/* Avatar flutuante */}
-      <div style={{ padding: '0 24px', position: 'relative', marginTop: -36 }}>
+      <div className="directory-card-head">
         {p.avatar_url ? (
-          <img
-            src={p.avatar_url}
-            alt={p.name}
-            style={{
-              width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
-              border: '3px solid #fff',
-              boxShadow: '0 4px 16px rgba(0,0,0,.12)',
-            }}
-          />
+          <img className="directory-avatar" src={p.avatar_url} alt={p.name} />
         ) : (
-          <div style={{
-            width: 72, height: 72, borderRadius: '50%',
-            background: gradient,
-            border: '3px solid #fff',
-            boxShadow: '0 4px 16px rgba(0,0,0,.12)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 24, fontWeight: 800, color: '#fff',
-            letterSpacing: '-0.02em',
-          }}>
+          <div className="directory-avatar directory-avatar-fallback">
             {getInitials(p.name)}
           </div>
         )}
+
+        {p.crp && <span className="directory-crp">CRP {p.crp}</span>}
       </div>
 
-      {/* Conteúdo */}
-      <div style={{ padding: '12px 24px 20px', display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+      <div className="directory-card-content">
         <div>
-          <p style={{ fontWeight: 800, fontSize: 16, color: C.text, margin: 0, lineHeight: 1.25, letterSpacing: '-0.02em' }}>
-            {p.name}
-          </p>
-          {p.company_name && (
-            <p style={{ fontSize: 12, color: C.muted, margin: '3px 0 0', fontWeight: 500 }}>
-              {p.company_name}
-            </p>
-          )}
+          <h3>{p.name}</h3>
+          {p.company_name && <p className="directory-company">{p.company_name}</p>}
         </div>
 
         {specialties.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {specialties.slice(0, 3).map((s, i) => (
-              <span key={i} style={{
-                background: `${accentColor}10`, color: accentColor,
-                fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 99,
-                letterSpacing: '.01em',
-              }}>
-                {s}
-              </span>
+          <div className="directory-specialties">
+            {specialties.slice(0, 3).map(specialty => (
+              <span key={specialty}>{specialty}</span>
             ))}
+
             {specialties.length > 3 && (
-              <span style={{
-                fontSize: 11, fontWeight: 600, color: C.muted,
-                padding: '3px 7px', borderRadius: 99, background: '#F1F5F9',
-              }}>
+              <span className="directory-specialty-more">
                 +{specialties.length - 3}
               </span>
             )}
           </div>
         )}
 
-        {p.bio && (
-          <p style={{
-            fontSize: 13, color: '#475569', lineHeight: 1.65, margin: 0,
-            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>
-            {p.bio}
-          </p>
-        )}
+        {p.bio && <p className="directory-bio">{p.bio}</p>}
 
         {p.address && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#94A3B8', fontSize: 12 }}>
-            <MapPin size={12} strokeWidth={2} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.address}</span>
+          <div className="directory-address">
+            <MapPin size={13} />
+            <span>{p.address}</span>
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {(p.social_links || []).slice(0, 3).map((s, i) => (
+        <div className="directory-card-footer">
+          <div className="directory-socials">
+            {(p.social_links || []).slice(0, 3).map((social, i) => (
               <a
-                key={i}
-                href={s.url}
+                key={`${social.platform}-${i}`}
+                href={social.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                aria-label={s.platform}
-                style={{
-                  width: 30, height: 30, borderRadius: 8, background: '#F8FAFC',
-                  border: `1px solid ${C.border}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: C.muted, textDecoration: 'none', transition: 'all .15s',
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLAnchorElement).style.background = `${accentColor}12`;
-                  (e.currentTarget as HTMLAnchorElement).style.color = accentColor;
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor = `${accentColor}40`;
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLAnchorElement).style.background = '#F8FAFC';
-                  (e.currentTarget as HTMLAnchorElement).style.color = C.muted;
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor = C.border;
-                }}
+                aria-label={social.platform}
+                onClick={event => event.stopPropagation()}
               >
-                {getSocialIcon(s.platform)}
+                {getSocialIcon(social.platform)}
               </a>
             ))}
           </div>
-          <span style={{
-            fontSize: 12, fontWeight: 700, color: accentColor,
-            display: 'flex', alignItems: 'center', gap: 3,
-            letterSpacing: '.02em',
-          }}>
-            Ver perfil <ArrowUpRight size={12} strokeWidth={2.5} />
+
+          <span className="directory-profile-link">
+            Ver perfil <ArrowUpRight size={13} />
           </span>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
-/* ─── Pill button ─── */
 interface PillProps {
   label: React.ReactNode;
   active: boolean;
   onClick: () => void;
 }
-const Pill: React.FC<PillProps> = ({ label, active, onClick }) => {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        border: `1px solid ${active ? C.accent : hovered ? C.accent : C.border}`,
-        borderRadius: 99,
-        fontSize: 12,
-        padding: '5px 12px',
-        cursor: 'pointer',
-        background: active ? C.accent : 'transparent',
-        color: active ? '#fff' : hovered ? C.accent : C.text,
-        fontWeight: active ? 700 : 500,
-        transition: 'all .15s',
-        whiteSpace: 'nowrap' as const,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        lineHeight: 1.4,
-        fontFamily: 'inherit',
-      }}
-    >
-      {label}
-    </button>
-  );
-};
 
-/* ─── Página principal ─── */
+const Pill: React.FC<PillProps> = ({ label, active, onClick }) => (
+  <button
+    type="button"
+    className={`directory-pill${active ? ' active' : ''}`}
+    onClick={onClick}
+  >
+    {label}
+  </button>
+);
+
 export const PsychologistDirectory: React.FC = () => {
   const navigate = useNavigate();
 
   useSEO({
-    title: 'Encontre um Psicólogo ou Psiquiatra — Plaelo',
-    description: 'Encontre profissionais de saúde mental verificados — psicólogos, psiquiatras e terapeutas — por especialidade, abordagem e cidade. Agende sua consulta presencial ou online.',
+    title: 'Encontre um Profissional de Saúde Mental — Plaelo',
+    description:
+      'Conheça profissionais de saúde mental com perfil público na Plaelo e filtre por especialidade, abordagem, cidade, disponibilidade e modalidade de atendimento.',
     path: '/encontrar-profissional',
   });
+
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [scrolled, setScrolled] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  /* ─── Paginação ─── */
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const PAGE_SIZE = 10;
 
-  /* ─── Cidades ─── */
   const [cities, setCities] = useState<string[]>([]);
   const [selectedCity, setSelectedCity] = useState('');
 
-  /* ─── Filter state ─── */
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedAbordagens, setSelectedAbordagens] = useState<string[]>([]);
-  const [selectedEspecialidade, setSelectedEspecialidade] = useState<string>('');
+  const [selectedEspecialidade, setSelectedEspecialidade] = useState('');
   const [selectedDisponibilidade, setSelectedDisponibilidade] = useState<string[]>([]);
-  const [selectedModalidade, setSelectedModalidade] = useState<string>('');
+  const [selectedModalidade, setSelectedModalidade] = useState('');
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    abordagens: false, especialidades: false, disponibilidade: false, local: false, cidade: false,
+    abordagens: true,
+    especialidades: true,
+    disponibilidade: false,
+    local: false,
+    cidade: false,
   });
-  const toggleSection = (key: string) =>
-    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const [isMobile, setIsMobile] = useState(false);
 
   const activeFilterCount =
     selectedAbordagens.length +
@@ -453,53 +312,92 @@ export const PsychologistDirectory: React.FC = () => {
     setPage(1);
   }, []);
 
-  const toggleAbordagem = (v: string) => {
-    setSelectedAbordagens(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+  const clearSearch = useCallback(() => {
+    setSearch('');
+    setDebouncedSearch('');
     setPage(1);
-  };
-  const toggleDisponibilidade = (v: string) => {
-    setSelectedDisponibilidade(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
-    setPage(1);
-  };
-  const toggleModalidade = (v: string) => { setSelectedModalidade(prev => prev === v ? '' : v); setPage(1); };
-
-  /* ─── Scroll listener ─── */
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    searchInputRef.current?.focus();
   }, []);
 
-  /* ─── Debounce search ─── */
+  const toggleSection = (key: string) => {
+    setOpenSections(current => ({ ...current, [key]: !current[key] }));
+  };
+
+  const toggleAbordagem = (value: string) => {
+    setSelectedAbordagens(current =>
+      current.includes(value)
+        ? current.filter(item => item !== value)
+        : [...current, value],
+    );
+    setPage(1);
+  };
+
+  const toggleDisponibilidade = (value: string) => {
+    setSelectedDisponibilidade(current =>
+      current.includes(value)
+        ? current.filter(item => item !== value)
+        : [...current, value],
+    );
+    setPage(1);
+  };
+
+  const toggleModalidade = (value: string) => {
+    setSelectedModalidade(current => (current === value ? '' : value));
+    setPage(1);
+  };
+
+  const submitSearch = () => {
+    setDebouncedSearch(search.trim());
+    setPage(1);
+  };
+
+  const scrollToResults = () => {
+    document
+      .getElementById('directory-results')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 320);
+
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 320);
+
     return () => clearTimeout(debounceRef.current);
   }, [search]);
 
-  /* ─── Buscar cidades ─── */
   useEffect(() => {
     fetch(`${API_BASE}/directory/cities`)
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setCities(data); })
+      .then(response => response.json())
+      .then(data => {
+        if (Array.isArray(data)) setCities(data);
+      })
       .catch(() => {});
   }, []);
 
-  /* ─── Fetch ─── */
   useEffect(() => {
     setLoading(true);
+
     const params = new URLSearchParams();
+
     if (debouncedSearch) params.set('q', debouncedSearch);
     if (selectedEspecialidade) params.set('specialty', selectedEspecialidade);
-    if (selectedAbordagens.length) params.set('abordagem', selectedAbordagens.join(','));
-    if (selectedDisponibilidade.length) params.set('disponibilidade', selectedDisponibilidade.join(','));
+    if (selectedAbordagens.length) {
+      params.set('abordagem', selectedAbordagens.join(','));
+    }
+    if (selectedDisponibilidade.length) {
+      params.set('disponibilidade', selectedDisponibilidade.join(','));
+    }
     if (selectedModalidade) params.set('modalidade', selectedModalidade);
     if (selectedCity) params.set('cidade', selectedCity);
+
     params.set('page', String(page));
     params.set('limit', String(PAGE_SIZE));
 
     fetch(`${API_BASE}/directory?${params}`)
-      .then(r => r.json())
+      .then(response => response.json())
       .then(data => {
         if (data && Array.isArray(data.data)) {
           setPsychologists(data.data);
@@ -507,96 +405,1357 @@ export const PsychologistDirectory: React.FC = () => {
           setTotalPages(data.pages || 1);
         } else {
           setPsychologists([]);
+          setTotal(0);
+          setTotalPages(1);
         }
+
         setLoading(false);
       })
-      .catch(() => { setPsychologists([]); setLoading(false); });
-  }, [debouncedSearch, selectedEspecialidade, selectedAbordagens, selectedDisponibilidade, selectedModalidade, selectedCity, page]);
+      .catch(() => {
+        setPsychologists([]);
+        setTotal(0);
+        setTotalPages(1);
+        setLoading(false);
+      });
+  }, [
+    debouncedSearch,
+    selectedEspecialidade,
+    selectedAbordagens,
+    selectedDisponibilidade,
+    selectedModalidade,
+    selectedCity,
+    page,
+  ]);
 
-  const clearSearch = useCallback(() => {
-    setSearch('');
-    setPage(1);
-    searchInputRef.current?.focus();
-  }, []);
-
-  /* ─── Responsive: track mobile breakpoint ─── */
-  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)');
-    const update = () => setIsMobile(mq.matches);
+    const mediaQuery = window.matchMedia('(max-width: 820px)');
+    const update = () => setIsMobile(mediaQuery.matches);
+
     update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
+    mediaQuery.addEventListener('change', update);
+
+    return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
-  const filterPanelVisible = !isMobile || filtersOpen;
+  const filterSections = [
+    {
+      key: 'abordagens',
+      label: 'Abordagens',
+      count: selectedAbordagens.length,
+      content: (
+        <Combobox
+          multiple
+          options={ABORDAGENS.map(value => ({ value, label: value }))}
+          value={selectedAbordagens}
+          onChange={value => {
+            setSelectedAbordagens(
+              Array.isArray(value) ? value : value ? [value] : [],
+            );
+            setPage(1);
+          }}
+          placeholder="Selecionar abordagens…"
+          searchPlaceholder="Buscar abordagem…"
+          showSelectedBadge
+        />
+      ),
+    },
+    {
+      key: 'especialidades',
+      label: 'Especialidades',
+      count: selectedEspecialidade ? 1 : 0,
+      content: (
+        <Combobox
+          options={ESPECIALIDADES.map(value => ({ value, label: value }))}
+          value={selectedEspecialidade}
+          onChange={value => {
+            setSelectedEspecialidade(
+              Array.isArray(value) ? value[0] || '' : value,
+            );
+            setPage(1);
+          }}
+          placeholder="Selecionar especialidade…"
+          searchPlaceholder="Buscar especialidade…"
+        />
+      ),
+    },
+    {
+      key: 'disponibilidade',
+      label: 'Disponibilidade',
+      count: selectedDisponibilidade.length,
+      content: (
+        <div className="directory-pill-group">
+          {DISPONIBILIDADE_OPTS.map(value => (
+            <Pill
+              key={value}
+              label={value}
+              active={selectedDisponibilidade.includes(value)}
+              onClick={() => toggleDisponibilidade(value)}
+            />
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: 'local',
+      label: 'Modalidade',
+      count: selectedModalidade ? 1 : 0,
+      content: (
+        <div className="directory-pill-group">
+          <Pill
+            label={
+              <>
+                <MapPin size={12} /> Presencial
+              </>
+            }
+            active={selectedModalidade === 'Presencial'}
+            onClick={() => toggleModalidade('Presencial')}
+          />
+          <Pill
+            label={
+              <>
+                <Monitor size={12} /> Remoto
+              </>
+            }
+            active={selectedModalidade === 'Remoto'}
+            onClick={() => toggleModalidade('Remoto')}
+          />
+        </div>
+      ),
+    },
+    ...(cities.length
+      ? [
+          {
+            key: 'cidade',
+            label: 'Cidade',
+            count: selectedCity ? 1 : 0,
+            content: (
+              <div className="directory-pill-group">
+                {cities.map(city => (
+                  <Pill
+                    key={city}
+                    label={city}
+                    active={selectedCity === city}
+                    onClick={() => {
+                      setSelectedCity(current => (current === city ? '' : city));
+                      setPage(1);
+                    }}
+                  />
+                ))}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ] as {
+    key: string;
+    label: string;
+    count: number;
+    content: React.ReactNode;
+  }[];
 
-  /* ─── Filter panel section label ─── */
-  const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <p style={{ fontSize: 13, fontWeight: 700, color: C.text, margin: '0 0 10px', letterSpacing: '-0.01em' }}>
-      {children}
-    </p>
+  const FilterPanel = (
+    <div className="directory-filter-panel">
+      <div className="directory-filter-head">
+        <div>
+          <span className="directory-filter-head-icon">
+            <SlidersHorizontal size={15} />
+          </span>
+          <strong>Filtrar profissionais</strong>
+          {activeFilterCount > 0 && (
+            <span className="directory-filter-count">{activeFilterCount}</span>
+          )}
+        </div>
+
+        {hasActiveFilters && (
+          <button type="button" onClick={clearAllFilters}>
+            Limpar
+          </button>
+        )}
+      </div>
+
+      {filterSections.map(section => {
+        const open = openSections[section.key];
+
+        return (
+          <div className="directory-filter-section" key={section.key}>
+            <button
+              type="button"
+              className="directory-filter-trigger"
+              onClick={() => toggleSection(section.key)}
+            >
+              <span>
+                {section.label}
+                {section.count > 0 && <em>{section.count}</em>}
+              </span>
+
+              <ChevronDown
+                size={16}
+                style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              />
+            </button>
+
+            {open && (
+              <div className="directory-filter-body">{section.content}</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 
   return (
-    <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: C.surface, minHeight: '100vh', color: C.text }}>
+    <div className="directory-page">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
-        body { -webkit-font-smoothing: antialiased; }
-        input:focus { outline: none; }
-        button:focus-visible { outline: 2px solid #6D42F5; outline-offset: 2px; }
-        a:focus-visible { outline: 2px solid #6D42F5; outline-offset: 2px; border-radius: 4px; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 
-        @keyframes dir-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: .45; }
-        }
-        @keyframes dir-fade-up {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes dir-spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes dir-filter-in {
-          from { opacity: 0; transform: translateY(-8px); }
-          to   { opacity: 1; transform: translateY(0); }
+        *, *::before, *::after {
+          box-sizing: border-box;
         }
 
-        .dir-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-          gap: 20px;
-        }
-        @media (max-width: 480px) {
-          .dir-grid { grid-template-columns: 1fr; gap: 14px; }
+        html {
+          scroll-behavior: smooth;
         }
 
-        .dir-search-wrap:focus-within {
-          box-shadow: 0 0 0 3px rgba(99,85,216,.2), 0 20px 60px rgba(0,0,0,.35), 0 4px 16px rgba(99,85,216,.3) !important;
-        }
-        @media (max-width: 480px) {
-          .dir-search-wrap { padding: 5px 5px 5px 14px !important; border-radius: 14px !important; }
-          .dir-search-wrap input { font-size: 14px !important; padding: 8px 0 !important; }
-          .dir-search-wrap button:last-child { padding: 9px 14px !important; font-size: 13px !important; border-radius: 10px !important; }
-          .dir-search-wrap button:last-child svg { display: none; }
+        body {
+          margin: 0;
+          -webkit-font-smoothing: antialiased;
         }
 
-        .dir-filter-panel {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
+        .directory-page {
+          min-height: 100vh;
+          overflow-x: clip;
+          color: ${C.text};
+          background: ${C.surface};
+          font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+        }
+
+        .directory-page button,
+        .directory-page input {
+          font-family: inherit;
+        }
+
+        .directory-page button:focus-visible,
+        .directory-page a:focus-visible,
+        .directory-page article:focus-visible {
+          outline: 3px solid rgba(109,66,245,.28);
+          outline-offset: 3px;
+        }
+
+        .directory-wrap {
+          width: min(1240px, calc(100% - 48px));
+          margin: 0 auto;
+        }
+
+        /* Header */
+        .directory-nav {
+          position: absolute;
+          inset: 0 0 auto;
+          z-index: 100;
+          height: 78px;
+          display: flex;
+          align-items: center;
+          border-bottom: 1px solid rgba(255,255,255,.10);
+          background: rgba(12,8,37,.24);
+          backdrop-filter: blur(14px);
+        }
+
+        .directory-nav-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
           gap: 24px;
         }
-        @media (max-width: 768px) {
-          .dir-filter-panel { grid-template-columns: 1fr; gap: 20px; }
+
+        .directory-brand {
+          display: inline-flex;
+          align-items: center;
+          gap: 11px;
+          padding: 0;
+          border: 0;
+          color: #fff;
+          background: transparent;
+          cursor: pointer;
         }
 
-        .dir-pill-group {
+        .directory-brand-logo {
+          width: 42px;
+          height: 42px;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,.18);
+          border-radius: 13px;
+          background: #fff;
+        }
+
+        .directory-brand-logo img {
+          width: 34px;
+          height: 34px;
+          object-fit: contain;
+        }
+
+        .directory-brand strong {
+          color: #fff;
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 18px;
+          letter-spacing: -.04em;
+        }
+
+        .directory-nav-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .directory-nav-back,
+        .directory-nav-login {
+          min-height: 42px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          padding: 0 16px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .directory-nav-back {
+          border: 1px solid rgba(255,255,255,.14);
+          color: rgba(255,255,255,.72);
+          background: rgba(255,255,255,.055);
+        }
+
+        .directory-nav-login {
+          border: 0;
+          color: ${C.text};
+          background: #fff;
+        }
+
+        /* Hero */
+        .directory-hero {
+          position: relative;
+          overflow: hidden;
+          padding: 152px 0 142px;
+          color: #fff;
+          background:
+            radial-gradient(circle at 78% 18%, rgba(109,66,245,.38), transparent 30%),
+            radial-gradient(circle at 16% 84%, rgba(18,183,106,.09), transparent 26%),
+            linear-gradient(135deg, #0B0723 0%, #130D35 48%, #251966 100%);
+        }
+
+        .directory-hero::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          opacity: .18;
+          pointer-events: none;
+          background-image:
+            linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+          background-size: 48px 48px;
+          mask-image: linear-gradient(to bottom, #000 0%, transparent 90%);
+        }
+
+        .directory-hero-inner {
+          position: relative;
+          z-index: 1;
+          max-width: 850px;
+          margin: 0 auto;
+          text-align: center;
+        }
+
+        .directory-hero-kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 7px 12px;
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 999px;
+          color: #D8CCFF;
+          background: rgba(255,255,255,.07);
+          backdrop-filter: blur(12px);
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+        }
+
+        .directory-hero h1 {
+          margin: 22px 0 0;
+          color: #fff;
+          font-family: 'Plus Jakarta Sans','Inter',sans-serif;
+          font-size: clamp(42px,5.7vw,72px);
+          line-height: .99;
+          letter-spacing: -.058em;
+          font-weight: 800;
+        }
+
+        .directory-hero h1 span {
+          background: linear-gradient(90deg, #BBA6FF 0%, #EEE9FF 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+
+        .directory-hero-description {
+          max-width: 640px;
+          margin: 22px auto 0;
+          color: rgba(255,255,255,.66);
+          font-size: 15.5px;
+          line-height: 1.75;
+        }
+
+        .directory-search {
+          max-width: 700px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 34px auto 0;
+          padding: 7px 7px 7px 18px;
+          border: 1px solid rgba(255,255,255,.16);
+          border-radius: 18px;
+          background: rgba(255,255,255,.98);
+          box-shadow: 0 26px 70px rgba(2,0,18,.32);
+        }
+
+        .directory-search > svg {
+          flex-shrink: 0;
+          color: #8E88A6;
+        }
+
+        .directory-search input {
+          min-width: 0;
+          flex: 1;
+          padding: 11px 0;
+          border: 0;
+          outline: 0;
+          color: ${C.text};
+          background: transparent;
+          font-size: 14px;
+        }
+
+        .directory-search input::placeholder {
+          color: #9892AA;
+        }
+
+        .directory-search-clear {
+          width: 31px;
+          height: 31px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+          border: 0;
+          border-radius: 9px;
+          color: ${C.muted};
+          background: ${C.surface};
+          cursor: pointer;
+        }
+
+        .directory-search-submit {
+          min-height: 43px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          flex-shrink: 0;
+          padding: 0 18px;
+          border: 0;
+          border-radius: 12px;
+          color: #fff;
+          background: ${C.accent};
+          font-size: 12.5px;
+          font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 10px 26px rgba(109,66,245,.28);
+        }
+
+        .directory-quick {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 7px;
+          margin-top: 14px;
+        }
+
+        .directory-quick > span {
+          align-self: center;
+          margin-right: 2px;
+          color: rgba(255,255,255,.36);
+          font-size: 10.5px;
+        }
+
+        .directory-quick button {
+          padding: 5px 10px;
+          border: 1px solid rgba(255,255,255,.12);
+          border-radius: 999px;
+          color: rgba(255,255,255,.66);
+          background: rgba(255,255,255,.065);
+          font-size: 10.5px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background .16s ease, color .16s ease;
+        }
+
+        .directory-quick button:hover {
+          color: #fff;
+          background: rgba(109,66,245,.25);
+        }
+
+        /* Results shell */
+        .directory-results {
+          position: relative;
+          z-index: 2;
+          margin-top: -66px;
+          padding-bottom: 90px;
+          scroll-margin-top: 20px;
+        }
+
+        .directory-results-shell {
+          padding: 22px;
+          border: 1px solid ${C.border};
+          border-radius: 30px;
+          background: rgba(255,255,255,.96);
+          box-shadow: 0 28px 90px rgba(18,12,46,.12);
+          backdrop-filter: blur(16px);
+        }
+
+        .directory-results-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 6px 4px 20px;
+        }
+
+        .directory-results-title strong {
+          display: block;
+          color: ${C.text};
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 17px;
+          letter-spacing: -.02em;
+        }
+
+        .directory-results-title span {
+          display: block;
+          margin-top: 4px;
+          color: ${C.muted};
+          font-size: 11px;
+        }
+
+        .directory-mobile-filter {
+          display: none;
+          min-height: 40px;
+          align-items: center;
+          gap: 7px;
+          padding: 0 14px;
+          border: 1px solid ${C.border};
+          border-radius: 999px;
+          color: ${C.text};
+          background: #fff;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .directory-mobile-filter em {
+          min-width: 18px;
+          height: 18px;
+          display: inline-grid;
+          place-items: center;
+          padding: 0 5px;
+          border-radius: 999px;
+          color: #fff;
+          background: ${C.accent};
+          font-size: 9px;
+          font-style: normal;
+        }
+
+        .directory-main-grid {
+          display: grid;
+          grid-template-columns: 260px minmax(0,1fr);
+          gap: 22px;
+          align-items: start;
+        }
+
+        /* Filters */
+        .directory-filter-panel {
+          position: sticky;
+          top: 20px;
+          overflow: hidden;
+          border: 1px solid ${C.border};
+          border-radius: 20px;
+          background: #fff;
+        }
+
+        .directory-filter-head {
+          min-height: 62px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 14px 16px;
+          border-bottom: 1px solid ${C.border};
+          background: #FAF9FF;
+        }
+
+        .directory-filter-head > div {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .directory-filter-head-icon {
+          width: 30px;
+          height: 30px;
+          display: grid;
+          place-items: center;
+          border-radius: 9px;
+          color: ${C.accent};
+          background: #EFE9FF;
+        }
+
+        .directory-filter-head strong {
+          font-size: 11.5px;
+        }
+
+        .directory-filter-count {
+          min-width: 19px;
+          height: 19px;
+          display: inline-grid;
+          place-items: center;
+          padding: 0 5px;
+          border-radius: 999px;
+          color: #fff;
+          background: ${C.accent};
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .directory-filter-head > button {
+          padding: 0;
+          border: 0;
+          color: ${C.accent};
+          background: none;
+          font-size: 10px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .directory-filter-section + .directory-filter-section {
+          border-top: 1px solid ${C.border};
+        }
+
+        .directory-filter-trigger {
+          width: 100%;
+          min-height: 49px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 0 16px;
+          border: 0;
+          color: ${C.text};
+          background: #fff;
+          font-size: 11.5px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .directory-filter-trigger > span {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+
+        .directory-filter-trigger em {
+          min-width: 18px;
+          height: 18px;
+          display: inline-grid;
+          place-items: center;
+          padding: 0 5px;
+          border-radius: 999px;
+          color: ${C.accent};
+          background: rgba(109,66,245,.10);
+          font-size: 9px;
+          font-style: normal;
+        }
+
+        .directory-filter-trigger svg {
+          color: ${C.muted};
+          transition: transform .18s ease;
+        }
+
+        .directory-filter-body {
+          padding: 2px 16px 16px;
+        }
+
+        .directory-pill-group {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
+        }
+
+        .directory-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 10px;
+          border: 1px solid ${C.border};
+          border-radius: 999px;
+          color: ${C.muted};
+          background: #fff;
+          font-size: 10.5px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .directory-pill.active {
+          border-color: ${C.accent};
+          color: #fff;
+          background: ${C.accent};
+        }
+
+        /* Active filters / status */
+        .directory-status {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .directory-status-text {
+          color: ${C.muted};
+          font-size: 11px;
+        }
+
+        .directory-status-text strong {
+          color: ${C.text};
+        }
+
+        .directory-active-filters {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          gap: 6px;
+        }
+
+        .directory-filter-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 9px;
+          border: 1px solid rgba(109,66,245,.14);
+          border-radius: 999px;
+          color: ${C.accent};
+          background: rgba(109,66,245,.07);
+          font-size: 9.5px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        /* Cards */
+        @keyframes directory-card-in {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .directory-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill,minmax(250px,1fr));
+          gap: 14px;
+        }
+
+        .directory-card {
+          --profile-accent: ${C.accent};
+          position: relative;
+          overflow: hidden;
+          min-height: 365px;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid ${C.border};
+          border-radius: 21px;
+          background: #fff;
+          cursor: pointer;
+          animation: directory-card-in .38s ease both;
+          transition:
+            transform .2s ease,
+            box-shadow .2s ease,
+            border-color .2s ease;
+        }
+
+        .directory-card:hover {
+          transform: translateY(-4px);
+          border-color: color-mix(in srgb, var(--profile-accent) 28%, ${C.border});
+          box-shadow: 0 20px 52px rgba(18,12,46,.11);
+        }
+
+        .directory-card-accent {
+          height: 72px;
+          flex-shrink: 0;
+          background:
+            radial-gradient(circle at 88% 18%, rgba(255,255,255,.22), transparent 28%),
+            linear-gradient(
+              135deg,
+              color-mix(in srgb, var(--profile-accent) 86%, #201747),
+              color-mix(in srgb, var(--profile-accent) 54%, #BBA6FF)
+            );
+        }
+
+        .directory-card-head {
+          position: relative;
+          min-height: 50px;
+          padding: 0 20px;
+        }
+
+        .directory-avatar {
+          position: absolute;
+          left: 20px;
+          top: -34px;
+          width: 70px;
+          height: 70px;
+          object-fit: cover;
+          border: 4px solid #fff;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 8px 22px rgba(18,12,46,.15);
+        }
+
+        .directory-avatar-fallback {
+          display: grid;
+          place-items: center;
+          color: #fff;
+          background: var(--profile-accent);
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 20px;
+          font-weight: 800;
+        }
+
+        .directory-crp {
+          position: absolute;
+          right: 18px;
+          top: 12px;
+          color: ${C.muted};
+          font-size: 9.5px;
+          font-weight: 700;
+        }
+
+        .directory-card-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          padding: 6px 20px 18px;
+        }
+
+        .directory-card-content h3 {
+          margin: 0;
+          color: ${C.text};
+          font-family: 'Plus Jakarta Sans',sans-serif;
+          font-size: 15px;
+          line-height: 1.3;
+          letter-spacing: -.025em;
+          font-weight: 800;
+        }
+
+        .directory-company {
+          margin: 4px 0 0;
+          color: ${C.muted};
+          font-size: 10.5px;
+        }
+
+        .directory-specialties {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 5px;
+          margin-top: 13px;
+        }
+
+        .directory-specialties span {
+          padding: 4px 8px;
+          border-radius: 999px;
+          color: var(--profile-accent);
+          background: color-mix(in srgb, var(--profile-accent) 8%, #fff);
+          font-size: 9.5px;
+          font-weight: 700;
+        }
+
+        .directory-specialty-more {
+          color: ${C.muted} !important;
+          background: ${C.surface} !important;
+        }
+
+        .directory-bio {
+          display: -webkit-box;
+          margin: 13px 0 0;
+          overflow: hidden;
+          color: #5D5870;
+          font-size: 11.5px;
+          line-height: 1.65;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+        }
+
+        .directory-address {
+          min-width: 0;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 13px;
+          color: #8A849D;
+          font-size: 10px;
+        }
+
+        .directory-address svg {
+          flex-shrink: 0;
+        }
+
+        .directory-address span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .directory-card-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin-top: auto;
+          padding-top: 16px;
+          border-top: 1px solid ${C.border};
+        }
+
+        .directory-socials {
+          display: flex;
+          gap: 5px;
+        }
+
+        .directory-socials a {
+          width: 28px;
+          height: 28px;
+          display: grid;
+          place-items: center;
+          border: 1px solid ${C.border};
+          border-radius: 8px;
+          color: ${C.muted};
+          background: #fff;
+          text-decoration: none;
+        }
+
+        .directory-socials a:hover {
+          color: var(--profile-accent);
+          border-color: color-mix(in srgb, var(--profile-accent) 25%, ${C.border});
+          background: color-mix(in srgb, var(--profile-accent) 6%, #fff);
+        }
+
+        .directory-profile-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          color: var(--profile-accent);
+          font-size: 10.5px;
+          font-weight: 800;
+        }
+
+        /* Skeleton */
+        @keyframes directory-pulse {
+          0%,100% { opacity: 1; }
+          50% { opacity: .45; }
+        }
+
+        .directory-skeleton {
+          cursor: default;
+          animation: none;
+        }
+
+        .directory-skeleton-top {
+          height: 72px;
+          background: #EEEAF8;
+          animation: directory-pulse 1.4s ease-in-out infinite;
+        }
+
+        .directory-skeleton-body {
+          position: relative;
+          padding: 48px 20px 20px;
+        }
+
+        .directory-skeleton-avatar {
+          position: absolute;
+          left: 20px;
+          top: -34px;
+          width: 70px;
+          height: 70px;
+          border: 4px solid #fff;
+          border-radius: 50%;
+          background: #ECE8F6;
+          animation: directory-pulse 1.4s ease-in-out infinite;
+        }
+
+        .directory-skeleton-line {
+          height: 11px;
+          margin-top: 11px;
+          border-radius: 6px;
+          background: #F0EDF7;
+          animation: directory-pulse 1.4s ease-in-out infinite;
+        }
+
+        .directory-skeleton-line.w1 { width: 56%; height: 15px; }
+        .directory-skeleton-line.w2 { width: 38%; }
+        .directory-skeleton-line.w3 { width: 92%; margin-top: 25px; }
+        .directory-skeleton-line.w4 { width: 72%; }
+
+        /* Empty */
+        .directory-empty {
+          padding: 68px 24px;
+          border: 1px solid ${C.border};
+          border-radius: 22px;
+          background: #fff;
+          text-align: center;
+        }
+
+        .directory-empty-icon {
+          width: 58px;
+          height: 58px;
+          display: grid;
+          place-items: center;
+          margin: 0 auto 18px;
+          border-radius: 17px;
+          color: ${C.accent};
+          background: #EFE9FF;
+        }
+
+        .directory-empty h3 {
+          margin: 0;
+          font-size: 17px;
+        }
+
+        .directory-empty p {
+          max-width: 360px;
+          margin: 8px auto 20px;
+          color: ${C.muted};
+          font-size: 11.5px;
+          line-height: 1.65;
+        }
+
+        .directory-empty button {
+          min-height: 42px;
+          padding: 0 16px;
+          border: 0;
+          border-radius: 999px;
+          color: #fff;
+          background: ${C.accent};
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        /* Pagination */
+        .directory-pagination {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 5px;
+          margin-top: 30px;
+        }
+
+        .directory-page-button,
+        .directory-page-dots {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border-radius: 9px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .directory-page-button {
+          border: 1px solid ${C.border};
+          color: ${C.text};
+          background: #fff;
+          cursor: pointer;
+        }
+
+        .directory-page-button.active {
+          border-color: ${C.accent};
+          color: #fff;
+          background: ${C.accent};
+        }
+
+        .directory-page-button:disabled {
+          opacity: .35;
+          cursor: not-allowed;
+        }
+
+        .directory-page-dots {
+          color: ${C.muted};
+        }
+
+        /* Footer */
+        .directory-footer {
+          position: relative;
+          overflow: hidden;
+          padding: 58px 0;
+          color: #fff;
+          background:
+            radial-gradient(circle at 80% 20%, rgba(109,66,245,.24), transparent 28%),
+            linear-gradient(135deg, #0B0723 0%, #17103D 100%);
+        }
+
+        .directory-footer-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 30px;
+        }
+
+        .directory-footer-brand {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+        }
+
+        .directory-footer-brand img {
+          width: 36px;
+          height: 36px;
+          object-fit: contain;
+          border-radius: 10px;
+          background: #fff;
+        }
+
+        .directory-footer-brand strong,
+        .directory-footer-brand span {
+          display: block;
+        }
+
+        .directory-footer-brand strong {
+          font-size: 13px;
+        }
+
+        .directory-footer-brand span {
+          margin-top: 3px;
+          color: rgba(255,255,255,.45);
+          font-size: 10px;
+        }
+
+        .directory-footer-cta {
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          padding: 0 17px;
+          border: 1px solid rgba(255,255,255,.13);
+          border-radius: 999px;
+          color: #fff;
+          background: rgba(255,255,255,.06);
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        /* Mobile filter sheet */
+        .directory-filter-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 300;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          background: rgba(12,8,37,.52);
+          backdrop-filter: blur(5px);
+        }
+
+        .directory-filter-sheet {
+          max-height: 82vh;
+          overflow-y: auto;
+          border-radius: 26px 26px 0 0;
+          background: #fff;
+          box-shadow: 0 -20px 70px rgba(18,12,46,.18);
+        }
+
+        .directory-sheet-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 18px 18px 8px;
+        }
+
+        .directory-sheet-top strong {
+          font-size: 14px;
+        }
+
+        .directory-sheet-top button {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border: 0;
+          border-radius: 10px;
+          color: ${C.muted};
+          background: ${C.surface};
+          cursor: pointer;
+        }
+
+        .directory-sheet-content {
+          padding: 10px 14px 14px;
+        }
+
+        .directory-sheet-apply {
+          position: sticky;
+          bottom: 0;
+          padding: 12px 14px 20px;
+          background: linear-gradient(180deg, rgba(255,255,255,.4), #fff 28%);
+        }
+
+        .directory-sheet-apply button {
+          width: 100%;
+          min-height: 48px;
+          border: 0;
+          border-radius: 999px;
+          color: #fff;
+          background: ${C.accent};
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        @media (max-width: 980px) {
+          .directory-wrap {
+            width: min(100% - 32px, 1240px);
+          }
+
+          .directory-main-grid {
+            grid-template-columns: 230px minmax(0,1fr);
+          }
+
+          .directory-grid {
+            grid-template-columns: repeat(auto-fill,minmax(235px,1fr));
+          }
+        }
+
+        @media (max-width: 820px) {
+          .directory-nav-back {
+            display: none;
+          }
+
+          .directory-hero {
+            padding-top: 138px;
+            padding-bottom: 122px;
+          }
+
+          .directory-results {
+            margin-top: -52px;
+          }
+
+          .directory-results-shell {
+            padding: 16px;
+            border-radius: 24px;
+          }
+
+          .directory-mobile-filter {
+            display: inline-flex;
+          }
+
+          .directory-main-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .directory-desktop-filter {
+            display: none;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .directory-wrap {
+            width: min(100% - 24px, 1240px);
+          }
+
+          .directory-nav {
+            height: 70px;
+          }
+
+          .directory-brand-logo {
+            width: 38px;
+            height: 38px;
+          }
+
+          .directory-brand-logo img {
+            width: 30px;
+            height: 30px;
+          }
+
+          .directory-brand strong {
+            font-size: 16px;
+          }
+
+          .directory-nav-login {
+            min-height: 38px;
+            padding: 0 14px;
+          }
+
+          .directory-hero {
+            padding: 126px 0 108px;
+          }
+
+          .directory-hero h1 {
+            font-size: clamp(38px,12vw,52px);
+          }
+
+          .directory-hero-description {
+            font-size: 14px;
+          }
+
+          .directory-search {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 7px;
+            padding: 7px 7px 7px 14px;
+          }
+
+          .directory-search-submit {
+            width: 42px;
+            padding: 0;
+          }
+
+          .directory-search-submit span {
+            display: none;
+          }
+
+          .directory-results-top {
+            align-items: flex-end;
+          }
+
+          .directory-status {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .directory-active-filters {
+            justify-content: flex-start;
+          }
+
+          .directory-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .directory-footer-inner {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .directory-footer-cta {
+            width: 100%;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -605,272 +1764,118 @@ export const PsychologistDirectory: React.FC = () => {
             transition-duration: .01ms !important;
           }
         }
-
-        /* ── Mobile navbar ── */
-        @media (max-width: 480px) {
-          .dir-navbar { padding: 0 16px !important; }
-          .dir-navbar-logo-text { font-size: 18px !important; }
-          .dir-navbar-btn { padding: 8px 16px !important; font-size: 13px !important; }
-        }
-
-        /* ── Mobile hero ── */
-        @media (max-width: 480px) {
-          .dir-hero-badge { font-size: 10px !important; padding: 5px 12px !important; }
-          .dir-hero-desc { font-size: 14px !important; }
-          .dir-hero-tags { gap: 6px !important; }
-          .dir-hero-tags button { font-size: 11px !important; padding: 4px 10px !important; }
-          .dir-search-wrap { padding: 0 6px 0 14px !important; }
-          .dir-search-wrap input { font-size: 14px !important; padding: 13px 0 !important; }
-        }
-
-        /* ── Mobile filter as bottom overlay ── */
-        @media (max-width: 768px) {
-          .dir-filter-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(15,23,42,.45);
-            z-index: 300;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            animation: dir-overlay-in .2s ease both;
-          }
-          .dir-filter-sheet {
-            background: #fff;
-            border-radius: 24px 24px 0 0;
-            max-height: 80vh;
-            overflow-y: auto;
-            animation: dir-sheet-in .25s ease both;
-          }
-          @keyframes dir-overlay-in {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-          }
-          @keyframes dir-sheet-in {
-            from { transform: translateY(100%); }
-            to   { transform: translateY(0); }
-          }
-        }
-
-        /* ── Mobile status bar ── */
-        @media (max-width: 480px) {
-          .dir-status-bar { flex-direction: column; align-items: flex-start !important; gap: 8px !important; }
-        }
       `}</style>
 
-      {/* ── NAVBAR ── */}
-      <nav className="dir-navbar" style={{
-        position: 'sticky', top: 0, zIndex: 200,
-        height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 32px',
-        background: scrolled ? 'rgba(255,255,255,.95)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(20px) saturate(1.6)' : 'none',
-        borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
-        transition: 'background .3s, border-color .3s, box-shadow .3s',
-        boxShadow: scrolled ? '0 2px 24px rgba(0,0,0,.08)' : 'none',
-      }}>
-        <button
-          onClick={() => navigate('/')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '4px 6px', borderRadius: 10 }}
-          aria-label="Página inicial Plaelo"
-        >
-          <div style={{
-            width: 42, height: 42, borderRadius: 12,
-            background: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden',
-            border: scrolled ? 'none' : '1px solid rgba(255,255,255,.15)',
-            transition: 'background .3s, border .3s',
-          }}>
-            <img src={logoUrl} alt="Plaelo" style={{ width: 34, height: 34, objectFit: 'contain' }} />
-          </div>
-          <span className="dir-navbar-logo-text" style={{
-            fontWeight: 900, fontSize: 20,
-            letterSpacing: '-0.04em',
-            color: scrolled ? C.text : '#fff',
-            transition: 'color .3s',
-            lineHeight: 1,
-          }}>
-            Plaelo
-          </span>
-        </button>
+      {/* NAV */}
+      <nav className="directory-nav">
+        <div className="directory-wrap directory-nav-inner">
+          <button
+            type="button"
+            className="directory-brand"
+            onClick={() => navigate('/')}
+            aria-label="Voltar para a página inicial da Plaelo"
+          >
+            <span className="directory-brand-logo">
+              <img src={logoUrl} alt="" />
+            </span>
+            <strong>Plaelo</strong>
+          </button>
 
-        <button
-          className="dir-navbar-btn"
-          onClick={() => navigate('/login')}
-          style={{
-            background: scrolled ? C.accent : 'rgba(255,255,255,.12)',
-            backdropFilter: scrolled ? 'none' : 'blur(10px)',
-            color: '#fff',
-            border: scrolled ? 'none' : '1.5px solid rgba(255,255,255,.2)',
-            borderRadius: 12, padding: '10px 24px',
-            fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            letterSpacing: '-.01em',
-            transition: 'background .2s, box-shadow .2s',
-            boxShadow: scrolled ? `0 2px 12px ${C.accent}40` : 'none',
-            fontFamily: 'inherit',
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = scrolled ? '#5447C4' : 'rgba(255,255,255,.22)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = scrolled ? C.accent : 'rgba(255,255,255,.12)'; }}
-        >
-          Entrar
-        </button>
+          <div className="directory-nav-actions">
+            <button
+              type="button"
+              className="directory-nav-back"
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft size={14} />
+              Voltar ao site
+            </button>
+
+            <button
+              type="button"
+              className="directory-nav-login"
+              onClick={() => navigate('/login')}
+            >
+              Entrar
+            </button>
+          </div>
+        </div>
       </nav>
 
-      {/* ── HERO ── */}
-      <div style={{
-        position: 'relative',
-        background: '#0C0B1A',
-        paddingTop: 'clamp(48px, 8vw, 80px)',
-        paddingBottom: 'clamp(56px, 10vw, 96px)',
-        marginTop: -72,
-        overflow: 'hidden',
-        textAlign: 'center',
-      }}>
-        <div style={{
-          position: 'absolute', top: -80, left: '50%', transform: 'translateX(-50%)',
-          width: 700, height: 400,
-          background: 'radial-gradient(ellipse at center, rgba(99,85,216,.35) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: -40, left: '20%',
-          width: 320, height: 320,
-          background: 'radial-gradient(circle, rgba(14,169,139,.18) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', top: 60, right: '15%',
-          width: 200, height: 200,
-          background: 'radial-gradient(circle, rgba(139,124,246,.15) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-
-        <HeroCanvas />
-
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: 680, margin: '0 auto', padding: 'clamp(28px,6vw,60px) 20px 0' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24,
-            background: 'rgba(99,85,216,.2)', border: '1px solid rgba(99,85,216,.35)',
-            borderRadius: 99, padding: '6px 16px',
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.accent2, display: 'block', flexShrink: 0 }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#B5AFFF', letterSpacing: '.1em', textTransform: 'uppercase' }}>
-              Profissionais verificados
+      {/* HERO */}
+      <header className="directory-hero">
+        <div className="directory-wrap">
+          <div className="directory-hero-inner">
+            <span className="directory-hero-kicker">
+              <ShieldCheck size={14} />
+              Diretório de profissionais Plaelo
             </span>
-          </div>
 
-          <h1 style={{
-            fontSize: 'clamp(32px, 6vw, 58px)',
-            fontWeight: 900,
-            letterSpacing: '-0.04em',
-            lineHeight: 1.08,
-            color: '#fff',
-            marginBottom: 18,
-          }}>
-            Encontre o profissional<br />
-            <span style={{
-              background: `linear-gradient(90deg, ${C.accent} 0%, #A78BFA 50%, ${C.accent2} 100%)`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}>
-              certo para você
-            </span>
-          </h1>
+            <h1>
+              Encontre um profissional
+              <br />
+              <span>para o seu momento.</span>
+            </h1>
 
-          <p style={{ fontSize: 'clamp(15px, 2vw, 17px)', color: 'rgba(255,255,255,.6)', lineHeight: 1.65, marginBottom: 40 }}>
-            Conheça os profissionais de saúde mental da plataforma Plaelo, veja suas abordagens e entre em contato diretamente.
-          </p>
+            <p className="directory-hero-description">
+              Explore perfis públicos de profissionais da saúde mental, conheça
+              especialidades e abordagens e encontre opções de atendimento
+              presencial ou remoto.
+            </p>
 
-          {/* Search bar */}
-          <div style={{ maxWidth: 560, margin: '0 auto' }}>
-            <div
-              className="dir-search-wrap"
-              style={{
-                background: 'rgba(255,255,255,.95)',
-                borderRadius: 18,
-                display: 'flex', alignItems: 'center',
-                padding: '6px 6px 6px 18px',
-                boxShadow: '0 20px 60px rgba(0,0,0,.35), 0 4px 16px rgba(99,85,216,.25)',
-                gap: 10,
-              }}
-            >
-              <Search size={18} style={{ color: '#94A3B8', flexShrink: 0 }} />
+            <div className="directory-search">
+              <Search size={18} />
+
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Nome, especialidade, cidade…"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{
-                  flex: 1, border: 'none', background: 'transparent',
-                  fontSize: 15, color: C.text, padding: '10px 0',
-                  caretColor: C.accent,
-                  minWidth: 0,
+                placeholder="Busque por nome, especialidade ou cidade"
+                onChange={event => setSearch(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') {
+                    submitSearch();
+                    scrollToResults();
+                  }
                 }}
               />
+
               {search && (
                 <button
+                  type="button"
+                  className="directory-search-clear"
                   onClick={clearSearch}
                   aria-label="Limpar busca"
-                  style={{
-                    background: '#F1F5F9', border: 'none', cursor: 'pointer',
-                    width: 30, height: 30, borderRadius: 8, display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', color: '#94A3B8',
-                    transition: 'background .15s', flexShrink: 0,
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#E2E8F0')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#F1F5F9')}
                 >
                   <X size={13} />
                 </button>
               )}
+
               <button
-                onClick={() => { setDebouncedSearch(search); }}
-                style={{
-                  background: `linear-gradient(135deg, ${C.accent} 0%, #8B5CF6 100%)`,
-                  border: 'none', borderRadius: 12,
-                  padding: '10px 20px',
-                  fontSize: 14, fontWeight: 700, color: '#fff',
-                  cursor: 'pointer', flexShrink: 0,
-                  letterSpacing: '-.01em',
-                  boxShadow: `0 4px 16px ${C.accent}50`,
-                  transition: 'opacity .15s, transform .15s',
-                  fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  whiteSpace: 'nowrap',
+                type="button"
+                className="directory-search-submit"
+                onClick={() => {
+                  submitSearch();
+                  scrollToResults();
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '.9'; (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.02)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1'; (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
               >
-                <Search size={14} strokeWidth={2.5} />
-                Buscar
+                <Search size={14} />
+                <span>Buscar</span>
               </button>
             </div>
 
-            {/* Quick search suggestions */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 7, marginTop: 14 }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,.35)', alignSelf: 'center', fontWeight: 500 }}>Popular:</span>
-              {['Ansiedade', 'TCC', 'Infantil', 'Online', 'Casais'].map(tag => (
+            <div className="directory-quick">
+              <span>Buscas rápidas:</span>
+
+              {['Ansiedade', 'TCC', 'Infantil', 'Remoto', 'Casais'].map(tag => (
                 <button
+                  type="button"
                   key={tag}
-                  onClick={() => setSearch(tag)}
-                  style={{
-                    background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)',
-                    borderRadius: 99, padding: '4px 12px', fontSize: 12, fontWeight: 600,
-                    color: 'rgba(255,255,255,.65)', cursor: 'pointer', transition: 'all .15s',
-                    fontFamily: 'inherit',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(99,85,216,.35)';
-                    (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = `${C.accent}50`;
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,.08)';
-                    (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,.65)';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,.12)';
+                  onClick={() => {
+                    setSearch(tag);
+                    setDebouncedSearch(tag);
+                    setPage(1);
+                    scrollToResults();
                   }}
                 >
                   {tag}
@@ -879,533 +1884,305 @@ export const PsychologistDirectory: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* ── CONTEÚDO ── */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,4vw,48px) clamp(16px,4vw,24px) 80px' }}>
-
-        {/* ── FILTROS TOGGLE (somente mobile — no desktop os filtros ficam sempre visíveis na barra lateral) ── */}
-        {isMobile && (
-          <div style={{ marginBottom: 16 }}>
-            <button
-              onClick={() => setFiltersOpen(v => !v)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                background: hasActiveFilters ? `${C.accent}10` : '#fff',
-                border: `1.5px solid ${hasActiveFilters ? C.accent + '40' : C.border}`,
-                borderRadius: 12, padding: '10px 18px',
-                fontSize: 14, fontWeight: 700,
-                color: hasActiveFilters ? C.accent : C.text,
-                cursor: 'pointer', transition: 'all .15s',
-                fontFamily: 'inherit',
-              }}
-            >
-              <SlidersHorizontal size={16} strokeWidth={2} />
-              Filtros
-              {activeFilterCount > 0 && (
-                <span style={{
-                  background: C.accent, color: '#fff',
-                  fontSize: 11, fontWeight: 800,
-                  width: 20, height: 20, borderRadius: '50%',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  lineHeight: 1,
-                }}>
-                  {activeFilterCount}
+      {/* RESULTS */}
+      <main id="directory-results" className="directory-results">
+        <div className="directory-wrap">
+          <div className="directory-results-shell">
+            <div className="directory-results-top">
+              <div className="directory-results-title">
+                <strong>Profissionais disponíveis no diretório</strong>
+                <span>
+                  Refine a busca para encontrar perfis mais próximos do que você procura.
                 </span>
-              )}
-            </button>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '280px 1fr', gap: 28, alignItems: 'start' }}>
-
-        {/* ── FILTER PANEL (desktop: barra lateral sempre visível / mobile: bottom sheet) ── */}
-        {(() => {
-          const filterSections = ([
-            {
-              key: 'abordagens',
-              label: 'Abordagens',
-              count: selectedAbordagens.length,
-              content: (
-                <Combobox
-                  multiple
-                  options={ABORDAGENS.map(v => ({ value: v, label: v }))}
-                  value={selectedAbordagens}
-                  onChange={v => { setSelectedAbordagens(Array.isArray(v) ? v : v ? [v] : []); setPage(1); }}
-                  placeholder="Selecionar abordagens…"
-                  searchPlaceholder="Buscar abordagem…"
-                  showSelectedBadge
-                />
-              ),
-            },
-            {
-              key: 'especialidades',
-              label: 'Especialidades',
-              count: selectedEspecialidade ? 1 : 0,
-              content: (
-                <Combobox
-                  options={ESPECIALIDADES.map(v => ({ value: v, label: v }))}
-                  value={selectedEspecialidade}
-                  onChange={v => { setSelectedEspecialidade(Array.isArray(v) ? (v[0] || '') : v); setPage(1); }}
-                  placeholder="Selecionar especialidade…"
-                  searchPlaceholder="Buscar especialidade…"
-                />
-              ),
-            },
-            {
-              key: 'disponibilidade',
-              label: 'Disponibilidade',
-              count: selectedDisponibilidade.length,
-              content: (
-                <div className="dir-pill-group">
-                  {DISPONIBILIDADE_OPTS.map(v => (
-                    <Pill key={v} label={v} active={selectedDisponibilidade.includes(v)} onClick={() => toggleDisponibilidade(v)} />
-                  ))}
-                </div>
-              ),
-            },
-            {
-              key: 'local',
-              label: 'Local / Modalidade',
-              count: selectedModalidade ? 1 : 0,
-              content: (
-                <div className="dir-pill-group">
-                  <Pill label={<><MapPin size={12} strokeWidth={2} /> Presencial</>} active={selectedModalidade === 'Presencial'} onClick={() => toggleModalidade('Presencial')} />
-                  <Pill label={<><Monitor size={12} strokeWidth={2} /> Remoto</>} active={selectedModalidade === 'Remoto'} onClick={() => toggleModalidade('Remoto')} />
-                </div>
-              ),
-            },
-            ...(cities.length > 0 ? [{
-              key: 'cidade',
-              label: 'Cidade',
-              count: selectedCity ? 1 : 0,
-              content: (
-                <div className="dir-pill-group">
-                  {cities.map(c => (
-                    <Pill key={c} label={c} active={selectedCity === c} onClick={() => { setSelectedCity((prev: string) => prev === c ? '' : c); setPage(1); }} />
-                  ))}
-                </div>
-              ),
-            }] : []),
-          ] as { key: string; label: string; count: number; content: React.ReactNode }[]);
-
-          const accordionBody = (
-            <>
-              {/* Header row */}
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '14px 20px',
-                borderBottom: `1px solid ${C.border}`,
-                background: C.surface,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SlidersHorizontal size={15} color={C.accent} strokeWidth={2} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Filtros</span>
-                  {activeFilterCount > 0 && (
-                    <span style={{
-                      background: C.accent, color: '#fff',
-                      fontSize: 10, fontWeight: 800,
-                      minWidth: 18, height: 18, borderRadius: 99,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      padding: '0 5px',
-                    }}>
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {hasActiveFilters && (
-                    <button
-                      onClick={clearAllFilters}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        fontSize: 12, fontWeight: 600, color: C.muted,
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '4px 8px', borderRadius: 8,
-                        transition: 'color .15s', fontFamily: 'inherit',
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.color = C.accent)}
-                      onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
-                    >
-                      <X size={12} /> Limpar tudo
-                    </button>
-                  )}
-                  {isMobile && (
-                    <button
-                      onClick={() => setFiltersOpen(false)}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        width: 32, height: 32, borderRadius: 8,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: C.muted, fontFamily: 'inherit',
-                      }}
-                    >
-                      <X size={18} />
-                    </button>
-                  )}
-                </div>
               </div>
 
-              {/* Accordion sections */}
-              {filterSections.map((section, idx, arr) => {
-                const isOpen = openSections[section.key];
-                return (
-                  <div key={section.key} style={{ borderBottom: idx < arr.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                    <button
-                      onClick={() => toggleSection(section.key)}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '13px 20px',
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        fontFamily: 'inherit', transition: 'background .15s',
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.background = C.surface)}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{section.label}</span>
-                        {section.count > 0 && (
-                          <span style={{
-                            background: `${C.accent}18`, color: C.accent,
-                            fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
-                          }}>
-                            {section.count}
-                          </span>
-                        )}
-                      </div>
-                      <ChevronDown
-                        size={16} color={C.muted} strokeWidth={2}
-                        style={{ transition: 'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink: 0 }}
-                      />
-                    </button>
-                    {isOpen && (
-                      <div style={{ padding: '4px 20px 16px' }}>
-                        {section.content}
-                      </div>
+              {isMobile && (
+                <button
+                  type="button"
+                  className="directory-mobile-filter"
+                  onClick={() => setFiltersOpen(true)}
+                >
+                  <Filter size={14} />
+                  Filtros
+                  {activeFilterCount > 0 && <em>{activeFilterCount}</em>}
+                </button>
+              )}
+            </div>
+
+            <div className="directory-main-grid">
+              <aside className="directory-desktop-filter">{FilterPanel}</aside>
+
+              <section>
+                <div className="directory-status">
+                  <p className="directory-status-text">
+                    {loading ? (
+                      'Buscando profissionais…'
+                    ) : total === 0 ? (
+                      'Nenhum profissional encontrado'
+                    ) : (
+                      <>
+                        <strong>{total}</strong>{' '}
+                        profissional{total !== 1 ? 'is' : ''} encontrado
+                        {total !== 1 ? 's' : ''}
+                        {totalPages > 1 && ` · página ${page} de ${totalPages}`}
+                      </>
+                    )}
+                  </p>
+
+                  <div className="directory-active-filters">
+                    {debouncedSearch && (
+                      <button
+                        type="button"
+                        className="directory-filter-chip"
+                        onClick={clearSearch}
+                      >
+                        <X size={10} /> “{debouncedSearch}”
+                      </button>
+                    )}
+
+                    {selectedAbordagens.map(value => (
+                      <button
+                        type="button"
+                        className="directory-filter-chip"
+                        key={value}
+                        onClick={() => toggleAbordagem(value)}
+                      >
+                        <X size={10} /> {value}
+                      </button>
+                    ))}
+
+                    {selectedEspecialidade && (
+                      <button
+                        type="button"
+                        className="directory-filter-chip"
+                        onClick={() => {
+                          setSelectedEspecialidade('');
+                          setPage(1);
+                        }}
+                      >
+                        <X size={10} /> {selectedEspecialidade}
+                      </button>
+                    )}
+
+                    {selectedDisponibilidade.map(value => (
+                      <button
+                        type="button"
+                        className="directory-filter-chip"
+                        key={value}
+                        onClick={() => toggleDisponibilidade(value)}
+                      >
+                        <X size={10} /> {value}
+                      </button>
+                    ))}
+
+                    {selectedModalidade && (
+                      <button
+                        type="button"
+                        className="directory-filter-chip"
+                        onClick={() => {
+                          setSelectedModalidade('');
+                          setPage(1);
+                        }}
+                      >
+                        <X size={10} /> {selectedModalidade}
+                      </button>
+                    )}
+
+                    {selectedCity && (
+                      <button
+                        type="button"
+                        className="directory-filter-chip"
+                        onClick={() => {
+                          setSelectedCity('');
+                          setPage(1);
+                        }}
+                      >
+                        <X size={10} /> {selectedCity}
+                      </button>
                     )}
                   </div>
-                );
-              })}
-            </>
-          );
+                </div>
 
-          if (isMobile) {
-            if (!filtersOpen) return null;
-            return (
-              <div
-                className="dir-filter-overlay"
-                onClick={() => setFiltersOpen(false)}
-              >
-                <div className="dir-filter-sheet" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 2px' }}>
-                    <div style={{ width: 40, height: 4, borderRadius: 2, background: '#CBD5E1' }} />
+                {loading ? (
+                  <div className="directory-grid">
+                    {Array.from({ length: 8 }).map((_, index) => (
+                      <SkeletonCard key={index} />
+                    ))}
                   </div>
-                  {accordionBody}
-                  <div style={{ padding: '12px 20px 24px' }}>
+                ) : psychologists.length === 0 ? (
+                  <div className="directory-empty">
+                    <span className="directory-empty-icon">
+                      <Search size={22} />
+                    </span>
+
+                    <h3>Nenhum resultado por aqui</h3>
+
+                    <p>
+                      {debouncedSearch
+                        ? `Não encontramos perfis para “${debouncedSearch}”. Tente outro termo ou ajuste os filtros.`
+                        : hasActiveFilters
+                          ? 'Nenhum perfil corresponde à combinação de filtros selecionada.'
+                          : 'Ainda não há profissionais com perfil público disponível no diretório.'}
+                    </p>
+
+                    {(debouncedSearch || hasActiveFilters) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearSearch();
+                          clearAllFilters();
+                        }}
+                      >
+                        Limpar busca e filtros
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="directory-grid">
+                    {psychologists.map((psychologist, index) => (
+                      <PsychCard
+                        key={psychologist.public_slug}
+                        p={psychologist}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {!loading && totalPages > 1 && (
+                  <div className="directory-pagination">
                     <button
-                      onClick={() => setFiltersOpen(false)}
-                      style={{
-                        width: '100%', background: C.accent, color: '#fff', border: 'none',
-                        borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700,
-                        cursor: 'pointer', fontFamily: 'inherit',
+                      type="button"
+                      className="directory-page-button"
+                      disabled={page === 1}
+                      onClick={() => {
+                        setPage(current => Math.max(1, current - 1));
+                        scrollToResults();
                       }}
+                      aria-label="Página anterior"
                     >
-                      Ver resultados {total > 0 && `(${total})`}
+                      ‹
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, index) => index + 1)
+                      .filter(
+                        number =>
+                          number === 1 ||
+                          number === totalPages ||
+                          (number >= page - 2 && number <= page + 2),
+                      )
+                      .reduce<(number | '...')[]>((acc, number, index, array) => {
+                        if (
+                          index > 0 &&
+                          (number as number) - (array[index - 1] as number) > 1
+                        ) {
+                          acc.push('...');
+                        }
+
+                        acc.push(number);
+                        return acc;
+                      }, [])
+                      .map((item, index) =>
+                        item === '...' ? (
+                          <span
+                            key={`dots-${index}`}
+                            className="directory-page-dots"
+                          >
+                            …
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            key={item}
+                            className={`directory-page-button${
+                              page === item ? ' active' : ''
+                            }`}
+                            onClick={() => {
+                              setPage(item as number);
+                              scrollToResults();
+                            }}
+                          >
+                            {item}
+                          </button>
+                        ),
+                      )}
+
+                    <button
+                      type="button"
+                      className="directory-page-button"
+                      disabled={page === totalPages}
+                      onClick={() => {
+                        setPage(current => Math.min(totalPages, current + 1));
+                        scrollToResults();
+                      }}
+                      aria-label="Próxima página"
+                    >
+                      ›
                     </button>
                   </div>
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <aside style={{
-              background: '#fff', border: `1.5px solid ${C.border}`,
-              borderRadius: 20, overflow: 'hidden',
-              position: 'sticky', top: 20,
-            }}>
-              {accordionBody}
-            </aside>
-          );
-        })()}
-
-        <div>
-        {/* ── Status bar ── */}
-        <div className="dir-status-bar" style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: 10, marginBottom: 28,
-        }}>
-          <p style={{ fontSize: 14, color: C.muted, fontWeight: 500 }}>
-            {loading ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 14, height: 14, border: '2px solid #E2E8F0', borderTopColor: C.accent, borderRadius: '50%', display: 'inline-block', animation: 'dir-spin .7s linear infinite' }} />
-                Buscando profissionais…
-              </span>
-            ) : total === 0
-              ? 'Nenhum profissional encontrado'
-              : (
-                <>
-                  <strong style={{ color: C.text }}>{total}</strong>
-                  {' '}profissional{total !== 1 ? 'is' : ''} encontrado{total !== 1 ? 's' : ''}
-                  {totalPages > 1 && <span style={{ color: C.muted, fontWeight: 400 }}> — página {page} de {totalPages}</span>}
-                </>
-              )
-            }
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {debouncedSearch && !loading && (
-              <button
-                onClick={clearSearch}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
-                  borderRadius: 99, padding: '5px 12px',
-                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <X size={11} /> "{debouncedSearch}"
-              </button>
-            )}
-            {/* Active filter chips in status bar */}
-            {selectedAbordagens.map(v => (
-              <button
-                key={v}
-                onClick={() => toggleAbordagem(v)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
-                  borderRadius: 99, padding: '5px 12px',
-                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <X size={11} /> {v}
-              </button>
-            ))}
-            {selectedEspecialidade && (
-              <button
-                onClick={() => setSelectedEspecialidade('')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
-                  borderRadius: 99, padding: '5px 12px',
-                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <X size={11} /> {selectedEspecialidade}
-              </button>
-            )}
-            {selectedDisponibilidade.map(v => (
-              <button
-                key={v}
-                onClick={() => toggleDisponibilidade(v)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
-                  borderRadius: 99, padding: '5px 12px',
-                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <X size={11} /> {v}
-              </button>
-            ))}
-            {selectedModalidade && (
-              <button
-                onClick={() => setSelectedModalidade('')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
-                  borderRadius: 99, padding: '5px 12px',
-                  fontSize: 12, fontWeight: 700, color: C.accent, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <X size={11} /> {selectedModalidade}
-              </button>
-            )}
-            {selectedCity && (
-              <button
-                onClick={() => { setSelectedCity(''); setPage(1); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  background: `${C.accent2}15`, border: `1px solid ${C.accent2}30`,
-                  borderRadius: 99, padding: '5px 12px',
-                  fontSize: 12, fontWeight: 700, color: C.accent2, cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <X size={11} /> {selectedCity}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* ── Grid ── */}
-        {loading ? (
-          <div className="dir-grid">
-            {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
-          </div>
-        ) : psychologists.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '80px 24px',
-            background: '#fff', borderRadius: 24, border: `1.5px solid ${C.border}`,
-          }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: 20,
-              background: `${C.accent}12`, margin: '0 auto 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 32,
-            }}>
-              🔍
+                )}
+              </section>
             </div>
-            <p style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8 }}>
-              Nenhum resultado
-            </p>
-            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, maxWidth: 320, margin: '0 auto 24px' }}>
-              {debouncedSearch
-                ? `Não encontramos ninguém com "${debouncedSearch}". Tente outro termo.`
-                : hasActiveFilters
-                  ? 'Nenhum profissional corresponde aos filtros selecionados.'
-                  : 'Ainda não há profissionais com perfil público ativo.'}
-            </p>
-            {(debouncedSearch || hasActiveFilters) && (
-              <button
-                onClick={() => { clearSearch(); clearAllFilters(); }}
-                style={{
-                  background: C.accent, color: '#fff', border: 'none',
-                  borderRadius: 12, padding: '12px 28px',
-                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  boxShadow: `0 4px 20px ${C.accent}40`,
-                  fontFamily: 'inherit',
-                }}
-              >
-                Ver todos os profissionais
-              </button>
-            )}
           </div>
-        ) : (
-          <div className="dir-grid">
-            {psychologists.map((p, i) => <PsychCard key={p.public_slug} p={p} index={i} />)}
-          </div>
-        )}
-
-        {/* ── Paginação ── */}
-        {!loading && totalPages > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 36, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => { setPage(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              disabled={page === 1}
-              style={{
-                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
-                background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: page === 1 ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                opacity: page === 1 ? 0.4 : 1,
-              }}
-            >«</button>
-            <button
-              onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              disabled={page === 1}
-              style={{
-                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
-                background: '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: page === 1 ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                opacity: page === 1 ? 0.4 : 1,
-              }}
-            >‹</button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(n => n === 1 || n === totalPages || (n >= page - 2 && n <= page + 2))
-              .reduce<(number | '...')[]>((acc, n, i, arr) => {
-                if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('...');
-                acc.push(n);
-                return acc;
-              }, [])
-              .map((n, i) => n === '...' ? (
-                <span key={`dots-${i}`} style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: C.muted }}>…</span>
-              ) : (
-                <button
-                  key={n}
-                  onClick={() => { setPage(n as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    border: `1.5px solid ${page === n ? C.accent : C.border}`,
-                    background: page === n ? C.accent : '#fff',
-                    color: page === n ? '#fff' : C.text,
-                    cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                    boxShadow: page === n ? `0 2px 12px ${C.accent}30` : 'none',
-                  }}
-                >{n}</button>
-              ))
-            }
-
-            <button
-              onClick={() => { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              disabled={page === totalPages}
-              style={{
-                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
-                background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: page === totalPages ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                opacity: page === totalPages ? 0.4 : 1,
-              }}
-            >›</button>
-            <button
-              onClick={() => { setPage(totalPages); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              disabled={page === totalPages}
-              style={{
-                width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.border}`,
-                background: '#fff', cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: page === totalPages ? C.border : C.muted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                opacity: page === totalPages ? 0.4 : 1,
-              }}
-            >»</button>
-          </div>
-        )}
         </div>
-        </div>
+      </main>
 
-        {/* ── Rodapé da página ── */}
-        <div style={{
-          marginTop: 72, paddingTop: 40,
-          borderTop: `1px solid ${C.border}`,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-          textAlign: 'center',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src={logoUrl} alt="Plaelo" style={{ width: 26, height: 26, borderRadius: 6, opacity: .6 }} />
-            <span style={{ fontSize: 13, color: C.muted, fontWeight: 500 }}>
-              Diretório de profissionais <strong style={{ color: C.text }}>Plaelo</strong>
-            </span>
-          </div>
-          <button
-            onClick={() => navigate('/login')}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'none', border: `1.5px solid ${C.border}`,
-              borderRadius: 12, padding: '10px 22px',
-              fontSize: 13, fontWeight: 700, color: C.text, cursor: 'pointer',
-              transition: 'border-color .15s, box-shadow .15s',
-              fontFamily: 'inherit',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = C.accent;
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 2px 12px ${C.accent}18`;
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = C.border;
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
-            }}
+      {/* MOBILE FILTER */}
+      {isMobile && filtersOpen && (
+        <div
+          className="directory-filter-overlay"
+          onClick={() => setFiltersOpen(false)}
+        >
+          <div
+            className="directory-filter-sheet"
+            onClick={event => event.stopPropagation()}
           >
-            Sou profissional de saúde mental — quero cadastrar meu perfil <ChevronRight size={14} />
+            <div className="directory-sheet-top">
+              <strong>Refinar busca</strong>
+
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                aria-label="Fechar filtros"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="directory-sheet-content">{FilterPanel}</div>
+
+            <div className="directory-sheet-apply">
+              <button type="button" onClick={() => setFiltersOpen(false)}>
+                Ver resultados{total > 0 ? ` (${total})` : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FOOTER */}
+      <footer className="directory-footer">
+        <div className="directory-wrap directory-footer-inner">
+          <div className="directory-footer-brand">
+            <img src={logoUrl} alt="" />
+            <div>
+              <strong>Diretório Plaelo</strong>
+              <span>Conectando pessoas a profissionais com perfil público na plataforma.</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="directory-footer-cta"
+            onClick={() => navigate('/login')}
+          >
+            Sou profissional — quero entrar
+            <ArrowRight size={14} />
           </button>
         </div>
-      </div>
+      </footer>
     </div>
   );
 };
