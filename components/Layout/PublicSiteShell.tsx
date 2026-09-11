@@ -3,24 +3,24 @@ import { PublicNavbar } from './PublicNavbar';
 import { PublicFooter } from './PublicFooter';
 
 export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: '#FBF6EF', color: '#33291D', minHeight: '100vh', overflowX: 'clip' }}>
+  <div style={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: '#fff', color: '#150F2E', minHeight: '100vh', overflowX: 'clip' }}>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap');
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       :root {
-        --ink: #2B2318;
-        --accent: #C1613D;
-        --accent2: #6B8F71;
-        --accent-soft: #F3E4D8;
-        --text: #33291D;
-        --muted: #8A7A68;
-        --border: #E8DDD0;
-        --surface: #FBF6EF;
-        --surface2: #F5EAE0;
+        --ink: #120C2E;
+        --accent: #6D42F5;
+        --accent2: #12B76A;
+        --accent-soft: #EFE9FF;
+        --text: #150F2E;
+        --muted: #665F82;
+        --border: #E7E2F7;
+        --surface: #F8F6FF;
+        --surface2: #F1ECFF;
       }
       html { scroll-behavior: smooth; }
       body { -webkit-font-smoothing: antialiased; }
-      h1, h2, h3 { font-family: 'Fraunces', 'Georgia', serif; }
+      h1, h2, h3 { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
       }
@@ -28,22 +28,22 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .btn-p {
         display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
         background: var(--ink); color: #fff; border: none;
-        font-weight: 700; font-size: 15px; letter-spacing: -0.01em; font-family: 'Inter', sans-serif;
+        font-weight: 700; font-size: 15px; letter-spacing: -0.01em; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
         padding: 14px clamp(18px, 5vw, 28px); border-radius: 999px; white-space: nowrap;
-        box-shadow: 0 8px 24px rgba(43,35,24,.20);
+        box-shadow: 0 8px 24px rgba(18,12,46,.22);
         transition: background .15s, transform .15s, box-shadow .15s;
       }
-      .btn-p:hover { background: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 28px rgba(193,97,61,.32); }
-      .btn-p:focus-visible { outline: 3px solid rgba(193,97,61,.4); outline-offset: 2px; }
+      .btn-p:hover { background: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 28px rgba(109,66,245,.35); }
+      .btn-p:focus-visible { outline: 3px solid rgba(109,66,245,.4); outline-offset: 2px; }
       .btn-g {
         display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
         background: #fff; color: var(--text); border: 1.5px solid var(--border);
-        font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
+        font-weight: 600; font-size: 15px; font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
         padding: 13px clamp(16px, 4.5vw, 26px); border-radius: 999px; white-space: nowrap;
         transition: border-color .15s, box-shadow .15s;
       }
-      .btn-g:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(193,97,61,.12); }
-      .btn-g:focus-visible { outline: 3px solid rgba(193,97,61,.3); outline-offset: 2px; }
+      .btn-g:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(109,66,245,.12); }
+      .btn-g:focus-visible { outline: 3px solid rgba(109,66,245,.3); outline-offset: 2px; }
 
       .nav-a {
         font-size: 14px; font-weight: 600; color: var(--muted);
@@ -58,7 +58,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
         padding: 6px 14px; border-radius: 999px;
       }
-      .tag-green { background: #E5EDE3; color: #4C6650; }
+      .tag-green { background: #E4F8EE; color: #0D9155; }
 
       .card {
         background: #fff; border: 1px solid var(--border); border-radius: 22px;
@@ -117,7 +117,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
 
       .aurora-band {
-        background: linear-gradient(135deg, var(--surface2) 0%, #E5EDE3 100%);
+        background: linear-gradient(135deg, var(--surface2) 0%, #E4F8EE 100%);
         border-radius: 32px; overflow: hidden;
       }
 
@@ -165,7 +165,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
 
       /* CTA final — largura ampla em telas grandes, texto + prova social lado a lado */
       .cta-final {
-        background: linear-gradient(135deg, var(--ink) 0%, #4A3D2C 100%);
+        background: linear-gradient(135deg, var(--ink) 0%, #2A1F6B 100%);
         border-radius: 32px;
         padding: clamp(40px,5vw,64px) clamp(28px,5vw,64px);
         display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; align-items: center;
@@ -222,20 +222,20 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       .hero-accent {
-        background: linear-gradient(90deg, var(--accent) 0%, #6B8F71 100%);
+        background: linear-gradient(90deg, var(--accent) 0%, #A78BFA 100%);
         -webkit-background-clip: text; background-clip: text; color: transparent;
       }
 
       .hero-bg {
         background-color: #fff;
         background-image:
-          radial-gradient(circle at 15% 20%, rgba(193,97,61,.10) 0%, transparent 45%),
-          radial-gradient(circle at 85% 15%, rgba(107,143,113,.10) 0%, transparent 40%);
+          radial-gradient(circle at 15% 20%, rgba(109,66,245,.10) 0%, transparent 45%),
+          radial-gradient(circle at 85% 15%, rgba(18,183,106,.08) 0%, transparent 40%);
       }
 
       .hero-bg::before {
         content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
-        background-image: linear-gradient(rgba(193,97,61,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(193,97,61,.05) 1px, transparent 1px);
+        background-image: linear-gradient(rgba(109,66,245,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(109,66,245,.05) 1px, transparent 1px);
         background-size: 44px 44px;
         mask-image: linear-gradient(to bottom, #000, transparent 78%);
       }
@@ -248,7 +248,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .site-proof-item { padding: 18px 20px; display: flex; align-items: center; gap: 11px; }
       .site-proof-item + .site-proof-item { border-left: 1px solid var(--border); }
       .site-proof-icon { width: 34px; height: 34px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-      .site-proof-value { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.15; }
+      .site-proof-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.15; }
       .site-proof-label { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
       @media (max-width: 720px) {
         .site-proof { grid-template-columns: repeat(2, 1fr); }
@@ -260,7 +260,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
 
       .journey-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: journey; }
       .journey-card { position: relative; padding: 28px; border: 1px solid var(--border); background: #fff; border-radius: 22px; overflow: hidden; }
-      .journey-card::after { counter-increment: journey; content: '0' counter(journey); position: absolute; top: 14px; right: 18px; font: 800 36px/1 'Fraunces', serif; color: var(--accent-soft); }
+      .journey-card::after { counter-increment: journey; content: '0' counter(journey); position: absolute; top: 14px; right: 18px; font: 800 36px/1 'Plus Jakarta Sans', sans-serif; color: var(--accent-soft); }
       .journey-card p { font-size: 13px; line-height: 1.7; color: var(--muted); max-width: 260px; }
       @media (max-width: 720px) { .journey-grid { grid-template-columns: 1fr; } }
 
@@ -270,7 +270,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         position: absolute; background: #fff; border: 1px solid var(--border); border-radius: 20px;
         box-shadow: 0 20px 50px rgba(18,12,46,.14); padding: 18px 20px;
       }
-      .float-stack::after { content: ''; position: absolute; width: 110px; height: 110px; border: 18px solid rgba(193,97,61,.14); border-radius: 50%; right: -28px; bottom: 7px; z-index: -1; }
+      .float-stack::after { content: ''; position: absolute; width: 110px; height: 110px; border: 18px solid rgba(109,66,245,.14); border-radius: 50%; right: -28px; bottom: 7px; z-index: -1; }
       @media (max-width: 480px) {
         .float-stack { min-height: 320px; margin: 0 -4px; }
         .float-card { padding: 14px; border-radius: 16px; }
@@ -307,54 +307,6 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
         .hero-split-badge { top: auto; bottom: 16px; right: 16px; }
         .hero-split-grid { padding: 0 24px; }
       }
-
-      /* Hero editorial da Home — foto com recorte orgânico, tipografia serifada */
-      .home-hero { position: relative; background: var(--surface); overflow: clip; padding: clamp(48px,7vw,88px) 0 clamp(56px,7vw,96px); }
-      .home-hero-grid {
-        display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,0.85fr);
-        gap: clamp(32px,5vw,72px); align-items: center;
-      }
-      .home-hero-text { max-width: 560px; }
-      .home-hero-title {
-        font-family: 'Fraunces', 'Georgia', serif; font-weight: 600;
-        font-size: clamp(32px,4.6vw,58px); letter-spacing: -0.02em; line-height: 1.08;
-        color: var(--ink); margin-bottom: 20px;
-      }
-      .home-hero-title em { font-style: italic; color: var(--accent); font-weight: 500; }
-      .home-hero-lede { font-size: clamp(16px,1.3vw,18px); line-height: 1.65; color: var(--muted); margin-bottom: 28px; max-width: 480px; }
-      .home-hero-visual { position: relative; }
-      .home-hero-photo {
-        position: relative; aspect-ratio: 4/4.6; overflow: hidden;
-        border-radius: 168px 32px 168px 32px;
-        box-shadow: 0 28px 64px rgba(43,35,24,.18);
-      }
-      .home-hero-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; display: block; }
-      .home-hero-photo::after {
-        content: ''; position: absolute; inset: 0; border-radius: inherit;
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,.5);
-      }
-      .home-hero-note {
-        position: absolute; left: -28px; bottom: 28px; z-index: 1;
-        display: flex; align-items: flex-start; gap: 10px; max-width: 230px;
-        background: #fff; border-radius: 16px; padding: 12px 14px;
-        box-shadow: 0 16px 36px rgba(43,35,24,.16);
-      }
-      .home-hero-note-icon {
-        width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0; margin-top: 1px;
-        display: flex; align-items: center; justify-content: center;
-        background: var(--accent-soft); color: var(--accent);
-      }
-      .home-hero-note strong { display: block; font-size: 12.5px; font-weight: 800; color: var(--ink); font-family: 'Inter', sans-serif; }
-      .home-hero-note span { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 2px; font-style: italic; }
-      @media (max-width: 860px) {
-        .home-hero-grid { grid-template-columns: 1fr; }
-        .home-hero-visual { order: -1; max-width: 320px; margin: 0 auto 12px; }
-        .home-hero-photo { aspect-ratio: 4/3.6; border-radius: 120px 24px 120px 24px; }
-        .home-hero-note { left: 12px; bottom: -18px; max-width: 200px; }
-        .home-hero-text { max-width: 100%; }
-      }
-
-      .home-h2 { font-size: clamp(24px,3.6vw,38px); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin-top: 16px; margin-bottom: 14px; }
 
       /* Hub radial — página /individual, "sua prática clínica" */
       .hub-section { background: linear-gradient(180deg, #0F0B2E 0%, #150F3D 100%); overflow: clip; }
@@ -406,7 +358,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .journey-step.reverse { grid-template-columns: auto minmax(0,1fr) minmax(0,1fr); }
       .journey-step.reverse .journey-step-visual { order: -1; }
       .journey-step-num {
-        font-family: 'Fraunces', serif; font-size: clamp(40px,5vw,64px); font-weight: 800;
+        font-family: 'Plus Jakarta Sans', sans-serif; font-size: clamp(40px,5vw,64px); font-weight: 800;
         color: var(--accent-soft); line-height: 1;
       }
       .journey-step-info h3 { font-size: clamp(20px,2.4vw,28px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.25; margin-bottom: 12px; }
@@ -436,7 +388,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .mock-name { color: var(--text); }
       .mock-pill {
         margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
-        color: #4C6650; background: #E5EDE3; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+        color: #0D9155; background: #E4F8EE; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
       }
       .mock-quote { font-size: 12.5px; font-style: italic; color: rgba(255,255,255,.75); background: rgba(255,255,255,.05); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.6; }
       .mock-list-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
@@ -445,7 +397,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .mock-list-item span { font-size: 11px; color: rgba(255,255,255,.5); }
       .mock-insight { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; color: #7FD4F7; background: rgba(127,212,247,.08); border-radius: 10px; padding: 10px 12px; margin-top: 10px; line-height: 1.6; }
       .mock-bars { display: flex; align-items: flex-end; gap: 6px; height: 56px; margin-top: 14px; }
-      .mock-bars span { flex: 1; background: linear-gradient(180deg, var(--accent) 0%, #6B8F71 100%); border-radius: 4px; }
+      .mock-bars span { flex: 1; background: linear-gradient(180deg, var(--accent) 0%, #A78BFA 100%); border-radius: 4px; }
       .mock-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
       .mock-stat { background: var(--surface); border-radius: 12px; padding: 12px 10px; }
       .mock-stat strong { display: block; font-size: 14px; font-weight: 800; color: var(--ink); }
@@ -528,7 +480,7 @@ export const PublicSiteShell: React.FC<{ children: React.ReactNode }> = ({ child
       .res-tab {
         display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
         background: #fff; border: 1.5px solid var(--border); border-radius: 999px;
-        padding: 11px 18px 11px 14px; font-family: 'Inter',sans-serif;
+        padding: 11px 18px 11px 14px; font-family: 'Plus Jakarta Sans','Inter',sans-serif;
         transition: border-color .15s, background .15s, box-shadow .15s;
       }
       .res-tab-icon {

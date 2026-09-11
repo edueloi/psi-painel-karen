@@ -91,20 +91,29 @@ export const Home: React.FC = () => {
 
   return (
     <PublicSiteShell>
-      {/* ═══ HERO — editorial: mancha orgânica de foto + tipografia serifada grande ═══ */}
-      <section className="home-hero">
-        <div className="wrap home-hero-grid">
-          <Reveal className="home-hero-text">
-            <span className="tag" style={{ marginBottom: 22, display: 'inline-flex' }}>
+      {/* ═══ HERO — texto à esquerda, foto em tela cheia à direita ═══ */}
+      <section className="hero-split">
+        <Reveal delay={100} className="hero-split-media">
+          <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" className="hero-split-media-img" />
+          <div className="hero-split-media-overlay" />
+          <div className="hero-split-badge">
+            <strong>Bia IA</strong>
+            <span>Resumo pronto p/ revisão</span>
+          </div>
+        </Reveal>
+
+        <div className="wrap hero-split-grid">
+          <Reveal className="hero-split-text">
+            <span className="tag" style={{ marginBottom: 16, display: 'inline-flex' }}>
               <HeartHandshake size={13} /> Gestão para saúde mental
             </span>
 
-            <h1 className="home-hero-title">
-              O consultório organizado deixa <em>mais espaço</em> para cuidar.
+            <h1 style={{ fontSize: 'clamp(30px,4.2vw,50px)', fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.08, marginBottom: 16, color: 'var(--ink)', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
+              Profissionais livres para <span className="hero-accent">cuidar</span>.
             </h1>
 
-            <p className="home-hero-lede">
-              Agenda, prontuário, financeiro e IA em uma única plataforma para psicólogos, psiquiatras e terapeutas — para que sua atenção fique onde ela importa.
+            <p style={{ fontSize: 'clamp(15px,1.2vw,17px)', lineHeight: 1.6, color: 'var(--muted)', marginBottom: 28 }}>
+              Agenda, prontuário, financeiro e IA em uma única plataforma para psicólogos, psiquiatras e terapeutas.
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
@@ -126,49 +135,6 @@ export const Home: React.FC = () => {
               ))}
             </div>
           </Reveal>
-
-          <Reveal delay={120} className="home-hero-visual">
-            <div className="home-hero-photo">
-              <img src={heroPhotoUrl} alt="Consultório acolhedor de saúde mental" />
-            </div>
-            <div className="home-hero-note">
-              <span className="home-hero-note-icon"><Sparkles size={13} /></span>
-              <div>
-                <strong>Bia IA</strong>
-                <span>"Resumo da sessão pronto para revisão."</span>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ═══ UMA ROTINA MAIS LEVE ═══ */}
-      <section className="section" style={{ background: '#fff' }}>
-        <div className="wrap">
-          <Reveal style={{ maxWidth: 620, marginBottom: 44 }}>
-            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Uma rotina mais leve</span>
-            <h2 className="home-h2">
-              Da primeira consulta ao acompanhamento financeiro, tudo conversa entre si.
-            </h2>
-            <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)' }}>
-              Menos alternância entre ferramentas e mais tempo para decisões que realmente fazem diferença no cuidado.
-            </p>
-          </Reveal>
-          <div className="journey-grid">
-            {[
-              { icon: Calendar, title: 'Organize sua agenda', desc: 'Centralize horários, modalidades de atendimento, lembretes e a disponibilidade de toda a equipe.' },
-              { icon: HeartHandshake, title: 'Cuide com contexto', desc: 'Acesse prontuários, formulários, planos terapêuticos e documentos no mesmo fluxo de trabalho.' },
-              { icon: TrendingUp, title: 'Acompanhe sua evolução', desc: 'Visualize indicadores clínicos e financeiros para conduzir sua prática com mais clareza.' },
-            ].map(({ icon: Icon, title, desc }, i) => (
-              <Reveal as="article" className="journey-card hover-lift" key={title} delay={i * 100}>
-                <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', background: 'var(--accent-soft)', marginBottom: 18 }}>
-                  <Icon size={19} />
-                </div>
-                <h3 style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 9, fontFamily: "'Inter',sans-serif" }}>{title}</h3>
-                <p>{desc}</p>
-              </Reveal>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -177,7 +143,7 @@ export const Home: React.FC = () => {
         <div className="wrap">
           <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(36px,4.5vw,52px)' }}>
             <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Cada jornada, uma plataforma</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16 }}>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
               Para quem é a Plaelo?
             </h2>
           </Reveal>
@@ -217,7 +183,7 @@ export const Home: React.FC = () => {
         <div className="wrap-sm" style={{ textAlign: 'center' }}>
           <Reveal>
             <span className="tag" style={{ marginBottom: 20, display: 'inline-flex' }}>Para todo o time de cuidado</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 16 }}>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 16, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
               Feito para quem cuida da saúde mental
             </h2>
             <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto 52px' }}>
@@ -248,11 +214,11 @@ export const Home: React.FC = () => {
       {/* ═══ RECURSOS (tabs interativas) ═══ */}
       <section className="section" style={{ background: '#fff' }}>
         <span className="bg-blob" style={{ width: 280, height: 280, top: -60, right: '-6%', background: 'var(--accent-soft)' }} />
-        <span className="bg-blob" style={{ width: 200, height: 200, bottom: 20, left: '-4%', background: '#E5EDE3', animationDelay: '-6s' }} />
+        <span className="bg-blob" style={{ width: 200, height: 200, bottom: 20, left: '-4%', background: '#E4F8EE', animationDelay: '-6s' }} />
         <div className="wrap">
           <Reveal style={{ textAlign: 'center', marginBottom: 'clamp(36px,4.5vw,52px)' }}>
             <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Recursos</span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
               Toda a rotina clínica, acontecendo em silêncio
             </h2>
             <p style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '0 auto' }}>
@@ -305,6 +271,36 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
+      <section className="section" style={{ background: 'var(--surface)' }}>
+        <span className="bg-blob" style={{ width: 320, height: 320, top: '10%', right: '-8%', background: '#fff', animationDelay: '-3s' }} />
+        <div className="wrap">
+          <Reveal style={{ maxWidth: 600, marginBottom: 38 }}>
+            <span className="tag" style={{ marginBottom: 18, display: 'inline-flex' }}>Uma rotina mais leve</span>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
+              Da primeira consulta ao acompanhamento financeiro, tudo conversa entre si.
+            </h2>
+            <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)' }}>
+              Menos alternância entre ferramentas e mais tempo para decisões que realmente fazem diferença no cuidado.
+            </p>
+          </Reveal>
+          <div className="journey-grid">
+            {[
+              { icon: Calendar, title: 'Organize sua agenda', desc: 'Centralize horários, modalidades de atendimento, lembretes e a disponibilidade de toda a equipe.' },
+              { icon: HeartHandshake, title: 'Cuide com contexto', desc: 'Acesse prontuários, formulários, planos terapêuticos e documentos no mesmo fluxo de trabalho.' },
+              { icon: TrendingUp, title: 'Acompanhe sua evolução', desc: 'Visualize indicadores clínicos e financeiros para conduzir sua prática com mais clareza.' },
+            ].map(({ icon: Icon, title, desc }, i) => (
+              <Reveal as="article" className="journey-card hover-lift" key={title} delay={i * 100}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', background: 'var(--accent-soft)', marginBottom: 18 }}>
+                  <Icon size={19} />
+                </div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 9 }}>{title}</h3>
+                <p>{desc}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ═══ SEGURANÇA ═══ */}
       <section className="section" style={{ background: 'var(--surface)' }}>
         <div className="wrap-sm" style={{ textAlign: 'center' }}>
@@ -312,7 +308,7 @@ export const Home: React.FC = () => {
             <span className="tag tag-green" style={{ marginBottom: 18, display: 'inline-flex' }}>
               <ShieldCheck size={13} /> Infraestrutura Plaelo
             </span>
-            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14 }}>
+            <h2 style={{ fontSize: 'clamp(24px,3.8vw,40px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.15, marginTop: 16, marginBottom: 14, fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
               Máxima segurança
             </h2>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 480, margin: '0 auto 40px' }}>
@@ -376,7 +372,7 @@ export const Home: React.FC = () => {
           <Reveal className="cta-final">
             <div className="cta-final-text">
               <img src={logoUrl} alt="Plaelo" style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 15, marginBottom: 24, background: '#fff', padding: 6 }} />
-              <h2 style={{ fontSize: 'clamp(28px,3.6vw,42px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, marginBottom: 16, color: '#fff' }}>
+              <h2 style={{ fontSize: 'clamp(28px,3.6vw,42px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.12, marginBottom: 16, color: '#fff', fontFamily: "'Plus Jakarta Sans','Inter',sans-serif" }}>
                 Pronto para simplificar<br />sua rotina clínica?
               </h2>
               <p style={{ fontSize: 17, lineHeight: 1.7, color: 'rgba(255,255,255,.7)', maxWidth: 420, marginBottom: 32 }}>
