@@ -1006,6 +1006,7 @@ export const Planos: React.FC = () => {
                           <AnimatedNumber
                             value={Number(plan.price)}
                             prefix="R$ "
+                            decimals={2}
                             className="pricing-number"
                           />
                           <small>/mês</small>

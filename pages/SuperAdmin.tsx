@@ -2236,10 +2236,11 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setPlanForm(prev => ({ ...prev, features: Array.from(new Set([...prev.features, ...(p.features || [])])) }))}
+                    onClick={() => setPlanForm(prev => ({ ...prev, features: Array.from(new Set(p.features || [])) }))}
                     className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
+                    title={`Usar exatamente as funcionalidades do plano ${p.name}`}
                   >
-                    + {p.name}
+                    {p.name}
                   </button>
                 ))}
                 {planForm.features.length > 0 && (
