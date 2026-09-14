@@ -110,14 +110,37 @@ const BadgeEditor = ({
 
   const readText = () => {
     if (!editorRef.current) return '';
+    const BLOCK_TAGS = new Set(['DIV', 'P']);
+    // O navegador pode estruturar o contenteditable com <br> soltos, com <div>
+    // por linha, ou misturando os dois ao longo da edição. Trata os dois casos
+    // de forma unificada para nunca perder quebra de linha ao salvar.
+    let hasEmittedContent = false;
     const walk = (n: Node): string => {
-      if (n.nodeType === Node.TEXT_NODE) return n.textContent || '';
+      if (n.nodeType === Node.TEXT_NODE) {
+        const text = n.textContent || '';
+        if (text) hasEmittedContent = true;
+        return text;
+      }
+      if (n.nodeType !== Node.ELEMENT_NODE) return '';
       const el = n as Element;
-      if (el.tagName === 'BR') return '\n';
-      if (el.hasAttribute('data-var')) return el.getAttribute('data-var') || '';
-      return Array.from(n.childNodes).map(walk).join('');
+      if (el.tagName === 'BR') {
+        hasEmittedContent = true;
+        return '\n';
+      }
+      if (el.hasAttribute('data-var')) {
+        hasEmittedContent = true;
+        return el.getAttribute('data-var') || '';
+      }
+      if (BLOCK_TAGS.has(el.tagName)) {
+        const prefix = hasEmittedContent ? '\n' : '';
+        hasEmittedContent = true;
+        const isEmptyLine = el.childNodes.length === 1 && (el.firstChild as Element)?.tagName === 'BR';
+        const inner = isEmptyLine ? '' : Array.from(el.childNodes).map(walk).join('');
+        return prefix + inner;
+      }
+      return Array.from(el.childNodes).map(walk).join('');
     };
-    return walk(editorRef.current);
+    return Array.from(editorRef.current.childNodes).map(walk).join('');
   };
 
   const insertVar = (key: string) => {
