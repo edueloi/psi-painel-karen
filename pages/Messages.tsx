@@ -117,41 +117,43 @@ function htmlToContent(html: string): string {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
 
-  // Serializa um nó para texto puro, preservando quebras de linha
+  const BLOCK_TAGS = new Set(['DIV', 'P']);
+
+  // Serializa recursivamente, emitindo '\n' antes de cada bloco que não é o
+  // primeiro conteúdo do documento, e para cada <br>. Funciona independente de
+  // o contenteditable misturar texto solto, <br> soltos e <div>/<p> no mesmo nível.
+  let hasEmittedContent = false;
   const serialize = (node: Node): string => {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent || '';
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || '';
+      if (text) hasEmittedContent = true;
+      return text;
+    }
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
     const el = node as Element;
-    if (el.tagName === 'BR') return '\n';
-    if (el.hasAttribute('data-var')) return el.getAttribute('data-var') || '';
+
+    if (el.tagName === 'BR') {
+      hasEmittedContent = true;
+      return '\n';
+    }
+    if (el.hasAttribute('data-var')) {
+      hasEmittedContent = true;
+      return el.getAttribute('data-var') || '';
+    }
+
+    if (BLOCK_TAGS.has(el.tagName)) {
+      const prefix = hasEmittedContent ? '\n' : '';
+      hasEmittedContent = true;
+      // Linha em branco: o browser representa <div></div> vazio como <div><br></div>.
+      // Esse <br> é só um placeholder visual, não uma quebra de linha real.
+      const isEmptyLine = el.childNodes.length === 1 && (el.firstChild as Element)?.tagName === 'BR';
+      const inner = isEmptyLine ? '' : Array.from(el.childNodes).map(serialize).join('');
+      return prefix + inner;
+    }
     return Array.from(el.childNodes).map(serialize).join('');
   };
 
-  // O contenteditable pode colocar texto solto no root OU envolver em div/p.
-  // Estratégia: percorre filhos diretos; cada div/p filho = uma linha separada por \n.
-  const parts: string[] = [];
-  let hasBlockChildren = false;
-
-  for (const child of Array.from(tmp.childNodes)) {
-    if (child.nodeType === Node.ELEMENT_NODE) {
-      const el = child as Element;
-      if (el.tagName === 'DIV' || el.tagName === 'P') {
-        hasBlockChildren = true;
-        // Linha em branco: <div><br></div> → string vazia → \n vazio
-        const line = serialize(el).replace(/\n$/, ''); // remove \n de <br> final que o browser às vezes adiciona
-        parts.push(line);
-        continue;
-      }
-    }
-    // Nó de texto ou span/badge no root
-    parts.push(serialize(child));
-  }
-
-  if (hasBlockChildren) {
-    return parts.join('\n');
-  }
-  // Sem divs de bloco: texto puro com <br> como quebras
-  return parts.join('');
+  return Array.from(tmp.childNodes).map(serialize).join('');
 }
 
 // ── Card compacto mobile (reutilizado no GridTable e na view de lista) ────────
