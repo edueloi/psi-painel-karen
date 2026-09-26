@@ -595,18 +595,29 @@ class WhatsAppManager {
 
       const message = generateWAMessageFromContent(
         jid,
-        proto.Message.fromObject({
-          viewOnceMessage: {
-            message: {
-              messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-              interactiveMessage,
-            },
-          },
-        }),
+        proto.Message.fromObject({ interactiveMessage }),
         { userJid: data.sock.user?.id }
       );
 
-      await data.sock.relayMessage(jid, message.message, { messageId: message.key.id });
+      // Baileys não gera nativamente os nós binários que o WhatsApp exige para
+      // renderizar mensagens interativas (nativeFlowMessage) — sem eles o
+      // cliente recebe os bytes mas mostra "Não foi possível carregar a
+      // mensagem". O node 'biz > interactive > native_flow' avisa o servidor
+      // que o payload é um flow nativo, e o node 'bot' é exigido em chats 1:1.
+      const additionalNodes = [
+        {
+          tag: 'biz',
+          attrs: {},
+          content: [{
+            tag: 'interactive',
+            attrs: { type: 'native_flow', v: '1' },
+            content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+          }],
+        },
+        { tag: 'bot', attrs: { biz_bot: '1' } },
+      ];
+
+      await data.sock.relayMessage(jid, message.message, { messageId: message.key.id, additionalNodes });
       return true;
     } catch (err) {
       console.error(`[sendAppointmentConfirmation] Erro tenant ${tenantId} -> ${to}:`, err.message);
