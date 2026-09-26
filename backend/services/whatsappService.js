@@ -55,18 +55,43 @@ function normalizeDestination(dest) {
   return digits ? `${digits}@s.whatsapp.net` : null;
 }
 
+function getMessageContent(msg) {
+  let content = msg?.message || {};
+  // Respostas de botões interativos podem vir encapsuladas como view-once ou
+  // mensagens efêmeras, dependendo da versão do WhatsApp do paciente.
+  while (content?.ephemeralMessage?.message || content?.viewOnceMessage?.message || content?.viewOnceMessageV2?.message || content?.viewOnceMessageV2Extension?.message) {
+    content = content.ephemeralMessage?.message || content.viewOnceMessage?.message || content.viewOnceMessageV2?.message || content.viewOnceMessageV2Extension?.message;
+  }
+  return content;
+}
+
 function extractMessageText(msg) {
+  const content = getMessageContent(msg);
   const text =
-    msg?.message?.conversation ||
-    msg?.message?.extendedTextMessage?.text ||
-    msg?.message?.imageMessage?.caption ||
-    msg?.message?.videoMessage?.caption ||
-    msg?.message?.buttonsResponseMessage?.selectedButtonId ||
-    msg?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
-    msg?.message?.templateButtonReplyMessage?.selectedId ||
+    content?.conversation ||
+    content?.extendedTextMessage?.text ||
+    content?.imageMessage?.caption ||
+    content?.videoMessage?.caption ||
+    content?.buttonsResponseMessage?.selectedButtonId ||
+    content?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+    content?.templateButtonReplyMessage?.selectedId ||
     '';
 
   return String(text || '').trim();
+}
+
+function extractAppointmentAction(msg) {
+  const content = getMessageContent(msg);
+  const paramsJson = content?.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson;
+  if (!paramsJson) return null;
+
+  try {
+    const parsed = JSON.parse(paramsJson);
+    const id = String(parsed?.id || '').trim();
+    return /^appointment:(confirm|reschedule):\d+$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 function makeSilentLogger() {
@@ -105,6 +130,7 @@ class WhatsAppManager {
       this.instances.set(key, {
         client: null,
         sock: null,
+        baileys: null,
         status: 'disconnected',
         qrcode: null,
         phone: null,
@@ -299,6 +325,7 @@ class WhatsAppManager {
       useMultiFileAuthState = baileys.useMultiFileAuthState;
       fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
       DisconnectReason = baileys.DisconnectReason;
+      data.baileys = baileys;
 
       if (!makeWASocket || !useMultiFileAuthState) {
         throw new Error('Exports do Baileys não encontrados');
@@ -422,7 +449,6 @@ class WhatsAppManager {
 
     sock.ev.on('messages.upsert', async (payload) => {
       if (data.sessionToken !== sessionToken) return;
-      if (!data.isMasterBot) return;
       if (payload?.type !== 'notify') return;
 
       for (const msg of payload.messages || []) {
@@ -433,6 +459,16 @@ class WhatsAppManager {
           if (!remoteJid || remoteJid === 'status@broadcast' || remoteJid.includes('@g.us')) {
             continue;
           }
+
+          const appointmentAction = extractAppointmentAction(msg);
+          if (appointmentAction) {
+            const handled = await this.handleAppointmentAction(tenantId, remoteJid, appointmentAction);
+            if (handled) continue;
+          }
+
+          // O bot conversacional é exclusivo do número master. Os bots das
+          // clínicas só processam as respostas dos botões de agendamento.
+          if (!data.isMasterBot) continue;
 
           const text = extractMessageText(msg);
           if (!text) continue;
@@ -517,6 +553,131 @@ class WhatsAppManager {
     this.instances.delete(key);
 
     await this.updateTenantDisconnected(key);
+  }
+
+  async sendAppointmentConfirmation(tenantId, to, text, appointmentId) {
+    const data = this.getTenantData(tenantId);
+    if (data.status !== 'connected' || !data.sock || !data.baileys) {
+      return 'Erro ao enviar via WhatsApp: bot desconectado';
+    }
+
+    try {
+      let jid = normalizeDestination(to);
+      if (!jid) return 'Erro ao enviar via WhatsApp: destino inválido';
+
+      if (jid.endsWith('@s.whatsapp.net')) {
+        try {
+          const digits = jid.replace('@s.whatsapp.net', '');
+          const results = await data.sock.onWhatsApp(...brazilJidCandidates(digits));
+          const found = Array.isArray(results) ? results.find(result => result?.exists && result?.jid) : null;
+          if (found) jid = found.jid;
+          else if (Array.isArray(results)) return `Erro ao enviar via WhatsApp: número ${to} não possui WhatsApp`;
+        } catch (verifyErr) {
+          console.warn(`[sendAppointmentConfirmation] Falha ao verificar ${to}: ${verifyErr.message}`);
+        }
+      }
+
+      const { proto, generateWAMessageFromContent } = data.baileys;
+      if (!proto || !generateWAMessageFromContent) {
+        throw new Error('Recursos de mensagem interativa não disponíveis no Baileys.');
+      }
+
+      const interactiveMessage = proto.Message.InteractiveMessage.create({
+        body: proto.Message.InteractiveMessage.Body.create({ text: String(text || '') }),
+        footer: proto.Message.InteractiveMessage.Footer.create({ text: 'Selecione uma opção para continuar.' }),
+        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+          buttons: [
+            { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'Confirmar presença', id: `appointment:confirm:${appointmentId}` }) },
+            { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'Reagendar', id: `appointment:reschedule:${appointmentId}` }) },
+          ],
+        }),
+      });
+
+      const message = generateWAMessageFromContent(
+        jid,
+        proto.Message.fromObject({
+          viewOnceMessage: {
+            message: {
+              messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+              interactiveMessage,
+            },
+          },
+        }),
+        { userJid: data.sock.user?.id }
+      );
+
+      await data.sock.relayMessage(jid, message.message, { messageId: message.key.id });
+      return true;
+    } catch (err) {
+      console.error(`[sendAppointmentConfirmation] Erro tenant ${tenantId} -> ${to}:`, err.message);
+      return `Erro ao enviar confirmação interativa: ${err.message}`;
+    }
+  }
+
+  async handleAppointmentAction(tenantId, remoteJid, actionId) {
+    const match = /^appointment:(confirm|reschedule):(\d+)$/.exec(String(actionId || ''));
+    if (!match) return false;
+
+    const [, action, appointmentId] = match;
+    try {
+      const [rows] = await db.query(
+        `SELECT a.id, a.status, a.start_time, p.name AS patient_name,
+                p.phone AS patient_phone
+         FROM appointments a
+         JOIN patients p ON p.id = a.patient_id
+         WHERE a.id = ? AND a.tenant_id = ? LIMIT 1`,
+        [appointmentId, tenantId]
+      );
+      const appointment = rows[0];
+      if (!appointment) return true;
+
+      const incomingPhone = jidToPhone(remoteJid).replace(/\D/g, '');
+      const expectedPhone = normalizePhoneDigits(appointment.patient_phone || '');
+      if (!incomingPhone || !expectedPhone || !brazilJidCandidates(expectedPhone).includes(incomingPhone)) {
+        console.warn(`[appointment-button] Número sem permissão para o agendamento ${appointmentId}.`);
+        return true;
+      }
+
+      const date = new Date(appointment.start_time).toLocaleDateString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo',
+      });
+      const time = new Date(appointment.start_time).toLocaleTimeString('pt-BR', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+      });
+
+      if (action === 'confirm') {
+        if (new Date(appointment.start_time) <= new Date()) {
+          await this.sendReminder(tenantId, remoteJid, 'Não é possível confirmar um atendimento que já passou.');
+          return true;
+        }
+        if (appointment.status === 'confirmed') {
+          await this.sendReminder(tenantId, remoteJid, `✅ Já recebemos sua confirmação. Seu atendimento está confirmado para ${date} às ${time}.`);
+          return true;
+        }
+        if (!['scheduled', 'rescheduled'].includes(appointment.status)) {
+          await this.sendReminder(tenantId, remoteJid, 'Este atendimento não está disponível para confirmação.');
+          return true;
+        }
+
+        await db.query(
+          `UPDATE appointments SET status = 'confirmed', updated_at = NOW()
+           WHERE id = ? AND tenant_id = ? AND status IN ('scheduled', 'rescheduled')`,
+          [appointmentId, tenantId]
+        );
+        await this.sendReminder(tenantId, remoteJid, `✅ Recebemos sua confirmação de presença.\n\nSeu atendimento está confirmado para *${date} às ${time}*.`);
+        return true;
+      }
+
+      if (new Date(appointment.start_time) <= new Date()) {
+        await this.sendReminder(tenantId, remoteJid, 'Este atendimento já passou e não pode ser reagendado por aqui.');
+        return true;
+      }
+      await this.sendReminder(tenantId, remoteJid, `📅 Recebemos seu pedido de reagendamento para o atendimento de ${date} às ${time}.\n\nEnvie a data e o horário desejados para continuarmos.`);
+      return true;
+    } catch (err) {
+      console.error(`[appointment-button] Erro ao processar ${actionId}:`, err.message);
+      return true;
+    }
   }
 
   async sendReminder(tenantId, to, text) {

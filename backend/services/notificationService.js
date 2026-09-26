@@ -132,7 +132,10 @@ class NotificationService {
           continue;
         }
 
-        const result = await wppService.sendReminder(item.tenant_id, item.recipient_phone, item.content);
+        const meta = typeof item.metadata === 'string' ? JSON.parse(item.metadata || '{}') : (item.metadata || {});
+        const result = meta?.interactive === 'appointment-confirmation'
+          ? await wppService.sendAppointmentConfirmation(item.tenant_id, item.recipient_phone, item.content, meta.apt_id)
+          : await wppService.sendReminder(item.tenant_id, item.recipient_phone, item.content);
 
         if (result === true) {
           await db.query(

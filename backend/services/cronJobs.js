@@ -447,13 +447,13 @@ async function checkAppointmentReminders() {
           const hourSP = parseInt(now.toLocaleString('pt-BR', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }));
           const inSendWindow = hourSP >= 8 && hourSP < 22;
           if (isConsultaTomorrow && inSendWindow && !apt.whatsapp_reminder_24h_sent && prefs.reminder_24h_enabled !== false) {
-            const msg = buildMsg(prefs.reminder_24h_msg, `🔔 *Aviso Antecipado*\n\nOlá, *{patient_name}*.\nConfirmamos sua consulta para amanhã ({date}) às {time}.`);
+            const msg = buildMsg(prefs.reminder_24h_msg, `🔔 *Confirmação de presença*\n\nOlá, *{patient_name}*.\n\nSeu atendimento com {professional_name} está reservado para amanhã ({date}) às {time}.\n\nPor favor, confirme sua presença ou selecione reagendar.`);
             await notificationService.enqueue({
               tenant_id: apt.tenant_id,
               recipient_phone: targetPhone,
               content: msg,
               expires_at: expiresAt24h,
-              metadata: { apt_id: apt.id, type: '24h-reminder-patient' }
+              metadata: { apt_id: apt.id, type: '24h-reminder-patient', interactive: 'appointment-confirmation' }
             });
             await db.query('UPDATE appointments SET whatsapp_reminder_24h_sent = 1 WHERE id = ?', [apt.id]);
             console.log(`[CRON-QUEUE Paciente 24h] ${apt.patient_name} | Tenant ${apt.tenant_id}`);
