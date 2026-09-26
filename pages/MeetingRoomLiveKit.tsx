@@ -2903,6 +2903,7 @@ const RoomInner: React.FC<{
   useEffect(() => {
     if (!initialCam) return;
     if (isCameraEnabled) {
+      camManuallyOffRef.current = false;
       if (camWatchdogRef.current) {
         clearInterval(camWatchdogRef.current);
         camWatchdogRef.current = null;
@@ -2910,10 +2911,17 @@ const RoomInner: React.FC<{
       }
       return;
     }
+    // Câmera desligada de propósito pelo usuário: não é uma falha, não tenta religar.
+    if (camManuallyOffRef.current) return;
     if (camWatchdogRef.current) return;
     let lastCamError: any = null;
     camWatchdogRef.current = setInterval(async () => {
       camWatchdogAttemptsRef.current += 1;
+      if (camManuallyOffRef.current) {
+        clearInterval(camWatchdogRef.current!);
+        camWatchdogRef.current = null;
+        return;
+      }
       if (camWatchdogAttemptsRef.current > 5) {
         clearInterval(camWatchdogRef.current!);
         camWatchdogRef.current = null;
@@ -2947,6 +2955,9 @@ const RoomInner: React.FC<{
 
   const camTogglingRef = useRef(false);
   const micTogglingRef = useRef(false);
+  // Guarda se a última ação sobre a câmera foi um desligamento manual do usuário,
+  // para o watchdog abaixo não religar uma câmera que foi desligada de propósito.
+  const camManuallyOffRef = useRef(false);
 
   const toggleMic = useCallback(async () => {
     if (micTogglingRef.current) return;
@@ -2962,10 +2973,14 @@ const RoomInner: React.FC<{
   const toggleCam = useCallback(async () => {
     if (camTogglingRef.current) return;
     camTogglingRef.current = true;
+    // Marca a intenção antes da chamada assíncrona, para o watchdog já respeitar
+    // um desligamento manual mesmo que rode antes de isCameraEnabled propagar.
+    camManuallyOffRef.current = camOn; // camOn true → usuário está desligando agora
     const camOpts = (!camOn && videoDeviceId) ? { deviceId: videoDeviceId } : undefined;
     try {
       await localParticipant.setCameraEnabled(!camOn, camOpts);
     } catch (err: any) {
+      camManuallyOffRef.current = false;
       toastError('Não foi possível ativar a câmera', mediaErrorMessage(err));
     }
     finally { camTogglingRef.current = false; }

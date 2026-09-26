@@ -1122,6 +1122,20 @@ export const Agenda: React.FC = () => {
     }
   };
 
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
+  const handleResendConfirmation = async () => {
+    if (!selectedApt || isResendingConfirmation) return;
+    setIsResendingConfirmation(true);
+    try {
+      await api.post(`/appointments/${selectedApt.id}/resend-24h-confirmation`, {});
+      pushToast('success', 'Confirmação enviada!', 'A mensagem com os botões deve chegar em até 1 minuto.');
+    } catch (err: any) {
+      pushToast('error', 'Não foi possível reenviar', err?.message || 'Erro de conexão.');
+    } finally {
+      setIsResendingConfirmation(false);
+    }
+  };
+
   const handleGenerateReceipt = async () => {
     if (!selectedApt) return;
 
@@ -3821,7 +3835,14 @@ export const Agenda: React.FC = () => {
                     <span className="text-[8px] font-black text-emerald-600 uppercase tracking-wider">WhatsApp</span>
                   </button>
                 )}
-                <button 
+                {(patient?.whatsapp || patient?.phone) && ['scheduled', 'rescheduled'].includes(apt.status || 'scheduled') && (
+                  <button onClick={handleResendConfirmation} disabled={isResendingConfirmation}
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-amber-50 border border-amber-100 hover:bg-amber-100 transition-all disabled:opacity-50">
+                    {isResendingConfirmation ? <Loader2 size={15} className="text-amber-600 animate-spin" /> : <RefreshCw size={15} className="text-amber-600" />}
+                    <span className="text-[8px] font-black text-amber-600 uppercase tracking-wider">Reenviar 24h</span>
+                  </button>
+                )}
+                <button
                    onClick={() => navigate(`/records?patient_id=${apt.patient_id}&appointment_id=${apt.id}`)}
                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all"
                 >

@@ -1098,6 +1098,46 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
   }
 });
 
+// POST /appointments/:id/resend-24h-confirmation
+// Reenvia manualmente a confirmação de presença com botões (mesma mensagem do
+// lembrete automático de 24h), sem esperar a janela horária do cron. Uso
+// pontual de suporte/teste — não altera whatsapp_reminder_24h_sent.
+router.post('/:id/resend-24h-confirmation', checkPermission('edit_appointment'), async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT a.id, a.tenant_id, a.start_time,
+              p.name AS patient_name, COALESCE(NULLIF(TRIM(p.whatsapp), ''), p.phone) AS patient_phone,
+              u.name AS professional_name
+       FROM appointments a
+       LEFT JOIN patients p ON p.id = a.patient_id
+       LEFT JOIN users u ON u.id = a.professional_id
+       WHERE a.id = ? AND a.tenant_id = ? LIMIT 1`,
+      [req.params.id, req.user.tenant_id]
+    );
+    const apt = rows[0];
+    if (!apt) return res.status(404).json({ error: 'Agendamento não encontrado' });
+    if (!apt.patient_phone) return res.status(400).json({ error: 'Paciente sem telefone cadastrado' });
+
+    const dateStr = new Date(apt.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' });
+    const timeStr = new Date(apt.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+    const msg = `🔔 *Confirmação de presença*\n\nOlá, *${apt.patient_name}*.\n\nSeu atendimento com ${apt.professional_name || 'Profissional'} está reservado para ${dateStr} às ${timeStr}.\n\nPor favor, confirme sua presença ou selecione reagendar.`;
+
+    const notificationService = require('../services/notificationService');
+    await notificationService.enqueue({
+      tenant_id: apt.tenant_id,
+      recipient_phone: apt.patient_phone,
+      content: msg,
+      expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000),
+      metadata: { apt_id: apt.id, type: '24h-reminder-patient-manual', interactive: 'appointment-confirmation' }
+    });
+
+    res.json({ success: true, message: 'Confirmação enfileirada para envio em até 1 minuto.' });
+  } catch (err) {
+    console.error('Erro ao reenviar confirmação 24h:', err);
+    res.status(500).json({ error: 'Erro ao reenviar confirmação', details: err.message });
+  }
+});
+
 // PUT /appointments/:id
 router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
   try {

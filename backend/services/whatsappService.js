@@ -622,7 +622,7 @@ class WhatsAppManager {
     try {
       const [rows] = await db.query(
         `SELECT a.id, a.status, a.start_time, p.name AS patient_name,
-                p.phone AS patient_phone
+                COALESCE(NULLIF(TRIM(p.whatsapp), ''), p.phone) AS patient_phone
          FROM appointments a
          JOIN patients p ON p.id = a.patient_id
          WHERE a.id = ? AND a.tenant_id = ? LIMIT 1`,
