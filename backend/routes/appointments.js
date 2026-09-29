@@ -985,6 +985,16 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
 
+    // Saiu de um status "ativo" (ex: cancelou/marcou falta): cancela lembretes/
+    // confirmações já enfileirados com os dados desta consulta.
+    if (dbStatus !== existing[0].old_status && !['scheduled', 'rescheduled', 'confirmed'].includes(dbStatus)) {
+      await db.query(
+        `UPDATE notification_queue SET status = 'canceled', last_error = 'Status do agendamento alterado'
+         WHERE status = 'pending' AND JSON_EXTRACT(metadata, '$.apt_id') = ?`,
+        [req.params.id]
+      ).catch(() => {});
+    }
+
     await db.query(
       'UPDATE appointments SET status = ?, notes = COALESCE(?, notes) WHERE id = ? AND tenant_id = ?',
       [dbStatus, notes || null, req.params.id, req.user.tenant_id]
@@ -1288,6 +1298,18 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
       );
     }
 
+    // Se o horário mudou ou a consulta saiu de um status "ativo" (ex: cancelada),
+    // cancela lembretes/confirmações já enfileirados com os dados antigos —
+    // senão o paciente recebe uma mensagem com data/horário que não valem mais.
+    const leftActiveStatus = dbStatus !== oldStatus && !['scheduled', 'rescheduled', 'confirmed'].includes(dbStatus);
+    if (startTimeActuallyChanged || leftActiveStatus) {
+      await db.query(
+        `UPDATE notification_queue SET status = 'canceled', last_error = 'Agendamento alterado'
+         WHERE status = 'pending' AND JSON_EXTRACT(metadata, '$.apt_id') = ?`,
+        [req.params.id]
+      ).catch(() => {});
+    }
+
     // Aviso via WhatsApp (Master Bot) ao profissional quando a consulta é remarcada de fato
     if (startTimeActuallyChanged) {
       setImmediate(async () => {
@@ -1500,6 +1522,14 @@ router.delete('/:id', checkPermission('delete_appointment'), async (req, res) =>
       [req.params.id, req.user.tenant_id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Agendamento não encontrado' });
+    // Cancela lembretes/confirmações já enfileirados para este agendamento —
+    // senão o paciente recebe uma mensagem de confirmação de uma consulta que
+    // não existe mais, com data/horário que não fazem mais sentido.
+    await db.query(
+      `UPDATE notification_queue SET status = 'canceled', last_error = 'Agendamento excluído'
+       WHERE status = 'pending' AND JSON_EXTRACT(metadata, '$.apt_id') = ?`,
+      [req.params.id]
+    ).catch(() => {});
     res.status(204).send();
     require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'appointment.deleted', data: { id: Number(req.params.id) } });
   } catch (err) {
