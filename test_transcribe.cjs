@@ -2,8 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const API_KEY = 'AIzaSyBysL3yvdnojR4i23W2sBeT0t3DpLyhlDI';
+const API_KEY = process.env.GEMINI_API_KEY;
 const model = 'gemini-1.5-flash';
+
+if (!API_KEY) {
+  console.error('Defina GEMINI_API_KEY para executar este teste.');
+  process.exit(1);
+}
 const audioPath = path.join(__dirname, 'backend/public/uploads/room-recordings/rec-1779225164674-19mgy5c6m6s.webm');
 
 console.log('Lendo arquivo de áudio:', audioPath);

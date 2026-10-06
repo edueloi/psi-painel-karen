@@ -60,6 +60,7 @@ export interface UserPreferences {
     hiddenIds: string[];
   };
   gemini: {
+    integrationName: string;
     apiKey: string;
     apiKeys: string[];
   };
@@ -145,6 +146,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     hiddenIds: [],
   },
   gemini: {
+    integrationName: '',
     apiKey: '',
     apiKeys: [],
   },

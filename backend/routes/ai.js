@@ -1194,6 +1194,63 @@ const transcribeUpload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB — limite do Whisper
 });
 
+// POST /ai/revise-transcript — usa exclusivamente a chave Gemini informada pelo
+// profissional nesta requisição; nenhuma chave Gemini global é usada no servidor.
+router.post('/revise-transcript', checkPermission('access_ai_features'), async (req, res) => {
+  const text = String(req.body?.text || '').trim();
+  const integrationName = String(req.body?.integration_name || 'Gemini').trim().slice(0, 80);
+  const apiKey = String(req.body?.gemini_api_key || '').trim();
+
+  if (!text) return res.status(400).json({ error: 'Transcrição vazia.' });
+  if (text.length > 180000) return res.status(413).json({ error: 'A transcrição é grande demais para revisão em uma única etapa.' });
+  if (apiKey.length < 20 || apiKey.length > 300 || /\s/.test(apiKey)) {
+    return res.status(400).json({ error: 'Informe uma chave válida da API Gemini.' });
+  }
+
+  const prompt = `Você é um revisor editorial de transcrições de sessões de psicologia em português brasileiro.
+
+Revise SOMENTE o texto entre <transcricao> e </transcricao>.
+Regras obrigatórias:
+- Preserve fielmente fatos, falas, incertezas, nomes de falantes e a ordem do diálogo.
+- Corrija apenas ortografia, pontuação, capitalização, concordância e erros evidentes de reconhecimento de fala.
+- Remova somente artefatos inequívocos de transcrição, como "legendas pela comunidade" e repetições idênticas acidentais.
+- Nunca invente, resuma, interprete, complete lacunas, crie hipótese diagnóstica ou altere o sentido clínico.
+- Se um trecho estiver ambíguo, mantenha-o como foi recebido; não tente adivinhar.
+- Retorne apenas a transcrição revisada, sem título, comentários, markdown ou aviso.
+
+<transcricao>
+${text}
+</transcricao>`;
+
+  try {
+    const model = process.env.GEMINI_TRANSCRIPT_MODEL || 'gemini-2.5-flash';
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0, maxOutputTokens: 16384 },
+        }),
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn(`[Gemini revisão] ${integrationName}: HTTP ${response.status}`);
+      return res.status(502).json({ error: 'O Gemini não pôde revisar a transcrição. Confira a chave e tente novamente.' });
+    }
+    const revised = String(payload?.candidates?.[0]?.content?.parts
+      ?.map(part => part?.text || '')
+      .join('') || '').trim();
+    if (!revised) return res.status(502).json({ error: 'O Gemini não retornou uma revisão utilizável.' });
+    res.json({ text: revised, provider: integrationName });
+  } catch (error) {
+    console.error('[Gemini revisão] Falha de conexão:', error?.message || error);
+    res.status(502).json({ error: 'Não foi possível conectar ao Gemini para revisar a transcrição.' });
+  }
+});
+
 router.post('/transcribe-audio', checkPermission('access_ai_features'), (req, res, next) => {
   transcribeUpload.single('audio')(req, res, (err) => {
     if (!err) return next();

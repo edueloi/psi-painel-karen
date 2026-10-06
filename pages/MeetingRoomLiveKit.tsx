@@ -1970,6 +1970,8 @@ type CachedChatMessage = { id: string; sender: string; senderName?: string; mess
 // Mantém cada envio muito abaixo do limite de 25 MB da API de transcrição,
 // inclusive em celulares que gravam Opus com bitrate mais alto.
 const TRANSCRIPTION_SEGMENT_MS = 8 * 60 * 1000;
+// Evita que uma sala esquecida aberta consuma transcrição indefinidamente.
+const MAX_RECORDING_DURATION_MS = 90 * 60 * 1000;
 const supportedAudioMimeType = () => [
   'audio/webm;codecs=opus',
   'audio/mp4',
@@ -2721,25 +2723,32 @@ const RoomInner: React.FC<{
   // Se a gravação já estiver ativa quando alguém entrar, envia o estado atual.
   // Sem isso o paciente admitido depois do clique em "Gravar" nunca iniciava a captura.
   useEffect(() => {
-    if (!isHost || !recording || remoteParticipants.length === 0) return;
+    if (!isHost || !recording || !preferences.sessions?.autoTranscribe || remoteParticipants.length === 0) return;
     const timer = window.setTimeout(() => broadcastRecordSignal('start'), 500);
     return () => window.clearTimeout(timer);
-  }, [isHost, recording, remoteParticipants.length, broadcastRecordSignal]);
+  }, [isHost, recording, remoteParticipants.length, broadcastRecordSignal, preferences.sessions?.autoTranscribe]);
 
   const handleStartRecording = useCallback(async () => {
     await startRecording();
+    // Gravar e transcrever são ações independentes. Sem esta guarda, desligar a
+    // transcrição não impedia chamadas ao Whisper.
+    if (!preferences.sessions?.autoTranscribe) return;
     const transcriptionStarted = await startMicOnlyCapture();
     if (transcriptionStarted) setRecording(true);
     if (isHost) broadcastRecordSignal('start');
-  }, [startRecording, startMicOnlyCapture, isHost, broadcastRecordSignal]);
+  }, [startRecording, startMicOnlyCapture, isHost, broadcastRecordSignal, preferences.sessions?.autoTranscribe]);
 
   const handleStopRecording = useCallback(async () => {
-    const guestDone = isHost ? Promise.all(remoteParticipants.map(participant => new Promise<void>(resolve => {
+    const shouldTranscribe = !!preferences.sessions?.autoTranscribe;
+    const guestDone = isHost && shouldTranscribe ? Promise.all(remoteParticipants.map(participant => new Promise<void>(resolve => {
       pendingGuestTranscriptionsRef.current.set(participant.identity, resolve);
     }))) : Promise.resolve();
-    if (isHost) broadcastRecordSignal('stop');
-    await Promise.all([stopAudioRecordingFile(), stopMicOnlyCaptureAndUpload()]);
-    if (isHost && remoteParticipants.length > 0) {
+    if (isHost && shouldTranscribe) broadcastRecordSignal('stop');
+    await Promise.all([
+      stopAudioRecordingFile(),
+      shouldTranscribe ? stopMicOnlyCaptureAndUpload() : Promise.resolve(),
+    ]);
+    if (isHost && shouldTranscribe && remoteParticipants.length > 0) {
       await Promise.race([
         guestDone,
         new Promise<void>(resolve => window.setTimeout(resolve, 30000)),
@@ -2747,7 +2756,18 @@ const RoomInner: React.FC<{
       pendingGuestTranscriptionsRef.current.clear();
     }
     setRecording(false);
-  }, [stopAudioRecordingFile, stopMicOnlyCaptureAndUpload, isHost, broadcastRecordSignal, remoteParticipants]);
+  }, [stopAudioRecordingFile, stopMicOnlyCaptureAndUpload, isHost, broadcastRecordSignal, remoteParticipants, preferences.sessions?.autoTranscribe]);
+
+  // Proteção contra salas deixadas gravando. A profissional pode iniciar uma
+  // nova gravação se o atendimento precisar continuar após o limite.
+  useEffect(() => {
+    if (!recording || !isHost) return;
+    const timer = window.setTimeout(() => {
+      setRecordingError('A gravação foi interrompida após 90 minutos para evitar consumo indevido de IA.');
+      void handleStopRecording();
+    }, MAX_RECORDING_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [recording, isHost, handleStopRecording]);
 
   // Paciente: obedece ao sinal de gravação/transcrição enviado pelo host.
   useEffect(() => {
@@ -3542,6 +3562,21 @@ const RoomInner: React.FC<{
                     transcript = (rows || [])
                       .map(r => `${r.speaker_name || (r.speaker_role === 'host' ? 'Profissional' : 'Paciente')}: ${r.text}`)
                       .join('\n');
+                    // Uma única revisão ao fim da sessão preserva o contexto e
+                    // evita uma chamada Gemini para cada segmento de 8 minutos.
+                    // Se falhar, a transcrição original continua disponível.
+                    if (transcript && patientId && preferences.sessions?.autoTranscribe && preferences.gemini?.apiKey) {
+                      try {
+                        const revised = await api.post<any>('/ai/revise-transcript', {
+                          text: transcript,
+                          integration_name: preferences.gemini.integrationName || participantName,
+                          gemini_api_key: preferences.gemini.apiKey,
+                        });
+                        transcript = revised?.text?.trim() || transcript;
+                      } catch {
+                        setRecordingError('A revisão com Gemini falhou; a transcrição original foi preservada.');
+                      }
+                    }
                   } catch {}
                 }
                 onLeave({ transcript, patientId });

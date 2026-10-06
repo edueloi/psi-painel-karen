@@ -640,8 +640,8 @@ export const Settings: React.FC = () => {
                 <div className="divide-y divide-slate-100">
                   <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">Iniciar transcrição automaticamente</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Captura trechos temporários assim que você entrar na sala virtual</p>
+                      <p className="text-sm font-medium text-slate-800">Iniciar gravação automaticamente</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Inicia a gravação assim que você entrar na sala virtual</p>
                     </div>
                     <Switch
                       checked={!!preferences.sessions?.autoRecord}
@@ -650,8 +650,8 @@ export const Settings: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">Transcrever automaticamente ao encerrar</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Usa OpenAI Whisper para gerar a transcrição da sessão após o encerramento</p>
+                      <p className="text-sm font-medium text-slate-800">Transcrever a gravação</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Quando ligada, envia trechos de áudio ao Whisper enquanto a gravação estiver ativa</p>
                     </div>
                     <Switch
                       checked={!!preferences.sessions?.autoTranscribe}
@@ -668,6 +668,36 @@ export const Settings: React.FC = () => {
                       onCheckedChange={(next) => updatePreference('sessions', { saveAudioRecording: next })}
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                  <p className="text-sm font-semibold text-slate-700">Revisão com Gemini</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Opcional: revisa o português ao encerrar a sessão, sem alterar o sentido clínico.</p>
+                </div>
+                <div className="p-4 sm:p-6 space-y-4">
+                  <label className="block">
+                    <span className="block text-sm font-medium text-slate-800 mb-1.5">Nome da integração</span>
+                    <input
+                      value={preferences.gemini?.integrationName || ''}
+                      onChange={e => updatePreference('gemini', { integrationName: e.target.value.slice(0, 80) })}
+                      placeholder="Ex.: Gemini da Dra. Karen"
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="block text-sm font-medium text-slate-800 mb-1.5">Chave da API Gemini</span>
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      value={preferences.gemini?.apiKey || ''}
+                      onChange={e => updatePreference('gemini', { apiKey: e.target.value.trim(), apiKeys: e.target.value.trim() ? [e.target.value.trim()] : [] })}
+                      placeholder="Cole aqui a chave criada no Google AI Studio"
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                    />
+                  </label>
+                  <p className="text-xs text-slate-500 leading-relaxed">A chave é individual do profissional. Ela só é enviada para o Gemini no momento da revisão; sem chave, nenhuma chamada ao Gemini é feita.</p>
                 </div>
               </div>
 
