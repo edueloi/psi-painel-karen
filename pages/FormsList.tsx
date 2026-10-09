@@ -6,11 +6,12 @@ import {
   Plus, ClipboardList, BarChart3, Pen, Trash2, CheckCircle, Share2,
   Copy, Send, FilePlus2, Eye, ChevronRight,
   Filter, Heart, Brain, FileText, Target, AlertCircle, Settings2, PlusCircle,
-  ChevronLeft, ArrowLeft
+  ChevronLeft, ArrowLeft, Mail, Loader2
 } from 'lucide-react';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
+import { getGenderedSpecialty } from '@/src/lib/professionalTitle';
 import { AppCard } from '../components/UI/AppCard';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
@@ -217,11 +218,29 @@ export const FormsList: React.FC = () => {
   const handleWhatsAppShare = () => {
     const link = getOgShareLink(); // usa rota OG para preview correto
     const patient = patients.find(p => String(p.id) === selectedPatientId);
-    const message = patient
-      ? `Olá ${patient.full_name}, por favor preencha este formulário: ${link}`
-      : `Olá, por favor preencha este formulário: ${link}`;
+    const greeting = patient ? `Olá, ${patient.full_name}! 😊` : 'Olá! 😊';
+    const genderedSpecialty = getGenderedSpecialty(user?.specialty, user?.gender);
+    const professionalLine = user?.name ? `\n\n*${user.name}${genderedSpecialty ? ` | ${genderedSpecialty}` : ''}*` : '';
+    const message = `${greeting}\n\nVocê está recebendo o formulário "${selectedForm?.title || 'de avaliação'}" para o levantamento de dados importantes para o acompanhamento do seu processo terapêutico.\n\nPoderia, por gentileza, dedicar alguns minutos para preenchê-lo?\n\n${link}\n\nAgradeço pela atenção e colaboração! 💙${professionalLine}`;
     const phone = (patient as any)?.whatsapp || (patient as any)?.phone || '';
     window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const handleEmailShare = async () => {
+    const patient = patients.find(p => String(p.id) === selectedPatientId);
+    if (!patient) { pushToast('error', 'Selecione um paciente.'); return; }
+    if (!(patient as any)?.email) { pushToast('error', 'Este paciente não tem e-mail cadastrado.'); return; }
+    if (!selectedForm) return;
+    setIsSendingEmail(true);
+    try {
+      await api.post(`/forms/${selectedForm.hash}/send-email`, { patient_id: patient.id });
+      pushToast('success', 'Formulário enviado por e-mail!');
+    } catch (err: any) {
+      pushToast('error', err?.message || 'Não foi possível enviar o e-mail.');
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const toggleArchive = (id: string) => {
@@ -696,6 +715,17 @@ export const FormsList: React.FC = () => {
             <Button variant="outline" onClick={() => setIsShareModalOpen(false)} className="flex-1">
               Fechar
             </Button>
+            {shareTab === 'patient' && (
+              <Button
+                variant="outline"
+                onClick={handleEmailShare}
+                disabled={isSendingEmail}
+                leftIcon={isSendingEmail ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
+                className="flex-1"
+              >
+                E-mail
+              </Button>
+            )}
             <Button
               variant="primary"
               onClick={handleWhatsAppShare}

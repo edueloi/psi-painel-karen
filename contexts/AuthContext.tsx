@@ -15,6 +15,7 @@ interface AuthUser {
   companyName?: string;
   crp?: string;
   specialty?: string;
+  gender?: 'male' | 'female' | 'other';
   address?: string;
   phone?: string;
   shareToken?: string;
@@ -78,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         company_name?: string;
         crp?: string;
         specialty?: string;
+        gender?: 'male' | 'female' | 'other';
         address?: string;
         phone?: string;
         avatarUrl?: string;
@@ -93,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         companyName: data.company_name,
         crp: data.crp,
         specialty: data.specialty,
+        gender: data.gender,
         address: data.address,
         phone: data.phone,
         shareToken: (data as any).share_token,

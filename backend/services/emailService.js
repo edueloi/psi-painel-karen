@@ -385,6 +385,22 @@ function templateNfseDelivered({ patientName, numero, verificationUrl }) {
   return baseTemplate('Sua Nota Fiscal está disponível', content, 'Mensagem enviada pelo consultório através do Plaelo.');
 }
 
+/** Convite para preencher um formulário de avaliação */
+function templateFormInvite({ patientName, formTitle, professionalName, professionalSpecialty, link }) {
+  const content = `
+    <p style="margin:0 0 18px;font-size:15px;color:#475569;">Olá, <strong>${patientName || 'paciente'}</strong>! 😊</p>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.75;color:#475569;">
+      Você está recebendo o formulário${formTitle ? ` <strong>"${formTitle}"</strong>` : ' de avaliação'} para o levantamento de dados importantes para o acompanhamento do seu processo terapêutico.
+    </p>
+    <p style="margin:0 0 26px;font-size:15px;line-height:1.75;color:#475569;">Poderia, por gentileza, dedicar alguns minutos para preenchê-lo?</p>
+    <div style="text-align:center;margin-bottom:26px;">
+      <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#150F2E,#6D42F5);color:#fff;font-weight:900;font-size:15px;padding:16px 42px;border-radius:14px;text-decoration:none;">Preencher formulário</a>
+    </div>
+    <p style="margin:0 0 4px;font-size:15px;color:#475569;">Agradeço pela atenção e colaboração! 💙</p>
+    ${professionalName ? `<p style="margin:18px 0 0;font-size:13px;font-weight:800;color:#1e293b;">${professionalName}${professionalSpecialty ? ` | ${professionalSpecialty}` : ''}</p>` : ''}`;
+  return baseTemplate('Formulário de avaliação', content, 'Mensagem enviada pelo consultório através do Plaelo.');
+}
+
 /** 8. Pagamento recebido (Mercado Pago) */
 function templatePaymentReceived({ patientName, amount, paymentMethod, comandaId }) {
   const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -416,5 +432,6 @@ module.exports = {
     platformUpdate: templatePlatformUpdate,
     nfseDelivered: templateNfseDelivered,
     paymentReceived: templatePaymentReceived,
+    formInvite: templateFormInvite,
   }
 };

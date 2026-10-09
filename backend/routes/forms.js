@@ -3,8 +3,9 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
-const { parseShareToken } = require('../utils/shareToken');
-const { sendMail } = require('../services/emailService');
+const { parseShareToken, generateShareToken } = require('../utils/shareToken');
+const { sendMail, templates } = require('../services/emailService');
+const { getGenderedSpecialty } = require('../utils/professionalTitle');
 
 // Helper: pack questions/interpretations/theme into the fields LONGTEXT column
 function packFields(body) {
@@ -253,6 +254,53 @@ router.get('/og/:hash', async (req, res) => {
   } catch (err) {
     console.error('OG route error:', err);
     res.redirect(302, formUrl);
+  }
+});
+
+// POST /forms/:hash/send-email — envia o convite de preenchimento por e-mail
+router.post('/:hash/send-email', authMiddleware, async (req, res) => {
+  try {
+    const { patient_id } = req.body;
+    if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório.' });
+
+    const [[form]] = await db.query(
+      'SELECT id, title, hash FROM forms WHERE hash = ? AND (tenant_id = ? OR is_global = true)',
+      [req.params.hash, req.user.tenant_id]
+    );
+    if (!form) return res.status(404).json({ error: 'Formulário não encontrado.' });
+
+    const [[patient]] = await db.query(
+      'SELECT id, name, email FROM patients WHERE id = ? AND tenant_id = ?',
+      [patient_id, req.user.tenant_id]
+    );
+    if (!patient) return res.status(404).json({ error: 'Paciente não encontrado.' });
+    if (!patient.email) return res.status(400).json({ error: 'Paciente sem e-mail cadastrado.' });
+
+    const [[professional]] = await db.query(
+      'SELECT name, specialty, gender FROM users WHERE id = ? AND tenant_id = ?',
+      [req.user.id, req.user.tenant_id]
+    );
+
+    const { getFrontendUrl } = require('../utils/publicUrl');
+    const frontendUrl = getFrontendUrl(req);
+    const qs = new URLSearchParams({ p: String(patient.id), u: generateShareToken(req.user.id) });
+    const link = `${frontendUrl}/api/forms/og/${form.hash}?${qs.toString()}`;
+
+    const html = templates.formInvite({
+      patientName: patient.name,
+      formTitle: form.title,
+      professionalName: professional?.name,
+      professionalSpecialty: getGenderedSpecialty(professional?.specialty, professional?.gender),
+      link,
+    });
+
+    const sent = await sendMail(patient.email, `Formulário: ${form.title}`, html);
+    if (!sent) return res.status(502).json({ error: 'Não foi possível enviar o e-mail. Verifique a configuração de e-mail do sistema.' });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Erro ao enviar formulário por e-mail:', err);
+    res.status(500).json({ error: 'Erro ao enviar e-mail', details: err.message });
   }
 });
 
