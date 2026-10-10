@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { PortalInstallPrompt } from "../components/Portal/PortalInstallPrompt";
+import { PortalInstallProvider, PortalInstallCard, PortalNotifyCard, PortalSheet, usePortalInstall } from "../components/Portal/PortalInstallPrompt";
 import {
   Calendar, Clock, CreditCard, User, LogOut, Video,
   MapPin, Plus, CheckCircle, XCircle, AlertCircle, Paperclip,
@@ -8,7 +8,7 @@ import {
   Check, Send, Loader2, ExternalLink, Edit3, Save, Lock, Copy, QrCode,
   Eye as EyeIcon, EyeOff, Shield, ChevronRight, Bell, FolderOpen, Download,
   ChevronLeft, Heart, Users, MessageCircle,
-  Mail, Cake, Briefcase, Sparkles, Stethoscope, GraduationCap, Gem, Receipt,
+  Mail, Cake, Briefcase, Sparkles, Stethoscope, GraduationCap, Gem, Receipt, MoreHorizontal, Smartphone,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
 import { Input, Select, Textarea } from "../components/UI/Input";
@@ -256,6 +256,10 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
 
   return (
     <div className="space-y-4">
+      {/* Convites de app (instalar / notificações) — cartões discretos, dispensáveis */}
+      <PortalInstallCard />
+      <PortalNotifyCard />
+
       {/* Saudação */}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
@@ -2616,6 +2620,8 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 
       </Tabs>
 
+      <PortalNotifyCard />
+
       {/* Sair */}
       <Button variant="softDanger" size="lg" fullWidth onClick={onLogout} iconLeft={<LogOut size={14} />}>
         Sair do Portal
@@ -2817,7 +2823,7 @@ function MessagesTab({ professionalName }: { professionalName?: string }) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-200px)] min-h-[420px] flex-col rounded-lg border border-slate-200 bg-white overflow-hidden">
+    <div className="flex h-[calc(100dvh-11rem-env(safe-area-inset-bottom))] md:h-[calc(100vh-200px)] min-h-[360px] md:min-h-[420px] flex-col rounded-lg border border-slate-200 bg-white overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-slate-100 bg-white shrink-0">
         <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600 shrink-0">
@@ -2898,9 +2904,17 @@ const PORTAL_TABS = [
 ] as const;
 type PortalTabId = typeof PORTAL_TABS[number]["id"];
 
-export const PatientPortal: React.FC = () => {
+export const PatientPortal: React.FC = () => (
+  <PortalInstallProvider>
+    <PatientPortalInner />
+  </PortalInstallProvider>
+);
+
+const PatientPortalInner: React.FC = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState<PortalTabId>("home");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const installCtx = usePortalInstall();
   const [unreadMsgs, setUnreadMsgs] = useState(0);
   const [patient, setPatient] = useState<PortalPatient | null>(null);
   const [appointments, setAppointments] = useState<PortalAppointment[]>([]);
@@ -2981,11 +2995,14 @@ export const PatientPortal: React.FC = () => {
     return () => { cancelled = true; clearInterval(id); };
   }, [tab]);
 
+  // App-like: ao trocar de seção volta ao topo.
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [tab]);
+
   const handleLogout = () => { localStorage.removeItem(SESSION_KEY); navigate("/portal"); };
 
   if (loading || !patient) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-3 animate-pulse">
             <User size={22} className="text-white" />
@@ -3007,10 +3024,45 @@ export const PatientPortal: React.FC = () => {
   };
   const tabItems = PORTAL_TABS.map(t => ({ ...t, badge: badgeFor(t.id) }));
 
+  // ── Celular: barra inferior com 4 destinos + "Mais" (Perfil, Financeiro, Notas, instalar, sair)
+  const bottomIds: PortalTabId[] = ["home", "agenda", "messages", "documents"];
+  const moreItems: { id: PortalTabId; label: string }[] = [
+    { id: "profile",  label: "Perfil" },
+    { id: "payments", label: "Financeiro" },
+    { id: "nfse",     label: "Notas Fiscais" },
+  ];
+  const moreIds = moreItems.map(m => m.id);
+  const moreActive = moreIds.includes(tab);
+  const moreBadge = moreIds.some(id => badgeFor(id)) ? "dot" : undefined;
+  const MOBILE_TITLES: Record<PortalTabId, string> = {
+    home: "Início", agenda: "Agenda", messages: "Mensagens", documents: "Documentos",
+    nfse: "Notas Fiscais", payments: "Financeiro", profile: "Perfil",
+  };
+  const goTab = (id: PortalTabId) => { setTab(id); setMoreOpen(false); };
+  const tabIcon = (id: PortalTabId) => PORTAL_TABS.find(t => t.id === id)!.icon;
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* ── Cabeçalho + navegação por abas ── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+    <div className="min-h-[100dvh] bg-slate-50 flex flex-col">
+      {/* ── Celular: app bar compacta ── */}
+      <header className="md:hidden sticky top-0 z-40 bg-white border-b border-slate-200" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className="h-12 px-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-base font-medium text-slate-900 truncate leading-tight">{MOBILE_TITLES[tab]}</h1>
+            {tab === "home" && patient.company_name && <p className="text-[11px] text-slate-500 truncate leading-none">{patient.company_name}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            aria-label="Abrir menu da conta"
+            className="w-9 h-9 bg-primary-600 rounded-full flex items-center justify-center shrink-0"
+          >
+            <span className="text-white font-medium text-sm">{patient.full_name.charAt(0)}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* ── Desktop: cabeçalho + navegação por abas ── */}
+      <header className="hidden md:block sticky top-0 z-40 bg-white border-b border-slate-200">
         <div className="px-4 md:px-6 pt-2.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shrink-0">
@@ -3032,7 +3084,7 @@ export const PatientPortal: React.FC = () => {
       {globalToast.node}
 
       {/* Conteúdo */}
-      <main className="flex-1 min-w-0 px-4 md:px-6 pt-4 pb-8">
+      <main className="flex-1 min-w-0 px-3 md:px-6 pt-3 md:pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8">
         <div className="space-y-4 w-full">
           {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
           {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} mpAvailable={mpAvailable} mpInterestRate={mpInterestRate} asaasAvailable={asaasAvailable} />}
@@ -3044,7 +3096,92 @@ export const PatientPortal: React.FC = () => {
         </div>
       </main>
 
-      <PortalInstallPrompt />
+      {/* ── Celular: navegação inferior (tab bar de app) ── */}
+      <nav
+        aria-label="Navegação do portal"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 grid grid-cols-5"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        {bottomIds.map(id => {
+          const Icon = tabIcon(id);
+          const active = tab === id;
+          const badge = badgeFor(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              aria-current={active ? "page" : undefined}
+              className={`relative min-h-[56px] flex flex-col items-center justify-center gap-0.5 ${active ? "text-primary-600" : "text-slate-500"}`}
+            >
+              {active && <span className="absolute top-0 h-0.5 w-8 rounded-b bg-primary-600" />}
+              <span className="relative">
+                <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+                {badge !== undefined && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-medium leading-4 text-center">{badge}</span>
+                )}
+              </span>
+              <span className="text-[11px] font-medium leading-none">{MOBILE_TITLES[id]}</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setMoreOpen(true)}
+          aria-current={moreActive ? "page" : undefined}
+          className={`relative min-h-[56px] flex flex-col items-center justify-center gap-0.5 ${moreActive ? "text-primary-600" : "text-slate-500"}`}
+        >
+          {moreActive && <span className="absolute top-0 h-0.5 w-8 rounded-b bg-primary-600" />}
+          <span className="relative">
+            <MoreHorizontal size={22} strokeWidth={moreActive ? 2.25 : 1.75} />
+            {moreBadge && <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-red-500" />}
+          </span>
+          <span className="text-[11px] font-medium leading-none">Mais</span>
+        </button>
+      </nav>
+
+      {/* ── Celular: bottom-sheet "Mais" / conta ── */}
+      <div className="md:hidden">
+        <PortalSheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Menu">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-white font-medium text-sm">{patient.full_name.charAt(0)}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">{patient.full_name}</p>
+              <p className="text-[11px] text-slate-500 truncate">Portal do Paciente{patient.company_name ? ` · ${patient.company_name}` : ""}</p>
+            </div>
+          </div>
+          <ul className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+            {moreItems.map(m => {
+              const Icon = tabIcon(m.id);
+              const badge = badgeFor(m.id);
+              return (
+                <li key={m.id}>
+                  <button type="button" onClick={() => goTab(m.id)} className={`w-full min-h-[48px] px-3 flex items-center gap-3 text-left text-sm ${tab === m.id ? "text-primary-700 bg-primary-50" : "text-slate-700"}`}>
+                    <Icon size={18} className="shrink-0" />
+                    <span className="flex-1">{m.label}</span>
+                    {badge !== undefined && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-medium leading-[18px] text-center">{badge}</span>}
+                    <ChevronRight size={16} className="text-slate-400 shrink-0" />
+                  </button>
+                </li>
+              );
+            })}
+            {!installCtx.installed && installCtx.canOfferInstall && (
+              <li>
+                <button type="button" onClick={() => { setMoreOpen(false); installCtx.install(); }} className="w-full min-h-[48px] px-3 flex items-center gap-3 text-left text-sm text-slate-700">
+                  <Smartphone size={18} className="shrink-0" />
+                  <span className="flex-1">Instalar aplicativo</span>
+                  <ChevronRight size={16} className="text-slate-400 shrink-0" />
+                </button>
+              </li>
+            )}
+          </ul>
+          <Button className="mt-3" variant="softDanger" size="lg" fullWidth onClick={handleLogout} iconLeft={<LogOut size={14} />}>
+            Sair do Portal
+          </Button>
+        </PortalSheet>
+      </div>
     </div>
   );
 };

@@ -1133,12 +1133,36 @@ router.get('/:id/wellbeing/activities', async (req, res) => {
 });
 
 // ── Registro de humor observado pelo profissional (sessão a sessão) ──────────
+// Dado sensível: só o profissional autenticado grava; toda query filtra por tenant_id.
+// Regra: no máximo 1 registro por sessão (tenant + paciente + appointment_id).
+const MOOD_EMOTIONS = ['ansioso', 'triste', 'irritado', 'calmo', 'esperançoso', 'cansado', 'confuso', 'animado', 'angustiado', 'apático'];
+
+const normalizeMoodPayload = (body) => {
+  const score = Number(body.mood_score);
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    return { error: 'mood_score deve ser um número inteiro entre 1 e 5' };
+  }
+  let emotions = body.emotions;
+  if (typeof emotions === 'string') emotions = emotions.split(',');
+  emotions = Array.isArray(emotions)
+    ? [...new Set(emotions.map(e => String(e).trim().toLowerCase()).filter(e => MOOD_EMOTIONS.includes(e)))]
+    : [];
+  const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim().slice(0, 2000) : null;
+  return { score, emotions: emotions.length ? emotions.join(',') : null, note };
+};
+
 router.get('/:id/mood-logs', async (req, res) => {
   try {
+    const params = [req.params.id, req.user.tenant_id];
+    let where = 'patient_id = ? AND tenant_id = ?';
+    if (req.query.appointment_id) {
+      where += ' AND appointment_id = ?';
+      params.push(req.query.appointment_id);
+    }
     const [rows] = await db.query(
-      `SELECT id, mood_score, emotions, note, recorded_at, created_at
-       FROM patient_mood_logs WHERE patient_id = ? AND tenant_id = ? ORDER BY recorded_at DESC LIMIT 100`,
-      [req.params.id, req.user.tenant_id]
+      `SELECT id, appointment_id, mood_score, emotions, note, recorded_at, created_at
+       FROM patient_mood_logs WHERE ${where} ORDER BY recorded_at DESC LIMIT 100`,
+      params
     );
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1146,26 +1170,50 @@ router.get('/:id/mood-logs', async (req, res) => {
 
 router.post('/:id/mood-logs', async (req, res) => {
   try {
-    const { mood_score, emotions, note, appointment_id } = req.body;
-    const score = Number(mood_score);
-    if (!score || score < 1 || score > 5) {
-      return res.status(400).json({ error: 'mood_score deve ser um número entre 1 e 5' });
+    const { appointment_id } = req.body;
+    const data = normalizeMoodPayload(req.body);
+    if (data.error) return res.status(400).json({ error: data.error });
+
+    // Upsert por sessão: se já existe registro para o agendamento, atualiza.
+    if (appointment_id) {
+      const [existing] = await db.query(
+        `SELECT id FROM patient_mood_logs
+         WHERE tenant_id = ? AND patient_id = ? AND appointment_id = ? ORDER BY id DESC LIMIT 1`,
+        [req.user.tenant_id, req.params.id, appointment_id]
+      );
+      if (existing.length) {
+        await db.query(
+          `UPDATE patient_mood_logs
+           SET mood_score = ?, emotions = ?, note = ?, professional_id = ?, recorded_at = NOW()
+           WHERE id = ? AND tenant_id = ? AND patient_id = ?`,
+          [data.score, data.emotions, data.note, req.user.id, existing[0].id, req.user.tenant_id, req.params.id]
+        );
+        return res.json({ id: existing[0].id, updated: true });
+      }
     }
+
     const [result] = await db.query(
       `INSERT INTO patient_mood_logs
          (tenant_id, patient_id, professional_id, appointment_id, mood_score, emotions, note, recorded_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [
-        req.user.tenant_id,
-        req.params.id,
-        req.user.id,
-        appointment_id || null,
-        score,
-        Array.isArray(emotions) ? emotions.join(',') : (emotions || null),
-        note || null,
-      ]
+      [req.user.tenant_id, req.params.id, req.user.id, appointment_id || null, data.score, data.emotions, data.note]
     );
-    res.status(201).json({ id: result.insertId });
+    res.status(201).json({ id: result.insertId, updated: false });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/:id/mood-logs/:logId', async (req, res) => {
+  try {
+    const data = normalizeMoodPayload(req.body);
+    if (data.error) return res.status(400).json({ error: data.error });
+    const [result] = await db.query(
+      `UPDATE patient_mood_logs
+       SET mood_score = ?, emotions = ?, note = ?, professional_id = ?, recorded_at = NOW()
+       WHERE id = ? AND patient_id = ? AND tenant_id = ?`,
+      [data.score, data.emotions, data.note, req.user.id, req.params.logId, req.params.id, req.user.tenant_id]
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Registro de humor não encontrado' });
+    res.json({ id: Number(req.params.logId), updated: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

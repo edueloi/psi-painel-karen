@@ -31,6 +31,9 @@ import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { PaymentModal } from '../components/UI/PaymentModal';
 import { DatePicker } from '../components/UI/DatePicker';
 import { AuroraAssistant } from '../components/AI/AuroraAssistant';
+import { ControlBar, ControlItem } from '../components/Room/ControlBar';
+import { NotesPanel } from '../components/Room/NotesPanel';
+import { DarkBadge, DarkButton, DarkCard, DarkIconButton, DarkInput, DarkPanelHeader, DarkTabs, darkPanelShell } from '../components/Room/Dark';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface MeetingRoomLiveKitProps { isGuest?: boolean; }
@@ -67,24 +70,29 @@ const DeviceSelect: React.FC<{
   const [open, setOpen] = useState(false);
   const selected = devices.find(d => d.deviceId === value);
   return (
-    <div style={{ position: "relative" }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
-        {icon} {label}
-      </p>
+    <div className="relative">
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400">{icon} {label}</p>
       <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(v => !v)}
-        style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#e2e8f0", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 8 }}
+        className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-[13px] text-slate-100 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "left" }}>
-          {selected?.label || "Padrão do sistema"}
-        </span>
-        <ChevronDown size={14} color="#64748b" style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+        <span className="flex-1 truncate text-left">{selected?.label || "Padrão do sistema"}</span>
+        <ChevronDown size={14} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#1e2535", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", marginTop: 4, overflow: "hidden" }}>
+        <div role="listbox" className="absolute left-0 right-0 top-full z-[100] mt-1 max-h-60 overflow-y-auto rounded-lg border border-white/10 bg-slate-800 shadow-lg">
           {devices.map(d => (
-            <button key={d.deviceId} onClick={() => { onChange(d.deviceId); setOpen(false); }}
-              style={{ width: "100%", padding: "10px 12px", background: d.deviceId === value ? "rgba(99,102,241,0.2)" : "none", border: "none", cursor: "pointer", color: d.deviceId === value ? "#a5b4fc" : "#cbd5e1", fontSize: 13, textAlign: "left" }}>
+            <button
+              key={d.deviceId}
+              type="button"
+              role="option"
+              aria-selected={d.deviceId === value}
+              onClick={() => { onChange(d.deviceId); setOpen(false); }}
+              className={`w-full px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-white/10 ${d.deviceId === value ? "bg-primary-500/20 text-primary-200" : "text-slate-300"}`}
+            >
               {d.label || `Dispositivo ${d.deviceId.slice(0, 8)}`}
             </button>
           ))}
@@ -109,14 +117,24 @@ const mediaErrorMessage = (err: any): string => {
   return 'Não foi possível ativar. Verifique as permissões do navegador e tente novamente.';
 };
 
-const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void }> = ({ on, onChange }) => (
+const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void; label?: string }> = ({ on, onChange, label }) => (
   <button
+    type="button"
+    role="switch"
+    aria-checked={on}
+    aria-label={label}
     onClick={() => onChange(!on)}
-    style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: on ? "#6366f1" : "rgba(255,255,255,0.12)", transition: "background .2s", flexShrink: 0 }}
+    className={`relative h-[22px] w-10 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${on ? "bg-primary-600" : "bg-white/15"}`}
   >
-    <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+    <span className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all ${on ? "left-[21px]" : "left-[3px]"}`} />
   </button>
 );
+
+const LOBBY_TABS = [
+  { id: "link", label: "Convidar", icon: <LinkIcon size={12} /> },
+  { id: "devices", label: "Dispositivos", icon: <Settings size={12} /> },
+  { id: "recording", label: "Gravação", icon: <Circle size={12} /> },
+] as const;
 
 const Lobby: React.FC<{
   roomCode: string; isGuest: boolean; guestName: string;
@@ -248,345 +266,293 @@ const Lobby: React.FC<{
     : null;
   const displayName = isGuest ? (guestName || "Você") : (userName || "Você");
 
-  const sectionBtn = (id: typeof activeSection, label: string, icon: React.ReactNode) => (
-    <button
-      onClick={() => setActiveSection(activeSection === id ? null : id)}
-      style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", borderRadius: 9, border: `1px solid ${activeSection === id ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.07)"}`, background: activeSection === id ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.04)", cursor: "pointer", color: activeSection === id ? "#a5b4fc" : "#64748b", fontSize: 12, fontWeight: 600, transition: "all .15s", whiteSpace: "nowrap" }}
-    >
-      {icon}{label}
-    </button>
-  );
-
   /* ── Lobby do profissional: layout tela cheia com câmera em destaque ── */
   if (!isGuest) {
+    const previewBtn = (off: boolean) =>
+      `!h-11 !w-11 !rounded-full !border-transparent backdrop-blur-md ${off ? "!bg-red-600/85 !text-white hover:!bg-red-600" : "!bg-white/15 !text-white hover:!bg-white/25"}`;
     return (
-      <div style={{ minHeight: "100vh", background: "#070910", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, sans-serif", overflow: "hidden" }}>
+      <div className="flex min-h-screen flex-col overflow-hidden bg-slate-950">
 
         {/* Barra superior */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 28px", position: "relative", zIndex: 10, flexShrink: 0 }}>
-          <img src={logoUrl} alt="Plaelo" style={{ height: 32, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 8, padding: 3 }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 99, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e" }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Sala pronta</span>
-          </div>
+        <div className="relative z-10 flex shrink-0 items-center justify-between px-4 py-4 sm:px-7">
+          <img src={logoUrl} alt="Plaelo" className="h-8 rounded-lg bg-white object-contain p-[3px] opacity-90" />
+          <DarkBadge tone="success" className="!px-3 !py-1.5 !text-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Sala pronta
+          </DarkBadge>
         </div>
 
         {/* Corpo principal */}
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 28px 28px", gap: 28, minHeight: 0 }} className="host-lobby-body">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-4 pb-5 md:flex-row md:gap-7 md:px-7 md:pb-7">
 
           {/* ── Câmera grande ── */}
-          <div style={{ flex: "0 0 auto", width: "min(520px, 55vw)", aspectRatio: "16/10", borderRadius: 20, overflow: "hidden", background: "#0d0f18", position: "relative", boxShadow: "0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)" }} className="host-cam-wrap">
+          <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/10 md:aspect-[16/10] md:w-[min(520px,55vw)]">
             <video ref={videoRef} autoPlay muted playsInline
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: camOn && !deviceError ? "block" : "none", transform: "scaleX(-1)" }} />
+              className="h-full w-full -scale-x-100 object-cover" style={{ display: camOn && !deviceError ? "block" : "none" }} />
             {deviceError ? (
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 24, textAlign: "center" }}>
-                <Shield size={36} color="#f87171" />
-                <span style={{ fontSize: 13, color: "#fca5a5", fontWeight: 600, maxWidth: 320 }}>{deviceError}</span>
-                <span style={{ fontSize: 12, color: "#64748b" }}>Você ainda pode entrar na sala sem câmera/microfone.</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 p-6 text-center">
+                <Shield size={36} className="text-red-400" />
+                <span className="max-w-xs text-[13px] font-medium text-red-300">{deviceError}</span>
+                <span className="text-xs text-slate-500">Você ainda pode entrar na sala sem câmera/microfone.</span>
               </div>
             ) : !camOn && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
-                <div style={{ width: 80, height: 80, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 800, color: "#fff", boxShadow: "0 12px 32px rgba(99,102,241,0.4)" }}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3.5">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-600 text-3xl font-semibold text-white">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
-                <span style={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>Câmera desligada</span>
+                <span className="text-[13px] text-slate-500">Câmera desligada</span>
               </div>
             )}
-            {/* Gradiente inferior */}
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, rgba(0,0,0,0.85), transparent)", pointerEvents: "none" }} />
-            {/* Badge nome */}
-            <div style={{ position: "absolute", bottom: 52, left: 16, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(10px)", borderRadius: 8, padding: "4px 12px", fontSize: 13, fontWeight: 700, color: "#e2e8f0", letterSpacing: "-.1px" }}>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
+            <div className="absolute bottom-[60px] left-4 rounded-lg bg-black/65 px-3 py-1 text-[13px] font-medium text-slate-100 backdrop-blur-md">
               {displayName}
             </div>
             {/* Controles mic/cam */}
-            <div style={{ position: "absolute", bottom: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 12 }}>
-              <button onClick={togglePreviewMic} title={micOn ? "Desligar microfone" : "Ligar microfone"}
-                style={{ width: 46, height: 46, borderRadius: "50%", border: micOn ? "none" : "1.5px solid rgba(239,68,68,0.6)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: micOn ? "rgba(255,255,255,0.15)" : "rgba(220,38,38,0.85)", backdropFilter: "blur(12px)", color: "#fff", transition: "all .15s", flexShrink: 0 }}>
+            <div className="absolute bottom-3.5 left-1/2 flex -translate-x-1/2 gap-3">
+              <DarkIconButton aria-label={micOn ? "Desligar microfone" : "Ligar microfone"} aria-pressed={micOn} title={micOn ? "Desligar microfone" : "Ligar microfone"} size="lg" onClick={togglePreviewMic} className={previewBtn(!micOn)}>
                 {micOn ? <Mic size={18} /> : <MicOff size={18} />}
-              </button>
-              <button onClick={togglePreviewCam} title={camOn ? "Desligar câmera" : "Ligar câmera"}
-                style={{ width: 46, height: 46, borderRadius: "50%", border: camOn ? "none" : "1.5px solid rgba(239,68,68,0.6)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: camOn ? "rgba(255,255,255,0.15)" : "rgba(220,38,38,0.85)", backdropFilter: "blur(12px)", color: "#fff", transition: "all .15s", flexShrink: 0 }}>
+              </DarkIconButton>
+              <DarkIconButton aria-label={camOn ? "Desligar câmera" : "Ligar câmera"} aria-pressed={camOn} title={camOn ? "Desligar câmera" : "Ligar câmera"} size="lg" onClick={togglePreviewCam} className={previewBtn(!camOn)}>
                 {camOn ? <Video size={18} /> : <VideoOff size={18} />}
-              </button>
+              </DarkIconButton>
               {isMobile && camOn && (
-                <button onClick={flipCamera} title="Virar câmera"
-                  style={{ width: 46, height: 46, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", color: "#fff", transition: "all .15s", flexShrink: 0 }}>
+                <DarkIconButton aria-label="Virar câmera" title="Virar câmera" size="lg" onClick={flipCamera} className={previewBtn(false)}>
                   <SwitchCamera size={18} />
-                </button>
+                </DarkIconButton>
               )}
             </div>
           </div>
 
           {/* ── Painel direito ── */}
-          <div style={{ flex: "0 0 auto", width: "min(340px, 38vw)", display: "flex", flexDirection: "column", gap: 6 }} className="host-panel">
+          <div className="flex w-full flex-col gap-3 md:w-[min(340px,38vw)] md:shrink-0">
 
             {/* Título */}
-            <div style={{ marginBottom: 10 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 900, color: "#f1f5f9", margin: 0, letterSpacing: "-.5px", lineHeight: 1.2 }}>
-                Sua sala<br />virtual
-              </h1>
-              <p style={{ fontSize: 13, color: "#334155", marginTop: 6, margin: "6px 0 0" }}>Pronto para iniciar a sessão?</p>
+            <div>
+              <h1 className="text-lg font-medium leading-tight text-slate-100 sm:text-xl">Sua sala virtual</h1>
+              <p className="mt-1 text-xs text-slate-500">Pronto para iniciar a sessão?</p>
             </div>
 
-            {/* Tabs de seção */}
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-              {sectionBtn("link", "Convidar", <LinkIcon size={11} />)}
-              {sectionBtn("devices", "Dispositivos", <Settings size={11} />)}
-              {sectionBtn("recording", "Gravação", <Circle size={11} />)}
-            </div>
+            {/* Abas de seção */}
+            <DarkTabs<"link" | "devices" | "recording"> label="Preparar sessão" items={LOBBY_TABS} value={activeSection || "link"} onChange={setActiveSection} />
 
             {/* Seção: Link */}
             {activeSection === "link" && (
-              <div style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.18)", borderRadius: 16, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".06em", margin: 0 }}>Link do paciente</p>
-                <div style={{ background: "rgba(0,0,0,0.35)", borderRadius: 9, padding: "9px 12px", fontSize: 11, color: "#4b5563", fontFamily: "monospace", wordBreak: "break-all", lineHeight: 1.6, userSelect: "all" }}>
+              <DarkCard className="flex flex-col gap-2.5 !border-primary-500/20 !bg-primary-500/[0.07]">
+                <p className="text-xs font-medium text-slate-300">Link do paciente</p>
+                <div className="select-all break-all rounded-lg bg-black/35 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-400">
                   {guestUrl}
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={copyLink} style={{ flex: 1, height: 40, borderRadius: 10, background: copied ? "rgba(34,197,94,0.14)" : "rgba(255,255,255,0.06)", border: `1px solid ${copied ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.1)"}`, color: copied ? "#86efac" : "#94a3b8", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all .15s" }}>
-                    {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar</>}
-                  </button>
-                  <button onClick={sendWhatsApp} style={{ flex: 1, height: 40, borderRadius: 10, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", color: "#86efac", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#86efac"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                <div className="flex gap-2">
+                  <DarkButton fullWidth size="lg" onClick={copyLink} iconLeft={copied ? <Check size={14} /> : <Copy size={14} />} className={copied ? "!border-emerald-500/35 !bg-emerald-500/15 !text-emerald-300" : ""}>
+                    {copied ? "Copiado!" : "Copiar"}
+                  </DarkButton>
+                  <DarkButton fullWidth size="lg" onClick={sendWhatsApp} iconLeft={(<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>)} className="!border-emerald-500/25 !bg-emerald-500/10 !text-emerald-300 hover:!bg-emerald-500/20">
                     WhatsApp
-                  </button>
+                  </DarkButton>
                 </div>
-              </div>
+              </DarkCard>
             )}
 
             {/* Seção: Dispositivos */}
             {activeSection === "devices" && (
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".06em", margin: 0 }}>Dispositivos</p>
-                {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={11} />} />}
-                {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={11} />} />}
-                {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={11} />} />}
-              </div>
+              <DarkCard className="flex flex-col gap-2.5">
+                <p className="text-xs font-medium text-slate-300">Dispositivos</p>
+                {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={12} />} />}
+                {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={12} />} />}
+                {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={12} />} />}
+              </DarkCard>
             )}
 
             {/* Seção: Gravação */}
             {activeSection === "recording" && (
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: ".06em", margin: 0 }}>Gravação da sessão</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1", margin: 0 }}>Gravar automaticamente</p>
-                      <p style={{ fontSize: 11, color: "#334155", margin: "2px 0 0" }}>Inicia ao entrar na sala</p>
-                    </div>
-                    <Toggle on={preferences.sessions?.autoRecord ?? false} onChange={v => updatePreference('sessions', { autoRecord: v })} />
+              <DarkCard className="flex flex-col gap-3">
+                <p className="text-xs font-medium text-slate-300">Gravação da sessão</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-slate-200">Gravar automaticamente</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">Inicia ao entrar na sala</p>
                   </div>
-                  <div style={{ height: 1, background: "rgba(255,255,255,0.05)" }} />
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#cbd5e1", margin: 0 }}>Transcrever ao encerrar</p>
-                      <p style={{ fontSize: 11, color: "#334155", margin: "2px 0 0" }}>Gera transcrição automática</p>
-                    </div>
-                    <Toggle on={preferences.sessions?.autoTranscribe ?? false} onChange={v => updatePreference('sessions', { autoTranscribe: v })} />
-                  </div>
+                  <Toggle label="Gravar automaticamente" on={preferences.sessions?.autoRecord ?? false} onChange={v => updatePreference('sessions', { autoRecord: v })} />
                 </div>
-              </div>
+                <div className="h-px bg-white/5" />
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-slate-200">Transcrever ao encerrar</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">Gera transcrição automática</p>
+                  </div>
+                  <Toggle label="Transcrever ao encerrar" on={preferences.sessions?.autoTranscribe ?? false} onChange={v => updatePreference('sessions', { autoTranscribe: v })} />
+                </div>
+              </DarkCard>
             )}
 
             {error && (
-              <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, color: "#f87171", fontSize: 13 }}>
+              <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 text-[13px] text-red-300">
                 {error}
               </div>
             )}
 
             {/* Botão iniciar */}
-            <button onClick={onJoin} disabled={!canJoin}
-              style={{ marginTop: 8, width: "100%", height: 54, borderRadius: 14, fontWeight: 900, fontSize: 16, color: "#fff", background: canJoin ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(99,102,241,0.2)", border: "none", cursor: canJoin ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: canJoin ? "0 8px 28px rgba(99,102,241,0.5)" : "none", transition: "all .2s", letterSpacing: "-.2px" }}>
-              {joining ? <><Spinner /> Conectando...</> : <><Video size={18} /> Iniciar sessão</>}
-            </button>
+            <DarkButton variant="primary" size="lg" fullWidth onClick={onJoin} disabled={!canJoin} loading={joining} loadingText="Conectando..." iconLeft={<Video size={16} />} className="!h-11 !text-sm">
+              Iniciar sessão
+            </DarkButton>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 2 }}>
-              <Shield size={11} color="#1e3a4c" />
-              <span style={{ fontSize: 11, color: "#1e3a4c" }}>Conexão segura e criptografada</span>
+            <div className="flex items-center justify-center gap-1.5">
+              <Shield size={11} className="text-slate-600" />
+              <span className="text-[11px] text-slate-600">Conexão segura e criptografada</span>
             </div>
           </div>
         </div>
-
-        <style>{`
-          @media(max-width:768px){
-            .host-lobby-body { flex-direction: column !important; padding: 0 16px 20px !important; gap: 16px !important; }
-            .host-cam-wrap { width: 100% !important; aspect-ratio: 4/3 !important; }
-            .host-panel { width: 100% !important; }
-          }
-        `}</style>
       </div>
     );
   }
 
   /* ── Lobby do paciente (guest): layout card compacto ── */
+  const guestPreviewBtn = (off: boolean) =>
+    `!h-11 !w-11 !rounded-full !border-transparent backdrop-blur-md ${off ? "!bg-red-600/90 !text-white hover:!bg-red-600" : "!bg-white/20 !text-white hover:!bg-white/30"}`;
   return (
-    <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "12px 16px 24px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 pb-6 pt-3">
 
-      <div style={{ marginBottom: 16 }} className="lobby-logo">
-        <img src={roomInfo.clinic_logo_url || logoUrl} alt={roomInfo.company_name || "Plaelo"} style={{ height: 28, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 8, padding: 3 }} />
+      <div className="mb-3 sm:mb-4">
+        <img src={roomInfo.clinic_logo_url || logoUrl} alt={roomInfo.company_name || "Plaelo"} className="h-7 rounded-lg bg-white object-contain p-[3px] opacity-90" />
       </div>
 
-      <div style={{ width: "100%", maxWidth: 760, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, background: "#12151e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 22, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.75)" }} className="lobby-grid lobby-guest">
+      <div className="grid w-full max-w-[760px] grid-cols-1 overflow-hidden rounded-xl border border-white/10 bg-slate-900 sm:grid-cols-2">
 
         {/* ── Câmera ── */}
-        <div style={{ position: "relative", background: "#0a0c12", minHeight: 320, display: "flex", flexDirection: "column" }} className="lobby-cam-col">
+        <div className="relative flex h-[180px] flex-col bg-slate-950 sm:h-auto sm:min-h-[320px]">
           <video ref={videoRef} autoPlay muted playsInline
-            style={{ width: "100%", height: "100%", objectFit: "cover", flex: 1, display: camOn && !deviceError ? "block" : "none", minHeight: 320, transform: "scaleX(-1)" }} className="lobby-cam-video" />
+            className="h-full w-full flex-1 -scale-x-100 object-cover" style={{ display: camOn && !deviceError ? "block" : "none" }} />
           {deviceError ? (
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: "#0a0c12", padding: 20, textAlign: "center" }}>
-              <Shield size={30} color="#f87171" />
-              <span style={{ fontSize: 12, color: "#fca5a5", fontWeight: 600, maxWidth: 260 }}>{deviceError}</span>
-              <span style={{ fontSize: 11, color: "#64748b" }}>Você ainda pode entrar na sala sem câmera/microfone.</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-slate-950 p-5 text-center">
+              <Shield size={30} className="text-red-400" />
+              <span className="max-w-[260px] text-xs font-medium text-red-300">{deviceError}</span>
+              <span className="text-[11px] text-slate-500">Você ainda pode entrar na sala sem câmera/microfone.</span>
             </div>
           ) : !camOn && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#0a0c12" }}>
-              <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#0284c7,#0369a1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, color: "#fff", boxShadow: "0 8px 24px rgba(2,132,199,0.35)" }}>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950">
+              <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary-600 text-3xl font-semibold text-white">
                 {displayName.charAt(0).toUpperCase()}
               </div>
-              <span style={{ fontSize: 12, color: "#334155" }}>Câmera desligada</span>
+              <span className="text-xs text-slate-500">Câmera desligada</span>
             </div>
           )}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)", pointerEvents: "none" }} />
-          <div style={{ position: "absolute", bottom: 50, left: 12, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", borderRadius: 7, padding: "3px 10px", fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
+          <div className="absolute bottom-14 left-3 rounded-md bg-black/70 px-2.5 py-[3px] text-xs font-medium text-slate-100 backdrop-blur-md">
             {displayName}
           </div>
-          <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 10 }}>
-            <button onClick={togglePreviewMic} title={micOn ? "Desligar microfone" : "Ligar microfone"}
-              style={{ width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: micOn ? "rgba(255,255,255,0.18)" : "rgba(220,38,38,0.9)", backdropFilter: "blur(8px)", color: "#fff", transition: "all .15s" }}>
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-2.5 sm:bottom-3">
+            <DarkIconButton aria-label={micOn ? "Desligar microfone" : "Ligar microfone"} aria-pressed={micOn} title={micOn ? "Desligar microfone" : "Ligar microfone"} size="lg" onClick={togglePreviewMic} className={guestPreviewBtn(!micOn)}>
               {micOn ? <Mic size={17} /> : <MicOff size={17} />}
-            </button>
-            <button onClick={togglePreviewCam} title={camOn ? "Desligar câmera" : "Ligar câmera"}
-              style={{ width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: camOn ? "rgba(255,255,255,0.18)" : "rgba(220,38,38,0.9)", backdropFilter: "blur(8px)", color: "#fff", transition: "all .15s" }}>
+            </DarkIconButton>
+            <DarkIconButton aria-label={camOn ? "Desligar câmera" : "Ligar câmera"} aria-pressed={camOn} title={camOn ? "Desligar câmera" : "Ligar câmera"} size="lg" onClick={togglePreviewCam} className={guestPreviewBtn(!camOn)}>
               {camOn ? <Video size={17} /> : <VideoOff size={17} />}
-            </button>
+            </DarkIconButton>
             {isMobile && camOn && (
-              <button onClick={flipCamera} title="Virar câmera"
-                style={{ width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)", color: "#fff", transition: "all .15s" }}>
+              <DarkIconButton aria-label="Virar câmera" title="Virar câmera" size="lg" onClick={flipCamera} className={guestPreviewBtn(false)}>
                 <SwitchCamera size={17} />
-              </button>
+              </DarkIconButton>
             )}
           </div>
         </div>
 
         {/* ── Formulário guest ── */}
-        <div style={{ display: "flex", flexDirection: "column", overflowY: "auto", maxHeight: "90vh" }}>
-          <div style={{ padding: "22px 22px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex flex-col sm:max-h-[90vh] sm:overflow-y-auto">
+          <div className="border-b border-white/10 px-5 pb-4 pt-5">
             {(roomInfo.host_name || roomInfo.company_name) && (
-              <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 16, padding: "10px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.07)" }}>
+              <DarkCard className="mb-4 flex items-center gap-3 !p-2.5">
                 {roomInfo.avatar_url
-                  ? <img src={roomInfo.avatar_url} alt="" style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                  : <div style={{ width: 42, height: 42, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{(roomInfo.host_name || "P").charAt(0).toUpperCase()}</div>
+                  ? <img src={roomInfo.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                  : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-base font-semibold text-white">{(roomInfo.host_name || "P").charAt(0).toUpperCase()}</div>
                 }
-                <div style={{ minWidth: 0 }}>
-                  {roomInfo.host_name && <p style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>{roomInfo.host_name}</p>}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
-                    {roomInfo.specialty && <span style={{ fontSize: 11, color: "#94a3b8" }}>{roomInfo.specialty}</span>}
-                    {roomInfo.crp && <span style={{ fontSize: 11, color: "#818cf8", background: "rgba(99,102,241,0.12)", padding: "1px 7px", borderRadius: 99, fontWeight: 600 }}>CRP {roomInfo.crp}</span>}
-                    {roomInfo.company_name && <span style={{ fontSize: 11, color: "#475569" }}>· {roomInfo.company_name}</span>}
+                <div className="min-w-0">
+                  {roomInfo.host_name && <p className="text-sm font-medium text-slate-100">{roomInfo.host_name}</p>}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                    {roomInfo.specialty && <span className="text-[11px] text-slate-400">{roomInfo.specialty}</span>}
+                    {roomInfo.crp && <DarkBadge tone="primary">CRP {roomInfo.crp}</DarkBadge>}
+                    {roomInfo.company_name && <span className="text-[11px] text-slate-500">· {roomInfo.company_name}</span>}
                   </div>
                 </div>
-              </div>
+              </DarkCard>
             )}
             {scheduledLabel && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12, padding: "4px 10px", borderRadius: 99, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.22)" }}>
-                <Clock size={11} color="#818cf8" />
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc" }}>Consulta agendada para {scheduledLabel}</span>
-              </div>
+              <DarkBadge tone="primary" className="mb-3 !px-2.5 !py-1">
+                <Clock size={11} /> Consulta agendada para {scheduledLabel}
+              </DarkBadge>
             )}
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", margin: 0, letterSpacing: "-.3px" }}>Entrar na consulta</h1>
-            <p style={{ fontSize: 12, color: "#475569", margin: "4px 0 0" }}>Informe seu nome para aguardar aprovação</p>
+            <h1 className="text-lg font-medium text-slate-100">Entrar na consulta</h1>
+            <p className="mt-1 text-xs text-slate-500">Informe seu nome para aguardar aprovação</p>
           </div>
 
-          <div style={{ flex: 1, padding: "16px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Seu nome completo</label>
-              <input type="text" value={guestName}
-                onChange={e => setGuestName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && canJoin && onJoin()}
-                placeholder="Ex: Ana Lima" autoFocus
-                style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "11px 14px", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                onFocus={e => (e.target.style.borderColor = "#6366f1")}
-                onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-              />
-            </div>
+          <div className="flex flex-1 flex-col gap-3.5 px-5 py-4">
+            <DarkInput
+              label="Seu nome completo"
+              type="text"
+              value={guestName}
+              onChange={e => setGuestName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && canJoin && onJoin()}
+              placeholder="Ex: Ana Lima"
+              autoFocus
+            />
 
             {onGuestRoleChange && (
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Seu papel nesta sessão (opcional)</label>
-                <input type="text" value={guestRole || ""}
-                  onChange={e => onGuestRoleChange(e.target.value)}
-                  placeholder="Ex: Paciente, Mãe, Pai, Acompanhante"
-                  style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "11px 14px", color: "#fff", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                  onFocus={e => (e.target.style.borderColor = "#6366f1")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
-                />
-                <p style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>Ajuda o profissional a identificar quem é quem, se mais de uma pessoa entrar na sessão.</p>
-              </div>
+              <DarkInput
+                label="Seu papel nesta sessão (opcional)"
+                type="text"
+                value={guestRole || ""}
+                onChange={e => onGuestRoleChange(e.target.value)}
+                placeholder="Ex: Paciente, Mãe, Pai, Acompanhante"
+                hint="Ajuda o profissional a identificar quem é quem, se mais de uma pessoa entrar na sessão."
+              />
             )}
 
             {(videoDevices.length > 0 || audioDevices.length > 0 || audioOutDevices.length > 0) && (
               <div>
-                <button onClick={() => setGuestDevicesOpen(v => !v)}
-                  style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "#475569", fontSize: 12, fontWeight: 600, padding: "4px 0" }}>
-                  <Settings size={13} />
+                <DarkButton variant="ghost" size="sm" aria-expanded={guestDevicesOpen} onClick={() => setGuestDevicesOpen(v => !v)}
+                  iconLeft={<Settings size={13} />} iconRight={<ChevronDown size={13} className={`transition-transform ${guestDevicesOpen ? "rotate-180" : ""}`} />}>
                   Configurar dispositivos
-                  <ChevronDown size={13} style={{ transform: guestDevicesOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
-                </button>
+                </DarkButton>
                 {guestDevicesOpen && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                    {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={11} />} />}
-                    {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={11} />} />}
-                    {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={11} />} />}
+                  <div className="mt-2.5 flex flex-col gap-2">
+                    {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={12} />} />}
+                    {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={12} />} />}
+                    {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={12} />} />}
                   </div>
                 )}
               </div>
             )}
 
-            <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
+            <label className="flex cursor-pointer items-start gap-2.5">
               <input
                 type="checkbox"
                 checked={consentAccepted}
                 onChange={(e) => setConsentAccepted(e.target.checked)}
-                style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#6366f1" }}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary-600"
               />
-              <span style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
+              <span className="text-xs leading-relaxed text-slate-400">
                 Li e concordo com os{" "}
-                <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>termos de atendimento online</a>
+                <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">termos de atendimento online</a>
                 {" "}e a{" "}
-                <a href="/politica-privacidade" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>política de privacidade</a>.
+                <a href="/politica-privacidade" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">política de privacidade</a>.
               </span>
             </label>
 
             {error && (
-              <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, color: "#f87171", fontSize: 13 }}>
+              <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 text-[13px] text-red-300">
                 {error}
               </div>
             )}
           </div>
 
-          <div style={{ padding: "16px 22px 20px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <button onClick={onJoin} disabled={!canJoin}
-              style={{ width: "100%", height: 50, borderRadius: 13, fontWeight: 800, fontSize: 15, color: "#fff", background: canJoin ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "rgba(99,102,241,0.25)", border: "none", cursor: canJoin ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 9, boxShadow: canJoin ? "0 4px 20px rgba(99,102,241,0.4)" : "none", transition: "all .2s" }}>
-              {joining ? <><Spinner /> Conectando...</> : "Solicitar entrada"}
-            </button>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 10 }}>
-              <Shield size={11} color="#1e3a4c" />
-              <span style={{ fontSize: 11, color: "#1e3a4c" }}>Conexão segura e criptografada</span>
+          <div className="border-t border-white/10 px-5 pb-5 pt-4">
+            <DarkButton variant="primary" size="lg" fullWidth onClick={onJoin} disabled={!canJoin} loading={joining} loadingText="Conectando..." className="!h-11 !text-sm">
+              Solicitar entrada
+            </DarkButton>
+            <div className="mt-2.5 flex items-center justify-center gap-1.5">
+              <Shield size={11} className="text-slate-600" />
+              <span className="text-[11px] text-slate-600">Conexão segura e criptografada</span>
             </div>
           </div>
         </div>
       </div>
-
-      <style>{`
-        .lobby-grid { grid-template-columns: 1fr 1fr !important; }
-        @media(max-width:600px){
-          .lobby-logo { margin-bottom: 10px !important; }
-          .lobby-grid { grid-template-columns: 1fr !important; border-radius: 16px !important; }
-          .lobby-guest .lobby-cam-col { min-height: 0 !important; max-height: 180px !important; height: 180px !important; }
-          .lobby-guest .lobby-cam-video { min-height: 0 !important; }
-          .lobby-guest > div:last-child { max-height: none !important; overflow-y: auto !important; }
-        }
-      `}</style>
     </div>
   );
 };
@@ -635,15 +601,8 @@ const InvitePanel: React.FC<{ roomId: string; roomCode: string; patientId?: numb
   const canSendViaBot = botStatus === 'connected' && !!patientId;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <UserPlus size={16} color="#6366f1" /> Convidar Paciente
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Convidar Paciente" icon={<UserPlus size={16} />} onClose={onClose} />
 
       <div style={{ flex: 1, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <p style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6 }}>
@@ -716,6 +675,18 @@ const calcAge = (birthDate?: string | null) => {
   return age;
 };
 
+const PATIENT_PANEL_TABS = [
+  { id: "dados", label: "Dados" },
+  { id: "prontuario", label: "Prontuário" },
+  { id: "testes", label: "Testes" },
+  { id: "pacotes", label: "Pacotes" },
+] as const;
+
+const FILES_PANEL_TABS = [
+  { id: "send", label: "Enviar" },
+  { id: "library", label: "Biblioteca" },
+] as const;
+
 const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = ({ patientId, onClose }) => {
   const [tab, setTab] = useState<"dados" | "prontuario" | "testes" | "pacotes">("dados");
   const [data, setData] = useState<RoomSummaryData | null>(null);
@@ -732,37 +703,11 @@ const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = (
   const age = calcAge(data?.patient?.birth_date);
   const sectionStyle: React.CSSProperties = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 };
   const labelStyle: React.CSSProperties = { fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 };
-  const tabBtn = (key: typeof tab, label: string) => (
-    <button
-      onClick={() => setTab(key)}
-      style={{
-        flex: 1, padding: "8px 6px", borderRadius: 8, border: "none", cursor: "pointer",
-        fontSize: 11, fontWeight: 700, letterSpacing: ".2px",
-        background: tab === key ? "rgba(99,102,241,0.2)" : "transparent",
-        color: tab === key ? "#a5b4fc" : "#64748b",
-      }}
-    >
-      {label}
-    </button>
-  );
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <FileText size={16} color="#6366f1" /> {data?.patient?.name || "Paciente"}
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title={data?.patient?.name || "Paciente"} icon={<FileText size={16} />} onClose={onClose} />
 
-      <div style={{ display: "flex", gap: 4, padding: "10px 12px 0" }}>
-        {tabBtn("dados", "Dados")}
-        {tabBtn("prontuario", "Prontuário")}
-        {tabBtn("testes", "Testes")}
-        {tabBtn("pacotes", "Pacotes")}
-      </div>
+      <DarkTabs<typeof tab> label="Dados do paciente" items={PATIENT_PANEL_TABS} value={tab} onChange={setTab} className="px-2" />
 
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
         {loading ? (
@@ -815,151 +760,6 @@ const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = (
   );
 };
 
-// ── Painel de anotações rápidas da sessão ─────────────────────────────────────
-type QuickNote = { id: number | string; content: string; created_at: string };
-
-const SESSION_MOOD_SCALE = [
-  { score: 1, emoji: '😞', label: 'Muito abalado' },
-  { score: 2, emoji: '😕', label: 'Abalado' },
-  { score: 3, emoji: '😐', label: 'Neutro' },
-  { score: 4, emoji: '🙂', label: 'Bem' },
-  { score: 5, emoji: '😄', label: 'Muito bem' },
-] as const;
-
-const NotesPanel: React.FC<{ patientId: number; appointmentId: number | null; onClose: () => void }> = ({ patientId, appointmentId, onClose }) => {
-  const [content, setContent] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [savedNotes, setSavedNotes] = useState<QuickNote[]>([]);
-  const [moodScore, setMoodScore] = useState<number | null>(null);
-  const [savingMood, setSavingMood] = useState(false);
-  const [moodSaved, setMoodSaved] = useState(false);
-  const { success: toastSuccess, error: toastError } = useToast();
-
-  const handleSave = async () => {
-    const text = content.trim();
-    if (!text) return;
-    setSaving(true);
-    try {
-      const res = await api.post<any>('/medical-records', {
-        patient_id: patientId,
-        appointment_id: appointmentId || undefined,
-        content: text,
-        record_type: 'Evolucao',
-        status: 'Rascunho',
-      });
-      setSavedNotes(prev => [{ id: res?.id ?? `${Date.now()}`, content: text, created_at: new Date().toISOString() }, ...prev]);
-      setContent("");
-      toastSuccess('Anotação salva', 'Ficou registrada como rascunho de evolução no prontuário.');
-    } catch (err: any) {
-      toastError('Erro ao salvar anotação', err?.message || '');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveMood = async (score: number) => {
-    setMoodScore(score);
-    setSavingMood(true);
-    setMoodSaved(false);
-    try {
-      await api.post(`/patients/${patientId}/mood-logs`, {
-        mood_score: score,
-        appointment_id: appointmentId || undefined,
-      });
-      setMoodSaved(true);
-    } catch (err: any) {
-      toastError('Erro ao registrar humor', err?.message || '');
-    } finally {
-      setSavingMood(false);
-    }
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <NotebookPen size={16} color="#6366f1" /> Anotações da sessão
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
-
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
-        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".06em", display: "flex", alignItems: "center", gap: 6 }}>
-            <Smile size={13} color="#6366f1" /> Como o paciente pareceu nesta sessão?
-          </span>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-            {SESSION_MOOD_SCALE.map((m) => (
-              <button
-                key={m.score}
-                onClick={() => handleSaveMood(m.score)}
-                disabled={savingMood}
-                title={m.label}
-                style={{
-                  flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                  padding: "8px 4px", borderRadius: 10, cursor: savingMood ? "not-allowed" : "pointer",
-                  border: `1px solid ${moodScore === m.score ? "#6366f1" : "rgba(255,255,255,.1)"}`,
-                  background: moodScore === m.score ? "rgba(99,102,241,.18)" : "rgba(255,255,255,.03)",
-                  opacity: savingMood && moodScore !== m.score ? 0.5 : 1,
-                }}
-              >
-                <span style={{ fontSize: 20, lineHeight: 1 }}>{m.emoji}</span>
-                <span style={{ fontSize: 9, color: "#94a3b8", fontWeight: 600 }}>{m.label}</span>
-              </button>
-            ))}
-          </div>
-          {moodSaved && (
-            <p style={{ fontSize: 11, color: "#4ade80", margin: 0, display: "flex", alignItems: "center", gap: 4 }}>
-              <Check size={12} /> Humor registrado no histórico do paciente.
-            </p>
-          )}
-        </div>
-
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Anote pontos importantes da sessão..."
-          rows={8}
-          style={{ width: "100%", resize: "vertical", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 12, color: "#e2e8f0", fontSize: 13, lineHeight: 1.5, outline: "none" }}
-        />
-        <button
-          onClick={handleSave}
-          disabled={saving || !content.trim()}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: saving || !content.trim() ? "not-allowed" : "pointer", background: saving || !content.trim() ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
-        >
-          {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <NotebookPen size={16} />}
-          Salvar como rascunho
-        </button>
-        <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
-          Salva direto no prontuário como rascunho de evolução — revise e finalize depois na ficha do paciente.
-        </p>
-        {savedNotes.length > 0 && (
-          <button
-            onClick={() => window.open(`/prontuario?patient_id=${patientId}`, '_blank', 'noopener,noreferrer')}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "none", border: "1px solid rgba(99,102,241,.35)", borderRadius: 10, padding: "8px 12px", color: "#a5b4fc", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-          >
-            <ExternalLink size={13} /> Ver no prontuário do paciente
-          </button>
-        )}
-
-        {savedNotes.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-            <p style={{ fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Salvas nesta sessão</p>
-            {savedNotes.map(n => (
-              <div key={n.id} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 }}>
-                <p style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}>{new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                <p style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>{n.content}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 // ── Painel de cobrança da sessão ──────────────────────────────────────────────
 type ComandaSummary = {
   id: number; total: number | string; paid_value?: number | string; paidValue?: number | string;
@@ -999,15 +799,8 @@ const BillingPanel: React.FC<{ patientId: number; patientName?: string; onClose:
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <Receipt size={16} color="#6366f1" /> Cobrança
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Cobrança" icon={<Receipt size={16} />} onClose={onClose} />
 
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
         {loading ? (
@@ -1126,15 +919,8 @@ const SignaturePanel: React.FC<{ patientId: number; onClose: () => void }> = ({ 
   const status = contract ? CONTRACT_STATUS_LABEL[contract.status] : null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <FileSignature size={16} color="#6366f1" /> Contrato / Assinatura
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Contrato / Assinatura" icon={<FileSignature size={16} />} onClose={onClose} />
 
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
         {loading ? (
@@ -1280,22 +1066,10 @@ const FilesPanel: React.FC<{ patientId: number | null; isHost: boolean; particip
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <Upload size={16} color="#6366f1" /> Arquivos
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Arquivos" icon={<Upload size={16} />} onClose={onClose} />
 
-      {isHost && (
-        <div style={{ display: "flex", gap: 4, padding: "10px 16px 0" }}>
-          <button onClick={() => setTab("send")} style={{ flex: 1, padding: "7px 6px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: tab === "send" ? "rgba(99,102,241,0.2)" : "transparent", color: tab === "send" ? "#a5b4fc" : "#64748b" }}>Enviar</button>
-          <button onClick={() => setTab("library")} style={{ flex: 1, padding: "7px 6px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: tab === "library" ? "rgba(99,102,241,0.2)" : "transparent", color: tab === "library" ? "#a5b4fc" : "#64748b" }}>Biblioteca</button>
-        </div>
-      )}
+      {isHost && <DarkTabs<typeof tab> label="Arquivos" items={FILES_PANEL_TABS} value={tab} onChange={setTab} className="px-3" />}
 
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
         {isHost && tab === "send" && (
@@ -1393,15 +1167,8 @@ const InstrumentPanel: React.FC<{ patientId: number | null; isHost: boolean; onC
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <ClipboardList size={16} color="#6366f1" /> Aplicar teste
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Aplicar teste" icon={<ClipboardList size={16} />} onClose={onClose} />
 
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
         {isHost ? (
@@ -1479,15 +1246,8 @@ const BreakoutPanel: React.FC<{
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <Shield size={16} color="#6366f1" /> Conversa privada
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Conversa privada" icon={<Shield size={16} />} onClose={onClose} />
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
         <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
           Escolha com quem conversar em particular. Vocês dois vão pra uma sala separada; os demais continuam na sala principal. Dá pra voltar quando quiser.
@@ -1655,15 +1415,8 @@ const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | nul
   const labelStyle: React.CSSProperties = { fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, display: "block" };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <CalendarPlus size={16} color="#6366f1" /> Agendar retorno
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Agendar retorno" icon={<CalendarPlus size={16} />} onClose={onClose} />
 
       <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
         {scheduled ? (
@@ -1846,15 +1599,8 @@ const WhiteboardPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <PenTool size={16} color="#6366f1" /> Quadro branco
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, borderRadius: 8, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Quadro branco" icon={<PenTool size={16} />} onClose={onClose} />
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         {WHITEBOARD_COLORS.map(c => (
           <button key={c} onClick={() => { setColor(c); setEraser(false); }}
@@ -2044,15 +1790,8 @@ const LiveKitChatPanel: React.FC<{
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <MessageSquare size={16} color="#6366f1" /> Chat
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Chat" icon={<MessageSquare size={16} />} onClose={onClose} />
 
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
         {visibleMessages.length === 0 && (
@@ -2214,15 +1953,8 @@ const SettingsPanel: React.FC<{
   const labelStyle: React.CSSProperties = { fontSize: 11, color: "#94a3b8", fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase", marginBottom: 6 };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#161920", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <Settings size={16} color="#6366f1" /> Configurações
-        </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 4, display: "flex" }}>
-          <X size={16} />
-        </button>
-      </div>
+    <div className={darkPanelShell}>
+      <DarkPanelHeader title="Configurações" icon={<Settings size={16} />} onClose={onClose} />
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
         {(connectionQuality !== undefined || hasRemote) && (
           <div style={{ padding: 12, borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -3129,21 +2861,6 @@ const RoomInner: React.FC<{
   const mainIsLocal = mainParticipant.identity === localParticipant.identity;
   const showPip = hasRemote;
 
-  // Estilo base dos botões de controle — tamanho maior para toque fácil
-  const BTN = 56;
-  const btn = (on: boolean): React.CSSProperties => ({
-    width: BTN, height: BTN, borderRadius: "50%", border: on ? "none" : "1px solid rgba(239,68,68,0.5)",
-    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
-    background: on ? "rgba(255,255,255,0.13)" : "rgba(239,68,68,0.18)",
-    color: on ? "#e2e8f0" : "#f87171", flexShrink: 0,
-  });
-  const btnActive = (active: boolean): React.CSSProperties => ({
-    width: BTN, height: BTN, borderRadius: "50%", border: "none", cursor: "pointer",
-    display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s",
-    background: active ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.13)",
-    color: active ? "#a5b4fc" : "#e2e8f0", flexShrink: 0,
-  });
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0d0f14", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
@@ -3355,205 +3072,105 @@ const RoomInner: React.FC<{
       </div>
 
       {/* Barra de controles */}
-      <div style={{ flexShrink: 0, background: "rgba(13,15,20,0.97)", backdropFilter: "blur(12px)", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "12px 16px", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
+      <ControlBar>
+        <ControlItem label={micOn ? "Mic" : "Mudo"} ariaLabel={micOn ? "Desligar microfone" : "Ligar microfone"} pressed={micOn} tone={micOn ? "default" : "off"} onClick={toggleMic} icon={micOn ? <Mic size={20} /> : <MicOff size={20} />} />
+        <ControlItem label={camOn ? "Câmera" : "Deslig."} ariaLabel={camOn ? "Desligar câmera" : "Ligar câmera"} pressed={camOn} tone={camOn ? "default" : "off"} onClick={toggleCam} icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} />
 
-          {/* Mic */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button onClick={toggleMic} style={btn(micOn)}>
-              {micOn ? <Mic size={22} /> : <MicOff size={22} />}
-            </button>
-            <span style={{ fontSize: 10, color: micOn ? "#94a3b8" : "#f87171", letterSpacing: ".3px" }}>{micOn ? "Mic" : "Mudo"}</span>
-          </div>
+        {/* Virar câmera (só mobile, câmera ligada) */}
+        {isMobile && camOn && (
+          <ControlItem label="Virar" ariaLabel="Virar câmera" onClick={flipCamera} icon={<SwitchCamera size={20} />} />
+        )}
 
-          {/* Câmera */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button onClick={toggleCam} style={btn(camOn)}>
-              {camOn ? <Video size={22} /> : <VideoOff size={22} />}
-            </button>
-            <span style={{ fontSize: 10, color: camOn ? "#94a3b8" : "#f87171", letterSpacing: ".3px" }}>{camOn ? "Câmera" : "Deslig."}</span>
-          </div>
+        {/* Compartilhar tela — esconde em mobile */}
+        <ControlItem hideMobile label={localHasScreen ? "Parar" : "Tela"} ariaLabel={localHasScreen ? "Parar compartilhamento de tela" : "Compartilhar tela"} pressed={localHasScreen} tone={localHasScreen ? "active" : "default"} onClick={toggleScreen} icon={localHasScreen ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />} />
 
-          {/* Virar câmera (só mobile, câmera ligada) */}
-          {isMobile && camOn && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <button onClick={flipCamera} style={btn(true)}>
-                <SwitchCamera size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Virar</span>
-            </div>
-          )}
+        {/* Chat */}
+        <ControlItem label="Chat" ariaLabel="Abrir chat" pressed={sidePanel === "chat"} tone={sidePanel === "chat" ? "active" : "default"} onClick={toggleChatPanel} badge={unreadChatCount} icon={<MessageSquare size={20} />} />
 
-          {/* Compartilhar tela — esconde em mobile */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-            <button onClick={toggleScreen} style={btnActive(localHasScreen)}>
-              {localHasScreen ? <ScreenShareOff size={22} /> : <ScreenShare size={22} />}
-            </button>
-            <span style={{ fontSize: 10, color: localHasScreen ? "#a5b4fc" : "#94a3b8", letterSpacing: ".3px" }}>{localHasScreen ? "Parar" : "Tela"}</span>
-          </div>
+        {/* Convidar (só host) */}
+        {isHost && (
+          <ControlItem label="Convidar" pressed={sidePanel === "invite"} tone={sidePanel === "invite" ? "active" : "default"} onClick={() => togglePanel("invite")} icon={<UserPlus size={20} />} />
+        )}
 
-          {/* Chat */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button onClick={toggleChatPanel} style={{ ...btnActive(sidePanel === "chat"), position: "relative" }}>
-              <MessageSquare size={22} />
-              {unreadChatCount > 0 && (
-                <span style={{ position: "absolute", top: -5, right: -5, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 9, background: "#ef4444", color: "#fff", border: "2px solid #0d0f14", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800 }}>
-                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                </span>
-              )}
-            </button>
-            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Chat</span>
-          </div>
+        {/* Dados do paciente (só host, só quando a sala tem paciente vinculado) */}
+        {isHost && patientId && (
+          <ControlItem label="Paciente" pressed={sidePanel === "patient"} tone={sidePanel === "patient" ? "active" : "default"} onClick={() => togglePanel("patient")} icon={<FileText size={20} />} />
+        )}
 
-          {/* Convidar (só host) */}
-          {isHost && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <button onClick={() => togglePanel("invite")} style={btnActive(sidePanel === "invite")}>
-                <UserPlus size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Convidar</span>
-            </div>
-          )}
+        {/* Anotações da sessão (só host, só com paciente vinculado) */}
+        {isHost && patientId && (
+          <ControlItem hideMobile label="Notas" ariaLabel="Anotações e humor da sessão" pressed={sidePanel === "notes"} tone={sidePanel === "notes" ? "active" : "default"} onClick={() => togglePanel("notes")} icon={<NotebookPen size={20} />} />
+        )}
 
-          {/* Dados do paciente (só host, só quando a sala tem paciente vinculado) */}
-          {isHost && patientId && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <button onClick={() => togglePanel("patient")} style={btnActive(sidePanel === "patient")}>
-                <FileText size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Paciente</span>
-            </div>
-          )}
+        {/* Cobrança (só host, só com paciente vinculado) */}
+        {isHost && patientId && (
+          <ControlItem hideMobile label="Cobrança" pressed={sidePanel === "billing"} tone={sidePanel === "billing" ? "active" : "default"} onClick={() => togglePanel("billing")} icon={<Receipt size={20} />} />
+        )}
 
-          {/* Anotações da sessão (só host, só com paciente vinculado) */}
-          {isHost && patientId && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={() => togglePanel("notes")} style={btnActive(sidePanel === "notes")}>
-                <NotebookPen size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Notas</span>
-            </div>
-          )}
+        {/* Agendar retorno (só host, só com paciente vinculado) */}
+        {isHost && patientId && (
+          <ControlItem hideMobile label="Retorno" ariaLabel="Agendar retorno" pressed={sidePanel === "schedule"} tone={sidePanel === "schedule" ? "active" : "default"} onClick={() => togglePanel("schedule")} icon={<CalendarPlus size={20} />} />
+        )}
 
-          {/* Cobrança (só host, só com paciente vinculado) */}
-          {isHost && patientId && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={() => togglePanel("billing")} style={btnActive(sidePanel === "billing")}>
-                <Receipt size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Cobrança</span>
-            </div>
-          )}
+        {/* Gerar documento (só host, só com paciente vinculado) — abre o gerador em nova aba, prefiltrado */}
+        {isHost && patientId && (
+          <ControlItem hideMobile label="Doc." ariaLabel="Gerar documento" onClick={() => window.open(`/encaminhamentos?patient_id=${patientId}`, '_blank')} icon={<FileOutput size={20} />} />
+        )}
 
-          {/* Agendar retorno (só host, só com paciente vinculado) */}
-          {isHost && patientId && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={() => togglePanel("schedule")} style={btnActive(sidePanel === "schedule")}>
-                <CalendarPlus size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Retorno</span>
-            </div>
-          )}
+        {/* Contrato/assinatura (só host, só com paciente vinculado) */}
+        {isHost && patientId && (
+          <ControlItem hideMobile label="Contrato" pressed={sidePanel === "signature"} tone={sidePanel === "signature" ? "active" : "default"} onClick={() => togglePanel("signature")} icon={<FileSignature size={20} />} />
+        )}
 
-          {/* Gerar documento (só host, só com paciente vinculado) — abre o gerador em nova aba, prefiltrado */}
-          {isHost && patientId && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={() => window.open(`/encaminhamentos?patient_id=${patientId}`, '_blank')} style={btnActive(false)}>
-                <FileOutput size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Doc.</span>
-            </div>
-          )}
+        {/* Quadro branco (host e paciente) */}
+        <ControlItem hideMobile label="Quadro" ariaLabel="Quadro branco" pressed={sidePanel === "whiteboard"} tone={sidePanel === "whiteboard" ? "active" : "default"} onClick={() => togglePanel("whiteboard")} icon={<PenTool size={20} />} />
 
-          {/* Contrato/assinatura (só host, só com paciente vinculado) */}
-          {isHost && patientId && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={() => togglePanel("signature")} style={btnActive(sidePanel === "signature")}>
-                <FileSignature size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Contrato</span>
-            </div>
-          )}
+        {/* Arquivos (host e paciente — host envia, paciente só recebe) */}
+        <ControlItem hideMobile label="Arquivos" pressed={sidePanel === "files"} tone={sidePanel === "files" ? "active" : "default"} onClick={() => togglePanel("files")} icon={<Upload size={20} />} />
 
-          {/* Quadro branco (host e paciente) */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-            <button onClick={() => togglePanel("whiteboard")} style={btnActive(sidePanel === "whiteboard")}>
-              <PenTool size={22} />
-            </button>
-            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Quadro</span>
-          </div>
+        {/* Conversa privada (só host, só quando há 2+ participantes pra escolher) */}
+        {isHost && remoteParticipants.length >= 2 && (
+          <ControlItem hideMobile label="Privado" ariaLabel="Conversa privada" pressed={sidePanel === "breakout"} tone={sidePanel === "breakout" ? "active" : "default"} onClick={() => togglePanel("breakout")} icon={<Shield size={20} />} />
+        )}
 
-          {/* Arquivos (host e paciente — host envia, paciente só recebe) */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-            <button onClick={() => togglePanel("files")} style={btnActive(sidePanel === "files")}>
-              <Upload size={22} />
-            </button>
-            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Arquivos</span>
-          </div>
+        {/* Aplicar teste (host e paciente — host escolhe e envia, paciente só recebe) */}
+        <ControlItem hideMobile label="Teste" ariaLabel="Aplicar teste" pressed={sidePanel === "instrument"} tone={sidePanel === "instrument" ? "active" : "default"} onClick={() => togglePanel("instrument")} icon={<ClipboardList size={20} />} />
 
-          {/* Conversa privada (só host, só quando há 2+ participantes pra escolher) */}
-          {isHost && remoteParticipants.length >= 2 && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={() => togglePanel("breakout")} style={btnActive(sidePanel === "breakout")}>
-                <Shield size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Privado</span>
-            </div>
-          )}
+        {/* Aurora IA (só host, só quando o plano/permite) */}
+        {isHost && onOpenAurora && user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && (
+          <ControlItem hideMobile label="Bia" ariaLabel="Abrir assistente Bia" onClick={onOpenAurora} icon={<Sparkles size={20} />} />
+        )}
 
-          {/* Aplicar teste (host e paciente — host escolhe e envia, paciente só recebe) */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-            <button onClick={() => togglePanel("instrument")} style={btnActive(sidePanel === "instrument")}>
-              <ClipboardList size={22} />
-            </button>
-            <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Teste</span>
-          </div>
+        {/* Configurações (só host) */}
+        {isHost && (
+          <ControlItem label="Config." ariaLabel="Configurações da sala" pressed={sidePanel === "settings"} tone={sidePanel === "settings" ? "active" : "default"} onClick={() => togglePanel("settings")} icon={<Settings size={20} />} />
+        )}
 
-          {/* Aurora IA (só host, só quando o plano/permite) */}
-          {isHost && onOpenAurora && user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={onOpenAurora} style={btnActive(false)}>
-                <Sparkles size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Bia</span>
-            </div>
-          )}
+        {/* Gravar (só host) */}
+        {isHost && (
+          <ControlItem
+            label={transcribing ? "Transcrev." : transcriptDone ? "Salvo!" : recording ? "Grav." : "Gravar"}
+            ariaLabel={recording ? "Parar gravação" : "Iniciar gravação"}
+            title={recording ? "Parar gravação" : "Iniciar gravação"}
+            pressed={recording}
+            tone={recording ? "recording" : "default"}
+            labelTone={transcribing ? "warning" : recording ? "recording" : "default"}
+            onClick={() => recording ? handleStopRecording() : handleStartRecording()}
+            icon={transcribing
+              ? <Loader2 size={20} className="animate-spin" />
+              : transcriptDone
+              ? <FileText size={20} className="text-emerald-400" />
+              : <Circle size={20} className={recording ? "fill-red-500 text-red-500" : ""} />
+            }
+          />
+        )}
 
-          {/* Configurações (só host) */}
-          {isHost && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <button onClick={() => togglePanel("settings")} style={btnActive(sidePanel === "settings")}>
-                <Settings size={22} />
-              </button>
-              <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Config.</span>
-            </div>
-          )}
-
-          {/* Gravar (só host) */}
-          {isHost && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <button
-                onClick={() => recording ? handleStopRecording() : handleStartRecording()}
-                style={{ ...btnActive(recording), ...(recording ? { background: "rgba(239,68,68,0.25)", color: "#f87171" } : {}) }}
-                title={recording ? "Parar gravação" : "Iniciar gravação"}
-              >
-                {transcribing
-                  ? <Loader2 size={22} style={{ animation: "spin 1s linear infinite" }} />
-                  : transcriptDone
-                  ? <FileText size={22} style={{ color: "#22c55e" }} />
-                  : <Circle size={22} style={recording ? { fill: "#ef4444", color: "#ef4444" } : {}} />
-                }
-              </button>
-              <span style={{ fontSize: 10, color: recording ? "#f87171" : transcribing ? "#fbbf24" : "#94a3b8", letterSpacing: ".3px" }}>
-                {transcribing ? "Transcrev." : transcriptDone ? "Salvo!" : recording ? "Grav." : "Gravar"}
-              </span>
-            </div>
-          )}
-
-          {/* Encerrar */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <button
-              onClick={async () => {
+        {/* Encerrar */}
+        <ControlItem
+          label={isHost ? "Encerrar" : "Sair"}
+          ariaLabel={isHost ? "Encerrar sessão" : "Sair da sala"}
+          tone="danger"
+          onClick={async () => {
                 await handleStopRecording();
                 let transcript = '';
                 if (isHost) {
@@ -3581,14 +3198,9 @@ const RoomInner: React.FC<{
                 }
                 onLeave({ transcript, patientId });
               }}
-              style={{ width: BTN, height: BTN, borderRadius: "50%", background: "#dc2626", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff" }}
-            >
-              <PhoneOff size={22} />
-            </button>
-            <span style={{ fontSize: 10, color: "#f87171", letterSpacing: ".3px" }}>{isHost ? "Encerrar" : "Sair"}</span>
-          </div>
-        </div>
-      </div>
+          icon={<PhoneOff size={20} />}
+        />
+      </ControlBar>
 
       <RoomAudioRenderer />
       <ConnectionStateToast />

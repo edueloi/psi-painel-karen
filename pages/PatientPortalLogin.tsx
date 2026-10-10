@@ -200,7 +200,7 @@ function HeroSide() {
 // ─── Wrapper da página ────────────────────────────────────────────────────────
 function PageLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-[100dvh] bg-slate-50 flex">
       <HeroSide />
       <div className="flex-1 flex flex-col items-center justify-center p-5 sm:p-8 relative z-10">
         <div className="w-full max-w-sm">
@@ -466,7 +466,7 @@ export const PatientPortalLogin: React.FC = () => {
 
   // ── Tela de sucesso ──────────────────────────────────────────────────────────
   if (successMsg) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
+    <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center relative">
       <BgDecor />
       <Toast msg={successMsg} type="success" />
       <div className="text-center relative z-10">
@@ -481,7 +481,7 @@ export const PatientPortalLogin: React.FC = () => {
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (phase === "loading") return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
+    <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center relative">
       <BgDecor />
       <div className="text-center relative z-10">
         <div className="w-14 h-14 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-4 animate-pulse">
@@ -762,7 +762,7 @@ export const PatientPortalLogin: React.FC = () => {
 
   // ── Cadastro complementar obrigatório (filhos, cônjuge, moradores, contatos de emergência) ──
   if (phase === "complete_profile") return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center relative py-10 px-4">
+    <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center relative py-10 px-4">
       <BgDecor />
       <div className="w-full max-w-2xl relative z-10">
         <div className="text-center mb-5">
@@ -930,7 +930,7 @@ export const PatientPortalLogin: React.FC = () => {
 
   // Loading enquanto faz login automático
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
+    <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center relative">
       <BgDecor />
       <div className="text-center relative z-10">
         <div className="w-14 h-14 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-4">

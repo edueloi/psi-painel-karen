@@ -1263,6 +1263,9 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Índice para o upsert de humor por sessão (1 registro por appointment)
+  await conn.query(`CREATE INDEX idx_pml_appointment ON patient_mood_logs (tenant_id, patient_id, appointment_id)`).catch(() => {});
+
   console.log('✅ Migração concluída com sucesso!');
   await conn.end();
 }
