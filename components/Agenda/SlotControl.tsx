@@ -99,10 +99,15 @@ const KIND_META: Record<SlotKind, { label: string; hint: string; cell: string; s
   },
 };
 
-const WINDOW_OPTIONS = [
-  { value: '4', label: '4 semanas' },
-  { value: '8', label: '8 semanas' },
-  { value: '12', label: '12 semanas' },
+// Janela de análise PARA A FRENTE: do início do mês atual até o fim do mês escolhido.
+const monthName = (offset: number) => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + offset, 1).toLocaleDateString('pt-BR', { month: 'long' });
+};
+const buildWindowOptions = () => [
+  { value: '0', label: 'Este mês' },
+  { value: '1', label: `Até ${monthName(1)}` },
+  { value: '2', label: `Até ${monthName(2)}` },
 ];
 
 const toMinutes = (hhmm?: string) => {
@@ -147,18 +152,18 @@ interface SlotControlProps {
 
 export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSchedule, onSlotClick, onPickDate }) => {
   const [mode, setMode] = useState<'mes' | 'semana'>('mes');
-  const [windowWeeks, setWindowWeeks] = useState('8');
+  const [windowMonths, setWindowMonths] = useState('0');
+  const windowOptions = useMemo(buildWindowOptions, []);
   const [selected, setSelected] = useState<{ dow: number; hour: number } | null>(null);
 
   const data = useMemo(() => {
-    const weeks = Number(windowWeeks);
-    const todayMonday = startOfWeekMonday(new Date());
-    const anchor = new Date(todayMonday);
-    anchor.setDate(anchor.getDate() - weeks * 7);
-    const windowEnd = new Date(todayMonday);
-    windowEnd.setDate(windowEnd.getDate() + 7);
-    const totalWeeks = weeks + 1;
+    const monthsAhead = Number(windowMonths);
     const now = new Date();
+    // do dia 1º do mês atual até o fim do mês escolhido (nada para trás do mês atual)
+    const windowStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const windowEndDate = new Date(now.getFullYear(), now.getMonth() + monthsAhead + 1, 0, 23, 59, 59, 999);
+    const anchor = startOfWeekMonday(windowStart);
+    const totalWeeks = weekIndex(windowEndDate, anchor) + 1;
 
     const valid = appointments.filter((a) => a.status !== 'cancelled' && a.start instanceof Date && !isNaN(a.start.getTime()) && isPatientSession(a));
 
@@ -177,19 +182,16 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       const patientSession = true; // já filtrado em `valid`
       const name = patientNameOf(a);
 
-      if (start >= windowEnd) {
-        if ((start.getTime() - now.getTime()) / (24 * 3600 * 1000) <= 42 && patientSession) {
-          const list = slotUpcoming.get(key) ?? [];
-          list.push({ name, date: start });
-          slotUpcoming.set(key, list);
-          dowsWithData.add(dow);
-          hoursWithData.add(hour);
-        }
-        continue;
-      }
-      if (start < anchor) continue;
+      if (start < windowStart || start > windowEndDate) continue;
       const wi = weekIndex(start, anchor);
       if (wi < 0 || wi >= totalWeeks) continue;
+
+      // ainda por acontecer: marca como "já agendado à frente"
+      if (start > now) {
+        const list = slotUpcoming.get(key) ?? [];
+        list.push({ name, date: start });
+        slotUpcoming.set(key, list);
+      }
 
       dowsWithData.add(dow);
       hoursWithData.add(hour);
@@ -314,7 +316,7 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       .slice(0, 10);
 
     return { grid, hourList: visibleHours, dayList, tally, suggestions, hasSchedule };
-  }, [appointments, windowWeeks, workSchedule]);
+  }, [appointments, windowMonths, workSchedule]);
 
   const { grid, hourList, dayList, tally, suggestions, hasSchedule } = data;
   const dayLong = (dow: number) => WEEKDAYS.find((d) => d.dow === dow)?.long ?? '';
@@ -355,8 +357,8 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       <FilterLine>
         <FilterLineSection>
           {modeToggle}
-          <span className="ml-2 text-xs font-medium text-slate-600">Janela de análise</span>
-          <FilterLineSegmented value={windowWeeks} onChange={(v) => setWindowWeeks(String(v))} options={WINDOW_OPTIONS} size="sm" />
+          <span className="ml-2 text-xs font-medium text-slate-600">Período à frente</span>
+          <FilterLineSegmented value={windowMonths} onChange={(v) => setWindowMonths(String(v))} options={windowOptions} size="sm" />
         </FilterLineSection>
       </FilterLine>
 
@@ -584,7 +586,7 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       </div>
 
       <p className="text-[11px] leading-relaxed text-slate-500">
-        A grade segue os dias e horários abertos da sua agenda e usa os atendimentos das últimas semanas (cancelados, reuniões e bloqueios sem paciente não
+        A grade segue os dias e horários abertos da sua agenda e usa os agendamentos do mês atual até o período escolhido (para a frente; cancelados, reuniões e bloqueios sem paciente não
         contam). Passe o mouse em um horário para ver o resumo; clique para ver os detalhes e agendar. O ponto verde indica paciente já
         agendado nas próximas semanas.
       </p>
