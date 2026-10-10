@@ -227,7 +227,8 @@ export const Agenda: React.FC = () => {
 
   useEffect(() => {
     const measure = () => {
-      if (!stickyStats || !stickyNavRef.current || window.innerWidth < 1024) { setStickyNavOffset(0); return; }
+      if (window.innerWidth < 1024) { setStickyNavOffset(56); return; }
+      if (!stickyStats || !stickyNavRef.current) { setStickyNavOffset(0); return; }
       setStickyNavOffset(getTopbarHeight() + stickyNavRef.current.offsetHeight);
     };
     // Mede imediatamente e após o próximo frame (para capturar após layout)
@@ -1840,7 +1841,7 @@ export const Agenda: React.FC = () => {
       </div>{/* end sticky wrapper */}
 
       {/* CALENDAR CONTENT */}
-      <div className="bg-white rounded-lg  border border-primary-100/60 shadow-sm animate-fadeIn relative" style={{overflow: view === 'month' ? 'auto' : 'hidden', maxHeight: view === 'month' ? 'calc(100vh - 88px - 40px)' : undefined}}>
+      <div className="bg-white rounded-lg  border border-primary-100/60 shadow-sm animate-fadeIn relative" style={{overflow: view === 'month' ? 'auto' : 'clip', maxHeight: view === 'month' ? 'calc(100vh - 88px - 40px)' : undefined}}>
         {isLoading ? (
             <div className="flex flex-col h-full animate-pulse">
                 {/* Header Skeleton */}
@@ -1991,7 +1992,7 @@ export const Agenda: React.FC = () => {
                 onViewChange={(v) => setView(v as any)}
                 currentDate={currentDate}
                 onCurrentDateChange={setCurrentDate}
-                stickyHeaderTop={stickyStats ? stickyNavOffset : 0}
+                stickyHeaderTop={stickyNavOffset}
                 events={filteredAppointments.map(a => {
                     // Tenta encontrar serviço ou pacote
                     let serviceName = '';
