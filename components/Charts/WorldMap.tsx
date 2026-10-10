@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { Button } from '../UI/Button';
 import { geoMercator, geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import { COUNTRIES } from '../UI/CountrySelect';
@@ -160,13 +161,10 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
     const total = cities.reduce((s, c) => s + c.value, 0);
     return (
       <div style={{ width: '100%', maxHeight: height, overflowY: 'auto' }}>
-        <button
-          onClick={goBack}
-          className="mb-3 flex items-center gap-1.5 text-xs font-bold text-zinc-500 hover:text-zinc-800 transition-colors"
-        >
-          <ArrowLeft size={13} /> Voltar para o Brasil
-        </button>
-        <p className="mb-3 text-sm font-black uppercase tracking-widest text-zinc-400">
+        <Button variant="ghost" size="sm" onClick={goBack} iconLeft={<ArrowLeft size={14} />} className="mb-3">
+          Voltar para o Brasil
+        </Button>
+        <p className="mb-3 text-xs font-medium text-zinc-500">
           {STATE_NAMES[view.uf] || view.uf} · {total} paciente{total === 1 ? '' : 's'}
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -175,16 +173,16 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
           ) : cities.map((c) => {
             const pct = total > 0 ? Math.round((c.value / total) * 100) : 0;
             return (
-              <div key={c.city} className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-4 py-3.5">
+              <div key={c.city} className="flex items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/70 px-3 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-zinc-800" title={c.city}>{c.city}</p>
+                  <p className="truncate text-[13px] font-medium text-zinc-800" title={c.city}>{c.city}</p>
                   <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-                    <div className="h-full rounded-full bg-[#295b85]" style={{ width: `${Math.max(pct, 4)}%` }} />
+                    <div className="h-full rounded-full bg-primary-600" style={{ width: `${Math.max(pct, 4)}%` }} />
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-sm font-black text-zinc-900">{c.value}</p>
-                  <p className="text-[11px] font-bold text-zinc-400">{pct}%</p>
+                  <p className="text-[13px] font-medium text-zinc-900">{c.value}</p>
+                  <p className="text-[11px] font-medium text-zinc-400">{pct}%</p>
                 </div>
               </div>
             );
@@ -198,14 +196,11 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
   if (view.level === 'brazil') {
     return (
       <div ref={containerRef} style={{ width: '100%', height, position: 'relative' }}>
-        <button
-          onClick={goBack}
-          className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-xs font-bold text-zinc-600 shadow-sm hover:text-zinc-900 transition-colors"
-        >
-          <ArrowLeft size={13} /> Mundo
-        </button>
+        <Button variant="outline" size="xs" onClick={goBack} iconLeft={<ArrowLeft size={14} />} className="absolute left-2 top-2 z-10 bg-white/90">
+          Mundo
+        </Button>
         {!brazilGeo ? (
-          <div className="flex h-full items-center justify-center text-xs font-bold text-zinc-300">Carregando mapa...</div>
+          <div className="flex h-full items-center justify-center text-xs font-semibold text-zinc-300">Carregando mapa...</div>
         ) : (
           <svg width="100%" height={height} viewBox={`0 0 ${containerWidth} ${height}`} role="img" aria-label="Pacientes por estado no Brasil">
             {brazilGeo.map((geo) => {
@@ -217,7 +212,8 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
                 <path
                   key={uf}
                   d={brazilPath(geo) || undefined}
-                  fill={count > 0 ? `rgba(41, 91, 133, ${intensity})` : '#e2e5eb'}
+                  fill={count > 0 ? 'var(--c-600)' : '#e2e5eb'}
+                  fillOpacity={count > 0 ? intensity : 1}
                   stroke="#fff"
                   strokeWidth={0.8}
                   style={{ cursor: hasCities ? 'pointer' : 'default', transition: 'fill .15s' }}
@@ -240,7 +236,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
         )}
         {hovered && (
           <div
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-bold shadow-lg"
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium"
             style={{ left: hovered.x, top: hovered.y - 8 }}
           >
             <span className="text-zinc-800">{hovered.name}</span>
@@ -255,7 +251,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
   return (
     <div ref={containerRef} style={{ width: '100%', height, position: 'relative' }}>
       {!worldGeo ? (
-        <div className="flex h-full items-center justify-center text-xs font-bold text-zinc-300">Carregando mapa...</div>
+        <div className="flex h-full items-center justify-center text-xs font-semibold text-zinc-300">Carregando mapa...</div>
       ) : (
         <svg width="100%" height={height} viewBox={`0 0 ${containerWidth} ${height}`} role="img" aria-label="Distribuição de pacientes no mundo">
           {worldGeo.map((geo, idx) => {
@@ -267,7 +263,8 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
               <path
                 key={geo.id ?? `geo-${idx}`}
                 d={worldPath(geo) || undefined}
-                fill={count > 0 ? `rgba(41, 91, 133, ${intensity})` : '#e2e5eb'}
+                fill={count > 0 ? 'var(--c-600)' : '#e2e5eb'}
+                  fillOpacity={count > 0 ? intensity : 1}
                 stroke="#fff"
                 strokeWidth={0.6}
                 style={{ cursor: clickable ? 'pointer' : count > 0 ? 'default' : 'default', transition: 'fill .15s' }}
@@ -291,13 +288,13 @@ export const WorldMap: React.FC<WorldMapProps> = ({ countryCounts, stateCounts =
 
       {hovered && (
         <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-xl border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-bold shadow-lg"
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-[11px] font-medium"
           style={{ left: hovered.x, top: hovered.y - 8 }}
         >
           <span className="text-zinc-800">{hovered.name}</span>
           <span className="ml-1.5 text-zinc-400">{hovered.count} paciente{hovered.count === 1 ? '' : 's'}</span>
           {hovered.name === 'Brasil' && hasBrazilDrilldown && (
-            <div className="mt-0.5 text-[10px] font-bold text-indigo-500">Clique para ver os estados</div>
+            <div className="mt-0.5 text-[11px] font-medium text-primary-600">Clique para ver os estados</div>
           )}
         </div>
       )}

@@ -112,16 +112,16 @@ export const EMDRPage: React.FC = () => {
         showBackButton
         onBackClick={() => navigate('/caixa-ferramentas')}
         actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
               <button 
                 onClick={() => setActiveSub('reprocess')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'reprocess' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'reprocess' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-2"><Eye size={14}/> Reprocessar</div>
               </button>
               <button 
                 onClick={() => setActiveSub('resources')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'resources' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'resources' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-2"><Shield size={14}/> Recursos</div>
               </button>
@@ -146,7 +146,7 @@ export const EMDRPage: React.FC = () => {
                 <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-6">
                     <Zap size={40} />
                 </div>
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">EMDR Workspace</h2>
+                <h2 className="text-2xl font-semibold text-slate-800">EMDR Workspace</h2>
                 <p className="text-slate-400 text-sm max-w-md mx-auto">Workflow automatizado para Reprocessamento de Traumas e Escalameto SUD.</p>
             </div>
           ) : (
@@ -154,23 +154,23 @@ export const EMDRPage: React.FC = () => {
               {activeSub === 'reprocess' && (
                 <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
                     <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                        <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Sessão de Reprocessamento</h3>
+                        <h3 className="font-semibold text-slate-800 text-lg">Sessão de Reprocessamento</h3>
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Alvo / Memória Traumática</label>
-                                <textarea className="w-full p-4 rounded-2xl bg-rose-50/50 border border-rose-100/50 text-sm font-bold text-rose-900 focus:bg-white transition-all h-24 resize-none" value={newSession.target} onChange={e => setNewSession({...newSession, target: e.target.value})} placeholder="Descrição breve da memória..." />
+                                <label className="text-[11px] font-semibold text-slate-400">Alvo / Memória Traumática</label>
+                                <textarea className="w-full p-4 rounded-lg bg-rose-50/50 border border-rose-100/50 text-sm font-semibold text-rose-900 focus:bg-white transition-all h-24 resize-none" value={newSession.target} onChange={e => setNewSession({...newSession, target: e.target.value})} placeholder="Descrição breve da memória..." />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SUD Inicial (0-10)</label>
-                                    <input type="number" className="w-full h-12 px-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-black text-center outline-none" value={newSession.sudInitial} onChange={e => setNewSession({...newSession, sudInitial: parseInt(e.target.value)})} />
+                                    <label className="text-[11px] font-semibold text-slate-400">SUD Inicial (0-10)</label>
+                                    <input type="number" className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold text-center outline-none" value={newSession.sudInitial} onChange={e => setNewSession({...newSession, sudInitial: parseInt(e.target.value)})} />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SUD Final (0-10)</label>
-                                    <input type="number" className="w-full h-12 px-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-black text-center outline-none" value={newSession.sudFinal} onChange={e => setNewSession({...newSession, sudFinal: parseInt(e.target.value)})} />
+                                    <label className="text-[11px] font-semibold text-slate-400">SUD Final (0-10)</label>
+                                    <input type="number" className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold text-center outline-none" value={newSession.sudFinal} onChange={e => setNewSession({...newSession, sudFinal: parseInt(e.target.value)})} />
                                 </div>
                             </div>
-                            <button onClick={handleSaveSession} className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition-all">Registrar Alvo</button>
+                            <button onClick={handleSaveSession} className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-indigo-700 transition-all">Registrar Alvo</button>
                         </div>
                     </div>
                     <div className="space-y-4">
@@ -178,17 +178,17 @@ export const EMDRPage: React.FC = () => {
                             <div key={s.id} className="bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm group">
                                 <div className="flex gap-6 items-center">
                                     <div className="space-y-1 flex-1">
-                                        <h4 className="text-base font-black text-slate-800 uppercase tracking-tight italic">"{s.target}"</h4>
+                                        <h4 className="text-base font-semibold text-slate-800 italic">"{s.target}"</h4>
                                         <div className="flex items-center gap-4">
-                                            <span className="text-[9px] font-black p-2 bg-rose-50 text-rose-600 rounded-xl leading-none">SUD Inicial: {s.sudInitial}</span>
+                                            <span className="text-[11px] font-semibold p-2 bg-rose-50 text-rose-600 rounded-lg leading-none">SUD Inicial: {s.sudInitial}</span>
                                             <ArrowRight size={14} className="text-slate-300"/>
-                                            <span className="text-[9px] font-black p-2 bg-emerald-50 text-emerald-600 rounded-xl leading-none">SUD Final: {s.sudFinal}</span>
+                                            <span className="text-[11px] font-semibold p-2 bg-emerald-50 text-emerald-600 rounded-lg leading-none">SUD Final: {s.sudFinal}</span>
                                         </div>
                                     </div>
                                     <div className="w-px h-12 bg-slate-100" />
                                     <div className="text-center">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Dessensibilização</p>
-                                        <p className="text-xl font-black text-emerald-600">-{s.sudInitial - s.sudFinal}</p>
+                                        <p className="text-[11px] font-semibold text-slate-300">Dessensibilização</p>
+                                        <p className="text-xl font-semibold text-emerald-600">-{s.sudInitial - s.sudFinal}</p>
                                     </div>
                                 </div>
                             </div>
@@ -201,27 +201,27 @@ export const EMDRPage: React.FC = () => {
                 <div className="space-y-6 animate-slideUpFade">
                     <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm space-y-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
                                 <Shield size={24} />
                             </div>
-                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Instalação de Recursos</h3>
+                            <h3 className="text-xl font-semibold text-slate-800">Instalação de Recursos</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* FORM RECURSO */}
                             <div className="bg-slate-50 p-6 rounded-[28px] border border-slate-100 space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recurso / Lugar Seguro</label>
-                                    <input className="w-full h-12 px-4 rounded-2xl bg-white border border-slate-100 text-sm font-bold shadow-sm outline-none" value={newResource.title} onChange={e => setNewResource({...newResource, title: e.target.value})} placeholder="Ex: Praia secreta, Montanha..." />
+                                    <label className="text-[11px] font-semibold text-slate-400">Recurso / Lugar Seguro</label>
+                                    <input className="w-full h-12 px-4 rounded-lg bg-white border border-slate-100 text-sm font-semibold shadow-sm outline-none" value={newResource.title} onChange={e => setNewResource({...newResource, title: e.target.value})} placeholder="Ex: Praia secreta, Montanha..." />
                                 </div>
-                                <button onClick={handleSaveResource} className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition-all">Instalar Recurso</button>
+                                <button onClick={handleSaveResource} className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-indigo-700 transition-all">Instalar Recurso</button>
                             </div>
                             {resources.map(r => (
                                 <div key={r.id} className="bg-white rounded-[28px] border border-indigo-100 p-6 shadow-sm flex flex-col justify-between hover:scale-105 transition-all group">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-base font-black text-slate-800 uppercase tracking-tight">{r.title}</h4>
+                                        <h4 className="text-base font-semibold text-slate-800">{r.title}</h4>
                                         <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center"><CheckCircle2 size={16}/></div>
                                     </div>
-                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-4">Ponto de Estabilização</span>
+                                    <span className="text-[11px] font-semibold text-slate-300 mt-4">Ponto de Estabilização</span>
                                 </div>
                             ))}
                         </div>

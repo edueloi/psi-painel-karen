@@ -6,6 +6,7 @@ import {
   ReceiptText, Loader2, ChevronDown
 } from 'lucide-react';
 import { API_BASE_URL } from '../../services/api';
+import { IconButton } from '../UI';
 
 interface Message {
   id: string;
@@ -142,46 +143,41 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
     >
       {/* Panel */}
       <div
-        className="w-[420px] max-w-[calc(100vw-48px)] bg-white rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-slate-100"
+        className="w-[420px] max-w-[calc(100vw-48px)] bg-white rounded-lg flex flex-col overflow-hidden border border-slate-200"
         style={{ maxHeight: 'calc(100vh - 48px)', height: '680px' }}
       >
         {/* Header */}
-        <div className="relative flex items-center px-5 py-4 bg-slate-900 shrink-0 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-900 to-slate-900 opacity-90" />
-          <div className="absolute -right-8 -top-8 w-32 h-32 bg-emerald-400/10 rounded-full blur-2xl" />
-
-          <div className="relative z-10 flex items-center justify-between w-full text-white">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center">
-                  <Calculator size={18} className="text-emerald-300" />
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900" />
-              </div>
-              <div>
-                <p className="font-black text-sm leading-tight">Aura Contábil</p>
-                <p className="text-emerald-300 text-[10px] font-bold uppercase tracking-widest">Especialista Fiscal · Online</p>
-              </div>
+        <div className="flex shrink-0 items-center justify-between bg-primary-600 px-4 py-3 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/20">
+              <Calculator size={16} className="text-white" />
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl hover:bg-white/10 transition-all text-white/60 hover:text-white"
-            >
-              <X size={16} />
-            </button>
+            <div>
+              <p className="text-sm font-medium leading-tight">Aura Contábil</p>
+              <p className="text-[11px] text-white/80">Especialista fiscal · Online</p>
+            </div>
           </div>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label="Fechar assistente"
+            className="text-white hover:bg-white/10 hover:text-white"
+          >
+            <X size={16} />
+          </IconButton>
         </div>
 
         {/* Context pills */}
-        <div className="flex gap-2 px-4 py-2.5 bg-emerald-50 border-b border-emerald-100 overflow-x-auto shrink-0">
+        <div className="flex gap-2 px-4 py-2.5 bg-primary-50 border-b border-primary-100 overflow-x-auto shrink-0">
           {[
             { icon: <TrendingUp size={10} />, label: 'Seus dados reais' },
             { icon: <ReceiptText size={10} />, label: 'Carnê-Leão' },
             { icon: <FileText size={10} />, label: 'NFS-e & ISS' },
           ].map((pill) => (
-            <div key={pill.label} className="flex items-center gap-1.5 bg-white border border-emerald-200 px-3 py-1.5 rounded-full shrink-0">
-              <span className="text-emerald-500">{pill.icon}</span>
-              <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">{pill.label}</span>
+            <div key={pill.label} className="flex items-center gap-1.5 bg-white border border-primary-200 px-3 py-1 rounded-lg shrink-0">
+              <span className="text-primary-500">{pill.icon}</span>
+              <span className="text-[11px] font-medium text-primary-700">{pill.label}</span>
             </div>
           ))}
         </div>
@@ -194,14 +190,14 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
               className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
               {msg.role === 'model' && (
-                <div className="w-7 h-7 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot size={14} className="text-emerald-600" />
+                <div className="w-7 h-7 rounded-lg bg-primary-100 border border-primary-200 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot size={14} className="text-primary-600" />
                 </div>
               )}
               <div
-                className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                className={`max-w-[82%] px-3 py-2.5 rounded-lg text-[13px] leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-slate-900 text-white rounded-tr-sm font-medium'
+                    ? 'bg-primary-600 text-white rounded-tr-sm'
                     : 'bg-slate-50 border border-slate-100 text-slate-700 rounded-tl-sm'
                 }`}
               >
@@ -212,12 +208,12 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
 
           {isTyping && (
             <div className="flex gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
-                <Bot size={14} className="text-emerald-600" />
+              <div className="w-7 h-7 rounded-lg bg-primary-100 border border-primary-200 flex items-center justify-center shrink-0">
+                <Bot size={14} className="text-primary-600" />
               </div>
-              <div className="bg-slate-50 border border-slate-100 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
-                <Loader2 size={12} className="text-emerald-500 animate-spin" />
-                <span className="text-[11px] font-bold text-slate-400">Calculando...</span>
+              <div className="bg-slate-50 border border-slate-100 px-4 py-3 rounded-lg rounded-tl-sm flex items-center gap-1.5">
+                <Loader2 size={12} className="text-primary-500 animate-spin" />
+                <span className="text-[11px] text-slate-500">Calculando...</span>
               </div>
             </div>
           )}
@@ -228,13 +224,13 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
         {/* Suggestions (only when few messages) */}
         {messages.length <= 1 && (
           <div className="px-4 pb-2 shrink-0">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Sugestões rápidas</p>
+            <p className="text-[11px] text-slate-500 mb-2">Sugestões rápidas</p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
-                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 rounded-xl text-[10px] font-bold text-slate-600 hover:text-emerald-700 transition-all"
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-primary-300 hover:bg-primary-50 rounded-lg text-[11px] font-medium text-slate-600 hover:text-primary-700 transition-all"
                 >
                   {s}
                 </button>
@@ -245,7 +241,7 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
 
         {/* Input */}
         <div className="px-4 pb-4 pt-3 border-t border-slate-100 shrink-0">
-          <div className="flex gap-2 items-end bg-slate-50 border-2 border-slate-100 focus-within:border-emerald-300 focus-within:bg-white rounded-2xl px-4 py-2.5 transition-all">
+          <div className="flex gap-2 items-end bg-slate-50 border border-slate-200 focus-within:border-primary-300 focus-within:bg-white rounded-lg px-4 py-2.5 transition-all">
             <textarea
               ref={inputRef}
               value={input}
@@ -253,18 +249,21 @@ export const AuraContabil: React.FC<AuraContabilProps> = ({ isOpen, onClose }) =
               onKeyDown={handleKeyDown}
               placeholder="Pergunte sobre carnê-leão, deduções, ISS..."
               rows={1}
-              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none leading-relaxed font-medium"
+              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none leading-relaxed"
               style={{ maxHeight: 96 }}
             />
-            <button
+            <IconButton
+              variant="primary"
+              size="sm"
               onClick={() => sendMessage()}
               disabled={!input.trim() || isTyping}
-              className="p-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 rounded-xl text-white disabled:text-slate-400 transition-all shrink-0 active:scale-95"
+              aria-label="Enviar mensagem"
+              className="shrink-0"
             >
               <Send size={14} />
-            </button>
+            </IconButton>
           </div>
-          <p className="text-[9px] text-slate-300 font-bold text-center mt-2 uppercase tracking-widest">
+          <p className="text-[11px] text-slate-400 text-center mt-2">
             Orientação informativa · Consulte um contador para decisões específicas
           </p>
         </div>

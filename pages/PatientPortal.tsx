@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
 import { Input, Select, Textarea } from "../components/UI/Input";
-import { Button, IconButton } from "../components/UI";
+import { Button, IconButton, Tabs, ContentCard, PanelCard, SectionTitle, StatGrid, StatCard, FormRow, DetailField, Alert } from "../components/UI";
 import { Combobox } from "../components/UI/Combobox";
 import { Badge } from "../components/UI/Badge";
 import { EmptyState } from "../components/UI/EmptyState";
@@ -158,8 +158,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   confirmed:  { label: "Confirmada", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200",dot: "bg-emerald-500" },
   completed:  { label: "Realizada",  color: "text-slate-600",   bg: "bg-slate-100 border-slate-200",  dot: "bg-slate-400"   },
   cancelled:  { label: "Cancelada",  color: "text-red-600",     bg: "bg-red-50 border-red-200",       dot: "bg-red-400"     },
-  "no-show":  { label: "Faltou",     color: "text-orange-600",  bg: "bg-orange-50 border-orange-200", dot: "bg-orange-400"  },
-  "no_show":  { label: "Faltou",     color: "text-orange-600",  bg: "bg-orange-50 border-orange-200", dot: "bg-orange-400"  },
+  "no-show":  { label: "Faltou",     color: "text-amber-600",  bg: "bg-amber-50 border-amber-200", dot: "bg-amber-400"  },
+  "no_show":  { label: "Faltou",     color: "text-amber-600",  bg: "bg-amber-50 border-amber-200", dot: "bg-amber-400"  },
 };
 
 const PAYMENT_STATUS: Record<string, { label: string; color: string; bg: string }> = {
@@ -216,7 +216,7 @@ function Toast({ msg, type = "success", onClose }: { msg: string; type?: ToastTy
   };
   const s = styles[type];
   return (
-    <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] ${s.bg} text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-2.5 max-w-sm animate-fade-in`}
+    <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] ${s.bg} text-white px-5 py-3 rounded-lg text-sm font-semibold flex items-center gap-2.5 max-w-sm animate-fade-in`}
       style={{ animation: "slideDown .2s ease" }}>
       {s.icon}{msg}
       <button onClick={onClose} className="ml-2 opacity-70 hover:opacity-100"><X size={14} /></button>
@@ -255,158 +255,110 @@ function HomeTab({ patient, appointments }: { patient: PortalPatient; appointmen
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4">
       {/* Saudação */}
-      <div className="md:hidden flex items-center justify-between pt-1">
-        <div>
-          <p className="text-xs text-slate-400 font-medium">{greeting} 👋</p>
-          <h2 className="text-xl font-black text-slate-800">{firstName}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-slate-500">{greeting},</p>
+          <h2 className="text-base sm:text-lg font-medium text-slate-900 truncate">{firstName}</h2>
         </div>
         {patient.professional_name && (
-          <div className="flex items-center gap-2 bg-white border border-slate-100 rounded-2xl px-3 py-2 shadow-sm">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-primary-500 to-primary-800 flex items-center justify-center text-white font-bold text-xs shrink-0">
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-medium text-xs shrink-0">
               {patient.professional_name.charAt(0)}
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-slate-400 leading-none">Profissional</p>
-              <p className="text-xs font-bold text-slate-700 truncate max-w-[90px]">{patient.professional_name.split(" ")[0]}</p>
+              <p className="text-[11px] text-slate-500 leading-none">Seu profissional</p>
+              <p className="text-xs font-medium text-slate-800 truncate">{patient.professional_name}</p>
+              {patient.specialty && <p className="text-[11px] text-slate-500 truncate hidden sm:block">{patient.specialty}</p>}
             </div>
           </div>
         )}
       </div>
 
-      {/* Desktop: greeting + próxima consulta em destaque */}
-      <div className="hidden md:block">
-        <p className="text-slate-400 text-sm font-medium mb-1">{greeting}, <span className="font-black text-slate-700">{firstName}</span> 👋</p>
-      </div>
+      {/* Grid responsivo: próxima consulta + listas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
 
-      {/* Grid responsivo: próxima consulta + listas — escala até 3 colunas em telas largas */}
-      <div className="md:grid md:grid-cols-2 xl:grid-cols-3 md:gap-5 space-y-4 md:space-y-0">
-
-        {/* Coluna 1: próxima consulta + profissional */}
-        <div className="space-y-4">
-          {next ? (
-            <div className="bg-gradient-to-br from-primary-600 to-primary-800 rounded-2xl p-5 xl:p-6 text-white shadow-lg shadow-primary-200 relative overflow-hidden">
-              <div className="absolute -right-4 -top-4 w-28 h-28 bg-white/5 rounded-full pointer-events-none" />
-              <div className="absolute -right-2 -bottom-6 w-20 h-20 bg-white/5 rounded-full pointer-events-none" />
-              <div className="flex items-center gap-1.5 mb-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Próxima consulta</span>
-                <Badge color={STATUS_BADGE_COLOR[next.status] || "default"} dot>{STATUS_CONFIG[next.status]?.label || next.status}</Badge>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="bg-white/15 rounded-xl p-3 shrink-0">
-                  <Calendar size={20} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-black text-lg leading-tight">
-                    {fmtDate(next.start_date, { weekday: "short", day: "numeric", month: "short" })}
-                  </p>
-                  <p className="text-white/70 text-sm mt-0.5">
-                    {fmtTime(next.start_date)}{next.duration_minutes ? ` · ${next.duration_minutes}min` : ""}
-                    {" · "}{next.modality === "online" ? "Online" : "Presencial"}
-                  </p>
-                </div>
-              </div>
-              {next.modality === "online" && next.meeting_url && (
-                <a href={next.meeting_url} target="_blank" rel="noopener noreferrer"
-                  className="mt-4 flex items-center justify-center gap-1.5 w-full py-2.5 bg-white/20 hover:bg-white/30 border border-white/30 text-white rounded-xl font-bold text-sm transition-all active:scale-95">
-                  <Video size={14} />Entrar na Sala
-                </a>
-              )}
+        {/* Próxima consulta */}
+        {next ? (
+          <div className="bg-primary-50 border border-primary-100 rounded-lg p-3 lg:p-4">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-xs font-medium text-primary-700">Próxima consulta</span>
+              <Badge color={STATUS_BADGE_COLOR[next.status] || "default"} dot>{STATUS_CONFIG[next.status]?.label || next.status}</Badge>
             </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center gap-3 shadow-sm">
-              <div className="w-11 h-11 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                <Calendar size={20} className="text-slate-400" />
+            <div className="flex items-center gap-3">
+              <div className="bg-white border border-primary-100 rounded-lg p-2.5 shrink-0">
+                <Calendar size={18} className="text-primary-600" />
               </div>
-              <div>
-                <p className="font-bold text-slate-700 text-sm">Sem consultas agendadas</p>
-                <p className="text-slate-400 text-xs mt-0.5">Acesse a aba Agenda para solicitar</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-slate-900 leading-tight">
+                  {fmtDate(next.start_date, { weekday: "short", day: "numeric", month: "short" })}
+                </p>
+                <p className="text-slate-600 text-xs mt-0.5">
+                  {fmtTime(next.start_date)}{next.duration_minutes ? ` · ${next.duration_minutes}min` : ""}
+                  {" · "}{next.modality === "online" ? "Online" : "Presencial"}
+                </p>
               </div>
             </div>
-          )}
+            {next.modality === "online" && next.meeting_url && (
+              <a href={next.meeting_url} target="_blank" rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-1.5 w-full h-10 bg-primary-600 hover:bg-primary-700 text-white rounded-md font-medium text-xs transition-colors">
+                <Video size={14} />Entrar na Sala
+              </a>
+            )}
+          </div>
+        ) : (
+          <ContentCard padding="md">
+            <EmptyState icon={Calendar} title="Sem consultas agendadas" description="Acesse a aba Agenda para solicitar" />
+          </ContentCard>
+        )}
 
-          {/* Profissional card (desktop only) */}
-          {patient.professional_name && (
-            <div className="hidden md:flex items-center gap-3 bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-800 flex items-center justify-center text-white font-black text-base shrink-0">
-                {patient.professional_name.charAt(0)}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Seu profissional</p>
-                <p className="text-sm font-black text-slate-700 truncate">{patient.professional_name}</p>
-                {patient.specialty && <p className="text-xs text-slate-400">{patient.specialty}</p>}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Coluna 2: em breve */}
-        <div className="space-y-4">
-          {upcoming.length > 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-1.5">
-                <Clock size={12} className="text-slate-400" />
-                <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Em breve</span>
-              </div>
-              {upcoming.map((a, i) => (
-                <div key={a.id} className={`px-4 py-3 flex items-center justify-between ${i < upcoming.length - 1 ? "border-b border-slate-50" : ""}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary-50 rounded-xl flex items-center justify-center shrink-0">
-                      <Calendar size={13} className="text-primary-500" />
+        {/* Em breve */}
+        {upcoming.length > 0 ? (
+          <PanelCard title="Em breve" icon={Clock}>
+            <ul className="divide-y divide-slate-100">
+              {upcoming.map(a => (
+                <li key={a.id} className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 bg-primary-50 rounded-lg flex items-center justify-center shrink-0">
+                      <Calendar size={14} className="text-primary-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-700">{fmtDate(a.start_date, { day: "numeric", month: "short" })}</p>
-                      <p className="text-xs text-slate-400">{fmtTime(a.start_date)}</p>
+                      <p className="text-[13px] font-medium text-slate-800">{fmtDate(a.start_date, { day: "numeric", month: "short" })}</p>
+                      <p className="text-[11px] text-slate-500">{fmtTime(a.start_date)}</p>
                     </div>
                   </div>
                   <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
-                </div>
+                </li>
               ))}
-            </div>
-          ) : (
-            <div className="hidden xl:flex bg-white rounded-2xl border border-slate-100 p-5 items-center gap-3 shadow-sm h-full">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                <Clock size={18} className="text-slate-400" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-600">Nada agendado</p>
-                <p className="text-xs text-slate-400 mt-0.5">Suas próximas consultas aparecerão aqui</p>
-              </div>
-            </div>
-          )}
-        </div>
+            </ul>
+          </PanelCard>
+        ) : (
+          <ContentCard padding="md" className="hidden xl:block">
+            <EmptyState icon={Clock} title="Nada agendado" description="Suas próximas consultas aparecerão aqui" />
+          </ContentCard>
+        )}
 
-        {/* Coluna 3: histórico */}
-        <div className="space-y-4">
-          {recent.length > 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-1.5">
-                <CheckCircle size={12} className="text-slate-400" />
-                <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Histórico</span>
-              </div>
-              {recent.map((a, i) => (
-                <div key={a.id} className={`px-4 py-3 flex items-center justify-between ${i < recent.length - 1 ? "border-b border-slate-50" : ""}`}>
+        {/* Histórico */}
+        {recent.length > 0 ? (
+          <PanelCard title="Histórico" icon={CheckCircle}>
+            <ul className="divide-y divide-slate-100">
+              {recent.map(a => (
+                <li key={a.id} className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-slate-600">{fmtDate(a.start_date, { day: "numeric", month: "short", year: "numeric" })}</p>
-                    <p className="text-xs text-slate-400">{fmtTime(a.start_date)}</p>
+                    <p className="text-[13px] font-medium text-slate-800">{fmtDate(a.start_date, { day: "numeric", month: "short", year: "numeric" })}</p>
+                    <p className="text-[11px] text-slate-500">{fmtTime(a.start_date)}</p>
                   </div>
                   <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
-                </div>
+                </li>
               ))}
-            </div>
-          ) : (
-            <div className="hidden xl:flex bg-white rounded-2xl border border-slate-100 p-5 items-center gap-3 shadow-sm h-full">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                <CheckCircle size={18} className="text-slate-400" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-600">Nenhum histórico ainda</p>
-                <p className="text-xs text-slate-400 mt-0.5">Suas consultas realizadas aparecerão aqui</p>
-              </div>
-            </div>
-          )}
-        </div>
+            </ul>
+          </PanelCard>
+        ) : (
+          <ContentCard padding="md" className="hidden xl:block">
+            <EmptyState icon={CheckCircle} title="Nenhum histórico ainda" description="Suas consultas realizadas aparecerão aqui" />
+          </ContentCard>
+        )}
 
       </div>
     </div>
@@ -458,25 +410,23 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white p-3 lg:p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Selecionar data</p>
-          <h3 className="text-sm font-black text-slate-800 capitalize">{monthLabel}</h3>
+          <p className="text-[11px] text-slate-500">Selecionar data</p>
+          <h3 className="text-sm font-medium text-slate-900 capitalize">{monthLabel}</h3>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => changeMonth(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
-            <ChevronLeft size={16} />
-          </button>
-          <button onClick={() => changeMonth(1)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
-            <ChevronRight size={16} />
-          </button>
+          <IconButton variant="outline" size="lg" onClick={() => changeMonth(-1)} aria-label="Mês anterior">
+            <ChevronLeft size={14} />
+          </IconButton>
+          <IconButton variant="outline" size="lg" onClick={() => changeMonth(1)} aria-label="Próximo mês">
+            <ChevronRight size={14} />
+          </IconButton>
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-7 gap-1 rounded-xl bg-slate-50 p-1 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+      <div className="mb-3 grid grid-cols-7 gap-1 rounded-lg bg-slate-50 p-1 text-center text-[11px] font-medium text-slate-500">
         {WEEK_DAYS.map((d, i) => (
           <div key={i} className="flex h-7 items-center justify-center">{d}</div>
         ))}
@@ -496,10 +446,10 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
           const isClosed = dot?.label === "fechado";
           const isDisabled = isPast || isFull || isClosed;
 
-          let cls = "h-11 rounded-xl text-sm font-bold transition-all w-full relative flex flex-col items-center justify-center gap-0 ";
+          let cls = "h-11 rounded-lg text-[13px] font-medium transition-colors w-full relative flex flex-col items-center justify-center gap-0";
           if (isPast) cls += "text-slate-200 cursor-default";
           else if (isClosed) cls += "text-slate-300 cursor-not-allowed line-through decoration-slate-300";
-          else if (isSelected) cls += "bg-primary-600 text-white shadow-md cursor-pointer";
+          else if (isSelected) cls += "bg-primary-600 text-white cursor-pointer";
           else if (isFull) cls += "text-slate-300 cursor-not-allowed";
           else if (isToday) cls += "border border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100 cursor-pointer";
           else cls += "border border-transparent bg-white text-slate-600 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 cursor-pointer";
@@ -518,7 +468,7 @@ function PortalCalendar({ value, onChange, bookedDates, dayAvailability, onMonth
       </div>
 
       {/* Legenda */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-400">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Livre</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> Poucos horários</span>
         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Sem vagas</span>
@@ -703,7 +653,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         const d = await res.json();
         if (["approved", "paid"].includes((d?.status || "").toLowerCase())) {
           setPkgMpCharge((prev: any) => prev ? { ...prev, status: "approved" } : null);
-          showToast("Pagamento confirmado! Pacote liberado. 🎉", "success");
+          showToast("Pagamento confirmado! Pacote liberado.", "success");
           onRefresh();
         }
       } catch { /* ignora */ }
@@ -720,7 +670,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         const d = await res.json();
         if (["CONFIRMED", "RECEIVED"].includes(d?.status)) {
           setPkgAsaasCharge((prev: any) => prev ? { ...prev, status: d.status } : null);
-          showToast("Pagamento confirmado! Pacote liberado. 🎉", "success");
+          showToast("Pagamento confirmado! Pacote liberado.", "success");
           onRefresh();
         }
       } catch { /* ignora */ }
@@ -935,6 +885,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     } finally { setLoading(false); setCancelId(null); }
   };
 
+  const [agendaView, setAgendaView] = useState<"upcoming" | "history">("upcoming");
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const confirmAttendance = async (id: number) => {
     setConfirmingId(id);
@@ -999,24 +950,24 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   // ─── NEW COMANDA FLOW ───────────────────────────────────────────────────────
   if (mode === "new-comanda") {
     return (
-      <div className="space-y-4 pb-6">
+      <div className="space-y-4">
         <div className="flex items-center gap-3 mb-2">
-          <button onClick={() => setMode("list")} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-all">
-            <ArrowLeft size={18} />
-          </button>
+          <IconButton variant="ghost" size="lg" onClick={() => setMode("list")} aria-label="Voltar">
+            <ArrowLeft size={14} />
+          </IconButton>
           <div>
-            <h2 className="text-base font-black text-slate-800">Escolher Pacote</h2>
-            <p className="text-xs text-slate-400">Selecione o pacote que deseja contratar</p>
+            <h2 className="text-base font-semibold text-slate-800">Escolher Pacote</h2>
+            <p className="text-xs text-slate-500">Selecione o pacote que deseja contratar</p>
           </div>
         </div>
 
         {packagesLoading ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-xs text-slate-400">Carregando pacotes...</div>
+          <div className="bg-white rounded-lg border border-slate-200 p-8 text-center text-xs text-slate-500">Carregando pacotes...</div>
         ) : availablePackages.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
+          <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
             <Gem size={28} className="text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-500 font-bold">Nenhum pacote disponível para contratação online</p>
-            <p className="text-xs text-slate-400 mt-1">Solicite ao seu psicólogo para liberar um pacote aqui no portal.</p>
+            <p className="text-sm text-slate-500 font-semibold">Nenhum pacote disponível para contratação online</p>
+            <p className="text-xs text-slate-500 mt-1">Solicite ao seu psicólogo para liberar um pacote aqui no portal.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -1026,32 +977,32 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               const pricePerSession = pkg.sessions_count ? finalPrice / pkg.sessions_count : 0;
               return (
                 <button key={pkg.id} onClick={() => setSelectedPackageId(isSelected ? null : pkg.id)}
-                  className={`w-full text-left rounded-2xl border transition-all overflow-hidden ${isSelected ? "border-primary-400 bg-primary-50 shadow-md" : "border-slate-200 bg-white hover:border-primary-300 hover:shadow-sm"}`}>
+                  className={`w-full text-left rounded-lg border transition-all overflow-hidden ${isSelected ? "border-primary-400 bg-primary-50" : "border-slate-200 bg-white hover:border-primary-300 hover:shadow-sm"}`}>
                   <div className="px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-sm ${isSelected ? "bg-primary-600 text-white" : "bg-primary-100 text-primary-600"}`}>
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 font-semibold text-sm ${isSelected ? "bg-primary-600 text-white" : "bg-primary-100 text-primary-600"}`}>
                         {pkg.sessions_count}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-slate-800 truncate">{pkg.name}</p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{pkg.name}</p>
+                        <p className="text-xs text-slate-500">
                           {pkg.sessions_count} sessão{pkg.sessions_count !== 1 ? "ões" : ""}
                           {pricePerSession > 0 ? ` · ${fmtCurrency(pricePerSession)}/sessão` : ""}
                         </p>
                         {pkg.services && pkg.services.length > 0 && (
-                          <p className="text-xs font-bold text-primary-600 truncate mt-0.5">
+                          <p className="text-xs font-semibold text-primary-600 truncate mt-0.5">
                             {pkg.services.map(s => `${s.quantity}x ${s.service_name}`).join(" + ")}
                           </p>
                         )}
-                        {pkg.description && <p className="text-xs text-slate-400 truncate mt-0.5">{pkg.description}</p>}
+                        {pkg.description && <p className="text-xs text-slate-500 truncate mt-0.5">{pkg.description}</p>}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-base font-black text-primary-600">{fmtCurrency(finalPrice)}</p>
+                      <p className="text-base font-semibold text-primary-600">{fmtCurrency(finalPrice)}</p>
                     </div>
                   </div>
                   {isSelected && (
-                    <div className="px-4 pb-3 flex items-center gap-1.5 text-xs text-primary-600 font-bold">
+                    <div className="px-4 pb-3 flex items-center gap-1.5 text-xs text-primary-600 font-semibold">
                       <Check size={12} /> Selecionado
                     </div>
                   )}
@@ -1062,11 +1013,11 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         )}
 
         {selectedPkg && (
-          <div className="bg-primary-50 border border-primary-200 rounded-2xl px-4 py-3 space-y-1">
-            <p className="text-xs font-black text-primary-700">{selectedPkg.name}</p>
+          <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 space-y-1">
+            <p className="text-xs font-semibold text-primary-700">{selectedPkg.name}</p>
             <div className="flex justify-between text-xs text-primary-600">
               <span>{selectedPkg.sessions_count} sessões</span>
-              <span className="font-bold">{fmtCurrency(selectedPkg.display_price ?? selectedPkg.totalPrice ?? 0)}</span>
+              <span className="font-semibold">{fmtCurrency(selectedPkg.display_price ?? selectedPkg.totalPrice ?? 0)}</span>
             </div>
             <p className="text-[11px] text-primary-500">Após confirmar, você paga o pacote e já pode agendar cada sessão.</p>
           </div>
@@ -1076,7 +1027,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           disabled={!selectedPkg || creatingComanda}
           loading={creatingComanda} loadingText="Criando..."
           iconLeft={<Check size={16} />}
-          className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700 disabled:opacity-50">
+          fullWidth>
           {selectedPkg ? `Contratar: ${selectedPkg.name}` : "Selecione um pacote acima"}
         </Button>
       </div>
@@ -1089,111 +1040,111 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
     const mpApproved = pkgMpCharge?.status === "approved";
     const asaasApproved = pkgAsaasCharge && ["CONFIRMED", "RECEIVED"].includes(pkgAsaasCharge.status);
     return (
-      <div className="space-y-4 pb-6">
+      <div className="space-y-4">
         <div className="flex items-center gap-3 mb-2">
-          <button onClick={() => { setMode("list"); setPayingComanda(null); }} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-all">
-            <ArrowLeft size={18} />
-          </button>
+          <IconButton variant="ghost" size="lg" onClick={() => { setMode("list"); setPayingComanda(null); }} aria-label="Voltar">
+            <ArrowLeft size={14} />
+          </IconButton>
           <div>
-            <h2 className="text-base font-black text-slate-800">Pagar Pacote</h2>
-            <p className="text-xs text-slate-400">{payingComanda.description}</p>
+            <h2 className="text-base font-semibold text-slate-800">Pagar Pacote</h2>
+            <p className="text-xs text-slate-500">{payingComanda.description}</p>
           </div>
         </div>
 
         {(mpApproved || asaasApproved) ? (
-          <div className="flex flex-col items-center gap-2 p-6 bg-emerald-50 rounded-xl border border-emerald-100">
+          <div className="flex flex-col items-center gap-2 p-6 bg-emerald-50 rounded-lg border border-emerald-100">
             <CheckCircle size={32} className="text-emerald-600" />
-            <p className="text-sm font-black text-emerald-700">Pagamento confirmado!</p>
+            <p className="text-sm font-semibold text-emerald-700">Pagamento confirmado!</p>
             <p className="text-[11px] text-emerald-600 text-center">Seu pacote já está liberado — agende suas sessões.</p>
             <Button variant="primary" size="sm" onClick={() => { setMode("list"); setPayingComanda(null); }}
-              className="mt-2 bg-emerald-600 border-emerald-600 hover:bg-emerald-700">
+              className="mt-2">
               Ver meu pacote
             </Button>
           </div>
         ) : (
           <>
-            <div className="bg-primary-50 border border-primary-200 rounded-2xl px-4 py-3 flex items-center justify-between">
-              <span className="text-xs font-bold text-primary-700">Valor a pagar</span>
-              <span className="text-lg font-black text-primary-700">{fmtCurrency(pkgAmountDue)}</span>
+            <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 flex items-center justify-between">
+              <span className="text-xs font-semibold text-primary-700">Valor a pagar</span>
+              <span className="text-lg font-semibold text-primary-700">{fmtCurrency(pkgAmountDue)}</span>
             </div>
 
             {!mpAvailable && !asaasAvailable && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-                <p className="text-xs text-amber-700 font-bold">Pagamento online não disponível</p>
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 text-center">
+                <p className="text-xs text-amber-700 font-semibold">Pagamento online não disponível</p>
                 <p className="text-[11px] text-amber-600 mt-1">Combine com seu psicólogo a forma de pagamento deste pacote.</p>
               </div>
             )}
 
             {mpAvailable && !pkgMpCharge && (
-              <div className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-lg border border-slate-100">
                 <span className="animate-spin inline-block w-5 h-5 border-2 border-primary-400 border-t-transparent rounded-full" />
-                <p className="text-xs text-slate-500 font-bold">Gerando Pix e link de pagamento...</p>
+                <p className="text-xs text-slate-500 font-semibold">Gerando Pix e link de pagamento...</p>
               </div>
             )}
 
             {pkgMpCharge && !mpApproved && (
-              <div className="bg-white rounded-2xl border border-primary-100 p-4 space-y-3">
+              <div className="bg-white rounded-lg border border-primary-100 p-4 space-y-3">
                 {pkgMpCharge.pix_error && (
-                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
                     <p className="text-[11px] text-amber-700 font-medium">{pkgMpCharge.pix_error}</p>
                   </div>
                 )}
                 {pkgMpCharge.pix_qr_code_base64 && (
-                  <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
+                  <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-lg">
                     <img src={pkgMpCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-40 h-40" />
-                    <p className="text-xs text-slate-500 font-bold text-center">Escaneie com o app do banco</p>
+                    <p className="text-xs text-slate-500 font-semibold text-center">Escaneie com o app do banco</p>
                     {pkgMpCharge.pix_qr_code && (
                       <button onClick={() => { navigator.clipboard.writeText(pkgMpCharge.pix_qr_code); setPkgMpCopied(true); setTimeout(() => setPkgMpCopied(false), 2000); }}
-                        className="text-xs font-bold text-primary-700 flex items-center gap-1">
-                        📋 {pkgMpCopied ? "Copiado!" : "Copiar código PIX"}
+                        className="text-xs font-semibold text-primary-700 flex items-center gap-1">
+                        {pkgMpCopied ? "Copiado!" : "Copiar código PIX"}
                       </button>
                     )}
-                    <p className="text-[10px] text-primary-500 flex items-center gap-1">
+                    <p className="text-[11px] text-primary-500 flex items-center gap-1">
                       <span className="animate-spin inline-block w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full" /> Aguardando confirmação...
                     </p>
                   </div>
                 )}
                 {pkgMpCharge.payment_url && (
                   <a href={pkgMpCharge.payment_url} target="_blank" rel="noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 text-white text-sm font-bold rounded-xl hover:bg-primary-700 transition-all">
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-all">
                     Pagar agora (cartão)
                   </a>
                 )}
-                <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
+                <p className="text-[11px] text-slate-500 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
               </div>
             )}
 
             {!mpAvailable && asaasAvailable && !pkgAsaasCharge && (
-              <div className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="animate-spin inline-block w-5 h-5 border-2 border-teal-400 border-t-transparent rounded-full" />
-                <p className="text-xs text-slate-500 font-bold">Gerando Pix e link de pagamento...</p>
+              <div className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-lg border border-slate-100">
+                <span className="animate-spin inline-block w-5 h-5 border-2 border-primary-400 border-t-transparent rounded-full" />
+                <p className="text-xs text-slate-500 font-semibold">Gerando Pix e link de pagamento...</p>
               </div>
             )}
 
             {pkgAsaasCharge && !asaasApproved && (
-              <div className="bg-white rounded-2xl border border-teal-100 p-4 space-y-3">
+              <div className="bg-white rounded-lg border border-primary-100 p-4 space-y-3">
                 {pkgAsaasCharge.pix_qr_code_base64 && (
-                  <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-xl">
+                  <div className="flex flex-col items-center gap-2 p-4 bg-slate-50 rounded-lg">
                     <img src={pkgAsaasCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-40 h-40" />
-                    <p className="text-xs text-slate-500 font-bold text-center">Escaneie com o app do banco</p>
+                    <p className="text-xs text-slate-500 font-semibold text-center">Escaneie com o app do banco</p>
                     {pkgAsaasCharge.pix_copy_paste && (
                       <button onClick={() => { navigator.clipboard.writeText(pkgAsaasCharge.pix_copy_paste); setPkgAsaasCopied(true); setTimeout(() => setPkgAsaasCopied(false), 2000); }}
-                        className="text-xs font-bold text-teal-700 flex items-center gap-1">
-                        📋 {pkgAsaasCopied ? "Copiado!" : "Copiar código PIX"}
+                        className="text-xs font-semibold text-primary-700 flex items-center gap-1">
+                        {pkgAsaasCopied ? "Copiado!" : "Copiar código PIX"}
                       </button>
                     )}
-                    <p className="text-[10px] text-teal-500 flex items-center gap-1">
-                      <span className="animate-spin inline-block w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full" /> Aguardando confirmação...
+                    <p className="text-[11px] text-primary-500 flex items-center gap-1">
+                      <span className="animate-spin inline-block w-3 h-3 border-2 border-primary-400 border-t-transparent rounded-full" /> Aguardando confirmação...
                     </p>
                   </div>
                 )}
                 {pkgAsaasCharge.invoice_url && (
                   <a href={pkgAsaasCharge.invoice_url} target="_blank" rel="noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-700 transition-all">
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-all">
                     Pagar agora (cartão)
                   </a>
                 )}
-                <p className="text-[11px] text-slate-400 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
+                <p className="text-[11px] text-slate-500 text-center">Após o pagamento, ele será confirmado automaticamente.</p>
               </div>
             )}
 
@@ -1210,17 +1161,17 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
   if (mode === "schedule" || mode === "reschedule") {
     const isReschedule = mode === "reschedule";
     return (
-      <div className="space-y-4 pb-6">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => { setMode("list"); setStep("calendar"); setRescheduleAppt(null); }}>
-            <ArrowLeft size={16} />
-          </Button>
+          <IconButton variant="ghost" size="lg" onClick={() => { setMode("list"); setStep("calendar"); setRescheduleAppt(null); }} aria-label="Voltar">
+            <ArrowLeft size={14} />
+          </IconButton>
           <div>
-            <h2 className="text-base font-black text-slate-800">
+            <h2 className="text-base font-semibold text-slate-800">
               {isReschedule ? "Reagendar Consulta" : "Agendar Consulta"}
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               {step === "calendar" ? "Escolha a nova data" : step === "slots" ? "Escolha o horário" : step === "confirm" ? "Confirmar" : "Revisar datas"}
             </p>
           </div>
@@ -1228,10 +1179,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
         {/* Banner de reagendamento — consulta original */}
         {isReschedule && rescheduleAppt && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
             <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-black text-amber-700">Reagendando consulta</p>
+              <p className="text-xs font-semibold text-amber-700">Reagendando consulta</p>
               <p className="text-xs text-amber-600 mt-0.5">
                 {fmtDate(rescheduleAppt.start_date, { weekday: "short", day: "numeric", month: "short" })} às {fmtTime(rescheduleAppt.start_date)} será cancelada ao confirmar.
               </p>
@@ -1241,24 +1192,24 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
         {/* Profissional único — mostra com quem será a consulta */}
         {professionals.length === 1 && selectedProf && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-800 flex items-center justify-center text-white font-black shrink-0 shadow-md shadow-primary-500/20">
+          <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4 flex items-center gap-3">
+            <div className="w-11 h-11 rounded-lg bg-primary-600 flex items-center justify-center text-white font-semibold shrink-0">
               {selectedProf.name.charAt(0)}
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Sua profissional</p>
-              <p className="text-sm font-black text-slate-800 truncate">{selectedProf.name}</p>
-              {selectedProf.specialty && <p className="text-xs text-slate-400 truncate">{selectedProf.specialty}</p>}
+              <p className="text-[11px] text-slate-500">Sua profissional</p>
+              <p className="text-sm font-semibold text-slate-800 truncate">{selectedProf.name}</p>
+              {selectedProf.specialty && <p className="text-xs text-slate-500 truncate">{selectedProf.specialty}</p>}
             </div>
           </div>
         )}
 
         {/* Nenhum profissional disponível */}
         {professionals.length === 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
             <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-black text-amber-700">Profissional não disponível</p>
+              <p className="text-xs font-semibold text-amber-700">Profissional não disponível</p>
               <p className="text-xs text-amber-600 mt-0.5">
                 Não encontramos um profissional vinculado à sua conta. Fale com a clínica.
               </p>
@@ -1268,8 +1219,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
         {/* Seletor de profissional */}
         {professionals.length > 1 && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Profissional</p>
+          <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4">
+            <p className="text-xs font-medium text-slate-600 mb-2">Profissional</p>
             <div className="space-y-2">
               {professionals.map(p => (
                 <button key={p.id} onClick={() => {
@@ -1277,17 +1228,17 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   setStep("calendar");
                   setSlots([]);
                 }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left ${
                     schedForm.professional_id === p.id.toString()
                       ? "border-primary-300 bg-primary-50"
                       : "border-slate-100 hover:border-slate-200"
                   }`}>
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-400 to-primary-800 flex items-center justify-center text-white font-black text-sm shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
                     {p.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-700">{p.name}</p>
-                    {p.specialty && <p className="text-xs text-slate-400">{p.specialty}</p>}
+                    <p className="text-sm font-semibold text-slate-700">{p.name}</p>
+                    {p.specialty && <p className="text-xs text-slate-500">{p.specialty}</p>}
                   </div>
                   {schedForm.professional_id === p.id.toString() && (
                     <CheckCircle size={16} className="text-primary-500 ml-auto" />
@@ -1312,12 +1263,12 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               onMonthChange={(y, m) => loadMonthAvailability(schedForm.professional_id, y, m)}
             />
             {monthLoading && (
-              <div className="flex items-center gap-1.5 text-xs text-slate-400 px-1">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 px-1">
                 <Loader2 size={12} className="animate-spin" /> Carregando disponibilidade...
               </div>
             )}
             {slotsLoading && (
-              <div className="flex items-center justify-center gap-2 py-4 text-slate-400 text-sm">
+              <div className="flex items-center justify-center gap-2 py-4 text-slate-500 text-sm">
                 <Loader2 size={16} className="animate-spin" /> Buscando horários...
               </div>
             )}
@@ -1326,9 +1277,9 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
         {/* Step: Slots */}
         {step === "slots" && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-medium text-slate-600">
                 {schedForm.date ? new Date(schedForm.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) : ""}
               </p>
               <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="text-primary-600">
@@ -1337,8 +1288,8 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             </div>
             {slots.filter(s => s.available).length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-slate-500 font-bold text-sm">Nenhum horário disponível</p>
-                <p className="text-slate-400 text-xs mt-1">Escolha outra data</p>
+                <p className="text-slate-500 font-semibold text-sm">Nenhum horário disponível</p>
+                <p className="text-slate-500 text-xs mt-1">Escolha outra data</p>
                 <Button variant="ghost" size="sm" onClick={() => setStep("calendar")} className="mt-3 text-primary-600">← Voltar ao calendário</Button>
               </div>
             ) : (
@@ -1346,7 +1297,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 {slots.map(s => (
                   <button key={s.time} disabled={!s.available}
                     onClick={() => { setSchedForm(f => ({ ...f, time: s.time })); setStep("confirm"); }}
-                    className={`py-2.5 rounded-xl text-sm font-bold border transition-all ${
+                    className={`py-2.5 rounded-lg text-sm font-semibold border transition-all ${
                       !s.available
                         ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through"
                         : "bg-white text-slate-700 border-slate-200 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700"
@@ -1361,32 +1312,32 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
         {/* Step: Confirmar */}
         {step === "confirm" && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-            <div className="bg-primary-50 rounded-xl p-4 space-y-2">
+          <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4 space-y-4">
+            <div className="bg-primary-50 rounded-lg p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <Calendar size={14} className="text-primary-500" />
-                <span className="text-sm font-black text-primary-700">
+                <span className="text-sm font-semibold text-primary-700">
                   {new Date(schedForm.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-primary-500" />
-                <span className="text-sm font-bold text-primary-700">{schedForm.time} · {duration}min</span>
+                <span className="text-sm font-semibold text-primary-700">{schedForm.time} · {duration}min</span>
               </div>
               {selectedProf && (
                 <div className="flex items-center gap-2">
                   <User size={14} className="text-primary-500" />
-                  <span className="text-sm font-bold text-primary-700">{selectedProf.name}</span>
+                  <span className="text-sm font-semibold text-primary-700">{selectedProf.name}</span>
                 </div>
               )}
             </div>
 
             <div>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Modalidade</p>
+              <p className="text-xs font-medium text-slate-600 mb-2">Modalidade</p>
               <div className="grid grid-cols-2 gap-2">
                 {["online", "presencial"].map(m => (
                   <button key={m} onClick={() => setSchedForm(f => ({ ...f, modality: m }))}
-                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-2.5 rounded-lg text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${
                       schedForm.modality === m ? "bg-primary-600 text-white border-primary-500" : "bg-slate-50 text-slate-600 border-slate-200"
                     }`}>
                     {m === "online" ? <Video size={13} /> : <MapPin size={13} />}
@@ -1399,12 +1350,12 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
             {/* Repetição — só ao agendar (não no reagendamento) */}
             {!isReschedule && (
               <div>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Repetição</p>
+                <p className="text-xs font-medium text-slate-600 mb-2">Repetição</p>
                 <div className="grid grid-cols-2 gap-2">
                   {RECURRENCE_OPTIONS.map(opt => (
                     <button key={opt.value} type="button"
                       onClick={() => setSchedForm(f => ({ ...f, recurrence_freq: opt.value }))}
-                      className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      className={`py-2.5 px-2 rounded-lg text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${
                         schedForm.recurrence_freq === opt.value
                           ? "bg-primary-600 text-white border-primary-500"
                           : "bg-slate-50 text-slate-600 border-slate-200 hover:border-primary-200"
@@ -1415,13 +1366,13 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   ))}
                 </div>
                 {schedForm.recurrence_freq && (
-                  <div className="mt-2.5 flex items-center gap-2 bg-primary-50/60 rounded-xl px-3 py-2.5 border border-primary-100">
-                    <span className="text-xs font-bold text-slate-600">Quantas sessões?</span>
+                  <div className="mt-2.5 flex items-center gap-2 bg-primary-50/60 rounded-lg px-3 py-2.5 border border-primary-100">
+                    <span className="text-xs font-semibold text-slate-600">Quantas sessões?</span>
                     <div className="flex items-center gap-1 ml-auto">
                       {[2, 4, 8, 12].map(n => (
                         <button key={n} type="button"
                           onClick={() => setSchedForm(f => ({ ...f, recurrence_count: n }))}
-                          className={`w-8 h-8 rounded-lg text-xs font-black border transition-all ${
+                          className={`w-8 h-8 rounded-lg text-xs font-semibold border transition-all ${
                             schedForm.recurrence_count === n
                               ? "bg-primary-600 text-white border-primary-500"
                               : "bg-white text-slate-600 border-slate-200 hover:border-primary-300"
@@ -1433,23 +1384,23 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                 {schedForm.recurrence_freq && (
                   <div className="mt-2">
                     {reviewLoading ? (
-                      <p className="text-[11px] text-slate-400 px-1 animate-pulse">Verificando datas...</p>
+                      <p className="text-[11px] text-slate-500 px-1 animate-pulse">Verificando datas...</p>
                     ) : reviewOccurrences.length > 0 ? (
-                      <div className="rounded-xl border border-slate-200 overflow-hidden">
+                      <div className="rounded-lg border border-slate-200 overflow-hidden">
                         {reviewOccurrences.map((o, i) => (
                           <div key={i} className={`flex items-center justify-between px-3 py-2 text-xs border-b last:border-b-0 ${o.conflict ? "bg-red-50 border-red-100" : "bg-white"}`}>
-                            <span className={`font-bold ${o.conflict ? "text-red-600" : "text-slate-700"}`}>
+                            <span className={`font-semibold ${o.conflict ? "text-red-600" : "text-slate-700"}`}>
                               Sessão {i + 1} — {new Date(o.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" })} às {o.time}
                             </span>
-                            {o.conflict && <span className="text-red-500 font-bold text-[10px]">OCUPADO</span>}
+                            {o.conflict && <span className="text-red-500 font-semibold text-[11px]">OCUPADO</span>}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-[11px] text-slate-400 px-1">Serão criadas {schedForm.recurrence_count} sessões a partir do dia/horário escolhido.</p>
+                      <p className="text-[11px] text-slate-500 px-1">Serão criadas {schedForm.recurrence_count} sessões a partir do dia/horário escolhido.</p>
                     )}
                     {reviewOccurrences.some(o => o.conflict) && (
-                      <p className="text-[11px] text-orange-500 font-bold mt-1 px-1">Há conflitos — você poderá escolher outros horários na próxima tela.</p>
+                      <p className="text-[11px] text-amber-500 font-semibold mt-1 px-1">Há conflitos — você poderá escolher outros horários na próxima tela.</p>
                     )}
                   </div>
                 )}
@@ -1463,7 +1414,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
             <div className="space-y-2">
               {isReschedule ? (
-                <Button variant="primary" onClick={submitReschedule} loading={loading} loadingText="Reagendando..." iconLeft={<Check size={15} />} className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
+                <Button variant="primary" onClick={submitReschedule} loading={loading} loadingText="Reagendando..." iconLeft={<Check size={15} />} fullWidth>
                   Confirmar Reagendamento
                 </Button>
               ) : (
@@ -1471,7 +1422,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   <Button variant="primary"
                     onClick={() => schedForm.recurrence_freq ? goToReviewOrConfirm() : submitDirect()}
                     loading={loading} loadingText="Agendando..."
-                    iconLeft={<Check size={15} />} className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
+                    iconLeft={<Check size={15} />} fullWidth>
                     {schedForm.recurrence_freq ? `Revisar e confirmar ${schedForm.recurrence_count} sessões` : "Confirmar Agendamento"}
                   </Button>
                   <Button variant="ghost" onClick={submitRequest} disabled={loading || reviewLoading} className="w-full">
@@ -1486,19 +1437,19 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
         {/* Step: Revisar datas das sessões (quando há repetição) */}
         {step === "review" && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+          <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4 space-y-4">
             <p className="text-xs text-slate-500">Confira as datas das suas sessões. Horários em vermelho já estão ocupados — toque para escolher outro.</p>
             <div className="space-y-2">
               {reviewOccurrences.map((occ, idx) => {
                 const dateLabel = new Date(occ.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
                 const isEditing = editingSessionIdx === idx;
                 return (
-                  <div key={idx} className={`rounded-xl border p-3 transition-all ${occ.conflict ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
+                  <div key={idx} className={`rounded-lg border p-3 transition-all ${occ.conflict ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${occ.conflict ? "bg-red-400 text-white" : "bg-primary-500 text-white"}`}>{idx + 1}</span>
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold ${occ.conflict ? "bg-red-400 text-white" : "bg-primary-500 text-white"}`}>{idx + 1}</span>
                         <div>
-                          <p className={`text-sm font-bold ${occ.conflict ? "text-red-700" : "text-slate-700"}`}>{dateLabel}</p>
+                          <p className={`text-sm font-semibold ${occ.conflict ? "text-red-700" : "text-slate-700"}`}>{dateLabel}</p>
                           <p className={`text-xs ${occ.conflict ? "text-red-500" : "text-slate-400"}`}>{occ.time} · {duration}min {occ.conflict ? "— horário ocupado" : ""}</p>
                         </div>
                       </div>
@@ -1509,7 +1460,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                             setEditingSessionIdx(idx);
                             if (!occ.editingSlots) loadSlotsForReview(idx, occ.date);
                           }}
-                          className="text-xs font-bold text-red-600 underline">
+                          className="text-xs font-semibold text-red-600 underline">
                           {isEditing ? "Fechar" : "Trocar"}
                         </button>
                       )}
@@ -1517,10 +1468,10 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                     {isEditing && (
                       <div className="mt-3 pt-3 border-t border-red-200">
                         {occ.editingLoading ? (
-                          <p className="text-xs text-slate-400 text-center py-2">Carregando horários...</p>
+                          <p className="text-xs text-slate-500 text-center py-2">Carregando horários...</p>
                         ) : (
                           <>
-                            <p className="text-xs font-bold text-slate-500 mb-2">Horários disponíveis em {dateLabel}:</p>
+                            <p className="text-xs font-semibold text-slate-500 mb-2">Horários disponíveis em {dateLabel}:</p>
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
                               {(occ.editingSlots || []).filter(s => s.available).map(s => (
                                 <button key={s.time} type="button"
@@ -1528,12 +1479,12 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                                     setReviewOccurrences(prev => prev.map((o, i) => i === idx ? { ...o, time: s.time, conflict: false, editingSlots: undefined } : o));
                                     setEditingSessionIdx(null);
                                   }}
-                                  className="py-1.5 rounded-lg text-xs font-bold border border-primary-200 bg-white text-primary-700 hover:bg-primary-50">
+                                  className="py-1.5 rounded-lg text-xs font-semibold border border-primary-200 bg-white text-primary-700 hover:bg-primary-50">
                                   {s.time}
                                 </button>
                               ))}
                               {(occ.editingSlots || []).filter(s => s.available).length === 0 && (
-                                <p className="col-span-4 text-xs text-slate-400 text-center py-1">Nenhum horário disponível neste dia.</p>
+                                <p className="col-span-4 text-xs text-slate-500 text-center py-1">Nenhum horário disponível neste dia.</p>
                               )}
                             </div>
                           </>
@@ -1545,14 +1496,14 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               })}
             </div>
             {reviewOccurrences.some(o => o.conflict) && (
-              <p className="text-xs text-red-500 font-bold text-center">Resolva os conflitos antes de confirmar.</p>
+              <p className="text-xs text-red-500 font-semibold text-center">Resolva os conflitos antes de confirmar.</p>
             )}
             <div className="space-y-2">
               <Button variant="primary"
                 onClick={() => submitDirect(reviewOccurrences.map(o => ({ date: o.date, time: o.time })))}
                 disabled={reviewOccurrences.some(o => o.conflict)}
                 loading={loading} loadingText="Agendando..."
-                iconLeft={<Check size={15} />} className="w-full bg-primary-600 border-primary-600 hover:bg-primary-700">
+                iconLeft={<Check size={15} />} fullWidth>
                 Confirmar {reviewOccurrences.length} Sessões
               </Button>
             </div>
@@ -1565,24 +1516,24 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
   // ─── LIST VIEW ───────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4">
 
       {/* Banner do pacote ativo */}
       {activeComanda && (
-        <div className="bg-white rounded-2xl border border-primary-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-primary-200 overflow-hidden">
           <div className="bg-primary-50 border-b border-primary-100 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-primary-600 flex items-center justify-center shrink-0">
                 <Sparkles size={12} className="text-white" />
               </div>
-              <span className="text-xs font-black text-primary-700">Seu Pacote Ativo</span>
+              <span className="text-xs font-semibold text-primary-700">Seu Pacote Ativo</span>
             </div>
-            <span className="text-[10px] font-bold text-primary-500 bg-primary-100 px-2 py-0.5 rounded-full">ABERTO</span>
+            <Badge color="primary" size="sm">Aberto</Badge>
           </div>
           <div className="px-4 py-3">
-            <p className="text-xs font-bold text-slate-600 truncate">{activeComanda.description}</p>
+            <p className="text-xs font-semibold text-slate-600 truncate">{activeComanda.description}</p>
             {activeComanda.service_name && (
-              <p className="text-[11px] font-bold text-primary-600 mb-2">{activeComanda.sessions_total}x {activeComanda.service_name}</p>
+              <p className="text-[11px] font-semibold text-primary-600 mb-2">{activeComanda.sessions_total}x {activeComanda.service_name}</p>
             )}
             {/* Barra de progresso */}
             <div className="flex items-center gap-2 mb-2">
@@ -1592,31 +1543,31 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                   style={{ width: `${Math.min(100, (activeComanda.sessions_done / activeComanda.sessions_total) * 100)}%` }}
                 />
               </div>
-              <span className="text-xs font-black text-slate-600 shrink-0">
+              <span className="text-xs font-semibold text-slate-600 shrink-0">
                 {activeComanda.sessions_done}/{activeComanda.sessions_total}
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-slate-50 rounded-xl py-2">
-                <p className="text-base font-black text-slate-800">{activeComanda.sessions_total}</p>
-                <p className="text-[10px] text-slate-400">Total</p>
+              <div className="bg-slate-50 rounded-lg py-2">
+                <p className="text-base font-semibold text-slate-800">{activeComanda.sessions_total}</p>
+                <p className="text-[11px] text-slate-500">Total</p>
               </div>
-              <div className="bg-emerald-50 rounded-xl py-2">
-                <p className="text-base font-black text-emerald-600">{activeComanda.sessions_done}</p>
-                <p className="text-[10px] text-slate-400">Realizadas</p>
+              <div className="bg-emerald-50 rounded-lg py-2">
+                <p className="text-base font-semibold text-emerald-600">{activeComanda.sessions_done}</p>
+                <p className="text-[11px] text-slate-500">Realizadas</p>
               </div>
-              <div className="bg-primary-50 rounded-xl py-2">
-                <p className="text-base font-black text-primary-600">{activeComanda.sessions_remaining}</p>
-                <p className="text-[10px] text-slate-400">Restantes</p>
+              <div className="bg-primary-50 rounded-lg py-2">
+                <p className="text-base font-semibold text-primary-600">{activeComanda.sessions_remaining}</p>
+                <p className="text-[11px] text-slate-500">Restantes</p>
               </div>
             </div>
             {slotsLeft !== null && slotsLeft > 0 && (
-              <p className="text-xs text-primary-600 font-bold mt-2 text-center">
+              <p className="text-xs text-primary-600 font-semibold mt-2 text-center">
                 Você pode agendar mais {slotsLeft} sessão{slotsLeft !== 1 ? "ões" : ""}
               </p>
             )}
             {slotsLeft === 0 && (
-              <p className="text-xs text-amber-600 font-bold mt-2 text-center">
+              <p className="text-xs text-amber-600 font-semibold mt-2 text-center">
                 Todas as sessões do pacote já estão agendadas
               </p>
             )}
@@ -1626,27 +1577,26 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
 
       {/* Banner do pacote pendente de pagamento */}
       {pendingComanda && (
-        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-amber-200 overflow-hidden">
           <div className="bg-amber-50 border-b border-amber-100 px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
                 <Gem size={12} className="text-white" />
               </div>
-              <span className="text-xs font-black text-amber-700">Pacote aguardando pagamento</span>
+              <span className="text-xs font-semibold text-amber-700">Pacote aguardando pagamento</span>
             </div>
-            <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">PENDENTE</span>
+            <Badge color="warning" size="sm">Pendente</Badge>
           </div>
           <div className="px-4 py-3 space-y-2">
-            <p className="text-xs font-bold text-slate-600 truncate">{pendingComanda.description}</p>
+            <p className="text-xs font-semibold text-slate-600 truncate">{pendingComanda.description}</p>
             {pendingComanda.service_name && (
-              <p className="text-[11px] font-bold text-amber-600">{pendingComanda.sessions_total}x {pendingComanda.service_name}</p>
+              <p className="text-[11px] font-semibold text-amber-600">{pendingComanda.sessions_total}x {pendingComanda.service_name}</p>
             )}
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               {fmtCurrency((pendingComanda.total || 0) - pendingComanda.received)} restante — o pacote libera o agendamento assim que o pagamento for confirmado.
             </p>
-            <Button variant="primary" size="sm"
-              onClick={() => { setPayingComanda(pendingComanda); setPkgMpCharge(null); setPkgAsaasCharge(null); setMode("pay-comanda"); }}
-              className="w-full bg-amber-500 border-amber-500 hover:bg-amber-600">
+            <Button variant="warning" size="sm" fullWidth
+              onClick={() => { setPayingComanda(pendingComanda); setPkgMpCharge(null); setPkgAsaasCharge(null); setMode("pay-comanda"); }}>
               Pagar agora
             </Button>
           </div>
@@ -1659,7 +1609,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
           <Button variant="primary"
             disabled={slotsLeft === 0 && !!activeComanda}
             onClick={() => { setMode("schedule"); setStep("calendar"); setSchedForm(f => ({ ...f, date: "", time: "" })); }}
-            className="flex-1 bg-primary-600 border-primary-600 hover:bg-primary-700 shadow-lg disabled:opacity-50">
+            className="flex-1">
             <Plus size={16} /> {activeComanda ? "Usar sessão do pacote" : "Agendar Consulta"}
           </Button>
           <Button
@@ -1675,26 +1625,35 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
       )}
 
       {requests.filter(r => r.status === "pending").length > 0 && (
-        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-amber-200 overflow-hidden">
           <div className="bg-amber-50 border-b border-amber-100 px-4 py-2.5">
-            <span className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5"><Clock size={12} />Aguardando Confirmação</span>
+            <span className="text-xs font-semibold text-amber-700 flex items-center gap-1.5"><Clock size={12} />Aguardando Confirmação</span>
           </div>
           {requests.filter(r => r.status === "pending").map(r => (
             <div key={r.id} className="px-4 py-3.5 border-b border-slate-50 last:border-0">
-              <p className="text-sm font-bold text-slate-700">{fmtDate(r.preferred_date)}{r.preferred_time ? ` às ${r.preferred_time}` : ""}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{MODALITY_LABELS[r.preferred_modality]}</p>
+              <p className="text-sm font-semibold text-slate-700">{fmtDate(r.preferred_date)}{r.preferred_time ? ` às ${r.preferred_time}` : ""}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{MODALITY_LABELS[r.preferred_modality]}</p>
               {r.notes && <p className="text-xs text-slate-500 mt-1 italic">"{r.notes}"</p>}
             </div>
           ))}
         </div>
       )}
 
-      <div className="xl:grid xl:grid-cols-2 xl:gap-5 xl:items-start space-y-4 xl:space-y-0">
-      {upcoming.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-slate-50">
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Próximas Consultas</span>
-          </div>
+      {(upcoming.length > 0 || past.length > 0) && (
+      <Tabs<"upcoming" | "history">
+        items={[
+          { id: "upcoming", label: "Próximas Consultas", icon: Calendar, badge: upcoming.length || undefined },
+          { id: "history", label: "Histórico", icon: Clock, badge: past.length || undefined },
+        ]}
+        value={agendaView}
+        onChange={setAgendaView}
+        label="Consultas"
+      >
+      {agendaView === "upcoming" && upcoming.length === 0 && (
+        <EmptyState icon={Calendar} title="Nenhuma consulta agendada" description="Suas próximas consultas aparecerão aqui." />
+      )}
+      {agendaView === "upcoming" && upcoming.length > 0 && (
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
           {upcoming.map(a => {
             const modifiable = canModify(a);
             const isOpen = actionApptId === a.id;
@@ -1702,19 +1661,19 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
               <div key={a.id} className="px-4 py-4 border-b border-slate-50 last:border-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 bg-primary-50 rounded-2xl flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center shrink-0">
                       <Calendar size={16} className="text-primary-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-800">{fmtDate(a.start_date, { weekday: "short", day: "numeric", month: "short" })}</p>
+                      <p className="text-sm font-semibold text-slate-800">{fmtDate(a.start_date, { weekday: "short", day: "numeric", month: "short" })}</p>
                       <p className="text-xs text-slate-500">{fmtTime(a.start_date)}{a.duration_minutes ? ` · ${a.duration_minutes}min` : ""}</p>
-                      <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
+                      <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
                         {a.modality === "online" ? <Video size={10} className="text-primary-400" /> : <MapPin size={10} />}
                         {MODALITY_LABELS[a.modality] || a.modality}
                       </div>
                       {a.modality === "online" && a.meeting_url && (
                         <a href={a.meeting_url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 mt-1.5 text-xs font-bold text-primary-600 hover:underline">
+                          className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-primary-600 hover:underline">
                           <ExternalLink size={10} />Entrar na sala
                         </a>
                       )}
@@ -1751,7 +1710,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                           <Button size="sm" variant="ghost" onClick={() => { setCancelId(a.id); setActionApptId(null); }} className="text-red-400 hover:text-red-600 gap-1">
                             <X size={11} /> Cancelar consulta
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setActionApptId(null)} className="text-slate-400 text-[10px]">Fechar</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setActionApptId(null)} className="text-slate-500 text-[11px]">Fechar</Button>
                         </div>
                       ) : (
                         <Button size="sm" variant="ghost" onClick={() => setActionApptId(a.id)} className="text-slate-400 hover:text-slate-600 text-xs gap-1">
@@ -1759,7 +1718,7 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
                         </Button>
                       )
                     ) : (
-                      <p className="text-[10px] text-slate-400 text-right max-w-[100px] leading-tight">
+                      <p className="text-[11px] text-slate-500 text-right max-w-[100px] leading-tight">
                         Alterações só até 24h antes
                       </p>
                     )}
@@ -1771,23 +1730,24 @@ function AgendaTab({ appointments, requests, professionals, onRefresh, allowSche
         </div>
       )}
 
-      {past.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-slate-50">
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Histórico</span>
-          </div>
+      {agendaView === "history" && past.length === 0 && (
+        <EmptyState icon={Clock} title="Nenhum histórico ainda" description="Suas consultas realizadas aparecerão aqui." />
+      )}
+      {agendaView === "history" && past.length > 0 && (
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
           {past.map(a => (
             <div key={a.id} className="px-4 py-3.5 flex items-center justify-between border-b border-slate-50 last:border-0">
               <div>
-                <p className="text-sm font-bold text-slate-600">{fmtDate(a.start_date)}</p>
-                <p className="text-xs text-slate-400">{fmtTime(a.start_date)}</p>
+                <p className="text-sm font-semibold text-slate-600">{fmtDate(a.start_date)}</p>
+                <p className="text-xs text-slate-500">{fmtTime(a.start_date)}</p>
               </div>
               <Badge color={STATUS_BADGE_COLOR[a.status] || "default"} dot>{STATUS_CONFIG[a.status]?.label || a.status}</Badge>
             </div>
           ))}
         </div>
       )}
-      </div>
+      </Tabs>
+      )}
 
       {upcoming.length === 0 && past.length === 0 && requests.length === 0 && (
         <EmptyState icon={Calendar} title="Nenhuma consulta" description="Suas consultas aparecerão aqui." />
@@ -1816,45 +1776,39 @@ function PixCard({ pix_key, pix_owner_name, pix_instructions }: {
   const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent(pix_key)}&size=200&margin=2`;
 
   return (
-    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl overflow-hidden">
+    <div className="bg-emerald-50 border border-emerald-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 flex items-start gap-3">
-        <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
-          <span className="text-white text-xs font-black">PIX</span>
+        <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
+          <span className="text-white text-xs font-semibold">PIX</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-black text-emerald-800">{pix_owner_name || "Chave PIX"}</p>
-          <p className="text-sm font-bold text-emerald-700 break-all mt-0.5">{pix_key}</p>
+          <p className="text-xs font-semibold text-emerald-800">{pix_owner_name || "Chave PIX"}</p>
+          <p className="text-sm font-semibold text-emerald-700 break-all mt-0.5">{pix_key}</p>
           {pix_instructions && (
             <p className="text-xs text-emerald-600 mt-1">{pix_instructions}</p>
           )}
         </div>
       </div>
       <div className="flex border-t border-emerald-200">
-        <button
-          onClick={copyKey}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold transition-all ${copied ? "text-emerald-700 bg-emerald-100" : "text-emerald-600 hover:bg-emerald-100"}`}
-        >
-          {copied ? <Check size={13} /> : <Copy size={13} />}
+        <Button variant="ghost" size="lg" onClick={copyKey} className="flex-1 rounded-none text-emerald-700 hover:bg-emerald-100"
+          iconLeft={copied ? <Check size={14} /> : <Copy size={14} />}>
           {copied ? "Chave copiada!" : "Copiar chave"}
-        </button>
+        </Button>
         <div className="w-px bg-emerald-200" />
-        <button
-          onClick={() => setShowQr(v => !v)}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold transition-all ${showQr ? "text-emerald-700 bg-emerald-100" : "text-emerald-600 hover:bg-emerald-100"}`}
-        >
-          <QrCode size={13} />
+        <Button variant="ghost" size="lg" onClick={() => setShowQr(v => !v)} className="flex-1 rounded-none text-emerald-700 hover:bg-emerald-100"
+          iconLeft={<QrCode size={14} />}>
           {showQr ? "Fechar QR" : "Ver QR Code"}
-        </button>
+        </Button>
       </div>
       {showQr && (
         <div className="flex flex-col items-center py-4 bg-white border-t border-emerald-100">
           <img
             src={qrUrl}
             alt="QR Code PIX"
-            className="w-44 h-44 rounded-xl border border-emerald-100"
+            className="w-44 h-44 rounded-lg border border-emerald-100"
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-          <p className="text-[11px] text-slate-400 mt-2">Escaneie com o app do seu banco</p>
+          <p className="text-[11px] text-slate-500 mt-2">Escaneie com o app do seu banco</p>
         </div>
       )}
     </div>
@@ -1963,29 +1917,23 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
   const filteredTotal = filtered.filter(p => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-4">
       {preview && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
           {preview.match(/\.pdf$/i) ? (
-            <iframe src={preview} className="w-full max-w-2xl h-[80vh] rounded-2xl" />
+            <iframe src={preview} className="w-full max-w-2xl h-[80vh] rounded-lg" />
           ) : (
-            <img src={preview} alt="comprovante" className="max-h-[85vh] max-w-full rounded-2xl object-contain" />
+            <img src={preview} alt="comprovante" className="max-h-[85vh] max-w-full rounded-lg object-contain" />
           )}
-          <button className="absolute top-4 right-4 text-white bg-white/20 rounded-full p-2"><X size={20} /></button>
+          <button aria-label="Fechar" className="absolute top-4 right-4 h-10 w-10 flex items-center justify-center text-white bg-white/20 rounded-full"><X size={18} /></button>
         </div>
       )}
 
       {/* Resumo total */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Total confirmado</p>
-          <p className="text-xl font-black text-emerald-600">{fmtCurrency(totalConfirmed)}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Aguardando</p>
-          <p className="text-xl font-black text-amber-500">{fmtCurrency(totalPending)}</p>
-        </div>
-      </div>
+      <StatGrid cols={2}>
+        <StatCard title="Total confirmado" value={fmtCurrency(totalConfirmed)} icon={CheckCircle} color="success" />
+        <StatCard title="Aguardando" value={fmtCurrency(totalPending)} icon={Clock} color="warning" />
+      </StatGrid>
 
       {/* PIX info se configurado */}
       {portalSettings.pix_key && (
@@ -1994,30 +1942,27 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
 
       {/* Botão declarar / form */}
       {!showForm ? (
-        <button
-          onClick={() => setShowForm(true)}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-600 text-white text-sm font-bold rounded-2xl hover:bg-emerald-700 shadow-md transition-all"
-        >
-          <Plus size={16} /> Declarar Pagamento Manual
-        </button>
+        <Button variant="primary" size="lg" fullWidth onClick={() => setShowForm(true)} iconLeft={<Plus size={14} />}>
+          Declarar Pagamento Manual
+        </Button>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-2.5 flex items-center justify-between">
-            <span className="text-sm font-black text-emerald-700 flex items-center gap-2"><CreditCard size={14} />Declarar Pagamento</span>
-            <button onClick={() => setShowForm(false)} className="text-slate-400 p-1"><X size={16} /></button>
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-primary-50 border-b border-primary-100 px-3 py-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-primary-700 flex items-center gap-2"><CreditCard size={14} />Declarar Pagamento</span>
+            <IconButton variant="ghost" size="md" onClick={() => setShowForm(false)} aria-label="Fechar"><X size={14} /></IconButton>
           </div>
-          <div className="p-4 space-y-3">
+          <div className="p-3 lg:p-4 space-y-3">
             {/* Toggle: pagar consulta ou pacote */}
             {comandas.filter(c => c.status === "open").length > 0 && (
               <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Tipo de pagamento</label>
+                <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Tipo de pagamento</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => { setPaymentTarget("appointment"); setForm(f => ({ ...f, comanda_id: "" })); }}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${paymentTarget === "appointment" ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
+                    className={`py-2 rounded-lg text-xs font-semibold border transition-all ${paymentTarget === "appointment" ? "bg-primary-600 text-white border-primary-600" : "bg-white text-slate-600 border-slate-200 hover:border-primary-300"}`}>
                     Consulta avulsa
                   </button>
                   <button type="button" onClick={() => { setPaymentTarget("comanda"); setForm(f => ({ ...f, appointment_id: "" })); }}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${paymentTarget === "comanda" ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
+                    className={`py-2 rounded-lg text-xs font-semibold border transition-all ${paymentTarget === "comanda" ? "bg-primary-600 text-white border-primary-600" : "bg-white text-slate-600 border-slate-200 hover:border-primary-300"}`}>
                     Pacote completo
                   </button>
                 </div>
@@ -2027,7 +1972,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
             {/* Seleção de consulta avulsa */}
             {paymentTarget === "appointment" && pendingAppts.length > 0 && (
               <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Consulta relacionada</label>
+                <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Consulta relacionada</label>
                 <Combobox
                   value={form.appointment_id}
                   onChange={(v) => setForm(f => ({ ...f, appointment_id: Array.isArray(v) ? v[0] || "" : v }))}
@@ -2043,7 +1988,7 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
             {/* Seleção de pacote */}
             {paymentTarget === "comanda" && (
               <div>
-                <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Pacote</label>
+                <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Pacote</label>
                 <Combobox
                   value={form.comanda_id}
                   onChange={(v) => {
@@ -2067,11 +2012,11 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                 onChange={e => setForm(f => ({ ...f, payment_date: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Forma de pagamento</label>
+              <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Forma de pagamento</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {enabledMethods.map(m => (
                   <button key={m.key} onClick={() => setForm(f => ({ ...f, payment_method: m.key }))}
-                    className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all ${form.payment_method === m.key ? "bg-emerald-600 text-white border-emerald-500" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300"}`}>
+                    className={`py-2.5 px-2 rounded-lg text-xs font-semibold border transition-all ${form.payment_method === m.key ? "bg-primary-600 text-white border-primary-600" : "bg-white text-slate-600 border-slate-200 hover:border-primary-300"}`}>
                     {m.label}
                   </button>
                 ))}
@@ -2080,8 +2025,8 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
             <Textarea label="Observações" rows={2} placeholder="Ex.: pago via PIX..."
               value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             <div>
-              <label className="text-xs font-black text-slate-500 uppercase tracking-wider mb-1.5 block">Comprovante (opcional)</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-emerald-300 transition-colors"
+              <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Comprovante (opcional)</label>
+              <div className="border-2 border-dashed border-slate-200 rounded-lg p-3 text-center cursor-pointer hover:border-primary-300 transition-colors"
                 onClick={() => fileRef.current?.click()}>
                 <Upload size={16} className="text-slate-400 mx-auto mb-1" />
                 <p className="text-xs text-slate-500">Toque para anexar foto ou PDF</p>
@@ -2089,14 +2034,14 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
                   onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} />
               </div>
               {files.map((f, i) => (
-                <div key={i} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 mt-2">
+                <div key={i} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200 mt-2">
                   <Paperclip size={12} className="text-slate-400 shrink-0" />
                   <span className="text-xs text-slate-600 flex-1 truncate">{f.name}</span>
-                  <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500"><X size={12} /></button>
+                  <IconButton variant="ghost" size="sm" onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} aria-label="Remover anexo"><X size={14} /></IconButton>
                 </div>
               ))}
             </div>
-            <Button variant="primary" onClick={submitPayment} loading={loading} loadingText="Enviando..." iconLeft={<Check size={16} />} className="w-full bg-emerald-600 border-emerald-600 hover:bg-emerald-700">
+            <Button variant="primary" onClick={submitPayment} loading={loading} loadingText="Enviando..." iconLeft={<Check size={14} />} fullWidth>
               Registrar Pagamento
             </Button>
           </div>
@@ -2104,69 +2049,53 @@ function PaymentsTab({ payments, appointments, comandas, onRefresh, showToast, p
       )}
 
       {/* Histórico com filtro mês/ano */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         {/* Header com filtros */}
         <div className="px-4 py-3 border-b border-slate-100">
-          <p className="text-xs font-black text-slate-600 mb-2">Histórico de Pagamentos</p>
-          {/* Seletor de ano */}
-          <div className="flex gap-1.5 mb-2 overflow-x-auto pb-0.5">
-            {years.map(y => (
-              <button key={y} onClick={() => setFilterYear(y)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all ${filterYear === y ? "bg-primary-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                {y}
-              </button>
-            ))}
-          </div>
-          {/* Seletor de mês */}
-          <div className="flex gap-1 overflow-x-auto pb-0.5">
-            {MONTHS.map((m, i) => (
-              <button key={i} onClick={() => setFilterMonth(i)}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold shrink-0 transition-all ${filterMonth === i ? "bg-emerald-600 text-white" : "bg-slate-50 text-slate-400 hover:bg-slate-100"}`}>
-                {m}
-              </button>
-            ))}
+          <p className="text-xs font-semibold text-slate-600 mb-2">Histórico de Pagamentos</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Ano" value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}>
+              {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </Select>
+            <Select label="Mês" value={filterMonth} onChange={e => setFilterMonth(Number(e.target.value))}>
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </Select>
           </div>
         </div>
 
         {/* Subtotal do mês */}
         {filtered.length > 0 && (
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-            <span className="text-[11px] text-slate-400 font-medium">{filtered.length} pagamento{filtered.length !== 1 ? "s" : ""} em {MONTHS[filterMonth]}/{filterYear}</span>
-            <span className="text-xs font-black text-emerald-600">{fmtCurrency(filteredTotal)} confirmados</span>
+            <span className="text-[11px] text-slate-500 font-medium">{filtered.length} pagamento{filtered.length !== 1 ? "s" : ""} em {MONTHS[filterMonth]}/{filterYear}</span>
+            <span className="text-xs font-semibold text-emerald-600">{fmtCurrency(filteredTotal)} confirmados</span>
           </div>
         )}
 
         {/* Lista do mês */}
         {filtered.length === 0 ? (
-          <div className="p-6 text-center">
-            <CreditCard size={28} className="text-slate-200 mx-auto mb-2" />
-            <p className="text-xs text-slate-400">Nenhum pagamento em {MONTHS[filterMonth]}/{filterYear}</p>
-          </div>
+          <EmptyState icon={CreditCard} title={`Nenhum pagamento em ${MONTHS[filterMonth]}/${filterYear}`} />
         ) : (
           <div className="xl:grid xl:grid-cols-2 divide-y xl:divide-y-0 divide-slate-50">
             {filtered.map(p => (
               <div key={p.id} className="px-4 py-3 border-b border-slate-50 xl:odd:border-r xl:border-slate-100 last:border-b-0">
                 <div className="flex items-start justify-between gap-3 mb-0.5">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-[10px] font-black ${
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[11px] font-semibold ${
                       p.status === "confirmed" ? "bg-emerald-100 text-emerald-600" :
                       p.status === "rejected"  ? "bg-red-100 text-red-500" : "bg-amber-100 text-amber-600"
                     }`}>
                       {new Date(p.payment_date).getDate().toString().padStart(2, "0")}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-800">{fmtCurrency(p.amount)}</p>
-                      <p className="text-[11px] text-slate-400">{METHOD_LABELS[p.payment_method] || p.payment_method} · {new Date(p.payment_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                      <p className="text-sm font-semibold text-slate-800">{fmtCurrency(p.amount)}</p>
+                      <p className="text-[11px] text-slate-500">{METHOD_LABELS[p.payment_method] || p.payment_method} · {new Date(p.payment_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}</p>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                    p.status === "confirmed" ? "bg-emerald-100 text-emerald-600" :
-                    p.status === "rejected"  ? "bg-red-100 text-red-500" : "bg-amber-100 text-amber-600"
-                  }`}>
+                  <Badge color={PAYMENT_BADGE_COLOR[p.status] || "default"} size="sm" className="shrink-0">
                     {PAYMENT_STATUS[p.status]?.label || p.status}
-                  </span>
+                  </Badge>
                 </div>
-                {p.notes && <p className="text-[11px] text-slate-400 italic ml-10 mt-0.5">"{p.notes}"</p>}
+                {p.notes && <p className="text-[11px] text-slate-500 italic ml-10 mt-0.5">"{p.notes}"</p>}
                 {p.attachments && p.attachments.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 ml-10 mt-1.5">
                     {p.attachments.map(att => (
@@ -2234,6 +2163,13 @@ function mkCep(v: string) {
 }
 
 // ─── Tab: Perfil ──────────────────────────────────────────────────────────────
+const PROFILE_TABS = [
+  { id: "dados", label: "Dados pessoais", icon: User },
+  { id: "profissional", label: "Meu profissional", icon: Stethoscope },
+  { id: "seguranca", label: "Segurança", icon: Shield },
+] as const;
+type ProfileTabId = typeof PROFILE_TABS[number]["id"];
+
 function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
   patient: PortalPatient;
   onLogout: () => void;
@@ -2359,32 +2295,6 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
   };
   const age = calcAge(form.birth_date);
 
-  // Chip do hero (info rápida)
-  const HeroChip = ({ icon: Icon, children }: { icon: any; children: React.ReactNode }) => (
-    <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full pl-2.5 pr-3 py-1 text-[11px] font-bold text-white/95 border border-white/10">
-      <Icon size={12} className="text-white/80 shrink-0" />
-      <span className="truncate max-w-[140px]">{children}</span>
-    </span>
-  );
-
-  // Cabeçalho de seção com ícone
-  const SectionHead = ({ icon: Icon, label, action }: { icon: any; label: string; action?: React.ReactNode }) => (
-    <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <div className="w-7 h-7 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
-          <Icon size={14} className="text-primary-600" />
-        </div>
-        <span className="text-xs font-black text-slate-600 uppercase tracking-wider truncate">{label}</span>
-      </div>
-      {action}
-    </div>
-  );
-
-  // Sub-cabeçalho dentro de uma seção (Básico / Endereço / etc.)
-  const SubLabel = ({ children }: { children: React.ReactNode }) => (
-    <p className="px-5 pt-4 pb-1 text-[10px] font-black text-primary-400/80 uppercase tracking-widest">{children}</p>
-  );
-
   const addContact = () =>
     sf("emergency_contacts", [...form.emergency_contacts, { id: Date.now().toString(), name: "", phone: "", relationship: "" }]);
   const removeContact = (id: string) =>
@@ -2392,292 +2302,285 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
   const updateContact = (id: string, field: keyof EmergencyContact, value: string) =>
     sf("emergency_contacts", form.emergency_contacts.map(c => c.id === id ? { ...c, [field]: value } : c));
 
-  // Label helper
-  const Field = ({ label, value }: { label: string; value?: string | number | null }) => (
-    <div className="px-5 py-3.5 border-b border-slate-50 last:border-0">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-sm text-slate-700">{value || "—"}</p>
-    </div>
+  const [profileTab, setProfileTab] = useState<ProfileTabId>("dados");
+  const profileTabs = PROFILE_TABS.filter(t => t.id !== "profissional" || !!patient.professional_name);
+
+  // Subtítulo de seção dentro de um cartão (Básico / Endereço / etc.)
+  const SubTitle = ({ children, first }: { children: React.ReactNode; first?: boolean }) => (
+    <p className={`text-xs font-semibold text-slate-700 mb-2 ${first ? "" : "mt-4"}`}>{children}</p>
   );
 
   return (
-    <div className="space-y-4 pb-6">
-      {/* ── HERO ── */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 shadow-xl shadow-primary-500/20">
-        {/* brilhos decorativos */}
-        <div className="absolute -right-10 -top-12 w-44 h-44 bg-white/10 rounded-full blur-2xl" />
-        <div className="absolute -left-8 bottom-0 w-32 h-32 bg-fuchsia-400/20 rounded-full blur-2xl" />
-        <div className="absolute right-1/3 top-1/2 w-24 h-24 bg-white/5 rounded-full blur-xl" />
-
-        <div className="relative p-6 pt-7">
-          <div className="flex items-center gap-4">
-            {/* avatar com anel gradiente */}
-            <div className="shrink-0 rounded-3xl p-[3px] bg-gradient-to-br from-white/80 via-white/30 to-white/10 shadow-lg">
-              <div className="w-[68px] h-[68px] rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-xl sm:text-2xl font-black text-white">
-                {patient.full_name.charAt(0).toUpperCase()}
-              </div>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="inline-flex items-center gap-1.5 bg-white/20 rounded-full px-2.5 py-0.5 mb-1.5">
-                <Sparkles size={10} className="text-white" />
-                <span className="text-[10px] font-black text-white uppercase tracking-wider">Meu Perfil</span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-black text-white leading-tight truncate">{patient.full_name}</h2>
-              {(patient.portal_email || patient.email) && (
-                <p className="text-white/70 text-sm mt-0.5 truncate flex items-center gap-1.5">
-                  <Mail size={12} className="shrink-0" />{patient.portal_email || patient.email}
-                </p>
-              )}
-            </div>
+    <div className="space-y-4">
+      {/* ── CABEÇALHO DO PERFIL ── */}
+      <ContentCard padding="md">
+        <div className="flex items-center gap-3">
+          <div className="h-14 w-14 shrink-0 rounded-lg border border-primary-100 bg-primary-50 flex items-center justify-center text-lg font-medium text-primary-700">
+            {patient.full_name.charAt(0).toUpperCase()}
           </div>
-
-          {/* chips de info rápida */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            {age !== null && <HeroChip icon={Cake}>{age} anos</HeroChip>}
-            {form.phone && <HeroChip icon={Phone}>{form.phone}</HeroChip>}
-            {form.city && <HeroChip icon={MapPin}>{[form.city, form.state].filter(Boolean).join("/")}</HeroChip>}
-            {form.health_plan && <HeroChip icon={Shield}>{form.health_plan}</HeroChip>}
-            {patient.company_name && <HeroChip icon={Briefcase}>{patient.company_name}</HeroChip>}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base sm:text-lg font-medium text-slate-900 leading-tight truncate">{patient.full_name}</h1>
+            {(patient.portal_email || patient.email) && (
+              <p className="text-xs text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
+                <Mail size={12} className="shrink-0" />{patient.portal_email || patient.email}
+              </p>
+            )}
           </div>
         </div>
-      </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          {age !== null && <Badge color="default" icon={<Cake size={12} />}>{age} anos</Badge>}
+          {form.phone && <Badge color="default" icon={<Phone size={12} />}>{form.phone}</Badge>}
+          {form.city && <Badge color="default" icon={<MapPin size={12} />}>{[form.city, form.state].filter(Boolean).join("/")}</Badge>}
+          {form.health_plan && <Badge color="default" icon={<Shield size={12} />}>{form.health_plan}</Badge>}
+          {patient.company_name && <Badge color="default" icon={<Briefcase size={12} />}>{patient.company_name}</Badge>}
+        </div>
+      </ContentCard>
+
+      <Tabs<ProfileTabId> items={profileTabs} value={profileTab} onChange={setProfileTab} label="Seções do perfil">
 
       {/* ── DADOS PESSOAIS ── */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <SectionHead icon={User} label="Dados Pessoais" action={
+      {profileTab === "dados" && (
+      <PanelCard title="Dados Pessoais" icon={User} action={
           !editing ? (
-            <Button size="sm" variant="outline" iconLeft={<Edit3 size={12} />} onClick={() => setEditing(true)}>
+            <Button size="sm" variant="outline" iconLeft={<Edit3 size={14} />} onClick={() => setEditing(true)}>
               Editar
             </Button>
           ) : (
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setForm(buildForm(patient)); }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => { setEditing(false); setForm(buildForm(patient)); }}>
                 Cancelar
               </Button>
-              <Button size="sm" variant="primary" iconLeft={saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
-                onClick={saveProfile} disabled={saving}>
-                {saving ? "Salvando..." : "Salvar"}
+              <Button size="sm" variant="primary" iconLeft={<Save size={14} />}
+                onClick={saveProfile} loading={saving} loadingText="Salvando...">
+                Salvar
               </Button>
             </div>
           )
-        } />
+        }>
 
         {editing ? (
-          <div className="p-5 space-y-3">
+          <div>
             {/* ─ Básico ─ */}
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Básico</p>
-            <Input label="Nome completo" value={form.name}
-              onChange={e => sf("name", e.target.value)} />
-            <Input label="Email" type="email" value={form.email}
-              onChange={e => sf("email", e.target.value)} />
-            <Input label="WhatsApp / Telefone" type="tel" value={form.phone}
-              onChange={e => sf("phone", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
-            <Input label="Telefone 2" type="tel" value={form.phone2}
-              onChange={e => sf("phone2", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
-            <Input label="CPF / CNPJ" value={form.cpf_cnpj}
-              onChange={e => sf("cpf_cnpj", e.target.value)} placeholder="000.000.000-00" />
-            <Input label="Data de nascimento" type="date" value={form.birth_date}
-              onChange={e => sf("birth_date", e.target.value)} />
-            <Combobox label="Gênero" value={form.gender}
-              onChange={v => sf("gender", v as string)}
-              options={[
-                { value: "", label: "Não informado" },
-                { value: "Masculino", label: "Masculino" },
-                { value: "Feminino", label: "Feminino" },
-                { value: "Não-binário", label: "Não-binário" },
-                { value: "Prefiro não informar", label: "Prefiro não informar" },
-              ]} />
-            <Input label="Plano de saúde" value={form.health_plan}
-              onChange={e => sf("health_plan", e.target.value)} placeholder="Ex.: Unimed, Amil..." />
-            <Textarea label="Observações" value={form.notes}
-              onChange={e => sf("notes", e.target.value)} placeholder="Informações adicionais..." />
+            <SubTitle first>Básico</SubTitle>
+            <FormRow cols={3}>
+              <div className="md:col-span-2 xl:col-span-3">
+                <Input label="Nome completo" value={form.name}
+                  onChange={e => sf("name", e.target.value)} />
+              </div>
+              <Input label="Email" type="email" value={form.email}
+                onChange={e => sf("email", e.target.value)} />
+              <Input label="WhatsApp / Telefone" type="tel" value={form.phone}
+                onChange={e => sf("phone", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
+              <Input label="Telefone 2" type="tel" value={form.phone2}
+                onChange={e => sf("phone2", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
+              <Input label="CPF / CNPJ" value={form.cpf_cnpj}
+                onChange={e => sf("cpf_cnpj", e.target.value)} placeholder="000.000.000-00" />
+              <Input label="Data de nascimento" type="date" value={form.birth_date}
+                onChange={e => sf("birth_date", e.target.value)} />
+              <Combobox label="Gênero" value={form.gender}
+                onChange={v => sf("gender", v as string)}
+                options={[
+                  { value: "", label: "Não informado" },
+                  { value: "Masculino", label: "Masculino" },
+                  { value: "Feminino", label: "Feminino" },
+                  { value: "Não-binário", label: "Não-binário" },
+                  { value: "Prefiro não informar", label: "Prefiro não informar" },
+                ]} />
+              <Input label="Plano de saúde" value={form.health_plan}
+                onChange={e => sf("health_plan", e.target.value)} placeholder="Ex.: Unimed, Amil..." />
+              <div className="md:col-span-2 xl:col-span-3">
+                <Textarea label="Observações" value={form.notes}
+                  onChange={e => sf("notes", e.target.value)} placeholder="Informações adicionais..." />
+              </div>
+            </FormRow>
 
             {/* ─ Endereço ─ */}
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Endereço</p>
-            <Input label="CEP" value={form.address_zip}
-              onChange={e => sf("address_zip", mkCep(e.target.value))} placeholder="00000-000" />
-            <Input label="Logradouro" value={form.street}
-              onChange={e => sf("street", e.target.value)} placeholder="Rua, Avenida..." />
-            <Input label="Número" value={form.house_number}
-              onChange={e => sf("house_number", e.target.value)} />
-            <Input label="Bairro" value={form.neighborhood}
-              onChange={e => sf("neighborhood", e.target.value)} />
-            <Input label="Cidade" value={form.city}
-              onChange={e => sf("city", e.target.value)} />
-            <Input label="Estado (UF)" value={form.state}
-              onChange={e => sf("state", e.target.value.toUpperCase())} maxLength={2} placeholder="SP" />
+            <SubTitle>Endereço</SubTitle>
+            <FormRow cols={3}>
+              <Input label="CEP" value={form.address_zip}
+                onChange={e => sf("address_zip", mkCep(e.target.value))} placeholder="00000-000" />
+              <Input label="Logradouro" value={form.street}
+                onChange={e => sf("street", e.target.value)} placeholder="Rua, Avenida..." />
+              <Input label="Número" value={form.house_number}
+                onChange={e => sf("house_number", e.target.value)} />
+              <Input label="Bairro" value={form.neighborhood}
+                onChange={e => sf("neighborhood", e.target.value)} />
+              <Input label="Cidade" value={form.city}
+                onChange={e => sf("city", e.target.value)} />
+              <Input label="Estado (UF)" value={form.state}
+                onChange={e => sf("state", e.target.value.toUpperCase())} maxLength={2} placeholder="SP" />
+            </FormRow>
 
             {/* ─ Social ─ */}
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Social</p>
-            <Combobox label="Estado civil" value={form.marital_status}
-              onChange={v => sf("marital_status", v as string)} options={MARITAL_OPTIONS} />
-            <Combobox label="Escolaridade" value={form.education}
-              onChange={v => sf("education", v as string)} options={EDUCATION_OPTIONS} />
-            <Input label="Profissão" value={form.profession}
-              onChange={e => sf("profession", e.target.value)} />
-            <Input label="Nacionalidade" value={form.nationality}
-              onChange={e => sf("nationality", e.target.value)} />
+            <SubTitle>Social</SubTitle>
+            <FormRow cols={3}>
+              <Combobox label="Estado civil" value={form.marital_status}
+                onChange={v => sf("marital_status", v as string)} options={MARITAL_OPTIONS} />
+              <Combobox label="Escolaridade" value={form.education}
+                onChange={v => sf("education", v as string)} options={EDUCATION_OPTIONS} />
+              <Input label="Profissão" value={form.profession}
+                onChange={e => sf("profession", e.target.value)} />
+              <Input label="Nacionalidade" value={form.nationality}
+                onChange={e => sf("nationality", e.target.value)} />
+            </FormRow>
 
             {/* ─ Família ─ */}
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2">Família</p>
-            <label className="flex items-center justify-between gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-              <span className="text-sm font-semibold text-slate-600">Possui filhos?</span>
-              <Switch
-                checked={!!form.has_children}
-                onCheckedChange={(next) => sf("has_children", next)}
-              />
-            </label>
-            {form.has_children && (
-              <>
-                <Input label="Total de filhos" type="number" value={String(form.children_count)}
-                  onChange={e => sf("children_count", parseInt(e.target.value) || 0)} />
-                <Input label="Filhos menores de idade" type="number" value={String(form.minor_children_count)}
-                  onChange={e => sf("minor_children_count", parseInt(e.target.value) || 0)} />
-              </>
-            )}
-            <Input label="Nome do cônjuge / parceiro" value={form.spouse_name}
-              onChange={e => sf("spouse_name", e.target.value)} />
-            <Input label="Telefone do cônjuge" type="tel" value={form.spouse_phone}
-              onChange={e => sf("spouse_phone", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
+            <SubTitle>Família</SubTitle>
+            <div className="space-y-3">
+              <label className="flex items-center justify-between gap-3 bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-200">
+                <span className="text-xs font-medium text-slate-700">Possui filhos?</span>
+                <Switch
+                  checked={!!form.has_children}
+                  onCheckedChange={(next) => sf("has_children", next)}
+                />
+              </label>
+              <FormRow cols={3}>
+                {form.has_children && (
+                  <>
+                    <Input label="Total de filhos" type="number" value={String(form.children_count)}
+                      onChange={e => sf("children_count", parseInt(e.target.value) || 0)} />
+                    <Input label="Filhos menores de idade" type="number" value={String(form.minor_children_count)}
+                      onChange={e => sf("minor_children_count", parseInt(e.target.value) || 0)} />
+                  </>
+                )}
+                <Input label="Nome do cônjuge / parceiro" value={form.spouse_name}
+                  onChange={e => sf("spouse_name", e.target.value)} />
+                <Input label="Telefone do cônjuge" type="tel" value={form.spouse_phone}
+                  onChange={e => sf("spouse_phone", mkPhone(e.target.value))} placeholder="(00) 00000-0000" />
+              </FormRow>
+            </div>
 
             {/* ─ Contatos de emergência ─ */}
-            <div className="flex items-center justify-between pt-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contatos de emergência</p>
-              <Button size="sm" variant="outline" iconLeft={<Plus size={12} />} onClick={addContact}>
+            <div className="flex items-center justify-between mt-4 mb-2">
+              <p className="text-xs font-semibold text-slate-700">Contatos de emergência</p>
+              <Button size="sm" variant="outline" iconLeft={<Plus size={14} />} onClick={addContact}>
                 Adicionar
               </Button>
             </div>
-            {form.emergency_contacts.length === 0 && (
-              <p className="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                Nenhum contato de emergência
-              </p>
-            )}
-            {form.emergency_contacts.map((c, idx) => (
-              <div key={c.id} className="bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500">Contato {idx + 1}</span>
-                  <IconButton variant="ghost" size="xs" onClick={() => removeContact(c.id)}
-                    className="hover:text-red-500 hover:bg-red-50">
-                    <Trash2 size={13} />
-                  </IconButton>
+            <div className="space-y-3">
+              {form.emergency_contacts.length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-3 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  Nenhum contato de emergência
+                </p>
+              )}
+              {form.emergency_contacts.map((c, idx) => (
+                <div key={c.id} className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-600">Contato {idx + 1}</span>
+                    <IconButton variant="ghost" size="sm" onClick={() => removeContact(c.id)} aria-label={`Remover contato ${idx + 1}`}
+                      className="hover:text-red-500 hover:bg-red-50">
+                      <Trash2 size={14} />
+                    </IconButton>
+                  </div>
+                  <FormRow cols={3}>
+                    <Input placeholder="Nome" aria-label="Nome do contato" value={c.name}
+                      onChange={e => updateContact(c.id, "name", e.target.value)} />
+                    <Combobox value={c.relationship} placeholder="Parentesco"
+                      onChange={v => updateContact(c.id, "relationship", v as string)}
+                      options={RELATIONSHIP_OPTIONS} />
+                    <Input placeholder="Telefone" aria-label="Telefone do contato" type="tel" value={c.phone}
+                      onChange={e => updateContact(c.id, "phone", mkPhone(e.target.value))} />
+                  </FormRow>
                 </div>
-                <Input placeholder="Nome" value={c.name}
-                  onChange={e => updateContact(c.id, "name", e.target.value)} />
-                <Combobox value={c.relationship} placeholder="Parentesco"
-                  onChange={v => updateContact(c.id, "relationship", v as string)}
-                  options={RELATIONSHIP_OPTIONS} />
-                <Input placeholder="Telefone" type="tel" value={c.phone}
-                  onChange={e => updateContact(c.id, "phone", mkPhone(e.target.value))} />
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : (
           /* ── MODO VISUALIZAÇÃO ── */
           <div>
-            <SubLabel>Básico</SubLabel>
-            <div className="lg:grid lg:grid-cols-2">
-              <Field label="Nome completo" value={form.name} />
-              <Field label="Email" value={form.email} />
-              <Field label="WhatsApp / Telefone" value={form.phone} />
-              {form.phone2 && <Field label="Telefone 2" value={form.phone2} />}
-              {form.cpf_cnpj && <Field label="CPF / CNPJ" value={form.cpf_cnpj} />}
-              <Field label="Data de nascimento" value={fmtBirth(form.birth_date)} />
-              <Field label="Gênero" value={form.gender} />
-              <Field label="Plano de saúde" value={form.health_plan} />
-              {form.notes && <Field label="Observações" value={form.notes} />}
-            </div>
+            <SubTitle first>Básico</SubTitle>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6">
+              <DetailField label="Nome completo" value={form.name} />
+              <DetailField label="Email" value={form.email} />
+              <DetailField label="WhatsApp / Telefone" value={form.phone} />
+              {form.phone2 && <DetailField label="Telefone 2" value={form.phone2} />}
+              {form.cpf_cnpj && <DetailField label="CPF / CNPJ" value={form.cpf_cnpj} />}
+              <DetailField label="Data de nascimento" value={fmtBirth(form.birth_date)} />
+              <DetailField label="Gênero" value={form.gender} />
+              <DetailField label="Plano de saúde" value={form.health_plan} />
+              {form.notes && <DetailField label="Observações" value={form.notes} />}
+            </dl>
 
             {(form.street || form.city || form.address_zip) && (
               <>
-                <SubLabel>Endereço</SubLabel>
-                <div className="lg:grid lg:grid-cols-2">
-                  {form.address_zip && <Field label="CEP" value={form.address_zip} />}
-                  {form.street && <Field label="Logradouro" value={[form.street, form.house_number].filter(Boolean).join(", ")} />}
-                  {form.neighborhood && <Field label="Bairro" value={form.neighborhood} />}
-                  {form.city && <Field label="Cidade / Estado" value={[form.city, form.state].filter(Boolean).join(" — ")} />}
-                </div>
+                <SubTitle>Endereço</SubTitle>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6">
+                  {form.address_zip && <DetailField label="CEP" value={form.address_zip} />}
+                  {form.street && <DetailField label="Logradouro" value={[form.street, form.house_number].filter(Boolean).join(", ")} />}
+                  {form.neighborhood && <DetailField label="Bairro" value={form.neighborhood} />}
+                  {form.city && <DetailField label="Cidade / Estado" value={[form.city, form.state].filter(Boolean).join(" — ")} />}
+                </dl>
               </>
             )}
 
             {(form.marital_status || form.education || form.profession || form.nationality) && (
               <>
-                <SubLabel>Social</SubLabel>
-                <div className="lg:grid lg:grid-cols-2">
-                  {form.marital_status && <Field label="Estado civil" value={MARITAL_OPTIONS.find(o => o.value === form.marital_status)?.label} />}
-                  {form.education && <Field label="Escolaridade" value={EDUCATION_OPTIONS.find(o => o.value === form.education)?.label} />}
-                  {form.profession && <Field label="Profissão" value={form.profession} />}
-                  {form.nationality && <Field label="Nacionalidade" value={form.nationality} />}
-                </div>
+                <SubTitle>Social</SubTitle>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6">
+                  {form.marital_status && <DetailField label="Estado civil" value={MARITAL_OPTIONS.find(o => o.value === form.marital_status)?.label} />}
+                  {form.education && <DetailField label="Escolaridade" value={EDUCATION_OPTIONS.find(o => o.value === form.education)?.label} />}
+                  {form.profession && <DetailField label="Profissão" value={form.profession} />}
+                  {form.nationality && <DetailField label="Nacionalidade" value={form.nationality} />}
+                </dl>
               </>
             )}
 
             {(form.has_children || form.spouse_name || form.emergency_contacts.length > 0) && (
               <>
-                <SubLabel>Família</SubLabel>
-                <div className="lg:grid lg:grid-cols-2">
+                <SubTitle>Família</SubTitle>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6">
                   {form.has_children && (
-                    <Field label="Filhos" value={`${form.children_count} total · ${form.minor_children_count} menor(es)`} />
+                    <DetailField label="Filhos" value={`${form.children_count} total · ${form.minor_children_count} menor(es)`} />
                   )}
-                  {form.spouse_name && <Field label="Cônjuge" value={form.spouse_name} />}
+                  {form.spouse_name && <DetailField label="Cônjuge" value={form.spouse_name} />}
                   {form.emergency_contacts.map((c, i) => (
-                    <div key={c.id} className="px-5 py-3.5 border-b border-slate-50 last:border-0">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Emergência {i + 1}</p>
-                      <p className="text-sm text-slate-700 font-semibold">{c.name || "—"}</p>
-                      {c.relationship && <p className="text-xs text-slate-400">{RELATIONSHIP_OPTIONS.find(r => r.value === c.relationship)?.label || c.relationship}</p>}
-                      {c.phone && <p className="text-xs text-slate-500">{c.phone}</p>}
+                    <div key={c.id} className="min-w-0 border-b border-slate-100 py-2.5">
+                      <dt className="text-[11px] text-slate-500">Emergência {i + 1}</dt>
+                      <dd className="mt-1 text-[13px] text-slate-800 font-medium">{c.name || "—"}</dd>
+                      {c.relationship && <dd className="text-xs text-slate-500">{RELATIONSHIP_OPTIONS.find(r => r.value === c.relationship)?.label || c.relationship}</dd>}
+                      {c.phone && <dd className="text-xs text-slate-500">{c.phone}</dd>}
                     </div>
                   ))}
-                </div>
+                </dl>
               </>
             )}
           </div>
         )}
-      </div>
+      </PanelCard>
+      )}
 
-      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
-        {/* Meu profissional */}
-        {patient.professional_name && (
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <SectionHead icon={Stethoscope} label="Meu Profissional" />
-            <div className="px-5 py-4 flex items-center gap-3.5">
-              <div className="w-14 h-14 bg-gradient-to-br from-primary-500 to-primary-800 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 shadow-md shadow-primary-500/25">
-                {patient.professional_name.charAt(0)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-black text-slate-800 leading-tight">{patient.professional_name}</p>
-                {patient.specialty && <p className="text-sm text-slate-500 mt-0.5">{patient.specialty}</p>}
-                {patient.crp && (
-                  <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-primary-600 bg-primary-50 rounded-full px-2 py-0.5">
-                    <Gem size={9} /> CRP {patient.crp}
-                  </span>
-                )}
-              </div>
+      {/* Meu profissional */}
+      {profileTab === "profissional" && patient.professional_name && (
+        <PanelCard title="Meu Profissional" icon={Stethoscope}>
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 bg-primary-50 border border-primary-100 rounded-lg flex items-center justify-center text-primary-700 font-medium text-lg shrink-0">
+              {patient.professional_name.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-slate-900 leading-tight">{patient.professional_name}</p>
+              {patient.specialty && <p className="text-xs text-slate-500 mt-0.5">{patient.specialty}</p>}
+              {patient.crp && (
+                <Badge color="primary" size="sm" icon={<Gem size={11} />} className="mt-1.5">CRP {patient.crp}</Badge>
+              )}
             </div>
           </div>
-        )}
+        </PanelCard>
+      )}
 
-        {/* Segurança */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <button onClick={() => setShowPassSection(v => !v)}
-            className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-50 to-primary-800 rounded-2xl flex items-center justify-center shrink-0">
-                <Shield size={17} className="text-primary-600" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-black text-slate-700">Segurança da conta</p>
-                <p className="text-xs text-slate-400 flex items-center gap-1">
-                  {patient.portal_password_set
-                    ? <><CheckCircle size={11} className="text-emerald-500" /> Senha definida</>
-                    : <><AlertCircle size={11} className="text-amber-500" /> Senha não configurada</>}
-                </p>
-              </div>
-            </div>
-            <ChevronRight size={16} className={`text-slate-400 transition-transform ${showPassSection ? "rotate-90" : ""}`} />
-          </button>
-
-          {showPassSection && (
-            <div className="px-5 pb-5 space-y-3 border-t border-slate-50 pt-4">
+      {/* Segurança */}
+      {profileTab === "seguranca" && (
+        <PanelCard title="Segurança da conta" icon={Shield}
+          action={
+            patient.portal_password_set
+              ? <Badge color="success" size="sm" icon={<CheckCircle size={11} />}>Senha definida</Badge>
+              : <Badge color="warning" size="sm" icon={<AlertCircle size={11} />}>Senha não configurada</Badge>
+          }>
+          {!showPassSection ? (
+            <Button variant="outline" size="sm" iconLeft={<Lock size={14} />} onClick={() => setShowPassSection(true)}>
+              {patient.portal_password_set ? "Alterar senha" : "Definir senha"}
+            </Button>
+          ) : (
+            <div className="space-y-3 max-w-md">
               {patient.portal_password_set && (
                 <Input label="Senha atual" type={showPass ? "text" : "password"} placeholder="••••••••"
                   value={passForm.current_password}
@@ -2689,34 +2592,34 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
                 onChange={e => setPassForm(f => ({ ...f, new_password: e.target.value }))}
                 iconLeft={<Lock size={14} />}
                 iconRight={
-                  <button onClick={() => setShowPass(v => !v)} type="button" className="text-zinc-400 hover:text-zinc-600">
+                  <IconButton variant="ghost" size="xs" onClick={() => setShowPass(v => !v)} type="button" aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}>
                     {showPass ? <EyeOff size={14} /> : <EyeIcon size={14} />}
-                  </button>
+                  </IconButton>
                 } />
               <Input label="Confirme a nova senha" type={showPass ? "text" : "password"} placeholder="Repita a senha"
                 value={passForm.confirm}
                 onChange={e => setPassForm(f => ({ ...f, confirm: e.target.value }))}
                 iconLeft={<Lock size={14} />} />
-              {passError && (
-                <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-2xl px-3 py-2.5 border border-red-200">
-                  <AlertCircle size={12} />{passError}
-                </div>
-              )}
-              <Button variant="primary" className="w-full"
-                iconLeft={savingPass ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
-                onClick={savePassword} disabled={savingPass || !passForm.new_password}>
-                {savingPass ? "Salvando..." : "Salvar nova senha"}
-              </Button>
+              {passError && <Alert variant="error">{passError}</Alert>}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setShowPassSection(false); setPassError(""); }}>Cancelar</Button>
+                <Button variant="primary" size="sm"
+                  iconLeft={<Shield size={14} />}
+                  onClick={savePassword} loading={savingPass} loadingText="Salvando..." disabled={!passForm.new_password}>
+                  Salvar nova senha
+                </Button>
+              </div>
             </div>
           )}
-        </div>
-      </div>
+        </PanelCard>
+      )}
+
+      </Tabs>
 
       {/* Sair */}
-      <button onClick={onLogout}
-        className="w-full mt-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors">
-        <LogOut size={16} /> Sair do Portal
-      </button>
+      <Button variant="softDanger" size="lg" fullWidth onClick={onLogout} iconLeft={<LogOut size={14} />}>
+        Sair do Portal
+      </Button>
     </div>
   );
 }
@@ -2731,13 +2634,13 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
 
   if (viewDoc) {
     return (
-      <div className="pb-6">
-        <Button variant="ghost" size="sm" onClick={() => setViewDoc(null)} className="mb-4 text-primary-600">
-          <ArrowLeft size={15} /> Voltar
+      <div>
+        <Button variant="ghost" size="sm" onClick={() => setViewDoc(null)} iconLeft={<ArrowLeft size={14} />} className="mb-3">
+          Voltar
         </Button>
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-          <h3 className="font-black text-slate-800 mb-1">{viewDoc.title || "Documento"}</h3>
-          <p className="text-xs text-slate-400 mb-4">{fmtDate(viewDoc.created_at)}</p>
+        <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4">
+          <h3 className="text-sm font-medium text-slate-900 mb-1">{viewDoc.title || "Documento"}</h3>
+          <p className="text-xs text-slate-500 mb-4">{fmtDate(viewDoc.created_at)}</p>
           <div className="prose prose-sm max-w-none text-slate-700 border-t border-slate-100 pt-4"
             dangerouslySetInnerHTML={{ __html: viewDoc.rendered_html || "<p>Sem conteúdo.</p>" }} />
         </div>
@@ -2746,11 +2649,8 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
   }
 
   return (
-    <div className="space-y-3 pb-6">
-      <div className="pt-1">
-        <h2 className="text-base font-black text-slate-800">Documentos</h2>
-        <p className="text-xs text-slate-400">Atestados, declarações e arquivos do seu profissional</p>
-      </div>
+    <div className="space-y-3">
+      <SectionTitle icon={FolderOpen} title="Documentos" description="Atestados, declarações e arquivos do seu profissional" />
 
       {allItems.length === 0 && (
         <EmptyState icon={FolderOpen} title="Nenhum documento ainda" description="Documentos enviados pelo profissional aparecerão aqui" />
@@ -2759,24 +2659,24 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
       <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
         {allItems.map((item, i) => (
           <div key={`${item.kind}-${item.id}`}
-            className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.kind === "doc" ? "bg-primary-50" : "bg-slate-100"}`}>
+            className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${item.kind === "doc" ? "bg-primary-50" : "bg-slate-100"}`}>
               {item.kind === "doc"
                 ? <FileText size={16} className="text-primary-500" />
                 : <Paperclip size={16} className="text-slate-500" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-700 truncate">{item.title || "Documento"}</p>
-              <p className="text-xs text-slate-400">{fmtDate(item.created_at)}</p>
+              <p className="text-sm font-semibold text-slate-700 truncate">{item.title || "Documento"}</p>
+              <p className="text-xs text-slate-500">{fmtDate(item.created_at)}</p>
             </div>
             {item.kind === "doc" ? (
-              <Button variant="ghost" size="sm" onClick={() => setViewDoc(item)} className="text-primary-600 shrink-0">
-                <Eye size={12} /> Ver
+              <Button variant="outline" size="sm" onClick={() => setViewDoc(item)} iconLeft={<Eye size={14} />} className="shrink-0">
+                Ver
               </Button>
             ) : item.file_url && !item.file_url.startsWith("data:") ? (
               <a href={item.file_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors shrink-0">
-                <Download size={12} /> Baixar
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                <Download size={14} /> Baixar
               </a>
             ) : null}
           </div>
@@ -2824,11 +2724,8 @@ function NfseTab({ invoices }: { invoices: PortalNfseInvoice[] }) {
   };
 
   return (
-    <div className="space-y-3 pb-6">
-      <div className="pt-1">
-        <h2 className="text-base font-black text-slate-800">Notas Fiscais</h2>
-        <p className="text-xs text-slate-400">NFS-e emitidas em seu nome pelo profissional</p>
-      </div>
+    <div className="space-y-3">
+      <SectionTitle icon={Receipt} title="Notas Fiscais" description="NFS-e emitidas em seu nome pelo profissional" />
 
       {invoices.length === 0 && (
         <EmptyState icon={Receipt} title="Nenhuma nota fiscal ainda" description="Notas fiscais emitidas para você aparecerão aqui" />
@@ -2836,34 +2733,28 @@ function NfseTab({ invoices }: { invoices: PortalNfseInvoice[] }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
         {invoices.map((inv) => (
-          <div key={inv.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50">
+          <div key={inv.id} className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50">
               <Receipt size={16} className="text-emerald-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-700 truncate">
+              <p className="text-sm font-semibold text-slate-700 truncate">
                 NFS-e nº {inv.numero} · Série {inv.serie}
               </p>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-xs text-slate-500 truncate">
                 {inv.authorized_at ? fmtDate(inv.authorized_at) : "—"} · {formatCurrencyBR(Number(inv.valor_servico))}
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {!!inv.has_pdf && (
-                <button
-                  onClick={() => downloadNfseFile(inv.financial_transaction_id, "pdf", inv.chave_acesso)}
-                  className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
-                >
-                  <Download size={12} /> PDF
-                </button>
+                <Button size="sm" variant="outline" onClick={() => downloadNfseFile(inv.financial_transaction_id, "pdf", inv.chave_acesso)} iconLeft={<Download size={14} />}>
+                  PDF
+                </Button>
               )}
               {!!inv.has_xml && (
-                <button
-                  onClick={() => downloadNfseFile(inv.financial_transaction_id, "xml", inv.chave_acesso)}
-                  className="flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors"
-                >
-                  <Download size={12} /> XML
-                </button>
+                <Button size="sm" variant="ghost" onClick={() => downloadNfseFile(inv.financial_transaction_id, "xml", inv.chave_acesso)} iconLeft={<Download size={14} />}>
+                  XML
+                </Button>
               )}
             </div>
           </div>
@@ -2926,15 +2817,15 @@ function MessagesTab({ professionalName }: { professionalName?: string }) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-160px)] min-h-[420px] flex-col rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+    <div className="flex h-[calc(100vh-200px)] min-h-[420px] flex-col rounded-lg border border-slate-200 bg-white overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-slate-100 bg-white shrink-0">
-        <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600 shrink-0">
           <MessageCircle size={16} />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-black text-slate-800 truncate">{professionalName || "Seu profissional"}</p>
-          <p className="text-[11px] text-slate-400">Converse diretamente com seu profissional</p>
+          <p className="text-sm font-medium text-slate-900 truncate">{professionalName || "Seu profissional"}</p>
+          <p className="text-[11px] text-slate-500">Converse diretamente com seu profissional</p>
         </div>
       </div>
 
@@ -2942,12 +2833,12 @@ function MessagesTab({ professionalName }: { professionalName?: string }) {
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-slate-50/60">
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 size={20} className="animate-spin text-primary-300" />
+            <Loader2 size={18} className="animate-spin text-primary-400" />
           </div>
         ) : msgs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <MessageCircle size={24} className="text-slate-200" />
-            <p className="text-xs text-slate-400">Nenhuma mensagem ainda. Envie a primeira!</p>
+            <p className="text-xs text-slate-500">Nenhuma mensagem ainda. Envie a primeira!</p>
           </div>
         ) : msgs.map((m) => {
           const isMine = m.sender_type === "patient";
@@ -2958,13 +2849,13 @@ function MessagesTab({ professionalName }: { professionalName?: string }) {
                   <User size={11} className="text-primary-500" />
                 </div>
               )}
-              <div className={`max-w-[78%] sm:max-w-[68%] rounded-2xl px-3.5 py-2.5 ${
+              <div className={`max-w-[78%] sm:max-w-[68%] rounded-lg px-3 py-2 ${
                 isMine
                   ? "bg-primary-600 text-white rounded-br-sm"
-                  : "bg-white text-slate-700 rounded-bl-sm border border-slate-100 shadow-sm"
+                  : "bg-white text-slate-700 rounded-bl-sm border border-slate-100"
               }`}>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.content}</p>
-                <p className={`text-[10px] mt-1 ${isMine ? "text-primary-100 text-right" : "text-slate-400"}`}>
+                <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{m.content}</p>
+                <p className={`text-[11px] mt-1 ${isMine ? "text-primary-100 text-right" : "text-slate-500"}`}>
                   {fmtMsgTime(m.created_at)}
                   {isMine && m.read_at && <Check size={9} className="inline ml-1" />}
                 </p>
@@ -2976,10 +2867,10 @@ function MessagesTab({ professionalName }: { professionalName?: string }) {
 
       {/* Input */}
       <div className="flex items-end gap-2 px-3 sm:px-4 py-3 border-t border-slate-100 bg-white shrink-0">
-        <textarea
-          className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm
-                     text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-300
-                     max-h-28 min-h-[42px]"
+        <Textarea
+          wrapperClassName="flex-1"
+          className="resize-none max-h-28"
+          aria-label="Mensagem"
           rows={1}
           placeholder="Escreva uma mensagem..."
           value={text}
@@ -2987,7 +2878,7 @@ function MessagesTab({ professionalName }: { professionalName?: string }) {
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
           disabled={sending}
         />
-        <IconButton variant="primary" onClick={send} disabled={!text.trim() || sending} title="Enviar">
+        <IconButton variant="primary" size="lg" onClick={send} disabled={!text.trim() || sending} title="Enviar" aria-label="Enviar mensagem">
           {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
         </IconButton>
       </div>
@@ -2996,9 +2887,20 @@ function MessagesTab({ professionalName }: { professionalName?: string }) {
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
+const PORTAL_TABS = [
+  { id: "home",      icon: Home,          label: "Início"     },
+  { id: "agenda",    icon: Calendar,      label: "Agenda"     },
+  { id: "messages",  icon: MessageCircle, label: "Mensagens"  },
+  { id: "documents", icon: FolderOpen,    label: "Docs"       },
+  { id: "nfse",      icon: Receipt,       label: "Notas"      },
+  { id: "payments",  icon: CreditCard,    label: "Financeiro" },
+  { id: "profile",   icon: User,          label: "Perfil"     },
+] as const;
+type PortalTabId = typeof PORTAL_TABS[number]["id"];
+
 export const PatientPortal: React.FC = () => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"home" | "agenda" | "documents" | "nfse" | "payments" | "messages" | "profile">("home");
+  const [tab, setTab] = useState<PortalTabId>("home");
   const [unreadMsgs, setUnreadMsgs] = useState(0);
   const [patient, setPatient] = useState<PortalPatient | null>(null);
   const [appointments, setAppointments] = useState<PortalAppointment[]>([]);
@@ -3085,155 +2987,62 @@ export const PatientPortal: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-primary-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
-            <User size={28} className="text-white" />
+          <div className="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-3 animate-pulse">
+            <User size={22} className="text-white" />
           </div>
-          <p className="text-slate-500 text-sm">Carregando portal...</p>
+          <p className="text-slate-500 text-xs">Carregando portal...</p>
         </div>
       </div>
     );
   }
-
-  const TABS = [
-    { id: "home",      icon: Home,          label: "Início"    },
-    { id: "agenda",    icon: Calendar,      label: "Agenda"    },
-    { id: "messages",  icon: MessageCircle, label: "Mensagens" },
-    { id: "documents", icon: FolderOpen,    label: "Docs"      },
-    { id: "nfse",      icon: Receipt,       label: "Notas"     },
-    { id: "payments",  icon: CreditCard,    label: "Financeiro"},
-    { id: "profile",   icon: User,          label: "Perfil"    },
-  ] as const;
 
   const pendingBadge = {
     agenda: requests.filter(r => r.status === "pending").length,
     payments: payments.filter(p => p.status === "pending").length,
     messages: unreadMsgs,
   };
+  const badgeFor = (id: PortalTabId) => {
+    const n = id === "agenda" ? pendingBadge.agenda : id === "payments" ? pendingBadge.payments : id === "messages" ? pendingBadge.messages : 0;
+    return n > 0 ? (n > 9 ? "9+" : n) : undefined;
+  };
+  const tabItems = PORTAL_TABS.map(t => ({ ...t, badge: badgeFor(t.id) }));
 
   return (
-    <div className="min-h-screen bg-slate-100 flex">
-
-      {/* ── SIDEBAR (desktop only) ── */}
-      <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r border-slate-100 sticky top-0 h-screen">
-        {/* Logo / brand */}
-        <div className="px-5 py-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center shadow-md shrink-0">
-            <span className="text-white font-black text-base">{patient.full_name.charAt(0)}</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest leading-none">Portal</p>
-            <p className="text-sm font-black text-slate-800 truncate">{patient.full_name.split(" ")[0]}</p>
-            {patient.company_name && (
-              <p className="text-[10px] text-slate-400 truncate">{patient.company_name}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Nav links */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
-          {TABS.map(t => {
-            const isActive = tab === t.id;
-            const badge = t.id === "agenda" ? pendingBadge.agenda : t.id === "payments" ? pendingBadge.payments : t.id === "messages" ? pendingBadge.messages : 0;
-            const Icon = t.icon;
-            return (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all relative ${
-                  isActive
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                }`}>
-                <Icon size={17} className={isActive ? "text-primary-600" : "text-slate-400"} />
-                {t.label}
-                {badge > 0 && (
-                  <span className="ml-auto min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1">
-                    {badge > 9 ? "9+" : badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Logout at bottom */}
-        <div className="px-3 py-4 border-t border-slate-100">
-          <button onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all">
-            <LogOut size={16} />
-            Sair
-          </button>
-        </div>
-      </aside>
-
-      {/* ── MAIN AREA ── */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-
-        {/* Mobile header only */}
-        <header className="md:hidden sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 px-4 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-primary-600 to-primary-800 rounded-lg flex items-center justify-center shadow-sm shrink-0">
-              <span className="text-white text-xs font-black">{patient.full_name.charAt(0)}</span>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* ── Cabeçalho + navegação por abas ── */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+        <div className="px-4 md:px-6 pt-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shrink-0">
+              <span className="text-white font-medium text-sm">{patient.full_name.charAt(0)}</span>
             </div>
-            <div className="leading-none">
-              <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest">Portal</p>
-              <p className="text-sm font-black text-slate-800">{patient.full_name.split(" ")[0]}</p>
+            <div className="min-w-0 leading-tight">
+              <p className="text-[11px] text-slate-500">Portal do Paciente{patient.company_name ? ` · ${patient.company_name}` : ""}</p>
+              <p className="text-sm font-medium text-slate-800 truncate">{patient.full_name.split(" ")[0]}</p>
             </div>
           </div>
-          {patient.company_name && (
-            <span className="text-[11px] text-slate-400 font-medium">{patient.company_name}</span>
-          )}
-        </header>
-
-        {/* Desktop page title bar */}
-        <div className="hidden md:flex items-center px-8 pt-7 pb-2">
-          <div>
-            <h1 className="text-xl font-black text-slate-800">{TABS.find(t => t.id === tab)?.label}</h1>
-          </div>
+          <Button variant="ghost" size="sm" onClick={handleLogout} iconLeft={<LogOut size={14} />}>Sair</Button>
         </div>
+        <div className="px-2 md:px-5">
+          <Tabs<PortalTabId> items={tabItems} value={tab} onChange={setTab} label="Seções do portal" className="[&>[role=tablist]]:border-b-0" />
+        </div>
+      </header>
 
-        {/* Global toast — renderizado aqui para cobrir toda a tela */}
-        {globalToast.node}
+      {/* Global toast — renderizado aqui para cobrir toda a tela */}
+      {globalToast.node}
 
-        {/* Content */}
-        <main className="flex-1 px-4 md:px-8 pt-4 pb-6 overflow-y-auto">
-          <div className="max-w-full 2xl:max-w-[1400px] w-full mx-auto">
-            {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
-            {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} mpAvailable={mpAvailable} mpInterestRate={mpInterestRate} asaasAvailable={asaasAvailable} />}
-            {tab === "messages"  && <MessagesTab professionalName={professionals[0]?.name} />}
-            {tab === "documents" && <DocumentsTab data={documents} />}
-            {tab === "nfse"      && <NfseTab invoices={nfseInvoices} />}
-            {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} comandas={comandas} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
-            {tab === "profile"   && <ProfileTab patient={patient} onLogout={handleLogout} onPatientUpdate={loadAll} showToast={globalToast.show} />}
-          </div>
-        </main>
-
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden sticky bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
-          <div className="flex items-center justify-around px-2 py-1">
-            {TABS.map(t => {
-              const isActive = tab === t.id;
-              const badge = t.id === "agenda" ? pendingBadge.agenda : t.id === "payments" ? pendingBadge.payments : t.id === "messages" ? pendingBadge.messages : 0;
-              const Icon = t.icon;
-              return (
-                <button key={t.id} onClick={() => setTab(t.id)}
-                  className="flex flex-col items-center gap-0.5 px-2 py-2 relative transition-all">
-                  <div className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${isActive ? "bg-primary-50" : ""}`}>
-                    <Icon size={18} className={isActive ? "text-primary-600" : "text-slate-400"} />
-                  </div>
-                  <span className={`text-[9px] font-bold transition-colors ${isActive ? "text-primary-600" : "text-slate-400"}`}>
-                    {t.label}
-                  </span>
-                  {badge > 0 && (
-                    <span className="absolute top-1.5 right-2.5 min-w-[15px] h-[15px] bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center px-1">
-                      {badge > 9 ? "9+" : badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-      </div>
+      {/* Conteúdo */}
+      <main className="flex-1 min-w-0 px-4 md:px-6 pt-4 pb-8">
+        <div className="space-y-4 w-full">
+          {tab === "home"      && <HomeTab patient={patient} appointments={appointments} />}
+          {tab === "agenda"    && <AgendaTab appointments={appointments} requests={requests} professionals={professionals} onRefresh={loadAll} allowSchedule={allowSchedule} showToast={globalToast.show} comandas={comandas} mpAvailable={mpAvailable} mpInterestRate={mpInterestRate} asaasAvailable={asaasAvailable} />}
+          {tab === "messages"  && <MessagesTab professionalName={professionals[0]?.name} />}
+          {tab === "documents" && <DocumentsTab data={documents} />}
+          {tab === "nfse"      && <NfseTab invoices={nfseInvoices} />}
+          {tab === "payments"  && <PaymentsTab payments={payments} appointments={appointments} comandas={comandas} onRefresh={loadAll} showToast={globalToast.show} portalSettings={portalSettings} />}
+          {tab === "profile"   && <ProfileTab patient={patient} onLogout={handleLogout} onPatientUpdate={loadAll} showToast={globalToast.show} />}
+        </div>
+      </main>
 
       <PortalInstallPrompt />
     </div>

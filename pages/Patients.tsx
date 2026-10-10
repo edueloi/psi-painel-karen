@@ -1,17 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getToken } from '../services/tokenStorage';
 import {
   Users, Plus, Phone, Mail, Calendar, FileText,
   Edit2, Trash2, X, AlertCircle, Eye, ClipboardList,
   FolderOpen, BrainCircuit, Boxes, StickyNote, Loader2, ChevronRight,
   FileUp, FileDown, Download, MapPin, Shield, User,
-  Activity, TrendingUp, CheckSquare, Square, History, CheckCircle2, ChevronDown
+  Activity, CheckSquare, Square, History, ChevronDown
 } from 'lucide-react';
 import { api, API_BASE_URL, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import { WizardModal } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -19,8 +18,12 @@ import { useToast } from '../contexts/ToastContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { GridTable, Column } from '../components/UI/GridTable';
 import {
+  Alert,
   Badge,
   Button,
+  ContentCard,
+  DetailField,
+  Tabs,
   IconButton,
   ConfirmModal,
   EmptyState,
@@ -51,19 +54,11 @@ interface PatientSummary {
   upcomingAppointments: { id: string; label: string; time: string }[];
 }
 
-const AVATAR_COLORS = [
-  'from-primary-500 to-purple-600',
-  'from-blue-500 to-indigo-600',
-  'from-emerald-500 to-teal-600',
-  'from-rose-500 to-pink-600',
-  'from-amber-500 to-orange-600',
-  'from-cyan-500 to-sky-600',
-];
-
-const getAvatarColor = (name: string) => {
-  const idx = (name.charCodeAt(0) || 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[idx];
-};
+const SUMMARY_TABS = [
+  { id: 'resumo', label: 'Resumo', icon: User },
+  { id: 'atividade', label: 'Atividade', icon: Activity },
+  { id: 'cadastro', label: 'Cadastro', icon: FileText },
+] as const;
 
 const getFlag = (code?: string) => {
   const custom: Record<string, string> = {
@@ -88,15 +83,14 @@ export const Patients: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState<'all' | 'ativo' | 'inativo'>(preferences.patients.statusFilter);
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [editingPatient, setEditingPatient] = useState<Partial<Patient> | undefined>(undefined);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [summary, setSummary] = useState<PatientSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
+  const [summaryTab, setSummaryTab] = useState<typeof SUMMARY_TABS[number]['id']>('resumo');
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(preferences.patients.viewMode);
 
   // Pagination
@@ -333,7 +327,6 @@ export const Patients: React.FC = () => {
       }
 
       await fetchPatients();
-      setIsWizardOpen(false);
       pushToast('success', data.id ? 'Paciente atualizado com sucesso!' : 'Paciente criado com sucesso!');
     } catch (err: any) {
       console.error('Erro ao salvar paciente:', err);
@@ -383,7 +376,7 @@ export const Patients: React.FC = () => {
       pushToast('success', newStatus === 'active' ? 'Paciente ativado com sucesso!' : 'Paciente inativado com sucesso!');
     } catch (err: any) {
       console.error(err);
-      pushToast('error', 'Erro ao mudar status: ' + (err.message || 'Erro interno'));
+      pushToast('error', 'Erro ao mudar status:' + (err.message || 'Erro interno'));
     }
   };
 
@@ -393,7 +386,7 @@ export const Patients: React.FC = () => {
 
   const openPatientSummary = async (patient: Patient) => {
     setSelectedPatient(patient);
-    setShowDetails(false);
+    setSummaryTab('resumo');
     setSummary(null);
     setSummaryError(null);
     setSummaryLoading(true);
@@ -565,7 +558,7 @@ export const Patients: React.FC = () => {
         </tr>`;
       };
 
-      const headersHtml = headers.map(h => `<th style="padding:10px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#e2e8f0;text-align:left;">${h}</th>`).join('');
+      const headersHtml = headers.map(h => `<th style="padding:10px 10px;font-size:11px;font-weight:700;;letter-spacing:.05em;color:#e2e8f0;text-align:left;">${h}</th>`).join('');
 
       const ROWS_FIRST_PAGE = 14;
       const ROWS_PER_PAGE = 18;
@@ -613,19 +606,19 @@ export const Patients: React.FC = () => {
               </div>
               <div style="display:flex;gap:12px;margin-bottom:20px;">
                 <div style="flex:1;background:#eef2ff;border-radius:10px;padding:12px 16px;">
-                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Total</div>
+                  <div style="font-size:10px;font-weight:700;;letter-spacing:.05em;color:#94a3b8;">Total</div>
                   <div style="font-size:16px;font-weight:900;color:#4f46e5;margin-top:4px;">${rows.length}</div>
                 </div>
                 <div style="flex:1;background:#f0fdf4;border-radius:10px;padding:12px 16px;">
-                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Ativos</div>
+                  <div style="font-size:10px;font-weight:700;;letter-spacing:.05em;color:#94a3b8;">Ativos</div>
                   <div style="font-size:16px;font-weight:900;color:#059669;margin-top:4px;">${rows.filter(p => p.status === 'ativo').length}</div>
                 </div>
                 <div style="flex:1;background:#f8fafc;border-radius:10px;padding:12px 16px;">
-                  <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">Inativos</div>
+                  <div style="font-size:10px;font-weight:700;;letter-spacing:.05em;color:#94a3b8;">Inativos</div>
                   <div style="font-size:16px;font-weight:900;color:#64748b;margin-top:4px;">${rows.filter(p => p.status !== 'ativo').length}</div>
                 </div>
               </div>
-            ` : `
+            `:`
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
                 <span style="font-size:13px;font-weight:700;color:#1e293b;">Lista de Pacientes</span>
                 <span style="font-size:11px;color:#94a3b8;">Página ${pageIdx + 1} de ${chunks.length} · ${now}</span>
@@ -709,80 +702,145 @@ export const Patients: React.FC = () => {
     }
   };
 
+  const renderPatientCard = (patient: Patient) => {
+    const age = calcAge(patient.birth_date);
+    const active = isActive(patient);
+    const isSelected = selectedIds.has(String(patient.id));
+    return (
+      <div
+        key={patient.id}
+        className={`bg-white border rounded-lg transition-colors overflow-hidden group cursor-pointer flex flex-col h-full ${isSelected ? 'border-primary-400 ring-2 ring-primary-100' : 'border-slate-200 hover:border-primary-200'}`}
+        onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : navigate(`/pacientes/${patient.id}`)}
+      >
+        <div className="p-3 flex-1">
+          <div className="flex items-start gap-3">
+            <div className="relative shrink-0">
+              <div className="w-12 h-12 rounded-lg border border-primary-100 bg-primary-50 flex items-center justify-center text-primary-700 text-base font-medium overflow-hidden">
+                {patient.photo_url || patient.photoUrl ? (
+                  <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
+                ) : (patient.full_name || '?').charAt(0).toUpperCase()}
+              </div>
+              <button
+                type="button"
+                aria-label={isSelected ? 'Desmarcar paciente' : 'Selecionar paciente'}
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }}
+                className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-primary-400'}`}
+              >
+                {isSelected && <CheckSquare size={12} />}
+              </button>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-slate-800 truncate mb-1">{patient.full_name || 'Sem nome'}</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge color={active ? 'success' : 'default'} size="sm" dot>{active ? 'Ativo' : 'Inativo'}</Badge>
+                {patient.health_plan && <Badge color="info" size="sm"><Shield size={10} className="mr-1" />Convênio</Badge>}
+                {age && <span className="text-[11px] text-slate-500">{age} anos</span>}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {(patient.whatsapp || patient.phone) && (
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <Phone size={12} className="text-primary-500 shrink-0" />
+                <span className="truncate flex items-center gap-1.5">
+                  {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
+                  {patient.whatsapp || patient.phone}
+                </span>
+              </div>
+            )}
+            {patient.email && (
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <Mail size={12} className="text-primary-500 shrink-0" />
+                <span className="truncate">{patient.email}</span>
+              </div>
+            )}
+            {patient.city && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <MapPin size={12} className="text-slate-400 shrink-0" />
+                <span className="truncate">{patient.city}{patient.state ? ` — ${patient.state}` : ''}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="border-t border-slate-100 p-3 flex flex-wrap items-center gap-1.5 bg-slate-50/50">
+          <Button variant="outline" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}`); }} iconLeft={<Eye size={14} />} className="flex-1 justify-center">Perfil</Button>
+          <Button variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }} iconLeft={<History size={14} />} className="flex-1 justify-center">Histórico</Button>
+          {hasPermission('edit_patient') && (
+            <Button variant={active ? 'ghost' : 'success'} size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }} className={`flex-1 justify-center ${active ? 'text-amber-600 hover:bg-amber-50' : ''}`}>{active ? 'Pausar' : 'Ativar'}</Button>
+          )}
+          <div className="flex items-center gap-1.5 ml-auto">
+            {hasPermission('edit_patient') && (
+              <IconButton variant="ghost" size="xs" aria-label="Editar paciente" title="Editar" onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}/editar`); }} disabled={isProcessing || bulkDeleting}><Edit2 size={14} /></IconButton>
+            )}
+            {hasPermission('delete_patient') && (
+              <IconButton variant="ghost" size="xs" aria-label="Excluir paciente" title="Excluir" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteId(patient.id); }} disabled={isProcessing || bulkDeleting} className="hover:text-red-600 hover:bg-red-50"><Trash2 size={14} /></IconButton>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const listLoading = isLoading || bulkDeleting || isProcessing;
+
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
-      <div>
+    <PageWrapper>
+      <div className="space-y-4">
         <SectionTitle
           icon={Users}
           title={t('patients.title')}
           description={t('patients.subtitle')}
           action={
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {hasPermission('view_performance_reports') && (
                 <>
-                  {/* Modelo — só ícone no mobile */}
-                  <IconButton
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportTemplate}
-                    title="Baixar Modelo de Importação"
-                    className="sm:hidden"
-                  >
-                    <Download size={15} />
-                  </IconButton>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleExportTemplate}
                     title="Baixar Modelo de Importação"
+                    aria-label="Baixar Modelo de Importação"
                     iconLeft={<Download size={14} />}
-                    className="hidden sm:inline-flex"
                   >
-                    Modelo
+                    <span className="hidden sm:inline">Modelo</span>
                   </Button>
 
                   {/* Exportar dropdown */}
                   <div className="relative">
-                    <IconButton
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExportMenuOpen(o => !o)}
-                      title="Exportar Pacientes"
-                      className="sm:hidden"
-                    >
-                      <FileDown size={15} />
-                    </IconButton>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setExportMenuOpen(o => !o)}
                       title="Exportar Pacientes"
+                      aria-label="Exportar Pacientes"
                       iconLeft={<FileDown size={14} />}
-                      iconRight={<ChevronDown size={12} />}
-                      className="hidden sm:inline-flex"
+                      iconRight={<ChevronDown size={14} />}
                     >
-                      Exportar
+                      <span className="hidden sm:inline">Exportar</span>
                     </Button>
                     {exportMenuOpen && (
                       <div
-                        className="absolute right-0 top-full z-[110] mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                        className="absolute right-0 top-full z-[110] mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-sm"
                         onMouseLeave={() => setExportMenuOpen(false)}
                       >
                         <button
+                          type="button"
                           onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
                           <FileText size={14} className="text-emerald-500" /> Exportar CSV
                         </button>
                         <button
+                          type="button"
                           onClick={() => { setExportMenuOpen(false); handleExportPatients(); }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
                           <FileText size={14} className="text-green-600" /> Exportar Excel
                         </button>
                         <button
+                          type="button"
                           onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                         >
                           <FileText size={14} className="text-red-500" /> Exportar PDF
                         </button>
@@ -790,47 +848,36 @@ export const Patients: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Importar — só ícone no mobile */}
-                  <label className="sm:hidden flex h-8 w-8 items-center justify-center rounded-[10px] border-2 bg-white border-[#2a74ac] text-[#2a74ac] hover:bg-[#e6e7e8] cursor-pointer transition-colors">
-                    {isLoadingPreview ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
-                    <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
-                  </label>
-                  <label className="hidden sm:flex items-center gap-1.5 h-8 min-w-[82px] px-3 text-[12px] rounded-[20px] font-semibold border-2 bg-white border-[#2a74ac] text-[#2a74ac] hover:bg-[#e6e7e8] hover:border-[#487295] hover:text-[#487295] cursor-pointer select-none transition-colors duration-150 whitespace-nowrap">
-                    {isLoadingPreview ? <Loader2 size={14} className="animate-spin shrink-0" /> : <FileUp size={14} className="shrink-0" />}
-                    {isLoadingPreview ? 'Lendo...' : 'Importar'}
-                    <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
-                  </label>
+                  {/* Importar */}
+                  <input ref={importInputRef} type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleImportFile} disabled={isLoadingPreview} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => importInputRef.current?.click()}
+                    disabled={isLoadingPreview}
+                    loading={isLoadingPreview}
+                    aria-label="Importar pacientes"
+                    iconLeft={<FileUp size={14} />}
+                  >
+                    <span className="hidden sm:inline">{isLoadingPreview ? 'Lendo...' : 'Importar'}</span>
+                  </Button>
                 </>
               )}
               {hasPermission('create_patient') && (
-                <>
-                  {/* Novo — só ícone no mobile */}
-                  <IconButton
-                    variant="primary"
-                    size="sm"
-                    onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
-                    title={t('patients.new')}
-                    className="sm:hidden"
-                  >
-                    <Plus size={16} />
-                  </IconButton>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => { setEditingPatient(undefined); setIsWizardOpen(true); }}
-                    iconLeft={<Plus size={14} />}
-                    className="hidden sm:inline-flex"
-                  >
-                    {t('patients.new')}
-                  </Button>
-                </>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate('/pacientes/novo')}
+                  aria-label={t('patients.new')}
+                  iconLeft={<Plus size={14} />}
+                >
+                  <span className="hidden sm:inline">{t('patients.new')}</span>
+                </Button>
               )}
             </div>
           }
         />
-      </div>
 
-      <div className="space-y-4 sm:space-y-6">
         {/* Stats Cards */}
         <StatGrid cols={4}>
           {[
@@ -853,7 +900,7 @@ export const Patients: React.FC = () => {
         {/* Search + Filter Bar */}
         <FilterLine>
           <FilterLineSection grow>
-            <FilterLineItem grow minWidth={260}>
+            <FilterLineItem grow minWidth={200}>
               <FilterLineSearch
                 value={searchTerm}
                 onChange={setSearchTerm}
@@ -889,14 +936,6 @@ export const Patients: React.FC = () => {
           </FilterLineSection>
         </FilterLine>
 
-        <PanelCard
-          title="Pacientes"
-          description={`${filteredPatients.length} paciente${filteredPatients.length !== 1 ? 's' : ''} encontrado${filteredPatients.length !== 1 ? 's' : ''}`}
-          icon={Users}
-          iconWrapClassName="border-sky-100 bg-sky-50"
-          iconClassName="text-sky-600"
-          contentClassName="space-y-4"
-        >
         {/* Results Count + Bulk Actions */}
         {!isLoading && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -931,7 +970,7 @@ export const Patients: React.FC = () => {
                     variant="danger"
                     size="xs"
                     onClick={() => setConfirmBulkDelete(true)}
-                    iconLeft={<Trash2 size={13} />}
+                    iconLeft={<Trash2 size={14} />}
                   >
                     Excluir selecionados
                   </Button>
@@ -950,304 +989,168 @@ export const Patients: React.FC = () => {
         )}
 
         {/* Content — mobile sempre cards, desktop respeita viewMode */}
-        { (isLoading || bulkDeleting || isProcessing) ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {listLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="bg-slate-100 rounded-2xl animate-pulse h-40" />
+              <div key={i} className="bg-slate-100 rounded-lg animate-pulse h-40" />
             ))}
           </div>
         ) : viewMode === 'list' ? (
-          /* === LIST VIEW — tabela só no desktop, cards no mobile === */
           <>
             {/* Mobile: sempre cards */}
-            <div className="block sm:hidden">
-              <div className="grid grid-cols-1 gap-4">
-                {currentPatients.map(patient => {
-                  const age = calcAge(patient.birth_date);
-                  const active = isActive(patient);
-                  const avatarGrad = getAvatarColor(patient.full_name || 'A');
-                  const isSelected = selectedIds.has(String(patient.id));
-                  return (
-                    <div
-                      key={patient.id}
-                      className={`bg-white border rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
-                      onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : navigate(`/pacientes/${patient.id}`)}
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="relative shrink-0">
-                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm overflow-hidden`}>
-                              {patient.photo_url || patient.photoUrl ? (
-                                <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
-                              ) : (patient.full_name || '?').charAt(0).toUpperCase()}
-                            </div>
-                            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }} className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-indigo-400'}`}>
-                              {isSelected && <CheckSquare size={12} />}
-                            </button>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-bold text-slate-800 truncate mb-1">{patient.full_name || 'Sem nome'}</h3>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge color={active ? 'success' : 'default'} pill size="sm">
-                                <span className={`w-1.5 h-1.5 rounded-full mr-1 ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />{active ? 'Ativo' : 'Inativo'}
-                              </Badge>
-                              {patient.health_plan && <Badge color="info" pill size="sm"><Shield size={9} className="mr-1" />Convênio</Badge>}
-                              {age && <span className="text-[10px] text-slate-400 font-medium">{age} anos</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 space-y-1.5">
-                          {(patient.whatsapp || patient.phone) && (
-                            <div className="flex items-center gap-2 text-xs text-slate-600">
-                              <Phone size={11} className="text-indigo-400 shrink-0" />
-                              <span className="truncate flex items-center gap-1.5">
-                                {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
-                                {patient.whatsapp || patient.phone}
-                              </span>
-                            </div>
-                          )}
-                          {patient.email && <div className="flex items-center gap-2 text-xs text-slate-600"><Mail size={11} className="text-indigo-400 shrink-0" /><span className="truncate">{patient.email}</span></div>}
-                          {patient.city && <div className="flex items-center gap-2 text-xs text-slate-500"><MapPin size={11} className="text-slate-300 shrink-0" /><span className="truncate">{patient.city}{patient.state ? ` — ${patient.state}` : ''}</span></div>}
-                        </div>
-                      </div>
-                      <div className="border-t border-slate-100 px-3 py-2.5 flex flex-wrap items-center gap-1.5 bg-slate-50/70">
-                        <Button variant="outline" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}`); }} iconLeft={<Eye size={12} />} className="flex-1 justify-center">Perfil</Button>
-                        <Button variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }} iconLeft={<History size={12} />} className="flex-1 justify-center">Histórico</Button>
-                        {hasPermission('edit_patient') && <Button variant={active ? 'ghost' : 'success'} size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }} className={`flex-1 justify-center ${active ? 'text-amber-600 hover:bg-amber-50' : ''}`}>{active ? 'Pausar' : 'Ativar'}</Button>}
-                        <div className="flex items-center gap-1.5 ml-auto">
-                          {hasPermission('edit_patient') && <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }} disabled={isProcessing || bulkDeleting} className="hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50"><Edit2 size={13} /></IconButton>}
-                          {hasPermission('delete_patient') && <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteId(patient.id); }} disabled={isProcessing || bulkDeleting} className="hover:border-red-300 hover:text-red-500 hover:bg-red-50"><Trash2 size={13} /></IconButton>}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="grid grid-cols-1 gap-3 sm:hidden">
+              {currentPatients.map(renderPatientCard)}
             </div>
             {/* Desktop: tabela */}
-            <div className="hidden sm:block">
+            <ContentCard padding="none" className="hidden sm:block overflow-hidden">
               <GridTable<Patient>
-            data={currentPatients}
-            keyExtractor={(p) => p.id}
-            selectedIds={selectedIds}
-            onToggleSelect={(id) => toggleSelect(id)}
-            onToggleSelectAll={toggleSelectAll}
-            onRowClick={(p) => navigate(`/pacientes/${p.id}`)}
-            emptyMessage={t('patients.empty')}
-            isLoading={isLoading || bulkDeleting || isProcessing}
-            columns={[
-              {
-                header: 'Paciente',
-                render: (patient: Patient) => (
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 text-[10px] font-bold shrink-0 shadow-sm transition-transform group-hover:scale-105">
-                      {patient.photo_url || patient.photoUrl ? (
-                        <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover rounded-lg" />
-                      ) : (
-                        (patient.full_name || '?').charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold text-slate-800 truncate">{patient.full_name || 'Sem nome'}</div>
-                      {patient.notes && (
-                        <div className="text-[10px] text-slate-400 truncate max-w-[150px] italic">{patient.notes}</div>
-                      )}
-                    </div>
-                  </div>
-                )
-              },
-              {
-                header: 'Contato',
-                className: 'hidden md:table-cell',
-                headerClassName: 'hidden md:table-cell',
-                render: (patient: Patient) => (
-                  <>
-                    <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                      {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
-                      {patient.whatsapp || patient.phone || '—'}
-                    </div>
-                    <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{patient.email || ''}</div>
-                  </>
-                )
-              },
-              {
-                header: 'Idade',
-                className: 'hidden lg:table-cell',
-                headerClassName: 'hidden lg:table-cell',
-                render: (patient: Patient) => {
-                  const age = calcAge(patient.birth_date);
-                  return (
-                    <>
-                      <div className="text-xs font-bold text-slate-700">{age ? `${age} anos` : '—'}</div>
-                      <div className="text-[10px] text-slate-400">{formatDate(patient.birth_date)}</div>
-                    </>
-                  )
-                }
-              },
-              {
-                header: 'Status',
-                className: 'hidden sm:table-cell',
-                headerClassName: 'hidden sm:table-cell',
-                render: (patient: Patient) => {
-                  const active = isActive(patient);
-                  return (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
-                      disabled={!hasPermission('edit_patient')}
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${!hasPermission('edit_patient') ? 'opacity-50 cursor-not-allowed border-slate-200' : 'hover:ring-4 hover:ring-slate-50'} ${
-                        active ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                      {active ? 'Ativo' : 'Inativo'}
-                    </button>
-                  )
-                }
-              },
-              {
-                header: 'Ações',
-                className: 'text-right',
-                headerClassName: 'text-right',
-                render: (patient: Patient) => (
-                  <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <IconButton
-                      variant="outline"
-                      size="xs"
-                      onClick={() => navigate(`/pacientes/${patient.id}`)}
-                      title="Perfil"
-                    >
-                      <Eye size={13} />
-                    </IconButton>
-                    <IconButton
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => setHistoryPatient(patient)}
-                      title="Histórico"
-                      className="hover:bg-primary-50 hover:text-primary-600"
-                    >
-                      <History size={13} />
-                    </IconButton>
-                    {hasPermission('edit_patient') && (
-                      <IconButton
-                        variant="ghost"
-                        size="xs"
-                        onClick={() => { setEditingPatient(patient); setIsWizardOpen(true); }}
-                        title="Editar"
-                        className="hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50"
-                      >
-                        <Edit2 size={13} />
-                      </IconButton>
-                    )}
-                  </div>
-                )
-              }
-            ]}
-          />
-            </div>
+                data={currentPatients}
+                keyExtractor={(p) => p.id}
+                selectedIds={selectedIds}
+                onToggleSelect={(id) => toggleSelect(id)}
+                onToggleSelectAll={toggleSelectAll}
+                onRowClick={(p) => navigate(`/pacientes/${p.id}`)}
+                emptyMessage={t('patients.empty')}
+                isLoading={listLoading}
+                columns={[
+                  {
+                    header: 'Paciente',
+                    render: (patient: Patient) => (
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700 text-[11px] font-medium shrink-0 overflow-hidden">
+                          {patient.photo_url || patient.photoUrl ? (
+                            <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
+                          ) : (
+                            (patient.full_name || '?').charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-slate-800 truncate">{patient.full_name || 'Sem nome'}</div>
+                          {patient.notes && (
+                            <div className="text-[11px] text-slate-500 truncate max-w-[150px]">{patient.notes}</div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  },
+                  {
+                    header: 'Contato',
+                    className: 'hidden md:table-cell',
+                    headerClassName: 'hidden md:table-cell',
+                    render: (patient: Patient) => (
+                      <>
+                        <div className="text-xs text-slate-700 flex items-center gap-1.5">
+                          {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
+                          {patient.whatsapp || patient.phone || '—'}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate max-w-[150px] mt-0.5">{patient.email || ''}</div>
+                      </>
+                    )
+                  },
+                  {
+                    header: 'Idade',
+                    className: 'hidden lg:table-cell',
+                    headerClassName: 'hidden lg:table-cell',
+                    render: (patient: Patient) => {
+                      const age = calcAge(patient.birth_date);
+                      return (
+                        <>
+                          <div className="text-xs text-slate-700">{age ? `${age} anos` : '—'}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">{formatDate(patient.birth_date)}</div>
+                        </>
+                      )
+                    }
+                  },
+                  {
+                    header: 'Status',
+                    className: 'hidden sm:table-cell',
+                    headerClassName: 'hidden sm:table-cell',
+                    render: (patient: Patient) => {
+                      const active = isActive(patient);
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleQuickStatusChange(patient); }}
+                          disabled={!hasPermission('edit_patient')}
+                          title={hasPermission('edit_patient') ? 'Alterar status' : undefined}
+                          className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors ${!hasPermission('edit_patient') ? 'opacity-50 border-slate-200' : 'hover:border-primary-300'} ${
+                            active ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                          {active ? 'Ativo' : 'Inativo'}
+                        </button>
+                      )
+                    }
+                  },
+                  {
+                    header: 'Ações',
+                    className: 'text-right',
+                    headerClassName: 'text-right',
+                    render: (patient: Patient) => (
+                      <div className="flex items-center gap-1 justify-end" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                        <IconButton
+                          variant="outline"
+                          size="xs"
+                          onClick={() => navigate(`/pacientes/${patient.id}`)}
+                          title="Perfil"
+                          aria-label="Abrir perfil"
+                        >
+                          <Eye size={14} />
+                        </IconButton>
+                        <IconButton
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => setHistoryPatient(patient)}
+                          title="Histórico"
+                          aria-label="Ver histórico"
+                        >
+                          <History size={14} />
+                        </IconButton>
+                        {hasPermission('edit_patient') && (
+                          <IconButton
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => navigate(`/pacientes/${patient.id}/editar`)}
+                            title="Editar"
+                            aria-label="Editar paciente"
+                          >
+                            <Edit2 size={14} />
+                          </IconButton>
+                        )}
+                      </div>
+                    )
+                  }
+                ]}
+              />
+            </ContentCard>
           </>
         ) : (
           /* === CARD VIEW === */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {currentPatients.map(patient => {
-              const age = calcAge(patient.birth_date);
-              const active = isActive(patient);
-              const avatarGrad = getAvatarColor(patient.full_name || 'A');
-              const isSelected = selectedIds.has(String(patient.id));
-              return (
-                <div
-                  key={patient.id}
-                  className={`bg-white border rounded-2xl hover:shadow-lg transition-all duration-200 overflow-hidden group cursor-pointer ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
-                  onClick={() => selectedIds.size > 0 ? toggleSelect(String(patient.id)) : navigate(`/pacientes/${patient.id}`)}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="relative shrink-0">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGrad} flex items-center justify-center text-white text-base font-bold shadow-sm overflow-hidden`}>
-                          {patient.photo_url || patient.photoUrl ? (
-                            <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patient.full_name} className="w-full h-full object-cover" />
-                          ) : (patient.full_name || '?').charAt(0).toUpperCase()}
-                        </div>
-                        <button
-                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelect(String(patient.id)); }}
-                          className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-indigo-400'}`}
-                        >
-                          {isSelected && <CheckSquare size={12} />}
-                        </button>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-slate-800 truncate mb-1">{patient.full_name || 'Sem nome'}</h3>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge color={active ? 'success' : 'default'} pill size="sm">
-                            <span className={`w-1.5 h-1.5 rounded-full mr-1 ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                            {active ? 'Ativo' : 'Inativo'}
-                          </Badge>
-                          {patient.health_plan && <Badge color="info" pill size="sm"><Shield size={9} className="mr-1" /> Convênio</Badge>}
-                          {age && <span className="text-[10px] text-slate-400 font-medium">{age} anos</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 space-y-1.5">
-                      {(patient.whatsapp || patient.phone) && (
-                        <div className="flex items-center gap-2 text-xs text-slate-600">
-                          <Phone size={11} className="text-indigo-400 shrink-0" />
-                          <span className="truncate flex items-center gap-1.5">
-                            {patient.phone_country && <span className="text-sm leading-none shrink-0">{getFlag(patient.phone_country)}</span>}
-                            {patient.whatsapp || patient.phone}
-                          </span>
-                        </div>
-                      )}
-                      {patient.email && (
-                        <div className="flex items-center gap-2 text-xs text-slate-600">
-                          <Mail size={11} className="text-indigo-400 shrink-0" />
-                          <span className="truncate">{patient.email}</span>
-                        </div>
-                      )}
-                      {patient.city && (
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <MapPin size={11} className="text-slate-300 shrink-0" />
-                          <span className="truncate">{patient.city}{patient.state ? ` — ${patient.state}` : ''}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="border-t border-slate-100 px-3 py-2.5 flex flex-wrap items-center gap-1.5 bg-slate-50/70">
-                    <Button variant="outline" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate(`/pacientes/${patient.id}`); }} iconLeft={<Eye size={12} />} className="flex-1 justify-center">Perfil</Button>
-                    <Button variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setHistoryPatient(patient); }} iconLeft={<History size={12} />} className="flex-1 justify-center">Histórico</Button>
-                    {hasPermission('edit_patient') && (
-                      <Button variant={active ? 'ghost' : 'success'} size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickStatusChange(patient); }} className={`flex-1 justify-center ${active ? 'text-amber-600 hover:bg-amber-50' : ''}`}>{active ? 'Pausar' : 'Ativar'}</Button>
-                    )}
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      {hasPermission('edit_patient') && (
-                        <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingPatient(patient); setIsWizardOpen(true); }} disabled={isProcessing || bulkDeleting} className="hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50"><Edit2 size={13} /></IconButton>
-                      )}
-                      {hasPermission('delete_patient') && (
-                        <IconButton variant="ghost" size="xs" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteId(patient.id); }} disabled={isProcessing || bulkDeleting} className="hover:border-red-300 hover:text-red-500 hover:bg-red-50"><Trash2 size={13} /></IconButton>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {currentPatients.map(renderPatientCard)}
           </div>
         )}
 
         {/* Empty state */}
         {!isLoading && filteredPatients.length === 0 && (
-          <EmptyState
-            icon={Users}
-            title={t('patients.empty')}
-            description="Tente buscar por outro termo ou ajuste os filtros para ver todos os pacientes."
-            action={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
-              >
-                Limpar filtros
-              </Button>
-            }
-          />
+          <ContentCard>
+            <EmptyState
+              icon={Users}
+              title={t('patients.empty')}
+              description="Tente buscar por outro termo ou ajuste os filtros para ver todos os pacientes."
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
+                >
+                  Limpar filtros
+                </Button>
+              }
+            />
+          </ContentCard>
         )}
 
         {/* Pagination */}
@@ -1258,20 +1161,10 @@ export const Patients: React.FC = () => {
             pageSize={itemsPerPage}
             onPageChange={setCurrentPage}
             onPageSizeChange={setItemsPerPage}
-            className="rounded-2xl border border-zinc-100"
+            className="rounded-lg border border-slate-200"
           />
         )}
-
-        </PanelCard>
       </div>
-
-      {/* Form Wizard Modal */}
-      <WizardModal
-        isOpen={isWizardOpen}
-        initialData={editingPatient || {}}
-        onSave={handleSavePatient}
-        onClose={() => setIsWizardOpen(false)}
-      />
 
       {/* Bulk Delete Confirm Modal */}
       <ConfirmModal
@@ -1302,10 +1195,35 @@ export const Patients: React.FC = () => {
         <Modal
           isOpen={!!selectedPatient}
           onClose={() => setSelectedPatient(null)}
-          size="2xl"
+          size="xl"
           mobileStyle="fullscreen"
-          hideCloseButton
-          className="sm:max-w-2xl"
+          title={
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="w-10 h-10 rounded-lg border border-primary-100 bg-primary-50 flex items-center justify-center text-primary-700 text-sm font-medium shrink-0 overflow-hidden">
+                {selectedPatient.photo_url || selectedPatient.photoUrl ? (
+                  <img src={getStaticUrl(selectedPatient.photo_url || selectedPatient.photoUrl)} alt={selectedPatient.full_name} className="w-full h-full object-cover" />
+                ) : (
+                  (selectedPatient.full_name || '?').charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-slate-900">{selectedPatient.full_name}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <Badge color={isActive(selectedPatient) ? 'success' : 'default'} size="sm" dot>
+                    {isActive(selectedPatient) ? 'Ativo' : 'Inativo'}
+                  </Badge>
+                  {selectedPatient.health_plan && (
+                    <Badge color="info" size="sm"><Shield size={10} className="mr-1" /> {selectedPatient.health_plan}</Badge>
+                  )}
+                  {calcAge(selectedPatient.birth_date || selectedPatient.birthDate) && (
+                    <span className="text-[11px] font-normal text-slate-500">
+                      {calcAge(selectedPatient.birth_date || selectedPatient.birthDate)} anos
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          }
           footer={
             <ModalFooter align="between">
               <div className="flex flex-wrap gap-2">
@@ -1314,7 +1232,7 @@ export const Patients: React.FC = () => {
                     variant="primary"
                     size="sm"
                     onClick={() => navigate(`/agenda?patient_id=${selectedPatient.id}`)}
-                    iconLeft={<Calendar size={13} />}
+                    iconLeft={<Calendar size={14} />}
                   >
                     Agenda
                   </Button>
@@ -1340,8 +1258,8 @@ export const Patients: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setEditingPatient(selectedPatient); setSelectedPatient(null); setIsWizardOpen(true); }}
-                  iconLeft={<Edit2 size={13} />}
+                  onClick={() => { setSelectedPatient(null); navigate(`/pacientes/${selectedPatient.id}/editar`); }}
+                  iconLeft={<Edit2 size={14} />}
                 >
                   Editar
                 </Button>
@@ -1349,192 +1267,110 @@ export const Patients: React.FC = () => {
             </ModalFooter>
           }
         >
-          <div className="-m-4 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl bg-white sm:-m-7 sm:max-h-[82vh]">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-primary-600 p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-xl font-bold shrink-0 border-2 border-white/30 overflow-hidden">
-                    {selectedPatient.photo_url || selectedPatient.photoUrl ? (
-                      <img src={getStaticUrl(selectedPatient.photo_url || selectedPatient.photoUrl)} alt={selectedPatient.full_name} className="w-full h-full object-cover" />
-                    ) : (
-                      (selectedPatient.full_name || '?').charAt(0).toUpperCase()
-                    )}
-                  </div>
-                  <div className="text-white">
-                    <div className="text-base font-bold">{selectedPatient.full_name}</div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Badge
-                        color={isActive(selectedPatient) ? 'success' : 'default'}
-                        pill
-                        size="sm"
-                        className="bg-white/20 border-white/30 text-white"
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isActive(selectedPatient) ? 'bg-emerald-300' : 'bg-white/50'}`} />
-                        {isActive(selectedPatient) ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                      {selectedPatient.health_plan && (
-                        <Badge color="info" pill size="sm" className="bg-white/20 border-white/30 text-indigo-100">
-                          <Shield size={9} className="mr-1" /> {selectedPatient.health_plan}
-                        </Badge>
-                      )}
-                      {calcAge(selectedPatient.birth_date || selectedPatient.birthDate) && (
-                        <span className="text-[10px] text-indigo-100 font-medium">
-                          {calcAge(selectedPatient.birth_date || selectedPatient.birthDate)} anos
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedPatient(null)}
-                  className="bg-white/20 text-white hover:bg-white/30 border-transparent"
-                >
-                  <X size={16} />
-                </IconButton>
-              </div>
-            </div>
+          <Tabs<typeof SUMMARY_TABS[number]['id']>
+            items={SUMMARY_TABS}
+            value={summaryTab}
+            onChange={setSummaryTab}
+            label="Resumo do paciente"
+          >
+            {summaryTab === 'resumo' && (
+              <div className="space-y-3">
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+                  <DetailField label="Nascimento" value={formatDate(selectedPatient.birth_date || selectedPatient.birthDate)} />
+                  <DetailField
+                    label="Telefone"
+                    value={[
+                      [selectedPatient.phone_country ? getFlag(selectedPatient.phone_country) : '', selectedPatient.whatsapp || selectedPatient.phone || ''].filter(Boolean).join(' '),
+                      selectedPatient.phone2 ? [selectedPatient.phone2_country ? getFlag(selectedPatient.phone2_country) : '', selectedPatient.phone2].filter(Boolean).join(' ') : '',
+                    ].filter(Boolean).join(' · ')}
+                  />
+                  <DetailField label="Email" value={selectedPatient.email || ''} />
+                  <DetailField label="CPF" value={selectedPatient.cpf_cnpj || selectedPatient.cpf || ''} />
+                </dl>
 
-            <div className="flex-1 overflow-y-auto">
-              {/* Quick info grid */}
-              <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-slate-100">
-                <div className="space-y-0.5">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nascimento</div>
-                  <div className="text-xs font-bold text-slate-800">{formatDate(selectedPatient.birth_date || selectedPatient.birthDate)}</div>
-                </div>
-                <div className="space-y-0.5">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Telefone</div>
-                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    {selectedPatient.phone_country && <span className="text-base leading-none shrink-0" title={selectedPatient.phone_country}>{getFlag(selectedPatient.phone_country)}</span>}
-                    {selectedPatient.whatsapp || selectedPatient.phone || '—'}
-                  </div>
-                  {selectedPatient.phone2 && (
-                    <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5 italic">
-                      {selectedPatient.phone2_country && <span className="leading-none shrink-0" title={selectedPatient.phone2_country}>{getFlag(selectedPatient.phone2_country)}</span>}
-                      {selectedPatient.phone2}
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-0.5">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Email</div>
-                  <div className="text-xs font-bold text-slate-800 truncate">{selectedPatient.email || '—'}</div>
-                </div>
-                <div className="space-y-0.5">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">CPF</div>
-                  <div className="text-xs font-bold text-slate-800">{selectedPatient.cpf_cnpj || selectedPatient.cpf || '—'}</div>
-                </div>
-              </div>
-
-              {/* Address if available */}
-              {(selectedPatient.address || selectedPatient.city) && (
-                <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <MapPin size={13} className="text-indigo-400 shrink-0" />
+                {(selectedPatient.address || selectedPatient.city) && (
+                  <div className="flex items-center gap-2 text-xs text-slate-600 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                    <MapPin size={14} className="text-primary-500 shrink-0" />
                     <span>
                       {[selectedPatient.address, selectedPatient.city, selectedPatient.state].filter(Boolean).join(', ')}
                       {selectedPatient.zip_code && ` — CEP ${selectedPatient.zip_code}`}
                     </span>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Observation */}
-              {selectedPatient.notes && (
-                <div className="px-5 py-4 border-b border-slate-100">
-                  <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <StickyNote size={12} /> Observações / Referência
+                {selectedPatient.notes && (
+                  <div>
+                    <div className="text-xs font-medium text-amber-700 mb-1.5 flex items-center gap-1.5">
+                      <StickyNote size={14} /> Observações / Referência
+                    </div>
+                    <div className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed whitespace-pre-wrap">
+                      {selectedPatient.notes}
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-600 bg-amber-50 border border-amber-200/60 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
-                    {selectedPatient.notes}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
 
-              {/* Vínculos */}
-              <div className="p-5 border-b border-slate-100">
-                <div className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
-                  <TrendingUp size={14} className="text-indigo-500" />
-                  Atividade do paciente
-                </div>
+            {summaryTab === 'atividade' && (
+              <div className="space-y-3">
                 {summaryLoading ? (
-                  <div className="flex items-center gap-2 text-xs text-slate-400 py-3">
-                    <Loader2 size={14} className="animate-spin text-indigo-400" /> Carregando vínculos...
+                  <div role="status" className="flex items-center gap-2 text-xs text-slate-500 py-3">
+                    <Loader2 size={14} className="animate-spin text-primary-500" /> Carregando vínculos...
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                     {[
-                      { label: 'Agenda', value: summary?.appointmentsCount, icon: <Calendar size={14} />, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-                      { label: 'Prontuários', value: summary?.recordsCount, icon: <FileText size={14} />, color: 'text-blue-500', bg: 'bg-blue-50' },
-                      { label: 'Neuro', value: summary?.neuroCount, icon: <BrainCircuit size={14} />, color: 'text-primary-500', bg: 'bg-primary-50' },
-                      { label: 'Formulários', value: summary?.formsCount, icon: <ClipboardList size={14} />, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                      { label: 'Documentos', value: summary?.documentsCount, icon: <FolderOpen size={14} />, color: 'text-amber-500', bg: 'bg-amber-50' },
-                      { label: 'Ferramentas', value: summary?.toolsCount, icon: <Boxes size={14} />, color: 'text-rose-500', bg: 'bg-rose-50' },
+                      { label: 'Agenda', value: summary?.appointmentsCount, icon: <Calendar size={14} />, color: 'text-primary-600', bg: 'bg-primary-50' },
+                      { label: 'Prontuários', value: summary?.recordsCount, icon: <FileText size={14} />, color: 'text-primary-600', bg: 'bg-primary-50' },
+                      { label: 'Neuro', value: summary?.neuroCount, icon: <BrainCircuit size={14} />, color: 'text-primary-600', bg: 'bg-primary-50' },
+                      { label: 'Formulários', value: summary?.formsCount, icon: <ClipboardList size={14} />, color: 'text-primary-600', bg: 'bg-primary-50' },
+                      { label: 'Documentos', value: summary?.documentsCount, icon: <FolderOpen size={14} />, color: 'text-primary-600', bg: 'bg-primary-50' },
+                      { label: 'Ferramentas', value: summary?.toolsCount, icon: <Boxes size={14} />, color: 'text-primary-600', bg: 'bg-primary-50' },
                       { label: 'Notas', value: summary?.notesCount, icon: <StickyNote size={14} />, color: 'text-slate-500', bg: 'bg-slate-100' },
                     ].map(item => (
-                      <div key={item.label} className={`${item.bg} rounded-xl p-2.5 text-center`}>
+                      <div key={item.label} className={`${item.bg} rounded-lg p-3 text-center`}>
                         <div className={`${item.color} flex justify-center mb-1.5`}>{item.icon}</div>
-                        <div className="text-base font-bold text-slate-800 leading-none">
+                        <div className="text-base font-medium text-slate-800 leading-none">
                           {item.value === null ? <span className="text-slate-300 text-xs">—</span> : item.value}
                         </div>
-                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mt-1 leading-tight">{item.label}</div>
+                        <div className="text-[11px] text-slate-500 mt-1 leading-tight">{item.label}</div>
                       </div>
                     ))}
                   </div>
                 )}
-                {summaryError && <p className="text-xs text-rose-500 mt-2">{summaryError}</p>}
-              </div>
+                {summaryError && <Alert variant="error">{summaryError}</Alert>}
 
-              {/* Upcoming appointments */}
-              {(summary?.upcomingAppointments?.length ?? 0) > 0 && (
-                <div className="px-5 py-4 border-b border-slate-100">
-                  <div className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
-                    <Calendar size={14} className="text-indigo-500" /> Próximos atendimentos
-                  </div>
-                  <div className="space-y-2">
-                    {summary!.upcomingAppointments.map(item => (
-                      <div key={item.id} className="flex items-center justify-between text-xs bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2.5">
-                        <span className="font-semibold text-indigo-800">{item.label}</span>
-                        <span className="text-indigo-500 font-medium">{item.time}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Extra details */}
-              <div className="px-5 py-4">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => setShowDetails(p => !p)}
-                  iconLeft={<ChevronRight size={13} className={`transition-transform ${showDetails ? 'rotate-90' : ''}`} />}
-                >
-                  {showDetails ? 'Ocultar dados completos' : 'Ver dados completos do cadastro'}
-                </Button>
-                {showDetails && (
-                  <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-4 text-xs">
-                    {[
-                      { label: 'RG', value: selectedPatient.rg },
-                      { label: 'Profissão', value: selectedPatient.profession },
-                      { label: 'Estado civil', value: selectedPatient.marital_status },
-                      { label: 'Escolaridade', value: selectedPatient.education },
-                      { label: 'Nacionalidade', value: selectedPatient.nationality },
-                      { label: 'Convênio', value: selectedPatient.health_plan || (selectedPatient.convenio ? selectedPatient.convenio_name || 'Sim' : 'Não') },
-                      { label: 'Contato emergência', value: selectedPatient.emergency_contact },
-                      { label: 'Contato familiar', value: selectedPatient.family_contact },
-                    ].map(row => row.value ? (
-                      <div key={row.label}>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{row.label}</div>
-                        <div className="text-slate-700 font-semibold mt-0.5">{row.value}</div>
-                      </div>
-                    ) : null)}
+                {(summary?.upcomingAppointments?.length ?? 0) > 0 && (
+                  <div>
+                    <div className="text-xs font-medium text-slate-600 mb-2 flex items-center gap-2">
+                      <Calendar size={14} className="text-primary-500" /> Próximos atendimentos
+                    </div>
+                    <div className="space-y-2">
+                      {summary!.upcomingAppointments.map(item => (
+                        <div key={item.id} className="flex items-center justify-between text-xs bg-primary-50 border border-primary-100 rounded-lg px-3 py-2">
+                          <span className="font-medium text-primary-800">{item.label}</span>
+                          <span className="text-primary-600">{item.time}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
+            )}
+
+            {summaryTab === 'cadastro' && (
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+                <DetailField label="RG" value={selectedPatient.rg || ''} />
+                <DetailField label="Profissão" value={selectedPatient.profession || ''} />
+                <DetailField label="Estado civil" value={selectedPatient.marital_status || ''} />
+                <DetailField label="Escolaridade" value={selectedPatient.education || ''} />
+                <DetailField label="Nacionalidade" value={selectedPatient.nationality || ''} />
+                <DetailField label="Convênio" value={selectedPatient.health_plan || (selectedPatient.convenio ? selectedPatient.convenio_name || 'Sim' : 'Não')} />
+                <DetailField label="Contato emergência" value={selectedPatient.emergency_contact || ''} />
+                <DetailField label="Contato familiar" value={selectedPatient.family_contact || ''} />
+              </dl>
+            )}
+          </Tabs>
         </Modal>
       )}
 
@@ -1590,7 +1426,7 @@ export const Patients: React.FC = () => {
                   {row.cpf}
                 </span>
                 {row.duplicate && (
-                  <span className="text-[10px] text-rose-500 font-medium">já existe: {row.existingName}</span>
+                  <span className="text-[11px] text-rose-500 font-medium">já existe: {row.existingName}</span>
                 )}
               </div>
             ) : <span className="text-slate-300 text-xs">—</span>,
@@ -1630,11 +1466,10 @@ export const Patients: React.FC = () => {
             onClose={() => { setImportPreviewOpen(false); setImportPreview([]); setImportFile(null); }}
             size="full"
             mobileStyle="fullscreen"
-            className="sm:max-w-4xl"
             title={
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
-                  <FileUp size={18} className="text-indigo-600" />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50">
+                  <FileUp size={18} className="text-primary-600" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">Pré-visualização da Importação</span>
@@ -1687,10 +1522,9 @@ export const Patients: React.FC = () => {
               />
 
               {dupCount > 0 && (
-                <div className="flex items-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-600">
-                  <AlertCircle size={13} />
+                <Alert variant="warning">
                   Linhas com CPF duplicado não podem ser selecionadas e serão ignoradas na importação.
-                </div>
+                </Alert>
               )}
             </div>
           </Modal>

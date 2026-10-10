@@ -35,19 +35,31 @@ import { useToast } from '../contexts/ToastContext';
 import { DatePicker } from '../components/UI/DatePicker';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import {
+  Alert,
+  Badge,
   Button,
   Combobox,
   ConfirmModal,
   EmptyState,
   FilterLineDateRange,
   FilterLineSearch,
-  FilterLineSegmented,
+  IconButton,
   Input,
   Modal,
   ModalFooter,
+  PanelCard,
   StatCard,
+  StatGrid,
+  Tabs,
   Textarea,
 } from '../components/UI';
+
+const VIRTUAL_ROOMS_TABS = [
+  { id: 'rooms', label: 'Salas', icon: Video },
+  { id: 'transcricoes', label: 'Transcrições', icon: FileText },
+] as const;
+
+type VirtualRoomsTab = (typeof VIRTUAL_ROOMS_TABS)[number]['id'];
 
 type SessionSummary = {
   id: number;
@@ -127,7 +139,7 @@ export const VirtualRooms: React.FC = () => {
   const [generatingRoomMeetLink, setGeneratingRoomMeetLink] = useState(false);
   const [isCreatingInstantMeet, setIsCreatingInstantMeet] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'rooms' | 'transcricoes'>('rooms');
+  const [activeTab, setActiveTab] = useState<VirtualRoomsTab>('rooms');
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
@@ -704,589 +716,524 @@ export const VirtualRooms: React.FC = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  const renderCopyButton = (room: VirtualRoom) => (
+    <IconButton
+      variant="outline"
+      size="sm"
+      aria-label="Copiar link"
+      title="Copiar link"
+      onClick={() => handleCopyLink(room)}
+      className={copiedId === room.id ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : undefined}
+    >
+      {copiedId === room.id ? <Check size={14} /> : <Copy size={14} />}
+    </IconButton>
+  );
+
   return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
-
-      <SectionTitle
-        icon={Video}
-        title="Atendimento Online"
-        description="Salas seguras com criptografia ponta-a-ponta"
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              iconLeft={<Plus size={14} />}
-              onClick={() => openCreateModal()}
-            >
-              Agendar Sala
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              iconLeft={<Zap size={14} className="fill-current" />}
-              loading={isCreatingInstant}
-              onClick={handleInstantMeeting}
-            >
-              Sala Instantânea
-            </Button>
-          </div>
-        }
-      />
-
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-          <StatCard title="Salas ativas" value={roomStats.total} icon={Video} color="default" delay={0} />
-          <StatCard title="Agendadas" value={roomStats.upcoming} icon={Calendar} color="info" delay={1} />
-          <StatCard title="Permanentes" value={roomStats.persistent} icon={ShieldCheck} color="purple" delay={2} />
-        </div>
-
-        {/* Como funciona — orienta qual tipo de sala usar em cada caso */}
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="mb-3 text-sm font-bold text-slate-700">Como funciona o atendimento online</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-                <ShieldCheck size={16} />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-700">Sala interna do Plaelo</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
-                  Criptografada, sem instalar nada. Use "Sala Instantânea" ou "Agendar Sala" — o link é gerado sozinho.
-                </p>
-              </div>
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={Video}
+          title="Atendimento Online"
+          description="Salas seguras com criptografia ponta-a-ponta"
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={() => openCreateModal()}>
+                Agendar Sala
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                iconLeft={<Zap size={14} />}
+                loading={isCreatingInstant}
+                onClick={handleInstantMeeting}
+              >
+                Sala Instantânea
+              </Button>
             </div>
-            <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-                <LinkIcon size={16} />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-700">Link externo (Zoom, Teams...)</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
-                  Já tem uma sala em outro serviço? Cole o link manualmente ao agendar a consulta na Agenda.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-3.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                <span className="text-sm font-black">G</span>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-700">Google Meet automático — novo</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">
-                  Conecte sua conta em <strong>Configurações → Integrações</strong> e gere um link do Meet com um clique direto na Agenda.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tab switcher */}
-        <FilterLineSegmented
-          value={activeTab}
-          onChange={v => setActiveTab(v as 'rooms' | 'transcricoes')}
-          options={[
-            { value: 'rooms', label: 'Salas' },
-            { value: 'transcricoes', label: 'Transcrições' },
-          ]}
+          }
         />
 
-        {/* ── SALAS TAB ── */}
-        {activeTab === 'rooms' && (
-          <div className="space-y-6">
-            {/* Entrar com código */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="mb-1 flex items-center gap-2 text-base font-bold text-slate-800">
-                <LinkIcon size={16} className="text-indigo-500" /> Entrar com Código
-              </h2>
-              <p className="mb-4 text-sm text-slate-400">Cole o código da sala para entrar direto</p>
-              <form onSubmit={handleJoinByCode} className="flex flex-col gap-2 sm:flex-row">
-                <div className="flex-1">
-                  <Input
-                    addonLeft={<Search size={15} />}
-                    placeholder="Ex: abc-123-xyz"
-                    value={meetingCode}
-                    onChange={(e) => setMeetingCode(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" variant="primary" disabled={!meetingCode} iconRight={<ArrowRight size={15} />}>
-                  Acessar Sala
-                </Button>
-              </form>
-            </div>
+        {/* Stats */}
+        <StatGrid cols={3}>
+          <StatCard title="Salas ativas" value={roomStats.total} icon={Video} color="default" delay={0} />
+          <StatCard title="Agendadas" value={roomStats.upcoming} icon={Calendar} color="info" delay={1} />
+          <StatCard title="Permanentes" value={roomStats.persistent} icon={ShieldCheck} color="success" delay={2} />
+        </StatGrid>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              {/* Salas permanentes */}
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
-                    <History size={16} className="text-indigo-500" />
-                    <h2 className="font-bold text-slate-700">Minhas Salas</h2>
-                    {persistentRooms.length > 0 && (
-                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-600">
-                        {persistentRooms.length}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-44">
-                      <FilterLineSearch
-                        value={roomSearch}
-                        onChange={setRoomSearch}
-                        placeholder="Buscar sala..."
-                      />
+        <Tabs<VirtualRoomsTab>
+          items={VIRTUAL_ROOMS_TABS}
+          value={activeTab}
+          onChange={setActiveTab}
+          label="Seções do atendimento online"
+        >
+          {/* ── SALAS TAB ── */}
+          {activeTab === 'rooms' && (
+            <div className="space-y-3">
+              {/* Como funciona — orienta qual tipo de sala usar em cada caso */}
+              <PanelCard title="Como funciona o atendimento online" icon={ShieldCheck}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600">
+                      <ShieldCheck size={14} />
                     </div>
-                    <span className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Permanentes
-                    </span>
+                    <div>
+                      <p className="text-xs font-medium text-slate-800">Sala interna do Plaelo</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                        Criptografada, sem instalar nada. Use "Sala Instantânea" ou "Agendar Sala" — o link é gerado sozinho.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600">
+                      <LinkIcon size={14} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-800">Link externo (Zoom, Teams...)</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                        Já tem uma sala em outro serviço? Cole o link manualmente ao agendar a consulta na Agenda.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-xs font-medium text-primary-600">
+                      G
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-800">Google Meet automático — novo</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                        Conecte sua conta em <strong>Configurações → Integrações</strong> e gere um link do Meet com um clique direto na Agenda.
+                      </p>
+                    </div>
                   </div>
                 </div>
+              </PanelCard>
 
-                <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
-                  {isLoading ? (
-                    <div className="flex justify-center py-12">
-                      <Loader2 className="animate-spin text-slate-300" />
-                    </div>
-                  ) : persistentRooms.length === 0 ? (
-                    <EmptyState
-                      icon={Video}
-                      title="Nenhuma sala permanente"
-                      description="Crie uma sala para atender quando quiser"
-                      className="border-none bg-transparent py-14"
+              {/* Entrar com código */}
+              <PanelCard title="Entrar com código" description="Cole o código da sala para entrar direto" icon={LinkIcon}>
+                <form onSubmit={handleJoinByCode} className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex-1">
+                    <Input
+                      addonLeft={<Search size={14} />}
+                      placeholder="Ex: abc-123-xyz"
+                      value={meetingCode}
+                      onChange={(e) => setMeetingCode(e.target.value)}
                     />
-                  ) : (
-                    persistentRooms.map((room) => (
-                      <div key={room.id} className="group flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                          <Video size={15} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-slate-800">{room.title || 'Sem título'}</p>
-                          <div className="mt-0.5 flex items-center gap-1.5">
-                            <span className="rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] text-indigo-600">
-                              {room.code}
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              {new Date(room.created_at).toLocaleDateString('pt-BR')}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={() => handleCopyLink(room)}
-                            title="Copiar link"
-                            className={`rounded-xl border p-2 transition ${
-                              copiedId === room.id
-                                ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
-                                : 'border-slate-200 text-slate-400 hover:border-indigo-200 hover:text-indigo-600'
-                            }`}
-                          >
-                            {copiedId === room.id ? <Check size={15} /> : <Copy size={15} />}
-                          </button>
-                          <button
-                            onClick={() => openWhatsAppShare(room)}
-                            title="WhatsApp"
-                            className="rounded-xl bg-emerald-500 p-2 text-white shadow-sm transition hover:bg-emerald-600"
-                          >
-                            <Send size={15} />
-                          </button>
-                          <button
-                            onClick={() => window.open(`/sala/${room.code}`, '_blank')}
-                            title="Entrar na sala"
-                            className="rounded-xl bg-indigo-600 p-2 text-white shadow-sm transition hover:bg-indigo-700"
-                          >
-                            <Play size={15} />
-                          </button>
-                          <button
-                            onClick={() => setRoomToDelete(room)}
-                            title="Excluir"
-                            className="rounded-xl border border-slate-200 p-2 text-slate-300 transition hover:border-red-200 hover:text-red-500"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
+                  </div>
+                  <Button type="submit" variant="primary" size="md" disabled={!meetingCode} iconRight={<ArrowRight size={14} />}>
+                    Acessar Sala
+                  </Button>
+                </form>
+              </PanelCard>
+
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 [&>*]:min-w-0">
+                {/* Salas permanentes */}
+                <PanelCard
+                  title="Minhas salas"
+                  description="Salas permanentes"
+                  icon={History}
+                  action={
+                    <div className="flex items-center gap-2">
+                      {persistentRooms.length > 0 && <Badge color="primary">{persistentRooms.length}</Badge>}
+                      <div className="w-full sm:w-44">
+                        <FilterLineSearch
+                          value={roomSearch}
+                          onChange={setRoomSearch}
+                          placeholder="Buscar sala..."
+                        />
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Próximas sessões agendadas */}
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-indigo-500" />
-                    <h2 className="font-bold text-slate-700">Próximos Atendimentos</h2>
-                    {upcomingRooms.length > 0 && (
-                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-600">
-                        {upcomingRooms.length}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1">
-                    <ShieldCheck size={12} className="text-emerald-600" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Hiper Seguro</span>
-                  </div>
-                </div>
-
-                <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
-                  {isLoading ? (
-                    <div className="flex justify-center py-12">
-                      <Loader2 className="animate-spin text-slate-300" size={28} />
                     </div>
-                  ) : upcomingRooms.length === 0 ? (
-                    <EmptyState
-                      icon={Calendar}
-                      title="Sem consultas agendadas"
-                      className="border-none bg-transparent py-14"
-                      action={
-                        <Button variant="primary" size="sm" iconLeft={<Plus size={13} />} onClick={() => openCreateModal()}>
-                          Agendar agora
-                        </Button>
-                      }
-                    />
-                  ) : (
-                    upcomingRooms.map((room) => {
-                      const start = room.scheduled_start ? new Date(room.scheduled_start) : null;
-                      const end = room.scheduled_end ? new Date(room.scheduled_end) : null;
-                      const dayNum = start ? start.getDate() : '--';
-                      const monthStr = start ? start.toLocaleString('pt-BR', { month: 'short' }).replace('.', '') : '--';
-                      const timeStr = start ? start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-                      const endTimeStr = end ? end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
-                      return (
-                        <div key={room.id} className="group flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-50 sm:flex-row sm:items-center">
-                          {/* Date badge */}
-                          <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl border border-indigo-100 bg-indigo-50 shadow-sm">
-                            <span className="text-[9px] font-bold uppercase tracking-wide text-indigo-500">{monthStr}</span>
-                            <span className="text-base sm:text-xl font-black leading-tight text-indigo-800">{dayNum}</span>
+                  }
+                  contentClassName="p-0"
+                >
+                  <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+                    {isLoading ? (
+                      <div role="status" className="flex justify-center py-12">
+                        <Loader2 className="animate-spin text-slate-300" />
+                      </div>
+                    ) : persistentRooms.length === 0 ? (
+                      <EmptyState
+                        icon={Video}
+                        title="Nenhuma sala permanente"
+                        description="Crie uma sala para atender quando quiser"
+                        className="border-none bg-transparent py-10"
+                      />
+                    ) : (
+                      persistentRooms.map((room) => (
+                        <div key={room.id} className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-slate-50">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600">
+                            <Video size={14} />
                           </div>
-
                           <div className="min-w-0 flex-1">
-                            <div className="mb-1 flex items-center gap-1.5">
-                              <Clock size={12} className="text-slate-400" />
-                              <span className="text-xs font-bold text-slate-500">
-                                {timeStr}{endTimeStr ? ` – ${endTimeStr}` : ''}
+                            <p className="truncate text-[13px] font-medium text-slate-800">{room.title || 'Sem título'}</p>
+                            <div className="mt-0.5 flex items-center gap-1.5">
+                              <span className="rounded border border-primary-100 bg-primary-50 px-1.5 py-0.5 font-mono text-[11px] text-primary-700">
+                                {room.code}
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                {new Date(room.created_at).toLocaleDateString('pt-BR')}
                               </span>
                             </div>
-                            <p className="truncate text-sm font-bold text-slate-800">{room.title || 'Sessão sem título'}</p>
-                            {room.description && (
-                              <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">{room.description}</p>
-                            )}
                           </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              onClick={() => handleCopyLink(room)}
-                              title="Copiar link"
-                              className={`rounded-xl border p-2 transition ${
-                                copiedId === room.id
-                                  ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
-                                  : 'border-slate-200 text-slate-400 hover:border-indigo-200 hover:text-indigo-600'
-                              }`}
-                            >
-                              {copiedId === room.id ? <Check size={15} /> : <Copy size={15} />}
-                            </button>
-                            <button
-                              onClick={() => openWhatsAppShare(room)}
-                              className="rounded-xl bg-emerald-500 p-2 text-white shadow-sm transition hover:bg-emerald-600"
-                              title="WhatsApp"
-                            >
-                              <Send size={15} />
-                            </button>
-                            <button
-                              onClick={() => window.open(`/sala/${room.code}`, '_blank')}
-                              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-indigo-700"
-                            >
-                              <Play size={13} fill="currentColor" /> Entrar
-                            </button>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {renderCopyButton(room)}
+                            <IconButton variant="success" size="sm" aria-label="Compartilhar no WhatsApp" title="WhatsApp" onClick={() => openWhatsAppShare(room)}>
+                              <Send size={14} />
+                            </IconButton>
+                            <IconButton variant="primary" size="sm" aria-label="Entrar na sala" title="Entrar na sala" onClick={() => window.open(`/sala/${room.code}`, '_blank')}>
+                              <Play size={14} />
+                            </IconButton>
+                            <IconButton variant="outline" size="sm" aria-label="Excluir sala" title="Excluir" onClick={() => setRoomToDelete(room)} className="text-red-600 hover:bg-red-50">
+                              <Trash2 size={14} />
+                            </IconButton>
                           </div>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
+                      ))
+                    )}
+                  </div>
+                </PanelCard>
+
+                {/* Próximas sessões agendadas */}
+                <PanelCard
+                  title="Próximos atendimentos"
+                  description="Sessões agendadas"
+                  icon={Calendar}
+                  action={
+                    <div className="flex items-center gap-2">
+                      {upcomingRooms.length > 0 && <Badge color="primary">{upcomingRooms.length}</Badge>}
+                      <Badge color="success" dot>Hiper seguro</Badge>
+                    </div>
+                  }
+                  contentClassName="p-0"
+                >
+                  <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+                    {isLoading ? (
+                      <div role="status" className="flex justify-center py-12">
+                        <Loader2 className="animate-spin text-slate-300" size={24} />
+                      </div>
+                    ) : upcomingRooms.length === 0 ? (
+                      <EmptyState
+                        icon={Calendar}
+                        title="Sem consultas agendadas"
+                        className="border-none bg-transparent py-10"
+                        action={
+                          <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => openCreateModal()}>
+                            Agendar agora
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      upcomingRooms.map((room) => {
+                        const start = room.scheduled_start ? new Date(room.scheduled_start) : null;
+                        const end = room.scheduled_end ? new Date(room.scheduled_end) : null;
+                        const dayNum = start ? start.getDate() : '--';
+                        const monthStr = start ? start.toLocaleString('pt-BR', { month: 'short' }).replace('.', '') : '--';
+                        const timeStr = start ? start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                        const endTimeStr = end ? end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+                        return (
+                          <div key={room.id} className="flex flex-col gap-3 px-3 py-3 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center">
+                            {/* Date badge */}
+                            <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-primary-100 bg-primary-50">
+                              <span className="text-[11px] text-primary-600">{monthStr}</span>
+                              <span className="text-base font-medium leading-tight text-primary-800">{dayNum}</span>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-0.5 flex items-center gap-1.5">
+                                <Clock size={12} className="text-slate-400" />
+                                <span className="text-[11px] text-slate-500">
+                                  {timeStr}{endTimeStr ? ` – ${endTimeStr}` : ''}
+                                </span>
+                              </div>
+                              <p className="truncate text-[13px] font-medium text-slate-800">{room.title || 'Sessão sem título'}</p>
+                              {room.description && (
+                                <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">{room.description}</p>
+                              )}
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {renderCopyButton(room)}
+                              <IconButton variant="success" size="sm" aria-label="Compartilhar no WhatsApp" title="WhatsApp" onClick={() => openWhatsAppShare(room)}>
+                                <Send size={14} />
+                              </IconButton>
+                              <Button variant="primary" size="sm" iconLeft={<Play size={14} />} onClick={() => window.open(`/sala/${room.code}`, '_blank')}>
+                                Entrar
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </PanelCard>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ── TRANSCRIÇÕES TAB ── */}
-        {activeTab === 'transcricoes' && (
-          <div className="space-y-5">
-            {/* Aviso: funcionalidade em evolução */}
-            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
-              <p className="text-xs text-amber-800">
-                <span className="font-bold">A transcrição automática ainda está em evolução.</span>{' '}
+          {/* ── TRANSCRIÇÕES TAB ── */}
+          {activeTab === 'transcricoes' && (
+            <div className="space-y-3">
+              {/* Aviso: funcionalidade em evolução */}
+              <Alert variant="warning" title="A transcrição automática ainda está em evolução.">
                 Você pode notar pequenas inconsistências no texto gerado — seguimos ajustando a qualidade.
                 A funcionalidade continua liberada para uso; revise o conteúdo antes de considerá-lo definitivo.
-              </p>
-            </div>
+              </Alert>
 
-            {/* Histórico */}
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="flex items-center gap-2 font-bold text-slate-800">
-                    <FileText size={17} className="text-indigo-500" /> Histórico de Sessões
-                  </h3>
-                  <button
-                    onClick={fetchSessions}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 transition hover:text-indigo-600"
-                  >
+              {/* Histórico */}
+              <PanelCard
+                title="Histórico de sessões"
+                description={!sessionsLoading && sessions.length > 0
+                  ? `${filteredSessions.length} de ${sessions.length} sessão${sessions.length !== 1 ? 'ões' : ''}`
+                  : undefined}
+                icon={FileText}
+                action={
+                  <Button variant="outline" size="sm" onClick={fetchSessions}>
                     Atualizar
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <div className="min-w-[150px] flex-1">
-                    <FilterLineSearch
-                      value={sessionSearch}
-                      onChange={setSessionSearch}
-                      placeholder="Buscar sala ou sessão..."
+                  </Button>
+                }
+                contentClassName="p-0"
+              >
+                <div className="border-b border-slate-100 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="min-w-[150px] flex-1">
+                      <FilterLineSearch
+                        value={sessionSearch}
+                        onChange={setSessionSearch}
+                        placeholder="Buscar sala ou sessão..."
+                      />
+                    </div>
+                    <FilterLineDateRange
+                      from={filterDateFrom || null}
+                      to={filterDateTo || null}
+                      onFromChange={v => setFilterDateFrom(v || '')}
+                      onToChange={v => setFilterDateTo(v || '')}
                     />
-                  </div>
-                  <FilterLineDateRange
-                    from={filterDateFrom || null}
-                    to={filterDateTo || null}
-                    onFromChange={v => setFilterDateFrom(v || '')}
-                    onToChange={v => setFilterDateTo(v || '')}
-                  />
-                  <button
-                    onClick={() => setFilterHasRecording(v => v === true ? null : true)}
-                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${filterHasRecording === true ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:text-emerald-600'}`}
-                  >
-                    Com áudio
-                  </button>
-                  <button
-                    onClick={() => setFilterHasTranscript(v => v === true ? null : true)}
-                    className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition ${filterHasTranscript === true ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:text-indigo-600'}`}
-                  >
-                    Com transcrição
-                  </button>
-                  {hasActiveFilters && (
-                    <button
-                      onClick={clearFilters}
-                      className="flex items-center gap-1 rounded-xl border border-red-100 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-500 transition hover:bg-red-100"
+                    <Button
+                      variant={filterHasRecording === true ? 'success' : 'outline'}
+                      size="sm"
+                      onClick={() => setFilterHasRecording(v => v === true ? null : true)}
                     >
-                      <X size={11} /> Limpar
-                    </button>
-                  )}
+                      Com áudio
+                    </Button>
+                    <Button
+                      variant={filterHasTranscript === true ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => setFilterHasTranscript(v => v === true ? null : true)}
+                    >
+                      Com transcrição
+                    </Button>
+                    {hasActiveFilters && (
+                      <Button variant="ghost" size="sm" iconLeft={<X size={12} />} onClick={clearFilters}>
+                        Limpar
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
-                {!sessionsLoading && sessions.length > 0 && (
-                  <p className="text-[11px] text-slate-400">
-                    {filteredSessions.length} de {sessions.length} sessão{sessions.length !== 1 ? 'ões' : ''}
-                  </p>
-                )}
-              </div>
-
-              {sessionsLoading ? (
-                <div className="flex justify-center py-16">
-                  <Loader2 className="animate-spin text-slate-300" size={32} />
-                </div>
-              ) : filteredSessions.length === 0 ? (
-                <EmptyState
-                  icon={FileText}
-                  title={sessions.length === 0 ? 'Nenhuma sessão registrada ainda.' : 'Nenhuma sessão encontrada.'}
-                  description={sessions.length === 0 ? 'As transcrições aparecem aqui após encerrar uma sessão.' : 'Tente ajustar os filtros.'}
-                  className="border-none bg-transparent py-16"
-                  action={hasActiveFilters && (
-                    <button onClick={clearFilters} className="text-xs text-indigo-600 hover:underline">Limpar filtros</button>
-                  )}
-                />
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {filteredSessions.map((session) => {
-                    const isOpen = expandedSession === session.session_key;
-                    const transcripts = sessionTranscripts[session.session_key];
-                    const recordings = sessionRecordings[session.session_key];
-                    const isLoadingThis = loadingDetail === session.session_key;
-                    return (
-                      <div key={session.session_key}>
-                        <div className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50">
-                          <button
-                            onClick={() => toggleSession(session)}
-                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                          >
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                              <Mic size={16} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-slate-800">
-                                {session.display_title || session.room_title || `Sala #${session.room_id}`}
-                                {session.room_code && (
-                                  <span className="ml-2 font-mono text-[10px] text-slate-400">{session.room_code}</span>
-                                )}
-                              </p>
-                              <p className="text-xs text-slate-400">
-                                {session.patient_name && (
-                                  <span className="font-semibold text-slate-500">{session.patient_name} · </span>
-                                )}
-                                {formatSessionDate(session.started_at)}
-                                {session.duration_seconds != null && ` · ${formatDuration(session.duration_seconds)}`}
-                              </p>
-                            </div>
-                          </button>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <span className="hidden rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-600 sm:inline">
-                              {session.transcript_count} linhas
-                            </span>
-                            {session.recording_count > 0 && (
-                              <span className="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600 sm:inline">
-                                {session.recording_count} áudio{session.recording_count > 1 ? 's' : ''}
-                              </span>
-                            )}
+                {sessionsLoading ? (
+                  <div role="status" className="flex justify-center py-12">
+                    <Loader2 className="animate-spin text-slate-300" size={28} />
+                  </div>
+                ) : filteredSessions.length === 0 ? (
+                  <EmptyState
+                    icon={FileText}
+                    title={sessions.length === 0 ? 'Nenhuma sessão registrada ainda.' : 'Nenhuma sessão encontrada.'}
+                    description={sessions.length === 0 ? 'As transcrições aparecem aqui após encerrar uma sessão.' : 'Tente ajustar os filtros.'}
+                    className="border-none bg-transparent py-12"
+                    action={hasActiveFilters && (
+                      <Button variant="outline" size="sm" onClick={clearFilters}>Limpar filtros</Button>
+                    )}
+                  />
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {filteredSessions.map((session) => {
+                      const isOpen = expandedSession === session.session_key;
+                      const transcripts = sessionTranscripts[session.session_key];
+                      const recordings = sessionRecordings[session.session_key];
+                      const isLoadingThis = loadingDetail === session.session_key;
+                      return (
+                        <div key={session.session_key}>
+                          <div className="flex items-center justify-between gap-3 px-3 py-3 transition-colors hover:bg-slate-50">
                             <button
-                              onClick={() => openEditSession(session)}
-                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 transition hover:border-indigo-200 hover:text-indigo-600"
-                              title="Renomear / marcar paciente"
+                              type="button"
+                              onClick={() => toggleSession(session)}
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
                             >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              onClick={() => deleteSession(session)}
-                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 transition hover:border-red-200 hover:text-red-500"
-                              title="Deletar sessão"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                            <button onClick={() => toggleSession(session)} className="p-1">
-                              <ChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {isOpen && (
-                          <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4 space-y-4">
-                            {isLoadingThis ? (
-                              <div className="flex justify-center py-6">
-                                <Loader2 className="animate-spin text-slate-300" size={24} />
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600">
+                                <Mic size={14} />
                               </div>
-                            ) : (
-                              <>
-                                <div className="flex flex-wrap gap-2">
-                                  {(transcripts?.length ?? 0) > 0 && (
-                                    <button
-                                      onClick={() => downloadTranscript(session)}
-                                      className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"
-                                    >
-                                      <Download size={13} /> Baixar .txt
-                                    </button>
+                              <div className="min-w-0">
+                                <p className="truncate text-[13px] font-medium text-slate-800">
+                                  {session.display_title || session.room_title || `Sala #${session.room_id}`}
+                                  {session.room_code && (
+                                    <span className="ml-2 font-mono text-[11px] text-slate-500">{session.room_code}</span>
                                   )}
-                                  {(transcripts?.length ?? 0) > 0 && (recordings?.length ?? 0) > 0 && (
-                                    <button
-                                      onClick={async () => {
-                                        await deleteTranscript(session);
-                                        const recs = sessionRecordings[session.session_key];
-                                        if (recs?.length) transcribeRecording(recs[0], session);
-                                      }}
-                                      disabled={deletingTranscript === session.session_key || transcribingRecording !== null}
-                                      className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
-                                    >
-                                      <Mic size={13} /> Refazer Transcrição
-                                    </button>
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  {session.patient_name && (
+                                    <span className="font-medium text-slate-600">{session.patient_name} · </span>
                                   )}
+                                  {formatSessionDate(session.started_at)}
+                                  {session.duration_seconds != null && ` · ${formatDuration(session.duration_seconds)}`}
+                                </p>
+                              </div>
+                            </button>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="hidden sm:inline-flex">
+                                <Badge color="primary">{session.transcript_count} linhas</Badge>
+                              </span>
+                              {session.recording_count > 0 && (
+                                <span className="hidden sm:inline-flex">
+                                  <Badge color="success">
+                                    {session.recording_count} áudio{session.recording_count > 1 ? 's' : ''}
+                                  </Badge>
+                                </span>
+                              )}
+                              <IconButton variant="outline" size="sm" aria-label="Renomear / marcar paciente" title="Renomear / marcar paciente" onClick={() => openEditSession(session)}>
+                                <Edit3 size={14} />
+                              </IconButton>
+                              <IconButton variant="outline" size="sm" aria-label="Deletar sessão" title="Deletar sessão" onClick={() => deleteSession(session)} className="text-red-600 hover:bg-red-50">
+                                <Trash2 size={14} />
+                              </IconButton>
+                              <IconButton variant="ghost" size="sm" aria-label={isOpen ? 'Recolher sessão' : 'Expandir sessão'} onClick={() => toggleSession(session)}>
+                                <ChevronDown size={16} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                              </IconButton>
+                            </div>
+                          </div>
+
+                          {isOpen && (
+                            <div className="space-y-3 border-t border-slate-100 bg-slate-50/50 p-3">
+                              {isLoadingThis ? (
+                                <div role="status" className="flex justify-center py-6">
+                                  <Loader2 className="animate-spin text-slate-300" size={22} />
                                 </div>
-
-                                {(recordings?.length ?? 0) > 0 && (
-                                  <div className="space-y-2">
-                                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Gravações de Áudio</p>
-                                    {recordings!.map((rec) => (
-                                      <div key={rec.id} className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
-                                        <div className="flex items-center justify-between gap-2">
-                                          <span className="truncate text-xs font-bold text-slate-700">{rec.file_name}</span>
-                                          <div className="flex shrink-0 items-center gap-2">
-                                            {rec.duration_seconds != null && (
-                                              <span className="text-[11px] text-slate-400">{formatDuration(rec.duration_seconds)}</span>
-                                            )}
-                                            <a
-                                              href={resolveRecordingUrl(rec.file_url)}
-                                              download={rec.file_name}
-                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:text-indigo-600"
-                                              title="Baixar áudio"
-                                            >
-                                              <Download size={13} />
-                                            </a>
-                                            <button
-                                              onClick={() => deleteRecording(rec, session)}
-                                              disabled={deletingRecording === rec.id}
-                                              className="rounded-lg border border-slate-200 p-1.5 text-slate-300 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
-                                              title="Deletar gravação"
-                                            >
-                                              {deletingRecording === rec.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                                            </button>
-                                          </div>
-                                        </div>
-                                        <audio
-                                          ref={(el) => { audioRefs.current[`${rec.id}`] = el; }}
-                                          controls
-                                          className="w-full h-8"
-                                          src={resolveRecordingUrl(rec.file_url)}
-                                        />
-                                        <button
-                                          onClick={() => transcribeRecording(rec, session)}
-                                          disabled={transcribingRecording === rec.id}
-                                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                          {transcribingRecording === rec.id ? (
-                                            <><Loader2 size={13} className="animate-spin" /> Transcrevendo...</>
-                                          ) : (
-                                            <><Mic size={13} /> Transcrever</>
-                                          )}
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {(transcripts?.length ?? 0) > 0 ? (
-                                  <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Transcrição</p>
-                                      <button
-                                        onClick={() => deleteTranscript(session)}
-                                        disabled={deletingTranscript === session.session_key}
-                                        className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-400 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
+                              ) : (
+                                <>
+                                  <div className="flex flex-wrap gap-2">
+                                    {(transcripts?.length ?? 0) > 0 && (
+                                      <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => downloadTranscript(session)}>
+                                        Baixar .txt
+                                      </Button>
+                                    )}
+                                    {(transcripts?.length ?? 0) > 0 && (recordings?.length ?? 0) > 0 && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        iconLeft={<Mic size={14} />}
+                                        onClick={async () => {
+                                          await deleteTranscript(session);
+                                          const recs = sessionRecordings[session.session_key];
+                                          if (recs?.length) transcribeRecording(recs[0], session);
+                                        }}
+                                        disabled={deletingTranscript === session.session_key || transcribingRecording !== null}
                                       >
-                                        {deletingTranscript === session.session_key ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                                        Deletar
-                                      </button>
-                                    </div>
-                                    <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3">
-                                      {transcripts!.map((line) => (
-                                        <div key={line.id} className="flex gap-2">
-                                          <span
-                                            className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                              line.speaker_role === 'host'
-                                                ? 'bg-indigo-100 text-indigo-700'
-                                                : 'bg-emerald-100 text-emerald-700'
-                                            }`}
+                                        Refazer Transcrição
+                                      </Button>
+                                    )}
+                                  </div>
+
+                                  {(recordings?.length ?? 0) > 0 && (
+                                    <div className="space-y-2">
+                                      <p className="text-xs font-medium text-slate-600">Gravações de áudio</p>
+                                      {recordings!.map((rec) => (
+                                        <div key={rec.id} className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="truncate text-xs font-medium text-slate-700">{rec.file_name}</span>
+                                            <div className="flex shrink-0 items-center gap-2">
+                                              {rec.duration_seconds != null && (
+                                                <span className="text-[11px] text-slate-500">{formatDuration(rec.duration_seconds)}</span>
+                                              )}
+                                              <a
+                                                href={resolveRecordingUrl(rec.file_url)}
+                                                download={rec.file_name}
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-colors hover:text-primary-700"
+                                                title="Baixar áudio"
+                                                aria-label="Baixar áudio"
+                                              >
+                                                <Download size={14} />
+                                              </a>
+                                              <IconButton
+                                                variant="outline"
+                                                size="sm"
+                                                aria-label="Deletar gravação"
+                                                title="Deletar gravação"
+                                                onClick={() => deleteRecording(rec, session)}
+                                                disabled={deletingRecording === rec.id}
+                                                className="text-red-600 hover:bg-red-50"
+                                              >
+                                                {deletingRecording === rec.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                              </IconButton>
+                                            </div>
+                                          </div>
+                                          <audio
+                                            ref={(el) => { audioRefs.current[`${rec.id}`] = el; }}
+                                            controls
+                                            className="h-8 w-full"
+                                            src={resolveRecordingUrl(rec.file_url)}
+                                          />
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            fullWidth
+                                            onClick={() => transcribeRecording(rec, session)}
+                                            disabled={transcribingRecording === rec.id}
+                                            iconLeft={transcribingRecording === rec.id ? <Loader2 size={14} className="animate-spin" /> : <Mic size={14} />}
                                           >
-                                            {line.speaker_name}
-                                          </span>
-                                          <p className="text-xs leading-relaxed text-slate-700">{line.text}</p>
+                                            {transcribingRecording === rec.id ? 'Transcrevendo...' : 'Transcrever'}
+                                          </Button>
                                         </div>
                                       ))}
                                     </div>
-                                  </div>
-                                ) : (
-                                  <p className="py-4 text-center text-sm text-slate-400">Sem transcrição registrada para esta sessão.</p>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                                  )}
+
+                                  {(transcripts?.length ?? 0) > 0 ? (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <p className="text-xs font-medium text-slate-600">Transcrição</p>
+                                        <Button
+                                          variant="ghost"
+                                          size="xs"
+                                          iconLeft={deletingTranscript === session.session_key ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                          onClick={() => deleteTranscript(session)}
+                                          disabled={deletingTranscript === session.session_key}
+                                          className="text-red-600 hover:bg-red-50"
+                                        >
+                                          Deletar
+                                        </Button>
+                                      </div>
+                                      <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3">
+                                        {transcripts!.map((line) => (
+                                          <div key={line.id} className="flex gap-2">
+                                            <span
+                                              className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                                line.speaker_role === 'host'
+                                                  ? 'bg-primary-100 text-primary-700'
+                                                  : 'bg-emerald-100 text-emerald-700'
+                                              }`}
+                                            >
+                                              {line.speaker_name}
+                                            </span>
+                                            <p className="text-xs leading-relaxed text-slate-700">{line.text}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="py-4 text-center text-xs text-slate-500">Sem transcrição registrada para esta sessão.</p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </PanelCard>
             </div>
-          </div>
-        )}
+          )}
+        </Tabs>
       </div>
 
       <Modal
@@ -1297,16 +1244,16 @@ export const VirtualRooms: React.FC = () => {
         size="lg"
         footer={
           <ModalFooter>
-            <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)}>
+            <Button variant="ghost" size="sm" onClick={() => setIsCreateModalOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="primary" onClick={handleCreateRoom} loading={isSavingRoom} iconLeft={<Plus size={14} />}>
+            <Button variant="primary" size="sm" onClick={handleCreateRoom} loading={isSavingRoom} iconLeft={<Plus size={14} />}>
               Criar sala
             </Button>
           </ModalFooter>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Input
             label="Título"
             value={createForm.title}
@@ -1321,9 +1268,9 @@ export const VirtualRooms: React.FC = () => {
             placeholder="Observações para a sala..."
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Data início</label>
+              <label className="ds-label mb-1 block">Data início</label>
               <DatePicker
                 value={createForm.scheduled_start ? createForm.scheduled_start.slice(0, 10) : null}
                 onChange={(val) => setCreateForm((prev) => {
@@ -1332,26 +1279,18 @@ export const VirtualRooms: React.FC = () => {
                 })}
               />
             </div>
+            <Input
+              label="Horário início"
+              type="time"
+              iconLeft={<Clock size={14} />}
+              value={createForm.scheduled_start ? createForm.scheduled_start.slice(11, 16) : ''}
+              onChange={(e) => setCreateForm((prev) => {
+                const date = prev.scheduled_start?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+                return { ...prev, scheduled_start: `${date}T${e.target.value}` };
+              })}
+            />
             <div>
-              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Horário início</label>
-              <div className="relative">
-                <Clock size={14} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-indigo-400" />
-                <input
-                  type="time"
-                  value={createForm.scheduled_start ? createForm.scheduled_start.slice(11, 16) : ''}
-                  onChange={(e) => setCreateForm((prev) => {
-                    const date = prev.scheduled_start?.slice(0, 10) || new Date().toISOString().slice(0, 10);
-                    return { ...prev, scheduled_start: `${date}T${e.target.value}` };
-                  })}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50/30 pl-9 pr-3 text-sm font-black text-slate-700 outline-none transition-all hover:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Data fim</label>
+              <label className="ds-label mb-1 block">Data fim</label>
               <DatePicker
                 value={createForm.scheduled_end ? createForm.scheduled_end.slice(0, 10) : null}
                 onChange={(val) => setCreateForm((prev) => {
@@ -1360,21 +1299,16 @@ export const VirtualRooms: React.FC = () => {
                 })}
               />
             </div>
-            <div>
-              <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Horário fim</label>
-              <div className="relative">
-                <Clock size={14} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-indigo-400" />
-                <input
-                  type="time"
-                  value={createForm.scheduled_end ? createForm.scheduled_end.slice(11, 16) : ''}
-                  onChange={(e) => setCreateForm((prev) => {
-                    const date = prev.scheduled_end?.slice(0, 10) || new Date().toISOString().slice(0, 10);
-                    return { ...prev, scheduled_end: `${date}T${e.target.value}` };
-                  })}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50/30 pl-9 pr-3 text-sm font-black text-slate-700 outline-none transition-all hover:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
-                />
-              </div>
-            </div>
+            <Input
+              label="Horário fim"
+              type="time"
+              iconLeft={<Clock size={14} />}
+              value={createForm.scheduled_end ? createForm.scheduled_end.slice(11, 16) : ''}
+              onChange={(e) => setCreateForm((prev) => {
+                const date = prev.scheduled_end?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+                return { ...prev, scheduled_end: `${date}T${e.target.value}` };
+              })}
+            />
           </div>
 
           <Combobox
@@ -1400,7 +1334,7 @@ export const VirtualRooms: React.FC = () => {
           />
 
           <div>
-            <label className="mb-1.5 ml-1 block text-[11px] font-black uppercase tracking-widest text-slate-500">Expira em</label>
+            <label className="ds-label mb-1 block">Expira em</label>
             <DatePicker
               value={createForm.expiration_date ? createForm.expiration_date.slice(0, 10) : null}
               onChange={(val) => setCreateForm((prev) => ({ ...prev, expiration_date: val || '' }))}
@@ -1415,39 +1349,41 @@ export const VirtualRooms: React.FC = () => {
               placeholder="https://..."
             />
             {googleMeetEnabled && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
                 onClick={handleGenerateRoomMeetLink}
-                disabled={generatingRoomMeetLink}
-                className="mt-2 flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                loading={generatingRoomMeetLink}
+                iconLeft={<span className="text-xs font-medium">G</span>}
               >
-                {generatingRoomMeetLink ? <Loader2 size={13} className="animate-spin" /> : <span className="font-black">G</span>}
                 Gerar link do Google Meet
-              </button>
+              </Button>
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+          <Alert variant="info">
             O link é público. O cliente entra sem login usando <code className="font-mono">/sala/{'{codigo}'}</code>.
-          </div>
+          </Alert>
 
           {createdRoom && (
-            <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <div>
-                <div className="font-semibold text-emerald-700">Sala criada!</div>
-                <div className="break-all text-xs text-emerald-700">
-                  {`${getPublicBaseUrl()}/sala/${createdRoom.code}`}
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button variant="outline" size="sm" onClick={() => handleCopyLink(createdRoom)}>
-                  Copiar link público
-                </Button>
-                <Button variant="success" size="sm" onClick={() => window.open(`/sala/${createdRoom.code}`, '_blank')}>
-                  Abrir sala
-                </Button>
-              </div>
-            </div>
+            <Alert
+              variant="success"
+              title="Sala criada!"
+              action={
+                <>
+                  <Button variant="outline" size="sm" onClick={() => handleCopyLink(createdRoom)}>
+                    Copiar link público
+                  </Button>
+                  <Button variant="success" size="sm" onClick={() => window.open(`/sala/${createdRoom.code}`, '_blank')}>
+                    Abrir sala
+                  </Button>
+                </>
+              }
+            >
+              <span className="break-all">{`${getPublicBaseUrl()}/sala/${createdRoom.code}`}</span>
+            </Alert>
           )}
         </div>
       </Modal>
@@ -1459,8 +1395,8 @@ export const VirtualRooms: React.FC = () => {
         size="sm"
         footer={
           <ModalFooter>
-            <Button variant="ghost" onClick={() => setSessionToEdit(null)}>Cancelar</Button>
-            <Button variant="primary" onClick={saveSessionEdit} loading={isSavingSessionEdit}>Salvar</Button>
+            <Button variant="ghost" size="sm" onClick={() => setSessionToEdit(null)}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={saveSessionEdit} loading={isSavingSessionEdit}>Salvar</Button>
           </ModalFooter>
         }
       >
@@ -1497,19 +1433,21 @@ export const VirtualRooms: React.FC = () => {
         size="sm"
         footer={
           <ModalFooter>
-            <Button variant="ghost" onClick={() => setIsInstantModalOpen(false)}>Cancelar</Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsInstantModalOpen(false)}>Cancelar</Button>
             {googleMeetEnabled && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={handleCreateInstantGoogleMeet}
                 disabled={isCreatingInstantMeet || isCreatingInstant}
-                className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
+                loading={isCreatingInstantMeet}
+                iconLeft={<span className="text-xs font-medium">G</span>}
               >
-                {isCreatingInstantMeet ? <Loader2 size={14} className="animate-spin" /> : <span className="font-black">G</span>}
                 Google Meet
-              </button>
+              </Button>
             )}
-            <Button variant="primary" onClick={handleCreateInstantRoom} loading={isCreatingInstant} disabled={isCreatingInstantMeet}>Criar sala</Button>
+            <Button variant="primary" size="sm" onClick={handleCreateInstantRoom} loading={isCreatingInstant} disabled={isCreatingInstantMeet}>Criar sala</Button>
           </ModalFooter>
         }
       >

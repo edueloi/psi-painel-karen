@@ -85,7 +85,7 @@ const formatBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', 
 const LANCAMENTO_COLUMNS: DataGridColumn<LancamentoRow>[] = [
   {
     key: 'data', header: 'Data', width: 90, sticky: true,
-    render: (r) => <span className="font-bold text-zinc-800">{r.diaNum}/{r.diaMes}</span>,
+    render: (r) => <span className="font-semibold text-zinc-800">{r.diaNum}/{r.diaMes}</span>,
   },
   { key: 'descricao', header: 'Descrição', width: 260, render: (r) => r.descricao },
   { key: 'tipoServico', header: 'Tipo', width: 150, render: (r) => r.tipoServico },
@@ -98,7 +98,7 @@ const LANCAMENTO_COLUMNS: DataGridColumn<LancamentoRow>[] = [
   {
     key: 'valor', header: 'Valor', width: 130, align: 'right',
     render: (r) => (
-      <span className={cn('font-black', r.natureza === 'income' ? 'text-emerald-600' : 'text-rose-600')}>
+      <span className={cn('font-semibold', r.natureza === 'income' ? 'text-emerald-600' : 'text-rose-600')}>
         {r.natureza === 'income' ? '+' : '-'}{formatBRL(r.valor)}
       </span>
     ),
@@ -106,7 +106,7 @@ const LANCAMENTO_COLUMNS: DataGridColumn<LancamentoRow>[] = [
   {
     key: 'status', header: 'Status', width: 110,
     render: (r) => (
-      <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
+      <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
         {r.status}
       </span>
     ),
@@ -178,7 +178,7 @@ export function PaginaTeste() {
   };
 
   const allColumns: DataGridColumn<EnvioRow>[] = useMemo(() => [
-    { key: 'imp', header: 'IMP', width: 90, sticky: true, render: (r) => <span className="font-bold text-zinc-800">{r.imp}</span> },
+    { key: 'imp', header: 'IMP', width: 90, sticky: true, render: (r) => <span className="font-semibold text-zinc-800">{r.imp}</span> },
     { key: 'registroDi', header: 'Registro da DI / DUIMP', width: 170, render: (r) => r.registroDi },
     { key: 'obsDesembaraco', header: 'Observação de Registro Desembaraço', width: 260, render: (r) => r.obsDesembaraco },
     { key: 'obsOperacional', header: 'Observação de Registro Operacional', width: 260, render: (r) => r.obsOperacional },
@@ -195,7 +195,7 @@ export function PaginaTeste() {
     {
       key: 'crVencido', header: 'CR Vencido', width: 110,
       render: (r) => (
-        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
+        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
           {r.crVencido}
         </span>
       ),
@@ -238,7 +238,7 @@ export function PaginaTeste() {
       <div
         ref={fillRef}
         style={{ height: fillHeight }}
-        className="flex flex-col rounded-2xl sm:rounded-t-none border border-zinc-200 bg-white p-4 sm:p-5 gap-4"
+        className="flex flex-col rounded-lg sm:rounded-t-none border border-zinc-200 bg-white p-4 sm:p-5 gap-4"
       >
         {isLivroCaixaTab ? (
           <p className="shrink-0 text-xs text-zinc-400">
@@ -282,13 +282,13 @@ export function PaginaTeste() {
                 <button
                   type="button"
                   onClick={() => { setFiltroEnvio(''); setFiltroAutorizacao(''); setFiltroPrevisao(''); }}
-                  className="text-[11px] font-bold text-zinc-400 hover:text-primary-600 transition-colors whitespace-nowrap"
+                  className="text-[11px] font-semibold text-zinc-400 hover:text-primary-600 transition-colors whitespace-nowrap"
                 >
                   Limpar Filtros
                 </button>
                 <IconButton variant="outline" size="sm" className="relative">
                   <Filter size={14} />
-                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-600 px-1 text-[9px] font-black text-white">1</span>
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-600 px-1 text-[11px] font-semibold text-white">1</span>
                 </IconButton>
               </FilterLineSection>
             </FilterLine>

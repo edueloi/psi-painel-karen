@@ -269,18 +269,18 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-t-[28px] sm:rounded-[28px] shadow-2xl w-full sm:max-w-md overflow-hidden border border-zinc-200"
+        className="bg-white rounded-t-[28px] sm:rounded-[28px] shadow-sm w-full sm:max-w-md overflow-hidden border border-zinc-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="p-5 border-b border-zinc-100 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-black text-zinc-900 tracking-tight">Finalizar Pagamento</h3>
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">
+            <h3 className="text-base font-semibold text-zinc-900">Finalizar Pagamento</h3>
+            <p className="text-[11px] text-zinc-400 font-semibold mt-0.5">
               {comanda.client?.name} • Comanda #{comanda.id?.slice(-6).toUpperCase()}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-100 text-zinc-400 rounded-xl transition-all">
+          <button onClick={onClose} className="p-2 hover:bg-zinc-100 text-zinc-400 rounded-lg transition-all">
             <X size={18} />
           </button>
         </div>
@@ -288,13 +288,13 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
         <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
 
           {/* Total box */}
-          <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 text-center">
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+          <div className="bg-zinc-50 rounded-lg p-4 border border-zinc-100 text-center">
+            <p className="text-[11px] font-semibold text-zinc-400 mb-1">
               {alreadyPaid > 0 ? "Saldo Restante" : "Total da Comanda"}
             </p>
-            <p className="text-base sm:text-xl font-black text-zinc-900 tracking-tighter">{fmtBRL(remaining)}</p>
+            <p className="text-base sm:text-xl font-semibold text-zinc-900">{fmtBRL(remaining)}</p>
             {alreadyPaid > 0 && (
-              <div className="mt-2 flex items-center justify-center gap-3 text-[10px] font-bold flex-wrap">
+              <div className="mt-2 flex items-center justify-center gap-3 text-[11px] font-semibold flex-wrap">
                 <span className="text-zinc-400">Total: {fmtBRL(total)}</span>
                 <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
                   Já pago: {fmtBRL(alreadyPaid)}
@@ -304,13 +304,13 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
           </div>
 
           {/* Tabs: único / misto */}
-          <div className="flex gap-1 p-1 bg-zinc-100 rounded-xl">
+          <div className="flex gap-1 p-1 bg-zinc-100 rounded-lg">
             {([["single", CheckCircle, "Pagamento Único"], ["mixed", Split, "Misto"]] as const).map(([v, Icon, label]) => (
               <button
                 key={v}
                 onClick={() => setMode(v)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-semibold transition-all",
                   mode === v ? "bg-white shadow-sm text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
                 )}
               >
@@ -324,7 +324,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
             <div className="space-y-4">
               {/* Método */}
               <div>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Forma de Pagamento</p>
+                <p className="text-[11px] font-semibold text-zinc-400 mb-2">Forma de Pagamento</p>
                 <div className="grid grid-cols-3 gap-2">
                   {(["cash", "card", "pix"] as const).map(m => {
                     const cfg  = METHOD_CONFIG[m];
@@ -335,12 +335,12 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                         key={m}
                         onClick={() => setSingleMethod(m)}
                         className={cn(
-                          "flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all",
-                          active ? `${cfg.activeBg} border-transparent shadow-lg` : `${cfg.bg} hover:opacity-90`
+                          "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
+                          active ? `${cfg.activeBg} border-transparent shadow-sm` : `${cfg.bg} hover:opacity-90`
                         )}
                       >
                         <Icon size={22} className={active ? cfg.activeText : cfg.text} />
-                        <span className={cn("text-[10px] font-black uppercase tracking-wider", active ? "text-white" : cfg.text)}>
+                        <span className={cn("text-[11px] font-semibold", active ? "text-white" : cfg.text)}>
                           {cfg.label}
                         </span>
                       </button>
@@ -352,7 +352,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
               {/* ── Mercado Pago toggle ── */}
               {mpAvailable && (singleMethod === "card" || singleMethod === "pix") && (
                 <div className={cn(
-                  "rounded-2xl border-2 p-3 transition-all",
+                  "rounded-lg border-2 p-3 transition-all",
                   useMp ? "border-sky-300 bg-sky-50" : "border-zinc-100 bg-zinc-50"
                 )}>
                   <button
@@ -363,10 +363,10 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                       <Zap size={13} />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className={cn("text-xs font-black", useMp ? "text-sky-800" : "text-zinc-600")}>
+                      <p className={cn("text-xs font-semibold", useMp ? "text-sky-800" : "text-zinc-600")}>
                         Cobrar via Mercado Pago
                       </p>
-                      <p className="text-[10px] text-zinc-400">Gera link/QR Code PIX — lança automaticamente no Livro Caixa</p>
+                      <p className="text-[11px] text-zinc-400">Gera link/QR Code PIX — lança automaticamente no Livro Caixa</p>
                     </div>
                     <div className={cn(
                       "w-10 h-5 rounded-full transition-colors shrink-0",
@@ -383,7 +383,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                         <button
                           onClick={createMpCharge}
                           disabled={mpLoading}
-                          className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                          className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                         >
                           {mpLoading
                             ? <><Loader2 size={13} className="animate-spin" /> Gerando cobrança...</>
@@ -393,7 +393,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                         <div className="space-y-2">
                           {/* Status */}
                           <div className={cn(
-                            "flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold",
+                            "flex items-center gap-2 p-2.5 rounded-lg text-xs font-semibold",
                             mpCharge.status === 'approved'
                               ? "bg-emerald-100 text-emerald-800"
                               : "bg-amber-100 text-amber-800"
@@ -405,12 +405,12 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
 
                           {/* QR Code PIX */}
                           {mpCharge.pix_qr_code_base64 && (
-                            <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-zinc-100">
+                            <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-lg border border-zinc-100">
                               <img src={mpCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-36 h-36" />
-                              <p className="text-[10px] text-zinc-500 font-bold text-center">Escaneie o QR Code com o app do banco</p>
+                              <p className="text-[11px] text-zinc-500 font-semibold text-center">Escaneie o QR Code com o app do banco</p>
                               {mpCharge.pix_qr_code && (
                                 <button onClick={() => { navigator.clipboard.writeText(mpCharge.pix_qr_code!); setMpCopied(true); setTimeout(() => setMpCopied(false), 2000); }}
-                                  className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600 hover:text-violet-800">
+                                  className="flex items-center gap-1.5 text-[11px] font-semibold text-violet-600 hover:text-violet-800">
                                   <Copy size={11} /> {mpCopied ? "Copiado!" : "Copiar código PIX"}
                                 </button>
                               )}
@@ -421,11 +421,11 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                           {mpCharge.payment_url && (
                             <div className="flex gap-2">
                               <button onClick={copyMpLink}
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-50 transition-all">
                                 <Copy size={11} /> {mpCopied ? "Copiado!" : "Copiar link"}
                               </button>
                               <a href={mpCharge.payment_url} target="_blank" rel="noreferrer"
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-50 transition-all">
                                 <ExternalLink size={11} /> Abrir link
                               </a>
                             </div>
@@ -433,7 +433,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
 
                           {/* Nova cobrança */}
                           <button onClick={() => { setMpCharge(null); setMpPolling(false); }}
-                            className="w-full text-[10px] font-bold text-zinc-400 hover:text-zinc-600 py-1">
+                            className="w-full text-[11px] font-semibold text-zinc-400 hover:text-zinc-600 py-1">
                             Gerar nova cobrança
                           </button>
                         </div>
@@ -446,7 +446,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
               {/* ── Asaas toggle ── */}
               {asaasAvailable && (singleMethod === "card" || singleMethod === "pix") && (
                 <div className={cn(
-                  "rounded-2xl border-2 p-3 transition-all",
+                  "rounded-lg border-2 p-3 transition-all",
                   useAsaas ? "border-teal-300 bg-teal-50" : "border-zinc-100 bg-zinc-50"
                 )}>
                   <button
@@ -457,10 +457,10 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                       <Zap size={13} />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className={cn("text-xs font-black", useAsaas ? "text-teal-800" : "text-zinc-600")}>
+                      <p className={cn("text-xs font-semibold", useAsaas ? "text-teal-800" : "text-zinc-600")}>
                         Cobrar via Asaas
                       </p>
-                      <p className="text-[10px] text-zinc-400">Gera link/QR Code Pix, cartão ou boleto — cai direto na sua conta</p>
+                      <p className="text-[11px] text-zinc-400">Gera link/QR Code Pix, cartão ou boleto — cai direto na sua conta</p>
                     </div>
                     <div className={cn(
                       "w-10 h-5 rounded-full transition-colors shrink-0",
@@ -478,7 +478,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                             {(['PIX', 'CREDIT_CARD', 'BOLETO'] as const).map(bt => (
                               <button key={bt} onClick={() => setAsaasBillingType(bt)}
                                 className={cn(
-                                  "flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all",
+                                  "flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all",
                                   asaasBillingType === bt ? "bg-teal-600 text-white" : "bg-white border border-zinc-200 text-zinc-500"
                                 )}>
                                 {bt === 'PIX' ? 'Pix' : bt === 'CREDIT_CARD' ? 'Cartão' : 'Boleto'}
@@ -488,7 +488,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                           <button
                             onClick={createAsaasCharge}
                             disabled={asaasLoading}
-                            className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                            className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                           >
                             {asaasLoading
                               ? <><Loader2 size={13} className="animate-spin" /> Gerando cobrança...</>
@@ -498,7 +498,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                       ) : (
                         <div className="space-y-2">
                           <div className={cn(
-                            "flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold",
+                            "flex items-center gap-2 p-2.5 rounded-lg text-xs font-semibold",
                             asaasCharge.status === 'CONFIRMED' ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
                           )}>
                             {asaasCharge.status === 'CONFIRMED'
@@ -507,12 +507,12 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                           </div>
 
                           {asaasCharge.pix_qr_code_base64 && (
-                            <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-zinc-100">
+                            <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-lg border border-zinc-100">
                               <img src={asaasCharge.pix_qr_code_base64} alt="QR Code PIX" className="w-36 h-36" />
-                              <p className="text-[10px] text-zinc-500 font-bold text-center">Escaneie o QR Code com o app do banco</p>
+                              <p className="text-[11px] text-zinc-500 font-semibold text-center">Escaneie o QR Code com o app do banco</p>
                               {asaasCharge.pix_copy_paste && (
                                 <button onClick={copyAsaasPix}
-                                  className="flex items-center gap-1.5 text-[10px] font-bold text-teal-600 hover:text-teal-800">
+                                  className="flex items-center gap-1.5 text-[11px] font-semibold text-teal-600 hover:text-teal-800">
                                   <Copy size={11} /> {asaasCopied ? "Copiado!" : "Copiar código PIX"}
                                 </button>
                               )}
@@ -521,13 +521,13 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
 
                           {asaasCharge.invoice_url && (
                             <a href={asaasCharge.invoice_url} target="_blank" rel="noreferrer"
-                              className="w-full flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-xl text-[10px] font-black text-zinc-600 hover:bg-zinc-50 transition-all">
+                              className="w-full flex items-center justify-center gap-1.5 py-2 bg-white border border-zinc-200 rounded-lg text-[11px] font-semibold text-zinc-600 hover:bg-zinc-50 transition-all">
                               <ExternalLink size={11} /> Abrir fatura
                             </a>
                           )}
 
                           <button onClick={() => { setAsaasCharge(null); setAsaasPolling(false); }}
-                            className="w-full text-[10px] font-bold text-zinc-400 hover:text-zinc-600 py-1">
+                            className="w-full text-[11px] font-semibold text-zinc-400 hover:text-zinc-600 py-1">
                             Gerar nova cobrança
                           </button>
                         </div>
@@ -541,16 +541,16 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
               {!useMp && !useAsaas && (<>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Valor a Pagar</p>
+                  <p className="text-[11px] font-semibold text-zinc-400">Valor a Pagar</p>
                   <button
                     onClick={() => setSingleAmount("")}
-                    className="text-[10px] font-black text-amber-600 hover:text-amber-700"
+                    className="text-[11px] font-semibold text-primary-600 hover:text-primary-700"
                   >
                     Pagar tudo ({fmtBRL(remaining)})
                   </button>
                 </div>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-400">R$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-zinc-400">R$</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -558,12 +558,12 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                     onChange={e => setSingleAmount(formatInput(e.target.value))}
                     placeholder={fmtBRL(remaining).replace("R$ ", "")}
                     className={cn(
-                      "w-full pl-10 pr-4 py-3 border-2 rounded-2xl text-lg font-black text-zinc-900 outline-none transition-all",
+                      "w-full pl-10 pr-4 py-3 border-2 rounded-lg text-lg font-semibold text-zinc-900 outline-none transition-all",
                       singleOverpay
                         ? "border-red-300 bg-red-50 focus:border-red-400"
                         : singleIsPartial && singleAmount
-                        ? "border-amber-300 bg-amber-50 focus:border-amber-400"
-                        : "border-zinc-200 bg-white focus:border-amber-400"
+                        ? "border-primary-300 bg-primary-50 focus:border-primary-400"
+                        : "border-zinc-200 bg-white focus:border-primary-400"
                     )}
                   />
                 </div>
@@ -571,11 +571,11 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                 {/* Feedback de valor */}
                 {singleAmount && (
                   <div className={cn(
-                    "mt-2 flex items-center justify-between p-2.5 rounded-xl text-xs font-black border",
+                    "mt-2 flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold border",
                     singleOverpay
                       ? "bg-red-50 border-red-200 text-red-700"
                       : singleIsPartial
-                      ? "bg-amber-50 border-amber-200 text-amber-700"
+                      ? "bg-primary-50 border-primary-200 text-primary-700"
                       : "bg-emerald-50 border-emerald-200 text-emerald-700"
                   )}>
                     <span>
@@ -592,9 +592,9 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
 
                 {/* Info pagamento parcial */}
                 {singleIsPartial && singleAmount && !singleOverpay && (
-                  <div className="flex items-start gap-2 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                  <div className="flex items-start gap-2 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
                     <AlertTriangle size={13} className="text-blue-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-blue-600 font-medium leading-relaxed">
+                    <p className="text-[11px] text-blue-600 font-medium leading-relaxed">
                       Será registrado <strong>{fmtBRL(singleAmountNum)}</strong> agora. O saldo de <strong>{fmtBRL(singleBalance)}</strong> ficará em aberto para cobrança futura.
                     </p>
                   </div>
@@ -604,7 +604,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
               {/* Parcelamento */}
               {singleMethod === "card" && (
                 <div>
-                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Parcelamento</p>
+                  <p className="text-[11px] font-semibold text-zinc-400 mb-2">Parcelamento</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6].map(n => {
                       const parcela = (singleAmount ? singleAmountNum : remaining) / n;
@@ -613,7 +613,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                           key={n}
                           onClick={() => setSingleInstallments(n)}
                           className={cn(
-                            "py-2.5 rounded-xl border text-xs font-black transition-all",
+                            "py-2.5 rounded-lg border text-xs font-semibold transition-all",
                             singleInstallments === n
                               ? "bg-blue-500 text-white border-transparent shadow-sm"
                               : "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100"
@@ -621,7 +621,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                         >
                           {n === 1 ? "À vista" : `${n}x`}
                           {n > 1 && (
-                            <span className="block text-[8px] font-bold opacity-80">
+                            <span className="block text-[10px] font-semibold opacity-80">
                               {fmtBRL(parcela)}
                             </span>
                           )}
@@ -639,18 +639,18 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
           {mode === "mixed" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Divisão do Pagamento</p>
-                <button onClick={addEntry} className="flex items-center gap-1 text-[10px] font-black text-amber-600 hover:text-amber-700">
+                <p className="text-[11px] font-semibold text-zinc-400">Divisão do Pagamento</p>
+                <button onClick={addEntry} className="flex items-center gap-1 text-[11px] font-semibold text-primary-600 hover:text-primary-700">
                   <Plus size={12} /> Adicionar
                 </button>
               </div>
 
               {entries.map((entry, idx) => (
-                <div key={idx} className="flex items-start gap-2 p-3 bg-zinc-50 rounded-2xl border border-zinc-100">
+                <div key={idx} className="flex items-start gap-2 p-3 bg-zinc-50 rounded-lg border border-zinc-100">
                   <select
                     value={entry.method}
                     onChange={e => updateEntry(idx, "method", e.target.value)}
-                    className="text-xs font-bold bg-white border border-zinc-200 rounded-xl px-2 py-2 outline-none text-zinc-700 cursor-pointer"
+                    className="text-xs font-semibold bg-white border border-zinc-200 rounded-lg px-2 py-2 outline-none text-zinc-700 cursor-pointer"
                   >
                     <option value="cash">💵 Dinheiro</option>
                     <option value="card">💳 Cartão</option>
@@ -658,21 +658,21 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
                   </select>
                   <div className="flex-1">
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-400">R$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-zinc-400">R$</span>
                       <input
                         type="text"
                         inputMode="numeric"
                         value={entry.amount}
                         onChange={e => updateEntry(idx, "amount", formatInput(e.target.value))}
                         placeholder="0,00"
-                        className="w-full pl-9 pr-3 py-2 text-sm font-bold bg-white border border-zinc-200 rounded-xl outline-none focus:border-amber-400 text-zinc-900"
+                        className="w-full pl-9 pr-3 py-2 text-sm font-semibold bg-white border border-zinc-200 rounded-lg outline-none focus:border-primary-400 text-zinc-900"
                       />
                     </div>
                     {entry.method === "card" && (
                       <select
                         value={entry.installments || 1}
                         onChange={e => updateEntry(idx, "installments", parseInt(e.target.value))}
-                        className="mt-1.5 w-full text-xs font-bold bg-white border border-zinc-200 rounded-xl px-2 py-1.5 outline-none text-blue-600 cursor-pointer"
+                        className="mt-1.5 w-full text-xs font-semibold bg-white border border-zinc-200 rounded-lg px-2 py-1.5 outline-none text-blue-600 cursor-pointer"
                       >
                         {[1,2,3,4,5,6].map(n => (
                           <option key={n} value={n}>
@@ -692,11 +692,11 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
 
               {/* Saldo misto */}
               <div className={cn(
-                "flex items-center justify-between p-3 rounded-xl text-xs font-black border",
+                "flex items-center justify-between p-3 rounded-lg text-xs font-semibold border",
                 Math.abs(mixedRemaining) < 0.01
                   ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                   : mixedRemaining > 0
-                  ? "bg-amber-50 border-amber-200 text-amber-700"
+                  ? "bg-primary-50 border-primary-200 text-primary-700"
                   : "bg-red-50 border-red-200 text-red-700"
               )}>
                 <span>
@@ -710,9 +710,9 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
               </div>
 
               {mixedIsPartial && (
-                <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
                   <AlertTriangle size={13} className="text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-blue-600 font-medium leading-relaxed">
+                  <p className="text-[11px] text-blue-600 font-medium leading-relaxed">
                     Será registrado <strong>{fmtBRL(mixedTotal)}</strong> agora. O saldo de <strong>{fmtBRL(mixedRemaining)}</strong> ficará em aberto.
                   </p>
                 </div>
@@ -725,7 +725,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
         <div className="p-4 border-t border-zinc-100 flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+            className="flex-1 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-lg text-xs font-semibold transition-all"
           >
             Cancelar
           </button>
@@ -733,12 +733,12 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
             /* Mercado Pago/Asaas: mostra botão de fechar quando pagamento confirmado */
             (mpCharge?.status === 'approved' || asaasCharge?.status === 'CONFIRMED') ? (
               <button onClick={onClose}
-                className="flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-emerald-500 text-white shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-all">
+                className="flex-[2] py-3 rounded-lg text-xs font-semibold bg-emerald-500 text-white shadow-sm flex items-center justify-center gap-2 hover:bg-emerald-600 active:scale-95 transition-all">
                 <CheckCircle size={14} /> Pagamento Confirmado!
               </button>
             ) : (
               <button disabled
-                className="flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-zinc-200 text-zinc-400 cursor-not-allowed flex items-center justify-center gap-2">
+                className="flex-[2] py-3 rounded-lg text-xs font-semibold bg-zinc-200 text-zinc-400 cursor-not-allowed flex items-center justify-center gap-2">
                 <Loader2 size={14} className="animate-spin" /> Aguardando Pagamento...
               </button>
             )
@@ -747,7 +747,7 @@ export function PaymentModal({ isOpen, onClose, comanda, onConfirm, patientName 
             onClick={handleConfirm}
             disabled={loading || (mode === "single" && (!canConfirmSingle || useMp || useAsaas)) || (mode === "mixed" && !canConfirmMixed)}
             className={cn(
-              "flex-[2] py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg",
+              "flex-[2] py-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-sm",
               loading || (mode === "single" && (!canConfirmSingle || useMp || useAsaas)) || (mode === "mixed" && !canConfirmMixed)
                 ? "bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none"
                 : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20 active:scale-95"

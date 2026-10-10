@@ -89,8 +89,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const STATUS_COLORS: Record<string, string> = {
   nao_iniciado: 'bg-slate-50 text-slate-500 border-slate-200',
-  em_andamento: 'bg-blue-50 text-blue-700 border-blue-200',
-  avancando: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  em_andamento: 'bg-primary-50 text-primary-700 border-primary-200',
+  avancando: 'bg-primary-50 text-primary-700 border-primary-200',
   estabilizado: 'bg-purple-50 text-purple-700 border-purple-200',
   concluido: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   pausado: 'bg-gray-50 text-gray-500 border-gray-200',
@@ -167,23 +167,23 @@ const INTERVENTION_SUGGESTIONS = [
 
 const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; color?: string }> = ({ icon, title, color = 'indigo' }) => (
   <div className="flex items-center gap-2 mb-4">
-    <div className={`w-8 h-8 rounded-xl bg-${color}-50 text-${color}-600 flex items-center justify-center shrink-0`}>
+    <div className={`w-8 h-8 rounded-lg bg-${color}-50 text-${color}-600 flex items-center justify-center shrink-0`}>
       {icon}
     </div>
-    <h3 className={`text-[11px] font-black uppercase tracking-widest text-${color}-700`}>{title}</h3>
+    <h3 className={`text-[11px] font-semibold text-${color}-700`}>{title}</h3>
   </div>
 );
 
 const Field: React.FC<{ label: string; value: string; onChange: (v: string) => void; multiline?: boolean; placeholder?: string }> = ({ label, value, onChange, multiline = false, placeholder = '' }) => (
   <div className="space-y-1">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{label}</label>
+    <label className="text-[11px] font-semibold text-slate-400 block">{label}</label>
     {multiline ? (
       <textarea rows={3}
-        className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300 resize-none leading-relaxed"
+        className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-100 text-sm font-medium text-slate-700 outline-none focus:border-primary-300 resize-none leading-relaxed"
         value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}/>
     ) : (
       <input type="text"
-        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300"
+        className="w-full h-10 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm font-medium text-slate-700 outline-none focus:border-primary-300"
         value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}/>
     )}
   </div>
@@ -191,8 +191,8 @@ const Field: React.FC<{ label: string; value: string; onChange: (v: string) => v
 
 const SelectField: React.FC<{ label: string; value: string; onChange: (v: string) => void; options: Array<{ value: string; label: string }> }> = ({ label, value, onChange, options }) => (
   <div className="space-y-1">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{label}</label>
-    <select className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold text-slate-700 outline-none focus:border-indigo-300"
+    <label className="text-[11px] font-semibold text-slate-400 block">{label}</label>
+    <select className="w-full h-10 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold text-slate-700 outline-none focus:border-primary-300"
       value={value} onChange={e => onChange(e.target.value)}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -202,13 +202,13 @@ const SelectField: React.FC<{ label: string; value: string; onChange: (v: string
 const Collapsible: React.FC<{ title: string; icon?: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean; badge?: string }> = ({ title, icon, children, defaultOpen = false, badge }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-slate-100 rounded-lg overflow-hidden shadow-sm">
       <button type="button" onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition">
         <div className="flex items-center gap-2">
           {icon && <span className="text-slate-400">{icon}</span>}
-          <span className="font-black text-slate-700 text-xs uppercase tracking-widest">{title}</span>
-          {badge && <span className="text-[10px] font-black px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100">{badge}</span>}
+          <span className="font-semibold text-slate-700 text-xs">{title}</span>
+          {badge && <span className="text-[11px] font-semibold px-2 py-0.5 bg-primary-50 text-primary-600 rounded-lg border border-primary-100">{badge}</span>}
         </div>
         {open ? <ChevronDown size={16} className="text-slate-400"/> : <ChevronRight size={16} className="text-slate-400"/>}
       </button>
@@ -362,13 +362,13 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
   return (
     <div className="space-y-4">
       {/* AI Banner */}
-      <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-indigo-200/50">
+      <div className="bg-gradient-to-r from-violet-600 to-primary-600 rounded-lg p-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
             <Sparkles size={20} className="text-white"/>
           </div>
           <div>
-            <p className="font-black text-white text-sm uppercase tracking-wide">Assistência IA</p>
+            <p className="font-semibold text-white text-sm">Assistência IA</p>
             <p className="text-white/70 text-xs font-medium">Gera plano estruturado a partir dos dados do paciente</p>
           </div>
         </div>
@@ -376,7 +376,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
           type="button"
           onClick={handleAISuggest}
           disabled={aiLoading || !patientId}
-          className="h-9 px-5 bg-white text-indigo-700 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-50 transition disabled:opacity-50"
+          className="h-9 px-5 bg-white text-primary-700 rounded-lg text-[11px] font-semibold flex items-center gap-2 hover:bg-primary-50 transition disabled:opacity-50"
         >
           {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>}
           {aiLoading ? 'Gerando...' : 'Gerar com IA'}
@@ -390,10 +390,10 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide whitespace-nowrap transition-all ${
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold   whitespace-nowrap transition-all ${
               activeTab === tab.id
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                : 'bg-white border border-slate-100 text-slate-500 hover:border-indigo-200 hover:text-indigo-600'
+                ? 'bg-primary-600 text-white '
+                : 'bg-white border border-slate-100 text-slate-500 hover:border-primary-200 hover:text-primary-600'
             }`}
           >
             {tab.icon} {tab.label}
@@ -404,7 +404,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {/* ── TAB: VISÃO GERAL ── */}
       {activeTab === 'overview' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
             <SectionHeader icon={<Brain size={16}/>} title="Visão Geral do Plano"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SelectField label="Abordagem Terapêutica" value={plan.approach}
@@ -460,11 +460,11 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
               { label: 'Intervenções', value: plan.interventions.length, icon: <Zap size={16}/>, color: 'amber' },
               { label: 'Metas concluídas', value: plan.goals.filter(g => g.status === 'concluido').length, icon: <TrendingUp size={16}/>, color: 'emerald' },
             ].map(s => (
-              <div key={s.label} className={`bg-white border border-${s.color}-100 rounded-2xl p-4 shadow-sm flex items-center gap-3`}>
-                <div className={`w-8 h-8 rounded-xl bg-${s.color}-50 text-${s.color}-600 flex items-center justify-center shrink-0`}>{s.icon}</div>
+              <div key={s.label} className={`bg-white border border-${s.color}-100 rounded-lg p-4 shadow-sm flex items-center gap-3`}>
+                <div className={`w-8 h-8 rounded-lg bg-${s.color}-50 text-${s.color}-600 flex items-center justify-center shrink-0`}>{s.icon}</div>
                 <div>
-                  <div className="text-base sm:text-xl font-black text-slate-800">{s.value}</div>
-                  <div className="text-[9px] text-slate-400 font-bold uppercase">{s.label}</div>
+                  <div className="text-base sm:text-xl font-semibold text-slate-800">{s.value}</div>
+                  <div className="text-[11px] text-slate-400 font-semibold">{s.label}</div>
                 </div>
               </div>
             ))}
@@ -475,7 +475,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {/* ── TAB: ESTADO ATUAL ── */}
       {activeTab === 'current' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
             <SectionHeader icon={<Activity size={16}/>} title="Estado Atual do Caso" color="blue"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Queixa Principal Atual" value={plan.current_state.main_complaint} multiline
@@ -514,7 +514,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {/* ── TAB: DESTINO ── */}
       {activeTab === 'destination' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
             <SectionHeader icon={<Target size={16}/>} title="Destino Terapêutico" color="emerald"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
@@ -544,18 +544,18 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {activeTab === 'needs' && (
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <p className="text-[11px] font-semibold text-slate-400">
               {plan.needs.length} necessidade(s) identificada(s)
             </p>
             <button type="button" onClick={addNeed}
-              className="h-8 px-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-md shadow-indigo-100">
+              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
               <Plus size={13}/> Adicionar
             </button>
           </div>
           {plan.needs.length === 0 && (
-            <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+            <div className="bg-slate-50 rounded-lg border border-dashed border-slate-200 p-8 text-center">
               <Heart size={28} className="text-slate-200 mx-auto mb-3"/>
-              <p className="text-xs text-slate-400 font-bold">Nenhuma necessidade registrada. Use a IA ou adicione manualmente.</p>
+              <p className="text-xs text-slate-400 font-semibold">Nenhuma necessidade registrada. Use a IA ou adicione manualmente.</p>
             </div>
           )}
           {plan.needs.map((need, idx) => (
@@ -594,7 +594,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                   ]}/>
                 <div className="md:col-span-2 flex justify-end">
                   <button type="button" onClick={() => removeNeed(need.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
+                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
                     <Trash2 size={12}/> Remover
                   </button>
                 </div>
@@ -608,18 +608,18 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {activeTab === 'goals' && (
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <p className="text-[11px] font-semibold text-slate-400">
               {plan.goals.length} meta(s) definida(s)
             </p>
             <button type="button" onClick={addGoal}
-              className="h-8 px-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-md shadow-indigo-100">
+              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
               <Plus size={13}/> Adicionar
             </button>
           </div>
           {plan.goals.length === 0 && (
-            <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+            <div className="bg-slate-50 rounded-lg border border-dashed border-slate-200 p-8 text-center">
               <CheckCircle2 size={28} className="text-slate-200 mx-auto mb-3"/>
-              <p className="text-xs text-slate-400 font-bold">Nenhuma meta definida. Use a IA ou adicione manualmente.</p>
+              <p className="text-xs text-slate-400 font-semibold">Nenhuma meta definida. Use a IA ou adicione manualmente.</p>
             </div>
           )}
           {plan.goals.map((goal, idx) => (
@@ -666,7 +666,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                 </div>
                 <div className="md:col-span-2 flex justify-end">
                   <button type="button" onClick={() => removeGoal(goal.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
+                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
                     <Trash2 size={12}/> Remover
                   </button>
                 </div>
@@ -680,25 +680,25 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {activeTab === 'roadmap' && (
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fases do Processo Terapêutico</p>
+            <p className="text-[11px] font-semibold text-slate-400">Fases do Processo Terapêutico</p>
             <button type="button" onClick={addPhase}
-              className="h-8 px-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-md shadow-indigo-100">
+              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
               <Plus size={13}/> Fase
             </button>
           </div>
           {/* Visual roadmap */}
           {plan.phases.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+            <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
               <div className="flex items-start gap-0 overflow-x-auto pb-2">
                 {plan.phases.sort((a, b) => a.order - b.order).map((phase, idx) => (
                   <div key={phase.id} className="flex items-center shrink-0">
-                    <div className={`flex flex-col items-center gap-2 w-36 text-center p-3 rounded-2xl border transition-all ${
-                      phase.status === 'atual' ? 'bg-indigo-50 border-indigo-200 shadow-md shadow-indigo-100' :
+                    <div className={`flex flex-col items-center gap-2 w-36 text-center p-3 rounded-lg border transition-all ${
+                      phase.status === 'atual' ? 'bg-primary-50 border-primary-200 ' :
                       phase.status === 'concluida' ? 'bg-emerald-50 border-emerald-200' :
                       'bg-slate-50 border-slate-200 opacity-60'
                     }`}>
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                        phase.status === 'atual' ? 'bg-indigo-600 text-white' :
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        phase.status === 'atual' ? 'bg-primary-600 text-white' :
                         phase.status === 'concluida' ? 'bg-emerald-500 text-white' :
                         'bg-slate-200 text-slate-400'
                       }`}>
@@ -706,9 +706,9 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                          phase.status === 'atual' ? <ArrowRight size={16}/> :
                          <Circle size={16}/>}
                       </div>
-                      <p className="text-[9px] font-black text-slate-700 uppercase leading-tight">{phase.title || `Fase ${idx + 1}`}</p>
-                      <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-lg ${
-                        phase.status === 'atual' ? 'bg-indigo-600 text-white' :
+                      <p className="text-[11px] font-semibold text-slate-700 leading-tight">{phase.title || `Fase ${idx + 1}`}</p>
+                      <span className={`text-[11px] font-semibold  px-1.5 py-0.5 rounded-lg ${
+                        phase.status === 'atual' ? 'bg-primary-600 text-white' :
                         phase.status === 'concluida' ? 'bg-emerald-500 text-white' :
                         'bg-slate-200 text-slate-500'
                       }`}>
@@ -744,14 +744,14 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                   onChange={v => updatePhase(phase.id, 'goals', v)}/>
                 <div className="flex justify-between items-center md:col-span-2">
                   <div className="flex items-center gap-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase">Ordem</label>
+                    <label className="text-[11px] font-semibold text-slate-400">Ordem</label>
                     <input type="number" min={1}
-                      className="w-16 h-8 px-2 rounded-lg bg-slate-50 border border-slate-100 text-sm font-bold outline-none text-center"
+                      className="w-16 h-8 px-2 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold outline-none text-center"
                       value={phase.order}
                       onChange={e => updatePhase(phase.id, 'order', Number(e.target.value))}/>
                   </div>
                   <button type="button" onClick={() => removePhase(phase.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
+                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
                     <Trash2 size={12}/> Remover
                   </button>
                 </div>
@@ -765,9 +765,9 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {activeTab === 'interventions' && (
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{plan.interventions.length} intervenção(ões) planejada(s)</p>
+            <p className="text-[11px] font-semibold text-slate-400">{plan.interventions.length} intervenção(ões) planejada(s)</p>
             <button type="button" onClick={addIntervention}
-              className="h-8 px-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-md shadow-indigo-100">
+              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
               <Plus size={13}/> Adicionar
             </button>
           </div>
@@ -780,7 +780,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                     id: uid(), name: s, goal_id: '', frequency: '', priority: 'media', notes: ''
                   }]
                 }))}
-                className="text-[9px] font-black uppercase px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 transition flex items-center gap-1">
+                className="text-[11px] font-semibold px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg hover:bg-primary-50 hover:border-primary-200 hover:text-primary-600 transition flex items-center gap-1">
                 <Plus size={9}/> {s}
               </button>
             ))}
@@ -807,7 +807,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                 </div>
                 <div className="md:col-span-2 flex justify-end">
                   <button type="button" onClick={() => removeIntervention(intv.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
+                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
                     <Trash2 size={12}/> Remover
                   </button>
                 </div>
@@ -820,7 +820,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {/* ── TAB: ABORDAGEM ESPECÍFICA ── */}
       {activeTab === 'approach' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
             <SectionHeader icon={<BookOpen size={16}/>} title={`Campos Específicos — ${plan.approach}`} color="violet"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {approachFields.map(f => (
@@ -837,16 +837,16 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {activeTab === 'reprogramming' && (
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Histórico de Reprogramações do Plano</p>
+            <p className="text-[11px] font-semibold text-slate-400">Histórico de Reprogramações do Plano</p>
             <button type="button" onClick={addReprogramming}
-              className="h-8 px-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 shadow-md shadow-indigo-100">
+              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
               <Plus size={13}/> Registrar
             </button>
           </div>
           {plan.reprogrammings.length === 0 && (
-            <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+            <div className="bg-slate-50 rounded-lg border border-dashed border-slate-200 p-8 text-center">
               <RotateCcw size={28} className="text-slate-200 mx-auto mb-3"/>
-              <p className="text-xs text-slate-400 font-bold">Nenhuma reprogramação registrada ainda.</p>
+              <p className="text-xs text-slate-400 font-semibold">Nenhuma reprogramação registrada ainda.</p>
             </div>
           )}
           {plan.reprogrammings.map((rep, idx) => (
@@ -856,8 +856,8 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Data</label>
-                  <input type="date" className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium outline-none focus:border-indigo-300"
+                  <label className="text-[11px] font-semibold text-slate-400 block">Data</label>
+                  <input type="date" className="w-full h-10 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm font-medium outline-none focus:border-primary-300"
                     value={rep.date} onChange={e => updateReprogramming(rep.id, 'date', e.target.value)}/>
                 </div>
                 <Field label="Motivo da Mudança" value={rep.reason}
@@ -872,7 +872,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                 </div>
                 <div className="md:col-span-2 flex justify-end">
                   <button type="button" onClick={() => removeReprogramming(rep.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
+                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
                     <Trash2 size={12}/> Remover
                   </button>
                 </div>

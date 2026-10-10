@@ -4,17 +4,23 @@ import logoUrl from '../images/logo-sistema/logo.png';
 import {
   LayoutDashboard, Users, LogOut, Plus, Trash2, ShieldCheck, ShieldOff,
   X, Building2, User, Loader2, CheckCircle, Edit2, Save, Camera,
-  TrendingUp, Package, ToggleLeft, ToggleRight, Key, AlertCircle,
-  Eye, EyeOff, ChevronRight, ArrowUpRight, Clock, Star,
-  DollarSign, Activity, BarChart3, Shield, Lock, Phone, Mail,
-  Calendar, Check, AlertTriangle, Info, Copy, RefreshCw, Link,
-  Globe, UserCheck, BarChart2, Menu, Unlock, Briefcase, FileText, MessageSquare, Send
+  TrendingUp, Package, Lock, Phone, Mail, DollarSign, Activity, BarChart3, Shield,
+  Eye, EyeOff, ArrowUpRight, Clock, Calendar, Check, AlertTriangle, Copy, RefreshCw, Link,
+  Globe, UserCheck, Unlock, Briefcase, FileText, MessageSquare, Send,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
+import {
+  Button, IconButton, Input, Textarea, Select, Modal, ModalFooter, ConfirmModal as ConfirmDialog,
+  Tabs, Switch, Badge, Alert, PageWrapper, SectionTitle, StatGrid, ContentCard, FormRow,
+  PanelCard, StatCard, EmptyState, GridTable, usePagination, DatePicker,
+  FilterLine, FilterLineSection, FilterLineSelect, FilterLineSegmented,
+} from '../components/UI';
+import type { Column } from '../components/UI';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { ProfessionalAreasTab } from '../components/SuperAdmin/ProfessionalAreasTab';
 import { ConversationsTab } from '../components/SuperAdmin/ConversationsTab';
 
@@ -23,7 +29,7 @@ const _fmtCurrency = new Intl.NumberFormat('pt-BR', { style: 'currency', currenc
 const _fmtCompact  = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
 const fmt      = (v: number) => _fmtCurrency.format(v);
 const fmtShort = (v: number) => _fmtCompact.format(v);
-const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).toUpperCase() : '—';
+const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : '—';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 // Cada item DEVE ter um requiredFeature correspondente no constants.tsx (NAV_SECTIONS)
@@ -79,110 +85,43 @@ const ROLE_TYPES = [
   { value: 'financeiro',    label: 'Financeiro',   color: 'violet' },
 ];
 
-const ROLE_COLOR: Record<string, { bg: string; text: string; light: string; border: string; grad: string }> = {
-  super_admin:  { bg: 'bg-indigo-600',  text: 'text-indigo-600',  light: 'bg-indigo-50',  border: 'border-indigo-200', grad: 'from-indigo-600 to-indigo-500' },
-  vendedor:     { bg: 'bg-emerald-600', text: 'text-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-200', grad: 'from-emerald-600 to-emerald-500' },
-  suporte:      { bg: 'bg-sky-600',     text: 'text-sky-600',     light: 'bg-sky-50',     border: 'border-sky-200',    grad: 'from-sky-600 to-sky-500' },
-  visualizador: { bg: 'bg-amber-500',   text: 'text-amber-600',   light: 'bg-amber-50',   border: 'border-amber-200',  grad: 'from-amber-500 to-amber-400' },
-  financeiro:   { bg: 'bg-violet-600',  text: 'text-violet-600',  light: 'bg-violet-50',  border: 'border-violet-200', grad: 'from-violet-600 to-violet-500' },
-};
+const CHART_COLORS = ['var(--c-600)', '#10b981', '#f59e0b', '#3b82f6', '#ec4899'];
 
-const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#ec4899'];
-
-const AVATAR_COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#ec4899','#8b5cf6','#06b6d4'];
-const avatarColor = (name: string) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 const initials = (name: string) => name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
 
-type Tab = 'dashboard' | 'clients' | 'team' | 'permissions' | 'plans' | 'areas' | 'whatsapp' | 'conversations' | 'pagamentos' | 'faturas' | 'emails';
-const NAV: { id: Tab; label: string; Icon: any }[] = [
-  { id: 'dashboard',   label: 'Dashboard',  Icon: LayoutDashboard },
-  { id: 'clients',     label: 'Parceiros',  Icon: Building2 },
-  { id: 'team',        label: 'Equipe',     Icon: Users },
-  { id: 'permissions', label: 'Permissões', Icon: Lock },
-  { id: 'plans',       label: 'Planos',     Icon: Package },
-  { id: 'areas',       label: 'Áreas de Atuação', Icon: Briefcase },
-  { id: 'whatsapp',    label: 'WhatsApp Bot', Icon: Phone },
-  { id: 'conversations', label: 'Central de Conversas', Icon: MessageSquare },
-  { id: 'pagamentos',  label: 'Pagamentos', Icon: DollarSign },
-  { id: 'faturas',     label: 'Faturas',    Icon: FileText },
-  { id: 'emails',      label: 'Central de E-mails', Icon: Mail },
-];
+const NAV_TABS = [
+  { id: 'dashboard',     label: 'Dashboard',            icon: LayoutDashboard },
+  { id: 'clients',       label: 'Parceiros',            icon: Building2 },
+  { id: 'team',          label: 'Equipe',               icon: Users },
+  { id: 'permissions',   label: 'Permissões',           icon: Lock },
+  { id: 'plans',         label: 'Planos',               icon: Package },
+  { id: 'areas',         label: 'Áreas de Atuação',     icon: Briefcase },
+  { id: 'whatsapp',      label: 'WhatsApp Bot',         icon: Phone },
+  { id: 'conversations', label: 'Central de Conversas', icon: MessageSquare },
+  { id: 'pagamentos',    label: 'Pagamentos',           icon: DollarSign },
+  { id: 'faturas',       label: 'Faturas',              icon: FileText },
+  { id: 'emails',        label: 'Central de E-mails',   icon: Mail },
+] as const;
+type Tab = typeof NAV_TABS[number]['id'];
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-type ToastType = 'success' | 'error' | 'info';
-interface ToastMsg { id: number; message: string; type: ToastType; }
-
-const ToastBar: React.FC<{ toast: ToastMsg; remove: (id: number) => void }> = ({ toast, remove }) => {
-  useEffect(() => { const t = setTimeout(() => remove(toast.id), 4000); return () => clearTimeout(t); }, []);
-  const styles: Record<ToastType, string> = {
-    success: 'border-emerald-200 bg-white',
-    error:   'border-red-200 bg-white',
-    info:    'border-indigo-200 bg-white',
-  };
-  const icons: Record<ToastType, React.ReactNode> = {
-    success: <CheckCircle size={15} className="text-emerald-500 flex-shrink-0" />,
-    error:   <AlertCircle size={15} className="text-red-500 flex-shrink-0" />,
-    info:    <Info        size={15} className="text-indigo-500 flex-shrink-0" />,
-  };
-  return (
-    <div className={`flex items-center gap-3 border rounded-xl shadow-xl px-4 py-3 text-sm font-medium text-slate-700 min-w-[280px] max-w-sm animate-slideIn ${styles[toast.type]}`}>
-      {icons[toast.type]}
-      <span className="flex-1">{toast.message}</span>
-      <button onClick={() => remove(toast.id)} className="text-slate-300 hover:text-slate-500 transition"><X size={13} /></button>
-    </div>
-  );
-};
-
-const Toasts: React.FC<{ toasts: ToastMsg[]; remove: (id: number) => void }> = ({ toasts, remove }) => (
-  <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 items-end pointer-events-none">
-    {toasts.map(t => <div key={t.id} className="pointer-events-auto"><ToastBar toast={t} remove={remove} /></div>)}
-  </div>
-);
+type ClientTab = 'dados' | 'acesso' | 'assinatura';
+const CLIENT_TABS = [
+  { id: 'dados',      label: 'Dados',      icon: Building2 },
+  { id: 'acesso',     label: 'Acesso',     icon: Lock },
+  { id: 'assinatura', label: 'Assinatura', icon: DollarSign },
+] as const;
+type TeamTab = 'dados' | 'acesso';
+const TEAM_TABS = [
+  { id: 'dados',  label: 'Dados',  icon: User },
+  { id: 'acesso', label: 'Acesso', icon: Lock },
+] as const;
+type PermTab = 'dados' | 'permissoes';
+type PlanTab = 'dados' | 'funcionalidades';
 
 // ── Confirm ───────────────────────────────────────────────────────────────────
 interface ConfirmState { message: string; detail?: string; onConfirm: () => void; danger?: boolean; }
-const ConfirmModal: React.FC<ConfirmState & { onClose: () => void }> = ({ message, detail, onConfirm, danger, onClose }) => (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${danger ? 'bg-red-50' : 'bg-amber-50'}`}>
-        <AlertTriangle size={22} className={danger ? 'text-red-500' : 'text-amber-500'} />
-      </div>
-      <h3 className="font-bold text-slate-800 text-base mb-1">{message}</h3>
-      {detail && <p className="text-sm text-slate-500 mb-2">{detail}</p>}
-      <div className="flex gap-3 mt-5">
-        <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">Cancelar</button>
-        <button onClick={() => { onConfirm(); onClose(); }}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition ${danger ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
-          Confirmar
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
-const Modal: React.FC<{ title: string; sub?: string; onClose: () => void; children: React.ReactNode; wide?: boolean; error?: string }> =
-  ({ title, sub, onClose, children, wide, error }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-sm">
-    <div className={`bg-white border border-slate-200 w-full ${wide ? 'max-w-xl' : 'max-w-md'} rounded-2xl shadow-2xl flex flex-col max-h-[94vh]`}>
-      <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
-        <div><h3 className="text-base font-bold text-slate-800">{title}</h3>{sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}</div>
-        <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition flex-shrink-0"><X size={16} /></button>
-      </div>
-      <div className="p-6 space-y-4 overflow-y-auto flex-1">
-        {error && <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm px-3.5 py-2.5 rounded-lg"><AlertCircle size={14} className="flex-shrink-0" />{error}</div>}
-        {children}
-      </div>
-    </div>
-  </div>
-);
-
-// ── form helpers ──────────────────────────────────────────────────────────────
-const inp = 'w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition';
-const sel = inp + ' cursor-pointer';
-const lbl = (t: string) => <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{t}</label>;
-const btnP = 'flex-1 py-2.5 font-semibold text-white rounded-lg disabled:opacity-50 transition text-sm flex items-center justify-center gap-2';
-const btnS = 'flex-1 py-2.5 font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition text-sm';
+// ── máscaras ──────────────────────────────────────────────────────────────────
 const mkP = (v: string) => v.replace(/\D/g, "").replace(/^(\d{2})(\d)/g, "($1) $2").replace(/(\d)(\d{4})$/, "$1-$2").substring(0, 15);
 const mkC = (v: string) => {
   v = v.replace(/\D/g, "");
@@ -191,26 +130,93 @@ const mkC = (v: string) => {
 };
 
 const StatusBadge = ({ active, status, expires_at, trial_ends_at, billing_exempt }: { active: boolean; status?: string; expires_at?: string; trial_ends_at?: string; billing_exempt?: boolean }) => {
-  if (status === 'blocked') return <span className="inline-flex items-center gap-1.5 text-red-700 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><Lock size={10} />Bloqueado</span>;
+  if (status === 'blocked') return <Badge size="sm" color="danger" icon={<Lock size={10} />}>Bloqueado</Badge>;
 
-  if (billing_exempt) return <span className="inline-flex items-center gap-1.5 text-violet-700 text-[10px] font-bold bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full uppercase"><CheckCircle size={10} />Isenta</span>;
+  if (billing_exempt) return <Badge size="sm" color="purple" icon={<CheckCircle size={10} />}>Isenta</Badge>;
 
   if (trial_ends_at) {
     const trialDays = Math.ceil((new Date(trial_ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    if (trialDays < 0) return <span className="inline-flex items-center gap-1.5 text-red-600 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><AlertCircle size={10} />Teste Expirado</span>;
-    return <span className="inline-flex items-center gap-1.5 text-sky-700 text-[10px] font-bold bg-sky-50 border border-sky-100 px-2.5 py-1 rounded-full uppercase"><Clock size={10} />Teste — {trialDays}d</span>;
+    if (trialDays < 0) return <Badge size="sm" color="danger" icon={<AlertTriangle size={10} />}>Teste Expirado</Badge>;
+    return <Badge size="sm" color="info" icon={<Clock size={10} />}>Teste — {trialDays}d</Badge>;
   }
 
   if (expires_at) {
     const days = Math.ceil((new Date(expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    if (days < 0) return <span className="inline-flex items-center gap-1.5 text-red-600 text-[10px] font-bold bg-red-50 border border-red-100 px-2.5 py-1 rounded-full uppercase"><AlertCircle size={10} />Vencido</span>;
-    if (days <= 5) return <span className="inline-flex items-center gap-1.5 text-amber-600 text-[10px] font-bold bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full uppercase"><Clock size={10} />Vence em {days}d</span>;
+    if (days < 0) return <Badge size="sm" color="danger" icon={<AlertTriangle size={10} />}>Vencido</Badge>;
+    if (days <= 5) return <Badge size="sm" color="warning" icon={<Clock size={10} />}>Vence em {days}d</Badge>;
   }
 
-  return active
-    ? <span className="inline-flex items-center gap-1.5 text-emerald-700 text-[10px] font-bold bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full uppercase"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Ativo</span>
-    : <span className="inline-flex items-center gap-1.5 text-slate-500 text-[10px] font-bold bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full uppercase"><span className="w-1.5 h-1.5 rounded-full bg-slate-400" />Inativo</span>;
+  return <Badge size="sm" dot color={active ? 'success' : 'default'}>{active ? 'Ativo' : 'Inativo'}</Badge>;
 };
+
+// ── Cartão de gateway de pagamento (Mercado Pago / Asaas da plataforma) ─────────
+interface GatewayCardProps {
+  title: string; description: string;
+  configured: boolean; enabled: boolean;
+  token: string; setToken: (v: string) => void;
+  showToken: boolean; setShowToken: (fn: (v: boolean) => boolean) => void;
+  saving: boolean; testing: boolean;
+  onToggle: () => void; onSave: () => void; onTest: () => void; onDisconnect: () => void;
+  configuredMsg: string; replaceHint: string;
+  placeholderReplace: string; placeholderNew: string;
+  disconnectLabel: string; steps: React.ReactNode;
+}
+const GatewayCard: React.FC<GatewayCardProps> = (g) => (
+  <PanelCard
+    title={g.title}
+    description={g.description}
+    icon={DollarSign}
+    action={g.configured ? (
+      <div className="flex items-center gap-2">
+        <Badge size="sm" dot color={g.enabled ? 'success' : 'default'}>{g.enabled ? 'Ativo' : 'Pausado'}</Badge>
+        <Switch aria-label={`Ativar ${g.title}`} checked={g.enabled} onCheckedChange={() => g.onToggle()} />
+      </div>
+    ) : undefined}
+    contentClassName="p-3 space-y-3"
+  >
+    {g.configured ? (
+      <>
+        <Alert variant="success">{g.configuredMsg}</Alert>
+        <p className="text-[11px] text-slate-500">{g.replaceHint}</p>
+        <Input
+          aria-label={g.placeholderReplace}
+          type={g.showToken ? 'text' : 'password'}
+          value={g.token}
+          onChange={e => g.setToken(e.target.value)}
+          placeholder={g.placeholderReplace}
+          className="font-mono"
+          iconRight={<IconButton type="button" variant="ghost" size="xs" aria-label={g.showToken ? 'Ocultar chave' : 'Mostrar chave'} onClick={() => g.setShowToken(v => !v)}>{g.showToken ? <EyeOff size={14} /> : <Eye size={14} />}</IconButton>}
+        />
+        {g.token && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={g.onTest} loading={g.testing} disabled={g.testing || !g.token.trim()}>Testar</Button>
+            <Button size="sm" className="flex-1" onClick={g.onSave} loading={g.saving} disabled={g.saving || !g.token.trim()}>Salvar</Button>
+          </div>
+        )}
+        <Button variant="softDanger" size="xs" iconLeft={<X size={14} />} onClick={g.onDisconnect} disabled={g.saving}>{g.disconnectLabel}</Button>
+      </>
+    ) : (
+      <>
+        <Alert variant="info" title="Como configurar:">
+          <ol className="space-y-1 pl-4 list-decimal">{g.steps}</ol>
+        </Alert>
+        <Input
+          aria-label={g.placeholderNew}
+          type={g.showToken ? 'text' : 'password'}
+          value={g.token}
+          onChange={e => g.setToken(e.target.value)}
+          placeholder={g.placeholderNew}
+          className="font-mono"
+          iconRight={<IconButton type="button" variant="ghost" size="xs" aria-label={g.showToken ? 'Ocultar chave' : 'Mostrar chave'} onClick={() => g.setShowToken(v => !v)}>{g.showToken ? <EyeOff size={14} /> : <Eye size={14} />}</IconButton>}
+        />
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1" onClick={g.onTest} loading={g.testing} disabled={!g.token.trim() || g.testing}>Testar conexão</Button>
+          <Button size="sm" className="flex-1" onClick={g.onSave} loading={g.saving} disabled={!g.token.trim() || g.saving}>Conectar</Button>
+        </div>
+      </>
+    )}
+  </PanelCard>
+);
 
 // ═════════════════════════════════════════════════════════════════════════════
 const TAB_SLUGS: Record<Tab, string> = {
@@ -232,11 +238,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   };
 
   const [tab, setTab] = useState<Tab>(getInitialTab);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const changeTab = (id: Tab) => {
     setTab(id);
-    setSidebarOpen(false);
     window.history.pushState({}, '', `/painel-master/${TAB_SLUGS[id]}`);
   };
   const [loading, setLoading] = useState(true);
@@ -256,14 +260,9 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const canAccessWpp = user?.email === 'super@psiflux.com' || user?.email === 'admin@psiflux.com';
 
-  // toasts
-  const toastId = useRef(0);
-  const [toasts, setToasts] = useState<ToastMsg[]>([]);
-  const toast = useCallback((message: string, type: ToastType = 'success') => {
-    const id = ++toastId.current;
-    setToasts(prev => [...prev, { id, message, type }]);
-  }, []);
-  const removeToast = useCallback((id: number) => setToasts(prev => prev.filter(t => t.id !== id)), []);
+  // toasts (sistema padrão do painel)
+  const { pushToast } = useToast();
+  const toast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => { pushToast(type, message); }, [pushToast]);
 
   // confirm
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -340,6 +339,11 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
     } finally { setConvertingTrial(false); }
   };
 
+  const [clientTab, setClientTab] = useState<ClientTab>('dados');
+  const [teamTab, setTeamTab] = useState<TeamTab>('dados');
+  const [permTab, setPermTab] = useState<PermTab>('dados');
+  const [planTab, setPlanTab] = useState<PlanTab>('dados');
+
   const [clientFilter, setClientFilter] = useState<'all' | 'active' | 'expiring' | 'expired' | 'blocked'>('all');
 
   // plan modal
@@ -354,6 +358,10 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const openNewPerm  = () => { setError(''); setEditPerm(null); setPermForm({ name: '', description: '', role: 'visualizador', permissions: [] }); setPermModal(true); };
   const openEditPerm = (p: any) => { setError(''); setEditPerm(p); setPermForm({ name: p.name, description: p.description || '', role: p.role, permissions: p.permissions || [] }); setPermModal(true); };
 
+  useEffect(() => { if (clientModal) setClientTab('dados'); }, [clientModal]);
+  useEffect(() => { if (teamModal) setTeamTab('dados'); }, [teamModal]);
+  useEffect(() => { if (permModal) setPermTab('dados'); }, [permModal]);
+  useEffect(() => { if (planModal) setPlanTab('dados'); }, [planModal]);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
   const [copied, setCopied] = useState<number | null>(null);
@@ -385,6 +393,7 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesSummary, setInvoicesSummary] = useState({ total_approved: 0, total_pending: 0, count_approved: 0, count_pending: 0 });
   const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const invPg = usePagination(invoices, 15);
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('');
 
   const [emailSummary, setEmailSummary] = useState<any>({ active_recipients: 0, campaigns: [] });
@@ -751,1538 +760,1235 @@ export const SuperAdmin: React.FC<{ onLogout: () => void }> = ({ onLogout }) => 
 
   const ticketMedio = useMemo(() => stats?.active_tenants > 0 ? (stats.mrr / stats.active_tenants) : 0, [stats]);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
-  const TAB_LABELS: Record<Tab, string> = { dashboard: 'Dashboard', clients: 'Parceiros', team: 'Equipe', permissions: 'Permissões', plans: 'Planos', areas: 'Áreas de Atuação', whatsapp: 'WhatsApp Bot', conversations: 'Central de Conversas', pagamentos: 'Pagamentos', faturas: 'Faturas', emails: 'Central de E-mails' };
+  // (rótulos das abas vêm de NAV_TABS)
 
-  const finalNav = NAV.filter(n => (n.id !== 'whatsapp' && n.id !== 'conversations') || canAccessWpp);
+  const visibleTabs = NAV_TABS.filter(n => (n.id !== 'whatsapp' && n.id !== 'conversations') || canAccessWpp);
+  const permTabs = [
+    { id: 'dados', label: 'Dados', icon: Shield },
+    { id: 'permissoes', label: 'Permissões', icon: Lock, badge: permForm.permissions.length },
+  ] as const;
+  const planTabs = [
+    { id: 'dados', label: 'Dados', icon: Package },
+    { id: 'funcionalidades', label: 'Funcionalidades', icon: Check, badge: planForm.features.length },
+  ] as const;
 
   // ── render ────────────────────────────────────────────────────────────────
+  const clientsVisible = tenants.filter(t => t.id !== 1);
+  const filteredClients = clientsVisible.filter(t => {
+    if (clientFilter === 'active') return t.status === 'active' && t.active;
+    if (clientFilter === 'blocked') return t.status === 'blocked';
+    if (clientFilter === 'expired') return t.expires_at && new Date(t.expires_at) < new Date() && t.status !== 'blocked';
+    if (clientFilter === 'expiring') {
+      if (!t.expires_at) return false;
+      const d = Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5);
+      return d >= 0 && d <= 5;
+    }
+    return true;
+  });
+  const clientTabs = [
+    { id: 'all',      label: 'Tudo',       icon: LayoutDashboard, badge: clientsVisible.length },
+    { id: 'active',   label: 'Ativos',     icon: CheckCircle,     badge: clientsVisible.filter(t => t.status === 'active' && t.active).length },
+    { id: 'expiring', label: 'Vencendo',   icon: Clock,           badge: clientsVisible.filter(t => {
+      if (!t.expires_at) return false;
+      const d = Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5);
+      return d >= 0 && d <= 5 && t.status !== 'blocked';
+    }).length },
+    { id: 'expired',  label: 'Vencidos',   icon: AlertTriangle,   badge: clientsVisible.filter(t => t.expires_at && new Date(t.expires_at) < new Date() && t.status !== 'blocked').length },
+    { id: 'blocked',  label: 'Bloqueados', icon: Lock,            badge: clientsVisible.filter(t => t.status === 'blocked').length },
+] as const;
+  const isRoot = user?.email === 'super@psiflux.com';
+
+  const planCols: Column<any>[] = [
+    {
+      header: 'Plano',
+      render: (p: any) => (
+        <div className={`flex items-center gap-2.5 min-w-0 ${!p.active ? 'opacity-60' : ''}`}>
+          <div className="w-8 h-8 rounded-lg border border-primary-100 bg-primary-50 flex items-center justify-center shrink-0"><Package size={14} className="text-primary-600" /></div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-800 truncate">{p.name}</p>
+            <p className="text-[11px] text-slate-500 truncate">{p.description || `${p.max_users === 999 ? '∞' : p.max_users} usuários`}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Preço',
+      render: (p: any) => {
+        const monthlyPrice = Number(p.price);
+        const displayPrice = billingPeriod === 'annual' ? monthlyPrice * 0.8 : monthlyPrice;
+        return (
+          <div className="whitespace-nowrap">
+            <p className="text-xs font-semibold text-slate-800 tabular-nums">{fmt(displayPrice)}</p>
+            <p className="text-[11px] text-slate-500">/mês{billingPeriod === 'annual' ? ' (anual)' : ''}</p>
+          </div>
+        );
+      },
+    },
+    { header: 'Usuários', render: (p: any) => <Badge size="sm" icon={<Users size={10} />}>{p.max_users === 999 ? '∞' : p.max_users}</Badge> },
+    {
+      header: 'Funcionalidades',
+      render: (p: any) => {
+        const activeFeatures = (p.features || []).filter((fk: string) => fk !== 'pacientes');
+        return (
+          <div className="flex items-center gap-1 flex-wrap">
+            {activeFeatures.slice(0, 3).map((f: string) => {
+              const opt = FEATURES_OPTIONS.find(o => o.key === f);
+              return <Badge key={f} size="sm">{opt?.label || f}</Badge>;
+            })}
+            {activeFeatures.length > 3 && <span className="text-[11px] font-medium text-primary-600">+{activeFeatures.length - 3}</span>}
+          </div>
+        );
+      },
+    },
+    { header: 'Status', render: (p: any) => <Badge size="sm" dot color={p.active ? 'success' : 'default'}>{p.active ? 'Ativo' : 'Inativo'}</Badge> },
+    {
+      header: 'Ações', className: 'text-right', headerClassName: 'text-right',
+      render: (p: any) => (
+        <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <IconButton variant="outline" size="xs" aria-label={`Editar plano ${p.name}`} onClick={() => openEditPlan(p)}><Edit2 size={14} /></IconButton>
+          <IconButton variant="danger" size="xs" aria-label={`Remover plano ${p.name}`} onClick={() => handleDeletePlan(p)}><Trash2 size={14} /></IconButton>
+        </div>
+      ),
+    },
+  ];
+
+  const planPerfData = (stats?.by_plan || []).map((p: any, i: number) => ({ ...p, _i: i }));
+  const planPerfCols: Column<any>[] = [
+    { header: 'Plano', render: (p: any) => <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full shrink-0" style={{ background: CHART_COLORS[p._i % CHART_COLORS.length] }} /><span className="text-xs font-medium text-slate-800">{p.plan_name}</span></div> },
+    { header: 'Clínicas', render: (p: any) => <span className="text-xs text-slate-600">{p.count}</span> },
+    { header: `Receita (${statsDays}d)`, render: (p: any) => <span className="text-xs font-semibold text-emerald-700 tabular-nums whitespace-nowrap">{fmt(p.price)}</span> },
+    {
+      header: '% MRR',
+      render: (p: any) => {
+        const pct = stats.mrr > 0 ? Math.round(p.price / stats.mrr * 100) : 0; // p.price já é a receita real do plano (soma de faturas aprovadas)
+        return (
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden min-w-12 max-w-24"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: CHART_COLORS[p._i % CHART_COLORS.length] }} /></div>
+            <span className="text-[11px] text-slate-500">{pct}%</span>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const invoiceCols: Column<any>[] = [
+    { header: 'Clínica', render: (inv: any) => <span className="text-xs font-medium text-slate-800">{inv.tenant_name || '—'}</span> },
+    { header: 'Plano', render: (inv: any) => <span className="text-xs text-slate-600">{inv.plan_name || '—'}</span> },
+    { header: 'Período', render: (inv: any) => <span className="text-xs text-slate-600">{inv.period === 'annual' ? 'Anual' : 'Mensal'}</span> },
+    { header: 'Valor', render: (inv: any) => <span className="text-xs font-semibold text-slate-800 tabular-nums whitespace-nowrap">{fmt(Number(inv.amount) || 0)}</span> },
+    { header: 'Método', render: (inv: any) => <span className="text-xs text-slate-600">{inv.method === 'pix' ? 'Pix' : inv.method === 'card' ? 'Cartão' : '—'}</span> },
+    {
+      header: 'Status',
+      render: (inv: any) => (
+        <>
+          {inv.status === 'approved' && <Badge size="sm" color="success" icon={<CheckCircle size={10} />}>Paga</Badge>}
+          {inv.status === 'pending' && <Badge size="sm" color="warning" icon={<Clock size={10} />}>Pendente</Badge>}
+          {inv.status === 'rejected' && <Badge size="sm" color="danger" icon={<X size={10} />}>Rejeitada</Badge>}
+          {inv.status === 'cancelled' && <Badge size="sm">Cancelada</Badge>}
+        </>
+      ),
+    },
+    { header: 'Data', render: (inv: any) => <span className="text-xs text-slate-500 whitespace-nowrap">{fmtDate(inv.paid_at || inv.created_at)}</span> },
+  ];
+
+  const sectionAction: Partial<Record<Tab, React.ReactNode>> = {
+    clients: <Button size="sm" iconLeft={<Plus size={14} />} onClick={openClientModal}>Nova Clínica</Button>,
+    plans: <Button size="sm" iconLeft={<Plus size={14} />} onClick={openNewPlan}>Novo Plano</Button>,
+    team: <Button size="sm" iconLeft={<Plus size={14} />} onClick={openTeamModal}>Novo Integrante</Button>,
+    permissions: <Button size="sm" iconLeft={<Plus size={14} />} onClick={openNewPerm}>Novo Perfil</Button>,
+  };
+  const sectionTitles: Partial<Record<Tab, { title: string; description: string; icon: React.ElementType }>> = {
+    dashboard: { title: 'Painel Master Plaelo', description: 'Visão geral e administração centralizada de todas as clínicas', icon: LayoutDashboard },
+    clients: { title: 'Parceiros', description: `${clientsVisible.length} clínica${clientsVisible.length !== 1 ? 's' : ''} cadastrada${clientsVisible.length !== 1 ? 's' : ''}`, icon: Building2 },
+    team: { title: 'Equipe Interna', description: `${masterUsers.filter(u => u.active !== false).length} membros ativos · acesso master`, icon: Users },
+    permissions: { title: 'Perfis de Permissão', description: 'Crie perfis de acesso para sua equipe. Cada perfil gera um link único de acesso.', icon: Lock },
+    plans: { title: 'Planos e Precificação', description: 'Gerencie os planos que serão exibidos para pagamento no site', icon: Package },
+    pagamentos: { title: 'Recebimento de Assinaturas', description: 'Configure o gateway da plataforma para receber os pagamentos dos consultórios.', icon: DollarSign },
+    faturas: { title: 'Faturas de Assinatura', description: 'Histórico de cobranças geradas para os consultórios pagarem a assinatura da plataforma.', icon: FileText },
+    emails: { title: 'Central de E-mails', description: 'Envie novidades e comunicados para todos os usuários ativos do Plaelo.', icon: Mail },
+    whatsapp: { title: 'WhatsApp Bot', description: 'Instância Master — Notificações', icon: Phone },
+    areas: { title: 'Áreas de Atuação', description: 'Cadastre as áreas profissionais disponíveis na plataforma.', icon: Briefcase },
+    conversations: { title: 'Central de Conversas', description: 'Atendimento via WhatsApp pelo número master.', icon: MessageSquare },
+  };
+  const st = sectionTitles[tab];
+
+  const validateClientTab = () => {
+    if (!clientForm.company_name) setClientTab('dados');
+    else if (!clientForm.admin_email || (!editClient && !clientForm.password)) setClientTab('acesso');
+  };
+  const validateTeamTab = () => {
+    if (!teamForm.name || !teamForm.email) setTeamTab('dados');
+    else if (!editTeam && !teamForm.password) setTeamTab('acesso');
+  };
+
   return (
-    <div className="min-h-screen bg-[#f0f2f8] text-slate-800 flex font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
+      <ConfirmDialog
+        isOpen={!!confirmState}
+        onClose={() => setConfirmState(null)}
+        onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
+        title={confirmState?.message || ''}
+        message={confirmState?.detail || ''}
+        variant={confirmState?.danger ? 'danger' : 'primary'}
+        confirmLabel="Confirmar"
+      />
 
-      <Toasts toasts={toasts} remove={removeToast} />
-      {confirmState && <ConfirmModal {...confirmState} onClose={() => setConfirmState(null)} />}
-
-      {/* ══ SIDEBAR OVERLAY (mobile) ══ */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      {/* ══ SIDEBAR (dark) ══ */}
-      <aside className={`w-64 flex flex-col fixed h-full z-40 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
-        style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%)' }}>
-        <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg bg-white flex-shrink-0 p-1.5">
+      {/* ══ CABEÇALHO + ABAS ══ */}
+      <header className="sticky top-0 z-20 bg-white">
+        <div className="px-3 sm:px-4 lg:px-5 pt-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center shrink-0 p-1">
               <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white leading-none truncate">Plaelo</p>
-              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: '#a5b4fc' }}>Super Admin</p>
+              <p className="text-sm font-medium text-slate-900 leading-none truncate">Plaelo</p>
+              <p className="text-[11px] text-primary-600 font-medium mt-0.5">Super Admin</p>
             </div>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition"><X size={16} /></button>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden sm:flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-lg border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0"><User size={14} /></div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-800 truncate max-w-[180px]">{user?.name || 'Super Admin'}</p>
+                <p className="text-[11px] text-slate-500 truncate">Administrador Master</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" iconLeft={<LogOut size={14} />} onClick={onLogout}>Sair</Button>
+          </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {finalNav.map(({ id, label, Icon }) => (
-            <button key={id} onClick={() => changeTab(id as Tab)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${tab === id ? 'text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/8'}`}
-              style={tab === id ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.35), rgba(139,92,246,0.25))', border: '1px solid rgba(99,102,241,0.4)' } : {}}>
-              <Icon size={16} className={tab === id ? 'text-indigo-300' : ''} />
-              {label}
-              {tab === id && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400" />}
-            </button>
-          ))}
-        </nav>
-        <div className="p-3 border-t border-white/10">
-          <div className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl mb-2" style={{ background: 'rgba(255,255,255,0.07)' }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-              <User size={14} className="text-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{user?.name || 'Super Admin'}</p>
-              <p className="text-[10px] truncate" style={{ color: '#a5b4fc' }}>Administrador Master</p>
-            </div>
-          </div>
-          <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition" style={{ color: 'rgba(255,255,255,0.45)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#fca5a5'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = ''; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)'; }}>
-            <LogOut size={14} /> Sair
-          </button>
+        <div className="mt-1">
+          <Tabs<Tab> items={visibleTabs} value={tab} onChange={changeTab} label="Seções do painel master" className="[&>[role=tablist]]:px-3 sm:[&>[role=tablist]]:px-4 lg:[&>[role=tablist]]:px-5" />
         </div>
-      </aside>
+      </header>
 
-      {/* ══ MAIN ══ */}
-      <main className="flex-1 lg:ml-64 flex flex-col min-h-screen w-full min-w-0">
-        <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition flex-shrink-0">
-              <Menu size={18} />
-            </button>
-            <div className="flex items-center gap-2 text-xs text-slate-400 min-w-0">
-              <span className="text-slate-500 font-medium hidden sm:inline">Plaelo</span>
-              <ChevronRight size={12} className="flex-shrink-0 hidden sm:inline" />
-              <span className="hidden sm:inline text-slate-400">Master</span>
-              <ChevronRight size={12} className="flex-shrink-0 hidden sm:inline" />
-              <span className="text-slate-800 font-bold truncate">{TAB_LABELS[tab]}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {tab === 'clients'     && <button onClick={openClientModal} className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Nova Clínica</span></button>}
-            {tab === 'plans'       && <button onClick={openNewPlan}     className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Novo Plano</span></button>}
-            {tab === 'team'        && <button onClick={openTeamModal}   className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Novo Integrante</span></button>}
-            {tab === 'permissions' && <button onClick={openNewPerm}     className="flex items-center gap-2 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={14} /><span className="hidden sm:inline">Novo Perfil</span></button>}
-          </div>
-        </header>
+      {/* ══ CONTEÚDO ══ */}
+      <main className="flex-1 min-w-0">
+        <PageWrapper>
+          <div className="space-y-4">
+            {st && (
+              <SectionTitle
+                title={st.title}
+                description={st.description}
+                icon={st.icon}
+                action={tab === 'dashboard' ? (
+                  <>
+                    {statsLoading && <Loader2 size={14} className="animate-spin text-slate-400" />}
+                    <FilterLineSegmented<number>
+                      size="sm"
+                      value={statsDays}
+                      onChange={setStatsDays}
+                      options={[
+                        { label: '7 dias', value: 7 },
+                        { label: '30 dias', value: 30 },
+                        { label: '90 dias', value: 90 },
+                        { label: '1 ano', value: 365 },
+                      ]}
+                    />
+                  </>
+                ) : sectionAction[tab]}
+              />
+            )}
 
-        <div className="flex-1 p-4 lg:p-7 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-indigo-500" size={30} /></div>
-          ) : (
-            <>
-              {/* ══ DASHBOARD ══ */}
-              {tab === 'dashboard' && stats && (
-                <div className="space-y-5 max-w-full 2xl:max-w-[1600px]">
-                  <div className="rounded-2xl p-4 sm:p-6 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white items-center justify-center shrink-0 p-2">
-                        <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-white/60 text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-1">Visão Geral</p>
-                        <h2 className="text-white text-lg sm:text-xl font-bold truncate">Painel Master Plaelo</h2>
-                        <p className="text-white/50 text-[11px] sm:text-xs mt-1">Administração centralizada de todas as clínicas</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right min-w-0">
-                        <p className="text-white/50 text-[10px] uppercase tracking-widest whitespace-nowrap">Receita ({statsDays}d)</p>
-                        <p className="text-white text-base sm:text-xl font-black break-all sm:break-normal">{fmt(stats.mrr || 0)}</p>
-                      </div>
-                      <div className="hidden sm:flex w-12 h-12 rounded-2xl items-center justify-center shrink-0" style={{ background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.5)' }}>
-                        <TrendingUp size={22} className="text-indigo-300" />
-                      </div>
-                    </div>
-                  </div>
+            {loading ? (
+              <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                <Loader2 size={18} className="animate-spin" />Carregando…
+              </div>
+            ) : (
+              <>
+                {/* ══ DASHBOARD ══ */}
+                {tab === 'dashboard' && stats && (
+                  <div className="space-y-3">
+                    <StatGrid cols={4}>
+                      <StatCard title="Receita no Período" value={fmt(stats.mrr || 0)} icon={DollarSign} color="success" description={`Últimos ${statsDays} dias`} />
+                      <StatCard title="Clínicas Ativas" value={String(stats.active_tenants || 0)} icon={Building2} color="default" description={`${stats.total_tenants || 0} total`} />
+                      <StatCard title="Usuários Totais" value={String(stats.total_users || 0)} icon={Users} color="info" description="Em todas as clínicas" />
+                      <StatCard title="Ticket Médio" value={fmt(ticketMedio)} icon={TrendingUp} color="warning" description={`Por clínica, ${statsDays}d`} />
+                    </StatGrid>
 
-                  {/* Filtro de período — afeta MRR, Ticket Médio e Performance por Plano */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Período dos indicadores</p>
-                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 overflow-x-auto">
-                      {[
-                        { label: '7 dias', days: 7 },
-                        { label: '30 dias', days: 30 },
-                        { label: '90 dias', days: 90 },
-                        { label: '1 ano', days: 365 },
-                      ].map(opt => (
-                        <button key={opt.days} onClick={() => setStatsDays(opt.days)}
-                          className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0 ${statsDays === opt.days ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                          {opt.label}
-                        </button>
-                      ))}
-                      {statsLoading && <Loader2 size={13} className="animate-spin text-slate-300 mx-1.5 shrink-0" />}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    {[
-                      { label: 'Receita no Período', value: fmt(stats.mrr || 0), Icon: DollarSign, grad: 'linear-gradient(135deg, #059669, #10b981)', sub: `Últimos ${statsDays} dias` },
-                      { label: 'Clínicas Ativas', value: String(stats.active_tenants || 0), Icon: Building2, grad: 'linear-gradient(135deg, #4f46e5, #6366f1)', sub: `${stats.total_tenants || 0} total` },
-                      { label: 'Usuários Totais', value: String(stats.total_users || 0), Icon: Users, grad: 'linear-gradient(135deg, #0284c7, #38bdf8)', sub: 'Em todas as clínicas' },
-                      { label: 'Ticket Médio', value: fmt(ticketMedio), Icon: TrendingUp, grad: 'linear-gradient(135deg, #d97706, #f59e0b)', sub: `Por clínica, ${statsDays}d` },
-                    ].map(c => (
-                      <div key={c.label} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow overflow-hidden relative min-w-0">
-                        <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-[0.06]" style={{ background: c.grad, transform: 'translate(30%, -30%)' }} />
-                        <div className="flex items-start justify-between mb-3 sm:mb-4">
-                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0" style={{ background: c.grad }}>
-                            <c.Icon size={17} className="text-white" />
-                          </div>
-                          <ArrowUpRight size={14} className="text-slate-300 shrink-0" />
-                        </div>
-                        <p className="text-xs font-semibold text-slate-400 mb-1 truncate">{c.label}</p>
-                        <p className="text-base sm:text-xl font-black text-slate-800 mb-1 truncate" title={c.value}>{c.value}</p>
-                        <p className="text-xs text-slate-400 truncate">{c.sub}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm min-w-0">
-                      <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
-                        <div className="min-w-0"><p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Activity size={14} className="text-indigo-500 shrink-0" /> Evolução de Receita</p><p className="text-xs text-slate-400 mt-0.5">Últimos {historyMonths} meses</p></div>
-                        <select value={historyMonths} onChange={e => setHistoryMonths(Number(e.target.value))}
-                          className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-lg border-0 outline-none cursor-pointer shrink-0">
-                          <option value={3}>3 meses</option>
-                          <option value={6}>6 meses</option>
-                          <option value={12}>12 meses</option>
-                          <option value={24}>24 meses</option>
-                        </select>
-                      </div>
-                      <div className="h-48 w-full relative">
-                        {mrrHistory.length > 0 ? (
-                          <ResponsiveContainer width="100%" height={192} debounce={100}>
-                            <AreaChart data={mrrHistory} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                              <defs><linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} /><stop offset="95%" stopColor="#6366f1" stopOpacity={0} /></linearGradient></defs>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                              <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} />
-                              <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, color: '#334155', fontSize: 12 }} formatter={(v: any) => [fmt(v), 'MRR']} />
-                              <Area type="monotone" dataKey="mrr" stroke="#6366f1" strokeWidth={2.5} fill="url(#mrrGrad)" dot={{ fill: '#6366f1', r: 3, strokeWidth: 0 }} />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        ) : <div className="h-full flex items-center justify-center text-slate-400 text-sm">Sem dados ainda</div>}
-                      </div>
-                    </div>
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm min-w-0">
-                      <p className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-0.5"><BarChart3 size={14} className="text-indigo-500 shrink-0" /> Distribuição</p>
-                      <p className="text-xs text-slate-400 mb-4">Clínicas por plano</p>
-                      {stats.by_plan?.length > 0 ? (
-                        <>
-                          <div className="h-36 w-full relative">
-                            <ResponsiveContainer width="100%" height={144} debounce={100}>
-                              <PieChart><Pie data={stats.by_plan} dataKey="count" nameKey="plan_name" cx="50%" cy="50%" innerRadius={38} outerRadius={62} strokeWidth={2} stroke="#f8fafc">
-                                {stats.by_plan.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                              </Pie><Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12 }} /></PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                          <div className="space-y-2 mt-2">
-                            {stats.by_plan.map((p: any, i: number) => (
-                              <div key={p.plan_name} className="flex items-center justify-between text-xs gap-2">
-                                <div className="flex items-center gap-2 min-w-0"><span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-slate-500 truncate">{p.plan_name}</span></div>
-                                <span className="text-slate-700 font-semibold shrink-0">{p.count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      ) : <div className="h-36 flex items-center justify-center text-slate-400 text-sm">Nenhum plano ativo</div>}
-                    </div>
-                  </div>
-                  {stats.by_plan?.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100 gap-2">
-                        <p className="text-sm font-semibold text-slate-700 flex items-center gap-2 min-w-0"><BarChart3 size={14} className="text-amber-500 shrink-0" /> <span className="truncate">Performance por Plano</span></p>
-                        <button onClick={() => changeTab('plans')} className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1 shrink-0">Ver planos <ArrowUpRight size={11} /></button>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm min-w-[480px]">
-                          <thead><tr className="bg-slate-50 border-b border-slate-100">
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Plano</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Clínicas</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">Receita ({statsDays}d)</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase">% MRR</th>
-                          </tr></thead>
-                          <tbody>
-                            {stats.by_plan.map((p: any, i: number) => {
-                              const planMrr = p.price; // já é a receita real do plano (soma de faturas aprovadas), não preço unitário
-                              const pct = stats.mrr > 0 ? Math.round(planMrr / stats.mrr * 100) : 0;
-                              return (
-                                <tr key={p.plan_name} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition">
-                                  <td className="px-6 py-3.5"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-slate-700 font-medium">{p.plan_name}</span></div></td>
-                                  <td className="px-6 py-3.5 text-slate-500">{p.count}</td>
-                                  <td className="px-6 py-3.5 text-emerald-600 font-semibold">{fmt(planMrr)}</td>
-                                  <td className="px-6 py-3.5"><div className="flex items-center gap-2"><div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-24"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} /></div><span className="text-slate-400 text-xs">{pct}%</span></div></td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ══ PARCEIROS — CARDS ══ */}
-              {tab === 'clients' && (
-                <div className="max-w-7xl space-y-6">
-                  {/* Top Summary & Filters */}
-                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
-                      {[
-                        { id: 'all',      label: 'Tudo',        count: tenants.filter(t => t.id !== 1).length, icon: <LayoutDashboard size={13} /> },
-                        { id: 'active',   label: 'Ativos',      count: tenants.filter(t => t.id !== 1 && t.status === 'active' && t.active).length, icon: <CheckCircle size={13} />, color: 'text-emerald-600' },
-                        { id: 'expiring', label: 'Vencendo',    count: tenants.filter(t => {
-                          if (t.id === 1 || !t.expires_at) return false;
-                          const d = Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5);
-                          return d >= 0 && d <= 5 && t.status !== 'blocked';
-                        }).length, icon: <Clock size={13} />, color: 'text-amber-600' },
-                        { id: 'expired',  label: 'Vencidos',    count: tenants.filter(t => t.id !== 1 && t.expires_at && new Date(t.expires_at) < new Date() && t.status !== 'blocked').length, icon: <AlertTriangle size={13} />, color: 'text-red-500' },
-                        { id: 'blocked',  label: 'Bloqueados',  count: tenants.filter(t => t.id !== 1 && t.status === 'blocked').length, icon: <Lock size={13} />, color: 'text-slate-600' },
-                      ].map(f => (
-                        <button key={f.id} onClick={() => setClientFilter(f.id as any)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${clientFilter === f.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-white border-slate-200 text-slate-500'}`}>
-                          {f.icon}
-                          <span>{f.label}</span>
-                          <span className={`${clientFilter === f.id ? 'bg-white/20' : 'bg-slate-100'} px-2 py-0.5 rounded-md ml-1`}>{f.count}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {tenants.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-20 text-center shadow-sm">
-                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Building2 size={28} className="text-white" /></div>
-                      <h3 className="text-lg font-bold text-slate-800">Nenhuma clínica ainda</h3>
-                      <p className="text-slate-400 text-sm mt-2 mb-6 max-w-xs mx-auto">Adicione o primeiro parceiro clínico na plataforma.</p>
-                      <button onClick={openClientModal} className="inline-flex items-center gap-2 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={16} /> Nova Clínica</button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {tenants.filter(t => {
-                        if (t.id === 1) return false;
-                        if (clientFilter === 'active') return t.status === 'active' && t.active;
-                        if (clientFilter === 'blocked') return t.status === 'blocked';
-                        if (clientFilter === 'expired') return t.expires_at && new Date(t.expires_at) < new Date() && t.status !== 'blocked';
-                        if (clientFilter === 'expiring') {
-                          if (!t.expires_at) return false;
-                          const d = Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5);
-                          return d >= 0 && d <= 5;
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                      <PanelCard
+                        className="lg:col-span-2 min-w-0"
+                        title="Evolução de Receita"
+                        description={`Últimos ${historyMonths} meses`}
+                        icon={Activity}
+                        action={
+                          <Select
+                            aria-label="Período do histórico"
+                            size="sm"
+                            value={String(historyMonths)}
+                            onChange={e => setHistoryMonths(Number(e.target.value))}
+                            options={[
+                              { value: '3', label: '3 meses' },
+                              { value: '6', label: '6 meses' },
+                              { value: '12', label: '12 meses' },
+                              { value: '24', label: '24 meses' },
+                            ]}
+                          />
                         }
-                        return true;
-                      }).map((t, i) => {
-                        const accentColor = avatarColor(t.company_name);
-                        const daysLeft = t.expires_at ? Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5) : null;
-                        const isExpired = daysLeft !== null && daysLeft < 0;
-                        const isBlocked = t.status === 'blocked';
-                        const isExpiring = daysLeft !== null && daysLeft >= 0 && daysLeft <= 5;
+                        contentClassName="p-3"
+                      >
+                        <div className="h-52 min-w-0 w-full relative">
+                          {mrrHistory.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={208} debounce={100}>
+                              <AreaChart data={mrrHistory} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                                <defs><linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" style={{ stopColor: 'var(--c-600)', stopOpacity: 0.2 }} /><stop offset="95%" style={{ stopColor: 'var(--c-600)', stopOpacity: 0 }} /></linearGradient></defs>
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                                <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} />
+                                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#334155', fontSize: 12 }} formatter={(v: any) => [fmt(v), 'MRR']} />
+                                <Area type="monotone" dataKey="mrr" stroke="var(--c-600)" strokeWidth={2} fill="url(#mrrGrad)" dot={{ fill: 'var(--c-600)', r: 3, strokeWidth: 0 }} />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          ) : <div className="h-full flex items-center justify-center text-slate-400 text-xs">Sem dados ainda</div>}
+                        </div>
+                      </PanelCard>
 
-                        return (
-                          <div key={t.id} className={`bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col ${isBlocked ? 'border-red-200' : isExpired ? 'border-amber-200' : 'border-slate-200'}`}>
-                            {/* Faixa de status no topo */}
-                            <div className="h-1" style={{ background: isBlocked ? '#ef4444' : isExpired ? '#f59e0b' : isExpiring ? '#f97316' : accentColor }} />
-
-                            <div className="p-5 flex-1 flex flex-col gap-4">
-                              {/* Header */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-black text-base flex-shrink-0"
-                                    style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}bb)` }}>
-                                    {initials(t.company_name)}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <h4 className="font-bold text-slate-800 text-sm leading-tight truncate">{t.company_name}</h4>
-                                    <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><Calendar size={9} /> Desde {new Date(t.created_at).toLocaleDateString('pt-BR')}</p>
-                                  </div>
-                                </div>
-                                <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} trial_ends_at={t.trial_ends_at} billing_exempt={t.billing_exempt} />
-                              </div>
-
-                              {/* Info row */}
-                              <div className="grid grid-cols-3 gap-2">
-                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
-                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Plano</p>
-                                  <p className="text-xs font-bold text-slate-700 truncate">{t.plan_name || '—'}</p>
-                                </div>
-                                <div className={`border rounded-xl p-2.5 text-center ${t.billing_exempt ? 'bg-violet-50 border-violet-100' : 'bg-slate-50 border-slate-100'}`}>
-                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Valor</p>
-                                  <p className={`text-xs font-bold ${t.billing_exempt ? 'text-violet-700' : 'text-emerald-600'}`}>
-                                    {t.billing_exempt ? 'Isento' : t.plan_price ? `R$${Number(t.plan_price).toFixed(0)}` : '—'}
-                                  </p>
-                                </div>
-                                <div className={`border rounded-xl p-2.5 text-center ${isExpired ? 'bg-red-50 border-red-100' : isExpiring ? 'bg-amber-50 border-amber-100' : t.trial_ends_at ? 'bg-sky-50 border-sky-100' : 'bg-slate-50 border-slate-100'}`}>
-                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{t.trial_ends_at ? 'Fim do Teste' : 'Vencimento'}</p>
-                                  <p className={`text-xs font-bold ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-600' : t.trial_ends_at ? 'text-sky-700' : 'text-slate-700'}`}>
-                                    {t.billing_exempt
-                                      ? '—'
-                                      : t.trial_ends_at
-                                      ? new Date(t.trial_ends_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-                                      : t.expires_at ? new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Email + usuários */}
-                              <div className="flex items-center justify-between text-[11px] text-slate-400">
-                                <span className="flex items-center gap-1.5 truncate min-w-0"><Mail size={11} className="flex-shrink-0" /><span className="truncate">{t.admin_email}</span></span>
-                                <span className="flex items-center gap-1 flex-shrink-0 ml-2"><Users size={11} />{t.user_count || 0}/{t.max_users === 999 ? '∞' : t.max_users}</span>
-                              </div>
-
-                              {/* Alert banner para vencidos */}
-                              {isExpired && !isBlocked && (
-                                <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-                                  <AlertTriangle size={12} className="text-red-500 flex-shrink-0" />
-                                  <p className="text-[11px] font-semibold text-red-600">Assinatura vencida — login bloqueado automaticamente</p>
-                                </div>
-                              )}
-                              {isBlocked && (
-                                <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-                                  <Lock size={12} className="text-red-500 flex-shrink-0" />
-                                  <p className="text-[11px] font-semibold text-red-600">Acesso bloqueado manualmente</p>
-                                </div>
-                              )}
-
-                              {/* Ações */}
-                              <div className="mt-auto pt-3 border-t border-slate-100 flex flex-col gap-1.5">
-                                <div className="flex gap-1.5">
-                                  <button onClick={() => openEditClient(t)}
-                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition border border-indigo-100">
-                                    <Edit2 size={12} /> Editar
-                                  </button>
-                                  <button onClick={() => handleToggleClient(t)} disabled={!isAdmin || t.id === 1}
-                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition border ${t.active ? 'bg-white border-amber-200 text-amber-600 hover:bg-amber-50' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'}`}>
-                                    {t.active ? <><ShieldOff size={12} /> Suspender</> : <><ShieldCheck size={12} /> Reativar</>}
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateTenantStatus(t, t.status === 'blocked' ? 'active' : 'blocked')}
-                                    disabled={!isAdmin || t.id === 1}
-                                    title={t.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
-                                    className={`flex items-center justify-center p-2 rounded-xl text-xs font-bold transition border ${t.status === 'blocked' ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'bg-white border-red-200 text-red-500 hover:bg-red-50'}`}>
-                                    {t.status === 'blocked' ? <Unlock size={13} /> : <Lock size={13} />}
-                                  </button>
-                                </div>
-                                {user?.email === 'super@psiflux.com' && t.id !== 1 && (
-                                  <button onClick={() => handleDeleteClient(t)}
-                                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-bold text-red-400 hover:text-red-600 hover:bg-red-50 transition border border-transparent hover:border-red-100">
-                                    <Trash2 size={11} /> Excluir clínica
-                                  </button>
-                                )}
-                              </div>
+                      <PanelCard className="min-w-0" title="Distribuição" description="Clínicas por plano" icon={BarChart3} contentClassName="p-3">
+                        {stats.by_plan?.length > 0 ? (
+                          <>
+                            <div className="h-36 w-full relative">
+                              <ResponsiveContainer width="100%" height={144} debounce={100}>
+                                <PieChart><Pie data={stats.by_plan} dataKey="count" nameKey="plan_name" cx="50%" cy="50%" innerRadius={38} outerRadius={62} strokeWidth={2} stroke="#f8fafc">
+                                  {stats.by_plan.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                                </Pie><Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12 }} /></PieChart>
+                              </ResponsiveContainer>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ══ EQUIPE — CARDS ══ */}
-              {tab === 'team' && (
-                <div className="max-w-6xl space-y-5">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-4">
-                      <div className="flex -space-x-2.5">
-                        {masterUsers.slice(0, 5).map((u, i) => (
-                          <div key={u.id} className="w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                            style={{ background: avatarColor(u.name), zIndex: 5 - i }}>
-                            {initials(u.name)}
-                          </div>
-                        ))}
-                        {masterUsers.length > 5 && (
-                          <div className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600" style={{ zIndex: 0 }}>
-                            +{masterUsers.length - 5}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h2 className="text-base font-bold text-slate-800">Equipe Interna</h2>
-                        <p className="text-xs text-slate-400 mt-0.5">{masterUsers.filter(u => u.active !== false).length} membros ativos · acesso master</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {[
-                        { label: 'Total', value: masterUsers.length, Icon: Users, bg: 'bg-indigo-50', text: 'text-indigo-600' },
-                        { label: 'Super Admin', value: masterUsers.filter(u => u.role === 'super_admin').length, Icon: ShieldCheck, bg: 'bg-emerald-50', text: 'text-emerald-600' },
-                        { label: 'Ativos', value: masterUsers.filter(u => u.active !== false).length, Icon: UserCheck, bg: 'bg-sky-50', text: 'text-sky-600' },
-                      ].map(s => (
-                        <div key={s.label} className={`flex items-center gap-2 ${s.bg} rounded-xl px-3.5 py-2.5`}>
-                          <s.Icon size={14} className={s.text} />
-                          <div><p className="text-[10px] text-slate-500 leading-none">{s.label}</p><p className={`text-lg font-bold ${s.text} leading-tight`}>{s.value}</p></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {masterUsers.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-xl p-16 text-center shadow-sm">
-                      <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><Shield size={24} className="text-indigo-400" /></div>
-                      <p className="text-slate-600 font-semibold">Nenhum integrante cadastrado</p>
-                      <button onClick={openTeamModal} className="mt-5 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition"><Plus size={15} /> Adicionar integrante</button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {masterUsers.map(u => {
-                        const color = avatarColor(u.name);
-                        return (
-                          <div key={u.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                            {/* Header colorido */}
-                            <div className="relative px-5 pt-5 pb-12" style={{ background: `linear-gradient(135deg, ${color}ee, ${color}cc)` }}>
-                              <div className="flex items-start justify-between">
-                                <span className="inline-flex items-center gap-1.5 bg-white/25 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full">
-                                  <ShieldCheck size={10} /> Super Admin
-                                </span>
-                                <div className="flex gap-1">
-                                    <button onClick={() => openEditTeamMember(u)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition">
-                                      <Edit2 size={12} />
-                                    </button>
-                                    <StatusBadge active={u.active !== false} />
-                                    {user?.email === 'super@psiflux.com' && u.id !== user?.id && u.email !== 'super@psiflux.com' && (
-                                      <button onClick={() => handleDeleteTeamMember(u.id, u.name)}
-                                        className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition ml-1">
-                                        <Trash2 size={12} />
-                                      </button>
-                                    )}
-                                  </div>
-                              </div>
+                            <div className="space-y-1.5 mt-2">
+                              {stats.by_plan.map((p: any, i: number) => (
+                                <div key={p.plan_name} className="flex items-center justify-between text-xs gap-2">
+                                  <div className="flex items-center gap-2 min-w-0"><span className="w-2 h-2 rounded-full shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} /><span className="text-slate-500 truncate">{p.plan_name}</span></div>
+                                  <span className="text-slate-700 font-medium shrink-0">{p.count}</span>
+                                </div>
+                              ))}
                             </div>
-
-                            {/* Corpo com avatar sobreposto */}
-                            <div className="px-5 pb-5 -mt-8">
-                              <div className="w-16 h-16 rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xl mb-3 overflow-hidden bg-slate-200"
-                                style={{ background: u.avatar_url ? 'white' : color }}>
-                                {u.avatar_url ? (
-                                  <img src={getStaticUrl(u.avatar_url)} alt={u.name} className="w-full h-full object-cover" />
-                                ) : initials(u.name)}
-                              </div>
-
-                              <h3 className="font-bold text-slate-800 text-base leading-tight">{u.name}</h3>
-                              <p className="text-xs text-slate-400 mb-4 mt-0.5">Equipe Master · Plaelo</p>
-
-                              <div className="space-y-2">
-                                  {u.cargo && (
-                                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5">
-                                      <Briefcase size={12} className="text-slate-400" />
-                                      <span className="text-xs font-bold text-slate-700">{u.cargo}</span>
-                                    </div>
-                                  )}
-                                  {u.departamento && (
-                                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5">
-                                      <Users size={12} className="text-slate-400" />
-                                      <span className="text-xs font-semibold text-slate-500">{u.departamento}</span>
-                                    </div>
-                                  )}
-                                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                                    <Mail size={12} className="text-slate-400" />
-                                    <span className="text-[11px] text-slate-500 truncate">{u.email}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                                    <Calendar size={12} className="text-slate-400" />
-                                    <span className="text-[11px] text-slate-500">Membro desde {new Date(u.created_at).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          </>
+                        ) : <div className="h-36 flex items-center justify-center text-slate-400 text-xs">Nenhum plano ativo</div>}
+                      </PanelCard>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {/* ══ PERMISSÕES ══ */}
-              {tab === 'permissions' && (
-                <div className="max-w-6xl space-y-5">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div>
-                      <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Lock size={16} className="text-indigo-500" /> Perfis de Permissão</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">Crie perfis de acesso para sua equipe. Cada perfil gera um link único de acesso.</p>
-                    </div>
+                    {stats.by_plan?.length > 0 && (
+                      <PanelCard
+                        title="Performance por Plano"
+                        icon={BarChart3}
+                        action={<Button variant="ghost" size="xs" iconRight={<ArrowUpRight size={14} />} onClick={() => changeTab('plans')}>Ver planos</Button>}
+                      >
+                        <GridTable<any>
+                          noDesktopCard
+                          data={planPerfData}
+                          columns={planPerfCols}
+                          keyExtractor={p => p.plan_name}
+                          emptyMessage="Nenhum plano ativo"
+                        />
+                      </PanelCard>
+                    )}
                   </div>
+                )}
 
-                  {permProfiles.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-xl p-16 text-center shadow-sm">
-                      <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><Lock size={24} className="text-indigo-400" /></div>
-                      <p className="text-slate-600 font-semibold">Nenhum perfil criado ainda</p>
-                      <p className="text-slate-400 text-sm mt-1">Crie perfis como "Vendedor", "Suporte", "Financeiro" com permissões específicas</p>
-                      <button onClick={openNewPerm} className="mt-5 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition"><Plus size={15} /> Criar primeiro perfil</button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {permProfiles.map(p => {
-                        const rc = ROLE_COLOR[p.role_type] || ROLE_COLOR['visualizador'];
-                        const roleLabel = ROLE_TYPES.find(r => r.value === p.role_type)?.label || p.role_type;
-                        return (
-                          <div key={p.id} className={`bg-white border ${rc.border} rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow`}>
-                            {/* Header */}
-                            <div className={`bg-gradient-to-r ${rc.grad} px-5 py-4`}>
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                                    <Shield size={18} className="text-white" />
-                                  </div>
-                                  <div>
-                                    <p className="font-bold text-white text-sm">{p.name}</p>
-                                    <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">{roleLabel}</p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <span className="text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full">
-                                    {(p.permissions || []).length} permissões
-                                  </span>
-                                  <button onClick={() => openEditPerm(p)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-white transition"><Edit2 size={12} /></button>
-                                  <button onClick={() => handleDeletePerm(p)} className="p-1.5 rounded-lg bg-white/15 hover:bg-red-400/50 text-white transition"><Trash2 size={12} /></button>
-                                </div>
-                              </div>
-                            </div>
+                {/* ══ PARCEIROS ══ */}
+                {tab === 'clients' && (
+                  <div className="space-y-3">
+                    <Tabs<'all' | 'active' | 'expiring' | 'expired' | 'blocked'> items={clientTabs} value={clientFilter} onChange={setClientFilter} label="Filtrar parceiros por situação" />
 
-                            {/* Body */}
-                            <div className="p-5">
-                              {p.description && <p className="text-xs text-slate-500 mb-4">{p.description}</p>}
-
-                              {/* Permissões */}
-                              {p.permissions?.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mb-4">
-                                  {p.permissions.map((key: string) => {
-                                    const opt = MASTER_PERMISSIONS_OPTIONS.find(o => o.key === key);
-                                    return (
-                                      <span key={key} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md ${rc.light} ${rc.text}`}>
-                                        <Check size={9} />{opt?.label || key}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {/* Link de acesso */}
-                              <div className="border border-slate-100 rounded-xl p-3 bg-slate-50">
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Link size={9} /> Link de Acesso</p>
-                                  <button onClick={() => handleRegenerateToken(p)} className="text-[10px] text-slate-400 hover:text-indigo-600 font-semibold flex items-center gap-1 transition">
-                                    <RefreshCw size={9} /> Novo link
-                                  </button>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
-                                    <p className="text-[10px] text-slate-500 font-mono truncate">/acesso/{p.access_token?.slice(0, 16)}...</p>
-                                  </div>
-                                  <button onClick={() => copyLink(p.access_token, p.id)}
-                                    className={`p-1.5 rounded-lg transition flex-shrink-0 ${copied === p.id ? 'bg-emerald-100 text-emerald-600' : 'bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200'}`}>
-                                    {copied === p.id ? <Check size={13} /> : <Copy size={13} />}
-                                  </button>
-                                </div>
-                              </div>
-
-                              <p className="text-[10px] text-slate-400 mt-2">Criado em {fmtDate(p.created_at)}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-start gap-3">
-                    <Info size={15} className="text-indigo-500 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-indigo-700">Perfis de permissão são exclusivos do painel master. Usuários de clínicas não têm acesso a esta área e não visualizam estes perfis.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* ══ PLANOS ══ */}
-              {tab === 'plans' && (
-                <div className="max-w-5xl space-y-6">
-                  {/* Header com toggle mensal/anual */}
-                  <div className="rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
-                    <div>
-                      <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-1">Gestão de Assinaturas</p>
-                      <h2 className="text-white text-lg font-bold flex items-center gap-2"><Package size={18} className="text-indigo-300" /> Planos & Precificação</h2>
-                      <p className="text-white/50 text-xs mt-1">Gerencie os planos que serão exibidos para pagamento no site</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                      <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                        <button onClick={() => setBillingPeriod('monthly')}
-                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${billingPeriod === 'monthly' ? 'bg-white text-slate-800 shadow-sm' : 'text-white/60 hover:text-white'}`}>
-                          Mensal
-                        </button>
-                        <button onClick={() => setBillingPeriod('annual')}
-                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${billingPeriod === 'annual' ? 'bg-white text-slate-800 shadow-sm' : 'text-white/60 hover:text-white'}`}>
-                          Anual
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: billingPeriod === 'annual' ? '#10b981' : 'rgba(16,185,129,0.3)', color: billingPeriod === 'annual' ? '#fff' : '#6ee7b7' }}>-20%</span>
-                        </button>
-                      </div>
-                      <p className="text-white/40 text-[10px]">{plans.length} plano{plans.length !== 1 ? 's' : ''} cadastrado{plans.length !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-
-                  {plans.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-16 text-center shadow-sm">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Package size={22} className="text-white" /></div>
-                      <p className="text-slate-700 font-bold text-base">Nenhum plano criado</p>
-                      <p className="text-slate-400 text-sm mt-1 mb-5">Crie planos que serão exibidos no site para pagamento</p>
-                      <button onClick={openNewPlan} className="inline-flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition shadow-md" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><Plus size={15} /> Criar plano</button>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Grade de planos — layout horizontal limpo */}
-                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                          <p className="text-sm font-bold text-slate-700">{plans.length} plano{plans.length !== 1 ? 's' : ''} ativos</p>
-                          <button onClick={openNewPlan} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition">
-                            <Plus size={13} /> Novo plano
-                          </button>
-                        </div>
-                        <div className="divide-y divide-slate-50">
-                          {plans.map((p, i) => {
-                            const accent = CHART_COLORS[i % CHART_COLORS.length];
-                            const monthlyPrice = Number(p.price);
-                            const displayPrice = billingPeriod === 'annual' ? monthlyPrice * 0.8 : monthlyPrice;
-                            const activeFeatures = (p.features || []).filter((fk: string) => fk !== 'pacientes');
-                            return (
-                              <div key={p.id} className={`flex items-center gap-5 px-6 py-4 hover:bg-slate-50/70 transition-colors ${!p.active ? 'opacity-50' : ''}`}>
-                                {/* Cor + nome */}
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: accent + '20' }}>
-                                    <Package size={17} style={{ color: accent }} />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-slate-800 text-sm truncate">{p.name}</p>
-                                    <p className="text-[11px] text-slate-400 truncate">{p.description || `${p.max_users === 999 ? '∞' : p.max_users} usuários`}</p>
-                                  </div>
-                                </div>
-                                {/* Preço */}
-                                <div className="text-right flex-shrink-0 hidden sm:block w-32">
-                                  <p className="text-lg font-black text-slate-800">{fmt(displayPrice)}</p>
-                                  <p className="text-[10px] text-slate-400">/mês{billingPeriod === 'annual' ? ' (anual)' : ''}</p>
-                                </div>
-                                {/* Usuários */}
-                                <div className="flex-shrink-0 hidden md:block w-24 text-center">
-                                  <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg font-semibold">
-                                    <Users size={10} /> {p.max_users === 999 ? '∞' : p.max_users}
-                                  </span>
-                                </div>
-                                {/* Features */}
-                                <div className="flex-shrink-0 hidden lg:flex items-center gap-1 flex-wrap w-52">
-                                  {activeFeatures.slice(0, 3).map((f: string) => {
-                                    const opt = FEATURES_OPTIONS.find(o => o.key === f);
-                                    return <span key={f} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-medium">{opt?.label || f}</span>;
-                                  })}
-                                  {activeFeatures.length > 3 && <span className="text-[10px] text-indigo-500 font-bold">+{activeFeatures.length - 3}</span>}
-                                </div>
-                                {/* Status */}
-                                <div className="flex-shrink-0">
-                                  {p.active
-                                    ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Ativo</span>
-                                    : <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">Inativo</span>}
-                                </div>
-                                {/* Ações */}
-                                <div className="flex gap-1 flex-shrink-0">
-                                  <button onClick={() => openEditPlan(p)} className="p-2 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition"><Edit2 size={14} /></button>
-                                  <button onClick={() => handleDeletePlan(p)} className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition"><Trash2 size={14} /></button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Integração de pagamento */}
-                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}><DollarSign size={14} className="text-white" /></div>
-                            <div>
-                              <p className="text-sm font-bold text-slate-800">Gateway de Pagamento</p>
-                              <p className="text-xs text-slate-400">Cobrança automática recorrente mensal ou anual</p>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-amber-200 text-amber-600 bg-amber-50">Em breve</span>
-                        </div>
-                        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {[
-                            { icon: '💳', title: 'Stripe', desc: 'Cartão, boleto, Pix — recorrência automática.' },
-                            { icon: '🔗', title: 'Hotmart / Eduzz', desc: 'Checkout externo via webhook.' },
-                          ].map(g => (
-                            <div key={g.title} className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
-                              <span className="text-xl flex-shrink-0">{g.icon}</span>
-                              <div>
-                                <p className="text-sm font-bold text-slate-700">{g.title}</p>
-                                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{g.desc}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* ══ WHATSAPP BOT ══ */}
-              {/* ══ PAGAMENTOS ══ */}
-              {tab === 'pagamentos' && (
-                <div className="max-w-2xl space-y-6">
-                  <div>
-                    <h2 className="text-lg font-black text-slate-800">Recebimento de Assinaturas</h2>
-                    <p className="text-sm text-slate-500 mt-1">Configure o Mercado Pago da plataforma para receber os pagamentos dos consultórios. Este token é exclusivo da plataforma — separado do token que cada psicólogo usa para receber dos pacientes.</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-                    <div className="flex items-center gap-4 p-4 border-b border-slate-100">
-                      <div className="p-2.5 rounded-xl bg-sky-100 text-sky-600 shrink-0">
-                        <DollarSign size={20} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-800 text-sm">Mercado Pago — Plataforma</p>
-                          {mpConfig.configured && (
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${mpConfig.enabled ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                              {mpConfig.enabled ? 'Ativo' : 'Pausado'}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-400 mt-0.5">Access Token da sua conta MP para receber assinaturas dos consultórios</p>
-                      </div>
-                      {mpConfig.configured && (
-                        <button onClick={toggleMpEnabled} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${mpConfig.enabled ? 'bg-sky-500' : 'bg-slate-200'}`}>
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${mpConfig.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      {mpConfig.configured ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                            <CheckCircle size={15} className="text-emerald-600 shrink-0" />
-                            <p className="text-xs text-emerald-700 font-medium">Token Mercado Pago configurado. Assinaturas serão recebidas na sua conta.</p>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Para trocar o token, cole o novo abaixo:</p>
-                          <div className="relative">
-                            <input
-                              type={mpShowToken ? 'text' : 'password'}
-                              value={mpToken}
-                              onChange={e => setMpToken(e.target.value)}
-                              placeholder="Novo Access Token (APP_USR-...)"
-                              className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
-                            />
-                            <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
-                          {mpToken && (
-                            <div className="flex gap-2">
-                              <button onClick={testMpToken} disabled={mpTesting || !mpToken.trim()} className="flex-1 py-2 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-50">
-                                {mpTesting ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Testar
-                              </button>
-                              <button onClick={saveMpToken} disabled={mpSaving || !mpToken.trim()} className="flex-1 py-2 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-50">
-                                {mpSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Salvar
-                              </button>
-                            </div>
-                          )}
-                          <button onClick={disconnectMp} disabled={mpSaving} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
-                            <X size={12} /> Desconectar Mercado Pago
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="p-3 bg-sky-50 rounded-xl border border-sky-100 space-y-1.5">
-                            <p className="text-xs font-bold text-sky-700">Como configurar:</p>
-                            <ol className="text-xs text-sky-800 space-y-1 pl-3 list-decimal">
-                              <li>Acesse <strong>mercadopago.com.br</strong> com a conta da plataforma Plaelo</li>
-                              <li>Vá em <strong>Seu negócio → Configurações → Credenciais de produção</strong></li>
-                              <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-sky-100 px-1 rounded">APP_USR-</code>)</li>
-                              <li>Cole abaixo e clique em <strong>Conectar</strong></li>
-                            </ol>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type={mpShowToken ? 'text' : 'password'}
-                              value={mpToken}
-                              onChange={e => setMpToken(e.target.value)}
-                              placeholder="Access Token (APP_USR-...)"
-                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-sky-400 font-mono"
-                            />
-                            <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={testMpToken} disabled={!mpToken.trim() || mpTesting} className="flex-1 py-2.5 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl hover:bg-sky-100 transition-all disabled:opacity-40">
-                              {mpTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
-                            </button>
-                            <button onClick={saveMpToken} disabled={!mpToken.trim() || mpSaving} className="flex-1 py-2.5 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-all disabled:opacity-40">
-                              {mpSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-                    <div className="flex items-center gap-4 p-4 border-b border-slate-100">
-                      <div className="p-2.5 rounded-xl bg-teal-100 text-teal-600 shrink-0">
-                        <DollarSign size={20} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-800 text-sm">Asaas — Plataforma</p>
-                          {asaasConfig.configured && (
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${asaasConfig.enabled ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                              {asaasConfig.enabled ? 'Ativo' : 'Pausado'}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-400 mt-0.5">Chave da conta Asaas da Plaelo para receber assinaturas dos consultórios</p>
-                      </div>
-                      {asaasConfig.configured && (
-                        <button onClick={toggleAsaasEnabled} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${asaasConfig.enabled ? 'bg-teal-500' : 'bg-slate-200'}`}>
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${asaasConfig.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      {asaasConfig.configured ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                            <CheckCircle size={15} className="text-emerald-600 shrink-0" />
-                            <p className="text-xs text-emerald-700 font-medium">Chave Asaas configurada. Assinaturas serão recebidas na conta da Plaelo.</p>
-                          </div>
-                          <p className="text-[11px] text-slate-400">Para trocar a chave, cole a nova abaixo:</p>
-                          <div className="relative">
-                            <input
-                              type={asaasShowToken ? 'text' : 'password'}
-                              value={asaasToken}
-                              onChange={e => setAsaasToken(e.target.value)}
-                              placeholder="Nova API Key ($aact_...)"
-                              className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-teal-400 font-mono"
-                            />
-                            <button onClick={() => setAsaasShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              {asaasShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
-                          {asaasToken && (
-                            <div className="flex gap-2">
-                              <button onClick={testAsaasToken} disabled={asaasTesting || !asaasToken.trim()} className="flex-1 py-2 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all disabled:opacity-50">
-                                {asaasTesting ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Testar
-                              </button>
-                              <button onClick={saveAsaasToken} disabled={asaasSaving || !asaasToken.trim()} className="flex-1 py-2 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-50">
-                                {asaasSaving ? <Loader2 size={13} className="animate-spin inline mr-1" /> : null}Salvar
-                              </button>
-                            </div>
-                          )}
-                          <button onClick={disconnectAsaas} disabled={asaasSaving} className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
-                            <X size={12} /> Desconectar Asaas
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="p-3 bg-teal-50 rounded-xl border border-teal-100 space-y-1.5">
-                            <p className="text-xs font-bold text-teal-700">Como configurar:</p>
-                            <ol className="text-xs text-teal-800 space-y-1 pl-3 list-decimal">
-                              <li>Acesse <strong>asaas.com</strong> com a conta integradora da Plaelo</li>
-                              <li>Vá em <strong>Integrações → Chaves de API</strong></li>
-                              <li>Gere e copie a <strong>API Key</strong> (começa com <code className="bg-teal-100 px-1 rounded">$aact_</code>)</li>
-                              <li>Cole abaixo e clique em <strong>Conectar</strong></li>
-                            </ol>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type={asaasShowToken ? 'text' : 'password'}
-                              value={asaasToken}
-                              onChange={e => setAsaasToken(e.target.value)}
-                              placeholder="API Key ($aact_...)"
-                              className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-teal-400 font-mono"
-                            />
-                            <button onClick={() => setAsaasShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                              {asaasShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={testAsaasToken} disabled={!asaasToken.trim() || asaasTesting} className="flex-1 py-2.5 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all disabled:opacity-40">
-                              {asaasTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
-                            </button>
-                            <button onClick={saveAsaasToken} disabled={!asaasToken.trim() || asaasSaving} className="flex-1 py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40">
-                              {asaasSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl text-xs text-amber-800 space-y-1">
-                    <p className="font-bold">Dois tokens, dois fluxos — nunca se misturam:</p>
-                    <p>• <strong>Estas chaves/tokens (super_admin, acima)</strong> → recebem as assinaturas mensais dos consultórios</p>
-                    <p>• <strong>Chave do psicólogo</strong> (em Configurações → Integrações) → recebe pagamentos de pacientes, direto na conta dele</p>
-                  </div>
-                </div>
-              )}
-
-              {tab === 'faturas' && (
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div>
-                      <h2 className="text-lg font-black text-slate-800">Faturas de Assinatura</h2>
-                      <p className="text-sm text-slate-500 mt-1">Histórico de cobranças geradas para os consultórios pagarem a assinatura da plataforma.</p>
-                    </div>
-                    <select value={invoiceStatusFilter} onChange={e => setInvoiceStatusFilter(e.target.value)} className={sel + ' w-auto'}>
-                      <option value="">Todos os status</option>
-                      <option value="approved">Aprovadas</option>
-                      <option value="pending">Pendentes</option>
-                      <option value="rejected">Rejeitadas</option>
-                      <option value="cancelled">Canceladas</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Recebido</p>
-                      <p className="font-black text-emerald-600 text-lg mt-0.5">{fmt(Number(invoicesSummary.total_approved) || 0)}</p>
-                    </div>
-                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Faturas pagas</p>
-                      <p className="font-black text-slate-800 text-lg mt-0.5">{invoicesSummary.count_approved}</p>
-                    </div>
-                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Aguardando</p>
-                      <p className="font-black text-amber-600 text-lg mt-0.5">{fmt(Number(invoicesSummary.total_pending) || 0)}</p>
-                    </div>
-                    <div className="p-4 bg-white rounded-2xl border border-slate-200">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Faturas pendentes</p>
-                      <p className="font-black text-slate-800 text-lg mt-0.5">{invoicesSummary.count_pending}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                    {invoicesLoading ? (
-                      <div className="flex items-center justify-center py-16"><Loader2 size={22} className="animate-spin text-slate-300" /></div>
-                    ) : invoices.length === 0 ? (
-                      <div className="text-center py-16 text-slate-400 text-sm">Nenhuma fatura encontrada.</div>
+                    {tenants.length === 0 ? (
+                      <ContentCard>
+                        <EmptyState
+                          icon={Building2}
+                          title="Nenhuma clínica ainda"
+                          description="Adicione o primeiro parceiro clínico na plataforma."
+                          action={<Button size="sm" iconLeft={<Plus size={14} />} onClick={openClientModal}>Nova Clínica</Button>}
+                        />
+                      </ContentCard>
+                    ) : filteredClients.length === 0 ? (
+                      <ContentCard><EmptyState icon={Building2} title="Nenhuma clínica nesta situação" description="Altere a aba para ver outras clínicas." /></ContentCard>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-slate-100 text-left text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                              <th className="px-4 py-3">Clínica</th>
-                              <th className="px-4 py-3">Plano</th>
-                              <th className="px-4 py-3">Período</th>
-                              <th className="px-4 py-3">Valor</th>
-                              <th className="px-4 py-3">Método</th>
-                              <th className="px-4 py-3">Status</th>
-                              <th className="px-4 py-3">Data</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {invoices.map(inv => (
-                              <tr key={inv.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition">
-                                <td className="px-4 py-3 font-semibold text-slate-700">{inv.tenant_name || '—'}</td>
-                                <td className="px-4 py-3 text-slate-500">{inv.plan_name || '—'}</td>
-                                <td className="px-4 py-3 text-slate-500 capitalize">{inv.period === 'annual' ? 'Anual' : 'Mensal'}</td>
-                                <td className="px-4 py-3 font-bold text-slate-800">{fmt(Number(inv.amount) || 0)}</td>
-                                <td className="px-4 py-3 text-slate-500">{inv.method === 'pix' ? 'Pix' : inv.method === 'card' ? 'Cartão' : '—'}</td>
-                                <td className="px-4 py-3">
-                                  {inv.status === 'approved' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full uppercase"><CheckCircle size={9} />Paga</span>}
-                                  {inv.status === 'pending' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full uppercase"><Clock size={9} />Pendente</span>}
-                                  {inv.status === 'rejected' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase"><X size={9} />Rejeitada</span>}
-                                  {inv.status === 'cancelled' && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full uppercase">Cancelada</span>}
-                                </td>
-                                <td className="px-4 py-3 text-slate-400 text-xs">{fmtDate(inv.paid_at || inv.created_at)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {filteredClients.map(t => {
+                          const daysLeft = t.expires_at ? Math.ceil((new Date(t.expires_at).getTime() - new Date().getTime()) / 864e5) : null;
+                          const isExpired = daysLeft !== null && daysLeft < 0;
+                          const isBlocked = t.status === 'blocked';
+                          const isExpiring = daysLeft !== null && daysLeft >= 0 && daysLeft <= 5;
+
+                          return (
+                            <ContentCard key={t.id} padding="none" className={`flex flex-col overflow-hidden ${isBlocked ? 'border-red-200' : isExpired ? 'border-amber-200' : ''}`}>
+                              <div className="p-3 flex-1 flex flex-col gap-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-9 h-9 rounded-lg border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center text-xs font-medium shrink-0">
+                                      {initials(t.company_name)}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <h4 className="font-medium text-slate-800 text-sm leading-tight truncate">{t.company_name}</h4>
+                                      <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1"><Calendar size={10} /> Desde {new Date(t.created_at).toLocaleDateString('pt-BR')}</p>
+                                    </div>
+                                  </div>
+                                  <StatusBadge active={t.active} status={t.status} expires_at={t.expires_at} trial_ends_at={t.trial_ends_at} billing_exempt={t.billing_exempt} />
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-center min-w-0">
+                                    <p className="text-[11px] text-slate-500 mb-0.5">Plano</p>
+                                    <p className="text-xs font-medium text-slate-700 truncate">{t.plan_name || '—'}</p>
+                                  </div>
+                                  <div className={`border rounded-lg p-2 text-center min-w-0 ${t.billing_exempt ? 'bg-violet-50 border-violet-100' : 'bg-slate-50 border-slate-100'}`}>
+                                    <p className="text-[11px] text-slate-500 mb-0.5">Valor</p>
+                                    <p className={`text-xs font-medium ${t.billing_exempt ? 'text-violet-700' : 'text-emerald-700'}`}>
+                                      {t.billing_exempt ? 'Isento' : t.plan_price ? `R$${Number(t.plan_price).toFixed(0)}` : '—'}
+                                    </p>
+                                  </div>
+                                  <div className={`border rounded-lg p-2 text-center min-w-0 ${isExpired ? 'bg-red-50 border-red-100' : isExpiring ? 'bg-amber-50 border-amber-100' : t.trial_ends_at ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100'}`}>
+                                    <p className="text-[11px] text-slate-500 mb-0.5">{t.trial_ends_at ? 'Fim do Teste' : 'Vencimento'}</p>
+                                    <p className={`text-xs font-medium ${isExpired ? 'text-red-600' : isExpiring ? 'text-amber-700' : t.trial_ends_at ? 'text-blue-700' : 'text-slate-700'}`}>
+                                      {t.billing_exempt
+                                        ? '—'
+                                        : t.trial_ends_at
+                                        ? new Date(t.trial_ends_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                                        : t.expires_at ? new Date(t.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 gap-2">
+                                  <span className="flex items-center gap-1.5 truncate min-w-0"><Mail size={12} className="shrink-0" /><span className="truncate">{t.admin_email}</span></span>
+                                  <span className="flex items-center gap-1 shrink-0"><Users size={12} />{t.user_count || 0}/{t.max_users === 999 ? '∞' : t.max_users}</span>
+                                </div>
+
+                                {isExpired && !isBlocked && <Alert variant="error">Assinatura vencida — login bloqueado automaticamente</Alert>}
+                                {isBlocked && <Alert variant="error">Acesso bloqueado manualmente</Alert>}
+
+                                <div className="mt-auto pt-3 border-t border-slate-100 flex flex-col gap-2">
+                                  <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" className="flex-1" iconLeft={<Edit2 size={14} />} onClick={() => openEditClient(t)}>Editar</Button>
+                                    <Button variant={t.active ? 'outline' : 'success'} size="sm" className="flex-1"
+                                      onClick={() => handleToggleClient(t)} disabled={!isAdmin || t.id === 1}
+                                      iconLeft={t.active ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}>
+                                      {t.active ? 'Suspender' : 'Reativar'}
+                                    </Button>
+                                    <IconButton
+                                      variant={t.status === 'blocked' ? 'success' : 'outline'}
+                                      size="sm"
+                                      onClick={() => handleUpdateTenantStatus(t, t.status === 'blocked' ? 'active' : 'blocked')}
+                                      disabled={!isAdmin || t.id === 1}
+                                      aria-label={t.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}
+                                      title={t.status === 'blocked' ? 'Desbloquear' : 'Bloquear'}>
+                                      {t.status === 'blocked' ? <Unlock size={14} /> : <Lock size={14} />}
+                                    </IconButton>
+                                  </div>
+                                  {isRoot && t.id !== 1 && (
+                                    <Button variant="softDanger" size="xs" fullWidth iconLeft={<Trash2 size={14} />} onClick={() => handleDeleteClient(t)}>Excluir clínica</Button>
+                                  )}
+                                </div>
+                              </div>
+                            </ContentCard>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {tab === 'areas' && (
-                <ProfessionalAreasTab />
-              )}
+                {/* ══ EQUIPE ══ */}
+                {tab === 'team' && (
+                  <div className="space-y-3">
+                    <StatGrid cols={3}>
+                      <StatCard title="Total" value={masterUsers.length} icon={Users} color="default" />
+                      <StatCard title="Super Admin" value={masterUsers.filter(u => u.role === 'super_admin').length} icon={ShieldCheck} color="success" />
+                      <StatCard title="Ativos" value={masterUsers.filter(u => u.active !== false).length} icon={UserCheck} color="info" />
+                    </StatGrid>
 
-              {tab === 'emails' && (
-                <div className="max-w-5xl space-y-5">
-                  <div className="rounded-2xl p-6 text-white shadow-sm" style={{ background: 'linear-gradient(135deg,#4338ca,#7c3aed)' }}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div><p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">Comunicação</p><h2 className="text-xl font-black mt-1">Central de E-mails</h2><p className="text-sm text-white/75 mt-2">Envie novidades e comunicados para todos os usuários ativos do Plaelo.</p></div>
-                      <div className="shrink-0 rounded-2xl bg-white/15 px-4 py-3 text-center"><p className="text-base sm:text-xl font-black">{emailSummary.active_recipients || 0}</p><p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Destinatários ativos</p></div>
-                    </div>
-                  </div>
-                  <div className="grid lg:grid-cols-[1.3fr_.7fr] gap-5">
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
-                      <div><h3 className="font-black text-slate-800">Novo comunicado</h3><p className="text-xs text-slate-500 mt-1">O envio será feito somente para usuários com conta ativa e e-mail cadastrado.</p></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Assunto do e-mail</label><input className={inp} maxLength={180} value={emailForm.subject} onChange={e => setEmailForm({ ...emailForm, subject: e.target.value })} placeholder="Ex.: Novidade no Plaelo" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Título em destaque</label><input className={inp} maxLength={180} value={emailForm.title} onChange={e => setEmailForm({ ...emailForm, title: e.target.value })} placeholder="Uma nova atualização chegou" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Mensagem</label><textarea className={inp + ' min-h-36 resize-y'} value={emailForm.content} onChange={e => setEmailForm({ ...emailForm, content: e.target.value })} placeholder="Conte o que mudou e como isso ajuda no dia a dia..." /></div>
-                      <div className="grid sm:grid-cols-2 gap-3"><div><label className="block text-xs font-bold text-slate-500 mb-1.5">Texto do botão (opcional)</label><input className={inp} value={emailForm.button_text} onChange={e => setEmailForm({ ...emailForm, button_text: e.target.value })} /></div><div><label className="block text-xs font-bold text-slate-500 mb-1.5">Link do botão (opcional)</label><input className={inp} value={emailForm.button_url} onChange={e => setEmailForm({ ...emailForm, button_url: e.target.value })} placeholder="https://..." /></div></div>
-                      <button onClick={() => doConfirm({ message: `Enviar para ${emailSummary.active_recipients || 0} usuários ativos?`, detail: 'O envio será registrado no histórico.', onConfirm: sendCampaign })} disabled={sendingCampaign || !emailSummary.active_recipients} className="w-full py-3 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition flex items-center justify-center gap-2">{sendingCampaign ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} {sendingCampaign ? 'Enviando...' : 'Disparar e-mail para ativos'}</button>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5"><h3 className="font-black text-slate-800">Últimos disparos</h3><div className="mt-4 space-y-3">{(emailSummary.campaigns || []).length === 0 ? <p className="text-sm text-slate-400 py-8 text-center">Nenhum comunicado enviado ainda.</p> : emailSummary.campaigns.map((campaign: any) => <div key={campaign.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100"><p className="text-sm font-bold text-slate-700 truncate">{campaign.subject}</p><p className="text-[11px] text-slate-400 mt-1">{campaign.delivered_count}/{campaign.recipient_count} enviados · {fmtDate(campaign.sent_at || campaign.created_at)}</p>{campaign.failed_count > 0 && <p className="text-[11px] text-red-500 mt-1">{campaign.failed_count} falharam</p>}</div>)}</div></div>
-                  </div>
-                </div>
-              )}
-
-              {tab === 'whatsapp' && canAccessWpp && (
-                <div className="max-w-3xl space-y-4">
-                  {/* Status card */}
-                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                    {/* Header colorido com status */}
-                    <div className="px-6 py-5 flex items-center justify-between" style={{ background: wppStatus.status === 'connected' ? 'linear-gradient(135deg, #059669, #10b981)' : wppStatus.status === 'connecting' ? 'linear-gradient(135deg, #d97706, #f59e0b)' : 'linear-gradient(135deg, #475569, #64748b)' }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                          <Phone size={20} className="text-white" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-white text-base">WhatsApp Bot</p>
-                          <p className="text-white/70 text-xs">Instância Master — Notificações</p>
-                        </div>
-                      </div>
-                      <div>
-                        {wppStatus.status === 'connected'
-                          ? <span className="inline-flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full"><span className="w-2 h-2 rounded-full bg-white animate-pulse" />CONECTADO</span>
-                          : wppStatus.status === 'connecting'
-                          ? <span className="inline-flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full"><Loader2 size={12} className="animate-spin" />AGUARDANDO QR</span>
-                          : <span className="inline-flex items-center gap-1.5 text-white text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full"><span className="w-2 h-2 rounded-full bg-white/60" />DESCONECTADO</span>}
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-3">
-                          {wppStatus.status === 'connected' && wppStatus.phone && (
-                            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
-                              <CheckCircle size={16} className="text-emerald-500 flex-shrink-0" />
-                              <div>
-                                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Número ativo</p>
-                                <p className="text-sm font-bold text-emerald-800">{wppStatus.phone}</p>
+                    {masterUsers.length === 0 ? (
+                      <ContentCard>
+                        <EmptyState icon={Shield} title="Nenhum integrante cadastrado"
+                          action={<Button size="sm" iconLeft={<Plus size={14} />} onClick={openTeamModal}>Adicionar integrante</Button>} />
+                      </ContentCard>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {masterUsers.map(u => (
+                          <ContentCard key={u.id} padding="none" className="overflow-hidden flex flex-col">
+                            <div className="p-3 flex-1 space-y-3">
+                              <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 rounded-lg border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center text-sm font-medium overflow-hidden shrink-0">
+                                  {u.avatar_url ? (
+                                    <img src={getStaticUrl(u.avatar_url)} alt={u.name} className="w-full h-full object-cover" />
+                                  ) : initials(u.name)}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="font-medium text-slate-800 text-sm leading-tight truncate">{u.name}</h3>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">Equipe Master · Plaelo</p>
+                                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                    <Badge size="sm" color="primary" icon={<ShieldCheck size={10} />}>Super Admin</Badge>
+                                    <StatusBadge active={u.active !== false} />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                {u.cargo && (
+                                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
+                                    <Briefcase size={12} className="text-slate-400 shrink-0" />
+                                    <span className="text-xs font-medium text-slate-700 truncate">{u.cargo}</span>
+                                  </div>
+                                )}
+                                {u.departamento && (
+                                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
+                                    <Users size={12} className="text-slate-400 shrink-0" />
+                                    <span className="text-xs text-slate-600 truncate">{u.departamento}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
+                                  <Mail size={12} className="text-slate-400 shrink-0" />
+                                  <span className="text-[11px] text-slate-500 truncate">{u.email}</span>
+                                </div>
+                                <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
+                                  <Calendar size={12} className="text-slate-400 shrink-0" />
+                                  <span className="text-[11px] text-slate-500">Membro desde {new Date(u.created_at).toLocaleDateString()}</span>
+                                </div>
                               </div>
                             </div>
+                            <div className="p-3 bg-slate-50/50 border-t border-slate-100 flex items-center gap-2">
+                              <Button variant="outline" size="xs" iconLeft={<Edit2 size={14} />} onClick={() => openEditTeamMember(u)}>Editar</Button>
+                              {isRoot && u.id !== user?.id && u.email !== 'super@psiflux.com' && (
+                                <IconButton variant="danger" size="xs" aria-label={`Remover ${u.name}`} onClick={() => handleDeleteTeamMember(u.id, u.name)}><Trash2 size={14} /></IconButton>
+                              )}
+                            </div>
+                          </ContentCard>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ══ PERMISSÕES ══ */}
+                {tab === 'permissions' && (
+                  <div className="space-y-3">
+                    {permProfiles.length === 0 ? (
+                      <ContentCard>
+                        <EmptyState icon={Lock} title="Nenhum perfil criado ainda"
+                          description='Crie perfis como "Vendedor", "Suporte", "Financeiro" com permissões específicas'
+                          action={<Button size="sm" iconLeft={<Plus size={14} />} onClick={openNewPerm}>Criar primeiro perfil</Button>} />
+                      </ContentCard>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        {permProfiles.map(p => {
+                          const roleLabel = ROLE_TYPES.find(r => r.value === p.role_type)?.label || p.role_type;
+                          return (
+                            <ContentCard key={p.id} padding="none" className="overflow-hidden">
+                              <div className="p-3 border-b border-slate-100 flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg border border-primary-100 bg-primary-50 flex items-center justify-center shrink-0">
+                                    <Shield size={14} className="text-primary-600" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-slate-800 text-sm truncate">{p.name}</p>
+                                    <p className="text-[11px] text-slate-500">{roleLabel}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Badge size="sm">{(p.permissions || []).length} permissões</Badge>
+                                  <IconButton variant="outline" size="xs" aria-label="Editar perfil" onClick={() => openEditPerm(p)}><Edit2 size={14} /></IconButton>
+                                  <IconButton variant="danger" size="xs" aria-label="Remover perfil" onClick={() => handleDeletePerm(p)}><Trash2 size={14} /></IconButton>
+                                </div>
+                              </div>
+
+                              <div className="p-3 space-y-3">
+                                {p.description && <p className="text-xs text-slate-500">{p.description}</p>}
+
+                                {p.permissions?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {p.permissions.map((key: string) => {
+                                      const opt = MASTER_PERMISSIONS_OPTIONS.find(o => o.key === key);
+                                      return <Badge key={key} size="sm" color="primary" icon={<Check size={10} />}>{opt?.label || key}</Badge>;
+                                    })}
+                                  </div>
+                                )}
+
+                                <div className="border border-slate-100 rounded-lg p-2.5 bg-slate-50">
+                                  <div className="flex items-center justify-between mb-1.5 gap-2">
+                                    <p className="text-[11px] font-medium text-slate-500 flex items-center gap-1"><Link size={10} /> Link de Acesso</p>
+                                    <Button variant="ghost" size="xs" iconLeft={<RefreshCw size={14} />} onClick={() => handleRegenerateToken(p)}>Novo link</Button>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
+                                      <p className="text-[11px] text-slate-500 font-mono truncate">/acesso/{p.access_token?.slice(0, 16)}...</p>
+                                    </div>
+                                    <IconButton variant={copied === p.id ? 'success' : 'outline'} size="sm" aria-label="Copiar link de acesso" onClick={() => copyLink(p.access_token, p.id)}>
+                                      {copied === p.id ? <Check size={14} /> : <Copy size={14} />}
+                                    </IconButton>
+                                  </div>
+                                </div>
+
+                                <p className="text-[11px] text-slate-500">Criado em {fmtDate(p.created_at)}</p>
+                              </div>
+                            </ContentCard>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <Alert variant="info">Perfis de permissão são exclusivos do painel master. Usuários de clínicas não têm acesso a esta área e não visualizam estes perfis.</Alert>
+                  </div>
+                )}
+
+                {/* ══ PLANOS ══ */}
+                {tab === 'plans' && (
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <p className="text-xs text-slate-500">{plans.length} plano{plans.length !== 1 ? 's' : ''} cadastrado{plans.length !== 1 ? 's' : ''}</p>
+                      <FilterLineSegmented<'monthly' | 'annual'>
+                        size="sm"
+                        value={billingPeriod}
+                        onChange={setBillingPeriod}
+                        options={[
+                          { value: 'monthly', label: 'Mensal' },
+                          { value: 'annual', label: 'Anual (-20%)' },
+                        ]}
+                      />
+                    </div>
+
+                    {plans.length === 0 ? (
+                      <ContentCard>
+                        <EmptyState icon={Package} title="Nenhum plano criado" description="Crie planos que serão exibidos no site para pagamento"
+                          action={<Button size="sm" iconLeft={<Plus size={14} />} onClick={openNewPlan}>Criar plano</Button>} />
+                      </ContentCard>
+                    ) : (
+                      <>
+                        <ContentCard padding="none">
+                          <GridTable<any>
+                            noDesktopCard
+                            data={plans}
+                            columns={planCols}
+                            keyExtractor={p => p.id}
+                            onRowClick={openEditPlan}
+                            emptyMessage="Nenhum plano criado"
+                            mobileBreakpoint="lg"
+                          />
+                        </ContentCard>
+
+                        <PanelCard
+                          title="Gateway de Pagamento"
+                          description="Cobrança automática recorrente mensal ou anual"
+                          icon={DollarSign}
+                          action={<Badge size="sm" color="warning">Em breve</Badge>}
+                          contentClassName="p-3"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {[
+                              { Icon: DollarSign, title: 'Stripe', desc: 'Cartão, boleto, Pix — recorrência automática.' },
+                              { Icon: Link, title: 'Hotmart / Eduzz', desc: 'Checkout externo via webhook.' },
+                            ].map(g => (
+                              <div key={g.title} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+                                <div className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center shrink-0"><g.Icon size={14} className="text-slate-500" /></div>
+                                <div>
+                                  <p className="text-[13px] font-medium text-slate-700">{g.title}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{g.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </PanelCard>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ══ PAGAMENTOS ══ */}
+                {tab === 'pagamentos' && (
+                  <div className="space-y-3">
+                    <Alert variant="info" title="Tokens exclusivos da plataforma">
+                      Estas chaves são separadas do token que cada psicólogo usa para receber dos pacientes.
+                    </Alert>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+                      <GatewayCard
+                        title="Mercado Pago — Plataforma"
+                        description="Access Token da sua conta MP para receber assinaturas dos consultórios"
+                        configured={mpConfig.configured} enabled={mpConfig.enabled}
+                        token={mpToken} setToken={setMpToken} showToken={mpShowToken} setShowToken={setMpShowToken}
+                        saving={mpSaving} testing={mpTesting}
+                        onToggle={toggleMpEnabled} onSave={saveMpToken} onTest={testMpToken} onDisconnect={disconnectMp}
+                        configuredMsg="Token Mercado Pago configurado. Assinaturas serão recebidas na sua conta."
+                        replaceHint="Para trocar o token, cole o novo abaixo:"
+                        placeholderReplace="Novo Access Token (APP_USR-...)" placeholderNew="Access Token (APP_USR-...)"
+                        disconnectLabel="Desconectar Mercado Pago"
+                        steps={<>
+                          <li>Acesse <strong>mercadopago.com.br</strong> com a conta da plataforma Plaelo</li>
+                          <li>Vá em <strong>Seu negócio → Configurações → Credenciais de produção</strong></li>
+                          <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-slate-100 px-1 rounded">APP_USR-</code>)</li>
+                          <li>Cole abaixo e clique em <strong>Conectar</strong></li>
+                        </>}
+                      />
+                      <GatewayCard
+                        title="Asaas — Plataforma"
+                        description="Chave da conta Asaas da Plaelo para receber assinaturas dos consultórios"
+                        configured={asaasConfig.configured} enabled={asaasConfig.enabled}
+                        token={asaasToken} setToken={setAsaasToken} showToken={asaasShowToken} setShowToken={setAsaasShowToken}
+                        saving={asaasSaving} testing={asaasTesting}
+                        onToggle={toggleAsaasEnabled} onSave={saveAsaasToken} onTest={testAsaasToken} onDisconnect={disconnectAsaas}
+                        configuredMsg="Chave Asaas configurada. Assinaturas serão recebidas na conta da Plaelo."
+                        replaceHint="Para trocar a chave, cole a nova abaixo:"
+                        placeholderReplace="Nova API Key ($aact_...)" placeholderNew="API Key ($aact_...)"
+                        disconnectLabel="Desconectar Asaas"
+                        steps={<>
+                          <li>Acesse <strong>asaas.com</strong> com a conta integradora da Plaelo</li>
+                          <li>Vá em <strong>Integrações → Chaves de API</strong></li>
+                          <li>Gere e copie a <strong>API Key</strong> (começa com <code className="bg-slate-100 px-1 rounded">$aact_</code>)</li>
+                          <li>Cole abaixo e clique em <strong>Conectar</strong></li>
+                        </>}
+                      />
+                    </div>
+
+                    <Alert variant="warning" title="Dois tokens, dois fluxos — nunca se misturam:">
+                      <p>• <strong>Estas chaves/tokens (super_admin, acima)</strong> → recebem as assinaturas mensais dos consultórios</p>
+                      <p>• <strong>Chave do psicólogo</strong> (em Configurações → Integrações) → recebe pagamentos de pacientes, direto na conta dele</p>
+                    </Alert>
+                  </div>
+                )}
+
+                {/* ══ FATURAS ══ */}
+                {tab === 'faturas' && (
+                  <div className="space-y-3">
+                    <StatGrid cols={4}>
+                      <StatCard title="Recebido" value={fmt(Number(invoicesSummary.total_approved) || 0)} icon={DollarSign} color="success" />
+                      <StatCard title="Faturas pagas" value={invoicesSummary.count_approved} icon={CheckCircle} color="default" />
+                      <StatCard title="Aguardando" value={fmt(Number(invoicesSummary.total_pending) || 0)} icon={Clock} color="warning" />
+                      <StatCard title="Faturas pendentes" value={invoicesSummary.count_pending} icon={FileText} color="default" />
+                    </StatGrid>
+
+                    <FilterLine>
+                      <FilterLineSection grow>
+                        <FilterLineSelect
+                          label="Status"
+                          value={invoiceStatusFilter}
+                          onChange={setInvoiceStatusFilter}
+                          options={[
+                            { value: '', label: 'Todos os status' },
+                            { value: 'approved', label: 'Aprovadas' },
+                            { value: 'pending', label: 'Pendentes' },
+                            { value: 'rejected', label: 'Rejeitadas' },
+                            { value: 'cancelled', label: 'Canceladas' },
+                          ]}
+                        />
+                      </FilterLineSection>
+                    </FilterLine>
+
+                    <ContentCard padding="none">
+                      <GridTable<any>
+                        noDesktopCard
+                        data={invPg.paginatedData}
+                        columns={invoiceCols}
+                        keyExtractor={inv => inv.id}
+                        isLoading={invoicesLoading}
+                        emptyMessage="Nenhuma fatura encontrada."
+                        mobileBreakpoint="lg"
+                        pagination={{ total: invoices.length, page: invPg.page, pageSize: invPg.pageSize, onPageChange: invPg.setPage, onPageSizeChange: invPg.setPageSize }}
+                      />
+                    </ContentCard>
+                  </div>
+                )}
+
+                {tab === 'areas' && <ProfessionalAreasTab />}
+
+                {/* ══ E-MAILS ══ */}
+                {tab === 'emails' && (
+                  <div className="space-y-3">
+                    <StatGrid cols={3}>
+                      <StatCard title="Destinatários ativos" value={emailSummary.active_recipients || 0} icon={Users} color="default" />
+                    </StatGrid>
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 items-start">
+                      <PanelCard className="xl:col-span-2 min-w-0" title="Novo comunicado" description="O envio será feito somente para usuários com conta ativa e e-mail cadastrado." icon={Mail} contentClassName="p-3 space-y-3">
+                        <Input label="Assunto do e-mail" maxLength={180} value={emailForm.subject} onChange={e => setEmailForm({ ...emailForm, subject: e.target.value })} placeholder="Ex.: Novidade no Plaelo" />
+                        <Input label="Título em destaque" maxLength={180} value={emailForm.title} onChange={e => setEmailForm({ ...emailForm, title: e.target.value })} placeholder="Uma nova atualização chegou" />
+                        <Textarea label="Mensagem" rows={6} value={emailForm.content} onChange={e => setEmailForm({ ...emailForm, content: e.target.value })} placeholder="Conte o que mudou e como isso ajuda no dia a dia..." />
+                        <FormRow cols={2}>
+                          <Input label="Texto do botão (opcional)" value={emailForm.button_text} onChange={e => setEmailForm({ ...emailForm, button_text: e.target.value })} />
+                          <Input label="Link do botão (opcional)" value={emailForm.button_url} onChange={e => setEmailForm({ ...emailForm, button_url: e.target.value })} placeholder="https://..." />
+                        </FormRow>
+                        <div className="flex justify-end">
+                          <Button
+                            iconLeft={<Send size={14} />}
+                            loading={sendingCampaign}
+                            disabled={sendingCampaign || !emailSummary.active_recipients}
+                            onClick={() => doConfirm({ message: `Enviar para ${emailSummary.active_recipients || 0} usuários ativos?`, detail: 'O envio será registrado no histórico.', onConfirm: sendCampaign })}
+                          >
+                            {sendingCampaign ? 'Enviando...' : 'Disparar e-mail para ativos'}
+                          </Button>
+                        </div>
+                      </PanelCard>
+                      <PanelCard className="min-w-0" title="Últimos disparos" icon={Send} contentClassName="p-3 space-y-2">
+                        {(emailSummary.campaigns || []).length === 0 ? (
+                          <EmptyState icon={Mail} title="Nenhum comunicado enviado ainda." />
+                        ) : emailSummary.campaigns.map((campaign: any) => (
+                          <div key={campaign.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                            <p className="text-xs font-medium text-slate-700 truncate">{campaign.subject}</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{campaign.delivered_count}/{campaign.recipient_count} enviados · {fmtDate(campaign.sent_at || campaign.created_at)}</p>
+                            {campaign.failed_count > 0 && <p className="text-[11px] text-red-600 mt-0.5">{campaign.failed_count} falharam</p>}
+                          </div>
+                        ))}
+                      </PanelCard>
+                    </div>
+                  </div>
+                )}
+
+                {/* ══ WHATSAPP BOT ══ */}
+                {tab === 'whatsapp' && canAccessWpp && (
+                  <div className="space-y-3">
+                    <PanelCard
+                      title="Conexão"
+                      description="Envia lembretes automáticos 60 min antes das sessões para todos os profissionais cadastrados nas clínicas."
+                      icon={Phone}
+                      action={
+                        wppStatus.status === 'connected'
+                          ? <Badge size="sm" color="success" dot>Conectado</Badge>
+                          : wppStatus.status === 'connecting'
+                          ? <Badge size="sm" color="warning" icon={<Loader2 size={10} className="animate-spin" />}>Aguardando QR</Badge>
+                          : <Badge size="sm" dot>Desconectado</Badge>
+                      }
+                      contentClassName="p-3"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-3">
+                          {wppStatus.status === 'connected' && wppStatus.phone && (
+                            <Alert variant="success" title="Número ativo">{wppStatus.phone}</Alert>
                           )}
-                          <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
-                            Envia lembretes automáticos 60 min antes das sessões para todos os profissionais cadastrados nas clínicas.
-                          </p>
                           <div className="flex flex-col gap-2">
                             {wppStatus.status === 'disconnected' ? (
-                              <button onClick={handleWppConnect} disabled={loadingWpp}
-                                className="w-full text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm"
-                                style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}>
-                                {loadingWpp ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Conectar WhatsApp
-                              </button>
+                              <Button variant="success" onClick={handleWppConnect} disabled={loadingWpp} loading={loadingWpp} iconLeft={<Plus size={14} />}>Conectar WhatsApp</Button>
                             ) : (
                               <>
-                                <button onClick={handleWppDisconnect} disabled={loadingWpp}
-                                  className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-xl transition border border-red-100 flex items-center justify-center gap-2 text-sm">
-                                  {loadingWpp ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />} Desconectar
-                                </button>
+                                <Button variant="softDanger" onClick={handleWppDisconnect} disabled={loadingWpp} loading={loadingWpp} iconLeft={<LogOut size={14} />}>Desconectar</Button>
                                 {wppStatus.status === 'connected' && (
-                                  <div className="border border-slate-200 rounded-xl p-3 space-y-2">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Enviar teste</p>
-                                    <div className="flex gap-2">
-                                      <input type="text" placeholder="(00) 00000-0000" id="testPhone"
-                                        onChange={e => { let v = e.target.value.replace(/\D/g,''); if(v.length>11)v=v.slice(0,11); if(v.length>2)v=`(${v.slice(0,2)}) ${v.slice(2)}`; if(v.length>9)v=`${v.slice(0,10)}-${v.slice(10)}`; e.target.value=v; }}
-                                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-300" />
-                                      <button onClick={async () => { const ph=(document.getElementById('testPhone') as HTMLInputElement).value; if(!ph) return toast('Insira um número','info'); try { await api.post('/whatsapp/test',{phone:ph,message:'🚀 Teste Plaelo: Bot operando!'}); toast('Enviado!'); } catch { toast('Erro','error'); }}}
-                                        className="text-white px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                                  <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+                                    <p className="text-xs font-medium text-slate-600">Enviar teste</p>
+                                    <div className="flex gap-2 items-end">
+                                      <div className="flex-1 min-w-0">
+                                        <Input id="testPhone" aria-label="Telefone para teste" type="text" placeholder="(00) 00000-0000"
+                                          onChange={e => { let v = e.target.value.replace(/\D/g,''); if(v.length>11)v=v.slice(0,11); if(v.length>2)v=`(${v.slice(0,2)}) ${v.slice(2)}`; if(v.length>9)v=`${v.slice(0,10)}-${v.slice(10)}`; e.target.value=v; }} />
+                                      </div>
+                                      <Button size="md" onClick={async () => { const ph=(document.getElementById('testPhone') as HTMLInputElement).value; if(!ph) return toast('Insira um número','info'); try { await api.post('/whatsapp/test',{phone:ph,message:'🚀 Teste Plaelo: Bot operando!'}); toast('Enviado!'); } catch { toast('Erro','error'); }}}>
                                         Testar
-                                      </button>
+                                      </Button>
                                     </div>
                                   </div>
                                 )}
                               </>
                             )}
                             {(wppStatus.status === 'connecting' || wppStatus.status === 'connected') && (
-                              <button onClick={loadWppStatus} className="w-full bg-slate-50 border border-slate-200 text-slate-500 font-semibold py-2 rounded-xl text-xs hover:bg-slate-100 transition flex items-center justify-center gap-2">
-                                <RefreshCw size={12} /> Atualizar status
-                              </button>
+                              <Button variant="outline" size="sm" onClick={loadWppStatus} iconLeft={<RefreshCw size={14} />}>Atualizar status</Button>
                             )}
                           </div>
                         </div>
-                        {/* QR Code panel */}
-                        <div className="flex items-center justify-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl min-h-[180px]">
+                        <div className="flex items-center justify-center bg-slate-50 border border-dashed border-slate-200 rounded-lg min-h-[180px] p-3">
                           {wppStatus.qrcode ? (
-                            <div className="bg-white p-3 rounded-xl shadow-lg border border-slate-100">
-                              <img src={wppStatus.qrcode} alt="QR Code" className="w-52 h-52" />
-                              <p className="text-[9px] text-center text-slate-400 mt-2 font-bold uppercase tracking-widest">Escaneie no WhatsApp</p>
+                            <div className="bg-white p-3 rounded-lg border border-slate-100">
+                              <img src={wppStatus.qrcode} alt="QR Code" className="w-44 h-44 sm:w-52 sm:h-52 max-w-full" />
+                              <p className="text-[11px] text-center text-slate-500 mt-2">Escaneie no WhatsApp</p>
                             </div>
                           ) : wppStatus.status === 'connected' ? (
-                            <div className="text-center">
-                              <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3"><CheckCircle size={28} className="text-emerald-500" /></div>
-                              <p className="text-sm font-bold text-slate-700">Bot ativo</p>
-                              <p className="text-xs text-slate-400 mt-1">Enviando mensagens</p>
-                            </div>
+                            <EmptyState className="border-0 bg-transparent" icon={CheckCircle} title="Bot ativo" description="Enviando mensagens" />
                           ) : (
-                            <div className="text-center opacity-40">
-                              <Phone size={36} className="text-slate-300 mx-auto mb-2" />
-                              <p className="text-xs text-slate-400">Desconectado</p>
-                            </div>
+                            <EmptyState className="border-0 bg-transparent" icon={Phone} title="Desconectado" />
                           )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                  {/* Toggles mestres — liga/desliga cada tipo de aviso ao profissional,
-                      plataforma inteira. Cada profissional ainda pode desativar o que
-                      quiser individualmente em Configurações → Notificações. */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2 px-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Avisos aos profissionais (kill-switch geral)</p>
-                      {masterWppSaving && <Loader2 size={12} className="animate-spin text-slate-300" />}
-                    </div>
-                    <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden shadow-sm">
-                      {[
-                        { key: 'new_appointment_professional_enabled', Icon: Calendar, color: '#059669', bg: '#f0fdf4', title: 'Novo agendamento', desc: 'Sistema ou Portal do Paciente' },
-                        { key: 'reminder_60min_enabled', Icon: Clock, color: '#2563eb', bg: '#eff6ff', title: 'Lembrete 60 min antes', desc: 'Aviso de consulta próxima' },
-                        { key: 'reminder_24h_professional_enabled', Icon: Calendar, color: '#0284c7', bg: '#f0f9ff', title: 'Lembrete 24h antes', desc: 'Aviso no dia anterior' },
-                        { key: 'cancelled_appointment_professional_enabled', Icon: X, color: '#dc2626', bg: '#fef2f2', title: 'Cancelamento', desc: 'Sistema ou Portal do Paciente' },
-                        { key: 'rescheduled_appointment_professional_enabled', Icon: RefreshCw, color: '#d97706', bg: '#fffbeb', title: 'Remarcação', desc: 'Sistema ou Portal do Paciente' },
-                      ].map(item => (
-                        <div key={item.key} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: item.bg }}>
-                              <item.Icon size={14} style={{ color: item.color }} />
+                    </PanelCard>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+                      {/* Toggles mestres — liga/desliga cada tipo de aviso ao profissional,
+                          plataforma inteira. Cada profissional ainda pode desativar o que
+                          quiser individualmente em Configurações → Notificações. */}
+                      <PanelCard
+                        title="Avisos aos profissionais"
+                        description="Kill-switch geral: desligar aqui bloqueia o tipo de aviso para TODOS os profissionais da plataforma. Cada profissional também controla individualmente em Configurações → Notificações."
+                        icon={Calendar}
+                        action={masterWppSaving ? <Loader2 size={14} className="animate-spin text-slate-400" /> : undefined}
+                      >
+                        <div className="divide-y divide-slate-100">
+                          {[
+                            { key: 'new_appointment_professional_enabled', Icon: Calendar, title: 'Novo agendamento', desc: 'Sistema ou Portal do Paciente' },
+                            { key: 'reminder_60min_enabled', Icon: Clock, title: 'Lembrete 60 min antes', desc: 'Aviso de consulta próxima' },
+                            { key: 'reminder_24h_professional_enabled', Icon: Calendar, title: 'Lembrete 24h antes', desc: 'Aviso no dia anterior' },
+                            { key: 'cancelled_appointment_professional_enabled', Icon: X, title: 'Cancelamento', desc: 'Sistema ou Portal do Paciente' },
+                            { key: 'rescheduled_appointment_professional_enabled', Icon: RefreshCw, title: 'Remarcação', desc: 'Sistema ou Portal do Paciente' },
+                          ].map(item => (
+                            <div key={item.key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center shrink-0">
+                                  <item.Icon size={14} className="text-slate-500" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-800 text-[13px]">{item.title}</p>
+                                  <p className="text-[11px] text-slate-500">{item.desc}</p>
+                                </div>
+                              </div>
+                              <Switch aria-label={item.title} checked={!!(masterWppPrefs as any)[item.key]} onCheckedChange={() => toggleMasterWppPref(item.key)} />
                             </div>
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
-                              <p className="text-xs text-slate-400">{item.desc}</p>
+                          ))}
+                        </div>
+                      </PanelCard>
+
+                      {/* Bot conversacional — separado dos avisos acima. Desligar aqui NÃO
+                          afeta os lembretes/avisos automáticos, só o menu de atendimento
+                          via chat (quem escrever para o número não recebe resposta). */}
+                      <PanelCard
+                        title="Bot conversacional"
+                        description="Desligado, o número master só envia os avisos automáticos ao lado — não responde quem mandar mensagem pra ele."
+                        icon={MessageSquare}
+                      >
+                        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center shrink-0">
+                              <MessageSquare size={14} className="text-slate-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-800 text-[13px]">Responder mensagens automaticamente</p>
+                              <p className="text-[11px] text-slate-500">Menu de atendimento (agenda, reagendar, etc.) para quem escrever no número master</p>
                             </div>
                           </div>
-                          <button onClick={() => toggleMasterWppPref(item.key)} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${(masterWppPrefs as any)[item.key] ? 'bg-emerald-500' : 'bg-slate-200'}`}>
-                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${(masterWppPrefs as any)[item.key] ? 'translate-x-5' : 'translate-x-0'}`} />
-                          </button>
+                          <Switch aria-label="Responder mensagens automaticamente" checked={!!masterWppPrefs.conversation_enabled} onCheckedChange={() => toggleMasterWppPref('conversation_enabled')} />
                         </div>
-                      ))}
+                      </PanelCard>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-2 pl-1">Desligar aqui bloqueia o tipo de aviso para TODOS os profissionais da plataforma. Cada profissional também controla individualmente em Configurações → Notificações.</p>
                   </div>
-
-                  {/* Bot conversacional — separado dos avisos acima. Desligar aqui NÃO
-                      afeta os lembretes/avisos automáticos, só o menu de atendimento
-                      via chat (quem escrever para o número não recebe resposta). */}
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 px-1">Bot conversacional</p>
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                      <div className="flex items-center justify-between px-4 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#f5f3ff' }}>
-                            <MessageSquare size={14} style={{ color: '#7c3aed' }} />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">Responder mensagens automaticamente</p>
-                            <p className="text-xs text-slate-400">Menu de atendimento (agenda, reagendar, etc.) para quem escrever no número master</p>
-                          </div>
-                        </div>
-                        <button onClick={() => toggleMasterWppPref('conversation_enabled')} className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${masterWppPrefs.conversation_enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}>
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${masterWppPrefs.conversation_enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-2 pl-1">Desligado, o número master só envia os avisos automáticos de cima — não responde quem mandar mensagem pra ele.</p>
-                  </div>
-                </div>
-              )}
-
-              {tab === 'conversations' && canAccessWpp && <ConversationsTab />}
-            </>
-          )}
-        </div>
-      </main>
-
-      {/* ══ MODAL EDITAR / NOVA CLÍNICA ══ */}
-      {clientModal && (
-        <Modal 
-          title={editClient ? "Editar Clínica" : "Nova Clínica"} 
-          sub={editClient ? `ID: ${editClient.id} — ${editClient.company_name}` : "Crie o acesso para uma nova clínica"} 
-          onClose={() => { setClientModal(false); setError(''); }} 
-          wide 
-          error={error}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="col-span-1 md:col-span-2">{lbl('Nome da Clínica *')}<input className={inp} placeholder="Ex: Clínica Vida Plena" value={clientForm.company_name} onChange={e => setClientForm({ ...clientForm, company_name: e.target.value })} /></div>
-            
-            <div>{lbl('CNPJ / CPF')}<input className={inp} placeholder="00.000.000/0000-00" value={clientForm.cnpj_cpf} onChange={e => setClientForm({ ...clientForm, cnpj_cpf: mkC(e.target.value) })} /></div>
-            <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={clientForm.phone} onChange={e => setClientForm({ ...clientForm, phone: mkP(e.target.value) })} /></div>
-            
-            <div className="md:col-span-2 border-t border-slate-100 pt-4 mt-2">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Acesso Administrativo</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>{lbl('Nome do Admin')}<input className={inp} placeholder="Nome completo" value={clientForm.admin_name} onChange={e => setClientForm({ ...clientForm, admin_name: e.target.value })} /></div>
-                <div>{lbl('E-mail do Admin *')}<input type="email" className={inp} placeholder="admin@clinica.com" value={clientForm.admin_email} onChange={e => setClientForm({ ...clientForm, admin_email: e.target.value })} /></div>
-                
-                {!editClient && (
-                  <div className="md:col-span-2">{lbl('Senha *')}<div className="relative"><input type={showPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={clientForm.password} onChange={e => setClientForm({ ...clientForm, password: e.target.value })} /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showPass ? <EyeOff size={15} /> : <Eye size={15} />}</button></div></div>
                 )}
-              </div>
-            </div>
 
-            <div className="md:col-span-2 border-t border-slate-100 pt-4 mt-2">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Assinatura e Status</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-bold">
-                <div>
-                  {lbl('Plano')}
-                  <select className={sel} value={clientForm.plan_id} onChange={e => setClientForm({ ...clientForm, plan_id: e.target.value })}>
-                    <option value="">Sem plano</option>
-                    {plans.map(p => <option key={p.id} value={p.id}>{p.name} — {fmt(p.price)}</option>)}
-                  </select>
-                </div>
-                <div>
-                  {lbl('Vencimento')}
-                  <input type="date" className={inp} value={clientForm.expires_at} onChange={e => setClientForm({ ...clientForm, expires_at: e.target.value })} />
-                </div>
-                <div>
-                  {lbl('Status de Cobrança')}
-                  <select className={sel} value={clientForm.status} onChange={e => setClientForm({ ...clientForm, status: e.target.value })}>
-                    <option value="active">Regular (Ativo)</option>
-                    <option value="expired">Atrasado (Vencido)</option>
-                    <option value="blocked">Bloqueado</option>
-                  </select>
-                </div>
-                <div>
-                  {lbl('Fim do Teste Grátis')}
-                  <input type="date" className={inp} value={clientForm.trial_ends_at} onChange={e => setClientForm({ ...clientForm, trial_ends_at: e.target.value })} />
-                  <p className="text-[10px] text-slate-400 mt-1 normal-case font-normal">Deixe em branco se não estiver em teste.</p>
-                </div>
-              </div>
-
-              <label className="mt-4 flex items-center gap-3 p-3.5 bg-violet-50 border border-violet-100 rounded-xl cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={clientForm.billing_exempt}
-                  onChange={e => setClientForm({ ...clientForm, billing_exempt: e.target.checked })}
-                  className="w-4 h-4 accent-violet-600"
-                />
-                <div>
-                  <p className="text-xs font-bold text-violet-800">Isenta de cobrança</p>
-                  <p className="text-[11px] text-violet-600 normal-case font-normal">Clínica nunca é bloqueada por vencimento/teste expirado, não pode gerar cobrança e fica fora do MRR e das métricas de receita.</p>
-                </div>
-              </label>
-
-              {editClient && clientForm.trial_ends_at && !clientForm.billing_exempt && (
-                <div className="mt-4 p-3.5 bg-sky-50 border border-sky-100 rounded-xl flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <p className="text-xs font-bold text-sky-800">Cliente em período de teste</p>
-                    <p className="text-[11px] text-sky-600 normal-case font-normal">Converta agora para assinatura ativa usando o plano selecionado acima, sem esperar pagamento via Mercado Pago.</p>
-                  </div>
-                  <button type="button" onClick={convertTrialToActive} disabled={convertingTrial || !clientForm.plan_id}
-                    className="px-4 py-2 text-xs font-bold text-white bg-sky-600 rounded-lg hover:bg-sky-700 transition-all disabled:opacity-50 whitespace-nowrap">
-                    {convertingTrial ? <Loader2 size={13} className="animate-spin inline" /> : 'Converter em assinatura ativa'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-6 border-t border-slate-100 mt-4">
-            <button onClick={() => { setClientModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSaveClient} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
-              {editClient ? 'Salvar Alterações' : 'Criar Clínica'}
-            </button>
-          </div>
-        </Modal>
-      )}
-
-      {/* ══ MODAL INTEGRANTE ══ */}
-      {teamModal && (
-        <Modal 
-          title={editTeam ? "Editar Integrante" : "Novo Integrante"} 
-          sub={editTeam ? `ID: ${editTeam.id} — ${editTeam.name}` : "Acesso master ao painel de super admin"} 
-          onClose={() => { setTeamModal(false); setError(''); }} 
-          error={error}
-          wide
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">{lbl('Nome Completo *')}<input className={inp} placeholder="Nome completo" value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} /></div>
-            
-            <div>{lbl('E-mail *')}<input type="email" className={inp} placeholder="usuario@psiflux.com" value={teamForm.email} onChange={e => setTeamForm({ ...teamForm, email: e.target.value })} /></div>
-            <div>{lbl('Telefone')}<input className={inp} placeholder="(11) 99999-9999" value={teamForm.phone} onChange={e => setTeamForm({ ...teamForm, phone: mkP(e.target.value) })} /></div>
-
-            {teamForm.email !== 'super@psiflux.com' && (
-              <>
-                <div>{lbl('Cargo / Profissão')}<input className={inp} placeholder="Ex: Gestor Comercial" value={teamForm.cargo} onChange={e => setTeamForm({ ...teamForm, cargo: e.target.value })} /></div>
-                <div>{lbl('Departamento')}<input className={inp} placeholder="Ex: Suporte" value={teamForm.departamento} onChange={e => setTeamForm({ ...teamForm, departamento: e.target.value })} /></div>
+                {tab === 'conversations' && canAccessWpp && <ConversationsTab />}
               </>
             )}
+          </div>
 
-            <div className="md:col-span-2">
-              {lbl('Foto do Perfil')}
-              <div className="flex items-center gap-4 mt-1.5 p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
-                <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center overflow-hidden">
-                  {teamForm.avatar_url ? (
-                    <img src={getStaticUrl(teamForm.avatar_url)} className="w-full h-full object-cover" />
-                  ) : <User size={24} className="text-slate-300" />}
+          {/* ══ MODAL EDITAR / NOVA CLÍNICA ══ */}
+          <Modal
+            isOpen={clientModal}
+            onClose={() => { setClientModal(false); setError(''); }}
+            title={editClient ? 'Editar Clínica' : 'Nova Clínica'}
+            subtitle={editClient ? `ID: ${editClient.id} — ${editClient.company_name}` : 'Crie o acesso para uma nova clínica'}
+            size="xl"
+            mobileStyle="fullscreen"
+            footer={
+              <ModalFooter align="between">
+                <Button variant="outline" size="sm" onClick={() => { setClientModal(false); setError(''); }}>Cancelar</Button>
+                <Button size="sm" loading={saving} disabled={saving} iconLeft={<Save size={14} />} onClick={() => { validateClientTab(); handleSaveClient(); }}>
+                  {editClient ? 'Salvar Alterações' : 'Criar Clínica'}
+                </Button>
+              </ModalFooter>
+            }
+          >
+            <div className="space-y-3">
+              {error && <Alert variant="error">{error}</Alert>}
+              <Tabs<ClientTab> items={CLIENT_TABS} value={clientTab} onChange={setClientTab} label="Seções da clínica" />
+
+              {clientTab === 'dados' && (
+                <div className="space-y-3">
+                  <Input label="Nome da Clínica *" placeholder="Ex: Clínica Vida Plena" value={clientForm.company_name} onChange={e => setClientForm({ ...clientForm, company_name: e.target.value })} />
+                  <FormRow cols={2}>
+                    <Input label="CNPJ / CPF" placeholder="00.000.000/0000-00" value={clientForm.cnpj_cpf} onChange={e => setClientForm({ ...clientForm, cnpj_cpf: mkC(e.target.value) })} />
+                    <Input label="Telefone" placeholder="(11) 99999-9999" value={clientForm.phone} onChange={e => setClientForm({ ...clientForm, phone: mkP(e.target.value) })} />
+                  </FormRow>
                 </div>
-                <div className="flex-1">
-                  <input type="file" className="hidden" ref={teamFileRef} accept="image/*" onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setUploadingTeamPhoto(true);
-                    try {
-                      const fd = new FormData();
-                      fd.append('file', file);
-                      fd.append('category', 'Perfil-Master');
-                      const res: any = await api.post('/uploads', fd);
-                      setTeamForm({ ...teamForm, avatar_url: res.file_url });
-                      toast('Foto carregada!');
-                    } catch { toast('Erro ao carregar foto.', 'error'); }
-                    finally { setUploadingTeamPhoto(false); }
-                  }} />
-                  <button type="button" onClick={() => teamFileRef.current?.click()} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5 mb-1">
-                    {uploadingTeamPhoto ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
-                    {teamForm.avatar_url ? 'Alterar Foto' : 'Carregar Foto'}
-                  </button>
-                  <p className="text-[10px] text-slate-400">JPG, PNG ou WEBP. Máximo 2MB.</p>
+              )}
+
+              {clientTab === 'acesso' && (
+                <FormRow cols={2}>
+                  <Input label="Nome do Admin" placeholder="Nome completo" value={clientForm.admin_name} onChange={e => setClientForm({ ...clientForm, admin_name: e.target.value })} />
+                  <Input label="E-mail do Admin *" type="email" placeholder="admin@clinica.com" value={clientForm.admin_email} onChange={e => setClientForm({ ...clientForm, admin_email: e.target.value })} />
+                  {!editClient && (
+                    <Input
+                      wrapperClassName="md:col-span-2"
+                      label="Senha *"
+                      type={showPass ? 'text' : 'password'}
+                      placeholder="Mínimo 6 caracteres"
+                      value={clientForm.password}
+                      onChange={e => setClientForm({ ...clientForm, password: e.target.value })}
+                      iconRight={<IconButton type="button" variant="ghost" size="xs" aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'} onClick={() => setShowPass(!showPass)}>{showPass ? <EyeOff size={14} /> : <Eye size={14} />}</IconButton>}
+                    />
+                  )}
+                </FormRow>
+              )}
+
+              {clientTab === 'assinatura' && (
+                <div className="space-y-3">
+                  <FormRow cols={3}>
+                    <Select label="Plano" value={clientForm.plan_id} onChange={e => setClientForm({ ...clientForm, plan_id: e.target.value })}
+                      options={[{ value: '', label: 'Sem plano' }, ...plans.map(p => ({ value: String(p.id), label: `${p.name} — ${fmt(p.price)}` }))]} />
+                    <DatePicker label="Vencimento" value={clientForm.expires_at} onChange={v => setClientForm({ ...clientForm, expires_at: v || '' })} />
+                    <Select label="Status de Cobrança" value={clientForm.status} onChange={e => setClientForm({ ...clientForm, status: e.target.value })}
+                      options={[
+                        { value: 'active', label: 'Regular (Ativo)' },
+                        { value: 'expired', label: 'Atrasado (Vencido)' },
+                        { value: 'blocked', label: 'Bloqueado' },
+                      ]} />
+                    <DatePicker label="Fim do Teste Grátis" hint="Deixe em branco se não estiver em teste." value={clientForm.trial_ends_at} onChange={v => setClientForm({ ...clientForm, trial_ends_at: v || '' })} />
+                  </FormRow>
+
+                  <div className="rounded-lg border border-slate-200 p-3">
+                    <Switch
+                      checked={clientForm.billing_exempt}
+                      onCheckedChange={v => setClientForm({ ...clientForm, billing_exempt: v })}
+                      label="Isenta de cobrança"
+                      description="Clínica nunca é bloqueada por vencimento/teste expirado, não pode gerar cobrança e fica fora do MRR e das métricas de receita."
+                    />
+                  </div>
+
+                  {editClient && clientForm.trial_ends_at && !clientForm.billing_exempt && (
+                    <Alert
+                      variant="info"
+                      title="Cliente em período de teste"
+                      action={
+                        <Button type="button" variant="outline" size="sm" onClick={convertTrialToActive} loading={convertingTrial} disabled={convertingTrial || !clientForm.plan_id}>
+                          Converter em assinatura ativa
+                        </Button>
+                      }
+                    >
+                      Converta agora para assinatura ativa usando o plano selecionado acima, sem esperar pagamento via Mercado Pago.
+                    </Alert>
+                  )}
                 </div>
-                {teamForm.avatar_url && (
-                   <button type="button" onClick={() => setTeamForm({ ...teamForm, avatar_url: '' })} className="p-2 text-slate-400 hover:text-red-500 transition">
-                      <Trash2 size={14} />
-                   </button>
-                )}
-              </div>
-            </div>
-
-            <div className="md:col-span-2 border-t border-slate-100 pt-4">
-              {lbl('Senha' + (editTeam ? ' (deixe em branco para não alterar)' : ' *'))}
-              <div className="relative">
-                <input type={showTeamPass ? 'text' : 'password'} className={inp + ' pr-10'} placeholder="Mínimo 6 caracteres" value={teamForm.password} onChange={e => setTeamForm({ ...teamForm, password: e.target.value })} />
-                <button type="button" onClick={() => setShowTeamPass(!showTeamPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showTeamPass ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              {lbl('Perfil de Permissão')}
-              <select className={sel} value={teamForm.permission_profile_id} onChange={e => setTeamForm({ ...teamForm, permission_profile_id: e.target.value })}>
-                <option value="">Acesso total (Super Admin)</option>
-                {permProfiles.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              {teamForm.permission_profile_id ? (
-                <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><Shield size={11} /> As permissões serão limitadas ao perfil selecionado.</p>
-              ) : (
-                <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><ShieldCheck size={11} /> Sem restrições — acesso completo ao painel master.</p>
               )}
             </div>
-          </div>
-          
-          <div className="flex gap-3 pt-6 border-t border-slate-100 mt-4">
-            <button onClick={() => { setTeamModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSaveTeamMember} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} 
-              {editTeam ? 'Salvar Alterações' : 'Criar Integrante'}
-            </button>
-          </div>
-        </Modal>
-      )}
+          </Modal>
 
-      {/* ══ MODAL PERFIL DE PERMISSÃO ══ */}
-      {permModal && (
-        <Modal title={editPerm ? 'Editar Perfil' : 'Novo Perfil de Permissão'} sub="Defina as permissões e gere um link de acesso único" onClose={() => { setPermModal(false); setError(''); }} wide error={error}>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">{lbl('Nome do Perfil *')}<input className={inp} placeholder="Ex: Vendedor, Suporte, Financeiro" value={permForm.name} onChange={e => setPermForm({ ...permForm, name: e.target.value })} /></div>
-            <div className="col-span-2">{lbl('Descrição')}<input className={inp} placeholder="Descrição do perfil de acesso" value={permForm.description} onChange={e => setPermForm({ ...permForm, description: e.target.value })} /></div>
-            <div className="col-span-2">{lbl('Tipo de Acesso')}
-              <div className="grid grid-cols-3 gap-2 mt-1">
-                {ROLE_TYPES.map(r => {
-                  const rc = ROLE_COLOR[r.value] || ROLE_COLOR['visualizador'];
-                  const active = permForm.role === r.value;
-                  return (
-                    <button key={r.value} type="button" onClick={() => setPermForm({ ...permForm, role: r.value })}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold border transition ${active ? `${rc.light} ${rc.text} ${rc.border}` : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                      {r.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <div>
-            {lbl('Permissões de Acesso')}
-            <div className="grid grid-cols-2 gap-1.5 mt-1">
-              {MASTER_PERMISSIONS_OPTIONS.map(opt => {
-                const active = permForm.permissions.includes(opt.key);
-                return (
-                  <label key={opt.key} className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition text-xs border ${active ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                    <input type="checkbox" className="sr-only" checked={active} onChange={() => togglePermission(opt.key)} />
-                    <div className={`w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0 border transition ${active ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
-                      {active && <Check size={9} className="text-white" />}
+          {/* ══ MODAL INTEGRANTE ══ */}
+          <Modal
+            isOpen={teamModal}
+            onClose={() => { setTeamModal(false); setError(''); }}
+            title={editTeam ? 'Editar Integrante' : 'Novo Integrante'}
+            subtitle={editTeam ? `ID: ${editTeam.id} — ${editTeam.name}` : 'Acesso master ao painel de super admin'}
+            size="lg"
+            mobileStyle="fullscreen"
+            footer={
+              <ModalFooter align="between">
+                <Button variant="outline" size="sm" onClick={() => { setTeamModal(false); setError(''); }}>Cancelar</Button>
+                <Button size="sm" loading={saving} disabled={saving} iconLeft={<Save size={14} />} onClick={() => { validateTeamTab(); handleSaveTeamMember(); }}>
+                  {editTeam ? 'Salvar Alterações' : 'Criar Integrante'}
+                </Button>
+              </ModalFooter>
+            }
+          >
+            <div className="space-y-3">
+              {error && <Alert variant="error">{error}</Alert>}
+              <Tabs<TeamTab> items={TEAM_TABS} value={teamTab} onChange={setTeamTab} label="Seções do integrante" />
+
+              {teamTab === 'dados' && (
+                <div className="space-y-3">
+                  <Input label="Nome Completo *" placeholder="Nome completo" value={teamForm.name} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} />
+                  <FormRow cols={2}>
+                    <Input label="E-mail *" type="email" placeholder="usuario@psiflux.com" value={teamForm.email} onChange={e => setTeamForm({ ...teamForm, email: e.target.value })} />
+                    <Input label="Telefone" placeholder="(11) 99999-9999" value={teamForm.phone} onChange={e => setTeamForm({ ...teamForm, phone: mkP(e.target.value) })} />
+                    {teamForm.email !== 'super@psiflux.com' && (
+                      <>
+                        <Input label="Cargo / Profissão" placeholder="Ex: Gestor Comercial" value={teamForm.cargo} onChange={e => setTeamForm({ ...teamForm, cargo: e.target.value })} />
+                        <Input label="Departamento" placeholder="Ex: Suporte" value={teamForm.departamento} onChange={e => setTeamForm({ ...teamForm, departamento: e.target.value })} />
+                      </>
+                    )}
+                  </FormRow>
+
+                  <div>
+                    <p className="ds-label mb-1">Foto do Perfil</p>
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 border border-dashed border-slate-200 rounded-lg">
+                      <div className="w-14 h-14 rounded-lg bg-white border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                        {teamForm.avatar_url ? (
+                          <img src={getStaticUrl(teamForm.avatar_url)} alt="Foto do integrante" className="w-full h-full object-cover" />
+                        ) : <User size={22} className="text-slate-300" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <input type="file" className="hidden" ref={teamFileRef} accept="image/*" aria-label="Enviar foto do perfil" onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingTeamPhoto(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            fd.append('category', 'Perfil-Master');
+                            const res: any = await api.post('/uploads', fd);
+                            setTeamForm({ ...teamForm, avatar_url: res.file_url });
+                            toast('Foto carregada!');
+                          } catch { toast('Erro ao carregar foto.', 'error'); }
+                          finally { setUploadingTeamPhoto(false); }
+                        }} />
+                        <Button type="button" variant="outline" size="sm" loading={uploadingTeamPhoto} iconLeft={<Camera size={14} />} onClick={() => teamFileRef.current?.click()}>
+                          {teamForm.avatar_url ? 'Alterar Foto' : 'Carregar Foto'}
+                        </Button>
+                        <p className="text-[11px] text-slate-500 mt-1">JPG, PNG ou WEBP. Máximo 2MB.</p>
+                      </div>
+                      {teamForm.avatar_url && (
+                        <IconButton type="button" variant="ghost" size="sm" aria-label="Remover foto" onClick={() => setTeamForm({ ...teamForm, avatar_url: '' })}>
+                          <Trash2 size={14} />
+                        </IconButton>
+                      )}
                     </div>
-                    {opt.label}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-          {!editPerm && (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-3 flex items-center gap-2">
-              <Globe size={14} className="text-slate-400 flex-shrink-0" />
-              <p className="text-xs text-slate-500">Um link de acesso único será gerado automaticamente após a criação.</p>
-            </div>
-          )}
-          <div className="flex gap-3 pt-1">
-            <button onClick={() => { setPermModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSavePerm} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {editPerm ? 'Salvar' : 'Criar Perfil'}</button>
-          </div>
-        </Modal>
-      )}
-
-      {/* ══ MODAL PLANO ══ */}
-      {planModal && (
-        <Modal title={editPlan ? 'Editar Plano' : 'Novo Plano'} sub={editPlan ? `Editando: ${editPlan.name}` : 'Configure um novo plano de assinatura'} onClose={() => { setPlanModal(false); setError(''); }} wide error={error}>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">{lbl('Nome *')}<input className={inp} placeholder="Ex: Pro" value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })} /></div>
-            <div className="col-span-2">{lbl('Descrição')}<input className={inp} placeholder="Breve descrição" value={planForm.description} onChange={e => setPlanForm({ ...planForm, description: e.target.value })} /></div>
-            <div>
-              {lbl('Preço R$ *')}
-              <input
-                className={inp}
-                placeholder="R$ 0,00"
-                value={planForm.price}
-                onChange={e => {
-                  const digits = e.target.value.replace(/\D/g, '');
-                  if (!digits) return setPlanForm({ ...planForm, price: '' });
-                  const n = (parseInt(digits, 10) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                  setPlanForm({ ...planForm, price: n });
-                }}
-              />
-            </div>
-            <div>{lbl('Usuários')}<input type="number" className={inp} placeholder="10" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} /></div>
-            <div className="col-span-2">
-              <label onClick={() => setPlanForm({ ...planForm, highlighted: !planForm.highlighted })} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all" style={{ borderColor: planForm.highlighted ? '#6366f1' : '#e2e8f0', background: planForm.highlighted ? 'rgba(99,102,241,0.06)' : '#fff' }}>
-                <div className={`w-10 h-5 rounded-full flex items-center transition-all duration-200 px-0.5 flex-shrink-0 ${planForm.highlighted ? 'bg-indigo-500' : 'bg-slate-200'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${planForm.highlighted ? 'translate-x-5' : 'translate-x-0'}`} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: planForm.highlighted ? '#4f46e5' : '#374151' }}>⭐ Destaque no site — "Mais popular"</p>
-                  <p className="text-xs text-slate-400">Este plano aparecerá em destaque (roxo) na página de planos do site</p>
-                </div>
-              </label>
-            </div>
-          </div>
-          <div>
-            {lbl('Funcionalidades')}
-            {plans.filter(p => p.id !== editPlan?.id && (p.features || []).length > 0).length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mr-1">Copiar de:</span>
-                {plans.filter(p => p.id !== editPlan?.id && (p.features || []).length > 0).map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPlanForm(prev => ({ ...prev, features: Array.from(new Set(p.features || [])) }))}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition"
-                    title={`Usar exatamente as funcionalidades do plano ${p.name}`}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-                {planForm.features.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setPlanForm(prev => ({ ...prev, features: [] }))}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition"
-                  >
-                    Limpar tudo
-                  </button>
-                )}
-              </div>
-            )}
-            <div className="space-y-3 mt-1">
-              {Array.from(new Set(FEATURES_OPTIONS.map(o => o.group))).map(group => (
-                <div key={group}>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">{group}</p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {FEATURES_OPTIONS.filter(o => o.group === group).map(opt => {
-                      const active = planForm.features.includes(opt.key);
-                      return (
-                        <label key={opt.key} className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition text-xs border ${active ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
-                          <input type="checkbox" className="sr-only" checked={active} onChange={() => toggleFeature(opt.key)} />
-                          <div className={`w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0 border transition ${active ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
-                            {active && <Check size={9} className="text-white" />}
-                          </div>
-                          <span>{opt.label}</span>
-                          {opt.premium && <span className="ml-auto text-[8px] font-bold bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm border border-amber-200/50">Premium</span>}
-                        </label>
-                      );
-                    })}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {teamTab === 'acesso' && (
+                <div className="space-y-3">
+                  <Input
+                    label={'Senha' + (editTeam ? ' (deixe em branco para não alterar)' : ' *')}
+                    type={showTeamPass ? 'text' : 'password'}
+                    placeholder="Mínimo 6 caracteres"
+                    value={teamForm.password}
+                    onChange={e => setTeamForm({ ...teamForm, password: e.target.value })}
+                    iconRight={<IconButton type="button" variant="ghost" size="xs" aria-label={showTeamPass ? 'Ocultar senha' : 'Mostrar senha'} onClick={() => setShowTeamPass(!showTeamPass)}>{showTeamPass ? <EyeOff size={14} /> : <Eye size={14} />}</IconButton>}
+                  />
+                  <Select
+                    label="Perfil de Permissão"
+                    value={teamForm.permission_profile_id}
+                    onChange={e => setTeamForm({ ...teamForm, permission_profile_id: e.target.value })}
+                    options={[{ value: '', label: 'Acesso total (Super Admin)' }, ...permProfiles.map(p => ({ value: String(p.id), label: p.name }))]}
+                    hint={teamForm.permission_profile_id ? 'As permissões serão limitadas ao perfil selecionado.' : 'Sem restrições — acesso completo ao painel master.'}
+                  />
+                </div>
+              )}
             </div>
-          </div>
-          <div className="flex gap-3 pt-1">
-            <button onClick={() => { setPlanModal(false); setError(''); }} className={btnS}>Cancelar</button>
-            <button onClick={handleSavePlan} disabled={saving} className={btnP} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {editPlan ? 'Salvar' : 'Criar Plano'}</button>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+
+          {/* ══ MODAL PERFIL DE PERMISSÃO ══ */}
+          <Modal
+            isOpen={permModal}
+            onClose={() => { setPermModal(false); setError(''); }}
+            title={editPerm ? 'Editar Perfil' : 'Novo Perfil de Permissão'}
+            subtitle="Defina as permissões e gere um link de acesso único"
+            size="lg"
+            mobileStyle="fullscreen"
+            footer={
+              <ModalFooter align="between">
+                <Button variant="outline" size="sm" onClick={() => { setPermModal(false); setError(''); }}>Cancelar</Button>
+                <Button size="sm" loading={saving} disabled={saving} iconLeft={<Save size={14} />} onClick={() => { if (!permForm.name) setPermTab('dados'); handleSavePerm(); }}>
+                  {editPerm ? 'Salvar' : 'Criar Perfil'}
+                </Button>
+              </ModalFooter>
+            }
+          >
+            <div className="space-y-3">
+              {error && <Alert variant="error">{error}</Alert>}
+              <Tabs<PermTab> items={permTabs} value={permTab} onChange={setPermTab} label="Seções do perfil" />
+
+              {permTab === 'dados' && (
+                <div className="space-y-3">
+                  <Input label="Nome do Perfil *" placeholder="Ex: Vendedor, Suporte, Financeiro" value={permForm.name} onChange={e => setPermForm({ ...permForm, name: e.target.value })} />
+                  <Input label="Descrição" placeholder="Descrição do perfil de acesso" value={permForm.description} onChange={e => setPermForm({ ...permForm, description: e.target.value })} />
+                  <Select label="Tipo de Acesso" value={permForm.role} onChange={e => setPermForm({ ...permForm, role: e.target.value })}
+                    options={ROLE_TYPES.map(r => ({ value: r.value, label: r.label }))} />
+                  {!editPerm && (
+                    <Alert variant="info"><span className="inline-flex items-center gap-1.5"><Globe size={14} className="shrink-0" />Um link de acesso único será gerado automaticamente após a criação.</span></Alert>
+                  )}
+                </div>
+              )}
+
+              {permTab === 'permissoes' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {MASTER_PERMISSIONS_OPTIONS.map(opt => {
+                    const active = permForm.permissions.includes(opt.key);
+                    return (
+                      <label key={opt.key} className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition text-xs border ${active ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                        <input type="checkbox" className="sr-only" checked={active} onChange={() => togglePermission(opt.key)} />
+                        <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border transition ${active ? 'bg-primary-600 border-primary-600' : 'bg-white border-slate-300'}`}>
+                          {active && <Check size={10} className="text-white" />}
+                        </div>
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Modal>
+
+          {/* ══ MODAL PLANO ══ */}
+          <Modal
+            isOpen={planModal}
+            onClose={() => { setPlanModal(false); setError(''); }}
+            title={editPlan ? 'Editar Plano' : 'Novo Plano'}
+            subtitle={editPlan ? `Editando: ${editPlan.name}` : 'Configure um novo plano de assinatura'}
+            size="2xl"
+            mobileStyle="fullscreen"
+            footer={
+              <ModalFooter align="between">
+                <Button variant="outline" size="sm" onClick={() => { setPlanModal(false); setError(''); }}>Cancelar</Button>
+                <Button size="sm" loading={saving} disabled={saving} iconLeft={<Save size={14} />} onClick={() => { if (!planForm.name || !planForm.price) setPlanTab('dados'); handleSavePlan(); }}>
+                  {editPlan ? 'Salvar' : 'Criar Plano'}
+                </Button>
+              </ModalFooter>
+            }
+          >
+            <div className="space-y-3">
+              {error && <Alert variant="error">{error}</Alert>}
+              <Tabs<PlanTab> items={planTabs} value={planTab} onChange={setPlanTab} label="Seções do plano" />
+
+              {planTab === 'dados' && (
+                <div className="space-y-3">
+                  <Input label="Nome *" placeholder="Ex: Pro" value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })} />
+                  <Input label="Descrição" placeholder="Breve descrição" value={planForm.description} onChange={e => setPlanForm({ ...planForm, description: e.target.value })} />
+                  <FormRow cols={2}>
+                    <Input
+                      label="Preço R$ *"
+                      placeholder="R$ 0,00"
+                      value={planForm.price}
+                      onChange={e => {
+                        const digits = e.target.value.replace(/\D/g, '');
+                        if (!digits) return setPlanForm({ ...planForm, price: '' });
+                        const n = (parseInt(digits, 10) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        setPlanForm({ ...planForm, price: n });
+                      }}
+                    />
+                    <Input label="Usuários" type="number" placeholder="10" value={planForm.max_users} onChange={e => setPlanForm({ ...planForm, max_users: e.target.value })} />
+                  </FormRow>
+                  <div className="rounded-lg border border-slate-200 p-3">
+                    <Switch
+                      checked={planForm.highlighted}
+                      onCheckedChange={v => setPlanForm({ ...planForm, highlighted: v })}
+                      label='Destaque no site — "Mais popular"'
+                      description="Este plano aparecerá em destaque na página de planos do site"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {planTab === 'funcionalidades' && (
+                <div className="space-y-3">
+                  {plans.filter(p => p.id !== editPlan?.id && (p.features || []).length > 0).length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-slate-500 mr-1">Copiar de:</span>
+                      {plans.filter(p => p.id !== editPlan?.id && (p.features || []).length > 0).map(p => (
+                        <Button
+                          key={p.id}
+                          type="button"
+                          variant="soft"
+                          size="xs"
+                          onClick={() => setPlanForm(prev => ({ ...prev, features: Array.from(new Set(p.features || [])) }))}
+                          title={`Usar exatamente as funcionalidades do plano ${p.name}`}
+                        >
+                          {p.name}
+                        </Button>
+                      ))}
+                      {planForm.features.length > 0 && (
+                        <Button type="button" variant="ghost" size="xs" onClick={() => setPlanForm(prev => ({ ...prev, features: [] }))}>Limpar tudo</Button>
+                      )}
+                    </div>
+                  )}
+                  {Array.from(new Set(FEATURES_OPTIONS.map(o => o.group))).map(group => (
+                    <div key={group}>
+                      <p className="text-xs font-medium text-slate-600 mb-1.5">{group}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {FEATURES_OPTIONS.filter(o => o.group === group).map(opt => {
+                          const active = planForm.features.includes(opt.key);
+                          return (
+                            <label key={opt.key} className={`flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition text-xs border ${active ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                              <input type="checkbox" className="sr-only" checked={active} onChange={() => toggleFeature(opt.key)} />
+                              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border transition ${active ? 'bg-primary-600 border-primary-600' : 'bg-white border-slate-300'}`}>
+                                {active && <Check size={10} className="text-white" />}
+                              </div>
+                              <span className="min-w-0">{opt.label}</span>
+                              {opt.premium && <Badge size="sm" color="warning" className="ml-auto">Premium</Badge>}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Modal>
+        </PageWrapper>
+      </main>
     </div>
   );
 };

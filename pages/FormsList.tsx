@@ -5,24 +5,25 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, ClipboardList, BarChart3, Pen, Trash2, CheckCircle, Share2,
   Copy, Send, FilePlus2, Eye, ChevronRight,
-  Filter, Heart, Brain, FileText, Target, AlertCircle, Settings2, PlusCircle,
-  ChevronLeft, ArrowLeft, Mail, Loader2
+  Filter, Heart, Brain, FileText, Target, Settings2,
+  Mail, Loader2
 } from 'lucide-react';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { getGenderedSpecialty } from '@/src/lib/professionalTitle';
-import { AppCard } from '../components/UI/AppCard';
-import { Button } from '../components/UI/Button';
-import { Input } from '../components/UI/Input';
-import { Modal } from '../components/UI/Modal';
-import { Combobox } from '../components/UI/Combobox';
-import { 
-  FilterLine, 
-  FilterLineSection, 
-  FilterLineSearch, 
-  FilterLineSegmented 
-} from '../components/UI/FilterLine';
+import {
+  PageWrapper, SectionTitle, StatGrid, StatCard, ContentCard, Button, IconButton, Input, Modal, ModalFooter,
+  ConfirmModal, Combobox, Badge, Alert, Tabs, EmptyState,
+  FilterLine, FilterLineSection, FilterLineSearch, FilterLineSegmented, FilterLineSelect,
+} from '../components/UI';
+import { FormsTabs } from '../components/Forms/FormsTabs';
+
+const shareTabs = [
+  { id: 'public', label: 'Link aberto' },
+  { id: 'patient', label: 'Individual' },
+] as const;
+type ShareTabId = typeof shareTabs[number]['id'];
 
 export const FormsList: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +33,6 @@ export const FormsList: React.FC = () => {
   const [forms, setForms] = useState<ClinicalForm[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const categoryScrollRef = React.useRef<HTMLDivElement>(null);
   const [activeFilter, setActiveFilterState] = useState<'Todos' | 'Ativos' | 'Arquivados' | 'Favoritos'>(
     preferences.forms?.activeFilter ?? 'Todos'
   );
@@ -66,7 +66,7 @@ export const FormsList: React.FC = () => {
   const [selectedForm, setSelectedForm] = useState<ClinicalForm | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [shareTab, setShareTab] = useState<'public' | 'patient'>('public');
+  const [shareTab, setShareTab] = useState<ShareTabId>('public');
 
   const loadData = async () => {
     setIsLoading(true);
@@ -166,14 +166,14 @@ export const FormsList: React.FC = () => {
 
   const getCategoryIcon = (cat: string) => {
     switch (cat) {
-      case 'TCC': return <Target size={20} />;
-      case 'Neuropsicologia': return <Brain size={20} />;
-      case 'Psicopedagogia': return <ClipboardList size={20} />;
-      case 'Psicanálise': return <Heart size={20} />;
-      case 'Anamnese': return <FileText size={20} />;
-      case 'Eventos': return <BarChart3 size={20} />;
-      case 'Humanista': return <Heart size={20} />;
-      default: return <Filter size={20} />;
+      case 'TCC': return <Target size={14} />;
+      case 'Neuropsicologia': return <Brain size={14} />;
+      case 'Psicopedagogia': return <ClipboardList size={14} />;
+      case 'Psicanálise': return <Heart size={14} />;
+      case 'Anamnese': return <FileText size={14} />;
+      case 'Eventos': return <BarChart3 size={14} />;
+      case 'Humanista': return <Heart size={14} />;
+      default: return <Filter size={14} />;
     }
   };
 
@@ -293,415 +293,260 @@ export const FormsList: React.FC = () => {
   });
 
   const totalResponses = forms.reduce((sum, f) => sum + (f.responseCount || 0), 0);
+  const visibleForms = forms.filter(f => !(f as any).isSystem);
+  const personalCount = visibleForms.filter(f => !f.isGlobal).length;
+  const globalCount = visibleForms.filter(f => f.isGlobal).length;
 
   return (
-    <div className="space-y-8 pb-24 px-4 sm:px-8 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-left">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-6 flex-wrap pt-6 text-left">
-        <div className="flex items-center gap-4 text-left">
-           <button
-             onClick={() => navigate('/formularios')}
-             className="p-3 hover:bg-slate-100 rounded-2xl transition-all text-slate-400 hover:text-indigo-600 border border-transparent hover:border-slate-200"
-             title="Voltar para Formulários"
-           >
-             <ArrowLeft size={24} />
-           </button>
-           
-           <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200">
-              <ClipboardList size={26} />
-           </div>
-           <div className="text-left">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-800 tracking-tight text-left">Formulários e Avaliações</h1>
-              <p className="text-sm text-slate-400 font-bold uppercase tracking-widest leading-none mt-1 text-left">
-                {forms.length} Modelos · {totalResponses} Registros Totais
-              </p>
-           </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="lg"
-            radius="xl"
-            leftIcon={<BarChart3 size={18} />}
-            onClick={() => navigate('/formularios/metricas')}
-            className="border-slate-200 text-slate-600 hover:text-indigo-600"
-          >
-            Ver Métricas
-          </Button>
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={ClipboardList}
+          title="Formulários e Avaliações"
+          description={`${forms.length} modelos · ${totalResponses} registros totais`}
+          action={
+            <>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/formularios')}>Voltar</Button>
+              <Button variant="outline" size="sm" iconLeft={<Settings2 size={14} />} onClick={() => setIsCategoryModalOpen(true)}>
+                Categorias
+              </Button>
+              <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => navigate('/formularios/novo')}>
+                Novo modelo
+              </Button>
+            </>
+          }
+        />
 
-          <Button
-            variant="outline"
-            size="lg"
-            radius="xl"
-            leftIcon={<Settings2 size={18} />}
-            onClick={() => setIsCategoryModalOpen(true)}
-            className="border-slate-200 text-slate-600 hover:text-indigo-600"
-          >
-            Categorias
-          </Button>
+        <StatGrid cols={4}>
+          <StatCard title="Modelos" value={visibleForms.length} icon={ClipboardList} />
+          <StatCard title="Pessoais" value={personalCount} icon={Pen} color="success" />
+          <StatCard title="Biblioteca global" value={globalCount} icon={Share2} color="info" />
+          <StatCard title="Respostas" value={totalResponses} icon={BarChart3} color="warning" />
+        </StatGrid>
 
-          <Button
-            variant="primary"
-            size="lg"
-            radius="xl"
-            leftIcon={<Plus size={18} />}
-            onClick={() => navigate('/formularios/novo')}
-            className="bg-slate-900 text-white shadow-xl hover:bg-slate-800"
-          >
-            Novo Modelo
-          </Button>
-        </div>
-      </div>
+        <FormsTabs />
 
-      <FilterLine className="shadow-xl shadow-indigo-500/5 py-4 px-6 border-slate-100">
-        <FilterLineSection grow>
-          <FilterLineSearch 
-            value={searchTerm} 
-            onChange={setSearchTerm} 
-            placeholder="Pesquisar por título, tema ou área clínica..."
-            className="border-none bg-slate-50/50 focus-within:bg-white rounded-2xl py-6"
-          />
-        </FilterLineSection>
-
-        <div className="h-8 w-px bg-slate-100 hidden xl:block mx-4" />
-
-        <FilterLineSection>
-          <FilterLineSegmented
-            value={activeFilter}
-            onChange={(val) => setActiveFilter(val as any)}
-            options={[
-              { value: 'Todos', label: 'Todos' },
-              { value: 'Ativos', label: 'Ativos' },
-              { value: 'Favoritos', label: '★ Favoritos' },
-              { value: 'Arquivados', label: 'Arquivados' },
-            ]}
-            className="bg-slate-50 border-none p-1.5 rounded-[1.4rem]"
-          />
-        </FilterLineSection>
-      </FilterLine>
-
-      {/* Areas Horizontal Scroll Redesigned */}
-      <div className="relative w-full">
-        <div className="flex items-center justify-between mb-4 px-1">
-          <div className="flex items-center gap-2">
-             <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
-             <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Filtrar por Especialidade</h3>
-          </div>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{allAvailableCategories.length} categorias</span>
-        </div>
-        
-        <div className="relative group/scroll flex items-center gap-2">
-            <button
-              onClick={() => categoryScrollRef.current?.scrollBy({ left: -250, behavior: 'smooth' })}
-              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-md border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all z-10"
-              title="Anterior"
-            >
-              <ChevronLeft size={20} strokeWidth={3} />
-            </button>
-
-            <div className="relative flex-1 overflow-hidden">
-              <div 
-                ref={categoryScrollRef}
-                className="flex overflow-x-auto no-scrollbar py-2 scroll-smooth snap-x gap-2.5"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {allAvailableCategories.map(cat => {
-                  const isActive = activeCategory === cat;
-                  const icon = getCategoryIcon(cat);
-                  
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setActiveCategory(cat)}
-                      className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full border transition-all shrink-0 snap-start ${
-                        isActive 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50/30'
-                      }`}
-                    >
-                      <div className={`flex-shrink-0 transition-colors ${
-                        isActive ? 'text-white' : 'text-slate-400'
-                      }`}>
-                        {React.cloneElement(icon as React.ReactElement, { size: 14, strokeWidth: 3 })}
-                      </div>
-                      <span className="text-[11px] font-bold tracking-tight whitespace-nowrap">{cat}</span>
-                    </button>
-                  );
-                })}
-
-                <button
-                   onClick={() => setIsCategoryModalOpen(true)}
-                   className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-dashed border-slate-300 bg-slate-50/50 text-slate-400 hover:border-indigo-400 hover:bg-slate-50 hover:text-indigo-600 transition-all shrink-0 snap-start"
-                >
-                   <PlusCircle size={14} strokeWidth={3} />
-                   <span className="text-[11px] font-bold tracking-tight">Nova</span>
-                </button>
-              </div>
+        <FilterLine>
+          <FilterLineSection grow>
+            <div className="w-full sm:max-w-[280px]">
+              <FilterLineSearch
+                aria-label="Pesquisar formulários"
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Pesquisar por título, tema ou área..."
+              />
             </div>
+          </FilterLineSection>
+          <FilterLineSection wrap>
+            <FilterLineSelect
+              label="Especialidade"
+              value={activeCategory}
+              onChange={setActiveCategory}
+              options={allAvailableCategories.map(c => ({ value: c, label: c }))}
+            />
+            <FilterLineSegmented
+              value={activeFilter}
+              onChange={(val) => setActiveFilter(val as any)}
+              options={[
+                { value: 'Todos', label: 'Todos' },
+                { value: 'Ativos', label: 'Ativos' },
+                { value: 'Favoritos', label: 'Favoritos' },
+                { value: 'Arquivados', label: 'Arquivados' },
+              ]}
+            />
+          </FilterLineSection>
+        </FilterLine>
 
-            <button
-              onClick={() => categoryScrollRef.current?.scrollBy({ left: 250, behavior: 'smooth' })}
-              className="shrink-0 w-10 h-10 bg-white rounded-full shadow-md border border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all z-10"
-              title="Próximo"
-            >
-              <ChevronRight size={20} strokeWidth={3} />
-            </button>
-        </div>
-      </div>
+        {isLoading ? (
+          <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+            <Loader2 size={18} className="animate-spin" />Carregando...
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {['Meus Formulários', 'Modelos e Biblioteca Global'].map((section) => {
+              const sectionForms = filteredForms.filter(f =>
+                section === 'Meus Formulários' ? !f.isGlobal : f.isGlobal
+              );
 
-      <div className="space-y-16">
-        {['Meus Formulários', 'Modelos e Biblioteca Global'].map((section) => {
-          const sectionForms = filteredForms.filter(f => 
-            section === 'Meus Formulários' ? !f.isGlobal : f.isGlobal
-          );
-          
-          if (sectionForms.length === 0 && section === 'Meus Formulários' && activeCategory !== 'Todas' && !searchTerm) return null;
+              if (sectionForms.length === 0 && section === 'Meus Formulários' && activeCategory !== 'Todas' && !searchTerm) return null;
 
-          return (
-            <div key={section} className="space-y-10 text-left">
-              <div className="flex items-center gap-8 text-left">
-                <div className="flex flex-col text-left">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] text-left">{section}</h3>
-                  <div className="h-1 w-12 bg-indigo-600 rounded-full mt-2 text-left"></div>
-                </div>
-                <div className="h-px bg-gradient-to-r from-slate-100 to-transparent flex-1"></div>
-              </div>
+              return (
+                <section key={section} className="space-y-3">
+                  <h2 className="text-sm font-medium text-slate-900">
+                    {section} <span className="text-[11px] font-normal text-slate-500">({sectionForms.length})</span>
+                  </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {sectionForms.length === 0 ? (
-                  <div className="col-span-full py-16 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 text-slate-200">
-                      <FilePlus2 size={32} />
-                    </div>
-                    <h3 className="text-base font-black text-slate-400 uppercase tracking-widest">Nenhum Formulário</h3>
-                    <p className="text-slate-400 text-sm mt-1.5 max-w-xs mx-auto font-medium">
-                      Não encontramos registros {section === 'Meus Formulários' ? 'pessoais' : 'globais'} nesta categoria.
-                    </p>
-                  </div>
-                ) : (
-                  sectionForms.map((form) => {
-                    const isFav = favoriteIds.includes(form.id);
+                  {sectionForms.length === 0 ? (
+                    <ContentCard>
+                      <EmptyState
+                        icon={FilePlus2}
+                        title="Nenhum formulário"
+                        description={`Não encontramos registros ${section === 'Meus Formulários' ? 'pessoais' : 'globais'} nesta categoria.`}
+                      />
+                    </ContentCard>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {sectionForms.map((form) => {
+                        const isFav = favoriteIds.includes(form.id);
 
-                    return (
-                      <AppCard
-                        key={form.id}
-                        className="group bg-white border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-lg hover:shadow-indigo-500/8 rounded-2xl transition-all duration-300 flex flex-col overflow-hidden"
-                      >
-                        <div className="flex flex-col h-full">
-                          {/* Header */}
-                          <div className="flex items-start justify-between mb-3">
-                            <div className={`p-3 rounded-xl ${form.isGlobal ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white'}`}>
-                              {getCategoryIcon(form.category || '')}
+                        return (
+                          <ContentCard
+                            key={form.id}
+                            padding="none"
+                            className="group hover:border-primary-200 transition-all overflow-hidden flex flex-col h-full"
+                          >
+                            <div className="p-3 flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className={`w-7 h-7 rounded-md border flex items-center justify-center shrink-0 ${form.isGlobal ? 'bg-primary-50 border-primary-100 text-primary-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
+                                  {getCategoryIcon(form.category || '')}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Badge size="sm" dot color={form.isGlobal ? 'primary' : 'success'}>{form.isGlobal ? 'Global' : 'Pessoal'}</Badge>
+                                  <IconButton
+                                    variant="ghost"
+                                    size="xs"
+                                    aria-label={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                                    title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                                    onClick={(e) => { e.stopPropagation(); toggleFavorite(form.id); }}
+                                    className={isFav ? 'text-amber-500' : 'text-slate-400'}
+                                  >
+                                    <Heart size={14} className={isFav ? 'fill-amber-500' : ''} />
+                                  </IconButton>
+                                </div>
+                              </div>
+                              <h3 className="text-sm font-medium text-slate-900 leading-tight line-clamp-2 break-words">{form.title}</h3>
+                              {form.category && <p className="text-[11px] text-slate-500 mt-0.5">{form.category}</p>}
+                              <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed mt-1.5">
+                                {form.description || 'Modelo especializado para avaliação clínica estruturada e acompanhamento terapêutico.'}
+                              </p>
                             </div>
-                            <div className="flex items-start gap-1.5">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toggleFavorite(form.id); }}
-                                className={`p-1.5 rounded-xl transition-all ${isFav ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'}`}
-                                title={isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+
+                            <div className="p-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                iconRight={<ChevronRight size={12} />}
+                                onClick={() => navigate(`/formularios/${form.id}/respostas`)}
                               >
-                                <Heart size={15} className={isFav ? 'fill-amber-500' : ''} />
-                              </button>
-                              <div className="flex flex-col items-end gap-1 pt-0.5">
-                                <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${form.isGlobal ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                                  {form.isGlobal ? 'Global' : 'Pessoal'}
-                                </span>
-                                {form.category && (
-                                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                                    {form.category}
-                                  </span>
+                                {form.responseCount} respostas
+                              </Button>
+
+                              <div className="flex items-center gap-0.5">
+                                <IconButton variant="ghost" size="xs" aria-label="Visualizar" title="Visualizar" onClick={() => window.open(`/f/${form.hash}`, '_blank')}>
+                                  <Eye size={14} />
+                                </IconButton>
+                                {form.isGlobal ? (
+                                  <IconButton variant="ghost" size="xs" aria-label="Duplicar" title="Duplicar" onClick={() => handleDuplicate(form.id)}>
+                                    <Copy size={14} />
+                                  </IconButton>
+                                ) : (
+                                  <IconButton variant="ghost" size="xs" aria-label="Editar" title="Editar" onClick={() => navigate(`/formularios/${form.id}`)}>
+                                    <Pen size={14} />
+                                  </IconButton>
+                                )}
+                                <IconButton variant="ghost" size="xs" aria-label="Compartilhar" title="Compartilhar" onClick={() => handleOpenShare(form)}>
+                                  <Share2 size={14} />
+                                </IconButton>
+                                {!form.isGlobal && (
+                                  <IconButton variant="ghost" size="xs" aria-label="Excluir" title="Excluir" className="text-red-500 hover:text-red-600" onClick={() => confirmDeleteForm(form)}>
+                                    <Trash2 size={14} />
+                                  </IconButton>
                                 )}
                               </div>
                             </div>
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 mb-4">
-                            <h3 className="text-sm font-black text-slate-800 mb-1.5 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">
-                              {form.title}
-                            </h3>
-                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
-                              {form.description || 'Modelo especializado para avaliação clínica estruturada e acompanhamento terapêutico.'}
-                            </p>
-                          </div>
-
-                          {/* Footer */}
-                          <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
-                            <button
-                              onClick={() => navigate(`/formularios/${form.id}/respostas`)}
-                              className="flex flex-col gap-0.5 group/btn"
-                            >
-                              <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Respostas</span>
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 group-hover/btn:scale-150 transition-transform"></div>
-                                <span className="text-lg font-black text-slate-700 group-hover/btn:text-indigo-600 transition-colors leading-none">{form.responseCount}</span>
-                                <ChevronRight size={13} className="text-slate-300 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all" />
-                              </div>
-                            </button>
-
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                onClick={() => window.open(`/f/${form.hash}`, '_blank')}
-                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                                title="Visualizar"
-                              >
-                                <Eye size={14} />
-                              </button>
-                              {form.isGlobal ? (
-                                <button
-                                  onClick={() => handleDuplicate(form.id)}
-                                  className="p-2 text-white bg-slate-800 rounded-xl hover:bg-indigo-600 transition-all"
-                                  title="Duplicar"
-                                >
-                                  <Copy size={14} />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => navigate(`/formularios/${form.id}`)}
-                                  className="p-2 text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-all"
-                                  title="Editar"
-                                >
-                                  <Pen size={14} />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleOpenShare(form)}
-                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                                title="Compartilhar"
-                              >
-                                <Share2 size={14} />
-                              </button>
-                              {!form.isGlobal && (
-                                <button
-                                  onClick={() => confirmDeleteForm(form)}
-                                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                  title="Excluir"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </AppCard>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          );
-        })}
+                          </ContentCard>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <Modal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        title="Gerenciar Categorias"
-        maxWidth="md"
+        title="Gerenciar categorias"
+        size="md"
         footer={
-          <div className="flex w-full items-center justify-end gap-3">
-             <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsCategoryModalOpen(false)}
-             >
-                Concluir
-             </Button>
-          </div>
+          <ModalFooter align="right">
+            <Button variant="primary" size="sm" onClick={() => setIsCategoryModalOpen(false)}>
+              Concluir
+            </Button>
+          </ModalFooter>
         }
       >
-        <div className="space-y-8 p-1 text-left">
-          <p className="text-sm text-slate-500 text-left">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">
             Crie categorias personalizadas para organizar melhor seus formulários.
           </p>
 
-          <div className="flex gap-3 text-left">
+          <div className="flex items-end gap-2">
             <Input
-              label="Nome da Nova Categoria"
+              label="Nome da nova categoria"
               placeholder="Ex: Terapia Infantil, Casal..."
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              className="flex-1"
+              wrapperClassName="flex-1"
             />
-            <div className="pt-7">
-              <Button
-                variant="primary"
-                onClick={handleCreateCategory}
-                isLoading={isAddingCategory}
-                leftIcon={<Plus size={18} />}
-                className="h-[42px]"
-              >
-                Adicionar
-              </Button>
-            </div>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleCreateCategory}
+              loading={isAddingCategory}
+              disabled={isAddingCategory}
+              iconLeft={<Plus size={14} />}
+            >
+              Adicionar
+            </Button>
           </div>
 
-          <div className="space-y-3 pt-4 text-left">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Suas Categorias</label>
-            <div className="grid grid-cols-1 gap-2 text-left">
-              {userCategories.length === 0 && (
-                <div className="py-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                   <p className="text-xs text-slate-400 font-medium">Nenhuma categoria personalizada criada ainda.</p>
-                </div>
-              )}
-              {userCategories.map(cat => (
-                <div key={cat.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:border-indigo-100 transition-all text-left">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                      <Filter size={16} />
-                    </div>
-                    <span className="text-sm font-bold text-slate-700">{cat.name}</span>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-slate-600">Suas categorias</p>
+            {userCategories.length === 0 && (
+              <EmptyState title="Nenhuma categoria personalizada criada ainda." />
+            )}
+            {userCategories.map(cat => (
+              <div key={cat.id} className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 rounded-lg">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                    <Filter size={14} />
                   </div>
-                  <button
-                    onClick={() => handleDeleteCategory(cat.id)}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <span className="text-[13px] font-medium text-slate-800 truncate">{cat.name}</span>
                 </div>
-              ))}
-            </div>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Excluir categoria ${cat.name}`}
+                  title="Excluir categoria"
+                  className="text-red-500 hover:text-red-600"
+                  onClick={() => handleDeleteCategory(cat.id)}
+                >
+                  <Trash2 size={14} />
+                </IconButton>
+              </div>
+            ))}
           </div>
         </div>
       </Modal>
 
-      <Modal
+      <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title="Excluir Formulário"
-        maxWidth="sm"
-        footer={
-          <div className="flex w-full items-center justify-end gap-3">
-            <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setIsDeleteModalOpen(false)}
-            >
-                Cancelar
-            </Button>
-            <Button 
-                variant="danger" 
-                size="sm" 
-                onClick={handleDeleteForm}
-            >
-                Excluir Definitivamente
-            </Button>
-          </div>
+        onConfirm={handleDeleteForm}
+        variant="danger"
+        title="Excluir formulário?"
+        confirmLabel="Excluir definitivamente"
+        message={
+          <>
+            Esta ação não pode ser desfeita: isso excluirá o formulário{' '}
+            <strong className="font-semibold text-slate-800">"{formToDelete?.title}"</strong> e todas as respostas vinculadas a ele.
+          </>
         }
-      >
-        <div className="space-y-4 p-1 text-left">
-          <div className="flex items-center gap-4 p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100">
-             <AlertCircle size={32} />
-             <div className="text-left">
-                <p className="text-sm font-black uppercase tracking-tight">Ação Irreversível</p>
-                <p className="text-xs font-bold opacity-80">Isso excluirá o formulário e todas as respostas vinculadas a ele.</p>
-             </div>
-          </div>
-          <p className="text-sm text-slate-600 text-left">
-            Tem certeza que deseja excluir <strong className="font-black text-slate-800">"{formToDelete?.title}"</strong>?
-          </p>
-        </div>
-      </Modal>
+      />
 
       {/* SHARE MODAL */}
       <Modal
@@ -709,94 +554,87 @@ export const FormsList: React.FC = () => {
         onClose={() => setIsShareModalOpen(false)}
         title="Compartilhar"
         subtitle={selectedForm?.title}
-        maxWidth="max-w-lg"
+        size="md"
         footer={
-          <div className="flex w-full gap-3">
-            <Button variant="outline" onClick={() => setIsShareModalOpen(false)} className="flex-1">
+          <ModalFooter align="between">
+            <Button variant="ghost" size="sm" onClick={() => setIsShareModalOpen(false)}>
               Fechar
             </Button>
-            {shareTab === 'patient' && (
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {shareTab === 'patient' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEmailShare}
+                  loading={isSendingEmail}
+                  disabled={isSendingEmail}
+                  iconLeft={<Mail size={14} />}
+                >
+                  E-mail
+                </Button>
+              )}
               <Button
-                variant="outline"
-                onClick={handleEmailShare}
-                disabled={isSendingEmail}
-                leftIcon={isSendingEmail ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} />}
-                className="flex-1"
+                variant="success"
+                size="sm"
+                onClick={handleWhatsAppShare}
+                iconLeft={<Send size={14} />}
               >
-                E-mail
-              </Button>
-            )}
-            <Button
-              variant="primary"
-              onClick={handleWhatsAppShare}
-              leftIcon={<Send size={18} />}
-              className="flex-1 bg-emerald-500 hover:bg-emerald-600 border-emerald-500"
-            >
-              Enviar via WhatsApp
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-5 py-1">
-          {/* Tabs */}
-          <div className="flex p-1 bg-slate-50 border border-slate-100 rounded-2xl">
-            {(['public', 'patient'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setShareTab(tab)}
-                className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all rounded-xl ${
-                  shareTab === tab
-                    ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-200/50'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                {tab === 'public' ? 'Link Aberto' : 'Individual'}
-              </button>
-            ))}
-          </div>
-
-          {/* Patient selector — only on Individual tab */}
-          {shareTab === 'patient' && (
-            <Combobox
-              label="Destinatário (Paciente)"
-              options={patients
-                .filter((p: any) => p.status === 'ativo' || p.status === 'active')
-                .map(p => ({ id: p.id, label: p.full_name || p.name || '' }))}
-              value={selectedPatientId}
-              onChange={(val) => setSelectedPatientId(String(val))}
-              placeholder="Selecione o paciente..."
-            />
-          )}
-
-          {/* Link */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Link de Acesso</label>
-            <div className="flex gap-2">
-              <div className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 truncate select-all">
-                {getShareLink() || 'Configure os campos acima'}
-              </div>
-              <Button
-                variant={copiedLink ? 'success' : 'secondary'}
-                onClick={handleCopyLink}
-                iconOnly
-                className="shrink-0 w-12 h-12 rounded-xl"
-              >
-                {copiedLink ? <CheckCircle size={18} /> : <Copy size={18} />}
+                Enviar via WhatsApp
               </Button>
             </div>
-          </div>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-3">
+          <Tabs<ShareTabId>
+            items={shareTabs}
+            value={shareTab}
+            onChange={setShareTab}
+            label="Tipo de compartilhamento"
+          >
+            <div className="space-y-3">
+              {shareTab === 'patient' && (
+                <Combobox
+                  label="Destinatário (paciente)"
+                  options={patients
+                    .filter((p: any) => p.status === 'ativo' || p.status === 'active')
+                    .map(p => ({ id: p.id, label: p.full_name || p.name || '' }))}
+                  value={selectedPatientId}
+                  onChange={(val) => setSelectedPatientId(String(val))}
+                  placeholder="Selecione o paciente..."
+                />
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-600">Link de acesso</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 truncate select-all">
+                    {getShareLink() || 'Configure os campos acima'}
+                  </div>
+                  <IconButton
+                    variant={copiedLink ? 'success' : 'outline'}
+                    size="md"
+                    aria-label="Copiar link"
+                    title="Copiar link"
+                    onClick={handleCopyLink}
+                  >
+                    {copiedLink ? <CheckCircle size={14} /> : <Copy size={14} />}
+                  </IconButton>
+                </div>
+              </div>
+            </div>
+          </Tabs>
         </div>
       </Modal>
 
       {/* TOASTS */}
-      <div className="fixed bottom-10 right-10 z-[200] flex flex-col gap-3">
+      <div className="fixed bottom-6 right-4 sm:right-6 z-[200] flex flex-col gap-2 max-w-[calc(100vw-2rem)]">
         {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border-2 backdrop-blur-md animate-in slide-in-from-right-full duration-500 ${t.type === 'success' ? 'bg-emerald-50/90 text-emerald-600 border-emerald-100' : 'bg-red-50/90 text-red-600 border-red-100'}`}>
-            {t.type === 'success' ? <CheckCircle size={20}/> : <AlertCircle size={20}/>}
-            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
-          </div>
+          <Alert key={t.id} variant={t.type === 'success' ? 'success' : 'error'} className="shadow-sm bg-white">
+            {t.message}
+          </Alert>
         ))}
       </div>
-    </div>
+    </PageWrapper>
   );
 };

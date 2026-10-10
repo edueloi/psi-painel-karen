@@ -108,7 +108,7 @@ export function TokenTextarea({
       {/* Variáveis disponíveis */}
       {availableVars.length > 0 && (
         <div>
-          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
+          <p className="text-[11px] font-semibold text-zinc-400 mb-1.5">
             Clique para inserir variável:
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -118,7 +118,7 @@ export function TokenTextarea({
                 type="button"
                 title={v.desc}
                 onClick={() => insertVar(v.key)}
-                className="text-[11px] px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 font-mono rounded-lg hover:bg-amber-100 transition-colors font-semibold"
+                className="text-[11px] px-2.5 py-1 bg-primary-50 border border-primary-200 text-primary-700 font-mono rounded-lg hover:bg-primary-100 transition-colors font-semibold"
               >
                 {v.key}
               </button>
@@ -136,33 +136,8 @@ export function TokenTextarea({
         onKeyDown={handleKeyDown}
         data-placeholder={placeholder}
         style={{ minHeight: minH }}
-        className="token-editor w-full border border-zinc-200 rounded-2xl px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-400/20 focus:border-amber-300 transition-all bg-white text-zinc-800 font-medium"
+        className="token-editor w-full border border-zinc-200 rounded-lg px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-400/20 focus:border-primary-300 transition-all bg-white text-zinc-800 font-medium"
       />
-
-      <style>{`
-        .token-editor:empty::before {
-          content: attr(data-placeholder);
-          color: #a1a1aa;
-          pointer-events: none;
-        }
-        .token-editor br { display: block; }
-        .token-chip {
-          display: inline-flex;
-          align-items: center;
-          padding: 1px 8px;
-          margin: 0 2px;
-          background: #fef3c7;
-          border: 1px solid #fcd34d;
-          color: #92400e;
-          border-radius: 99px;
-          font-size: 11px;
-          font-weight: 700;
-          font-family: ui-monospace, monospace;
-          user-select: none;
-          cursor: default;
-          white-space: nowrap;
-        }
-      `}</style>
     </div>
   );
 }

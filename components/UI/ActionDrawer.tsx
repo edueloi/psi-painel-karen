@@ -115,7 +115,7 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
             <div className="min-w-0">
               <h3
                 id="drawer-title-mobile"
-                className="text-sm sm:text-base font-bold text-slate-800 leading-tight"
+                className="text-sm sm:text-base font-semibold text-slate-800 leading-tight"
               >
                 {title}
               </h3>
@@ -130,7 +130,7 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
             {!hideCloseButton && (
               <button
                 onClick={onClose}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Fechar painel"
               >
                 <X size={18} />
@@ -182,7 +182,7 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
             <div className="min-w-0">
               <h3
                 id="drawer-title-desktop"
-                className="text-sm sm:text-base font-bold text-slate-800 leading-tight"
+                className="text-sm sm:text-base font-semibold text-slate-800 leading-tight"
               >
                 {title}
               </h3>
@@ -197,7 +197,7 @@ export const ActionDrawer: React.FC<ActionDrawerProps> = ({
             {!hideCloseButton && (
               <button
                 onClick={onClose}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Fechar painel"
               >
                 <X size={18} />

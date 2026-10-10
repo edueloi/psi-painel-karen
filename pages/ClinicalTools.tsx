@@ -11,7 +11,10 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
+import { PageWrapper, SectionTitle, ContentCard } from '../components/UI/PageWrapper';
+import { Tabs } from '../components/UI/Tabs';
+import { Badge } from '../components/UI/Badge';
+import { EmptyState } from '../components/UI/EmptyState';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { Modal } from '../components/UI/Modal';
 import { Button, IconButton } from '../components/UI/Button';
@@ -240,23 +243,20 @@ const categoryLabels = {
   management: 'Gestão de Evolução'
 };
 
-const colorVariants: Record<string, string> = {
-    indigo: 'from-indigo-600 to-indigo-800 bg-indigo-50 text-indigo-600 border-indigo-100 shadow-indigo-600/20',
-    rose: 'from-rose-600 to-rose-800 bg-rose-50 text-rose-600 border-rose-100 shadow-rose-600/20',
-    amber: 'from-amber-600 to-amber-800 bg-amber-50 text-amber-600 border-amber-100 shadow-amber-600/20',
-    blue: 'from-blue-600 to-blue-800 bg-blue-50 text-blue-600 border-blue-100 shadow-blue-600/20',
-    emerald: 'from-emerald-600 to-emerald-800 bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-600/20',
-    slate: 'from-slate-600 to-slate-800 bg-slate-50 text-slate-600 border-slate-100 shadow-slate-600/20',
-    violet: 'from-violet-600 to-violet-800 bg-violet-50 text-violet-600 border-violet-100 shadow-violet-600/20',
-    cyan: 'from-cyan-600 to-cyan-800 bg-cyan-50 text-cyan-600 border-cyan-100 shadow-cyan-600/20',
-    orange: 'from-orange-600 to-orange-800 bg-orange-50 text-orange-600 border-orange-100 shadow-orange-600/20',
-    fuchsia: 'from-fuchsia-600 to-fuchsia-800 bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100 shadow-fuchsia-600/20'
-};
+type ToolCategoryTab = keyof typeof categoryLabels;
+
+const categoryTabs = [
+  { id: 'all', label: categoryLabels.all, icon: Boxes },
+  { id: 'clinical', label: categoryLabels.clinical, icon: BrainCircuit },
+  { id: 'assessment', label: categoryLabels.assessment, icon: ClipboardList },
+  { id: 'neuro', label: categoryLabels.neuro, icon: Brain },
+  { id: 'management', label: categoryLabels.management, icon: Workflow },
+] as const;
 
 export const ClinicalTools: React.FC = () => {
   const navigate = useNavigate();
   const { preferences, updatePreference } = useUserPreferences();
-  const [filter, setFilter] = useState<keyof typeof categoryLabels>('all');
+  const [filter, setFilter] = useState<ToolCategoryTab>('all');
   const [search, setSearch] = useState('');
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
 
@@ -311,166 +311,118 @@ export const ClinicalTools: React.FC = () => {
   const toolsForCustomizer = currentOrder.map(id => tools.find(t => t.id === id)!).filter(Boolean);
 
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
-
-      <SectionTitle
-        icon={Boxes}
-        title="Caixa de Ferramentas Clínica"
-        description="Protocolos e recursos avançados sincronizados com o histórico do seu paciente."
-        action={
-          <IconButton
-            variant="outline"
-            size="sm"
-            onClick={() => setIsCustomizerOpen(true)}
-            title="Personalizar layout"
-          >
-            <SlidersHorizontal size={16} />
-          </IconButton>
-        }
-      />
-
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
-
-      {/* Busca + Filtros de categoria */}
-      <FilterLine>
-        <FilterLineSection grow>
-          <FilterLineItem grow minWidth={220}>
-            <FilterLineSearch
-              value={search}
-              onChange={setSearch}
-              placeholder="Pesquisar módulo..."
-            />
-          </FilterLineItem>
-        </FilterLineSection>
-        <FilterLineSection align="right">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {(Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>).map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFilter(cat)}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${filter === cat ? 'bg-slate-900 text-white border-slate-900 shadow-sm' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
-              >
-                {categoryLabels[cat]}
-              </button>
-            ))}
-          </div>
-        </FilterLineSection>
-      </FilterLine>
-
-      {/* TOOLS GRID - 4 cards on laptop (lg), 3 huge cards on larger (2xl) */}
-      {displayedTools.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-            {displayedTools.map((tool) => (
-                <div 
-                    key={tool.id}
-                    onClick={() => navigate(tool.path)}
-                    className="group relative bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 transition-all duration-500 cursor-pointer flex flex-col overflow-hidden min-h-[380px]"
-                >
-                    {/* Background Accent */}
-                    <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-[80px] opacity-[0.03] group-hover:opacity-10 transition-opacity bg-indigo-600`} />
-
-                    <div className="p-8 pb-4 flex-1 flex flex-col">
-                        <div className="flex items-start justify-between mb-8">
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 bg-gradient-to-br ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} text-white`}>
-                                {React.cloneElement(tool.icon as React.ReactElement, { size: 28 })}
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100/50">
-                                    <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                                    <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">PRO</span>
-                                 </div>
-                                 <div className="flex items-center gap-1 opacity-20 group-hover:opacity-40 transition-opacity">
-                                    <Lock size={9} className="text-slate-400" />
-                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Safe</span>
-                                 </div>
-                            </div>
-                        </div>
-    
-                        <div className="space-y-3 flex-1">
-                            <section className="space-y-1">
-                                <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-[1.1] uppercase group-hover:text-indigo-600 transition-colors">{tool.title}</h3>
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{categoryLabels[tool.category]}</p>
-                            </section>
-                            <p className="text-[11px] text-slate-500 font-bold leading-relaxed pr-2 line-clamp-3">"{tool.description}"</p>
-                        </div>
-    
-                        <div className="mt-8 flex flex-wrap gap-1.5 pt-2">
-                            {tool.tags.slice(0, 3).map(tag => (
-                                <span key={tag} className="px-2.5 py-1.5 bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-tight rounded-xl border border-slate-100 transition-colors group-hover:bg-white group-hover:border-indigo-100 group-hover:text-indigo-500">#{tag}</span>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Integrated Bottom Action Footer */}
-                    <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between group-hover:bg-indigo-600 transition-all duration-500">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-white transition-colors">Executar Módulo</span>
-                        <div className="w-8 h-8 rounded-lg bg-white/0 flex items-center justify-center text-slate-300 group-hover:text-white transition-all">
-                            <ArrowRight size={18} className="group-hover:translate-x-1" />
-                        </div>
-                    </div>
-
-                    {/* Discreet Side Marker */}
-                    <div className={`absolute top-12 bottom-12 left-0 w-1 transition-all bg-gradient-to-b ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} opacity-10 group-hover:opacity-100 group-hover:w-1.5`}></div>
-                </div>
-            ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-[64px] p-24 flex flex-col items-center text-center space-y-8 border border-slate-50 shadow-inner">
-             <div className="w-32 h-32 bg-slate-50 rounded-[48px] flex items-center justify-center text-slate-100">
-                 <Search size={64} />
-             </div>
-             <div className="space-y-4">
-                <h3 className="text-lg sm:text-xl lg:text-2xl font-black text-slate-950 uppercase tracking-tighter leading-none">Silêncio Clínico</h3>
-                <p className="text-slate-400 text-lg font-medium max-w-lg">Nenhuma ferramenta foi encontrada com o termo "{search}". Tente buscar por abordagem ou recurso.</p>
-             </div>
-             <Button 
-                variant="primary"
-                onClick={() => {setFilter('all'); setSearch('');}}
-                className="rounded-[24px] px-12 py-6 text-xs uppercase tracking-widest font-black"
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={Boxes}
+          title="Caixa de Ferramentas Clínica"
+          description="Protocolos e recursos avançados sincronizados com o histórico do seu paciente."
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustomizerOpen(true)}
+              iconLeft={<SlidersHorizontal size={14} />}
             >
-                Restaurar Ecossistema
+              Personalizar layout
             </Button>
-        </div>
-      )}
+          }
+        />
 
-      {/* FOOTER INTELLIGENCE - ULTRA PREMIUM */}
-      <div className="bg-slate-950 rounded-[80px] p-16 md:p-24 text-white shadow-[0_80px_160px_rgba(0,0,0,0.3)] relative overflow-hidden mt-16 border border-white/5">
-         <div className="absolute -left-20 -bottom-20 opacity-5 scale-[2] rotate-12">
-            <Sparkles size={400} />
-         </div>
-         <div className="flex flex-col lg:flex-row items-center gap-20 relative z-10">
-             <div className="w-32 h-32 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-[48px] shadow-2xl flex items-center justify-center shrink-0 relative group">
-                 <div className="absolute inset-0 bg-white/20 blur-2xl group-hover:scale-150 transition-transform duration-1000"></div>
-                 <Zap size={56} className="text-white relative z-10 animate-float" />
-             </div>
-             <div className="space-y-8 text-center lg:text-left flex-1">
-                <div className="space-y-3">
-                    <div className="inline-flex items-center gap-3 px-6 py-2 bg-indigo-500/20 rounded-full border border-indigo-500/30">
-                        <span className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-400">Bia AI High Performance</span>
+        <Tabs<ToolCategoryTab>
+          items={categoryTabs}
+          value={filter}
+          onChange={setFilter}
+          label="Categorias de ferramentas"
+        >
+          <div className="space-y-3">
+            <FilterLine>
+              <FilterLineSection grow>
+                <FilterLineItem grow minWidth={220}>
+                  <FilterLineSearch
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Pesquisar módulo..."
+                  />
+                </FilterLineItem>
+              </FilterLineSection>
+            </FilterLine>
+
+            {displayedTools.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {displayedTools.map((tool) => (
+                  <ContentCard
+                    key={tool.id}
+                    padding="none"
+                    onClick={() => navigate(tool.path)}
+                    className="group hover:border-primary-200 transition-all overflow-hidden flex flex-col h-full cursor-pointer"
+                  >
+                    <div className="p-3 flex-1 flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                          {React.cloneElement(tool.icon as React.ReactElement, { size: 14 })}
+                        </div>
+                        <Badge color="success" size="sm" dot>PRO</Badge>
+                      </div>
+                      <div className="space-y-0.5">
+                        <h3 className="text-sm font-medium text-slate-900 group-hover:text-primary-700 transition-colors">{tool.title}</h3>
+                        <p className="text-[11px] text-slate-500">{categoryLabels[tool.category]}</p>
+                      </div>
+                      <p className="text-xs text-slate-600 line-clamp-3">{tool.description}</p>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {tool.tags.slice(0, 3).map(tag => (
+                          <Badge key={tag} color="default" size="sm">#{tag}</Badge>
+                        ))}
+                      </div>
                     </div>
-                    <h2 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tighter leading-none uppercase">A inteligência que<br /><span className="text-indigo-500">potencializa</span> sua clínica.</h2>
-                </div>
-                <p className="text-indigo-100/60 font-medium italic text-xl max-w-3xl leading-relaxed">
-                    "Todas as ferramentas da sua caixa estão vivas. Elas retroalimentam o motor de IA do Plaelo para organizar dados clínicos, sistematizar informações e apoiar a documentação — o julgamento clínico é sempre do profissional."
-                </p>
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6">
-                    <div className="flex items-center gap-3 px-5 py-2.5 bg-white/5 rounded-2xl text-xs font-black uppercase tracking-widest border border-white/10 group hover:bg-white/10 transition-colors">
-                        <RefreshCw size={18} className="text-emerald-400 group-hover:rotate-180 transition-transform duration-700" /> Sincronização em Tempo Real
+                    <div className="p-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-600 group-hover:text-primary-700 transition-colors">Executar Módulo</span>
+                      <ArrowRight size={14} className="text-slate-400 group-hover:text-primary-700 transition-colors" />
                     </div>
-                    <div className={`flex items-center gap-3 px-5 py-2.5 bg-white/5 rounded-2xl text-xs font-black uppercase tracking-widest border border-white/10 group hover:bg-white/10 transition-colors`}>
-                        <ExternalLink size={18} className="text-amber-400" /> Exportação Multiformato
-                    </div>
-                </div>
-             </div>
-             <div className="lg:ml-auto">
-                 <button className="px-12 py-8 bg-white text-indigo-950 rounded-[40px] font-black uppercase tracking-widest text-[11px] shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-4 group">
-                    Tutorial Assistido <Info size={20} className="text-indigo-600 group-hover:rotate-12 transition-transform" />
-                 </button>
-             </div>
-         </div>
+                  </ContentCard>
+                ))}
+              </div>
+            ) : (
+              <ContentCard>
+                <EmptyState
+                  icon={Search}
+                  title="Silêncio Clínico"
+                  description={`Nenhuma ferramenta foi encontrada com o termo "${search}". Tente buscar por abordagem ou recurso.`}
+                  action={
+                    <Button variant="primary" size="sm" onClick={() => { setFilter('all'); setSearch(''); }}>
+                      Restaurar Ecossistema
+                    </Button>
+                  }
+                />
+              </ContentCard>
+            )}
+          </div>
+        </Tabs>
+
+        <ContentCard>
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+              <Zap size={14} />
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm font-medium text-slate-900">A inteligência que potencializa sua clínica.</h2>
+                <Badge color="primary" size="sm">Bia AI High Performance</Badge>
+              </div>
+              <p className="text-xs text-slate-600">
+                Todas as ferramentas da sua caixa estão vivas. Elas retroalimentam o motor de IA do Plaelo para organizar dados clínicos, sistematizar informações e apoiar a documentação — o julgamento clínico é sempre do profissional.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-1">
+                <span className="inline-flex items-center gap-1.5"><RefreshCw size={12} className="text-emerald-600" /> Sincronização em Tempo Real</span>
+                <span className="inline-flex items-center gap-1.5"><ExternalLink size={12} className="text-amber-600" /> Exportação Multiformato</span>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" iconRight={<Info size={14} />} className="shrink-0">
+              Tutorial Assistido
+            </Button>
+          </div>
+        </ContentCard>
       </div>
-
-      </div>{/* /px-padding */}
 
       {/* CUSTOMIZER MODAL */}
       <Modal
@@ -479,55 +431,52 @@ export const ClinicalTools: React.FC = () => {
         title="Escalabilidade do Workspace"
         size="lg"
         footer={
-            <div className="flex justify-between w-full items-center p-2">
-                <Button variant="ghost" size="sm" onClick={resetPreferences} className="text-slate-400 hover:text-rose-500 font-black uppercase tracking-widest text-[10px]">
-                    Resetar Ordem Padrão
-                </Button>
-                <Button variant="primary" size="sm" onClick={() => setIsCustomizerOpen(false)} className="rounded-[20px] px-10 py-5">
-                    Confirmar Layout
-                </Button>
-            </div>
+          <div className="flex justify-between w-full items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={resetPreferences}>
+              Resetar Ordem Padrão
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setIsCustomizerOpen(false)}>
+              Confirmar Layout
+            </Button>
+          </div>
         }
       >
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-4 scrollbar-hide py-2">
-            {toolsForCustomizer.map((tool) => {
-                const isHidden = hiddenIds.includes(tool.id);
-                return (
-                    <div 
-                        key={tool.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, tool.id)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => handleDrop(e, tool.id)}
-                        className={`flex items-center gap-6 p-6 rounded-[32px] border transition-all cursor-move group ${
-                            isHidden ? 'bg-slate-50 border-slate-100 opacity-40 shadow-inner' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-2xl'
-                        }`}
-                    >
-                        <div className="text-slate-200 group-hover:text-indigo-400 transition-colors">
-                            <GripVertical size={28} />
-                        </div>
-                        
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-xl bg-gradient-to-br ${colorVariants[tool.color].split(' ').slice(0, 2).join(' ')} group-hover:rotate-6 transition-transform`}>
-                            {React.cloneElement(tool.icon as React.ReactElement, { size: 28 })}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                            <h4 className="text-base font-black text-slate-800 truncate uppercase tracking-tight">{tool.title}</h4>
-                            <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest">{categoryLabels[tool.category]}</p>
-                        </div>
-
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); toggleVisibility(tool.id); }}
-                            className={`w-12 h-12 rounded-[18px] transition-all flex items-center justify-center ${
-                                isHidden ? 'text-slate-400 bg-slate-100 hover:bg-slate-200' : 'text-indigo-500 bg-indigo-50 hover:bg-indigo-100'
-                            }`}
-                            title={isHidden ? 'Ativar Módulo' : 'Ocultar Módulo'}
-                        >
-                            {isHidden ? <EyeOff size={22} /> : <Eye size={22} />}
-                        </button>
-                    </div>
-                );
-            })}
+        <div className="space-y-2">
+          {toolsForCustomizer.map((tool) => {
+            const isHidden = hiddenIds.includes(tool.id);
+            return (
+              <div
+                key={tool.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, tool.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDrop(e, tool.id)}
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-move group ${
+                  isHidden ? 'bg-slate-50 border-slate-100 opacity-50' : 'bg-white border-slate-200 hover:border-primary-200'
+                }`}
+              >
+                <div className="text-slate-300 group-hover:text-primary-500 transition-colors">
+                  <GripVertical size={16} />
+                </div>
+                <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                  {React.cloneElement(tool.icon as React.ReactElement, { size: 14 })}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-medium text-slate-800 truncate">{tool.title}</h4>
+                  <p className="text-[11px] text-slate-500">{categoryLabels[tool.category]}</p>
+                </div>
+                <IconButton
+                  variant={isHidden ? 'ghost' : 'outline'}
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); toggleVisibility(tool.id); }}
+                  title={isHidden ? 'Ativar Módulo' : 'Ocultar Módulo'}
+                  aria-label={isHidden ? 'Ativar Módulo' : 'Ocultar Módulo'}
+                >
+                  {isHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                </IconButton>
+              </div>
+            );
+          })}
         </div>
       </Modal>
     </PageWrapper>

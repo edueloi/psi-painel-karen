@@ -2,23 +2,29 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea } from '../../components/UI/Input';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
-import { 
-  Feather, Plus, Trash2, Edit3, Save, RotateCcw, 
-  HelpCircle, Sparkles, CheckCircle2, ArrowRight, 
-  ChevronRight, X, Loader2, Smile, Heart, Shield,
-  Layers, Filter, Eye, Activity, Share2, Users, Moon,
-  Star
-} from 'lucide-react';
+import { Feather, Trash2, Moon, Star, ArrowLeft } from 'lucide-react';
+
+type JungTab = 'dreams' | 'symbols';
+
+const jungTabs = [
+  { id: 'dreams', label: 'Sonhos', icon: Moon },
+  { id: 'symbols', label: 'Símbolos', icon: Star },
+] as const;
 
 export const JunguianaPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'dreams' | 'symbols' | 'shadow'>('dreams');
-  
+  const [activeSub, setActiveSub] = useState<JungTab>('dreams');
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [patientSearch, setPatientSearch] = useState('');
@@ -105,33 +111,22 @@ export const JunguianaPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<Feather />}
-        title="Psicologia Analítica (Jung)"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Símbolos, Sonhos & Individuação"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-2xl border border-slate-200 shadow-sm">
-              <button 
-                onClick={() => setActiveSub('dreams')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'dreams' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Moon size={14}/> Sonhos</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('symbols')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'symbols' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Star size={14}/> Símbolos</div>
-              </button>
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <ClinicalSidebar 
+        <SectionTitle
+          icon={Feather}
+          title="Psicologia Analítica (Jung)"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Símbolos, Sonhos & Individuação"}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -139,97 +134,92 @@ export const JunguianaPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="space-y-6 animate-fadeIn text-center py-20 bg-white rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center">
-                <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-6">
-                    <Feather size={40} />
-                </div>
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Jungian Workspace</h2>
-                <p className="text-slate-400 text-sm max-w-md mx-auto">Exploração dos símbolos do inconsciente e acompanhamento do processo de individuação.</p>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'dreams' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
-                    <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                        <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Registrar Sonho</h3>
-                        <div className="space-y-4">
-                            <input className="w-full h-12 px-4 rounded-2xl bg-white border border-slate-100 text-sm font-bold shadow-sm outline-none" value={newDream.title} onChange={e => setNewDream({...newDream, title: e.target.value})} placeholder="Título do Sonho" />
-                            <textarea className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm focus:bg-white h-32 resize-none" value={newDream.content} onChange={e => setNewDream({...newDream, content: e.target.value})} placeholder="Relato do Sonho..." />
-                            <textarea className="w-full p-4 rounded-2xl bg-indigo-50/20 border border-indigo-100/30 text-sm focus:bg-white h-24 resize-none italic font-bold text-indigo-900" value={newDream.symbols} onChange={e => setNewDream({...newDream, symbols: e.target.value})} placeholder="Símbolos e Imaginário..." />
-                            <button onClick={handleSaveDream} className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition-all">Sincronizar Inconsciente</button>
-                        </div>
-                    </div>
-                    <div className="space-y-4 overflow-y-auto max-h-[70vh] custom-scrollbar px-1">
-                        {dreams.map(d => (
-                            <div key={d.id} className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm group hover:border-indigo-200 transition-all relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-8 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={async () => {
-                                        const next = dreams.filter(it => it.id !== d.id);
-                                        await api.put(`/clinical-tools/${selectedPatientId}/junguiana`, { dreams: next, symbols });
-                                        setDreams(next);
-                                    }} className="text-red-400 hover:text-red-600"><Trash2 size={18}/></button>
-                                </div>
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center"><Moon size={20}/></div>
-                                        <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none italic">"{d.title || 'Sem título'}"</h4>
-                                    </div>
-                                    <p className="text-sm text-slate-600 leading-relaxed font-medium">{d.content}</p>
-                                    <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-2">Simbolismo</span>
-                                        <p className="text-xs font-bold text-indigo-900 leading-relaxed italic">{d.symbols}</p>
-                                    </div>
-                                </div>
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Feather}
+                  title="Jungian Workspace"
+                  description="Exploração dos símbolos do inconsciente e acompanhamento do processo de individuação."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<JungTab> items={jungTabs} value={activeSub} onChange={setActiveSub} label="Seções da psicologia analítica">
+                {activeSub === 'dreams' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
+                    <PanelCard title="Registrar Sonho">
+                      <div className="space-y-3">
+                        <Input aria-label="Título do sonho" value={newDream.title} onChange={e => setNewDream({ ...newDream, title: e.target.value })} placeholder="Título do Sonho" />
+                        <Textarea aria-label="Relato do sonho" rows={5} value={newDream.content} onChange={e => setNewDream({ ...newDream, content: e.target.value })} placeholder="Relato do Sonho..." />
+                        <Textarea aria-label="Símbolos e imaginário" rows={4} value={newDream.symbols} onChange={e => setNewDream({ ...newDream, symbols: e.target.value })} placeholder="Símbolos e Imaginário..." />
+                        <Button variant="primary" fullWidth onClick={handleSaveDream} loading={saving}>Sincronizar Inconsciente</Button>
+                      </div>
+                    </PanelCard>
+                    <div className="space-y-3 min-w-0">
+                      {dreams.map(d => (
+                        <ContentCard key={d.id} className="group relative">
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                            <IconButton
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Excluir sonho"
+                              title="Excluir sonho"
+                              className="hover:text-red-600"
+                              onClick={async () => {
+                                const next = dreams.filter(it => it.id !== d.id);
+                                await api.put(`/clinical-tools/${selectedPatientId}/junguiana`, { dreams: next, symbols });
+                                setDreams(next);
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </div>
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-3 pr-8">
+                              <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0"><Moon size={14} /></div>
+                              <h4 className="text-sm font-medium text-slate-800 italic break-words min-w-0">"{d.title || 'Sem título'}"</h4>
                             </div>
-                        ))}
+                            <p className="text-xs text-slate-600 leading-relaxed break-words">{d.content}</p>
+                            <div className="p-3 bg-primary-50/50 rounded-lg border border-primary-100">
+                              <span className="text-[11px] font-medium text-primary-700 block mb-1">Simbolismo</span>
+                              <p className="text-xs text-slate-700 leading-relaxed italic break-words">{d.symbols}</p>
+                            </div>
+                          </div>
+                        </ContentCard>
+                      ))}
                     </div>
-                </div>
-              )}
+                  </div>
+                )}
 
-              {activeSub === 'symbols' && (
-                <div className="space-y-6 animate-slideUpFade">
-                    <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[40px] p-10 text-white shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-10 opacity-10">
-                            <Star size={160} />
+                {activeSub === 'symbols' && (
+                  <PanelCard title="Dicionário de Símbolos Pessoal" icon={Star}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-3">
+                        <Input label="Símbolo / Arquétipo" value={newSymbol.name} onChange={e => setNewSymbol({ ...newSymbol, name: e.target.value })} placeholder="Ex: A Grande Mãe, Labirinto, Raposa..." />
+                        <Textarea label="Significado / Conexão Pessoal" rows={4} value={newSymbol.meaning} onChange={e => setNewSymbol({ ...newSymbol, meaning: e.target.value })} placeholder="O que esse símbolo evoca ao paciente?" />
+                        <Button variant="primary" fullWidth onClick={handleSaveSymbol} loading={saving}>Fixar Arquetipia</Button>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-medium text-slate-600">Simbolismos Mapeados</h4>
+                        <div className="grid grid-cols-1 gap-2 overflow-y-auto max-h-[300px]">
+                          {symbols.map(s => (
+                            <div key={s.id} className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
+                              <p className="text-[13px] font-medium text-slate-800 mb-1">{s.name}</p>
+                              <p className="text-xs text-slate-600 leading-relaxed italic break-words">"{s.meaning}"</p>
+                            </div>
+                          ))}
                         </div>
-                        <div className="relative z-10 space-y-8">
-                             <h3 className="text-2xl font-black uppercase tracking-tight">Dicionário de Símbolos Pessoal</h3>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-5">
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] font-black text-indigo-300 uppercase tracking-widest">Símbolo / Arquétipo</label>
-                                        <input className="w-full bg-white/5 border border-white/10 rounded-2xl h-14 px-6 text-sm font-bold text-white outline-none focus:bg-white/10 transition-all shadow-inner" value={newSymbol.name} onChange={e => setNewSymbol({...newSymbol, name: e.target.value})} placeholder="Ex: A Grande Mãe, Labirinto, Raposa..." />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] font-black text-indigo-300 uppercase tracking-widest">Significado / Conexão Pessoal</label>
-                                        <textarea className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-sm font-medium text-white outline-none focus:bg-white/10 transition-all h-24 resize-none shadow-inner" value={newSymbol.meaning} onChange={e => setNewSymbol({...newSymbol, meaning: e.target.value})} placeholder="O que esse símbolo evoca ao paciente?" />
-                                    </div>
-                                    <button onClick={handleSaveSymbol} className="w-full h-14 bg-white text-indigo-900 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-slate-50 transition-all">Fixar Arquetipia</button>
-                                </div>
-                                <div className="space-y-4">
-                                     <h4 className="text-[10px] font-black text-indigo-200/40 uppercase tracking-widest">Simbolismos Mapeados</h4>
-                                     <div className="grid grid-cols-1 gap-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                                         {symbols.map(s => (
-                                             <div key={s.id} className="bg-white/5 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
-                                                 <p className="text-sm font-black text-white uppercase tracking-tight mb-2 underline decoration-indigo-500 decoration-2 underline-offset-4">{s.name}</p>
-                                                 <p className="text-xs text-indigo-100/70 font-medium leading-relaxed italic">"{s.meaning}"</p>
-                                             </div>
-                                         ))}
-                                     </div>
-                                </div>
-                             </div>
-                        </div>
+                      </div>
                     </div>
-                </div>
-              )}
-            </>
-          )}
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

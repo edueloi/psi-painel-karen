@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Bell, X, Trash2, Info, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Button, IconButton } from './UI';
 
 interface SystemAlert {
   id: number;
@@ -86,31 +87,31 @@ export const SystemAlerts: React.FC = () => {
 
   return (
     <div className="relative" ref={alertsRef}>
-      <button 
+      <IconButton
+        variant="ghost"
+        size="lg"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-xl hover:bg-slate-100"
+        aria-label="Alertas do sistema"
+        className="relative"
       >
-        <Bell size={20} />
+        <Bell size={18} />
         {alerts.length > 0 && (
-          <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white">
+          <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[10px] font-medium text-white">
             {alerts.length}
           </span>
         )}
-      </button>
- 
+      </IconButton>
+
       {isOpen && (
-        <div className="fixed left-1/2 -translate-x-1/2 top-16 w-[calc(100vw-24px)] max-w-[340px] md:absolute md:left-auto md:right-0 md:top-auto md:translate-x-0 md:mt-2 md:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[101] overflow-hidden animate-slideIn">
+        <div className="fixed left-1/2 -translate-x-1/2 top-16 w-[calc(100vw-24px)] max-w-[340px] md:absolute md:left-auto md:right-0 md:top-auto md:translate-x-0 md:mt-2 md:w-80 bg-white rounded-lg border border-slate-200 z-[101] overflow-hidden animate-slideIn">
             <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                <Bell size={14} className="text-indigo-600" /> Alertas do Sistema
+              <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                <Bell size={14} className="text-primary-600" /> Alertas do sistema
               </h3>
               {alerts.length > 0 && (
-                <button
-                  onClick={dismissAll}
-                  className="text-[10px] font-black text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
-                >
-                  <Trash2 size={12} /> LIMPAR TUDO
-                </button>
+                <Button variant="ghost" size="xs" iconLeft={<Trash2 size={12} />} onClick={dismissAll} className="text-red-600 hover:bg-red-50">
+                  Limpar tudo
+                </Button>
               )}
             </div>
 
@@ -118,36 +119,39 @@ export const SystemAlerts: React.FC = () => {
               {alerts.length === 0 ? (
                 <div className="py-6 text-center">
                   <Bell size={24} className="mx-auto text-slate-200 mb-2" />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nenhum alerta pendente</p>
+                  <p className="text-xs text-slate-500">Nenhum alerta pendente</p>
                 </div>
               ) : (
                 alerts.map(alert => (
                   <div
                     key={alert.id}
-                    className={`p-3 rounded-xl border ${getTypeStyle(alert.type)} group relative`}
+                    className={`p-3 rounded-lg border ${getTypeStyle(alert.type)} group relative`}
                   >
-                    <button 
+                    <IconButton
+                      variant="ghost"
+                      size="xs"
                       onClick={() => dismissAlert(alert.id)}
-                      className="absolute top-3 right-3 p-1 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                      aria-label="Dispensar alerta"
+                      className="absolute top-2 right-2 text-slate-400 hover:text-red-600"
                     >
                       <X size={14} />
-                    </button>
-                    
+                    </IconButton>
+
                     <div className="flex gap-3">
                       <div className="mt-0.5 shrink-0">{getIcon(alert.type)}</div>
                       <div>
-                        <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-tighter mb-1 pr-6">{alert.title}</h4>
+                        <h4 className="text-xs font-medium text-slate-800 mb-1 pr-6">{alert.title}</h4>
                         <p className="text-xs text-slate-600 leading-relaxed mb-2">{alert.message}</p>
                         {alert.link && (
-                          <Link 
+                          <Link
                             to={alert.link}
                             onClick={() => setIsOpen(false)}
-                            className="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-widest"
+                            className="text-[11px] font-medium text-primary-700 hover:underline"
                           >
                             Ver detalhes
                           </Link>
                         )}
-                        <p className="text-[9px] text-slate-400 mt-2">
+                        <p className="text-[11px] text-slate-400 mt-2">
                           {new Date(alert.created_at).toLocaleString('pt-BR')}
                         </p>
                       </div>
@@ -156,9 +160,9 @@ export const SystemAlerts: React.FC = () => {
                 ))
               )}
             </div>
-            
+
             <div className="p-2 bg-slate-50 border-t border-slate-100 text-center">
-               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Plaelo Analytics & Intelligence</p>
+               <p className="text-[11px] text-slate-500">Plaelo Analytics & Intelligence</p>
             </div>
           </div>
       )}

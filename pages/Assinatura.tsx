@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { api, API_BASE_URL } from '../services/api';
 import { getToken } from '../services/tokenStorage';
+import { Alert, Badge, Button, ContentCard, EmptyState, FilterLineSegmented, Input, PageWrapper, PanelCard, SectionTitle, StatCard, StatGrid, Tabs } from '../components/UI';
 import {
   CheckCircle, Zap, Crown, Clock, Copy, ExternalLink,
   Loader2, AlertTriangle, Check, X,
@@ -84,18 +85,24 @@ function ProgressBar({ value, total, warning = false }: { value: number; total: 
   const pct = total > 0 ? Math.max(0, Math.min(100, (value / total) * 100)) : 0;
   const barColor = warning ? 'bg-red-500' : pct > 50 ? 'bg-emerald-500' : pct > 20 ? 'bg-amber-500' : 'bg-red-500';
   return (
-    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
       <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-const STATUS_BADGE: Record<Invoice['status'], { label: string; cls: string; Icon: any }> = {
-  approved: { label: 'Paga', cls: 'bg-emerald-50 text-emerald-700 border-emerald-100', Icon: CheckCircle },
-  pending: { label: 'Pendente', cls: 'bg-amber-50 text-amber-700 border-amber-100', Icon: Clock },
-  rejected: { label: 'Rejeitada', cls: 'bg-red-50 text-red-700 border-red-100', Icon: X },
-  cancelled: { label: 'Cancelada', cls: 'bg-slate-100 text-slate-500 border-slate-200', Icon: X },
+const STATUS_BADGE: Record<Invoice['status'], { label: string; color: 'success' | 'warning' | 'danger' | 'default'; Icon: any }> = {
+  approved: { label: 'Paga', color: 'success', Icon: CheckCircle },
+  pending: { label: 'Pendente', color: 'warning', Icon: Clock },
+  rejected: { label: 'Rejeitada', color: 'danger', Icon: X },
+  cancelled: { label: 'Cancelada', color: 'default', Icon: X },
 };
+
+const ASSINATURA_TABS = [
+  { id: 'plano', label: 'Plano', icon: Crown },
+  { id: 'extrato', label: 'Extrato de pagamentos', icon: Receipt },
+] as const;
+type AssinaturaTab = typeof ASSINATURA_TABS[number]['id'];
 
 export function Assinatura() {
   const { user, logout } = useAuth();
@@ -120,6 +127,7 @@ export function Assinatura() {
   const [reloadCountdown, setReloadCountdown] = useState<number | null>(null);
   const [documentInput, setDocumentInput] = useState('');
   const [savingDocument, setSavingDocument] = useState(false);
+  const [activeTab, setActiveTab] = useState<AssinaturaTab>('plano');
 
   const returnStatus = searchParams.get('status');
 
@@ -282,9 +290,11 @@ export function Assinatura() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 size={28} className="animate-spin text-violet-500" />
-      </div>
+      <PageWrapper>
+        <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+          <Loader2 size={18} className="animate-spin" />Carregando…
+        </div>
+      </PageWrapper>
     );
   }
 
@@ -296,410 +306,358 @@ export function Assinatura() {
   const totalDays = status?.total_days ?? 14;
   const isUrgent = !isInGrace && daysLeft <= 3;
 
+  const statusLabel = isExempt ? 'Cortesia' : isInGrace ? 'Assinatura Vencida' : isPaid ? 'Assinatura Ativa' : isTrial ? 'Período de Teste' : 'Sem Assinatura';
+  const statusBadge = isInGrace
+    ? `${status?.grace_days_left ?? 0}d de carência`
+    : isPaid
+      ? `${daysLeft} dia${daysLeft !== 1 ? 's' : ''} restante${daysLeft !== 1 ? 's' : ''}`
+      : isTrial
+        ? `${daysLeft} dia${daysLeft !== 1 ? 's' : ''}`
+        : 'Expirado';
+  const statusColor: 'danger' | 'success' | 'default' = isInGrace || (isUrgent && !isPaid) ? 'danger' : isPaid || isExempt ? 'success' : 'default';
+
   return (
-    <div className="max-w-full 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          title="Assinatura"
+          description={[statusLabel, status?.plan_name].filter(Boolean).join(' · ')}
+          icon={Crown}
+          action={
+            <>
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate(-1)}>Voltar</Button>
+              <Button variant="outline" size="sm" iconLeft={<LogOut size={14} />} onClick={logout}>Sair</Button>
+            </>
+          }
+        />
 
-      {/* ── Voltar / Sair ── */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors"
-        >
-          <ArrowLeft size={16} /> Voltar
-        </button>
-        <button
-          onClick={logout}
-          className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-red-600 transition-colors"
-        >
-          <LogOut size={16} /> Sair
-        </button>
-      </div>
+        {/* ── Plano mudou: avisa e recarrega a página para atualizar menu/permissões ── */}
+        {planChangedTo && (
+          <Alert variant="info" title={`Pagamento confirmado — plano atualizado para ${planChangedTo}!`}>
+            Atualizando sua tela para liberar os novos recursos... ({reloadCountdown}s)
+          </Alert>
+        )}
 
-      {/* ── Plano mudou: avisa e recarrega a página para atualizar menu/permissões ── */}
-      {planChangedTo && (
-        <div className="flex items-center gap-3 p-4 bg-violet-50 border border-violet-200 rounded-2xl">
-          <Loader2 size={20} className="text-violet-600 shrink-0 animate-spin" />
-          <div>
-            <p className="font-bold text-violet-800 text-sm">Pagamento confirmado — plano atualizado para {planChangedTo}!</p>
-            <p className="text-xs text-violet-600">Atualizando sua tela para liberar os novos recursos... ({reloadCountdown}s)</p>
-          </div>
-        </div>
-      )}
+        {/* ── Sucesso de pagamento (sem mudança de plano — ex: renovação do mesmo plano) ── */}
+        {!planChangedTo && (returnStatus === 'success' || paymentDone) && (
+          <Alert variant="success" title="Pagamento confirmado!">
+            Sua assinatura está ativa. Aproveite o Plaelo sem limitações.
+          </Alert>
+        )}
 
-      {/* ── Sucesso de pagamento (sem mudança de plano — ex: renovação do mesmo plano) ── */}
-      {!planChangedTo && (returnStatus === 'success' || paymentDone) && (
-        <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
-          <CheckCircle size={20} className="text-emerald-600 shrink-0" />
-          <div>
-            <p className="font-bold text-emerald-800 text-sm">Pagamento confirmado!</p>
-            <p className="text-xs text-emerald-600">Sua assinatura está ativa. Aproveite o Plaelo sem limitações.</p>
-          </div>
-        </div>
-      )}
+        {/* ── Alerta de carência (vencida mas ainda dentro do prazo de 3 dias) ── */}
+        {isInGrace && (
+          <Alert variant="error" title="Sua assinatura venceu">
+            Você ainda tem acesso por {status?.grace_days_left ?? 0} dia{(status?.grace_days_left ?? 0) !== 1 ? 's' : ''}. Renove agora para não perder o acesso ao sistema.
+          </Alert>
+        )}
 
-      {/* ── Alerta de carência (vencida mas ainda dentro do prazo de 3 dias) ── */}
-      {isInGrace && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl">
-          <AlertTriangle size={20} className="text-red-600 shrink-0" />
-          <div>
-            <p className="font-bold text-red-800 text-sm">Sua assinatura venceu</p>
-            <p className="text-xs text-red-600">
-              Você ainda tem acesso por {status?.grace_days_left ?? 0} dia{(status?.grace_days_left ?? 0) !== 1 ? 's' : ''}. Renove agora para não perder o acesso ao sistema.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6 items-start">
-        {/* ── Coluna principal ── */}
-        <div className="space-y-6 min-w-0">
-          {/* ── Card: Status da Assinatura ── */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className={`p-5 sm:p-6 ${isExempt ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' : isInGrace ? 'bg-gradient-to-r from-red-600 to-rose-600' : isPaid ? 'bg-gradient-to-r from-violet-600 to-indigo-600' : isUrgent ? 'bg-gradient-to-r from-red-600 to-rose-600' : 'bg-gradient-to-r from-slate-700 to-slate-800'}`}>
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    {isPaid || isExempt ? <Crown size={16} className="text-yellow-300" /> : <Clock size={16} className="text-slate-300" />}
-                    <span className="text-xs font-bold uppercase tracking-widest text-white/70">
-                      {isExempt ? 'Cortesia' : isInGrace ? 'Assinatura Vencida' : isPaid ? 'Assinatura Ativa' : isTrial ? 'Período de Teste' : 'Sem Assinatura'}
-                    </span>
-                  </div>
-                  <p className="text-white font-black text-base sm:text-xl">
-                    {(isPaid || isExempt) ? (status?.plan_name || 'Plano Ativo') : 'Plaelo Free Trial'}
-                  </p>
-                  {isPaid && !isInGrace && status?.expires_at && (
-                    <p className="text-white/70 text-xs mt-1">Válida até {fmtDate(status.expires_at)}</p>
-                  )}
-                  {isInGrace && status?.expires_at && (
-                    <p className="text-white/70 text-xs mt-1">Venceu em {fmtDate(status.expires_at)}</p>
-                  )}
-                  {isTrial && status?.trial_ends_at && (
-                    <p className="text-white/70 text-xs mt-1">Expira em {fmtDate(status.trial_ends_at)}</p>
-                  )}
-                  {isExempt && (
-                    <p className="text-white/70 text-xs mt-1">Isenta de cobrança — acesso sempre liberado</p>
-                  )}
-                </div>
-                {!isExempt && (
-                  <div className={`px-3 py-1.5 rounded-xl text-xs font-black ${isInGrace ? 'bg-white/20 text-white' : isPaid ? 'bg-white/20 text-white' : isUrgent ? 'bg-white/20 text-white' : 'bg-white/10 text-white/80'}`}>
-                    {isInGrace
-                      ? `⚠ ${status?.grace_days_left ?? 0}d de carência`
-                      : isPaid
-                        ? `${daysLeft} dia${daysLeft !== 1 ? 's' : ''} restante${daysLeft !== 1 ? 's' : ''}`
-                        : isTrial
-                          ? isUrgent ? `⚠ ${daysLeft} dia${daysLeft !== 1 ? 's' : ''}` : `${daysLeft} dias`
-                          : 'Expirado'}
-                  </div>
-                )}
+        {/* ── Status da assinatura ── */}
+        <ContentCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                {isPaid || isExempt ? <Crown size={14} className="text-primary-600" /> : <Clock size={14} className="text-slate-400" />}
+                <span className="text-xs font-medium text-slate-600">{statusLabel}</span>
               </div>
-            </div>
-
-            <div className="p-5 sm:p-6 space-y-4">
-              {/* Barra de progresso */}
-              {(isTrial || isPaid) && !isExempt && daysLeft !== null && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>{isTrial ? 'Teste gratuito' : 'Período atual'}</span>
-                    <span className="font-bold">{daysLeft} de {totalDays} dias</span>
-                  </div>
-                  <ProgressBar value={daysLeft} total={totalDays} warning={isUrgent || isInGrace} />
-                  {isUrgent && isTrial && (
-                    <p className="text-xs text-red-600 font-semibold">Assine agora para não perder o acesso ao sistema!</p>
-                  )}
-                </div>
+              <p className="mt-1 text-sm font-medium text-slate-900">
+                {(isPaid || isExempt) ? (status?.plan_name || 'Plano Ativo') : 'Plaelo Free Trial'}
+              </p>
+              {isPaid && !isInGrace && status?.expires_at && (
+                <p className="mt-0.5 text-[11px] text-slate-500">Válida até {fmtDate(status.expires_at)}</p>
               )}
-
-              {/* Info plano — grid com mais detalhes */}
-              {(isPaid || isExempt) && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Plano</p>
-                    <p className="font-bold text-slate-800 text-sm mt-0.5">{status?.plan_name || '—'}</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Valor</p>
-                    <p className="font-bold text-slate-800 text-sm mt-0.5">{status?.plan_price != null ? fmtPrice(status.plan_price) + '/mês' : 'Isento'}</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Último pagamento</p>
-                    <p className="font-bold text-slate-800 text-sm mt-0.5">{fmtDateShort(status?.last_billing_at || null)}</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Vencimento</p>
-                    <p className="font-bold text-slate-800 text-sm mt-0.5">{isExempt ? 'Sem vencimento' : fmtDateShort(status?.expires_at || null)}</p>
-                  </div>
-                </div>
+              {isInGrace && status?.expires_at && (
+                <p className="mt-0.5 text-[11px] text-slate-500">Venceu em {fmtDate(status.expires_at)}</p>
+              )}
+              {isTrial && status?.trial_ends_at && (
+                <p className="mt-0.5 text-[11px] text-slate-500">Expira em {fmtDate(status.trial_ends_at)}</p>
+              )}
+              {isExempt && (
+                <p className="mt-0.5 text-[11px] text-slate-500">Isenta de cobrança — acesso sempre liberado</p>
               )}
             </div>
+            {!isExempt && <Badge color={statusColor} dot>{statusBadge}</Badge>}
           </div>
 
-          {/* ── Checkout ativo ── */}
-          {checkout && !paymentDone && (
-            <div className="bg-white rounded-2xl border border-violet-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-violet-100 bg-violet-50 flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <p className="font-black text-violet-900 text-sm">{checkout.description}</p>
-                  <p className="text-xs text-violet-600 mt-0.5">{fmtPrice(checkout.amount)}</p>
-                </div>
-                <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${polling ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                  {polling ? <><Loader2 size={11} className="animate-spin" /> Aguardando</> : <><CheckCircle size={11} /> Confirmado</>}
-                </div>
+          {(isTrial || isPaid) && !isExempt && daysLeft !== null && (
+            <div className="mt-3 space-y-1.5">
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>{isTrial ? 'Teste gratuito' : 'Período atual'}</span>
+                <span className="font-medium">{daysLeft} de {totalDays} dias</span>
               </div>
-              <div className="p-5 sm:p-6 space-y-4">
-                {/* QR Code PIX */}
-                {checkout.pix_qr_code_base64 && (
-                  <div className="flex flex-col items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                      <QrCode size={16} /> PIX (instantâneo e gratuito)
-                    </div>
-                    <img src={checkout.pix_qr_code_base64} alt="QR Code PIX" className="w-44 h-44 rounded-xl" />
-                    <p className="text-xs text-slate-500 text-center">Escaneie com o app do banco para pagar na hora</p>
-                    {checkout.pix_qr_code && (
-                      <button onClick={copyPix} className="flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-800">
-                        <Copy size={12} /> {copied ? 'Copiado!' : 'Copiar código PIX'}
-                      </button>
+              <ProgressBar value={daysLeft} total={totalDays} warning={isUrgent || isInGrace} />
+              {isUrgent && isTrial && (
+                <p className="text-xs font-medium text-red-600">Assine agora para não perder o acesso ao sistema!</p>
+              )}
+            </div>
+          )}
+        </ContentCard>
+
+        {(isPaid || isExempt) && (
+          <StatGrid cols={4}>
+            <StatCard title="Plano" value={status?.plan_name || '—'} icon={Crown} />
+            <StatCard title="Valor" value={status?.plan_price != null ? fmtPrice(status.plan_price) + '/mês' : 'Isento'} icon={CreditCard} color="info" />
+            <StatCard title="Último pagamento" value={fmtDateShort(status?.last_billing_at || null)} icon={Receipt} color="success" />
+            <StatCard title="Vencimento" value={isExempt ? 'Sem vencimento' : fmtDateShort(status?.expires_at || null)} icon={Calendar} color={isInGrace ? 'danger' : 'default'} />
+          </StatGrid>
+        )}
+
+        <Tabs<AssinaturaTab>
+          items={ASSINATURA_TABS}
+          value={activeTab}
+          onChange={setActiveTab}
+          label="Seções da assinatura"
+        >
+          {activeTab === 'plano' && (
+            <div className="space-y-3">
+              {/* ── Checkout ativo ── */}
+              {checkout && !paymentDone && (
+                <PanelCard
+                  title={checkout.description}
+                  description={fmtPrice(checkout.amount)}
+                  icon={CreditCard}
+                  action={polling
+                    ? <Badge color="warning" icon={<Loader2 size={11} className="animate-spin" />}>Aguardando</Badge>
+                    : <Badge color="success" icon={<CheckCircle size={11} />}>Confirmado</Badge>}
+                >
+                  <div className="space-y-3 p-3">
+                    {checkout.pix_qr_code_base64 && (
+                      <div className="flex flex-col items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                          <QrCode size={14} /> PIX (instantâneo e gratuito)
+                        </div>
+                        <img src={checkout.pix_qr_code_base64} alt="QR Code PIX" className="h-44 w-44 rounded-lg" />
+                        <p className="text-center text-xs text-slate-500">Escaneie com o app do banco para pagar na hora</p>
+                        {checkout.pix_qr_code && (
+                          <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} onClick={copyPix}>
+                            {copied ? 'Copiado!' : 'Copiar código PIX'}
+                          </Button>
+                        )}
+                      </div>
                     )}
+
+                    {checkout.payment_url && (
+                      <div className="space-y-2">
+                        <p className="text-center text-xs font-medium text-slate-500">ou pague com cartão</p>
+                        <a href={checkout.payment_url} target="_blank" rel="noreferrer"
+                          className="flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary-600 text-xs font-medium text-white transition-colors hover:bg-primary-700">
+                          <CreditCard size={14} /> Pagar com cartão de crédito
+                          <ExternalLink size={12} className="opacity-70" />
+                        </a>
+                      </div>
+                    )}
+
+                    <Button variant="ghost" size="sm" fullWidth onClick={() => { setCheckout(null); setPolling(false); }}>
+                      Cancelar e escolher outro plano
+                    </Button>
                   </div>
-                )}
+                </PanelCard>
+              )}
 
-                {/* Link de pagamento por cartão */}
-                {checkout.payment_url && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-500 text-center">ou pague com cartão</p>
-                    <a href={checkout.payment_url} target="_blank" rel="noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-black rounded-xl transition-all">
-                      <CreditCard size={15} /> Pagar com cartão de crédito
-                      <ExternalLink size={12} className="opacity-70" />
-                    </a>
-                  </div>
-                )}
-
-                <button onClick={() => { setCheckout(null); setPolling(false); }}
-                  className="w-full text-xs font-bold text-slate-400 hover:text-slate-600 py-1">
-                  Cancelar e escolher outro plano
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Planos disponíveis (oculta quando checkout ativo, pago ou isento) ── */}
-          {!checkout && !paymentDone && !isExempt && plans.length > 0 && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <h2 className="font-black text-slate-800 text-lg">
-                  {isPaid ? 'Trocar de plano' : 'Escolha seu plano'}
-                </h2>
-                {/* Toggle mensal/anual */}
-                <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-                  <button
-                    onClick={() => setPeriod('monthly')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${period === 'monthly' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
-                  >
-                    Mensal
-                  </button>
-                  <button
-                    onClick={() => setPeriod('annual')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${period === 'annual' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
-                  >
-                    Anual <span className="text-emerald-600 font-black">-15%</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
-                {plans.map(plan => {
-                  const isSelected = selectedPlan?.id === plan.id;
-                  const monthlyPrice = period === 'annual' ? plan.price * 0.85 : plan.price;
-                  const isCurrentPlan = status?.plan_id === plan.id && isPaid;
-
-                  return (
-                    <button
-                      key={plan.id}
-                      onClick={() => setSelectedPlan(plan)}
-                      className={`text-left rounded-2xl border-2 p-5 transition-all flex flex-col ${
-                        isSelected
-                          ? 'border-violet-500 bg-violet-50 shadow-lg shadow-violet-500/10'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-black text-slate-900 text-base">{plan.name}</span>
-                        {plan.highlighted && (
-                          <span className="px-2 py-0.5 text-[10px] font-black bg-violet-600 text-white rounded-full uppercase tracking-wider">Popular</span>
-                        )}
-                        {isCurrentPlan && (
-                          <span className="px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-700 rounded-full border border-emerald-200">Atual</span>
-                        )}
-                      </div>
-                      {plan.description && <p className="text-xs text-slate-500 mb-3">{plan.description}</p>}
-
-                      <p className="font-black text-slate-900 text-base sm:text-xl mt-1">{fmtPrice(monthlyPrice)}<span className="text-xs font-bold text-slate-400">/mês</span></p>
-                      {period === 'annual' && (
-                        <p className="text-[11px] text-emerald-600 font-bold mt-0.5">{fmtPrice(plan.price * 12 * 0.85)}/ano</p>
-                      )}
-
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {plan.features?.slice(0, 6).map((f, i) => (
-                          <span key={i} className="flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                            <Check size={9} className="text-emerald-500" /> {f}
-                          </span>
-                        ))}
-                        {(plan.features?.length || 0) > 6 && (
-                          <span className="text-[10px] font-bold text-slate-400 px-2 py-0.5">+{plan.features.length - 6} mais</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-400">
-                        <span>{plan.max_users} usuário{plan.max_users !== 1 ? 's' : ''}</span>
-                        <span>•</span>
-                        <span>{plan.max_patients} pacientes</span>
-                      </div>
-                      {isSelected && (
-                        <div className="mt-3 pt-3 border-t border-violet-200 flex items-center gap-1.5 text-xs font-bold text-violet-700">
-                          <CheckCircle size={13} /> Plano selecionado
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Botão assinar */}
-              {selectedPlan && (
+              {/* ── Planos disponíveis (oculta quando checkout ativo, pago ou isento) ── */}
+              {!checkout && !paymentDone && !isExempt && plans.length > 0 && (
                 <div className="space-y-3">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm">{selectedPlan.name} · {period === 'monthly' ? 'Mensal' : 'Anual'}</p>
-                      <p className="text-xs text-slate-500">
-                        {period === 'annual'
-                          ? `${fmtPrice(selectedPlan.price * 12 * 0.85)} cobrado uma vez (economize 15%)`
-                          : `${fmtPrice(selectedPlan.price)}/mês`}
-                      </p>
-                    </div>
-                    <p className="font-black text-violet-700 text-lg">
-                      {fmtPrice(period === 'annual' ? selectedPlan.price * 0.85 : selectedPlan.price)}
-                      <span className="text-xs font-bold text-slate-400">/mês</span>
-                    </p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-sm font-medium text-slate-900">
+                      {isPaid ? 'Trocar de plano' : 'Escolha seu plano'}
+                    </h2>
+                    <FilterLineSegmented<'monthly' | 'annual'>
+                      value={period}
+                      onChange={setPeriod}
+                      options={[
+                        { value: 'monthly', label: 'Mensal' },
+                        { value: 'annual', label: 'Anual -15%' },
+                      ]}
+                    />
                   </div>
 
-                  {!!status?.mercadopago_available && !!status?.asaas_available && (
-                    <div className="flex gap-2">
-                      <button onClick={() => setProvider('mercadopago')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'mercadopago' ? 'bg-violet-600 text-white border-violet-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                        Mercado Pago
-                      </button>
-                      <button onClick={() => setProvider('asaas')}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${provider === 'asaas' ? 'bg-teal-600 text-white border-teal-500' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                        Asaas
-                      </button>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {plans.map(plan => {
+                      const isSelected = selectedPlan?.id === plan.id;
+                      const monthlyPrice = period === 'annual' ? plan.price * 0.85 : plan.price;
+                      const isCurrentPlan = status?.plan_id === plan.id && isPaid;
 
-                  {provider === 'asaas' && status && !status.document_ok && (
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
-                      <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
-                        <AlertTriangle size={13} /> CPF/CNPJ inválido ou não cadastrado
-                      </p>
-                      <p className="text-[11px] text-amber-700">A Asaas exige um documento válido para gerar a cobrança. Informe o CPF/CNPJ da clínica abaixo:</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={documentInput}
-                          onChange={e => setDocumentInput(applyCpfCnpjMask(e.target.value))}
-                          placeholder="CPF ou CNPJ"
-                          className="flex-1 px-3 py-2 text-sm border border-amber-200 rounded-xl outline-none focus:border-amber-400 font-mono"
-                        />
+                      return (
                         <button
-                          onClick={saveDocument}
-                          disabled={savingDocument || !documentInput.trim()}
-                          className="px-4 py-2 text-xs font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition-all disabled:opacity-50"
+                          key={plan.id}
+                          type="button"
+                          onClick={() => setSelectedPlan(plan)}
+                          className={`flex flex-col rounded-lg border p-3 text-left transition-all ${
+                            isSelected
+                              ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
                         >
-                          {savingDocument ? <Loader2 size={13} className="animate-spin" /> : 'Salvar'}
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-slate-900">{plan.name}</span>
+                            {plan.highlighted && <Badge color="primary" size="sm">Popular</Badge>}
+                            {isCurrentPlan && <Badge color="success" size="sm">Atual</Badge>}
+                          </div>
+                          {plan.description && <p className="mb-2 text-xs text-slate-500">{plan.description}</p>}
+
+                          <p className="mt-1 text-base font-medium text-slate-900">{fmtPrice(monthlyPrice)}<span className="text-xs font-normal text-slate-500">/mês</span></p>
+                          {period === 'annual' && (
+                            <p className="mt-0.5 text-[11px] font-medium text-emerald-600">{fmtPrice(plan.price * 12 * 0.85)}/ano</p>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {plan.features?.slice(0, 6).map((f, i) => (
+                              <span key={i} className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                                <Check size={10} className="text-emerald-500" /> {f}
+                              </span>
+                            ))}
+                            {(plan.features?.length || 0) > 6 && (
+                              <span className="px-2 py-0.5 text-[11px] text-slate-400">+{plan.features.length - 6} mais</span>
+                            )}
+                          </div>
+                          <div className="mt-3 flex items-center gap-3 text-[11px] text-slate-500">
+                            <span>{plan.max_users} usuário{plan.max_users !== 1 ? 's' : ''}</span>
+                            <span>•</span>
+                            <span>{plan.max_patients} pacientes</span>
+                          </div>
+                          {isSelected && (
+                            <div className="mt-3 flex items-center gap-1.5 border-t border-primary-200 pt-3 text-xs font-medium text-primary-700">
+                              <CheckCircle size={14} /> Plano selecionado
+                            </div>
+                          )}
                         </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleCheckout}
-                    disabled={checkoutLoading || (provider === 'asaas' && !status?.document_ok)}
-                    className="w-full py-4 bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white font-black text-sm rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 disabled:opacity-60"
-                  >
-                    {checkoutLoading
-                      ? <><Loader2 size={16} className="animate-spin" /> Gerando cobrança...</>
-                      : <><Zap size={16} /> Assinar agora com PIX ou Cartão <ArrowRight size={15} /></>}
-                  </button>
-
-                  <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400 flex-wrap">
-                    <span className="flex items-center gap-1"><Shield size={10} /> Pagamento seguro via {provider === 'asaas' ? 'Asaas' : 'Mercado Pago'}</span>
-                    <span className="flex items-center gap-1"><CheckCircle size={10} /> PIX instantâneo</span>
-                    <span className="flex items-center gap-1"><CreditCard size={10} /> Cartão aceito</span>
+                      );
+                    })}
                   </div>
+
+                  {/* Botão assinar */}
+                  {selectedPlan && (
+                    <ContentCard className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{selectedPlan.name} · {period === 'monthly' ? 'Mensal' : 'Anual'}</p>
+                          <p className="text-xs text-slate-500">
+                            {period === 'annual'
+                              ? `${fmtPrice(selectedPlan.price * 12 * 0.85)} cobrado uma vez (economize 15%)`
+                              : `${fmtPrice(selectedPlan.price)}/mês`}
+                          </p>
+                        </div>
+                        <p className="text-base font-medium text-primary-700">
+                          {fmtPrice(period === 'annual' ? selectedPlan.price * 0.85 : selectedPlan.price)}
+                          <span className="text-xs font-normal text-slate-500">/mês</span>
+                        </p>
+                      </div>
+
+                      {!!status?.mercadopago_available && !!status?.asaas_available && (
+                        <FilterLineSegmented<'mercadopago' | 'asaas'>
+                          value={provider}
+                          onChange={setProvider}
+                          options={[
+                            { value: 'mercadopago', label: 'Mercado Pago' },
+                            { value: 'asaas', label: 'Asaas' },
+                          ]}
+                        />
+                      )}
+
+                      {provider === 'asaas' && status && !status.document_ok && (
+                        <Alert variant="warning" title="CPF/CNPJ inválido ou não cadastrado">
+                          <p>A Asaas exige um documento válido para gerar a cobrança. Informe o CPF/CNPJ da clínica abaixo:</p>
+                          <div className="mt-2 flex gap-2">
+                            <Input
+                              type="text"
+                              aria-label="CPF ou CNPJ"
+                              value={documentInput}
+                              onChange={e => setDocumentInput(applyCpfCnpjMask(e.target.value))}
+                              placeholder="CPF ou CNPJ"
+                              wrapperClassName="flex-1"
+                              className="font-mono"
+                            />
+                            <Button
+                              variant="primary"
+                              size="md"
+                              onClick={saveDocument}
+                              loading={savingDocument}
+                              disabled={savingDocument || !documentInput.trim()}
+                            >
+                              Salvar
+                            </Button>
+                          </div>
+                        </Alert>
+                      )}
+
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        fullWidth
+                        onClick={handleCheckout}
+                        loading={checkoutLoading}
+                        loadingText="Gerando cobrança..."
+                        disabled={checkoutLoading || (provider === 'asaas' && !status?.document_ok)}
+                        iconLeft={<Zap size={14} />}
+                        iconRight={<ArrowRight size={14} />}
+                      >
+                        Assinar agora com PIX ou Cartão
+                      </Button>
+
+                      <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-500">
+                        <span className="flex items-center gap-1"><Shield size={11} /> Pagamento seguro via {provider === 'asaas' ? 'Asaas' : 'Mercado Pago'}</span>
+                        <span className="flex items-center gap-1"><CheckCircle size={11} /> PIX instantâneo</span>
+                        <span className="flex items-center gap-1"><CreditCard size={11} /> Cartão aceito</span>
+                      </div>
+                    </ContentCard>
+                  )}
                 </div>
               )}
+
+              {/* ── Sem planos cadastrados ── */}
+              {!checkout && !isExempt && plans.length === 0 && (
+                <ContentCard>
+                  <EmptyState icon={Crown} title="Nenhum plano disponível no momento." description="Entre em contato com o suporte para assinar." />
+                </ContentCard>
+              )}
+
+              <p className="text-center text-xs text-slate-500">
+                Dúvidas sobre a assinatura? Entre em contato: <span className="font-medium text-primary-600">suporte@psiflux.com.br</span>
+              </p>
             </div>
           )}
 
-          {/* ── Sem planos cadastrados ── */}
-          {!checkout && !isExempt && plans.length === 0 && (
-            <div className="text-center py-10 text-slate-400 text-sm">
-              <p>Nenhum plano disponível no momento.</p>
-              <p className="text-xs mt-1">Entre em contato com o suporte para assinar.</p>
-            </div>
-          )}
-        </div>
-
-        {/* ── Coluna lateral: Extrato de pagamentos ── */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-              <Receipt size={16} className="text-violet-600" />
-              <p className="font-bold text-slate-800 text-sm">Extrato de pagamentos</p>
-            </div>
-            {invoices.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">Nenhum pagamento registrado ainda.</div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto">
-                {invoices.map(inv => {
-                  const badge = STATUS_BADGE[inv.status];
-                  return (
-                    <div key={inv.id} className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-slate-800 text-sm">{inv.plan_name || 'Plano'}</p>
-                          <p className="text-[11px] text-slate-400">{inv.period === 'annual' ? 'Anual' : 'Mensal'} · {inv.method === 'pix' ? 'Pix' : inv.method === 'card' ? 'Cartão' : '—'}</p>
+          {activeTab === 'extrato' && (
+            <ContentCard padding="none">
+              {invoices.length === 0 ? (
+                <EmptyState icon={Receipt} title="Nenhum pagamento registrado ainda." />
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {invoices.map(inv => {
+                    const badge = STATUS_BADGE[inv.status];
+                    return (
+                      <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-medium text-slate-800">{inv.plan_name || 'Plano'}</p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            {inv.period === 'annual' ? 'Anual' : 'Mensal'} · {inv.method === 'pix' ? 'Pix' : inv.method === 'card' ? 'Cartão' : '—'} · {fmtDateShort(inv.paid_at || inv.created_at)}
+                          </p>
                         </div>
-                        <p className="font-black text-slate-800 text-sm shrink-0">{fmtPrice(Number(inv.amount))}</p>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Badge color={badge.color} size="sm" icon={<badge.Icon size={10} />}>{badge.label}</Badge>
+                          <span className="text-xs font-semibold tabular-nums text-slate-800">{fmtPrice(Number(inv.amount))}</span>
+                          {inv.status === 'approved' && (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              onClick={() => downloadReceipt(inv.id)}
+                              loading={downloadingId === inv.id}
+                              disabled={downloadingId === inv.id}
+                              iconLeft={<Download size={14} />}
+                            >
+                              Comprovante (PDF)
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${badge.cls}`}>
-                          <badge.Icon size={9} /> {badge.label}
-                        </span>
-                        <span className="text-[10px] text-slate-400">{fmtDateShort(inv.paid_at || inv.created_at)}</span>
-                      </div>
-                      {inv.status === 'approved' && (
-                        <button
-                          onClick={() => downloadReceipt(inv.id)}
-                          disabled={downloadingId === inv.id}
-                          className="flex items-center gap-1.5 text-[11px] font-bold text-violet-600 hover:text-violet-800 disabled:opacity-50"
-                        >
-                          {downloadingId === inv.id ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
-                          Baixar comprovante (PDF)
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* ── Dúvidas / suporte ── */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 text-center space-y-1">
-            <p className="text-xs text-slate-400">Dúvidas sobre a assinatura?</p>
-            <p className="text-xs text-slate-500 font-medium">Entre em contato: <span className="text-violet-600">suporte@psiflux.com.br</span></p>
-          </div>
-        </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ContentCard>
+          )}
+        </Tabs>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

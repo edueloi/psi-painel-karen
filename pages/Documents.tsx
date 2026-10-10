@@ -6,25 +6,17 @@ import { Document } from '../types';
 import {
   FileText, FileImage, FileSpreadsheet, File, Download, Trash2,
   Plus, CloudUpload, X, FolderOpen, HardDrive, Clock,
-  Edit3, Check, Settings,
+  Edit3, Check,
   Film, Music, FileCode, AlignLeft, Presentation,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
-import { Modal } from '../components/UI/Modal';
-import { Button } from '../components/UI/Button';
-import { GridTable } from '../components/UI/GridTable';
-import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import {
-  FilterLine,
-  FilterLineSection,
-  FilterLineItem,
-  FilterLineSearch,
-  FilterLineViewToggle,
-} from '../components/UI/FilterLine';
-import { DatePicker } from '../components/UI/DatePicker';
-import { Combobox } from '../components/UI/Combobox';
-import { PageHeader } from '../components/UI/PageHeader';
+  PageWrapper, SectionTitle, StatGrid, StatCard, ContentCard, Button, IconButton, Input, Select, Modal, ModalFooter,
+  ConfirmModal, Badge, Tabs, EmptyState, GridTable,
+  FilterLine, FilterLineSection, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange,
+} from '../components/UI';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { Settings2 } from 'lucide-react';
 
 export const Documents: React.FC = () => {
@@ -202,7 +194,7 @@ export const Documents: React.FC = () => {
     switch(t) {
       case 'pdf': return <FileText className="text-rose-500" size={size} />;
       case 'doc':
-      case 'docx': return <FileText className="text-indigo-500" size={size} />;
+      case 'docx': return <FileText className="text-blue-500" size={size} />;
       case 'sheet':
       case 'xls':
       case 'xlsx':
@@ -226,7 +218,7 @@ export const Documents: React.FC = () => {
     switch(t) {
       case 'pdf': return 'bg-rose-50 border-rose-100';
       case 'doc':
-      case 'docx': return 'bg-indigo-50 border-indigo-100';
+      case 'docx': return 'bg-blue-50 border-blue-100';
       case 'sheet':
       case 'xls':
       case 'xlsx':
@@ -247,244 +239,194 @@ export const Documents: React.FC = () => {
 
   const deleteTarget = documents.find(d => String(d.id) === String(deleteConfirmId));
 
+  const categoryTabs = categories.map(c => ({ id: c, label: c === 'Todos' ? c : c }));
+
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 space-y-6">
-      <PageHeader
-        icon={<FolderOpen />}
-        title={t('documents.title') || 'Biblioteca Digital'}
-        subtitle={t('documents.subtitle') || 'Gestão centralizada de arquivos e modelos'}
-        containerClassName="mb-0"
-        showBackButton
-        onBackClick={() => navigate('/')}
-        actions={
-          <Button variant="primary" size="sm" onClick={() => setIsModalOpen(true)}>
-              <Plus size={16} /> {t('documents.new_file')}
-          </Button>
-        }
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={FolderOpen}
+          title={t('documents.title') || 'Biblioteca Digital'}
+          description={t('documents.subtitle') || 'Gestão centralizada de arquivos e modelos'}
+          action={
+            <>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>Voltar</Button>
+              <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => setIsModalOpen(true)}>
+                {t('documents.new_file')}
+              </Button>
+            </>
+          }
+        />
 
-      {/* STATS BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <HardDrive size={22} />
-              </div>
-              <div className="flex-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('documents.storage')}</p>
-                  <p className="text-xl font-black text-slate-800">{stats.totalSizeMB.toFixed(1)} MB <span className="text-[10px] font-bold text-slate-300">/ 5GB</span></p>
-                  <div className="w-full bg-slate-50 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-100">
-                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000" style={{ width: `${stats.usedPercentage}%` }}></div>
-                  </div>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <FileText size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">{t('documents.total_files')}</p>
-                  <p className="text-xl font-black text-slate-800">{stats.totalFiles}</p>
-              </div>
-          </div>
-          <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-amber-200 transition-all">
-              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-all">
-                  <Clock size={22} />
-              </div>
-              <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">{t('documents.recent')}</p>
-                  <p className="text-xl font-black text-slate-800">{stats.recentCount}</p>
-              </div>
-          </div>
-      </div>
+        <StatGrid cols={3}>
+          <StatCard
+            title={t('documents.storage')}
+            value={`${stats.totalSizeMB.toFixed(1)} MB`}
+            description={`${stats.usedPercentage.toFixed(1)}% de 5GB`}
+            icon={HardDrive}
+          />
+          <StatCard title={t('documents.total_files')} value={stats.totalFiles} icon={FileText} color="success" />
+          <StatCard title={t('documents.recent')} value={stats.recentCount} icon={Clock} color="warning" />
+        </StatGrid>
 
-      {/* FILTER LINE */}
-      <FilterLine>
-        <FilterLineSection grow>
-          <FilterLineItem grow>
-            <FilterLineSearch
-              value={searchTerm}
-              onChange={setSearchTerm}
-              placeholder={t('documents.search') || 'Buscar arquivo...'}
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <Tabs<string>
+              items={categoryTabs}
+              value={activeCategory}
+              onChange={setActiveCategory}
+              label="Categorias de documentos"
             />
-          </FilterLineItem>
-
-          <FilterLineItem className="min-w-[160px]">
-             <Combobox
-                label=""
-                options={categories.map(c => ({ id: c, label: c }))}
-                value={activeCategory}
-                onChange={(val) => setActiveCategory(val)}
-                placeholder="Categoria"
-                icon={<FolderOpen size={14} />}
-                showSelectedBadge={false}
-                showResultCount={false}
-             />
-          </FilterLineItem>
-
-          <button 
-             onClick={() => setIsCategoryModalOpen(true)} 
-             className="shrink-0 p-2.5 bg-white text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 hover:border-indigo-200 shadow-sm"
-             title="Configurar categorias"
+          </div>
+          <IconButton
+            variant="outline"
+            size="sm"
+            aria-label="Configurar categorias"
+            title="Configurar categorias"
+            className="mb-1 shrink-0"
+            onClick={() => setIsCategoryModalOpen(true)}
           >
-             <Settings2 size={18}/>
-          </button>
+            <Settings2 size={14} />
+          </IconButton>
+        </div>
 
-          <div className="h-8 w-px bg-slate-100 hidden xl:block mx-1" />
-
-          <FilterLineItem>
-            <DatePicker
-              value={filterDateFrom || ''}
-              onChange={(v) => setFilterDateFrom(v || null)}
-              placeholder="De"
+        <FilterLine>
+          <FilterLineSection grow>
+            <div className="w-full sm:max-w-[280px]">
+              <FilterLineSearch
+                aria-label="Buscar arquivo"
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder={t('documents.search') || 'Buscar arquivo...'}
+              />
+            </div>
+          </FilterLineSection>
+          <FilterLineSection wrap>
+            <FilterLineDateRange
+              from={filterDateFrom}
+              to={filterDateTo}
+              onFromChange={(v) => setFilterDateFrom(v || null)}
+              onToChange={(v) => setFilterDateTo(v || null)}
             />
-          </FilterLineItem>
-          <FilterLineItem>
-            <DatePicker
-              value={filterDateTo || ''}
-              onChange={(v) => setFilterDateTo(v || null)}
-              placeholder="Até"
-            />
-          </FilterLineItem>
-        </FilterLineSection>
-
-        <FilterLineSection align="right">
-          <FilterLineItem>
             <FilterLineViewToggle
               value={viewMode}
               onChange={handleViewModeToggle as any}
               gridValue="grid"
               listValue="list"
             />
-          </FilterLineItem>
-        </FilterLineSection>
-      </FilterLine>
+          </FilterLineSection>
+        </FilterLine>
 
-      {/* CONTENT AREA */}
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {visibleDocs.map(doc => (
-                <div key={doc.id} className="group bg-white rounded-[2.5rem] p-6 border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col relative overflow-hidden">
-                    {/* Decorative Background - Pointer events none to avoid blocking clicks */}
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/20 rounded-bl-[2.5rem] -mr-6 -mt-6 opacity-0 group-hover:opacity-100 transition-all pointer-events-none"></div>
-
-                    <div className="flex justify-between items-start mb-6">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border shadow-sm transition-all group-hover:scale-110 ${getFileBg(doc.type)}`}>
-                            {getFileIcon(doc.type, 28)}
-                        </div>
-                        <div className="flex gap-1.5">
-                            <button onClick={() => handleDownload(doc)} className="p-2.5 bg-slate-50 hover:bg-emerald-50 rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-100" title="Baixar"><Download size={14}/></button>
-                            <button onClick={() => setDeleteConfirmId(doc.id)} className="p-2.5 bg-slate-50 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-transparent hover:border-rose-100" title="Excluir"><Trash2 size={14}/></button>
-                        </div>
+        {viewMode === 'grid' ? (
+          visibleDocs.length === 0 ? (
+            <ContentCard>
+              <EmptyState icon={FileText} title={t('documents.empty') || 'Nenhum arquivo encontrado'} />
+            </ContentCard>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+              {visibleDocs.map(doc => (
+                <ContentCard key={doc.id} padding="none" className="group hover:border-primary-200 transition-all overflow-hidden flex flex-col h-full">
+                  <div className="p-3 flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 border ${getFileBg(doc.type)}`}>
+                        {getFileIcon(doc.type, 18)}
+                      </div>
+                      <div className="flex gap-1">
+                        <IconButton variant="ghost" size="xs" aria-label="Baixar" title="Baixar" onClick={() => handleDownload(doc)}><Download size={14} /></IconButton>
+                        <IconButton variant="ghost" size="xs" aria-label="Excluir" title="Excluir" className="text-red-500 hover:text-red-600" onClick={() => setDeleteConfirmId(doc.id)}><Trash2 size={14} /></IconButton>
+                      </div>
                     </div>
-
-                    <div className="flex-1 mb-6">
-                        <div className="flex items-center gap-2 mb-2 px-1">
-                            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">{doc.category}</span>
-                            <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{doc.type.toUpperCase()}</span>
-                        </div>
-                        <h3 className="font-black text-slate-800 text-sm leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2" title={doc.title}>
-                            {doc.title}
-                        </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge size="sm" color="primary">{doc.category}</Badge>
+                      <span className="text-[11px] text-slate-500">{doc.type.toUpperCase()}</span>
                     </div>
-
-                    <div className="flex items-center justify-between pt-6 border-t border-slate-50 text-[10px] font-black text-slate-400">
-                        <span className="flex items-center gap-1.5"><HardDrive size={12}/> {doc.size}</span>
-                        <span className="flex items-center gap-1.5"><Clock size={12}/> {new Date(doc.date).toLocaleDateString()}</span>
+                    <h3 className="text-sm font-medium text-slate-900 leading-tight line-clamp-2 break-words" title={doc.title}>
+                      {doc.title}
+                    </h3>
+                  </div>
+                  <div className="px-3 py-2 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span className="flex items-center gap-1.5"><HardDrive size={12} /> {doc.size}</span>
+                    <span className="flex items-center gap-1.5"><Clock size={12} /> {new Date(doc.date).toLocaleDateString()}</span>
+                  </div>
+                </ContentCard>
+              ))}
+            </div>
+          )
+        ) : (
+          <ContentCard padding="none">
+            <GridTable<Document>
+              data={visibleDocs}
+              keyExtractor={(doc) => doc.id}
+              noDesktopCard
+              emptyMessage={t('documents.empty') || 'Nenhum arquivo encontrado'}
+              columns={[
+                {
+                  header: t('documents.col_type') || 'Tipo',
+                  render: (doc) => (
+                    <div className={`w-8 h-8 rounded-md flex items-center justify-center border ${getFileBg(doc.type)}`}>
+                      {getFileIcon(doc.type, 16)}
                     </div>
-                </div>
-            ))}
-
-            {visibleDocs.length === 0 && (
-                <div className="col-span-full py-24 text-center text-slate-300 flex flex-col items-center">
-                    <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center mb-6">
-                        <FileText size={40} className="opacity-20" />
+                  ),
+                },
+                {
+                  header: t('documents.col_filename') || 'Arquivo',
+                  render: (doc) => (
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-slate-800 truncate">{doc.title}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{doc.type}</div>
                     </div>
-                    <p className="font-black text-xs uppercase tracking-[0.2em]">{t('documents.empty')}</p>
-                </div>
-            )}
-        </div>
-      ) : (
-        <GridTable<Document>
-          data={visibleDocs}
-          keyExtractor={(doc) => doc.id}
-          emptyMessage={t('documents.empty') || 'Nenhum arquivo encontrado'}
-          columns={[
-            {
-              header: t('documents.col_type') || 'Tipo',
-              render: (doc) => (
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${getFileBg(doc.type)}`}>
-                  {getFileIcon(doc.type, 16)}
-                </div>
-              ),
-            },
-            {
-              header: t('documents.col_filename') || 'Arquivo',
-              render: (doc) => (
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-slate-800 truncate">{doc.title}</div>
-                  <div className="text-[10px] text-slate-400 uppercase">{doc.type}</div>
-                </div>
-              ),
-            },
-            {
-              header: t('documents.col_category') || 'Categoria',
-              className: 'hidden sm:table-cell',
-              headerClassName: 'hidden sm:table-cell',
-              render: (doc) => (
-                <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full uppercase tracking-wider">{doc.category}</span>
-              ),
-            },
-            {
-              header: t('documents.col_size') || 'Tamanho',
-              className: 'hidden md:table-cell',
-              headerClassName: 'hidden md:table-cell',
-              render: (doc) => <span className="text-xs text-slate-500">{doc.size}</span>,
-            },
-            {
-              header: t('documents.col_date') || 'Data',
-              className: 'hidden lg:table-cell',
-              headerClassName: 'hidden lg:table-cell',
-              render: (doc) => <span className="text-xs text-slate-500">{new Date(doc.date).toLocaleDateString()}</span>,
-            },
-            {
-              header: t('documents.col_actions') || 'Ações',
-              className: 'text-right',
-              headerClassName: 'text-right',
-              render: (doc) => (
-                <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => handleDownload(doc)} className="p-1.5 text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-all" title="Baixar"><Download size={13}/></button>
-                  <button onClick={() => setDeleteConfirmId(doc.id)} className="p-1.5 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg hover:bg-rose-100 transition-all" title="Excluir"><Trash2 size={13}/></button>
-                </div>
-              ),
-            },
-          ]}
-        />
-      )}
+                  ),
+                },
+                {
+                  header: t('documents.col_category') || 'Categoria',
+                  className: 'hidden sm:table-cell',
+                  headerClassName: 'hidden sm:table-cell',
+                  render: (doc) => <Badge size="sm" color="primary">{doc.category}</Badge>,
+                },
+                {
+                  header: t('documents.col_size') || 'Tamanho',
+                  className: 'hidden md:table-cell',
+                  headerClassName: 'hidden md:table-cell',
+                  render: (doc) => <span className="text-xs text-slate-500">{doc.size}</span>,
+                },
+                {
+                  header: t('documents.col_date') || 'Data',
+                  className: 'hidden lg:table-cell',
+                  headerClassName: 'hidden lg:table-cell',
+                  render: (doc) => <span className="text-xs text-slate-500 whitespace-nowrap">{new Date(doc.date).toLocaleDateString()}</span>,
+                },
+                {
+                  header: t('documents.col_actions') || 'Ações',
+                  className: 'text-right',
+                  headerClassName: 'text-right',
+                  render: (doc) => (
+                    <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                      <IconButton variant="ghost" size="sm" aria-label="Baixar" title="Baixar" onClick={() => handleDownload(doc)}><Download size={14} /></IconButton>
+                      <IconButton variant="ghost" size="sm" aria-label="Excluir" title="Excluir" className="text-red-500 hover:text-red-600" onClick={() => setDeleteConfirmId(doc.id)}><Trash2 size={14} /></IconButton>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </ContentCard>
+        )}
+      </div>
 
       {/* MODAL: DELETE CONFIRMATION */}
-      <Modal
+      <ConfirmModal
         isOpen={!!deleteConfirmId}
         onClose={() => setDeleteConfirmId(null)}
-        title={t('documents.delete_title') || 'Excluir Arquivo'}
-        maxWidth="sm"
-        footer={
-          <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(null)}>
-              {t('documents.keep_file') || 'Cancelar'}
-            </Button>
-            <Button variant="danger" size="sm" onClick={handleDelete}>
-              {t('documents.confirm_delete') || 'Excluir'}
-            </Button>
-          </div>
-        }
-      >
-        <p className="text-sm text-slate-600">
-          {deleteTarget
+        onConfirm={handleDelete}
+        variant="danger"
+        title={t('documents.delete_title') || 'Excluir arquivo?'}
+        cancelLabel={t('documents.keep_file') || 'Cancelar'}
+        confirmLabel={t('documents.confirm_delete') || 'Excluir'}
+        message={
+          deleteTarget
             ? `Tem certeza que deseja excluir "${deleteTarget.title}"? Esta ação não pode ser desfeita.`
-            : t('documents.delete_desc')}
-        </p>
-      </Modal>
+            : t('documents.delete_desc')
+        }
+      />
 
       {/* MODAL: UPLOAD */}
       <Modal
@@ -492,18 +434,18 @@ export const Documents: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         title={t('documents.modal_title') || 'Novo Arquivo'}
         subtitle={t('documents.modal_subtitle') || 'Faça upload de um arquivo para a biblioteca'}
-        maxWidth="md"
+        size="md"
         footer={
-          <div className="flex w-full items-center justify-end gap-3">
+          <ModalFooter align="between">
             <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>{t('documents.cancel')}</Button>
             <Button
               variant="primary"
               size="sm"
-              isLoading={isSaving}
+              loading={isSaving}
               loadingText={t('documents.uploading') || 'Enviando...'}
-              disabled={!uploadData.file}
+              disabled={!uploadData.file || isSaving}
               onClick={async () => {
-                if (!uploadData.file) return;
+                if (!uploadData.file || isSaving) return;
                 setIsSaving(true);
                 try {
                   const formData = new FormData();
@@ -525,47 +467,42 @@ export const Documents: React.FC = () => {
             >
               {t('documents.save') || 'Salvar'}
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
-        <div className="space-y-5">
+        <div className="space-y-3">
+          <Input
+            label={t('documents.doc_title_label')}
+            type="text"
+            value={uploadData.title}
+            onChange={e => setUploadData({ ...uploadData, title: e.target.value })}
+            placeholder={t('documents.doc_title_placeholder')}
+          />
+          <Select
+            label={t('documents.category_label')}
+            value={uploadData.category}
+            onChange={e => setUploadData({ ...uploadData, category: e.target.value })}
+          >
+            {categories.filter(c => c !== 'Todos').map(c => <option key={c} value={c}>{c}</option>)}
+          </Select>
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('documents.doc_title_label')}</label>
             <input
-              type="text"
-              className="w-full text-sm font-bold p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all"
-              value={uploadData.title}
-              onChange={e => setUploadData({...uploadData, title: e.target.value})}
-              placeholder={t('documents.doc_title_placeholder')}
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('documents.category_label')}</label>
-            <select
-              className="w-full text-sm font-bold p-3 rounded-xl border border-slate-200 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all appearance-none"
-              value={uploadData.category}
-              onChange={e => setUploadData({...uploadData, category: e.target.value})}
-            >
-              {categories.filter(c => c !== 'Todos').map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <input 
-              type="file" 
-              id="file-upload" 
-              className="hidden" 
+              type="file"
+              id="file-upload"
+              aria-label="Selecionar arquivo"
+              className="hidden"
               accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.txt,.ppt,.pptx,.xml"
-              onChange={e => { const f = e.target.files?.[0]; if(f) setUploadData({...uploadData, file: f, title: uploadData.title || f.name}); }} 
+              onChange={e => { const f = e.target.files?.[0]; if (f) setUploadData({ ...uploadData, file: f, title: uploadData.title || f.name }); }}
             />
             <label
               htmlFor="file-upload"
-              className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-indigo-50/30 hover:border-indigo-200 ${uploadData.file ? 'bg-indigo-50 border-indigo-400' : 'bg-slate-50 border-slate-200'}`}
+              className={`border border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center transition-colors hover:bg-primary-50/40 hover:border-primary-300 ${uploadData.file ? 'bg-primary-50 border-primary-400' : 'bg-slate-50 border-slate-300'}`}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-sm transition-all ${uploadData.file ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-500'}`}>
-                <CloudUpload size={24} />
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 border ${uploadData.file ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-primary-600 border-slate-200'}`}>
+                <CloudUpload size={18} />
               </div>
-              <p className="text-sm font-black text-slate-700 mb-1">{uploadData.file ? uploadData.file.name : t('documents.select_file')}</p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              <p className="text-[13px] font-medium text-slate-800 mb-0.5 break-all">{uploadData.file ? uploadData.file.name : t('documents.select_file')}</p>
+              <p className="text-[11px] text-slate-500">
                 {uploadData.file ? `${(uploadData.file.size / 1024 / 1024).toFixed(2)} MB` : t('documents.file_hint')}
               </p>
             </label>
@@ -578,78 +515,66 @@ export const Documents: React.FC = () => {
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
         title={t('documents.categories') || 'Gerenciar Categorias'}
-        maxWidth="sm"
+        size="sm"
         footer={
-          <div className="flex w-full justify-end">
-            <Button 
-               variant="primary" 
-               radius="xl"
-               size="sm" 
-               onClick={() => setIsCategoryModalOpen(false)}
-            >
-               Concluir
+          <ModalFooter align="right">
+            <Button variant="primary" size="sm" onClick={() => setIsCategoryModalOpen(false)}>
+              Concluir
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
-        <div className="space-y-6">
-          <div className="flex gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 items-center">
-            <input
+        <div className="space-y-3">
+          <div className="flex items-end gap-2">
+            <Input
+              aria-label="Nova categoria"
               type="text"
               placeholder={t('documents.new_category') || 'Ex: Documentos Legais...'}
-              className="flex-1 bg-transparent p-1 outline-none font-bold text-slate-700 text-xs placeholder:text-slate-400"
+              wrapperClassName="flex-1"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
             />
-            <Button 
-                variant="primary" 
-                size="sm" 
-                radius="lg"
-                onClick={handleAddCategory}
-                className="w-10 h-10 p-0"
-            >
-                <Plus size={18} strokeWidth={3} />
-            </Button>
+            <IconButton variant="primary" size="md" aria-label="Adicionar categoria" title="Adicionar categoria" onClick={handleAddCategory}>
+              <Plus size={14} />
+            </IconButton>
           </div>
-          
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2">Categorias Ativas</div>
+
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            <p className="text-xs font-medium text-slate-600">Categorias ativas</p>
             {categories.map((cat, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 group hover:border-indigo-100 transition-all shadow-sm">
+              <div key={idx} className="flex items-center justify-between gap-2 p-2.5 bg-white rounded-lg border border-slate-200">
                 {editingCategoryIndex === idx ? (
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                       <Check size={16} />
-                    </div>
-                    <input
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Input
+                      aria-label="Nome da categoria"
                       type="text"
                       autoFocus
-                      className="flex-1 bg-transparent outline-none text-sm font-black text-indigo-600"
+                      wrapperClassName="flex-1 min-w-0"
                       value={editingCategoryName}
                       onChange={(e) => setEditingCategoryName(e.target.value)}
                     />
-                    <div className="flex items-center gap-1.5">
-                        <button onClick={() => handleEditCategory(idx)} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl" title="Salvar"><Check size={16} strokeWidth={3}/></button>
-                        <button onClick={() => setEditingCategoryIndex(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl" title="Cancelar"><X size={16} strokeWidth={3}/></button>
-                    </div>
+                    <IconButton variant="ghost" size="sm" aria-label="Salvar" title="Salvar" className="text-emerald-600" onClick={() => handleEditCategory(idx)}><Check size={14} /></IconButton>
+                    <IconButton variant="ghost" size="sm" aria-label="Cancelar" title="Cancelar" onClick={() => setEditingCategoryIndex(null)}><X size={14} /></IconButton>
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3">
-                       <div className={`p-2 rounded-lg ${cat === 'Todos' ? 'bg-slate-50 text-slate-300' : 'bg-indigo-50 text-indigo-500'}`}>
-                          <FolderOpen size={16} />
-                       </div>
-                       <span className={`text-xs font-black uppercase tracking-wider ${cat === 'Todos' ? 'text-slate-300' : 'text-slate-700'}`}>{cat}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-7 h-7 rounded-md border flex items-center justify-center shrink-0 ${cat === 'Todos' ? 'bg-slate-50 border-slate-200 text-slate-400' : 'bg-primary-50 border-primary-100 text-primary-600'}`}>
+                        <FolderOpen size={14} />
+                      </div>
+                      <span className={`text-[13px] font-medium truncate ${cat === 'Todos' ? 'text-slate-400' : 'text-slate-800'}`}>{cat}</span>
                     </div>
                     {cat !== 'Todos' && (
-                      <button 
-                        onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }} 
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Renomear ${cat}`}
                         title="Renomear"
+                        onClick={() => { setEditingCategoryIndex(idx); setEditingCategoryName(cat); }}
                       >
-                         <Edit3 size={16} />
-                      </button>
+                        <Edit3 size={14} />
+                      </IconButton>
                     )}
                   </>
                 )}
@@ -658,6 +583,6 @@ export const Documents: React.FC = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </PageWrapper>
   );
 };

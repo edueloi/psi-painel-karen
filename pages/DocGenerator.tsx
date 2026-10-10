@@ -30,8 +30,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { Modal } from '../components/UI/Modal';
 import { Input, Textarea } from '../components/UI/Input';
 import { Combobox } from '../components/UI/Combobox';
-import { PageHeader } from '../components/UI/PageHeader';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
+import { Button, ContentCard, PageWrapper, SectionTitle } from '../components/UI';
 
 type DocCategory = {
   id: string;
@@ -368,7 +368,7 @@ export const DocGenerator: React.FC = () => {
            
            <div style="flex: 1; ${hLogo ? 'border-left: 1px solid #e2e8f0; padding-left: 35px;' : ''} display: flex; flex-direction: column; justify-content: center;">
               <h1 style="margin: 0; font-size: 18pt; font-weight: 900; color: #0f172a; letter-spacing: -0.02em; line-height: 1.1;">${professionalData.name}</h1>
-              <p style="margin: 6px 0; font-size: 10pt; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.15em;">${professionalData.specialty || 'Profissional'} <span style="margin: 0 8px; color: #cbd5e1; font-weight: 300;">|</span> CRP ${professionalData.crp || ''}</p>
+              <p style="margin: 6px 0; font-size: 10pt; font-weight: 700; color: #6366f1; text-transform: ; letter-spacing: 0.15em;">${professionalData.specialty || 'Profissional'} <span style="margin: 0 8px; color: #cbd5e1; font-weight: 300;">|</span> CRP ${professionalData.crp || ''}</p>
               
               <div style="margin-top: 12px; font-size: 8.5pt; color: #64748b; line-height: 1.6; font-weight: 500;">
                 ${professionalData.address ? `<div style="display: flex; align-items: center; gap: 6px;">${professionalData.address}</div>` : ''}
@@ -386,7 +386,7 @@ export const DocGenerator: React.FC = () => {
 
         <div style="margin-top: 60px; display: flex; flex-direction: column; align-items: center; text-align: center; page-break-inside: avoid;">
             <div style="width: 240px; border-top: 1px solid #cbd5e1; margin-bottom: 10px;"></div>
-            <p style="font-weight: 800; margin: 0; font-size: 10pt; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em;">${sName}</p>
+            <p style="font-weight: 800; margin: 0; font-size: 10pt; color: #0f172a; text-transform: ; letter-spacing: 0.05em;">${sName}</p>
             <p style="margin: 0; font-size: 8.5pt; color: #64748b; font-weight: 600;">${selectedArea.toUpperCase()}: ${sCrp}</p>
         </div>
 
@@ -573,58 +573,62 @@ export const DocGenerator: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 lg:p-8">
+    <PageWrapper>
+      <div className="space-y-4">
       {/* TOASTS */}
       <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
         {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-sm border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
             {t.type === 'success' ? <CheckCircle2 size={18}/> : <Info size={18}/>}
-            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+            <span className="text-xs font-semibold">{t.message}</span>
           </div>
         ))}
       </div>
-      <div className="max-w-[1600px] mx-auto px-6 pt-6 mb-6">
-        <PageHeader
-          icon={<FileText />}
+      <SectionTitle
+          icon={FileText}
           title="Emissor de Documentos"
-          subtitle="Laudos, atestados e prontuários profissionais inteligentes."
-          containerClassName="mb-0"
-          actions={
+          description="Laudos, atestados e encaminhamentos profissionais."
+          action={
             <div className="flex items-center gap-2">
-              <button 
+              <Button
                 onClick={() => setIsConfirmSeedModalOpen(true)}
                 disabled={isSeeding}
-                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition-all border border-emerald-100/50 shadow-sm uppercase tracking-tighter"
+                variant="success"
+                size="sm"
+                iconLeft={<Sparkles size={14} />}
               >
-                <Sparkles size={14} /> {isSeeding ? 'IMPORTANDO...' : 'IMPORTAR PADRÕES'}
-              </button>
-              <button 
+                {isSeeding ? 'Importando...' : 'Importar padrões'}
+              </Button>
+              <Button
                 onClick={() => setIsCategoryModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors shadow-sm uppercase tracking-tighter"
+                variant="outline"
+                size="sm"
+                iconLeft={<Settings size={14} />}
               >
-                <Settings size={14} /> CATEGORIAS
-              </button>
-              <button
+                Categorias
+              </Button>
+              <Button
                 onClick={() => openTemplateModal()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-violet-700 transition-all shadow-sm uppercase tracking-tighter"
+                variant="primary"
+                size="sm"
+                iconLeft={<Plus size={14} />}
               >
-                <Plus size={14} /> NOVO TEMPLATE
-              </button>
+                Novo template
+              </Button>
             </div>
           }
         />
-      </div>
 
-      <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
+      <div className="space-y-4">
         {/* Left Panel: Configuration */}
         <div className="space-y-4">
            {/* Section 1: Template Selection */}
-           <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+           <ContentCard className="p-3">
                 <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
                         <History size={16} />
                     </div>
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">1. Configuração de Área</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">1. Configuração de Área</h3>
                 </div>
                 
                 <div className="space-y-4">
@@ -655,30 +659,30 @@ export const DocGenerator: React.FC = () => {
 
                     <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                         {filteredTemplates.length === 0 && (
-                            <div className="p-8 text-center border-2 border-dashed border-slate-100 rounded-3xl">
-                                <p className="text-xs font-bold text-slate-400">Nenhum template encontrado.</p>
+                            <div className="p-8 text-center border-2 border-dashed border-slate-100 rounded-lg">
+                                <p className="text-xs font-semibold text-slate-400">Nenhum template encontrado.</p>
                             </div>
                         )}
                         {filteredTemplates.map(tpl => (
                             <div key={tpl.id} className="group/item relative">
                                 <button
                                     onClick={() => setSelectedTemplateId(tpl.id)}
-                                    className={`w-full text-left p-4 rounded-3xl border transition-all flex items-center justify-between group ${
+                                    className={`w-full text-left p-4 rounded-lg border transition-all flex items-center justify-between group ${
                                         selectedTemplateId === tpl.id 
-                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-100' 
                                         : 'bg-white border-slate-100 hover:border-indigo-300 text-slate-600'
                                     }`}
                                 >
                                     <div className="pr-16">
-                                        <p className="text-xs font-black uppercase tracking-tighter leading-none mb-1">{tpl.title}</p>
-                                        <span className={`text-[10px] font-bold ${selectedTemplateId === tpl.id ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                        <p className="text-xs font-semibold leading-none mb-1">{tpl.title}</p>
+                                        <span className={`text-[11px] font-semibold ${selectedTemplateId === tpl.id ? 'text-indigo-100' : 'text-slate-400'}`}>
                                             {tpl.doc_type || 'Geral'}
                                         </span>
                                     </div>
                                     <ChevronRight size={16} className={selectedTemplateId === tpl.id ? 'text-white' : 'text-slate-300 group-hover:text-indigo-500'} />
                                 </button>
                                 
-                                <div className="absolute right-10 top-1/2 -translate-y-1/2 flex gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity bg-inherit rounded-xl p-1">
+                                <div className="absolute right-10 top-1/2 -translate-y-1/2 flex gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity bg-inherit rounded-lg p-1">
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); openTemplateModal(tpl); }}
                                         className={`p-2 rounded-lg transition-colors ${selectedTemplateId === tpl.id ? 'hover:bg-indigo-500 text-indigo-100' : 'hover:bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
@@ -698,15 +702,15 @@ export const DocGenerator: React.FC = () => {
                         ))}
                     </div>
                 </div>
-           </div>
+           </ContentCard>
 
            {/* Section 2: Document Data */}
-           <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+           <ContentCard className="p-3">
                 <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
                         <User size={16} />
                     </div>
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">2. Dados do Documento</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">2. Dados do Documento</h3>
                 </div>
 
                 <div className="space-y-5">
@@ -792,7 +796,7 @@ export const DocGenerator: React.FC = () => {
                     )}
 
                     <div className="pt-4 border-t border-slate-50 mt-4 space-y-3">
-                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">IDENTIDADE PROFISSIONAL</h4>
+                        <h4 className="text-[11px] font-semibold text-slate-400 px-1">IDENTIDADE PROFISSIONAL</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <Input 
                               label="Nome do Profissional"
@@ -809,16 +813,16 @@ export const DocGenerator: React.FC = () => {
                         </div>
                     </div>
                 </div>
-           </div>
+           </ContentCard>
 
            {/* Section 3: Visual Identity */}
-           <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-sm">
+           <ContentCard className="p-3">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
                             <ImageIcon size={16} />
                         </div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter">3. Papel Timbrado</h3>
+                        <h3 className="text-sm font-semibold text-slate-800">3. Papel Timbrado</h3>
                     </div>
                 </div>
 
@@ -827,13 +831,13 @@ export const DocGenerator: React.FC = () => {
                       className="group cursor-pointer"
                       onClick={() => headerInputRef.current?.click()}
                     >
-                        <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center group-hover:bg-indigo-50/50 group-hover:border-indigo-200 transition-all overflow-hidden p-2">
+                        <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center group-hover:bg-indigo-50/50 group-hover:border-indigo-200 transition-all overflow-hidden p-2">
                              {logoUrl ? (
                                  <img src={logoUrl} className="max-h-full object-contain" />
                              ) : (
                                  <>
                                     <UploadCloud size={20} className="text-slate-300 group-hover:text-indigo-500 mb-1" />
-                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-indigo-600">CABEÇALHO</span>
+                                    <span className="text-[11px] font-semibold text-slate-400 group-hover:text-indigo-600">CABEÇALHO</span>
                                  </>
                              )}
                         </div>
@@ -844,13 +848,13 @@ export const DocGenerator: React.FC = () => {
                       className="group cursor-pointer"
                       onClick={() => footerInputRef.current?.click()}
                     >
-                        <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center group-hover:bg-indigo-50/50 group-hover:border-indigo-200 transition-all overflow-hidden p-2">
+                        <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center group-hover:bg-indigo-50/50 group-hover:border-indigo-200 transition-all overflow-hidden p-2">
                              {footerLogoUrl ? (
                                  <img src={footerLogoUrl} className="max-h-full object-contain" />
                              ) : (
                                  <>
                                     <UploadCloud size={20} className="text-slate-300 group-hover:text-indigo-500 mb-1" />
-                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-indigo-600">RODAPÉ</span>
+                                    <span className="text-[11px] font-semibold text-slate-400 group-hover:text-indigo-600">RODAPÉ</span>
                                  </>
                              )}
                         </div>
@@ -858,11 +862,11 @@ export const DocGenerator: React.FC = () => {
                     </div>
                 </div>
                 {uploadingTarget && (
-                    <div className="flex items-center gap-2 mt-4 text-[11px] font-bold text-indigo-600">
+                    <div className="flex items-center gap-2 mt-4 text-[11px] font-semibold text-indigo-600">
                         <Loader2 className="animate-spin" size={14} /> Enviando imagem...
                     </div>
                 )}
-           </div>
+           </ContentCard>
 
            <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 pb-10">
                 <button 
@@ -871,7 +875,7 @@ export const DocGenerator: React.FC = () => {
                       setIsPreviewModalOpen(true);
                   }}
                   disabled={!selectedTemplateId || isRendering}
-                  className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-4 bg-slate-900 text-white rounded-[1.5rem] text-sm font-black shadow-xl hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
+                  className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-4 bg-slate-900 text-white rounded-[1.5rem] text-sm font-semibold shadow-sm hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
                 >
                     {isRendering ? <Loader2 className="animate-spin" size={20} /> : <FileText size={20} />}
                     VISUALIZAR DOCUMENTO
@@ -880,7 +884,7 @@ export const DocGenerator: React.FC = () => {
                 <button 
                   onClick={handleGeneratePdf}
                   disabled={!previewHtml || !selectedTemplateId || isRendering}
-                  className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-4 bg-emerald-500 text-white rounded-[1.5rem] text-sm font-black shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
+                  className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-4 bg-emerald-500 text-white rounded-[1.5rem] text-sm font-semibold shadow-sm hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
                 >
                     <Printer size={20} /> IMPRIMIR AGORA
                 </button>
@@ -896,30 +900,30 @@ export const DocGenerator: React.FC = () => {
       >
           <div className="bg-slate-900 rounded-[2rem] p-4 md:p-10 flex flex-col items-center min-h-[80vh] overflow-y-auto no-scrollbar relative">
                 {/* Print Control Bar */}
-                <div className="w-full max-w-[210mm] bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl p-4 mb-8 flex items-center justify-between relative z-20">
+                <div className="w-full max-w-[210mm] bg-white/10 backdrop-blur-xl border border-white/10 rounded-lg p-4 mb-8 flex items-center justify-between relative z-20">
                     <div className="flex items-center gap-4 px-2">
                          <div className={`w-3 h-3 rounded-full ${previewHtml ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></div>
-                         <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none">
+                         <p className="text-[11px] font-semibold text-white leading-none">
                             {isRendering ? 'Renderizando...' : previewHtml ? 'Preview Digital' : 'Erro na Renderização'}
                          </p>
                     </div>
                     <button 
                        onClick={handleGeneratePdf}
-                       className="flex items-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-[11px] font-black shadow-lg shadow-emerald-500/20 transition-all"
+                       className="flex items-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-[11px] font-semibold shadow-sm transition-all"
                     >
                        <Printer size={16} /> IMPRIMIR AGORA
                     </button>
                 </div>
 
                 {/* A4 Simulator */}
-                <div className="w-full max-w-[210mm] bg-white shadow-2xl relative z-10 origin-top transform-gpu transition-all">
+                <div className="w-full max-w-[210mm] bg-white shadow-sm relative z-10 origin-top transform-gpu transition-all">
                     <div className="w-full overflow-hidden bg-white">
                         {previewHtml ? (
                             <div className="w-full h-full preview-content" dangerouslySetInnerHTML={{ __html: previewHtml }}></div>
                         ) : (
                             <div className="p-20 text-center">
                                 <FileText size={64} className="mx-auto text-slate-200 mb-4" />
-                                <h4 className="text-sm sm:text-base font-bold text-slate-800">Documento Vazio</h4>
+                                <h4 className="text-sm sm:text-base font-semibold text-slate-800">Documento Vazio</h4>
                             </div>
                         )}
                     </div>
@@ -927,7 +931,7 @@ export const DocGenerator: React.FC = () => {
                 
                 <button 
                   onClick={() => setIsPreviewModalOpen(false)}
-                  className="mt-8 px-8 py-3 bg-white/10 text-white rounded-xl text-[10px] font-black hover:bg-white/20 transition-all"
+                  className="mt-8 px-8 py-3 bg-white/10 text-white rounded-lg text-[11px] font-semibold hover:bg-white/20 transition-all"
                 >
                    FECHAR VISUALIZAÇÃO
                 </button>
@@ -953,15 +957,15 @@ export const DocGenerator: React.FC = () => {
               />
               <button 
                 onClick={handleAddCategory}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-2xl text-[11px] font-black hover:bg-indigo-700 transition-all self-end mb-1"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-[11px] font-semibold hover:bg-indigo-700 transition-all self-end mb-1"
               >
                 ADC.
               </button>
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
               {categories.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-xs font-bold text-slate-700">{c.name}</span>
+                <div key={c.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-xs font-semibold text-slate-700">{c.name}</span>
                   <button 
                     onClick={async () => {
                       if (window.confirm('Deseja excluir esta categoria?')) {
@@ -991,7 +995,7 @@ export const DocGenerator: React.FC = () => {
             <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <Sparkles size={32} />
             </div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 mb-2">Deseja importar os modelos padrão?</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">Deseja importar os modelos padrão?</h3>
             <p className="text-sm text-slate-500 mb-8">
               Isso adicionará modelos de Atestado, Declaração, Recibo e Relatórios pré-configurados. Seus modelos atuais não serão alterados.
             </p>
@@ -999,13 +1003,13 @@ export const DocGenerator: React.FC = () => {
             <div className="flex justify-center gap-3">
               <button 
                 onClick={() => setIsConfirmSeedModalOpen(false)}
-                className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+                className="px-6 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors"
               >
                 CANCELAR
               </button>
               <button 
                 onClick={handleSeedDefaults}
-                className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl shadow-xl shadow-emerald-600/20 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95"
+                className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg shadow-sm transition-all font-semibold text-[11px] transform active:scale-95"
               >
                 SIM, IMPORTAR
               </button>
@@ -1056,7 +1060,7 @@ export const DocGenerator: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Corpo do Template (Tags Dinâmicas)</label>
+              <label className="text-[11px] font-semibold text-slate-400 px-1">Corpo do Template (Tags Dinâmicas)</label>
               <RichTextEditor
                 value={templateBody}
                 onChange={setTemplateBody}
@@ -1065,8 +1069,8 @@ export const DocGenerator: React.FC = () => {
               />
             </div>
 
-            <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50">
-              <h4 className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4">
+            <div className="p-5 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
+              <h4 className="flex items-center gap-2 text-[11px] font-semibold text-indigo-600 mb-4">
                 <CheckCircle2 size={14} /> Assinatura do Template
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1086,13 +1090,13 @@ export const DocGenerator: React.FC = () => {
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
               <button 
                 onClick={() => setIsTemplateModalOpen(false)}
-                className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+                className="px-6 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors"
               >
                 DESCARTAR
               </button>
               <button 
                 onClick={saveTemplate}
-                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95 flex items-center gap-2"
+                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg shadow-sm transition-all font-semibold text-[11px] transform active:scale-95 flex items-center gap-2"
               >
                 <Save size={18}/> SALVAR TEMPLATE
               </button>
@@ -1112,22 +1116,22 @@ export const DocGenerator: React.FC = () => {
             <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 size={32} />
             </div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 mb-2">Deseja excluir este modelo?</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">Deseja excluir este modelo?</h3>
             <p className="text-sm text-slate-500 mb-8">
-              Você está prestes a excluir o modelo <span className="font-bold text-slate-700">"{templateToDelete.title}"</span>. 
+              Você está prestes a excluir o modelo <span className="font-semibold text-slate-700">"{templateToDelete.title}"</span>. 
               Esta ação não pode ser desfeita.
             </p>
             
             <div className="flex justify-center gap-3">
               <button 
                 onClick={() => setTemplateToDelete(null)}
-                className="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+                className="px-6 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors"
               >
                 CANCELAR
               </button>
               <button 
                 onClick={handleDeleteTemplate}
-                className="px-8 py-3 bg-rose-500 text-white rounded-2xl shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all font-black text-[11px] uppercase tracking-widest transform active:scale-95"
+                className="px-8 py-3 bg-rose-500 text-white rounded-lg shadow-sm hover:bg-rose-600 transition-all font-semibold text-[11px] transform active:scale-95"
               >
                 SIM, EXCLUIR
               </button>
@@ -1135,6 +1139,7 @@ export const DocGenerator: React.FC = () => {
           </div>
         </Modal>
       )}
-    </div>
+      </div>
+    </PageWrapper>
   );
 };

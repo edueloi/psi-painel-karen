@@ -266,7 +266,7 @@ export const Help: React.FC = () => {
               value={searchTerm}
               onChange={e => { setSearchTerm(e.target.value); setActiveTab('faq'); }}
               placeholder="Buscar nas perguntas frequentes..."
-              className="w-full py-4 pl-12 pr-5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-300/30 transition-all"
+              className="w-full py-4 pl-12 pr-5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-300/30 transition-all"
             />
             {searchTerm && (
               <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -279,7 +279,7 @@ export const Help: React.FC = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-6">
-          <div className="flex gap-2 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
+          <div className="flex gap-2 bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
             {[
               { id: 'faq',     label: 'Perguntas Frequentes', icon: <HelpCircle size={14} /> },
               { id: 'guides',  label: 'Guias e Tutoriais',    icon: <BookOpen size={14} /> },
@@ -288,9 +288,9 @@ export const Help: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${
                   activeTab === tab.id
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
                     : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
                 }`}
               >
@@ -307,7 +307,7 @@ export const Help: React.FC = () => {
                     <button
                       key={cat.id}
                       onClick={() => { setActiveCategory(cat.id); setOpenFaq(null); }}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border transition-all ${
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all ${
                         activeCategory === cat.id
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                           : `${cat.color} hover:opacity-80`
@@ -321,14 +321,14 @@ export const Help: React.FC = () => {
 
               {searchTerm && (
                 <p className="text-sm text-slate-500 px-1">
-                  {displayedFaqs.length} resultado(s) para <span className="font-bold text-indigo-600">"{searchTerm}"</span>
+                  {displayedFaqs.length} resultado(s) para <span className="font-semibold text-indigo-600">"{searchTerm}"</span>
                 </p>
               )}
 
               {displayedFaqs.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
+                <div className="text-center py-16 bg-white rounded-lg border border-slate-100">
                   <HelpCircle size={32} className="text-slate-300 mx-auto mb-3" />
-                  <p className="font-bold text-slate-500">Nenhum resultado encontrado</p>
+                  <p className="font-semibold text-slate-500">Nenhum resultado encontrado</p>
                   <p className="text-sm text-slate-400 mt-1">Tente outros termos ou pergunte à Bia →</p>
                 </div>
               ) : (
@@ -336,15 +336,15 @@ export const Help: React.FC = () => {
                   {displayedFaqs.map((faq, idx) => (
                     <div
                       key={idx}
-                      className={`bg-white border rounded-2xl overflow-hidden transition-all duration-300 ${
-                        openFaq === idx ? 'border-indigo-200 shadow-md shadow-indigo-50' : 'border-slate-100 hover:border-slate-200'
+                      className={`bg-white border rounded-lg overflow-hidden transition-all duration-300 ${
+                        openFaq === idx ? 'border-indigo-200 shadow-sm shadow-indigo-50' : 'border-slate-100 hover:border-slate-200'
                       }`}
                     >
                       <button
                         onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
                         className="w-full flex items-center justify-between px-5 py-4 text-left"
                       >
-                        <span className={`font-bold text-sm leading-relaxed ${openFaq === idx ? 'text-indigo-700' : 'text-slate-700'}`}>
+                        <span className={`font-semibold text-sm leading-relaxed ${openFaq === idx ? 'text-indigo-700' : 'text-slate-700'}`}>
                           {faq.q}
                         </span>
                         <ChevronDown
@@ -373,19 +373,19 @@ export const Help: React.FC = () => {
                         const content = GUIDES_CONTENT[g.title];
                         setSelectedGuide({ ...g, steps: content?.steps || [], themeColor: content?.themeColor || 'indigo' });
                     }}
-                    className="group bg-white border border-slate-100 rounded-2xl p-5 hover:border-indigo-200 hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer"
+                    className="group bg-white border border-slate-100 rounded-lg p-5 hover:border-indigo-200 hover:shadow-sm hover:-translate-y-0.5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${g.color}`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${g.color}`}>
                         <g.Icon size={18} />
                       </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TAG_COLORS[g.tag]}`}>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${TAG_COLORS[g.tag]}`}>
                         {g.tag}
                       </span>
                     </div>
-                    <h4 className="font-bold text-slate-800 mb-1">{g.title}</h4>
+                    <h4 className="font-semibold text-slate-800 mb-1">{g.title}</h4>
                     <p className="text-xs text-slate-500">{g.desc}</p>
-                    <div className="flex items-center gap-1 mt-3 text-xs font-bold text-indigo-500 group-hover:text-indigo-700 transition-colors">
+                    <div className="flex items-center gap-1 mt-3 text-xs font-semibold text-indigo-500 group-hover:text-indigo-700 transition-colors">
                       <span>Ver guia</span> <ChevronRight size={12} />
                     </div>
                   </div>
@@ -402,26 +402,26 @@ export const Help: React.FC = () => {
                   { icon: <Mail size={20} />, color: 'bg-indigo-50 text-indigo-600', label: 'E-mail', desc: 'suporte@psiflux.com', badge: '<2h' },
                   { icon: <Phone size={20} />, color: 'bg-sky-50 text-sky-600', label: 'Telefone', desc: 'Seg–Sex, 9h–18h', badge: 'Direto' },
                 ].map((ch, i) => (
-                  <div key={i} className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col items-center text-center gap-2 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${ch.color} group-hover:scale-110 transition-transform`}>
+                  <div key={i} className="bg-white border border-slate-100 rounded-lg p-4 flex flex-col items-center text-center gap-2 hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer group">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${ch.color} group-hover:scale-110 transition-transform`}>
                       {ch.icon}
                     </div>
-                    <p className="font-bold text-slate-800 text-sm">{ch.label}</p>
+                    <p className="font-semibold text-slate-800 text-sm">{ch.label}</p>
                     <p className="text-xs text-slate-500">{ch.desc}</p>
-                    <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{ch.badge}</span>
+                    <span className="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{ch.badge}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <div className="bg-white rounded-lg border border-slate-100 p-6 shadow-sm">
+                <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <Mail size={18} className="text-indigo-500" /> Enviar Mensagem
                 </h3>
                 <form className="space-y-4" onSubmit={e => { e.preventDefault(); }}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Assunto</label>
-                      <select className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
+                      <label className="text-xs font-semibold text-slate-500 block mb-1">Assunto</label>
+                      <select className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
                         <option>Dúvida sobre Funcionalidade</option>
                         <option>Problema Técnico</option>
                         <option>Sugestão de Melhoria</option>
@@ -430,8 +430,8 @@ export const Help: React.FC = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Prioridade</label>
-                      <select className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
+                      <label className="text-xs font-semibold text-slate-500 block mb-1">Prioridade</label>
+                      <select className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
                         <option>Normal</option>
                         <option>Alta — Sistema fora do ar</option>
                         <option>Baixa — Dúvida geral</option>
@@ -439,13 +439,13 @@ export const Help: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Mensagem</label>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">Mensagem</label>
                     <textarea
-                      className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 resize-none h-32"
+                      className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 resize-none h-32"
                       placeholder="Descreva com detalhes como podemos ajudar..."
                     />
                   </div>
-                  <Button variant="primary" radius="xl" className="w-full shadow-md shadow-indigo-100">
+                  <Button variant="primary" radius="xl" className="w-full shadow-sm shadow-indigo-100">
                     Enviar Mensagem
                   </Button>
                 </form>
@@ -457,12 +457,12 @@ export const Help: React.FC = () => {
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col" style={{ height: 520 }}>
             <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 flex items-center gap-3 shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
                 <Sparkles size={17} className="text-white" />
               </div>
               <div>
-                <p className="font-bold text-white text-sm">Bia</p>
-                <p className="text-[10px] text-indigo-200">Assistente inteligente · Online agora</p>
+                <p className="font-semibold text-white text-sm">Bia</p>
+                <p className="text-[11px] text-indigo-200">Assistente inteligente · Online agora</p>
               </div>
               <div className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]" />
             </div>
@@ -476,7 +476,7 @@ export const Help: React.FC = () => {
                     </div>
                   )}
                   <div
-                    className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                    className={`max-w-[78%] px-4 py-2.5 rounded-lg text-sm leading-relaxed whitespace-pre-wrap ${
                       msg.role === 'user'
                         ? 'bg-indigo-600 text-white rounded-br-sm'
                         : 'bg-white border border-slate-200 text-slate-700 rounded-bl-sm shadow-sm'
@@ -491,7 +491,7 @@ export const Help: React.FC = () => {
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
                     <Bot size={13} className="text-white" />
                   </div>
-                  <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
+                  <div className="bg-white border border-slate-200 rounded-lg rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:0ms]" />
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:150ms]" />
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:300ms]" />
@@ -507,7 +507,7 @@ export const Help: React.FC = () => {
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}
-                    className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-100"
+                    className="text-[11px] font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-100"
                   >
                     {s}
                   </button>
@@ -525,12 +525,12 @@ export const Help: React.FC = () => {
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder="Pergunte à Bia..."
                   disabled={isChatLoading}
-                  className="flex-1 text-sm px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 disabled:opacity-60"
+                  className="flex-1 text-sm px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 disabled:opacity-60"
                 />
                 <button
                   onClick={() => sendMessage()}
                   disabled={!chatInput.trim() || isChatLoading}
-                  className="w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                  className="w-9 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
                 >
                   {isChatLoading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
                 </button>
@@ -539,7 +539,7 @@ export const Help: React.FC = () => {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-[24px] p-5 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-sm">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2 text-sm">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Status do Sistema
             </h3>
@@ -556,7 +556,7 @@ export const Help: React.FC = () => {
                   <span className="flex items-center gap-2 text-xs font-medium text-slate-600">
                     <CheckCircle size={13} className="text-emerald-500" /> {s.label}
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.ok ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${s.ok ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                     {s.ok ? 'Operacional' : 'Falha'}
                   </span>
                 </div>
@@ -564,7 +564,7 @@ export const Help: React.FC = () => {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
               <span>Última verificação: agora</span>
-              <a href="#" className="text-indigo-500 font-bold flex items-center gap-0.5 hover:underline">
+              <a href="#" className="text-indigo-500 font-semibold flex items-center gap-0.5 hover:underline">
                 Ver histórico <ExternalLink size={10} />
               </a>
             </div>
@@ -579,18 +579,18 @@ export const Help: React.FC = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6 py-2">
-            <div className={`p-4 rounded-2xl flex items-center gap-4 bg-${selectedGuide?.themeColor || 'indigo'}-50 border border-${selectedGuide?.themeColor || 'indigo'}-100`}>
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-sm text-${selectedGuide?.themeColor || 'indigo'}-600`}>
+            <div className={`p-4 rounded-lg flex items-center gap-4 bg-${selectedGuide?.themeColor || 'indigo'}-50 border border-${selectedGuide?.themeColor || 'indigo'}-100`}>
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center bg-white shadow-sm text-${selectedGuide?.themeColor || 'indigo'}-600`}>
                     {selectedGuide && <selectedGuide.Icon size={20} />}
                 </div>
                 <div>
-                    <h3 className="font-bold text-slate-800">{selectedGuide?.title}</h3>
+                    <h3 className="font-semibold text-slate-800">{selectedGuide?.title}</h3>
                     <p className="text-xs text-slate-500">{selectedGuide?.desc}</p>
                 </div>
             </div>
 
             <div className="space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <h4 className="text-xs font-semibold text-slate-400 flex items-center gap-2">
                     <Zap size={14} className="text-amber-500" /> Passo a Passo
                 </h4>
                 
@@ -598,13 +598,13 @@ export const Help: React.FC = () => {
                     {selectedGuide?.steps?.map((step: any, idx: number) => (
                         <div key={idx} className="flex gap-4 group">
                             <div className="flex flex-col items-center">
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${selectedGuide?.themeColor === 'indigo' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-500 group-hover:border-indigo-400'}`}>
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold border-2 transition-colors ${selectedGuide?.themeColor === 'indigo' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-500 group-hover:border-indigo-400'}`}>
                                     {idx + 1}
                                 </div>
                                 {idx < selectedGuide?.steps.length - 1 && <div className="w-0.5 flex-1 bg-slate-100 my-1 group-hover:bg-indigo-100 transition-colors" />}
                             </div>
                             <div className="pb-4">
-                                <p className="text-sm font-bold text-slate-800 leading-tight mb-1">{step.t}</p>
+                                <p className="text-sm font-semibold text-slate-800 leading-tight mb-1">{step.t}</p>
                                 <p className="text-xs text-slate-500 leading-relaxed">{step.d}</p>
                             </div>
                         </div>
@@ -612,7 +612,7 @@ export const Help: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3 mt-4">
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex items-start gap-3 mt-4">
                 <AlertCircle size={16} className="text-indigo-500 mt-0.5" />
                 <p className="text-[11px] text-slate-500 leading-relaxed">
                     Dica: Você também pode pedir para a <b>Bia</b> te mostrar como realizar essas funções na prática. Basta perguntar a ela no chat ao lado!

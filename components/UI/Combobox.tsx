@@ -205,8 +205,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
     .filter(Boolean);
 
   const sizeClasses = {
-    sm: "text-xs px-3 py-2 min-h-[38px]",
-    md: "text-sm px-3 py-2.5 min-h-[42px]",
+    sm: "text-xs px-2.5 py-1.5 min-h-[34px]",
+    md: "text-[13px] px-2.5 py-2 min-h-[36px]",
   };
 
   /* ── Group header icon colours ── */
@@ -235,11 +235,11 @@ export const Combobox: React.FC<ComboboxProps> = ({
           handleKeyDown(e);
         }}
         className={cn(
-          "w-full flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 text-left transition-all cursor-pointer select-none",
-          "focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400",
+          "w-full flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white text-left transition-all cursor-pointer select-none",
+          "focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-400",
           disabled && "opacity-50 cursor-not-allowed",
           sizeClasses[size],
-          open && "ring-2 ring-amber-400/40 border-amber-400"
+          open && "ring-2 ring-primary-400/40 border-primary-400"
         )}
       >
         {icon && <span className="shrink-0 flex items-center">{icon}</span>}
@@ -250,7 +250,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
             selectedLabels.map((label, i) => (
               <span
                 key={selectedValues[i]}
-                className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-md px-1.5 py-0.5 text-[10px] font-medium max-w-full"
+                className="inline-flex items-center gap-1 bg-primary-50 text-primary-800 border border-primary-200 rounded-md px-1.5 py-0.5 text-[10px] font-medium max-w-full"
               >
                 <span className="truncate max-w-[120px]">{label}</span>
                 <button
@@ -267,7 +267,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
               className={cn(
                 "truncate text-zinc-900 font-semibold text-xs",
                 showSelectedBadge &&
-                  "inline-flex max-w-full items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
+                  "inline-flex max-w-full items-center rounded-md border border-primary-200 bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-800"
               )}
             >
               {selectedLabels[0]}
@@ -299,7 +299,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
           ref={dropdownRef}
           style={dropdownStyle}
           className={cn(
-            "bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden",
+            "bg-white border border-zinc-200 rounded-lg shadow-lg overflow-hidden",
             openUpward ? "flex flex-col-reverse" : "flex flex-col"
           )}
         >
@@ -359,7 +359,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
                             GROUP_DOT[group] ?? "bg-zinc-400"
                           )} />
                           <span className={cn(
-                            "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border",
+                            "text-[10px] font-medium px-1.5 py-0.5 rounded-md border",
                             GROUP_STYLES[group] ?? "text-zinc-500 bg-zinc-50 border-zinc-200"
                           )}>
                             {group}
@@ -378,13 +378,13 @@ export const Combobox: React.FC<ComboboxProps> = ({
                             onClick={() => handleSelect(opt.value)}
                             className={cn(
                               "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
-                              "hover:bg-amber-50",
-                              isSelected && "bg-amber-50/60"
+                              "hover:bg-primary-50",
+                              isSelected && "bg-primary-50/60"
                             )}
                           >
                             <div className={cn(
                               "w-4 h-4 rounded-[4px] border flex items-center justify-center shrink-0 transition-all",
-                              isSelected ? "bg-amber-500 border-amber-500" : "border-zinc-300"
+                              isSelected ? "bg-primary-500 border-primary-500" : "border-zinc-300"
                             )}>
                               {isSelected && <Check size={10} className="text-white" />}
                             </div>
@@ -396,7 +396,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
                             </div>
                             {opt.badge && (
                               <span className={cn(
-                                "text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0",
+                                "text-[10px] font-medium px-1.5 py-0.5 rounded-md border shrink-0",
                                 opt.badgeColor ?? "bg-zinc-50 text-zinc-500 border-zinc-200"
                               )}>
                                 {opt.badge}
@@ -418,13 +418,13 @@ export const Combobox: React.FC<ComboboxProps> = ({
                         onClick={() => handleSelect(opt.value)}
                         className={cn(
                           "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors",
-                          "hover:bg-amber-50",
-                          isSelected && "bg-amber-50/60"
+                          "hover:bg-primary-50",
+                          isSelected && "bg-primary-50/60"
                         )}
                       >
                         <div className={cn(
                           "w-4 h-4 rounded-[4px] border flex items-center justify-center shrink-0 transition-all",
-                          isSelected ? "bg-amber-500 border-amber-500" : "border-zinc-300"
+                          isSelected ? "bg-primary-500 border-primary-500" : "border-zinc-300"
                         )}>
                           {isSelected && <Check size={10} className="text-white" />}
                         </div>
@@ -436,7 +436,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
                         </div>
                         {opt.badge && (
                           <span className={cn(
-                            "text-[9px] font-black px-1.5 py-0.5 rounded-md border shrink-0",
+                            "text-[10px] font-medium px-1.5 py-0.5 rounded-md border shrink-0",
                             opt.badgeColor ?? "bg-zinc-50 text-zinc-500 border-zinc-200"
                           )}>
                             {opt.badge}
@@ -451,12 +451,12 @@ export const Combobox: React.FC<ComboboxProps> = ({
                   <button
                     type="button"
                     onClick={handleCustomAdd}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-50 border-t border-zinc-100"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-primary-50 border-t border-zinc-100"
                   >
-                    <div className="w-4 h-4 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
-                      <Plus size={9} className="text-amber-600" />
+                    <div className="w-4 h-4 rounded-full bg-primary-100 border border-primary-300 flex items-center justify-center shrink-0">
+                      <Plus size={9} className="text-primary-600" />
                     </div>
-                    <span className="text-xs text-amber-700 font-medium">
+                    <span className="text-xs text-primary-700 font-medium">
                       Adicionar "{search.trim()}"
                     </span>
                   </button>

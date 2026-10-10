@@ -59,12 +59,12 @@ const SNAPIV_ITEMS = [
   { id: 11, text: "Frequentemente abandona a cadeira em sala de aula ou em outras situações nas quais se espera que fique sentado.", subscale: "H" },
   { id: 12, text: "Frequentemente corre ou sobe em coisas de forma excessiva em situações nas quais isso é inadequado.", subscale: "H" },
   { id: 13, text: "Frequentemente tem dificuldade para brincar ou participar de atividades de lazer em silêncio.", subscale: "H" },
-  { id: 14, text: "Frequentemente está 'a mil' ou age como se tivesse com um motor ligado.", subscale: "H" },
+  { id: 14, text: "Frequentemente está 'a mil' ou age como se tivesse com um motor ligado.", subscale:"H" },
   { id: 15, text: "Frequentemente fala em demasia.", subscale: "H" },
   { id: 16, text: "Frequentemente dá respostas precipitadas antes de as perguntas serem concluídas.", subscale: "H" },
   { id: 17, text: "Frequentemente tem dificuldade para aguardar a sua vez.", subscale: "H" },
   { id: 18, text: "Frequentemente interrompe ou se intromete em assuntos alheios.", subscale: "H" },
-  { id: 19, text: "Frequentemente fica com raiva e 'explode'.", subscale: "O" },
+  { id: 19, text: "Frequentemente fica com raiva e 'explode'.", subscale:"O" },
   { id: 20, text: "Frequentemente discute com adultos.", subscale: "O" },
   { id: 21, text: "Frequentemente desafia ativamente ou recusa-se a obedecer às solicitações de adultos.", subscale: "O" },
   { id: 22, text: "Frequentemente faz coisas deliberadamente para aborrecer as pessoas.", subscale: "O" },
@@ -98,7 +98,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     const headingMatch = line.match(/^\*\*([^*]+)\*\*\s*$/);
     if (headingMatch) {
       result.push(
-        <p key={i} className="text-xs font-black uppercase tracking-widest text-amber-300 mt-4 mb-1 first:mt-0">
+        <p key={i} className="text-xs font-semibold text-amber-300 mt-4 mb-1 first:mt-0">
           {headingMatch[1]}
         </p>
       );
@@ -108,7 +108,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (numMatch) {
       result.push(
         <div key={i} className="flex gap-2 mt-2">
-          <span className="shrink-0 font-black text-amber-300">{numMatch[1]}.</span>
+          <span className="shrink-0 font-semibold text-amber-300">{numMatch[1]}.</span>
           <span>{inlineMarkdown(numMatch[2])}</span>
         </div>
       );
@@ -134,7 +134,7 @@ function inlineMarkdown(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     const m = part.match(/^\*\*([^*]+)\*\*$/);
-    if (m) return <strong key={i} className="font-black text-white">{m[1]}</strong>;
+    if (m) return <strong key={i} className="font-semibold text-white">{m[1]}</strong>;
     return part;
   });
 }
@@ -413,9 +413,9 @@ export const SNAPIVPage: React.FC = () => {
           );
         })()}
 
-        <text x={center} y={center - r - 15} textAnchor="middle" className="text-[10px] font-black uppercase fill-slate-400">Desatenção</text>
-        <text x={center + r * Math.cos(30 * Math.PI / 180) + 12} y={center + r * Math.sin(30 * Math.PI / 180) + 15} textAnchor="middle" className="text-[10px] font-black uppercase fill-slate-400">Hiperativ.</text>
-        <text x={center + r * Math.cos(150 * Math.PI / 180) - 12} y={center + r * Math.sin(150 * Math.PI / 180) + 15} textAnchor="middle" className="text-[10px] font-black uppercase fill-slate-400">Oposição</text>
+        <text x={center} y={center - r - 15} textAnchor="middle" className="text-[11px] font-semibold fill-slate-400">Desatenção</text>
+        <text x={center + r * Math.cos(30 * Math.PI / 180) + 12} y={center + r * Math.sin(30 * Math.PI / 180) + 15} textAnchor="middle" className="text-[11px] font-semibold fill-slate-400">Hiperativ.</text>
+        <text x={center + r * Math.cos(150 * Math.PI / 180) - 12} y={center + r * Math.sin(150 * Math.PI / 180) + 15} textAnchor="middle" className="text-[11px] font-semibold fill-slate-400">Oposição</text>
       </svg>
     );
   };
@@ -454,8 +454,8 @@ export const SNAPIVPage: React.FC = () => {
       return `
         <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:18px 22px;margin-bottom:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#334155">${sub.label}</span>
-            <span style="background:${bg};color:${c};border:1px solid ${c}30;padding:3px 12px;border-radius:99px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">${level.label}</span>
+            <span style="font-size:11px;font-weight:800;letter-spacing:.12em;;color:#334155">${sub.label}</span>
+            <span style="background:${bg};color:${c};border:1px solid ${c}30;padding:3px 12px;border-radius:99px;font-size:10px;font-weight:800;;letter-spacing:.08em">${level.label}</span>
           </div>
           <div style="display:flex;align-items:center;gap:14px">
             <span style="font-size:32px;font-weight:900;color:#0f172a;line-height:1;min-width:44px">${score.toFixed(2)}</span>
@@ -519,13 +519,13 @@ export const SNAPIVPage: React.FC = () => {
 <div style="background:linear-gradient(135deg,#1d4ed8 0%,#4f46e5 100%);padding:28px 40px 24px;color:white">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
     <div>
-      <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;opacity:.75">Relatório de Avaliação Psicológica</p>
+      <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.2em;;opacity:.75">Relatório de Avaliação Psicológica</p>
       <h1 style="margin:0 0 6px;font-size:26px;font-weight:900;letter-spacing:-.5px">${patientName}</h1>
       <p style="margin:0;font-size:12px;opacity:.8;font-weight:500">${dateStr}</p>
     </div>
     <div style="text-align:right">
       <div style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 16px;display:inline-block">
-        <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;opacity:.8;margin-bottom:2px">Instrumento</p>
+        <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;;opacity:.8;margin-bottom:2px">Instrumento</p>
         <p style="margin:0;font-size:18px;font-weight:900;letter-spacing:-.3px">SNAP-IV</p>
         <p style="margin:0;font-size:9px;opacity:.7;margin-top:2px">Swanson, Nolan &amp; Pelham</p>
       </div>
@@ -536,14 +536,14 @@ export const SNAPIVPage: React.FC = () => {
 <div style="padding:32px 40px">
 
   <div class="no-break" style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#2563eb;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#2563eb;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#2563eb;border-radius:1px"></span> Resultados por Subescala
     </h2>
     ${scoresHtml}
   </div>
 
   <div class="no-break" style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#2563eb;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#2563eb;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#2563eb;border-radius:1px"></span> Análise Clínica
     </h2>
     <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:20px 22px">
@@ -556,16 +556,16 @@ export const SNAPIVPage: React.FC = () => {
 
   ${answersHtml ? `
   <div style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#2563eb;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#2563eb;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#2563eb;border-radius:1px"></span> Respostas do Informante (26 itens)
     </h2>
     <table style="width:100%;border-collapse:collapse;border:1px solid #f1f5f9;border-radius:12px;overflow:hidden">
       <thead>
         <tr style="background:#f8fafc">
-          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right;width:36px">#</th>
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:right;width:36px">#</th>
           <th style="padding:8px 6px;width:26px"></th>
-          <th style="padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:left">Item</th>
-          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right">Resposta</th>
+          <th style="padding:8px 10px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:left">Item</th>
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:right">Resposta</th>
         </tr>
       </thead>
       <tbody>${answersHtml}</tbody>
@@ -593,7 +593,7 @@ export const SNAPIVPage: React.FC = () => {
 </div>
 
 <div style="border-top:1px solid #f1f5f9;padding:16px 40px;display:flex;justify-content:space-between;align-items:center">
-  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;text-transform:uppercase;letter-spacing:.1em">Plaelo · Tecnologia para Prática Clínica</p>
+  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;;letter-spacing:.1em">Plaelo · Tecnologia para Prática Clínica</p>
   <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600">Gerado em ${new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' })}</p>
 </div>
 
@@ -633,7 +633,7 @@ export const SNAPIVPage: React.FC = () => {
     doc.text(patientName, MARGIN, 26);
 
     doc.setFontSize(9); doc.setTextColor(210, 225, 255);
-    doc.text(`Avaliação: SNAP-IV (Swanson, Nolan & Pelham)  |  ${dateStr}`, MARGIN, 33);
+    doc.text(`Avaliação: SNAP-IV (Swanson, Nolan & Pelham) | ${dateStr}`, MARGIN, 33);
 
     let y = 58;
 
@@ -739,7 +739,7 @@ export const SNAPIVPage: React.FC = () => {
       const clean = p.replace(/\*\*/g, '');
       analysisLines.push(...doc.splitTextToSize(clean, CONTENT_W - 16));
     });
-    const conclusionLines = doc.splitTextToSize('Conclusão: ' + conclusion, CONTENT_W - 16);
+    const conclusionLines = doc.splitTextToSize('Conclusão:' + conclusion, CONTENT_W - 16);
     const boxH = (analysisLines.length + conclusionLines.length) * 5 + 15;
 
     if (y + boxH > 275) { doc.addPage(); y = 20; }
@@ -844,7 +844,7 @@ export const SNAPIVPage: React.FC = () => {
               radius="xl"
               leftIcon={<Plus size={16} />}
               onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para aplicar a escala.')}
-              className="bg-blue-600 text-white shadow-lg shadow-blue-200"
+              className="bg-blue-600 text-white shadow-sm shadow-blue-200"
             >
                Aplicar Nova Escala
             </Button>
@@ -873,20 +873,20 @@ export const SNAPIVPage: React.FC = () => {
             t={t}
           />
 
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+          <div className="bg-white rounded-lg border border-slate-100 p-6 shadow-sm space-y-4">
+              <h4 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
                  <Info size={14} className="text-blue-400" /> Referências Clínicas SNAP-IV
               </h4>
-              <div className="space-y-3 pt-2 text-[9px] font-bold text-slate-600 uppercase tracking-tight">
-                 <p><span className="text-blue-600 font-black">0</span> — Nada</p>
-                 <p><span className="text-blue-600 font-black">1</span> — Um pouco</p>
-                 <p><span className="text-blue-600 font-black">2</span> — Bastante</p>
-                 <p><span className="text-blue-600 font-black">3</span> — Demais</p>
+              <div className="space-y-3 pt-2 text-[11px] font-semibold text-slate-600">
+                 <p><span className="text-blue-600 font-semibold">0</span> — Nada</p>
+                 <p><span className="text-blue-600 font-semibold">1</span> — Um pouco</p>
+                 <p><span className="text-blue-600 font-semibold">2</span> — Bastante</p>
+                 <p><span className="text-blue-600 font-semibold">3</span> — Demais</p>
               </div>
               <div className="pt-2 border-t border-slate-50 space-y-2">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pontos de Corte</p>
-                 <p className="text-[9px] font-bold text-slate-500">Desatenção / Hiperativ.: ≥ 2,0</p>
-                 <p className="text-[9px] font-bold text-slate-500">Oposição/Desafio: ≥ 1,67</p>
+                 <p className="text-[11px] font-semibold text-slate-400">Pontos de Corte</p>
+                 <p className="text-[11px] font-semibold text-slate-500">Desatenção / Hiperativ.: ≥ 2,0</p>
+                 <p className="text-[11px] font-semibold text-slate-500">Oposição/Desafio: ≥ 1,67</p>
               </div>
           </div>
         </div>
@@ -896,19 +896,19 @@ export const SNAPIVPage: React.FC = () => {
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
               <Activity size={32} />
             </div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-loose">Selecione o paciente para visualizar dados e gráficos SNAP-IV.</p>
+            <p className="text-xs font-semibold text-slate-400 leading-loose">Selecione o paciente para visualizar dados e gráficos SNAP-IV.</p>
           </div>
         ) : (
           <div className="space-y-8">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {/* Left Column: Graphics */}
               <div className="space-y-8">
-                 <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden h-full">
+                 <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-sm relative overflow-hidden h-full">
                     <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
                        <TrendingUp size={240} />
                     </div>
 
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2 text-blue-400 mb-10">
+                    <h3 className="text-[11px] font-semibold flex items-center gap-2 text-blue-400 mb-10">
                        <Layout size={18} /> Gráfico SNAP-IV
                     </h3>
 
@@ -925,11 +925,11 @@ export const SNAPIVPage: React.FC = () => {
                              return (
                                <div key={sub} className="space-y-2">
                                   <div className="flex items-center justify-between">
-                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{subLabel}</span>
-                                     <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg bg-white/10 ${level.color}`}>{level.label}</span>
+                                     <span className="text-[11px] font-semibold text-slate-400">{subLabel}</span>
+                                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/10 ${level.color}`}>{level.label}</span>
                                   </div>
                                   <div className="h-2 bg-white/10 rounded-full overflow-hidden relative">
-                                     <div className={`h-full transition-all duration-1000 ${level.color.replace('text', 'bg')}`} style={{ width: `${(score / 3) * 100}%` }} />
+                                     <div className={`h-full transition-all duration-1000 ${level.color.replace('text', 'bg')}`} style={{ width:`${(score / 3) * 100}%` }} />
                                      {/* Cutoff marker */}
                                      <div className="absolute top-0 h-full w-px bg-rose-400 opacity-60" style={{ left: `${(SNAP_CUTOFFS[sub] / 3) * 100}%` }} />
                                   </div>
@@ -937,7 +937,7 @@ export const SNAPIVPage: React.FC = () => {
                              );
                           })}
                           <div className="pt-4 border-t border-white/10 flex justify-between items-center text-slate-500">
-                             <p className="text-[9px] font-black uppercase tracking-widest italic leading-relaxed">Resultado da Última Avaliação Sincronizada</p>
+                             <p className="text-[11px] font-semibold italic leading-relaxed">Resultado da Última Avaliação Sincronizada</p>
                           </div>
                        </div>
                     </div>
@@ -948,20 +948,20 @@ export const SNAPIVPage: React.FC = () => {
               <div className="space-y-8">
                  <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8">
                     <div className="flex items-center justify-between">
-                       <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                       <h4 className="text-[11px] font-semibold text-slate-900 flex items-center gap-2">
                           <TrendingUp size={16} className="text-blue-500" /> Evolução do Paciente
                        </h4>
                        <div className="flex gap-2">
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"/><span className="text-[7px] font-black uppercase">Des</span></div>
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"/><span className="text-[7px] font-black uppercase">Hip</span></div>
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-500"/><span className="text-[7px] font-black uppercase">Opo</span></div>
+                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"/><span className="text-[7px] font-semibold">Des</span></div>
+                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"/><span className="text-[7px] font-semibold">Hip</span></div>
+                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-500"/><span className="text-[7px] font-semibold">Opo</span></div>
                        </div>
                     </div>
 
-                    <div className="h-56 w-full bg-slate-50 rounded-3xl border border-slate-100 p-5 flex items-end gap-2 relative">
+                    <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-5 flex items-end gap-2 relative">
                        {history.length < 2 && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-3xl">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aguardando mais dados históricos</p>
+                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-lg">
+                            <p className="text-[11px] font-semibold text-slate-400">Aguardando mais dados históricos</p>
                          </div>
                        )}
                        {[...history].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
@@ -970,12 +970,12 @@ export const SNAPIVPage: React.FC = () => {
                             <div className="bg-indigo-500/40 w-full transition-all group-hover:bg-indigo-500/60" style={{ height: `${(res.scores.hyperactivity / 3) * 100}%` }} />
                             <div className="bg-blue-500/60 w-full rounded-b-lg transition-all group-hover:bg-blue-500" style={{ height: `${(res.scores.inattention / 3) * 100}%` }} />
 
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-xl">
-                               <p className="text-[8px] font-black uppercase mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-sm">
+                               <p className="text-[11px] font-semibold mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
                                <div className="flex gap-2">
-                                  <span className="text-[10px] font-black text-blue-400">D{res.scores.inattention.toFixed(1)}</span>
-                                  <span className="text-[10px] font-black text-indigo-400">H{res.scores.hyperactivity.toFixed(1)}</span>
-                                  <span className="text-[10px] font-black text-violet-400">O{res.scores.oppositional.toFixed(1)}</span>
+                                  <span className="text-[11px] font-semibold text-blue-400">D{res.scores.inattention.toFixed(1)}</span>
+                                  <span className="text-[11px] font-semibold text-indigo-400">H{res.scores.hyperactivity.toFixed(1)}</span>
+                                  <span className="text-[11px] font-semibold text-violet-400">O{res.scores.oppositional.toFixed(1)}</span>
                                </div>
                             </div>
                          </div>
@@ -986,7 +986,7 @@ export const SNAPIVPage: React.FC = () => {
                  {/* History List */}
                  <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
                     <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Registros Sincronizados</p>
+                       <p className="text-[11px] font-semibold text-slate-400 leading-none">Registros Sincronizados</p>
                        <History size={16} className="text-slate-300" />
                     </div>
                     <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
@@ -996,9 +996,9 @@ export const SNAPIVPage: React.FC = () => {
                                <div className="space-y-1">
                                   <div className="flex items-center gap-2">
                                      <Clock size={11} className="text-blue-400 shrink-0" />
-                                     <span className="text-xs font-black text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
+                                     <span className="text-xs font-semibold text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
                                      {res.analysis && <Sparkles size={11} className="text-amber-400" />}
-                                     {res.origin === 'external' && <span className="text-[8px] font-black text-slate-300 uppercase bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">Externo</span>}
+                                     {res.origin === 'external' && <span className="text-[11px] font-semibold text-slate-300 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">Externo</span>}
                                   </div>
                                   <div className="flex gap-3">
                                      {(['inattention', 'hyperactivity', 'oppositional'] as const).map(s => {
@@ -1006,8 +1006,8 @@ export const SNAPIVPage: React.FC = () => {
                                         const letter = s === 'inattention' ? 'D' : s === 'hyperactivity' ? 'H' : 'O';
                                         return (
                                            <div key={s} className="flex flex-col items-center">
-                                              <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">{letter}</span>
-                                              <span className={`text-xs font-black ${level.color}`}>{res.scores[s].toFixed(2)}</span>
+                                              <span className="text-[7px] font-semibold text-slate-300">{letter}</span>
+                                              <span className={`text-xs font-semibold ${level.color}`}>{res.scores[s].toFixed(2)}</span>
                                            </div>
                                         );
                                      })}
@@ -1024,7 +1024,7 @@ export const SNAPIVPage: React.FC = () => {
                                </button>
                                <button
                                  onClick={() => setDetailResult(res)}
-                                 className="flex items-center gap-1.5 px-3 h-8 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[11px] font-black uppercase tracking-wide transition-all"
+                                 className="flex items-center gap-1.5 px-3 h-8 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[11px] font-semibold transition-all"
                                >
                                  Ver <ChevronRight size={12} />
                                </button>
@@ -1034,7 +1034,7 @@ export const SNAPIVPage: React.FC = () => {
                        {history.length === 0 && (
                          <div className="p-20 text-center space-y-3 opacity-30">
                             <FileText size={40} className="mx-auto" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">Sem lançamentos</p>
+                            <p className="text-[11px] font-semibold">Sem lançamentos</p>
                          </div>
                        )}
                     </div>
@@ -1049,15 +1049,15 @@ export const SNAPIVPage: React.FC = () => {
     {/* Result Detail Modal */}
     {detailResult && (
       <div className="fixed inset-0 mt-0 bg-slate-950/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{maxHeight:'90vh'}}>
+          <div className="bg-white rounded-lg shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{maxHeight:'90vh'}}>
 
             {/* Header fixo */}
             <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
                <div>
-                  <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Avaliação SNAP-IV Consolidada</p>
+                  <p className="text-[11px] font-semibold text-blue-500 mb-1">Avaliação SNAP-IV Consolidada</p>
                   {(() => {
                     const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                    return <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{patientName}</h2>;
+                    return <h2 className="text-xl font-semibold text-slate-900 leading-tight">{patientName}</h2>;
                   })()}
                   <p className="text-xs font-medium text-slate-400 mt-0.5">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                </div>
@@ -1066,10 +1066,10 @@ export const SNAPIVPage: React.FC = () => {
                     const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
                     return (<>
                       <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                      <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14}/>} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-lg shadow-slate-200">PDF</Button>
+                      <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14}/>} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-sm shadow-slate-200">PDF</Button>
                     </>);
                   })()}
-                  <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
+                  <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
                      <Plus size={20} className="rotate-45" />
                   </button>
                </div>
@@ -1083,7 +1083,7 @@ export const SNAPIVPage: React.FC = () => {
               return (<>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                 <div className="bg-slate-950 rounded-2xl p-6 flex items-center justify-center shadow-xl" style={{minHeight:'200px'}}>
+                 <div className="bg-slate-950 rounded-lg p-6 flex items-center justify-center shadow-sm" style={{minHeight:'200px'}}>
                     <RadarGraphic scores={detailResult.scores} />
                  </div>
                  <div className="space-y-3">
@@ -1093,22 +1093,22 @@ export const SNAPIVPage: React.FC = () => {
                        const subLabel = sub === 'inattention' ? 'Desatenção' : sub === 'hyperactivity' ? 'Hiperatividade/Impulsividade' : 'Oposição/Desafio';
                        const cutoff = SNAP_CUTOFFS[sub];
                        return (
-                         <div key={sub} className="px-4 py-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                         <div key={sub} className="px-4 py-3 rounded-lg border border-slate-100 bg-slate-50/50">
                             <div className="flex items-center justify-between mb-2">
-                               <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">{subLabel}</h4>
-                               <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${level.bg} ${level.color}`}>{level.label}</span>
+                               <h4 className="text-[11px] font-semibold text-slate-700">{subLabel}</h4>
+                               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${level.bg} ${level.color}`}>{level.label}</span>
                             </div>
                             <div className="flex items-center gap-4">
-                               <div className="text-2xl font-black text-slate-900 w-12">{score.toFixed(2)}</div>
+                               <div className="text-2xl font-semibold text-slate-900 w-12">{score.toFixed(2)}</div>
                                <div className="flex-1">
                                   <div className="h-2 bg-slate-200 rounded-full overflow-hidden relative">
-                                     <div className={`h-full ${level.color.replace('text', 'bg')}`} style={{ width: `${(score / 3) * 100}%` }} />
+                                     <div className={`h-full ${level.color.replace('text', 'bg')}`} style={{ width:`${(score / 3) * 100}%` }} />
                                      <div className="absolute top-0 h-full w-px bg-rose-400 opacity-70" style={{ left: `${(cutoff / 3) * 100}%` }} />
                                   </div>
                                   <div className="flex justify-between mt-1">
-                                     <span className="text-[8px] text-slate-400 font-bold">0</span>
-                                     <span className="text-[8px] text-rose-400 font-bold">corte {cutoff}</span>
-                                     <span className="text-[8px] text-slate-400 font-bold">3</span>
+                                     <span className="text-[11px] text-slate-400 font-semibold">0</span>
+                                     <span className="text-[11px] text-rose-400 font-semibold">corte {cutoff}</span>
+                                     <span className="text-[11px] text-slate-400 font-semibold">3</span>
                                   </div>
                                </div>
                             </div>
@@ -1122,7 +1122,7 @@ export const SNAPIVPage: React.FC = () => {
               <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
                  <div className="bg-slate-50 px-8 py-5 flex items-center gap-3 border-b border-slate-100">
                     <Brain size={18} className="text-blue-500" />
-                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Análise Clínica — SNAP-IV (Swanson, Nolan & Pelham)</h3>
+                    <h3 className="text-xs font-semibold text-slate-700">Análise Clínica — SNAP-IV (Swanson, Nolan & Pelham)</h3>
                  </div>
                  <div className="p-8 space-y-4">
                     {parts.map((part, i) => {
@@ -1130,19 +1130,19 @@ export const SNAPIVPage: React.FC = () => {
                       return (
                         <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
                            <span className="w-1.5 h-1.5 rounded-full bg-blue-300 mt-2 shrink-0" />
-                           <p><span className="font-black text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
+                           <p><span className="font-semibold text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
                         </div>
                       );
                     })}
-                    <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-sm text-slate-700 leading-relaxed">
-                       <span className="font-black text-blue-700">Conclusão: </span>{conclusion}
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-slate-700 leading-relaxed">
+                       <span className="font-semibold text-blue-700">Conclusão: </span>{conclusion}
                     </div>
                  </div>
               </div>
 
               {detailResult.analysis && (
-                <div className="bg-blue-600 rounded-xl p-5 text-white shadow-lg shadow-blue-100">
-                   <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-3">
+                <div className="bg-blue-600 rounded-lg p-5 text-white shadow-sm shadow-blue-100">
+                   <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
                       <Sparkles size={14} className="text-amber-400" /> Análise Bia (IA)
                    </h3>
                    <div className="text-sm text-blue-100 space-y-0">
@@ -1155,10 +1155,10 @@ export const SNAPIVPage: React.FC = () => {
                 <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
                    <Sparkles size={32} className="text-slate-300 shrink-0" />
                    <div className="flex-1">
-                      <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Bia — IA Clínica</p>
+                      <p className="text-xs font-semibold text-slate-500 mb-1">Bia — IA Clínica</p>
                       <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este resultado SNAP-IV.</p>
                    </div>
-                   <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-blue-600 text-white rounded-2xl px-6 py-3 shrink-0">Analisar</Button>
+                   <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-blue-600 text-white rounded-lg px-6 py-3 shrink-0">Analisar</Button>
                 </div>
               )}
 
@@ -1171,7 +1171,7 @@ export const SNAPIVPage: React.FC = () => {
                    >
                       <div className="flex items-center gap-3">
                          <FileText size={18} className="text-slate-400" />
-                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Respostas do Informante (26 itens)</h3>
+                         <h3 className="text-xs font-semibold text-slate-700">Respostas do Informante (26 itens)</h3>
                       </div>
                       <ChevronRight size={18} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
                    </button>
@@ -1185,18 +1185,18 @@ export const SNAPIVPage: React.FC = () => {
                           return (
                             <React.Fragment key={sub}>
                               <div className={`px-8 py-3 ${subAccent[sub]} border-b border-slate-100`}>
-                                 <p className="text-[10px] font-black uppercase tracking-widest">{subTitles[sub]}</p>
+                                 <p className="text-[11px] font-semibold">{subTitles[sub]}</p>
                               </div>
                               {subItems.map(item => {
                                 const val = detailResult.answers[item.id];
                                 const scaleLabels = ['Nada', 'Um pouco', 'Bastante', 'Demais'];
                                 return (
                                   <div key={item.id} className="px-8 py-4 flex items-start gap-4 hover:bg-slate-50/60">
-                                     <span className="text-[10px] font-black text-slate-300 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2,'0')}</span>
+                                     <span className="text-[11px] font-semibold text-slate-300 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2,'0')}</span>
                                      <p className="flex-1 text-sm text-slate-600 leading-relaxed">{item.text}</p>
                                      <div className="shrink-0 text-right">
-                                        <span className="text-lg font-black text-blue-600">{val ?? '—'}</span>
-                                        {val !== undefined && <p className="text-[10px] text-slate-400 font-bold">{scaleLabels[val]}</p>}
+                                        <span className="text-lg font-semibold text-blue-600">{val ?? '—'}</span>
+                                        {val !== undefined && <p className="text-[11px] text-slate-400 font-semibold">{scaleLabels[val]}</p>}
                                      </div>
                                   </div>
                                 );
@@ -1232,12 +1232,12 @@ export const SNAPIVPage: React.FC = () => {
       }
     >
       <div className="space-y-6">
-         <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+         <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-blue-600 shadow-sm shrink-0">
                <Share2 size={24} />
             </div>
             <div>
-               <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest leading-tight mb-1">Link de Avaliação Direta</p>
+               <p className="text-[11px] font-semibold text-blue-500 leading-tight mb-1">Link de Avaliação Direta</p>
                <p className="text-xs text-slate-600 font-medium leading-relaxed">Este link é exclusivo para o paciente selecionado. As respostas serão integradas automaticamente ao gráfico de evolução.</p>
             </div>
          </div>
@@ -1247,14 +1247,14 @@ export const SNAPIVPage: React.FC = () => {
               <input
                 readOnly
                 value={getShareLink()}
-                className="flex-1 px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-600 font-mono focus:ring-2 focus:ring-blue-100 outline-none"
+                className="flex-1 px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono focus:ring-2 focus:ring-blue-100 outline-none"
               />
               <Button variant="outline" size="sm" radius="xl" onClick={handleCopy}
                 leftIcon={copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}>
                 {copied ? 'Copiado!' : 'Copiar'}
               </Button>
             </div>
-            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest pt-2 flex items-center justify-center gap-2">
+            <p className="text-[11px] text-slate-400 text-center font-semibold pt-2 flex items-center justify-center gap-2">
                <ShieldCheck size={12} /> Criptografia de Ponta-a-Ponta
             </p>
          </div>
@@ -1285,14 +1285,14 @@ export const SNAPIVPage: React.FC = () => {
     >
       <div className="space-y-10 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
          <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-            <p className="text-xs font-bold text-slate-500 leading-relaxed italic">
+            <p className="text-xs font-semibold text-slate-500 leading-relaxed italic">
               "Avalie com que frequência cada comportamento ocorre. Baseie-se nos últimos 6 meses."
             </p>
             <div className="flex gap-6 mt-4 flex-wrap">
               {[{ v: 0, l: 'Nada' }, { v: 1, l: 'Um pouco' }, { v: 2, l: 'Bastante' }, { v: 3, l: 'Demais' }].map(opt => (
                 <div key={opt.v} className="flex items-center gap-2">
-                   <span className="text-blue-600 font-black text-base">{opt.v}</span>
-                   <span className="text-[10px] font-bold text-slate-400 uppercase">{opt.l}</span>
+                   <span className="text-blue-600 font-semibold text-base">{opt.v}</span>
+                   <span className="text-[11px] font-semibold text-slate-400">{opt.l}</span>
                 </div>
               ))}
             </div>
@@ -1312,23 +1312,23 @@ export const SNAPIVPage: React.FC = () => {
            };
            return (
              <div key={sub} className="space-y-6">
-               <div className={`rounded-2xl px-5 py-3 border ${subBg[sub]}`}>
-                  <p className="text-[10px] font-black uppercase tracking-widest">{subTitles[sub]}</p>
+               <div className={`rounded-lg px-5 py-3 border ${subBg[sub]}`}>
+                  <p className="text-[11px] font-semibold">{subTitles[sub]}</p>
                </div>
                {subItems.map(item => (
                  <div key={item.id} className="space-y-6">
                     <div className="flex gap-4">
-                       <span className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center font-black text-[10px] shrink-0 border border-slate-200">{item.id}</span>
-                       <p className="text-base font-black text-slate-800 leading-tight pt-1">{item.text}</p>
+                       <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center font-semibold text-[11px] shrink-0 border border-slate-200">{item.id}</span>
+                       <p className="text-base font-semibold text-slate-800 leading-tight pt-1">{item.text}</p>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                        {[0, 1, 2, 3].map(val => (
                          <button
                            key={val}
                            onClick={() => setCurrentAnswers({ ...currentAnswers, [item.id]: val })}
-                           className={`h-14 rounded-2xl text-xs font-black transition-all border ${
+                           className={`h-14 rounded-lg text-xs font-semibold transition-all border ${
                              currentAnswers[item.id] === val
-                             ? 'bg-slate-950 text-white border-slate-950 shadow-xl scale-[1.02]'
+                             ? 'bg-slate-950 text-white border-slate-950 shadow-sm scale-[1.02]'
                              : 'bg-white text-slate-300 border-slate-100 hover:border-slate-300'
                            }`}
                          >

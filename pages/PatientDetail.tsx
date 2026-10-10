@@ -7,36 +7,39 @@ import {
   ChevronRight, History, Activity, Link2, Copy, Check, X, Clock, Smartphone,
   CheckSquare, Plus, Flag, Tag, AlarmClock, MessageCircle, Send,
   Heart, BookOpen, Dumbbell, Smile,
-  FileSignature, PauseCircle, PlayCircle,
+  FileSignature, PauseCircle, PlayCircle, Image as ImageIcon, Paperclip,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { api, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Patient } from '../types';
-import { PatientFormWizard } from '../components/Patient/PatientFormWizard';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
 import {
+  Badge,
   Button,
   ConfirmModal as UIConfirmModal,
-  DatePicker,
+  ContentCard,
+  DetailField,
+  EmptyState,
+  FilterLine,
+  FilterLineDateRange,
+  FilterLineSection,
+  FilterPopover,
+  FormRow,
   IconButton,
+  Input,
   Modal,
+  ModalFooter,
   PageWrapper,
   PanelCard,
-  SectionTitle,
+  Select,
+  Switch,
+  Tabs,
+  Textarea,
 } from '../components/UI';
 import { useToast } from '../contexts/ToastContext';
 import { getPortalBaseUrl } from '@/src/lib/portal';
 
-const AVATAR_COLORS = [
-  'from-primary-500 to-purple-600',
-  'from-blue-500 to-indigo-600',
-  'from-emerald-500 to-teal-600',
-  'from-rose-500 to-pink-600',
-  'from-amber-500 to-orange-600',
-  'from-cyan-500 to-sky-600',
-];
-const getAvatarColor = (name?: string) => AVATAR_COLORS[((name || '').charCodeAt(0) || 0) % AVATAR_COLORS.length];
 const patientName = (p: Patient) => p.full_name || (p as any).name || '?';
 
 const calcAge = (val?: string) => {
@@ -63,18 +66,18 @@ const safeGet = async <T,>(url: string, params?: Record<string, string>): Promis
 
 type Tab = 'dados' | 'agenda' | 'documentos' | 'prontuario' | 'formularios' | 'ferramentas' | 'tarefas' | 'mensagens' | 'portal' | 'contrato';
 
-const TABS: { key: Tab; label: string; Icon: React.ElementType }[] = [
-  { key: 'dados',       label: 'Dados',       Icon: User },
-  { key: 'agenda',      label: 'Agenda',      Icon: Calendar },
-  { key: 'tarefas',     label: 'Tarefas',     Icon: CheckSquare },
-  { key: 'portal',      label: 'Portal',      Icon: Heart },
-  { key: 'contrato',    label: 'Contrato',    Icon: FileSignature },
-  { key: 'mensagens',   label: 'Mensagens',   Icon: MessageCircle },
-  { key: 'documentos',  label: 'Documentos',  Icon: FolderOpen },
-  { key: 'prontuario',  label: 'Prontuário',  Icon: FileText },
-  { key: 'formularios', label: 'Formulários', Icon: ClipboardList },
-  { key: 'ferramentas', label: 'Ferramentas', Icon: Boxes },
-];
+const TABS = [
+  { id: 'dados',       label: 'Dados',       icon: User },
+  { id: 'agenda',      label: 'Agenda',      icon: Calendar },
+  { id: 'tarefas',     label: 'Tarefas',     icon: CheckSquare },
+  { id: 'portal',      label: 'Portal',      icon: Heart },
+  { id: 'contrato',    label: 'Contrato',    icon: FileSignature },
+  { id: 'mensagens',   label: 'Mensagens',   icon: MessageCircle },
+  { id: 'documentos',  label: 'Documentos',  icon: FolderOpen },
+  { id: 'prontuario',  label: 'Prontuário',  icon: FileText },
+  { id: 'formularios', label: 'Formulários', icon: ClipboardList },
+  { id: 'ferramentas', label: 'Ferramentas', icon: Boxes },
+] as const;
 
 export const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -86,7 +89,6 @@ export const PatientDetail: React.FC = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'dados');
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   // Portal do paciente
@@ -300,7 +302,6 @@ export const PatientDetail: React.FC = () => {
         await api.request(`/patients/${data.id}/photo`, { method: 'POST', body: fd });
       }
 
-      setIsWizardOpen(false);
       pushToast('success', 'Paciente atualizado com sucesso!');
       
       const fresh = await safeGet<Patient>(`/patients/${id}`);
@@ -313,20 +314,29 @@ export const PatientDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <PageWrapper className="flex min-h-[420px] items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-indigo-500" />
+      <PageWrapper>
+        <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+          <Loader2 size={18} className="animate-spin" />Carregando…
+        </div>
       </PageWrapper>
     );
   }
 
   if (!patient) {
     return (
-      <PageWrapper className="flex min-h-[420px] flex-col items-center justify-center gap-4">
-        <User size={48} className="text-slate-300" />
-        <p className="text-slate-500 font-medium">Paciente não encontrado</p>
-        <Button type="button" onClick={() => navigate('/pacientes')} size="sm">
-          Voltar à lista
-        </Button>
+      <PageWrapper>
+        <ContentCard>
+          <EmptyState
+            icon={User}
+            title="Paciente não encontrado"
+            description="O cadastro pode ter sido removido ou você não tem acesso a ele."
+            action={
+              <Button type="button" variant="outline" onClick={() => navigate('/pacientes')} size="sm">
+                Voltar à lista
+              </Button>
+            }
+          />
+        </ContentCard>
       </PageWrapper>
     );
   }
@@ -334,187 +344,133 @@ export const PatientDetail: React.FC = () => {
   const age = calcAge(patient.birth_date || patient.birthDate);
   const active = isActive(patient);
 
-  return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6">
-      {/* Top bar */}
-      <PanelCard contentClassName="p-4 sm:p-5">
-        <div className="flex items-start gap-3">
-          <IconButton type="button" variant="ghost" size="md" onClick={() => navigate('/pacientes')} aria-label="Voltar para pacientes">
-            <ArrowLeft size={18} />
-          </IconButton>
-          <SectionTitle
-            className="flex-1"
-            icon={User}
-            title={patientName(patient)}
-            description="Perfil do paciente"
-            action={
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="md"
-                  onClick={() => setHistoryOpen(true)}
-                  title="Histórico"
-                  aria-label="Histórico"
-                >
-                  <History size={16} />
-                </IconButton>
-                {hasPermission('manage_patient_portal') && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={openPortalModal}
-                    iconLeft={<Smartphone size={13} />}
-                  >
-                    Portal
-                  </Button>
-                )}
-                {hasPermission('edit_patient') && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={sendRegistrationLink}
-                    disabled={sendingRegistrationLink}
-                    iconLeft={sendingRegistrationLink ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                  >
-                    Enviar cadastro
-                  </Button>
-                )}
-                {hasPermission('edit_patient') && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setIsWizardOpen(true)}
-                    iconLeft={<Edit2 size={13} />}
-                  >
-                    Editar
-                  </Button>
-                )}
-              </div>
-            }
-          />
-        </div>
-      </PanelCard>
+  const visibleTabs = TABS.filter(tab => {
+    if (tab.id === 'prontuario') return hasPermission('view_medical_records');
+    if (tab.id === 'ferramentas') return hasPermission('manage_clinical_tools');
+    if (tab.id === 'documentos') return hasPermission('manage_documents');
+    if (tab.id === 'formularios') return hasPermission('manage_forms');
+    if (tab.id === 'portal') return hasPermission('manage_patient_portal');
+    return true;
+  }).map(tab => {
+    const n = summary[tab.id];
+    return { ...tab, badge: n != null && n > 0 ? n : undefined };
+  });
 
-        {/* Hero header */}
-        <PanelCard contentClassName="p-0" className="overflow-hidden">
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#150F2E] via-[#2A1F6B] to-[#6D42F5] px-4 py-5 sm:px-6 sm:py-6">
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-2/3 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_60%)]" />
-          <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-violet-300/10 blur-3xl" />
-          <div className="relative flex items-center gap-4">
-            <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getAvatarColor(patientName(patient))} flex items-center justify-center text-white text-2xl font-black shrink-0 border-4 border-white/30 overflow-hidden shadow-lg`}>
+  const quickStats = [
+    { key: 'agenda',      label: 'Agenda',      icon: Calendar },
+    { key: 'prontuario',  label: 'Prontuário',  icon: FileText },
+    { key: 'neuro',       label: 'Neuro',       icon: BrainCircuit },
+    { key: 'formularios', label: 'Formulários', icon: ClipboardList },
+    { key: 'documentos',  label: 'Docs',        icon: FolderOpen },
+    { key: 'ferramentas', label: 'Ferramentas', icon: Boxes },
+    { key: 'notas',       label: 'Notas',       icon: StickyNote },
+  ];
+
+  return (
+    <PageWrapper mobileBottomPad={false}>
+      <div className="space-y-4">
+        {/* Barra superior */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/pacientes')} iconLeft={<ArrowLeft size={14} />}>
+            Voltar
+          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setHistoryOpen(true)}
+              iconLeft={<History size={14} />}
+            >
+              Histórico
+            </Button>
+            {hasPermission('manage_patient_portal') && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={openPortalModal}
+                iconLeft={<Smartphone size={14} />}
+              >
+                Portal
+              </Button>
+            )}
+            {hasPermission('edit_patient') && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={sendRegistrationLink}
+                loading={sendingRegistrationLink}
+                disabled={sendingRegistrationLink}
+                iconLeft={<Send size={14} />}
+              >
+                Enviar cadastro
+              </Button>
+            )}
+            {hasPermission('edit_patient') && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => navigate(`/pacientes/${id}/editar`)}
+                iconLeft={<Edit2 size={14} />}
+              >
+                Editar
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Cabeçalho do paciente */}
+        <ContentCard padding="md">
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-primary-100 bg-primary-50 flex items-center justify-center text-lg font-medium text-primary-700">
               {patient.photo_url || patient.photoUrl ? (
                 <img src={getStaticUrl(patient.photo_url || patient.photoUrl)} alt={patientName(patient)} className="w-full h-full object-cover" />
               ) : (
                 (patientName(patient) || '?').charAt(0).toUpperCase()
               )}
             </div>
-            <div className="text-white flex-1 min-w-0">
-              <h2 className="text-xl font-black truncate">{patientName(patient)}</h2>
-              <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                  active ? 'bg-emerald-400/30 text-emerald-100 border border-emerald-400/40' : 'bg-white/20 text-white/70'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-300' : 'bg-white/50'}`} />
-                  {active ? 'Ativo' : 'Inativo'}
-                </span>
-                {age && <span className="text-indigo-200 text-xs font-medium">{age} anos</span>}
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-base sm:text-lg font-medium text-slate-900">{patientName(patient)}</h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <Badge color={active ? 'success' : 'default'} dot size="sm">{active ? 'Ativo' : 'Inativo'}</Badge>
+                {age && <span>{age} anos</span>}
                 {patient.health_plan && (
-                  <span className="text-xs text-indigo-100 font-medium flex items-center gap-1">
-                    <Shield size={11} /> {patient.health_plan}
-                  </span>
+                  <span className="flex items-center gap-1"><Shield size={12} /> {patient.health_plan}</span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Quick stats */}
-          <div className="relative grid grid-cols-4 sm:grid-cols-7 gap-2 mt-5">
-            {[
-              { key: 'agenda',      label: 'Agenda',      icon: <Calendar size={13} /> },
-              { key: 'prontuario',  label: 'Prontuário',  icon: <FileText size={13} /> },
-              { key: 'neuro',       label: 'Neuro',       icon: <BrainCircuit size={13} /> },
-              { key: 'formularios', label: 'Formulários', icon: <ClipboardList size={13} /> },
-              { key: 'documentos',  label: 'Docs',        icon: <FolderOpen size={13} /> },
-              { key: 'ferramentas', label: 'Ferramentas', icon: <Boxes size={13} /> },
-              { key: 'notas',       label: 'Notas',       icon: <StickyNote size={13} /> },
-            ].map(item => (
-              <div key={item.key} className="bg-white/10 border border-white/10 backdrop-blur rounded-xl p-2 text-center text-white transition-colors hover:bg-white/15">
-                <div className="flex justify-center mb-1 text-violet-200">{item.icon}</div>
-                <div className="text-base font-black leading-none">
+          {/* Resumo de vínculos */}
+          <div className="mt-3 grid grid-cols-4 sm:grid-cols-7 gap-3">
+            {quickStats.map(item => (
+              <div key={item.key} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 text-center">
+                <div className="mb-1 flex justify-center text-primary-600"><item.icon size={14} /></div>
+                <div className="text-base font-medium leading-none text-slate-800">
                   {summary[item.key] === null || summary[item.key] === undefined ? '—' : summary[item.key]}
                 </div>
-                <div className="text-[9px] font-bold text-white/60 uppercase tracking-wide mt-1 leading-tight">{item.label}</div>
+                <div className="mt-1 text-[11px] leading-tight text-slate-500">{item.label}</div>
               </div>
             ))}
           </div>
-        </div>
-        </PanelCard>
+        </ContentCard>
 
-        {/* Tab bar */}
-        <PanelCard contentClassName="p-0">
-        <div className="flex gap-1 overflow-x-auto px-3 sm:px-4">
-          {TABS.filter(tab => {
-            if (tab.key === 'prontuario') return hasPermission('view_medical_records');
-            if (tab.key === 'ferramentas') return hasPermission('manage_clinical_tools');
-            if (tab.key === 'documentos') return hasPermission('manage_documents');
-            if (tab.key === 'formularios') return hasPermission('manage_forms');
-            if (tab.key === 'portal') return hasPermission('manage_patient_portal');
-            return true;
-          }).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-1.5 px-4 py-3.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all ${
-                activeTab === tab.key
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <tab.Icon size={14} /> {tab.label}
-              {summary[tab.key] != null && summary[tab.key]! > 0 && (
-                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
-                  activeTab === tab.key ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
-                }`}>
-                  {summary[tab.key]}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        </PanelCard>
-
-      {/* Tab content */}
-      <div className="mx-auto w-full max-w-4xl">
-        {activeTab === 'dados' && <TabDados patient={patient} navigate={navigate} />}
-        {activeTab === 'agenda' && <TabAgenda appointments={appointments} loading={tabLoading} patientId={id!} navigate={navigate} />}
-        {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
-        {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
-        {activeTab === 'tarefas'     && <TabTarefas patientId={id!} />}
-        {activeTab === 'portal'      && <TabPortal patientId={id!} />}
-        {activeTab === 'contrato'    && <TabContrato patientId={id!} />}
-        {activeTab === 'mensagens'   && <TabMensagens patientId={id!} />}
-        {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
-        {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
+        {/* Abas */}
+        <Tabs<Tab> items={visibleTabs} value={activeTab} onChange={handleTabChange} label="Seções do paciente">
+          {activeTab === 'dados' && <TabDados patient={patient} navigate={navigate} />}
+          {activeTab === 'agenda' && <TabAgenda appointments={appointments} loading={tabLoading} patientId={id!} navigate={navigate} />}
+          {activeTab === 'documentos' && <TabDocumentos documents={documents} loading={tabLoading} patientId={id!} onRefresh={() => loadTab('documentos')} />}
+          {activeTab === 'prontuario' && <TabProntuario records={records} loading={tabLoading} patientId={id!} navigate={navigate} />}
+          {activeTab === 'tarefas'     && <TabTarefas patientId={id!} />}
+          {activeTab === 'portal'      && <TabPortal patientId={id!} />}
+          {activeTab === 'contrato'    && <TabContrato patientId={id!} />}
+          {activeTab === 'mensagens'   && <TabMensagens patientId={id!} />}
+          {activeTab === 'formularios' && <TabFormularios forms={forms} loading={tabLoading} patientId={id!} navigate={navigate} />}
+          {activeTab === 'ferramentas' && <TabFerramentas patientId={id!} navigate={navigate} />}
+        </Tabs>
       </div>
-
-      {/* Edit wizard modal */}
-      <Modal
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        title="Editar paciente"
-        size="2xl"
-        mobileStyle="fullscreen"
-        className="sm:max-w-[760px]"
-      >
-        <PatientFormWizard
-          initialData={patient || {}}
-          onCancel={() => setIsWizardOpen(false)}
-          onSave={handlePatientSaved}
-        />
-      </Modal>
 
       {/* History drawer */}
       <PatientHistoryDrawer
@@ -529,59 +485,49 @@ export const PatientDetail: React.FC = () => {
         title="Portal do Paciente"
         subtitle="Gere um link de acesso seguro para o paciente acompanhar suas consultas e pagamentos."
         size="md"
+        footer={
+          <ModalFooter align="between">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPortalModalOpen(false)}>Fechar</Button>
+            <Button type="button" size="sm" onClick={generatePortalLink} loading={portalLinkLoading} iconLeft={<Link2 size={14} />}>
+              Gerar novo link
+            </Button>
+          </ModalFooter>
+        }
       >
-        <div className="space-y-5 p-1">
+        <div className="space-y-3">
           {/* Configurações */}
-          <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Configurações do link</p>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-700">Solicitar agendamento</p>
-                <p className="text-xs text-slate-400">Paciente pode solicitar novos horários</p>
-              </div>
-              <button onClick={() => setPortalForm(f => ({ ...f, allow_self_schedule: !f.allow_self_schedule }))}
-                className={`w-11 h-6 rounded-full transition-colors shrink-0 ${portalForm.allow_self_schedule ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-                <span className={`block w-4 h-4 bg-white rounded-full mx-1 transition-transform ${portalForm.allow_self_schedule ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-700">Requer aprovação</p>
-                <p className="text-xs text-slate-400">Agendamentos precisam de confirmação</p>
-              </div>
-              <button onClick={() => setPortalForm(f => ({ ...f, require_approval: !f.require_approval }))}
-                className={`w-11 h-6 rounded-full transition-colors shrink-0 ${portalForm.require_approval ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-                <span className={`block w-4 h-4 bg-white rounded-full mx-1 transition-transform ${portalForm.require_approval ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Expira em</label>
-              <select value={portalForm.expires_in_days}
-                onChange={e => setPortalForm(f => ({ ...f, expires_in_days: e.target.value }))}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-indigo-400">
-                <option value="7">7 dias</option>
-                <option value="30">30 dias</option>
-                <option value="90">90 dias</option>
-                <option value="365">1 ano</option>
-                <option value="0">Nunca expira</option>
-              </select>
-            </div>
-          </div>
-
-          <Button type="button" fullWidth onClick={generatePortalLink} loading={portalLinkLoading}
-            iconLeft={<Link2 size={14} />}>
-            Gerar Novo Link
-          </Button>
+          <PanelCard title="Configurações do link" contentClassName="space-y-3">
+            <Switch
+              checked={portalForm.allow_self_schedule}
+              onCheckedChange={v => setPortalForm(f => ({ ...f, allow_self_schedule: v }))}
+              label="Solicitar agendamento"
+              description="Paciente pode solicitar novos horários"
+            />
+            <Switch
+              checked={portalForm.require_approval}
+              onCheckedChange={v => setPortalForm(f => ({ ...f, require_approval: v }))}
+              label="Requer aprovação"
+              description="Agendamentos precisam de confirmação"
+            />
+            <Select
+              label="Expira em"
+              value={portalForm.expires_in_days}
+              onChange={e => setPortalForm(f => ({ ...f, expires_in_days: e.target.value }))}
+            >
+              <option value="7">7 dias</option>
+              <option value="30">30 dias</option>
+              <option value="90">90 dias</option>
+              <option value="365">1 ano</option>
+              <option value="0">Nunca expira</option>
+            </Select>
+          </PanelCard>
 
           {/* Links gerados */}
           {portalTokens.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Links gerados</p>
-                <span className="text-[11px] text-slate-400">{portalTokens.filter(t => !t.is_used && !(t.expires_at && new Date(t.expires_at) < new Date())).length} ativo(s)</span>
+                <p className="text-xs font-medium text-slate-600">Links gerados</p>
+                <span className="text-[11px] text-slate-500">{portalTokens.filter(t => !t.is_used && !(t.expires_at && new Date(t.expires_at) < new Date())).length} ativo(s)</span>
               </div>
               {portalTokens.map(tk => {
                 const url = `${getPortalBaseUrl()}/portal/entrar/${tk.token}`;
@@ -589,61 +535,60 @@ export const PatientDetail: React.FC = () => {
                 const used = !!tk.is_used;
                 const inactive = expired || used;
                 return (
-                  <div key={tk.id} className={`rounded-2xl border p-4 transition-all ${inactive ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-indigo-100 shadow-sm'}`}>
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-xs font-semibold text-slate-700">{tk.label || 'Portal do Paciente'}</p>
-                          {used && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">Já utilizado</span>
-                          )}
-                          {!used && expired && (
-                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">Expirado</span>
-                          )}
-                          {!used && !expired && (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">● Ativo</span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 font-mono truncate mt-1">{url.slice(0, 50)}…</p>
-                        {tk.created_at && (
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            Gerado em {new Date(tk.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                          </p>
-                        )}
+                  <div key={tk.id} className={`rounded-lg border p-3 ${inactive ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-slate-200'}`}>
+                    <div className="mb-2 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-medium text-slate-700">{tk.label || 'Portal do Paciente'}</p>
+                        {used && <Badge color="warning" size="sm">Já utilizado</Badge>}
+                        {!used && expired && <Badge color="danger" size="sm">Expirado</Badge>}
+                        {!used && !expired && <Badge color="success" size="sm" dot>Ativo</Badge>}
                       </div>
+                      <p className="text-[11px] text-slate-500 font-mono truncate mt-1">{url.slice(0, 50)}…</p>
+                      {tk.created_at && (
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Gerado em {new Date(tk.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <Clock size={11} />
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <Clock size={12} />
                         {used
                           ? <span className="text-amber-600">Acesso único — link esgotado</span>
                           : expired
-                          ? <span className="text-red-500">Expirado em {new Date(tk.expires_at).toLocaleDateString('pt-BR')}</span>
+                          ? <span className="text-red-600">Expirado em {new Date(tk.expires_at).toLocaleDateString('pt-BR')}</span>
                           : tk.expires_at
                           ? `Expira ${new Date(tk.expires_at).toLocaleDateString('pt-BR')}`
                           : 'Sem expiração'}
                       </div>
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap gap-1.5">
                         {!inactive && (
-                          <button onClick={() => copyPortalLink(tk.token, tk.id)}
-                            className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${portalCopiedId === tk.id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'}`}>
-                            {portalCopiedId === tk.id ? <Check size={11} /> : <Copy size={11} />}
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={portalCopiedId === tk.id ? 'success' : 'outline'}
+                            onClick={() => copyPortalLink(tk.token, tk.id)}
+                            iconLeft={portalCopiedId === tk.id ? <Check size={14} /> : <Copy size={14} />}
+                          >
                             {portalCopiedId === tk.id ? 'Copiado!' : 'Copiar'}
-                          </button>
+                          </Button>
                         )}
                         {!inactive && (
                           <a href={url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 transition-colors">
-                            <ExternalLink size={11} /> Abrir
+                            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                            <ExternalLink size={14} /> Abrir
                           </a>
                         )}
-                        <button
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="softDanger"
                           onClick={() => revokePortalToken(tk.id)}
-                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-100 bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
                           title="Excluir link"
+                          iconLeft={<Trash2 size={14} />}
                         >
-                          <Trash2 size={11} /> Excluir
-                        </button>
+                          Excluir
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -653,9 +598,7 @@ export const PatientDetail: React.FC = () => {
           )}
 
           {portalTokens.length === 0 && !portalLinkLoading && (
-            <div className="text-center py-4 text-slate-400 text-sm">
-              Nenhum link gerado ainda.
-            </div>
+            <p className="text-center py-3 text-xs text-slate-500">Nenhum link gerado ainda.</p>
           )}
         </div>
       </Modal>
@@ -664,99 +607,73 @@ export const PatientDetail: React.FC = () => {
 };
 
 // ─── Tab: Dados ───────────────────────────────────────────────────────────────
-const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, value }) =>
-  value ? (
-    <div>
-      <div className="text-[10px] font-black text-slate-400 uppercase tracking-wide">{label}</div>
-      <div className="text-sm font-semibold text-slate-700 mt-0.5">{value}</div>
-    </div>
-  ) : null;
-
 const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = ({ patient, navigate }) => (
-  <div className="space-y-4">
-    {/* Contato */}
-    <PanelCard
-      title="Contato"
-      icon={Phone}
-      iconWrapClassName="border-blue-100 bg-blue-50"
-      iconClassName="text-blue-600"
-      contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
-    >
-        <InfoRow label="Telefone" value={patient.whatsapp || patient.phone} />
-        <InfoRow label="Telefone 2" value={patient.phone2} />
-        <InfoRow label="Email" value={patient.email} />
-        <InfoRow label="CPF" value={patient.cpf_cnpj || patient.cpf} />
-        <InfoRow label="RG" value={patient.rg} />
-    </PanelCard>
-
-    {/* Dados pessoais */}
-    <PanelCard
-      title="Dados Pessoais"
-      icon={User}
-      iconWrapClassName="border-violet-100 bg-violet-50"
-      iconClassName="text-violet-600"
-      contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
-    >
-        <InfoRow label="Nascimento" value={formatDate(patient.birth_date || patient.birthDate)} />
-        <InfoRow label="Gênero" value={patient.gender} />
-        <InfoRow label="Estado civil" value={patient.marital_status} />
-        <InfoRow label="Escolaridade" value={patient.education} />
-        <InfoRow label="Profissão" value={patient.profession} />
-        <InfoRow label="Nacionalidade" value={patient.nationality} />
-        <InfoRow label="Naturalidade" value={patient.naturality} />
-    </PanelCard>
-
-    {/* Endereço */}
-    {(patient.address || patient.street || patient.city) && (
-      <PanelCard
-        title="Endereço"
-        icon={MapPin}
-        iconWrapClassName="border-emerald-100 bg-emerald-50"
-        iconClassName="text-emerald-600"
-        contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
-      >
-          <InfoRow label="Logradouro" value={patient.address || patient.street} />
-          <InfoRow label="Número" value={patient.house_number} />
-          <InfoRow label="Bairro" value={patient.neighborhood} />
-          <InfoRow label="Cidade" value={patient.city} />
-          <InfoRow label="Estado" value={patient.state} />
-          <InfoRow label="CEP" value={patient.zip_code || patient.address_zip} />
+  <div className="space-y-3">
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      {/* Contato */}
+      <PanelCard title="Contato" icon={Phone}>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          <DetailField label="Telefone" value={patient.whatsapp || patient.phone} />
+          <DetailField label="Telefone 2" value={patient.phone2} />
+          <DetailField label="Email" value={patient.email} />
+          <DetailField label="CPF" value={patient.cpf_cnpj || patient.cpf} />
+          <DetailField label="RG" value={patient.rg} />
+        </dl>
       </PanelCard>
-    )}
 
-    {/* Família */}
-    {(patient.spouse_name || patient.family_contact || patient.emergency_contact) && (
-      <PanelCard
-        title="Família / Contatos"
-        icon={Activity}
-        iconWrapClassName="border-rose-100 bg-rose-50"
-        iconClassName="text-rose-600"
-        contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
-      >
-          <InfoRow label="Cônjuge" value={patient.spouse_name} />
-          <InfoRow label="Contato familiar" value={patient.family_contact} />
-          <InfoRow label="Contato emergência" value={patient.emergency_contact} />
+      {/* Dados pessoais */}
+      <PanelCard title="Dados pessoais" icon={User}>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          <DetailField label="Nascimento" value={formatDate(patient.birth_date || patient.birthDate)} />
+          <DetailField label="Gênero" value={patient.gender} />
+          <DetailField label="Estado civil" value={patient.marital_status} />
+          <DetailField label="Escolaridade" value={patient.education} />
+          <DetailField label="Profissão" value={patient.profession} />
+          <DetailField label="Nacionalidade" value={patient.nationality} />
+          <DetailField label="Naturalidade" value={patient.naturality} />
+        </dl>
       </PanelCard>
-    )}
+
+      {/* Endereço */}
+      {(patient.address || patient.street || patient.city) && (
+        <PanelCard title="Endereço" icon={MapPin}>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+            <DetailField label="Logradouro" value={patient.address || patient.street} />
+            <DetailField label="Número" value={patient.house_number} />
+            <DetailField label="Bairro" value={patient.neighborhood} />
+            <DetailField label="Cidade" value={patient.city} />
+            <DetailField label="Estado" value={patient.state} />
+            <DetailField label="CEP" value={patient.zip_code || patient.address_zip} />
+          </dl>
+        </PanelCard>
+      )}
+
+      {/* Família */}
+      {(patient.spouse_name || patient.family_contact || patient.emergency_contact) && (
+        <PanelCard title="Família / contatos" icon={Activity}>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+            <DetailField label="Cônjuge" value={patient.spouse_name} />
+            <DetailField label="Contato familiar" value={patient.family_contact} />
+            <DetailField label="Contato emergência" value={patient.emergency_contact} />
+          </dl>
+        </PanelCard>
+      )}
+    </div>
 
     {/* Clínico */}
-    <PanelCard
-      title="Informações Clínicas"
-      icon={Shield}
-      iconWrapClassName="border-amber-100 bg-amber-50"
-      iconClassName="text-amber-600"
-      contentClassName="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
-    >
-        <InfoRow label="Convênio" value={patient.health_plan || (patient.convenio ? patient.convenio_name || 'Sim' : undefined)} />
-        <InfoRow label="Diagnóstico" value={patient.diagnosis} />
-        {patient.notes && (
-          <div className="sm:col-span-2 lg:col-span-3">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-1.5">Observações</div>
-            <div className="text-sm text-slate-600 bg-amber-50 border border-amber-200/60 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
-              {patient.notes}
-            </div>
+    <PanelCard title="Informações clínicas" icon={Shield}>
+      <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6">
+        <DetailField label="Convênio" value={patient.health_plan || (patient.convenio ? patient.convenio_name || 'Sim' : undefined)} />
+        <DetailField label="Diagnóstico" value={patient.diagnosis} />
+      </dl>
+      {patient.notes && (
+        <div className="mt-3">
+          <div className="text-xs font-medium text-slate-600 mb-1.5">Observações</div>
+          <div className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed whitespace-pre-wrap">
+            {patient.notes}
           </div>
-        )}
+        </div>
+      )}
     </PanelCard>
 
     {/* Quick nav */}
@@ -769,13 +686,16 @@ const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = 
           { label: 'Documentos', path: `/documentos?patient_id=${patient.id}` },
           { label: 'Ferramentas', path: `/caixa-ferramentas?patient_id=${patient.id}` },
         ].map(btn => (
-          <button
+          <Button
             key={btn.label}
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={() => navigate(btn.path)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+            iconRight={<ExternalLink size={14} />}
           >
-            {btn.label} <ExternalLink size={11} />
-          </button>
+            {btn.label}
+          </Button>
         ))}
       </div>
     </PanelCard>
@@ -783,13 +703,14 @@ const TabDados: React.FC<{ patient: Patient; navigate: (p: string) => void }> = 
 );
 
 // ─── Tab: Agenda ──────────────────────────────────────────────────────────────
-const STATUS_MAP: Record<string, { label: string; activeCls: string; inactiveCls: string; badgeCls: string }> = {
-  scheduled:   { label: 'Agendado',    activeCls: 'bg-indigo-600 text-white border-indigo-600',    inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300',   badgeCls: 'bg-indigo-100 text-indigo-700' },
-  confirmed:   { label: 'Confirmado',  activeCls: 'bg-blue-600 text-white border-blue-600',         inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-blue-300',    badgeCls: 'bg-blue-100 text-blue-700' },
-  completed:   { label: 'Realizado',   activeCls: 'bg-emerald-600 text-white border-emerald-600',   inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300', badgeCls: 'bg-emerald-100 text-emerald-700' },
-  cancelled:   { label: 'Cancelado',   activeCls: 'bg-red-500 text-white border-red-500',           inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-red-300',     badgeCls: 'bg-red-100 text-red-700' },
-  'no-show':   { label: 'Faltou',      activeCls: 'bg-amber-500 text-white border-amber-500',       inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-amber-300',   badgeCls: 'bg-amber-100 text-amber-700' },
-  rescheduled: { label: 'Reagendado',  activeCls: 'bg-orange-500 text-white border-orange-500',     inactiveCls: 'bg-white text-slate-500 border-slate-200 hover:border-orange-300',  badgeCls: 'bg-orange-100 text-orange-700' },
+type BadgeTone = 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'purple' | 'orange' | 'teal';
+const STATUS_MAP: Record<string, { label: string; color: BadgeTone }> = {
+  scheduled:   { label: 'Agendado',    color: 'primary' },
+  confirmed:   { label: 'Confirmado',  color: 'info' },
+  completed:   { label: 'Realizado',   color: 'success' },
+  cancelled:   { label: 'Cancelado',   color: 'danger' },
+  'no-show':   { label: 'Faltou',      color: 'warning' },
+  rescheduled: { label: 'Reagendado',  color: 'orange' },
 };
 const STATUS_CHIPS = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no-show', 'rescheduled'];
 
@@ -845,119 +766,123 @@ const TabAgenda: React.FC<{ appointments: any[]; loading: boolean; patientId: st
   const hasActiveFilters = statusFilter.length > 0 || dateTo !== null || isViewingHistory;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{sorted.length} atendimento{sorted.length !== 1 ? 's' : ''}</span>
-        <button onClick={() => navigate(`/agenda?patient_id=${patientId}`)} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:underline">
-          Abrir na agenda <ExternalLink size={11} />
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-slate-600">{sorted.length} atendimento{sorted.length !== 1 ? 's' : ''}</span>
+        <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/agenda?patient_id=${patientId}`)} iconRight={<ExternalLink size={14} />}>
+          Abrir na agenda
+        </Button>
       </div>
 
-      {/* Filter panel */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
-        {/* Status chips */}
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_CHIPS.map(key => {
-            const s = STATUS_MAP[key];
-            const active = statusFilter.includes(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleStatus(key)}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all ${active ? s.activeCls : s.inactiveCls}`}
-              >
-                {s.label}
-              </button>
-            );
-          })}
-          {statusFilter.length > 0 && (
-            <button type="button" onClick={() => setStatusFilter([])} className="text-[11px] font-semibold px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors">
-              Limpar
-            </button>
-          )}
-        </div>
-
-        {/* Date range */}
-        <div className="flex items-center gap-2">
-          <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="De" className="flex-1 text-xs" />
-          <span className="text-[11px] text-slate-400 shrink-0">até</span>
-          <DatePicker value={dateTo} onChange={setDateTo} placeholder="Até" className="flex-1 text-xs" />
-        </div>
-
-        {/* History toggle */}
-        <div className="flex items-center justify-between pt-0.5">
-          {!isViewingHistory ? (
-            <button type="button" onClick={() => setDateFrom(null)} className="text-[11px] font-semibold text-indigo-600 hover:underline flex items-center gap-1">
-              <History size={12} /> Ver histórico completo
-            </button>
+      {/* Filtros */}
+      <FilterLine>
+        <FilterLineSection grow>
+          <FilterLineDateRange
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            fromLabel="De"
+            toLabel="Até"
+          />
+        </FilterLineSection>
+        <FilterLineSection align="right">
+          {isViewingHistory ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setDateFrom(today); setDateTo(null); setStatusFilter([]); }} iconLeft={<Calendar size={14} />}>
+              Mostrar apenas próximos
+            </Button>
           ) : (
-            <button type="button" onClick={() => { setDateFrom(today); setDateTo(null); setStatusFilter([]); }} className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 hover:underline flex items-center gap-1">
-              <Calendar size={12} /> Mostrar apenas próximos
-            </button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setDateFrom(null)} iconLeft={<History size={14} />}>
+              Ver histórico completo
+            </Button>
           )}
-          {hasActiveFilters && (
-            <span className="text-[10px] text-slate-400">
-              {isViewingHistory ? 'Histórico ativo' : 'Filtros ativos'}
-            </span>
-          )}
+          <FilterPopover
+            activeCount={statusFilter.length}
+            onApply={() => {}}
+            onClear={() => setStatusFilter([])}
+          >
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-slate-600">Status</p>
+              <div className="flex flex-wrap gap-1.5">
+                {STATUS_CHIPS.map(key => {
+                  const s = STATUS_MAP[key];
+                  const on = statusFilter.includes(key);
+                  return (
+                    <Button
+                      key={key}
+                      type="button"
+                      size="xs"
+                      variant={on ? 'primary' : 'outline'}
+                      onClick={() => toggleStatus(key)}
+                    >
+                      {s.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          </FilterPopover>
+        </FilterLineSection>
+      </FilterLine>
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-slate-500">{isViewingHistory ? 'Histórico ativo' : 'Filtros ativos'}</span>
+          {statusFilter.map(key => (
+            <Badge key={key} color={STATUS_MAP[key].color} size="sm">{STATUS_MAP[key].label}</Badge>
+          ))}
         </div>
-      </div>
+      )}
 
       {/* List */}
-      {sorted.length === 0 && <EmptyState icon={<Calendar size={32} />} label="Nenhum atendimento encontrado" />}
-      {sorted.map((a: any) => {
-        const dt = new Date(a.start || a.start_time || a.appointment_date || '');
-        const isPast = dt < new Date();
-        const statusInfo = a.status ? (STATUS_MAP[a.status] || { label: a.status, badgeCls: 'bg-slate-100 text-slate-500', activeCls: '', inactiveCls: '' }) : null;
+      {sorted.length === 0 && <EmptyState icon={Calendar} title="Nenhum atendimento encontrado" />}
+      {sorted.length > 0 && (
+        <ContentCard padding="none" className="divide-y divide-slate-100 overflow-hidden">
+          {sorted.map((a: any) => {
+            const dt = new Date(a.start || a.start_time || a.appointment_date || '');
+            const isPast = dt < new Date();
+            const statusInfo = a.status ? (STATUS_MAP[a.status] || { label: a.status, color: 'default' as BadgeTone }) : null;
 
-        const hasComanda = !!a.comanda_id;
-        const sessionIdx = hasComanda ? comandaIndexMap[a.id] : null;
-        const sessionTotal = hasComanda ? (a.comanda_sessions_total || null) : null;
-        const sessionLabel = hasComanda && sessionIdx && sessionTotal ? `${sessionIdx}/${sessionTotal}` : null;
+            const hasComanda = !!a.comanda_id;
+            const sessionIdx = hasComanda ? comandaIndexMap[a.id] : null;
+            const sessionTotal = hasComanda ? (a.comanda_sessions_total || null) : null;
+            const sessionLabel = hasComanda && sessionIdx && sessionTotal ? `${sessionIdx}/${sessionTotal}` : null;
 
-        const price = a.service_price != null ? Number(a.service_price)
-          : (hasComanda && a.comanda_total && a.comanda_sessions_total)
-            ? Number(a.comanda_total) / Number(a.comanda_sessions_total)
-            : null;
-        const priceLabel = price != null ? price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null;
+            const price = a.service_price != null ? Number(a.service_price)
+              : (hasComanda && a.comanda_total && a.comanda_sessions_total)
+                ? Number(a.comanda_total) / Number(a.comanda_sessions_total)
+                : null;
+            const priceLabel = price != null ? price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null;
 
-        return (
-          <div key={a.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center text-center shrink-0 ${isPast ? 'bg-slate-100' : 'bg-indigo-100'}`}>
-              <span className={`text-[10px] font-black uppercase ${isPast ? 'text-slate-400' : 'text-indigo-600'}`}>
-                {isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR', { month: 'short' })}
-              </span>
-              <span className={`text-base font-black leading-none ${isPast ? 'text-slate-500' : 'text-indigo-700'}`}>
-                {isNaN(dt.getTime()) ? '—' : dt.getDate()}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800 truncate">{a.service_name || a.title || 'Atendimento'}</span>
-                {sessionLabel && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 shrink-0">
-                    {sessionLabel}
+            return (
+              <div key={a.id} className="px-3 py-3 flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center text-center shrink-0 ${isPast ? 'bg-slate-100' : 'bg-primary-50'}`}>
+                  <span className={`text-[11px] leading-none ${isPast ? 'text-slate-500' : 'text-primary-600'}`}>
+                    {isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('pt-BR', { month: 'short' })}
                   </span>
-                )}
+                  <span className={`text-sm font-medium leading-none mt-0.5 ${isPast ? 'text-slate-600' : 'text-primary-700'}`}>
+                    {isNaN(dt.getTime()) ? '—' : dt.getDate()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-800 truncate">{a.service_name || a.title || 'Atendimento'}</span>
+                    {sessionLabel && <Badge color="purple" size="sm">{sessionLabel}</Badge>}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                    {!isNaN(dt.getTime()) && <span>{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                    {(a.psychologist_name || a.professional_name || a.professional_name_text) && (
+                      <span>· {a.psychologist_name || a.professional_name || a.professional_name_text}</span>
+                    )}
+                    {priceLabel && <span className="text-emerald-600 font-medium">· {priceLabel}</span>}
+                  </div>
+                </div>
+                {statusInfo && <Badge color={statusInfo.color} size="sm">{statusInfo.label}</Badge>}
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
-                {!isNaN(dt.getTime()) && <span>{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-                {(a.psychologist_name || a.professional_name || a.professional_name_text) && (
-                  <span>· {a.psychologist_name || a.professional_name || a.professional_name_text}</span>
-                )}
-                {priceLabel && <span className="text-emerald-600 font-semibold">· {priceLabel}</span>}
-              </div>
-            </div>
-            {statusInfo && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusInfo.badgeCls}`}>
-                {statusInfo.label}
-              </span>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+        </ContentCard>
+      )}
     </div>
   );
 };
@@ -996,59 +921,70 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
 
   if (loading) return <TabLoader />;
 
-  const typeIcon = (type: string) => {
-    if (type === 'pdf') return '📄';
-    if (type === 'image') return '🖼️';
-    return '📎';
+  const TypeIcon = ({ type }: { type: string }) => {
+    if (type === 'pdf') return <FileText size={18} />;
+    if (type === 'image') return <ImageIcon size={18} />;
+    return <Paperclip size={18} />;
   };
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{documents.length} documento(s)</span>
-        <button
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-slate-600">{documents.length} documento(s)</span>
+        <Button
+          type="button"
+          size="sm"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          loading={uploading}
+          iconLeft={<FileUp size={14} />}
         >
-          {uploading ? <Loader2 size={12} className="animate-spin" /> : <FileUp size={12} />}
           Anexar
-        </button>
+        </Button>
         <input ref={inputRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
       </div>
-      {documents.length === 0 && <EmptyState icon={<FolderOpen size={32} />} label="Nenhum documento anexado" />}
-      {documents.map((doc: any) => (
-        <div key={doc.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
-          <div className="text-2xl">{typeIcon(doc.type)}</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-slate-800 truncate">{doc.title || doc.file_name}</div>
-            <div className="text-[10px] text-slate-400 mt-0.5">
-              {doc.category} · {doc.size}
-              {doc.date && ` · ${new Date(doc.date).toLocaleDateString('pt-BR')}`}
+      {documents.length === 0 && <EmptyState icon={FolderOpen} title="Nenhum documento anexado" />}
+      {documents.length > 0 && (
+        <ContentCard padding="none" className="divide-y divide-slate-100 overflow-hidden">
+          {documents.map((doc: any) => (
+            <div key={doc.id} className="px-3 py-3 flex items-center gap-3">
+              <div className="text-slate-400 shrink-0"><TypeIcon type={doc.type} /></div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-slate-800 truncate">{doc.title || doc.file_name}</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  {doc.category} · {doc.size}
+                  {doc.date && ` · ${new Date(doc.date).toLocaleDateString('pt-BR')}`}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {doc.file_url && (
+                  <a
+                    href={getStaticUrl(doc.file_url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                    title="Baixar"
+                    aria-label="Baixar documento"
+                  >
+                    <Download size={14} />
+                  </a>
+                )}
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteTarget({ id: String(doc.id), name: doc.title || doc.file_name || 'documento' })}
+                  title="Excluir"
+                  aria-label="Excluir documento"
+                  className="hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 size={14} />
+                </IconButton>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {doc.file_url && (
-              <a
-                href={getStaticUrl(doc.file_url)}
-                target="_blank"
-                rel="noreferrer"
-                className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors"
-                title="Baixar"
-              >
-                <Download size={14} />
-              </a>
-            )}
-            <button
-              onClick={() => setDeleteTarget({ id: String(doc.id), name: doc.title || doc.file_name || 'documento' })}
-              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
-              title="Excluir"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        </div>
-      ))}
+          ))}
+        </ContentCard>
+      )}
 
       {/* Modal de confirmação de exclusão */}
       <UIConfirmModal
@@ -1098,26 +1034,25 @@ const MoodHistoryPanel: React.FC<{ patientId: string }> = ({ patientId }) => {
   const latestInfo = SESSION_MOOD_MAP[latest.mood_score];
 
   return (
-    <PanelCard>
-      <SectionTitle icon={Smile} title="Humor observado pelo profissional" />
-      <div className="flex items-center gap-3 mb-4 mt-2">
+    <PanelCard title="Humor observado pelo profissional" icon={Smile}>
+      <div className="flex items-center gap-3 mb-3">
         <span className="text-3xl">{latestInfo?.emoji}</span>
         <div>
-          <p className="text-sm font-bold" style={{ color: latestInfo?.color }}>{latestInfo?.label}</p>
-          <p className="text-[11px] text-slate-400">Última sessão · {formatDate(latest.recorded_at)}</p>
+          <p className="text-sm font-medium" style={{ color: latestInfo?.color }}>{latestInfo?.label}</p>
+          <p className="text-[11px] text-slate-500">Última sessão · {formatDate(latest.recorded_at)}</p>
         </div>
       </div>
-      <div className="h-[140px]">
+      <div className="h-36 min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 6, right: 12, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-            <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={24} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+            <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={24} />
             <Tooltip
-              contentStyle={{ fontSize: 11, borderRadius: 12, border: '1px solid #e4e4e7' }}
+              contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
               formatter={(value: number) => [SESSION_MOOD_MAP[value]?.label || value, 'Humor']}
             />
-            <Line type="monotone" dataKey="score" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1' }} />
+            <Line type="monotone" dataKey="score" stroke="var(--c-600)" strokeWidth={2} dot={{ r: 3, fill: 'var(--c-600)' }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -1130,22 +1065,26 @@ const TabProntuario: React.FC<{ records: any[]; loading: boolean; patientId: str
   return (
     <div className="space-y-3">
       <MoodHistoryPanel patientId={patientId} />
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{records.length} registro(s)</span>
-        <button onClick={() => navigate(`/prontuario?patient_id=${patientId}`)} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:underline">
-          Abrir prontuário <ExternalLink size={11} />
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-slate-600">{records.length} registro(s)</span>
+        <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/prontuario?patient_id=${patientId}`)} iconRight={<ExternalLink size={14} />}>
+          Abrir prontuário
+        </Button>
       </div>
-      {records.length === 0 && <EmptyState icon={<FileText size={32} />} label="Nenhum registro de prontuário" />}
-      {records.map((rec: any) => (
-        <div key={rec.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3">
-          <div className="flex items-center gap-2 justify-between">
-            <div className="text-xs font-bold text-slate-800">{rec.title || rec.type || 'Registro'}</div>
-            <div className="text-[10px] text-slate-400">{formatDate(rec.date || rec.created_at)}</div>
-          </div>
-          {rec.preview && <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-2">{rec.preview}</p>}
-        </div>
-      ))}
+      {records.length === 0 && <EmptyState icon={FileText} title="Nenhum registro de prontuário" />}
+      {records.length > 0 && (
+        <ContentCard padding="none" className="divide-y divide-slate-100 overflow-hidden">
+          {records.map((rec: any) => (
+            <div key={rec.id} className="px-3 py-3">
+              <div className="flex items-center gap-2 justify-between">
+                <div className="text-xs font-medium text-slate-800">{rec.title || rec.type || 'Registro'}</div>
+                <div className="text-[11px] text-slate-500">{formatDate(rec.date || rec.created_at)}</div>
+              </div>
+              {rec.preview && <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{rec.preview}</p>}
+            </div>
+          ))}
+        </ContentCard>
+      )}
     </div>
   );
 };
@@ -1165,66 +1104,66 @@ const TabFormularios: React.FC<{ forms: any[]; loading: boolean; patientId: stri
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-black text-slate-500 uppercase tracking-wide">{forms.length} resposta(s)</span>
-        <button onClick={() => navigate(`/formularios/lista?patient_id=${patientId}`)} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:underline">
-          Ver todos <ExternalLink size={11} />
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-slate-600">{forms.length} resposta(s)</span>
+        <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/formularios/lista?patient_id=${patientId}`)} iconRight={<ExternalLink size={14} />}>
+          Ver todos
+        </Button>
       </div>
-      {forms.length === 0 && <EmptyState icon={<ClipboardList size={32} />} label="Nenhuma resposta de formulário" />}
-      {forms.map((f: any) => (
-        <button
-          key={f.id}
-          onClick={() => goToForm(f)}
-          className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 hover:border-indigo-200 hover:bg-indigo-50/40 transition-all group"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <ClipboardList size={14} className="text-indigo-400 shrink-0" />
-              <span className="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
-                {f.form_title || f.title || 'Formulário'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {f.score != null && (
-                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                  {f.score} pts
-                </span>
-              )}
-              <span className="text-[10px] text-slate-400">{formatDate(f.submitted_at || f.created_at)}</span>
-              <ChevronRight size={12} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
-            </div>
-          </div>
-        </button>
-      ))}
+      {forms.length === 0 && <EmptyState icon={ClipboardList} title="Nenhuma resposta de formulário" />}
+      {forms.length > 0 && (
+        <ContentCard padding="none" className="divide-y divide-slate-100 overflow-hidden">
+          {forms.map((f: any) => (
+            <button
+              type="button"
+              key={f.id}
+              onClick={() => goToForm(f)}
+              className="w-full text-left px-3 py-3 hover:bg-primary-50/40 transition-colors group"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ClipboardList size={14} className="text-primary-500 shrink-0" />
+                  <span className="text-xs font-medium text-slate-800 truncate group-hover:text-primary-700 transition-colors">
+                    {f.form_title || f.title || 'Formulário'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {f.score != null && <Badge color="primary" size="sm">{f.score} pts</Badge>}
+                  <span className="text-[11px] text-slate-500">{formatDate(f.submitted_at || f.created_at)}</span>
+                  <ChevronRight size={14} className="text-slate-300 group-hover:text-primary-500 transition-colors" />
+                </div>
+              </div>
+            </button>
+          ))}
+        </ContentCard>
+      )}
     </div>
   );
 };
 
 // ─── Tab: Ferramentas ─────────────────────────────────────────────────────────
 const TabFerramentas: React.FC<{ patientId: string; navigate: (p: string) => void }> = ({ patientId, navigate }) => (
-  <div className="space-y-3">
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 text-center">
-      <Boxes size={32} className="text-slate-300 mx-auto mb-3" />
-      <p className="text-sm font-semibold text-slate-600 mb-1">Ferramentas Clínicas</p>
-      <p className="text-xs text-slate-400 mb-4">Acesse os instrumentos clínicos do paciente na caixa de ferramentas</p>
-      <button
-        onClick={() => navigate(`/caixa-ferramentas?patient_id=${patientId}`)}
-        className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
-      >
-        Abrir ferramentas <ExternalLink size={12} />
-      </button>
-    </div>
-  </div>
+  <ContentCard>
+    <EmptyState
+      icon={Boxes}
+      title="Ferramentas clínicas"
+      description="Acesse os instrumentos clínicos do paciente na caixa de ferramentas."
+      action={
+        <Button type="button" size="sm" onClick={() => navigate(`/caixa-ferramentas?patient_id=${patientId}`)} iconRight={<ExternalLink size={14} />}>
+          Abrir ferramentas
+        </Button>
+      }
+    />
+  </ContentCard>
 );
 
 // ─── Tab: Contrato ────────────────────────────────────────────────────────────
-const CONTRACT_STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  sent:      { label: 'Enviado',   className: 'bg-slate-100 text-slate-600' },
-  viewed:    { label: 'Visualizado', className: 'bg-amber-100 text-amber-700' },
-  signed:    { label: 'Assinado',  className: 'bg-emerald-100 text-emerald-700' },
-  expired:   { label: 'Expirado',  className: 'bg-rose-100 text-rose-600' },
-  cancelled: { label: 'Cancelado', className: 'bg-slate-100 text-slate-400' },
+const CONTRACT_STATUS_LABEL: Record<string, { label: string; color: BadgeTone }> = {
+  sent:      { label: 'Enviado',     color: 'default' },
+  viewed:    { label: 'Visualizado', color: 'warning' },
+  signed:    { label: 'Assinado',    color: 'success' },
+  expired:   { label: 'Expirado',    color: 'danger' },
+  cancelled: { label: 'Cancelado',   color: 'default' },
 };
 
 const SCALE_LABEL: Record<string, string> = { 'bdi-ii': 'BDI-II (Depressão)', 'bai': 'BAI (Ansiedade)' };
@@ -1291,36 +1230,34 @@ const TabContrato: React.FC<{ patientId: string }> = ({ patientId }) => {
   const statusInfo = contract ? CONTRACT_STATUS_LABEL[contract.status] : null;
 
   return (
-    <div className="space-y-5">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <FileSignature size={16} className="text-indigo-500" />
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wide">Contrato de Prestação de Serviços</span>
-          </div>
-          {statusInfo && (
-            <span className={`text-[10px] font-black px-2 py-1 rounded-full ${statusInfo.className}`}>{statusInfo.label}</span>
-          )}
-        </div>
-
+    <div className="space-y-3">
+      <PanelCard
+        title="Contrato de prestação de serviços"
+        icon={FileSignature}
+        action={statusInfo ? <Badge color={statusInfo.color} size="sm">{statusInfo.label}</Badge> : undefined}
+      >
         {!contract && (
           <div className="space-y-3">
             <p className="text-xs text-slate-500">Nenhum contrato enviado ainda para este paciente.</p>
-            <div className="flex items-center gap-2">
-              <select
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <Select
+                label="Tipo de atendimento"
+                wrapperClassName="flex-1"
                 value={contractType}
                 onChange={e => setContractType(e.target.value as 'online' | 'presencial')}
-                className="flex-1 h-10 px-3 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400"
               >
                 <option value="online">Atendimento Online</option>
                 <option value="presencial">Atendimento Presencial</option>
-              </select>
-              <button
-                onClick={sendContract} disabled={sending}
-                className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+              </Select>
+              <Button
+                type="button"
+                onClick={sendContract}
+                disabled={sending}
+                loading={sending}
+                iconLeft={<Send size={14} />}
               >
-                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar
-              </button>
+                Enviar
+              </Button>
             </div>
           </div>
         )}
@@ -1330,12 +1267,17 @@ const TabContrato: React.FC<{ patientId: string }> = ({ patientId }) => {
             <p className="text-xs text-slate-500">
               Contrato ({contract.contract_type === 'online' ? 'Online' : 'Presencial'}) aguardando assinatura do paciente.
             </p>
-            <button
-              onClick={resendContract} disabled={sending}
-              className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1.5"
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resendContract}
+              disabled={sending}
+              loading={sending}
+              iconLeft={<Send size={14} />}
             >
-              {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Reenviar link
-            </button>
+              Reenviar link
+            </Button>
           </div>
         )}
 
@@ -1346,39 +1288,38 @@ const TabContrato: React.FC<{ patientId: string }> = ({ patientId }) => {
               {contract.signature?.signed_at ? ` em ${formatDate(contract.signature.signed_at)}` : ''}.
             </p>
             {contract.signature?.signature_image && (
-              <div className="border border-slate-100 rounded-xl p-3 bg-slate-50 w-fit">
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 w-fit">
                 <img src={contract.signature.signature_image} alt="Assinatura" className="h-16 object-contain" />
-                <p className="text-[10px] text-slate-400 mt-1">{contract.signature.signer_name} — CPF {contract.signature.signer_cpf}</p>
+                <p className="text-[11px] text-slate-500 mt-1">{contract.signature.signer_name} — CPF {contract.signature.signer_cpf}</p>
               </div>
             )}
           </div>
         )}
-      </div>
+      </PanelCard>
 
       {schedules.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <ClipboardList size={16} className="text-indigo-500" />
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wide">Acompanhamento Periódico (a cada 3 meses)</span>
-          </div>
+        <PanelCard title="Acompanhamento periódico (a cada 3 meses)" icon={ClipboardList} contentClassName="space-y-2">
           {schedules.map(s => (
-            <div key={s.id} className="flex items-center justify-between gap-2 border border-slate-100 rounded-xl px-3 py-2.5">
+            <div key={s.id} className="flex items-center justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2">
               <div>
-                <p className="text-xs font-bold text-slate-700">{SCALE_LABEL[s.scale_type] || s.scale_type}</p>
-                <p className="text-[10px] text-slate-400">
+                <p className="text-xs font-medium text-slate-700">{SCALE_LABEL[s.scale_type] || s.scale_type}</p>
+                <p className="text-[11px] text-slate-500">
                   {s.status === 'active' ? `Próximo envio: ${formatDate(s.next_due_at)}` : 'Pausado'}
                   {s.last_sent_at ? ` · Último envio: ${formatDate(s.last_sent_at)}` : ''}
                 </p>
               </div>
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
                 onClick={() => toggleSchedule(s.id, s.status)}
-                className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-indigo-600 transition-colors shrink-0"
+                iconLeft={s.status === 'active' ? <PauseCircle size={14} /> : <PlayCircle size={14} />}
               >
-                {s.status === 'active' ? <><PauseCircle size={13} /> Pausar</> : <><PlayCircle size={13} /> Retomar</>}
-              </button>
+                {s.status === 'active' ? 'Pausar' : 'Retomar'}
+              </Button>
             </div>
           ))}
-        </div>
+        </PanelCard>
       )}
     </div>
   );
@@ -1422,6 +1363,7 @@ const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
   useEffect(() => { load(); }, [load]);
 
   const save = async () => {
+    if (saving) return;
     if (!form.title.trim()) { pushToast('error', 'Título é obrigatório.'); return; }
     setSaving(true);
     try {
@@ -1458,136 +1400,122 @@ const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
   const done    = tasks.filter(t => t.status === 'concluida');
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
+    <div className="space-y-3">
       <PanelCard
-        title="Tarefas do Paciente"
+        title="Tarefas do paciente"
         icon={CheckSquare}
-        iconWrapClassName="border-violet-100 bg-violet-50"
-        iconClassName="text-violet-600"
         action={
-          <button
-            onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 rounded-lg hover:opacity-90 transition-opacity">
-            <Plus size={13} /> Nova tarefa
-          </button>
-        }>
-        <p className="text-xs text-slate-400 -mt-2 mb-3">
+          <Button type="button" size="sm" onClick={() => setShowForm(v => !v)} iconLeft={<Plus size={14} />}>
+            Nova tarefa
+          </Button>
+        }
+        contentClassName="space-y-3"
+      >
+        <p className="text-xs text-slate-500">
           Tarefas criadas aqui aparecem automaticamente no <strong>app do paciente</strong> em tempo real.
         </p>
 
         {/* Formulário inline */}
         {showForm && (
-          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 mb-4 space-y-3">
-            <p className="text-xs font-bold text-violet-700 uppercase tracking-wide">Nova tarefa</p>
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-3">
+            <p className="text-xs font-medium text-slate-700">Nova tarefa</p>
 
-            <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Título *</label>
-              <input
-                className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                placeholder="Ex: Fazer anotações diárias no diário"
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            <Input
+              label="Título *"
+              placeholder="Ex: Fazer anotações diárias no diário"
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            />
+
+            <Textarea
+              label="Descrição (opcional)"
+              rows={2}
+              placeholder="Detalhes ou instruções para o paciente..."
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            />
+
+            <FormRow cols={3}>
+              <Select
+                label="Categoria"
+                value={form.category}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                options={TASK_CATS.map(c => ({ value: c.id, label: c.label }))}
               />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Descrição (opcional)</label>
-              <textarea
-                rows={2}
-                className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                placeholder="Detalhes ou instruções para o paciente..."
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              <Select
+                label="Prioridade"
+                value={form.priority}
+                onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
+                options={TASK_PRIOS.map(p => ({ value: p.id, label: p.label }))}
               />
-            </div>
+              <Input
+                label="Prazo"
+                type="date"
+                value={form.due_date}
+                onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+              />
+            </FormRow>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Categoria</label>
-                <select className="w-full text-xs border border-slate-200 rounded-xl px-2 py-2.5 focus:outline-none focus:border-indigo-400 bg-white"
-                  value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {TASK_CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Prioridade</label>
-                <select className="w-full text-xs border border-slate-200 rounded-xl px-2 py-2.5 focus:outline-none focus:border-indigo-400 bg-white"
-                  value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-                  {TASK_PRIOS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wide block mb-1">Prazo</label>
-                <input type="date" className="w-full text-xs border border-slate-200 rounded-xl px-2 py-2.5 focus:outline-none focus:border-indigo-400 bg-white"
-                  value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <button onClick={save} disabled={saving}
-                className="flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-60 transition-opacity">
-                {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-                {saving ? 'Salvando...' : 'Criar tarefa'}
-              </button>
-              <button onClick={() => setShowForm(false)}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>
                 Cancelar
-              </button>
+              </Button>
+              <Button type="button" size="sm" onClick={save} disabled={saving} loading={saving} iconLeft={<Check size={14} />}>
+                {saving ? 'Salvando...' : 'Criar tarefa'}
+              </Button>
             </div>
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-indigo-400" /></div>
+          <TabLoader />
         ) : tasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center">
-              <CheckSquare size={22} className="text-violet-300" />
-            </div>
-            <p className="text-sm font-semibold text-slate-400">Nenhuma tarefa criada ainda</p>
-            <p className="text-xs text-slate-300 text-center max-w-xs">Crie tarefas para esse paciente. Elas aparecem no app móvel do paciente.</p>
-          </div>
+          <EmptyState
+            icon={CheckSquare}
+            title="Nenhuma tarefa criada ainda"
+            description="Crie tarefas para esse paciente. Elas aparecem no app móvel do paciente."
+          />
         ) : (
           <div className="space-y-3">
             {/* Pendentes */}
             {pending.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                  <AlarmClock size={11} /> A fazer · {pending.length}
+                <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                  <AlarmClock size={14} /> A fazer · {pending.length}
                 </p>
                 {pending.map(task => {
                   const prio = TASK_PRIOS.find(p => p.id === task.priority) || TASK_PRIOS[1];
                   return (
-                    <div key={task.id} className="flex items-start gap-3 bg-white border border-slate-100 rounded-2xl p-3.5 shadow-sm hover:shadow-md transition-shadow">
-                      <button onClick={() => toggleStatus(task)}
-                        className="mt-0.5 w-5 h-5 rounded-md border-2 border-slate-300 hover:border-violet-500 flex items-center justify-center shrink-0 transition-colors">
-                      </button>
+                    <div key={task.id} className="flex items-start gap-3 bg-white border border-slate-200 rounded-lg p-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(task)}
+                        aria-label="Marcar tarefa como concluída"
+                        className="mt-0.5 w-5 h-5 rounded-md border-2 border-slate-300 hover:border-primary-500 flex items-center justify-center shrink-0 transition-colors"
+                      />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800">{task.title}</p>
-                        {task.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{task.description}</p>}
+                        <p className="text-xs font-medium text-slate-800">{task.title}</p>
+                        {task.description && <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{task.description}</p>}
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${prio.color} ${prio.bg} ${prio.border}`}>
-                            <Flag size={8} className="inline mr-0.5" />{prio.label}
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${prio.color} ${prio.bg} ${prio.border}`}>
+                            <Flag size={10} />{prio.label}
                           </span>
                           {task.category && task.category !== 'geral' && (
-                            <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                              <Tag size={8} className="inline mr-0.5" />{TASK_CATS.find(c => c.id === task.category)?.label}
-                            </span>
+                            <Badge color="primary" size="sm"><Tag size={10} className="mr-1" />{TASK_CATS.find(c => c.id === task.category)?.label}</Badge>
                           )}
                           {task.due_date && (
-                            <span className="text-[10px] font-semibold text-slate-500 flex items-center gap-1">
-                              <Clock size={9} />{new Date(task.due_date.slice(0,10) + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                              <Clock size={10} />{new Date(task.due_date.slice(0,10) + 'T12:00:00').toLocaleDateString('pt-BR')}
                             </span>
                           )}
                           {task.created_by_name && (
-                            <span className="text-[10px] text-slate-300 ml-auto">por {task.created_by_name}</span>
+                            <span className="text-[11px] text-slate-400 ml-auto">por {task.created_by_name}</span>
                           )}
                         </div>
                       </div>
-                      <button onClick={() => del(task.id)} className="text-slate-300 hover:text-red-400 transition-colors shrink-0 mt-0.5">
+                      <IconButton type="button" variant="ghost" size="xs" onClick={() => del(task.id)} aria-label="Excluir tarefa" title="Excluir" className="hover:bg-red-50 hover:text-red-600">
                         <Trash2 size={14} />
-                      </button>
+                      </IconButton>
                     </div>
                   );
                 })}
@@ -1597,25 +1525,25 @@ const TabTarefas: React.FC<{ patientId: string }> = ({ patientId }) => {
             {/* Concluídas */}
             {done.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide flex items-center gap-1.5 mt-4">
-                  <Check size={11} /> Concluídas pelo paciente · {done.length}
+                <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                  <Check size={14} /> Concluídas pelo paciente · {done.length}
                 </p>
                 {done.map(task => (
-                  <div key={task.id} className="flex items-start gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-3.5 opacity-60">
+                  <div key={task.id} className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3 opacity-70">
                     <div className="mt-0.5 w-5 h-5 rounded-md bg-emerald-500 flex items-center justify-center shrink-0">
-                      <Check size={11} className="text-white" />
+                      <Check size={12} className="text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-500 line-through">{task.title}</p>
+                      <p className="text-xs font-medium text-slate-500 line-through">{task.title}</p>
                       {task.completed_at && (
-                        <p className="text-[10px] text-slate-400 mt-0.5">
+                        <p className="text-[11px] text-slate-500 mt-0.5">
                           Concluída em {new Date(task.completed_at).toLocaleDateString('pt-BR')}
                         </p>
                       )}
                     </div>
-                    <button onClick={() => del(task.id)} className="text-slate-300 hover:text-red-400 transition-colors shrink-0">
+                    <IconButton type="button" variant="ghost" size="xs" onClick={() => del(task.id)} aria-label="Excluir tarefa" title="Excluir" className="hover:bg-red-50 hover:text-red-600">
                       <Trash2 size={14} />
-                    </button>
+                    </IconButton>
                   </div>
                 ))}
               </div>
@@ -1647,13 +1575,13 @@ function fmtDate(iso: string) {
 }
 
 const PORTAL_TABS = [
-  { key: 'humor',      label: 'Humor',      Icon: Smile },
-  { key: 'diario',     label: 'Diário',     Icon: BookOpen },
-  { key: 'atividades', label: 'Atividades', Icon: Dumbbell },
-];
+  { id: 'humor',      label: 'Humor',      icon: Smile },
+  { id: 'diario',     label: 'Diário',     icon: BookOpen },
+  { id: 'atividades', label: 'Atividades', icon: Dumbbell },
+] as const;
 
 const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
-  const [sub, setSub]       = useState<'humor' | 'diario' | 'atividades'>('humor');
+  const [sub, setSub]       = useState<typeof PORTAL_TABS[number]['id']>('humor');
   const [mood, setMood]     = useState<any[]>([]);
   const [diary, setDiary]   = useState<any[]>([]);
   const [acts, setActs]     = useState<any[]>([]);
@@ -1688,28 +1616,19 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Sub-abas */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-        {PORTAL_TABS.map(t => (
-          <button key={t.key} onClick={() => setSub(t.key as any)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
-              ${sub === t.key ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-            <t.Icon size={13} />{t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs<typeof PORTAL_TABS[number]['id']> items={PORTAL_TABS} value={sub} onChange={setSub} label="Portal do paciente" />
 
       {/* ── HUMOR ── */}
       {sub === 'humor' && (
-        <PanelCard>
-          <SectionTitle icon={Smile} title="Histórico de Humor" />
+        <PanelCard title="Histórico de humor" icon={Smile}>
           {mood.length === 0 ? (
-            <EmptyState icon={<Smile size={28} />} label="Nenhum registro de humor ainda" />
+            <EmptyState icon={Smile} title="Nenhum registro de humor ainda" />
           ) : (
             <>
               {/* Mini gráfico 7 dias */}
-              <div className="flex items-end gap-1.5 mb-5 mt-2">
+              <div className="flex items-end gap-1.5 mb-4">
                 {last7.map((d, i) => {
                   const info = d.value ? MOOD_MAP[d.value] : null;
                   return (
@@ -1720,7 +1639,7 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
                           backgroundColor: info?.color ?? '#e2e8f0',
                           minHeight: '6px',
                         }} />
-                      <span className="text-[9px] text-slate-400">
+                      <span className="text-[11px] text-slate-500">
                         {new Date(d.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'narrow' })}
                       </span>
                     </div>
@@ -1731,11 +1650,11 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
                 {mood.slice(0, 30).map(m => {
                   const info = MOOD_MAP[m.value];
                   return (
-                    <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div key={m.id} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
                       <span className="text-2xl">{info?.emoji}</span>
                       <div className="flex-1">
-                        <span className="text-sm font-bold" style={{ color: info?.color }}>{info?.label}</span>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{fmtDate(m.date || m.created_at)}</p>
+                        <span className="text-xs font-medium" style={{ color: info?.color }}>{info?.label}</span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{fmtDate(m.date || m.created_at)}</p>
                       </div>
                       <div className="flex gap-0.5">
                         {[1,2,3,4,5].map(v => (
@@ -1753,39 +1672,38 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
 
       {/* ── DIÁRIO ── */}
       {sub === 'diario' && (
-        <PanelCard>
-          <SectionTitle icon={BookOpen} title={`Diário — ${diary.length} entrada(s)`} />
+        <PanelCard title={`Diário — ${diary.length} entrada(s)`} icon={BookOpen}>
           {diary.length === 0 ? (
-            <EmptyState icon={<BookOpen size={28} />} label="Nenhuma entrada no diário ainda" />
+            <EmptyState icon={BookOpen} title="Nenhuma entrada no diário ainda" />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {diary.map(e => {
                 const moodInfo = e.mood != null ? MOOD_MAP[e.mood] : null;
                 const isOpen = expanded === e.id;
                 const tags = e.tags ? (typeof e.tags === 'string' ? JSON.parse(e.tags) : e.tags) : [];
                 return (
-                  <div key={e.id} className="rounded-xl border border-slate-100 bg-slate-50 overflow-hidden">
-                    <button onClick={() => setExpanded(isOpen ? null : e.id)}
-                      className="w-full flex items-start gap-3 p-3.5 text-left hover:bg-slate-100 transition-colors">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                  <div key={e.id} className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden">
+                    <button type="button" onClick={() => setExpanded(isOpen ? null : e.id)}
+                      className="w-full flex items-start gap-3 p-3 text-left hover:bg-slate-100 transition-colors">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-lg"
                         style={{ backgroundColor: moodInfo?.color ? `${moodInfo.color}22` : '#f1f5f9' }}>
                         {moodInfo?.emoji ?? '📖'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-700 truncate">{e.title || 'Entrada sem título'}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{fmtDate(e.created_at)}{moodInfo ? ` · ${moodInfo.label}` : ''}</p>
+                        <p className="text-xs font-medium text-slate-700 truncate">{e.title || 'Entrada sem título'}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{fmtDate(e.created_at)}{moodInfo ? ` · ${moodInfo.label}` : ''}</p>
                         {!isOpen && <p className="text-xs text-slate-500 mt-1 line-clamp-1">{e.content}</p>}
                       </div>
                       <ChevronRight size={14} className={`text-slate-400 shrink-0 mt-1 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                     </button>
                     {isOpen && (
-                      <div className="px-4 pb-4 space-y-2 border-t border-slate-100 pt-3">
-                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{e.content}</p>
-                        {e.highlight && <div className="text-xs bg-yellow-50 border border-yellow-100 rounded-lg p-2"><span className="font-bold text-yellow-700">Ponto alto:</span> {e.highlight}</div>}
-                        {e.gratitude && <div className="text-xs bg-emerald-50 border border-emerald-100 rounded-lg p-2"><span className="font-bold text-emerald-700">Gratidão:</span> {e.gratitude}</div>}
+                      <div className="px-3 pb-3 space-y-2 border-t border-slate-100 pt-3">
+                        <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{e.content}</p>
+                        {e.highlight && <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg p-2"><span className="font-medium text-amber-700">Ponto alto:</span> {e.highlight}</div>}
+                        {e.gratitude && <div className="text-xs bg-emerald-50 border border-emerald-100 rounded-lg p-2"><span className="font-medium text-emerald-700">Gratidão:</span> {e.gratitude}</div>}
                         {tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-1">
-                            {tags.map((t: string) => <span key={t} className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-semibold">{t}</span>)}
+                            {tags.map((t: string) => <Badge key={t} color="primary" size="sm">{t}</Badge>)}
                           </div>
                         )}
                       </div>
@@ -1800,25 +1718,24 @@ const TabPortal: React.FC<{ patientId: string }> = ({ patientId }) => {
 
       {/* ── ATIVIDADES ── */}
       {sub === 'atividades' && (
-        <PanelCard>
-          <SectionTitle icon={Dumbbell} title={`Atividades — ${acts.length} registro(s)`} />
+        <PanelCard title={`Atividades — ${acts.length} registro(s)`} icon={Dumbbell}>
           {acts.length === 0 ? (
-            <EmptyState icon={<Dumbbell size={28} />} label="Nenhuma atividade registrada ainda" />
+            <EmptyState icon={Dumbbell} title="Nenhuma atividade registrada ainda" />
           ) : (
             <div className="space-y-2">
               {acts.map(a => (
-                <div key={a.id} className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all
+                <div key={a.id} className={`flex items-start gap-3 p-3 rounded-lg border
                   ${a.done ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
                   <span className="text-xl mt-0.5">{ACT_EMOJI[a.category] ?? '✨'}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className={`text-sm font-bold ${a.done ? 'text-emerald-700' : 'text-slate-700'}`}>{a.title}</p>
+                      <p className={`text-xs font-medium ${a.done ? 'text-emerald-700' : 'text-slate-700'}`}>{a.title}</p>
                       {a.done && <Check size={12} className="text-emerald-500 shrink-0" />}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 capitalize">{a.category}{a.duration ? ` · ${a.duration}` : ''}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5 capitalize">{a.category}{a.duration ? ` · ${a.duration}` : ''}</p>
                     {a.description && <p className="text-xs text-slate-500 mt-1">{a.description}</p>}
                   </div>
-                  <p className="text-[10px] text-slate-400 shrink-0">{fmtDate(a.created_at)}</p>
+                  <p className="text-[11px] text-slate-500 shrink-0">{fmtDate(a.created_at)}</p>
                 </div>
               ))}
             </div>
@@ -1884,37 +1801,33 @@ const TabMensagens: React.FC<{ patientId: string }> = ({ patientId }) => {
   if (loading) return <TabLoader />;
 
   return (
-    <PanelCard className="flex flex-col" style={{ height: 520 }}>
-      <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-100">
-        <MessageCircle size={16} className="text-indigo-500" />
-        <span className="text-sm font-bold text-slate-700">Chat com paciente</span>
-        <span className="ml-auto text-[10px] text-slate-400">Mensagens trocadas pelo portal do paciente</span>
-      </div>
-
+    <PanelCard
+      title="Chat com paciente"
+      description="Mensagens trocadas pelo portal do paciente"
+      icon={MessageCircle}
+      className="flex flex-col h-[520px]"
+      contentClassName="p-0 flex flex-1 min-h-0 flex-col"
+    >
       {/* Lista de mensagens */}
-      <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50/60">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-slate-50/60">
         {msgs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 py-10">
-            <MessageCircle size={32} className="text-slate-200" />
-            <p className="text-xs text-slate-400 font-semibold">Nenhuma mensagem ainda</p>
-            <p className="text-[11px] text-slate-300 text-center">O paciente pode enviar mensagens pelo app portal</p>
-          </div>
+          <EmptyState icon={MessageCircle} title="Nenhuma mensagem ainda" description="O paciente pode enviar mensagens pelo app portal." />
         ) : msgs.map((m) => {
           const isPro = m.sender_type === 'professional';
           return (
             <div key={m.id} className={`flex gap-2 ${isPro ? 'justify-end' : 'justify-start'}`}>
               {!isPro && (
-                <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <User size={13} className="text-indigo-500" />
+                <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <User size={14} className="text-primary-600" />
                 </div>
               )}
-              <div className={`max-w-[72%] rounded-2xl px-3.5 py-2.5 shadow-sm ${
+              <div className={`max-w-[85%] sm:max-w-[72%] rounded-lg px-3 py-2 ${
                 isPro
-                  ? 'bg-indigo-600 text-white rounded-br-sm'
-                  : 'bg-white text-slate-700 rounded-bl-sm border border-slate-100'
+                  ? 'bg-primary-600 text-white rounded-br-sm'
+                  : 'bg-white text-slate-700 rounded-bl-sm border border-slate-200'
               }`}>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>
-                <p className={`text-[10px] mt-1 ${isPro ? 'text-indigo-200 text-right' : 'text-slate-400'}`}>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                <p className={`text-[11px] mt-1 ${isPro ? 'text-primary-100 text-right' : 'text-slate-500'}`}>
                   {fmtMsgTime(m.created_at)}
                   {isPro && m.read_at && <Check size={10} className="inline ml-1" />}
                 </p>
@@ -1925,26 +1838,28 @@ const TabMensagens: React.FC<{ patientId: string }> = ({ patientId }) => {
       </div>
 
       {/* Input */}
-      <div className="flex items-end gap-2 px-4 py-3 border-t border-slate-100 bg-white">
-        <textarea
-          className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm
-                     text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300
-                     max-h-28 min-h-[42px]"
+      <div className="flex items-end gap-2 px-3 py-3 border-t border-slate-100 bg-white">
+        <Textarea
+          wrapperClassName="flex-1"
+          className="resize-none max-h-28 min-h-[34px]"
           rows={1}
           placeholder="Escreva uma resposta..."
+          aria-label="Mensagem para o paciente"
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           disabled={sending}
         />
-        <button
+        <IconButton
+          type="button"
+          variant="primary"
+          size="md"
           onClick={send}
           disabled={!text.trim() || sending}
-          className="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40
-                     flex items-center justify-center transition-colors shrink-0"
+          aria-label="Enviar mensagem"
         >
-          {sending ? <Loader2 size={16} className="text-white animate-spin" /> : <Send size={16} className="text-white" />}
-        </button>
+          {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        </IconButton>
       </div>
     </PanelCard>
   );
@@ -1952,14 +1867,7 @@ const TabMensagens: React.FC<{ patientId: string }> = ({ patientId }) => {
 
 // ─── Shared components ────────────────────────────────────────────────────────
 const TabLoader: React.FC = () => (
-  <div className="flex items-center justify-center py-12">
-    <Loader2 size={24} className="animate-spin text-indigo-400" />
-  </div>
-);
-
-const EmptyState: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-  <div className="flex flex-col items-center justify-center py-12 gap-3">
-    <div className="text-slate-200">{icon}</div>
-    <p className="text-xs font-semibold text-slate-400">{label}</p>
+  <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+    <Loader2 size={18} className="animate-spin" />Carregando…
   </div>
 );

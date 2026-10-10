@@ -1,11 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NAV_SECTIONS } from '../constants';
-import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
-import { Button, IconButton } from '../components/UI/Button';
-import { Input } from '../components/UI/Input';
-import { ConfirmModal } from '../components/UI/Modal';
-import { EmptyState } from '../components/UI/EmptyState';
+import { PageWrapper, SectionTitle, Button, IconButton, Input, ConfirmModal, EmptyState, Badge } from '../components/UI';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import type { MenuLayout, MenuLayoutSection, MenuLayoutItem } from '../contexts/UserPreferencesContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -432,7 +428,8 @@ export const MenuCustomizer: React.FC = () => {
   ];
 
   return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
+    <PageWrapper>
+      <div className="space-y-4">
       <SectionTitle
         icon={LayoutGrid}
         title="Personalizar Menu"
@@ -444,16 +441,14 @@ export const MenuCustomizer: React.FC = () => {
         }
       />
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
-        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6" style={{ minHeight: 560 }}>
+      <div>
+        <div className="flex flex-col lg:flex-row gap-3" style={{ minHeight: 560 }}>
 
           {/* ── Painel de layouts ── */}
           <div className="w-full lg:w-64 shrink-0 space-y-2">
             <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Layouts</span>
-              <button onClick={handleNew} className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700">
-                <Plus size={12} /> Novo
-              </button>
+              <span className="text-xs font-medium text-slate-600">Layouts</span>
+              <Button variant="ghost" size="xs" iconLeft={<Plus size={14} />} onClick={handleNew}>Novo</Button>
             </div>
 
             <div className="space-y-1.5">
@@ -466,36 +461,38 @@ export const MenuCustomizer: React.FC = () => {
                   <div
                     key={l.id}
                     onClick={() => handleEditLayout(l)}
-                    className={`group rounded-2xl border p-3 cursor-pointer transition-all ${
-                      isEditing ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-100' : 'border-slate-200 bg-white hover:border-slate-300'
+                    className={`group rounded-lg border p-3 cursor-pointer transition-all ${
+                      isEditing ? 'border-primary-300 bg-primary-50/60 ring-1 ring-primary-100' : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <LayoutGrid size={13} className={isEditing ? 'text-indigo-600' : 'text-slate-400'} />
-                      <span className={`flex-1 text-[13px] font-bold truncate ${isEditing ? 'text-indigo-700' : 'text-slate-700'}`}>{l.name}</span>
+                      <LayoutGrid size={13} className={isEditing ? 'text-primary-600' : 'text-slate-400'} />
+                      <span className={`flex-1 text-[13px] font-medium truncate ${isEditing ? 'text-primary-700' : 'text-slate-700'}`}>{l.name}</span>
                       {isActive && (
-                        <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
-                          <CheckCircle2 size={9} /> Ativo
-                        </span>
+                        <Badge size="sm" color="success" icon={<CheckCircle2 size={10} />} className="shrink-0">Ativo</Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-2">
                       {!isActive && (
-                        <button
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="flex-1"
                           onClick={e => { e.stopPropagation(); handleActivateLayout(l, isDefault); }}
-                          className="flex-1 h-7 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-600 hover:border-indigo-200 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                         >
                           Ativar
-                        </button>
+                        </Button>
                       )}
                       {!isDefault && (
-                        <button
-                          onClick={e => { e.stopPropagation(); confirmAndDelete(l.id); }}
-                          className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
+                        <IconButton
+                          variant="ghost"
+                          size="xs"
+                          aria-label="Excluir layout"
                           title="Excluir layout"
+                          onClick={e => { e.stopPropagation(); confirmAndDelete(l.id); }}
                         >
-                          <Trash2 size={13} />
-                        </button>
+                          <Trash2 size={14} />
+                        </IconButton>
                       )}
                     </div>
                   </div>
@@ -509,7 +506,7 @@ export const MenuCustomizer: React.FC = () => {
 
             {/* Nome + ações do layout em edição */}
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 {!isDefaultSelected && editingName ? (
                   <div className="flex items-center gap-2">
                     <Input
@@ -522,18 +519,18 @@ export const MenuCustomizer: React.FC = () => {
                       }}
                       className="max-w-xs"
                     />
-                    <IconButton variant="success" size="sm" onClick={() => { setLayout({ ...layout, name: nameValue }); setEditingName(false); }}><Check size={14} /></IconButton>
-                    <IconButton variant="outline" size="sm" onClick={() => setEditingName(false)}><X size={14} /></IconButton>
+                    <IconButton variant="success" size="sm" aria-label="Confirmar nome" onClick={() => { setLayout({ ...layout, name: nameValue }); setEditingName(false); }}><Check size={14} /></IconButton>
+                    <IconButton variant="outline" size="sm" aria-label="Cancelar edição do nome" onClick={() => setEditingName(false)}><X size={14} /></IconButton>
                   </div>
                 ) : (
                   <>
-                    <h3 className="font-black text-[17px] text-slate-800">{layout.name}</h3>
+                    <h3 className="text-sm font-medium text-slate-900">{layout.name}</h3>
                     {isDefaultSelected ? (
-                      <span className="text-[11px] font-medium text-slate-400">— layout padrão do sistema, não editável</span>
+                      <span className="text-[11px] text-slate-500">— layout padrão do sistema, não editável</span>
                     ) : (
-                      <button onClick={() => { setEditingName(true); setNameValue(layout.name); }} className="h-6 w-6 rounded-lg flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-all">
-                        <PenLine size={12} />
-                      </button>
+                      <IconButton variant="ghost" size="xs" aria-label="Renomear layout" onClick={() => { setEditingName(true); setNameValue(layout.name); }}>
+                        <PenLine size={14} />
+                      </IconButton>
                     )}
                   </>
                 )}
@@ -542,14 +539,14 @@ export const MenuCustomizer: React.FC = () => {
               <div className="flex items-center gap-2">
                 {!isDefaultSelected && (
                   <>
-                    <Button variant="outline" size="sm" iconLeft={<Copy size={13} />} onClick={handleDuplicate}>Duplicar</Button>
-                    <Button variant="outline" size="sm" iconLeft={<Save size={13} />} onClick={handleSave}>Salvar</Button>
+                    <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} onClick={handleDuplicate}>Duplicar</Button>
+                    <Button variant="outline" size="sm" iconLeft={<Save size={14} />} onClick={handleSave}>Salvar</Button>
                   </>
                 )}
                 <Button
                   variant={isCurrentActive ? 'secondary' : 'primary'}
                   size="sm"
-                  iconLeft={<Check size={13} />}
+                  iconLeft={<Check size={14} />}
                   disabled={isCurrentActive}
                   onClick={handleActivate}
                 >
@@ -558,14 +555,14 @@ export const MenuCustomizer: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-4 flex-1 min-h-0" style={{ minHeight: 460 }}>
+            <div className="flex flex-col md:flex-row gap-3 flex-1 min-h-0" style={{ minHeight: 460 }}>
 
               {/* Itens disponíveis */}
               {!isDefaultSelected && (
-                <div className="flex flex-col w-[220px] shrink-0 rounded-2xl border border-slate-200 bg-slate-50/80 overflow-hidden">
+                <div className="flex flex-col w-full md:w-56 shrink-0 rounded-lg border border-slate-200 bg-slate-50/80 overflow-hidden">
                   <div className="px-3 py-2.5 border-b border-slate-200">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Itens disponíveis</span>
-                    <p className="text-[11px] mt-0.5 text-slate-400">Arraste ou clique na seta →</p>
+                    <span className="text-xs font-medium text-slate-600">Itens disponíveis</span>
+                    <p className="text-[11px] mt-0.5 text-slate-500">Arraste ou clique na seta →</p>
                   </div>
                   <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                     {availableItems.length === 0 ? (
@@ -576,33 +573,38 @@ export const MenuCustomizer: React.FC = () => {
                           key={item.path}
                           draggable
                           onDragStart={e => encodeDrag({ type: 'available-item', path: item.path }, e)}
-                          className="group flex items-center gap-2.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 shadow-xs cursor-grab active:cursor-grabbing select-none transition-all"
+                          className="group flex items-center gap-2.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-primary-50/40 cursor-grab active:cursor-grabbing select-none transition-all"
                         >
                           <GripVertical size={13} className="text-slate-300" />
                           <span className="text-slate-500">{item.icon}</span>
-                          <span className="flex-1 text-[12px] font-semibold truncate text-slate-700">{item.label}</span>
-                          <button
+                          <span className="flex-1 text-xs font-medium truncate text-slate-700">{item.label}</span>
+                          <IconButton
+                            variant="ghost"
+                            size="xs"
+                            aria-label="Adicionar ao menu"
+                            title="Adicionar ao menu"
+                            className="md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                             onClick={() => {
                               if (layout.sections.length > 0) addItemToSection(layout.sections[0].id, item.path);
                               else setLayout({ ...layout, sections: [{ id: genId(), label: 'Seção', items: [{ navItemPath: item.path }] }] });
                             }}
-                            title="Adicionar ao menu"
-                            className="opacity-0 group-hover:opacity-100 flex items-center justify-center h-5 w-5 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-all"
                           >
-                            <ArrowRight size={11} />
-                          </button>
+                            <ArrowRight size={14} />
+                          </IconButton>
                         </div>
                       ))
                     )}
                   </div>
                   <div className="p-2 border-t border-slate-200">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      fullWidth
                       onClick={() => setLayout({ ...layout, sections: defaultLayout.sections.map(s => ({ ...s, id: genId(), items: [...s.items] })) })}
-                      className="w-full flex items-center justify-center gap-1.5 h-7 rounded-xl text-[11px] font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
                       title="Restaura as seções e itens do layout padrão do sistema"
                     >
                       ↺ Resetar para o padrão
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -626,8 +628,8 @@ export const MenuCustomizer: React.FC = () => {
                       onDragOver={e => !isDefaultSelected && onSectionHeaderDragOver(e, section.id)}
                       onDrop={e => !isDefaultSelected && onSectionHeaderDrop(e, section.id)}
                       onDragEnd={clearDrag}
-                      className={`rounded-2xl border bg-white shadow-xs flex-shrink-0 transition-all duration-100 ${
-                        isReordering ? 'border-indigo-300 ring-1 ring-indigo-100' : 'border-slate-200'
+                      className={`rounded-lg border bg-white shadow-xs flex-shrink-0 transition-all duration-100 ${
+                        isReordering ? 'border-primary-300 ring-1 ring-primary-100' : 'border-slate-200'
                       }`}
                     >
                       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200">
@@ -635,8 +637,10 @@ export const MenuCustomizer: React.FC = () => {
 
                         {!isDefaultSelected && renamingSection === section.id ? (
                           <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                            <input
-                              className="flex-1 text-[12px] font-black uppercase tracking-widest bg-transparent border-b outline-none text-slate-700 border-indigo-400"
+                            <Input
+                              size="sm"
+                              wrapperClassName="flex-1"
+                              aria-label="Nome da seção"
                               value={sectionName}
                               onChange={e => setSectionName(e.target.value)}
                               autoFocus
@@ -645,14 +649,14 @@ export const MenuCustomizer: React.FC = () => {
                                 if (e.key === 'Escape') setRenamingSection(null);
                               }}
                             />
-                            <button onClick={() => commitRenameSection(section.id)} className="text-emerald-500 hover:text-emerald-600 shrink-0"><Check size={12} /></button>
-                            <button onClick={() => setRenamingSection(null)} className="text-slate-400 hover:text-slate-500 shrink-0"><X size={12} /></button>
+                            <IconButton variant="success" size="xs" aria-label="Confirmar nome da seção" onClick={() => commitRenameSection(section.id)}><Check size={14} /></IconButton>
+                            <IconButton variant="outline" size="xs" aria-label="Cancelar" onClick={() => setRenamingSection(null)}><X size={14} /></IconButton>
                           </div>
                         ) : (
                           <button
                             onClick={() => !isDefaultSelected && (setRenamingSection(section.id), setSectionName(section.label))}
-                            className={`flex-1 text-left text-[10px] font-black uppercase tracking-widest transition-all group ${
-                              isDefaultSelected ? 'text-slate-400 cursor-default' : 'text-slate-400 hover:text-slate-600'
+                            className={`flex-1 text-left text-xs font-medium transition-all group ${
+                              isDefaultSelected ? 'text-slate-500 cursor-default' : 'text-slate-600 hover:text-slate-800'
                             }`}
                           >
                             {section.label}
@@ -661,32 +665,29 @@ export const MenuCustomizer: React.FC = () => {
                         )}
 
                         <div className="flex items-center gap-1 ml-auto shrink-0">
-                          <span className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400">
-                            {section.items.length}
-                          </span>
+                          <Badge size="sm">{section.items.length}</Badge>
                           {!isDefaultSelected && (
                             <>
-                              <IconButton variant="ghost" size="xs" disabled={sectionIdx === 0} onClick={() => moveSection(section.id, -1)} title="Mover seção para cima">
-                                <ChevronUp size={12} />
+                              <IconButton variant="ghost" size="xs" aria-label="Mover seção para cima" disabled={sectionIdx === 0} onClick={() => moveSection(section.id, -1)} title="Mover seção para cima">
+                                <ChevronUp size={14} />
                               </IconButton>
-                              <IconButton variant="ghost" size="xs" disabled={sectionIdx === layout.sections.length - 1} onClick={() => moveSection(section.id, 1)} title="Mover seção para baixo">
-                                <ChevronDown size={12} />
+                              <IconButton variant="ghost" size="xs" aria-label="Mover seção para baixo" disabled={sectionIdx === layout.sections.length - 1} onClick={() => moveSection(section.id, 1)} title="Mover seção para baixo">
+                                <ChevronDown size={14} />
                               </IconButton>
                             </>
                           )}
-                          <button
+                          <IconButton
+                            variant="ghost"
+                            size="xs"
+                            aria-label={isCollapsed ? 'Expandir seção' : 'Recolher seção'}
                             onClick={() => setCollapsedSections(prev => ({ ...prev, [section.id]: !prev[section.id] }))}
-                            className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
                           >
-                            {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                          </button>
+                            {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                          </IconButton>
                           {!isDefaultSelected && (
-                            <button
-                              onClick={() => deleteSection(section.id)}
-                              className="h-6 w-6 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                            <IconButton variant="ghost" size="xs" aria-label="Excluir seção" onClick={() => deleteSection(section.id)}>
+                              <Trash2 size={14} />
+                            </IconButton>
                           )}
                         </div>
                       </div>
@@ -699,9 +700,9 @@ export const MenuCustomizer: React.FC = () => {
                           onDragLeave={() => !isDefaultSelected && (setDropSectionId(null), setDropItemPath(null))}
                         >
                           {section.items.length === 0 && (
-                            <div className={`flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-dashed text-[11px] font-medium transition-all ${
+                            <div className={`flex items-center justify-center gap-2 h-10 rounded-lg border-2 border-dashed text-[11px] font-medium transition-all ${
                               !isDefaultSelected && dropSectionId === section.id && !dropItemPath
-                                ? 'border-indigo-300 bg-indigo-50 text-indigo-500'
+                                ? 'border-primary-300 bg-primary-50 text-primary-500'
                                 : 'border-slate-200 text-slate-400'
                             }`}>
                               {isDefaultSelected ? 'Seção vazia' : 'Arraste itens aqui'}
@@ -719,40 +720,29 @@ export const MenuCustomizer: React.FC = () => {
                                 onDragStart={e => { if (isDefaultSelected) return; e.stopPropagation(); encodeDrag({ type: 'section-item', sectionId: section.id, path: layoutItem.navItemPath }, e); }}
                                 onDragOver={e => !isDefaultSelected && onItemDragOver(e, section.id, layoutItem.navItemPath)}
                                 onDrop={e => !isDefaultSelected && onItemDrop(e, section.id, layoutItem.navItemPath)}
-                                className={`group flex items-center gap-2.5 px-3 py-2 rounded-xl border cursor-grab active:cursor-grabbing select-none transition-all duration-100 ${
+                                className={`group flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-grab active:cursor-grabbing select-none transition-all duration-100 ${
                                   isDropHere
-                                    ? (dropBefore ? 'border-indigo-300 border-t-2 border-t-indigo-500' : 'border-indigo-300 border-b-2 border-b-indigo-500') + ' bg-indigo-50'
+                                    ? (dropBefore ? 'border-primary-300 border-t-2 border-t-primary-500' : 'border-primary-300 border-b-2 border-b-primary-500') + 'bg-primary-50'
                                     : 'bg-slate-50 border-slate-200/70 hover:bg-slate-100'
                                 }`}
                               >
                                 <GripVertical size={13} className="text-slate-300" />
                                 <span className="text-slate-500">{navItem.icon}</span>
-                                <span className="flex-1 text-[12px] font-semibold truncate text-slate-700">{navItem.label}</span>
+                                <span className="flex-1 text-xs font-medium truncate text-slate-700">{navItem.label}</span>
                                 {!isDefaultSelected && (
-                                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                      disabled={itemIdx === 0}
-                                      onClick={() => moveItemWithinSection(section.id, layoutItem.navItemPath, -1)}
-                                      className="flex items-center justify-center h-5 w-5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                                      title="Mover para cima"
-                                    >
-                                      <ChevronUp size={12} />
-                                    </button>
-                                    <button
-                                      disabled={itemIdx === section.items.length - 1}
-                                      onClick={() => moveItemWithinSection(section.id, layoutItem.navItemPath, 1)}
-                                      className="flex items-center justify-center h-5 w-5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                                      title="Mover para baixo"
-                                    >
-                                      <ChevronDown size={12} />
-                                    </button>
-                                    <button
-                                      onClick={() => removeItemFromSection(section.id, layoutItem.navItemPath)}
-                                      className="flex items-center justify-center h-5 w-5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                                      title="Remover do menu"
-                                    >
-                                      <X size={11} />
-                                    </button>
+                                  <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                    <IconButton variant="ghost" size="xs" aria-label="Mover para cima" title="Mover para cima" disabled={itemIdx === 0}
+                                      onClick={() => moveItemWithinSection(section.id, layoutItem.navItemPath, -1)}>
+                                      <ChevronUp size={14} />
+                                    </IconButton>
+                                    <IconButton variant="ghost" size="xs" aria-label="Mover para baixo" title="Mover para baixo" disabled={itemIdx === section.items.length - 1}
+                                      onClick={() => moveItemWithinSection(section.id, layoutItem.navItemPath, 1)}>
+                                      <ChevronDown size={14} />
+                                    </IconButton>
+                                    <IconButton variant="ghost" size="xs" aria-label="Remover do menu" title="Remover do menu"
+                                      onClick={() => removeItemFromSection(section.id, layoutItem.navItemPath)}>
+                                      <X size={14} />
+                                    </IconButton>
                                   </div>
                                 )}
                               </div>
@@ -761,8 +751,8 @@ export const MenuCustomizer: React.FC = () => {
 
                           {!isDefaultSelected && section.items.length > 0 && (
                             <div
-                              className={`h-6 rounded-xl border-2 border-dashed transition-all ${
-                                dropSectionId === section.id && !dropItemPath ? 'border-indigo-300 bg-indigo-50/60' : 'border-transparent'
+                              className={`h-6 rounded-lg border-2 border-dashed transition-all ${
+                                dropSectionId === section.id && !dropItemPath ? 'border-primary-300 bg-primary-50/60' : 'border-transparent'
                               }`}
                               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropSectionId(section.id); setDropItemPath(null); }}
                               onDrop={e => onSectionDropZoneDrop(e, section.id)}
@@ -775,17 +765,16 @@ export const MenuCustomizer: React.FC = () => {
                 })}
 
                 {!isDefaultSelected && (
-                  <button
-                    onClick={addSection}
-                    className="flex items-center justify-center gap-2 h-11 rounded-2xl border-2 border-dashed border-slate-200 text-[12px] font-bold text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/40 transition-all flex-shrink-0"
-                  >
-                    <Plus size={13} /> Adicionar seção
-                  </button>
+                  <Button variant="outline" size="md" fullWidth iconLeft={<Plus size={14} />} onClick={addSection} className="shrink-0 border-dashed">
+                    Adicionar seção
+                  </Button>
                 )}
               </div>
             </div>
           </div>
         </div>
+      </div>
+
       </div>
 
       <ConfirmModal
@@ -799,7 +788,7 @@ export const MenuCustomizer: React.FC = () => {
               Tem certeza que deseja excluir o layout{' '}
               <strong className="text-slate-800">"{confirmDelete.name}"</strong>?
               {preferences.activeMenuLayoutId === confirmDelete.id && (
-                <span className="block mt-2 text-amber-600 text-[12px] font-semibold">
+                <span className="block mt-2 text-amber-600 text-xs font-medium">
                   Este é o layout ativo. O menu voltará ao padrão após a exclusão.
                 </span>
               )}

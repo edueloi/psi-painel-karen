@@ -90,7 +90,7 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
   return (
     <div
       className={cx(
-        'overflow-hidden rounded-2xl border bg-white shadow-sm',
+        'overflow-hidden rounded-lg border bg-white shadow-sm',
         theme.border,
         className
       )}
@@ -181,7 +181,7 @@ export const StatusAlert: React.FC<StatusAlertProps> = ({
             <div className="border-t border-slate-100 px-5 py-4">
               <div
                 className={cx(
-                  'rounded-xl px-3 py-3 text-sm',
+                  'rounded-lg px-3 py-3 text-sm',
                   theme.soft
                 )}
               >

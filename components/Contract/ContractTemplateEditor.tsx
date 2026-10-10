@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileSignature, Eye, Save, Loader2, Tag, X } from 'lucide-react';
-import { Modal } from '../UI/Modal';
-import { RichTextEditor } from '../UI/RichTextEditor';
+import { Eye, Save, Loader2, Tag, X, Monitor, Building2 } from 'lucide-react';
+import { Modal, ModalFooter, Button, Input, Tabs, Badge, RichTextEditor } from '../UI';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../services/api';
 
@@ -27,6 +26,11 @@ const VARIABLES: { key: string; label: string }[] = [
   { key: '{{city}}', label: 'Cidade' },
   { key: '{{date}}', label: 'Data de hoje' },
 ];
+
+const contractTabs = [
+  { id: 'online', label: 'Atendimento Online', icon: Monitor },
+  { id: 'presencial', label: 'Atendimento Presencial', icon: Building2 },
+] as const;
 
 interface Props {
   isOpen: boolean;
@@ -92,106 +96,114 @@ export const ContractTemplateEditor: React.FC<Props> = ({ isOpen, onClose }) => 
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Editor de Contrato" maxWidth="max-w-4xl">
-        <div className="space-y-5">
-          <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-            {(['online', 'presencial'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setActiveType(type)}
-                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
-                  activeType === type ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Editor de Contrato"
+        size="full"
+        footer={
+          <ModalFooter align="between">
+            <Button variant="ghost" size="sm" onClick={onClose}>Fechar</Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={preview}
+                loading={previewLoading}
+                disabled={previewLoading || loading}
+                iconLeft={<Eye size={14} />}
               >
-                {type === 'online' ? 'Atendimento Online' : 'Atendimento Presencial'}
-              </button>
-            ))}
-          </div>
+                Visualizar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={save}
+                loading={saving}
+                disabled={saving || loading}
+                iconLeft={<Save size={14} />}
+              >
+                Salvar contrato
+              </Button>
+            </div>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-3">
+          <Tabs<'online' | 'presencial'>
+            items={contractTabs}
+            value={activeType}
+            onChange={setActiveType}
+            label="Tipo de atendimento do contrato"
+          />
 
           {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 size={28} className="animate-spin text-indigo-400" />
+            <div role="status" className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+              <Loader2 size={18} className="animate-spin" />Carregando...
             </div>
           ) : (
-            <>
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Título do contrato</label>
-                <input
-                  type="text" value={title} onChange={e => setTitle(e.target.value)}
-                  className="w-full h-11 px-4 text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-                />
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-3 items-start">
+              <div className="space-y-3 min-w-0">
+                <Input label="Título do contrato" type="text" value={title} onChange={e => setTitle(e.target.value)} />
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <label className="ds-label">Texto do contrato</label>
+                    <Badge size="sm" color={templates[activeType]?.is_customized ? 'success' : 'default'}>
+                      {templates[activeType]?.is_customized ? 'Personalizado' : 'Usando modelo padrão — edite e salve para personalizar'}
+                    </Badge>
+                  </div>
+                  <RichTextEditor
+                    value={body}
+                    onChange={setBody}
+                    placeholder="Escreva aqui o texto completo do contrato..."
+                    minHeight={420}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Texto do contrato</label>
-                  <span className="text-[10px] text-slate-400 font-semibold">
-                    {templates[activeType]?.is_customized ? 'Personalizado' : 'Usando modelo padrão — edite e salve para personalizar'}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100">
-                  <span className="flex items-center gap-1 text-[10px] font-black text-indigo-500 uppercase tracking-wide px-1">
-                    <Tag size={11} /> Inserir variável:
-                  </span>
+              <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-3 space-y-2 xl:sticky xl:top-0">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-primary-700">
+                  <Tag size={12} /> Inserir variável
+                </p>
+                <div className="flex flex-wrap gap-1.5">
                   {VARIABLES.map(v => (
                     <button
                       key={v.key}
                       type="button"
                       title={v.label}
                       onClick={() => insertVariable(v.key)}
-                      className="px-2 py-1 bg-white border border-indigo-200 rounded-lg text-[10px] font-bold text-indigo-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors"
+                      className="px-2 py-1 bg-white border border-primary-200 rounded-md text-[11px] font-medium text-primary-700 hover:bg-primary-600 hover:text-white hover:border-primary-600 transition-colors"
                     >
                       {v.label}
                     </button>
                   ))}
                 </div>
-                <p className="text-[11px] text-slate-400 px-1">A variável é inserida no fim do texto — recorte e cole onde precisar.</p>
-
-                <RichTextEditor
-                  value={body}
-                  onChange={setBody}
-                  placeholder="Escreva aqui o texto completo do contrato..."
-                  minHeight={420}
-                />
+                <p className="text-[11px] text-slate-500">A variável é inserida no fim do texto — recorte e cole onde precisar.</p>
               </div>
-
-              <div className="flex justify-between items-center gap-3 pt-4 border-t border-slate-100">
-                <button
-                  onClick={preview}
-                  disabled={previewLoading}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-black text-indigo-600 hover:bg-indigo-50 rounded-xl uppercase tracking-widest transition-colors disabled:opacity-50"
-                >
-                  {previewLoading ? <Loader2 size={16} className="animate-spin" /> : <Eye size={16} />} Visualizar
-                </button>
-                <button
-                  onClick={save}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl shadow-xl shadow-indigo-600/20 transition-all font-black text-[11px] uppercase tracking-widest disabled:opacity-60"
-                >
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar contrato
-                </button>
-              </div>
-            </>
+            </div>
           )}
         </div>
       </Modal>
 
       {previewHtml !== null && (
-        <Modal isOpen onClose={() => setPreviewHtml(null)} title="Pré-visualização do Contrato" maxWidth="max-w-3xl">
-          <div className="bg-slate-50 rounded-2xl p-4 sm:p-8 max-h-[70vh] overflow-y-auto border border-slate-100">
+        <Modal
+          isOpen
+          onClose={() => setPreviewHtml(null)}
+          title="Pré-visualização do Contrato"
+          size="xl"
+          zIndex={70}
+          footer={
+            <ModalFooter align="right">
+              <Button variant="outline" size="sm" iconLeft={<X size={14} />} onClick={() => setPreviewHtml(null)}>Fechar</Button>
+            </ModalFooter>
+          }
+        >
+          <div className="bg-slate-50 rounded-lg p-3 sm:p-6 border border-slate-200">
             <div
-              className="max-w-none [&_h1]:text-xl [&_h1]:font-black [&_h1]:mb-5 [&_p]:text-sm [&_p]:leading-relaxed [&_p]:mb-4 [&_strong]:font-extrabold"
+              className="max-w-none [&_h1]:text-lg [&_h1]:font-medium [&_h1]:mb-4 [&_p]:text-[13px] [&_p]:leading-relaxed [&_p]:mb-3 [&_strong]:font-semibold"
               dangerouslySetInnerHTML={{ __html: previewHtml }}
             />
-          </div>
-          <div className="flex justify-end pt-4">
-            <button
-              onClick={() => setPreviewHtml(null)}
-              className="flex items-center gap-2 px-6 py-2.5 text-xs font-black text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors"
-            >
-              <X size={14} /> Fechar
-            </button>
           </div>
         </Modal>
       )}

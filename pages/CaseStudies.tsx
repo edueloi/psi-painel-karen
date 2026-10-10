@@ -14,9 +14,16 @@ import {
   Plus,
   Search,
   Trash2,
-  Pencil
+  Pencil,
+  ClipboardList,
+  Brain,
+  Rocket,
+  Wallet,
+  Zap,
+  Loader2
 } from 'lucide-react';
-import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
+import { PageWrapper, SectionTitle, ContentCard, FormRow, StatGrid } from '../components/UI/PageWrapper';
+import { Badge, ConfirmModal, EmptyState, ModalFooter, StatCard, Tabs } from '../components/UI';
 
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
@@ -115,6 +122,16 @@ const COLUMN_COLORS = [
 
 const EMPTY_BOARDS: CaseBoard[] = [];
 
+const CARD_TABS = [
+  { id: 'geral', label: 'Geral', icon: FileText },
+  { id: 'clinico', label: 'Clínico', icon: Brain },
+] as const;
+
+const DETAIL_TABS = [
+  { id: 'resumo', label: 'Resumo', icon: FileText },
+  { id: 'clinico', label: 'Dados clínicos', icon: Brain },
+] as const;
+
 export const CaseStudies: React.FC = () => {
   const { t } = useLanguage();
   const { pushToast } = useToast();
@@ -145,6 +162,8 @@ export const CaseStudies: React.FC = () => {
   const [isCardDetailOpen, setIsCardDetailOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CaseCard | null>(null);
   const [isEditingCard, setIsEditingCard] = useState(false);
+  const [cardTab, setCardTab] = useState<typeof CARD_TABS[number]['id']>('geral');
+  const [detailTab, setDetailTab] = useState<typeof DETAIL_TABS[number]['id']>('resumo');
 
   // New Item States
   const [newBoardTitle, setNewBoardTitle] = useState('');
@@ -637,6 +656,7 @@ export const CaseStudies: React.FC = () => {
         observations: ''
       });
       setIsEditingCard(false);
+      setDetailTab('resumo');
       setIsCardDetailOpen(true);
   };
 
@@ -694,8 +714,160 @@ export const CaseStudies: React.FC = () => {
       }
   };
 
+  const patientOptions = patients
+      .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
+      .map((p: any) => ({ value: String(p.id), label: p.full_name || p.name || '' }));
+
+  const closeBoardModal = () => {
+      setIsBoardModalOpen(false);
+      setEditingBoardId(null);
+      setNewBoardTitle('');
+      setNewBoardTitleError('');
+      setNewBoardDesc('');
+      setNewBoardType('geral');
+  };
+
+  const closeCardModal = () => {
+      resetCardForm();
+      setCardTab('geral');
+      setIsCardModalOpen(false);
+  };
+
+  const isClinicalBoard = activeBoard?.board_type === 'clinico';
+
+  const cardFormContent = (
+    <>
+        {(!isClinicalBoard || cardTab === 'geral') && (
+          <div className="space-y-3">
+            {/* Título — comum a todos os tipos */}
+            <Input
+              label="Título *"
+              placeholder="Ex: Sessão de avaliação, Cobrança pendente, Entrega do relatório..."
+              value={newCardTitle}
+              onChange={(e) => setNewCardTitle(e.target.value)}
+            />
+
+            {/* Paciente — só faz sentido em quadros clínicos ou gerais da clínica */}
+            {activeBoard?.board_type !== 'projeto' && activeBoard?.board_type !== 'atividade' && (
+              <Combobox
+                label={`Paciente${isClinicalBoard ? ' *' : ' (opcional)'}`}
+                placeholder="Buscar paciente ativo..."
+                options={patientOptions}
+                value={newCardPatientId}
+                onChange={(val: any) => {
+                  setNewCardPatientId(String(val || ''));
+                }}
+                size="md"
+              />
+            )}
+
+            <FormRow cols={2}>
+              {/* Responsável — projeto, financeiro e atividade */}
+              {(activeBoard?.board_type === 'projeto' || activeBoard?.board_type === 'financeiro' || activeBoard?.board_type === 'atividade') && (
+                <Input
+                  label="Responsável"
+                  placeholder="Quem vai executar/acompanhar..."
+                  value={newCardAssignee}
+                  onChange={(e) => setNewCardAssignee(e.target.value)}
+                />
+              )}
+
+              {/* Valor — só financeiro */}
+              {activeBoard?.board_type === 'financeiro' && (
+                <Input
+                  label="Valor (R$)"
+                  type="number"
+                  placeholder="0,00"
+                  value={newCardAmount}
+                  onChange={(e) => setNewCardAmount(e.target.value)}
+                />
+              )}
+
+              {/* Prioridade + Data de entrega — comum a todos */}
+              <Select
+                label="Prioridade"
+                value={newCardDetails.priority}
+                onChange={(e) => setNewCardDetails(prev => ({ ...prev, priority: e.target.value }))}
+              >
+                <option value="">Selecione...</option>
+                <option value="Baixa">Baixa</option>
+                <option value="Media">Média</option>
+                <option value="Alta">Alta</option>
+                <option value="Urgente">Urgente</option>
+              </Select>
+              <Input
+                label="Data de entrega"
+                type="date"
+                value={newCardDueDate}
+                onChange={(e) => setNewCardDueDate(e.target.value)}
+              />
+            </FormRow>
+
+            {/* Descrição */}
+            <Textarea
+              label={`Descrição${isClinicalBoard ? ' *' : ' (opcional)'}`}
+              rows={3}
+              placeholder={isClinicalBoard ? 'Resumo do caso, queixa principal, contexto...' : 'Detalhes adicionais...'}
+              value={newCardDesc}
+              onChange={(e) => setNewCardDesc(e.target.value)}
+            />
+
+            {/* Tags */}
+            <Input
+              label="Tags"
+              placeholder="TCC, Ansiedade, Luto... (separados por vírgula)"
+              value={newCardTags}
+              onChange={(e) => setNewCardTags(e.target.value)}
+            />
+          </div>
+        )}
+
+        {/* Campos clínicos — só quadro do tipo Clínico */}
+        {isClinicalBoard && cardTab === 'clinico' && (
+          <div className="space-y-3">
+            <Select
+              label="Risco / Alerta"
+              value={newCardDetails.risk_level}
+              onChange={(e) => setNewCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
+            >
+              <option value="">Selecione...</option>
+              <option value="Baixo">Baixo</option>
+              <option value="Moderado">Moderado</option>
+              <option value="Alto">Alto</option>
+            </Select>
+
+            <Textarea
+              label="Histórico Clínico"
+              rows={2}
+              placeholder="Diagnósticos anteriores, histórico familiar..."
+              value={newCardDetails.history}
+              onChange={(e) => setNewCardDetails(prev => ({ ...prev, history: e.target.value }))}
+            />
+
+            <FormRow cols={2}>
+              <Textarea
+                label="Hipóteses"
+                rows={2}
+                placeholder="Hipóteses diagnósticas..."
+                value={newCardDetails.hypothesis}
+                onChange={(e) => setNewCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
+              />
+              <Textarea
+                label="Objetivos Terapêuticos"
+                rows={2}
+                placeholder="Metas e objetivos..."
+                value={newCardDetails.objectives}
+                onChange={(e) => setNewCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
+              />
+            </FormRow>
+          </div>
+        )}
+    </>
+  );
+
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
+    <PageWrapper>
+      <div className="space-y-4">
 
       {!activeBoardId ? (
         <SectionTitle
@@ -703,7 +875,7 @@ export const CaseStudies: React.FC = () => {
           title={t('cases.boards')}
           description={`${boardStats.boardCount} quadros · ${boardStats.columnCount} colunas · ${boardStats.cardCount} casos`}
           action={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
                 Voltar
               </Button>
@@ -719,26 +891,10 @@ export const CaseStudies: React.FC = () => {
           title={activeBoard?.title || ''}
           description={activeBoard?.description || undefined}
           action={
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => setActiveBoardId(null)}>
                 Quadros
               </Button>
-              {history.length > 0 && (
-                <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-xs text-slate-500">
-                  <History size={12} />
-                  <span className="font-bold">{history[0].time}:</span>
-                  <span className="truncate max-w-[200px]">{history[0].msg}</span>
-                </div>
-              )}
-              <div className="hidden md:flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
-                <Search size={16} className="text-slate-400" />
-                <input
-                  value={cardSearch}
-                  onChange={(e) => setCardSearch(e.target.value)}
-                  className="w-40 bg-transparent text-sm outline-none text-slate-600 placeholder:text-slate-400 font-bold"
-                  placeholder="Buscar caso ou tag..."
-                />
-              </div>
               <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={handleAddColumn}>
                 {t('cases.addColumn')}
               </Button>
@@ -747,17 +903,22 @@ export const CaseStudies: React.FC = () => {
         />
       )}
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
-
       {!activeBoardId ? (
           <div className="space-y-4">
+              <StatGrid cols={3}>
+                  <StatCard title="Quadros" value={boardStats.boardCount} icon={Layout} color="default" />
+                  <StatCard title="Colunas" value={boardStats.columnCount} icon={BookOpen} color="info" />
+                  <StatCard title="Casos" value={boardStats.cardCount} icon={FileText} color="success" />
+              </StatGrid>
+
               <FilterLine>
                   <FilterLineSection grow>
-                      <FilterLineItem grow>
+                      <FilterLineItem grow minWidth={200}>
                           <FilterLineSearch
                             value={boardSearch}
                             onChange={setBoardSearch}
                             placeholder="Buscar quadro por nome ou descrição"
+                            aria-label="Buscar quadro"
                           />
                       </FilterLineItem>
                   </FilterLineSection>
@@ -778,39 +939,36 @@ export const CaseStudies: React.FC = () => {
               </FilterLine>
 
               {isLoading ? (
-                  <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
-                      <Layout size={48} className="opacity-20 mb-4" />
-                      <p>Carregando...</p>
+                  <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                      <Loader2 size={18} className="animate-spin" />Carregando…
                   </div>
               ) : currentView === 'grid' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                       {filteredBoards.map(board => (
                           <div
                             key={board.id}
                             onClick={() => setActiveBoardId(board.id)}
-                            className="group bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer relative overflow-hidden"
+                            className="group bg-white rounded-lg border border-slate-200 hover:border-primary-200 transition-colors cursor-pointer relative overflow-hidden"
                           >
-                              {/* topo colorido */}
-                              <div className="h-1.5 w-full bg-gradient-to-r from-indigo-400 to-violet-400 opacity-70 group-hover:opacity-100 transition-opacity" />
-                              <div className="p-5">
-                                  <div className="flex justify-between items-start mb-4">
-                                      <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-lg">
+                              <div className="p-3 lg:p-4">
+                                  <div className="flex justify-between items-start mb-3">
+                                      <div className="w-9 h-9 rounded-lg bg-primary-50 text-primary-700 border border-primary-100 flex items-center justify-center font-medium text-sm">
                                           {board.title.charAt(0).toUpperCase()}
                                       </div>
                                       <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                          <IconButton variant="ghost" size="xs" onClick={(e) => openEditBoard(e, board)}>
-                                            <Pencil size={13} />
+                                          <IconButton variant="ghost" size="xs" aria-label="Editar quadro" title="Editar" onClick={(e) => openEditBoard(e, board)}>
+                                            <Pencil size={14} />
                                           </IconButton>
-                                          <IconButton variant="danger" size="xs" onClick={(e) => handleDeleteBoard(e, board.id)}>
-                                            <Trash2 size={13} />
+                                          <IconButton variant="danger" size="xs" aria-label="Excluir quadro" title="Excluir" onClick={(e) => handleDeleteBoard(e, board.id)}>
+                                            <Trash2 size={14} />
                                           </IconButton>
                                       </div>
 
                                   </div>
-                                  <h3 className="font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors truncate">{board.title}</h3>
-                                  <p className="text-xs text-slate-400 mb-4 line-clamp-2 min-h-[2.5rem]">{board.description || 'Sem descrição'}</p>
+                                  <h3 className="text-sm font-medium text-slate-800 mb-1 group-hover:text-primary-700 transition-colors truncate">{board.title}</h3>
+                                  <p className="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[2rem]">{board.description || 'Sem descrição'}</p>
 
-                                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-3 border-t border-slate-50">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 pt-3 border-t border-slate-100">
                                       <div className="flex items-center gap-3">
                                           <span className="flex items-center gap-1"><Layout size={12} /> {getBoardColumnCount(board)} col.</span>
                                           <span className="flex items-center gap-1"><FileText size={12} /> {getBoardCardCount(board)} casos</span>
@@ -822,6 +980,7 @@ export const CaseStudies: React.FC = () => {
                       ))}
                   </div>
               ) : (
+                  <ContentCard padding="none" className="overflow-hidden">
                   <GridTable<CaseBoard>
                     data={filteredBoards}
                     keyExtractor={(b) => b.id}
@@ -832,12 +991,12 @@ export const CaseStudies: React.FC = () => {
                         header: 'Quadro',
                         render: (board) => (
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-black text-sm shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary-700 border border-primary-100 flex items-center justify-center font-medium text-xs shrink-0">
                               {board.title.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm font-bold text-slate-800 truncate">{board.title}</div>
-                              {board.description && <div className="text-[10px] text-slate-400 truncate max-w-[200px]">{board.description}</div>}
+                              <div className="text-xs font-medium text-slate-800 truncate">{board.title}</div>
+                              {board.description && <div className="text-[11px] text-slate-500 truncate max-w-[200px]">{board.description}</div>}
                             </div>
                           </div>
                         ),
@@ -847,7 +1006,7 @@ export const CaseStudies: React.FC = () => {
                         className: 'hidden sm:table-cell',
                         headerClassName: 'hidden sm:table-cell',
                         render: (board) => (
-                          <span className="flex items-center gap-1 text-xs text-slate-500"><Layout size={12} /> {getBoardColumnCount(board)}</span>
+                          <span className="flex items-center gap-1 text-xs text-slate-600"><Layout size={12} /> {getBoardColumnCount(board)}</span>
                         ),
                       },
                       {
@@ -855,7 +1014,7 @@ export const CaseStudies: React.FC = () => {
                         className: 'hidden sm:table-cell',
                         headerClassName: 'hidden sm:table-cell',
                         render: (board) => (
-                          <span className="flex items-center gap-1 text-xs text-slate-500"><FileText size={12} /> {getBoardCardCount(board)}</span>
+                          <span className="flex items-center gap-1 text-xs text-slate-600"><FileText size={12} /> {getBoardCardCount(board)}</span>
                         ),
                       },
                       {
@@ -863,7 +1022,7 @@ export const CaseStudies: React.FC = () => {
                         className: 'hidden md:table-cell',
                         headerClassName: 'hidden md:table-cell',
                         render: (board) => (
-                          <span className="text-xs text-slate-500">{new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
+                          <span className="text-xs text-slate-600 whitespace-nowrap">{new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
                         ),
                       },
                       {
@@ -871,32 +1030,55 @@ export const CaseStudies: React.FC = () => {
                         className: 'text-right',
                         render: (board) => (
                           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                            <IconButton variant="ghost" size="xs" onClick={(e) => openEditBoard(e, board)}>
-                              <Pencil size={13} />
+                            <IconButton variant="ghost" size="xs" aria-label="Editar quadro" title="Editar" onClick={(e) => openEditBoard(e, board)}>
+                              <Pencil size={14} />
                             </IconButton>
-                            <IconButton variant="danger" size="xs" onClick={(e) => handleDeleteBoard(e, board.id)}>
-                              <Trash2 size={13} />
+                            <IconButton variant="danger" size="xs" aria-label="Excluir quadro" title="Excluir" onClick={(e) => handleDeleteBoard(e, board.id)}>
+                              <Trash2 size={14} />
                             </IconButton>
                           </div>
                         ),
                       },
                     ]}
                   />
+                  </ContentCard>
               )}
 
               {!isLoading && filteredBoards.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                      <Layout size={48} className="opacity-20 mb-4" />
-                      <p>Nenhum quadro encontrado</p>
-                  </div>
+                  <ContentCard>
+                      <EmptyState icon={Layout} title="Nenhum quadro encontrado" description="Crie um novo quadro ou ajuste a busca." />
+                  </ContentCard>
               )}
           </div>
       ) : (
-          <div className="overflow-x-auto -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8">
-              <div className="flex gap-3 min-w-max pb-4 px-3 sm:px-5 lg:px-6 xl:px-8" style={{ minHeight: 'calc(100vh - 220px)' }}>
+          <div className="space-y-3">
+              <FilterLine>
+                  <FilterLineSection grow>
+                      <FilterLineItem grow minWidth={200}>
+                          <FilterLineSearch
+                            value={cardSearch}
+                            onChange={setCardSearch}
+                            placeholder="Buscar caso ou tag..."
+                            aria-label="Buscar caso ou tag"
+                          />
+                      </FilterLineItem>
+                  </FilterLineSection>
+                  {history.length > 0 && (
+                      <FilterLineSection align="right">
+                          <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-[11px] text-slate-500">
+                              <History size={12} />
+                              <span className="font-medium">{history[0].time}:</span>
+                              <span className="truncate max-w-[200px]">{history[0].msg}</span>
+                          </div>
+                      </FilterLineSection>
+                  )}
+              </FilterLine>
+
+          <div className="overflow-x-auto">
+              <div className="flex gap-3 min-w-max pb-3" style={{ minHeight: 'calc(100vh - 260px)' }}>
                   {boardLoading ? (
-                      <div className="flex items-center justify-center text-slate-400 text-sm font-bold py-10 w-64">
-                          Carregando...
+                      <div role="status" className="flex items-center justify-center gap-2 text-slate-500 text-sm py-10 w-64">
+                          <Loader2 size={18} className="animate-spin" />Carregando…
                       </div>
                   ) : activeBoard?.columns.map(col => {
                       const filtered = col.cards.filter(card => {
@@ -909,31 +1091,33 @@ export const CaseStudies: React.FC = () => {
                       return (
                           <div
                             key={col.id}
-                            className="w-[268px] flex-shrink-0 flex flex-col bg-slate-50/80 rounded-xl border border-slate-200 max-h-full"
+                            className="w-[268px] flex-shrink-0 flex flex-col bg-slate-50/80 rounded-lg border border-slate-200 max-h-full"
                             onDragOver={handleDragOver}
                             onDrop={(e) => handleDrop(e, col.id)}
                           >
                               {/* Header da coluna */}
-                              <div className="px-3 py-3 flex items-center justify-between shrink-0 group/col-header border-b border-slate-200/70">
+                              <div className="px-3 py-2.5 flex items-center justify-between shrink-0 group/col-header border-b border-slate-200/70">
                                   <div className="flex items-center gap-2 min-w-0">
                                       <div className={`w-2 h-2 rounded-full shrink-0 ${col.color}`} />
-                                      <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest truncate">{col.title}</span>
-                                      <span className="text-[11px] font-bold text-slate-400 shrink-0">{col.cards.length}</span>
+                                      <span className="text-xs font-medium text-slate-600 truncate">{col.title}</span>
+                                      <span className="text-[11px] text-slate-500 shrink-0">{col.cards.length}</span>
                                   </div>
                                   <div className="relative shrink-0">
-                                      <button
+                                      <IconButton
+                                        variant="ghost"
+                                        size="xs"
+                                        aria-label="Opções da coluna"
                                         onClick={() => setOpenColumnMenuId(openColumnMenuId === col.id ? null : col.id)}
-                                        className="p-1 hover:bg-slate-200 rounded text-slate-400 opacity-0 group-hover/col-header:opacity-100 transition-opacity"
                                       >
                                           <MoreHorizontal size={14} />
-                                      </button>
+                                      </IconButton>
                                       {openColumnMenuId === col.id && (
-                                          <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-20 w-32">
-                                              <button onClick={() => openEditColumn(col)} className="w-full text-left px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-2">
-                                                  <FileText size={13} /> Editar
+                                          <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-sm border border-slate-200 p-1 z-20 w-32">
+                                              <button type="button" onClick={() => openEditColumn(col)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 rounded-md flex items-center gap-2">
+                                                  <FileText size={14} /> Editar
                                               </button>
-                                              <button onClick={() => deleteColumn(col.id)} className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg flex items-center gap-2">
-                                                  <Trash2 size={13} /> Excluir
+                                              <button type="button" onClick={() => deleteColumn(col.id)} className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-md flex items-center gap-2">
+                                                  <Trash2 size={14} /> Excluir
                                               </button>
                                           </div>
                                       )}
@@ -948,82 +1132,87 @@ export const CaseStudies: React.FC = () => {
                                         draggable
                                         onDragStart={(e) => handleDragStart(e, card, col.id)}
                                         onClick={() => openCardDetail({ ...card, columnId: col.id })}
-                                        className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md cursor-pointer hover:border-indigo-200 transition-all group/card"
+                                        className="bg-white p-3 rounded-lg border border-slate-200 cursor-pointer hover:border-primary-200 transition-colors group/card"
                                       >
                                           {(card.tags.length > 0 || card.details?.priority || card.details?.risk_level) && (
                                               <div className="flex flex-wrap gap-1 mb-2">
                                                   {card.tags.map(tag => (
-                                                      <span key={tag} className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded uppercase tracking-wide">{tag}</span>
+                                                      <Badge key={tag} color="default" size="sm">{tag}</Badge>
                                                   ))}
                                                   {card.details?.priority && (
-                                                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded uppercase tracking-wide">{card.details.priority}</span>
+                                                      <Badge color="primary" size="sm">{card.details.priority}</Badge>
                                                   )}
                                                   {card.details?.risk_level && (
-                                                      <span className="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-bold rounded uppercase tracking-wide">{card.details.risk_level}</span>
+                                                      <Badge color="danger" size="sm">{card.details.risk_level}</Badge>
                                                   )}
                                               </div>
                                           )}
-                                          <p className="font-semibold text-slate-800 text-sm leading-snug mb-1 group-hover/card:text-indigo-600 transition-colors">
+                                          <p className="font-medium text-slate-800 text-xs leading-snug mb-1 group-hover/card:text-primary-700 transition-colors">
                                               {card.patientName}
                                           </p>
                                           {card.description && (
-                                              <p className="text-xs text-slate-400 line-clamp-2 mb-2">{card.description}</p>
+                                              <p className="text-[11px] text-slate-500 line-clamp-2 mb-2">{card.description}</p>
                                           )}
                                           <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-1">
-                                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                              <div className="flex items-center gap-2 text-[11px] text-slate-500">
                                                   {card.attachments.length > 0 && (
-                                                      <span className="flex items-center gap-1"><Paperclip size={11} /> {card.attachments.length}</span>
+                                                      <span className="flex items-center gap-1"><Paperclip size={12} /> {card.attachments.length}</span>
                                                   )}
                                                   {card.comments.length > 0 && (
-                                                      <span className="flex items-center gap-1"><MessageSquare size={11} /> {card.comments.length}</span>
+                                                      <span className="flex items-center gap-1"><MessageSquare size={12} /> {card.comments.length}</span>
                                                   )}
                                               </div>
-                                              <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-black">
+                                              <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[11px] font-medium">
                                                   {card.patientName.charAt(0).toUpperCase()}
                                               </div>
                                           </div>
                                       </div>
                                   ))}
                                   {col.cards.length === 0 && (
-                                      <p className="text-center text-[11px] text-slate-400 py-8">Sem casos</p>
+                                      <p className="text-center text-[11px] text-slate-500 py-8">Sem casos</p>
                                   )}
                                   {col.cards.length > 0 && cardSearch.trim() && filtered.length === 0 && (
-                                      <p className="text-center text-[11px] text-slate-400 py-8">Sem resultados</p>
+                                      <p className="text-center text-[11px] text-slate-500 py-8">Sem resultados</p>
                                   )}
                               </div>
 
                               {/* Botão adicionar */}
                               <div className="p-2 shrink-0">
-                                  <button
-                                    onClick={() => { setTargetColumnId(col.id); setIsCardModalOpen(true); }}
-                                    className="w-full py-2 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    fullWidth
+                                    iconLeft={<Plus size={14} />}
+                                    onClick={() => { setTargetColumnId(col.id); setCardTab('geral'); setIsCardModalOpen(true); }}
                                   >
-                                      <Plus size={13} /> {t('cases.newCard')}
-                                  </button>
+                                      {t('cases.newCard')}
+                                  </Button>
                               </div>
                           </div>
                       );
                   })}
               </div>
           </div>
+          </div>
       )}
 
-      </div>{/* /px-padding */}
+      </div>
 
       {/* --- MODAL: NEW BOARD --- */}
       <Modal
         isOpen={isBoardModalOpen}
-        onClose={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardTitleError(''); setNewBoardDesc(''); setNewBoardType('geral'); }}
+        onClose={closeBoardModal}
         title={editingBoardId ? 'Editar Quadro' : 'Novo Quadro'}
         size="md"
         footer={
-          <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => { setIsBoardModalOpen(false); setEditingBoardId(null); setNewBoardTitle(''); setNewBoardTitleError(''); setNewBoardDesc(''); setNewBoardType('geral'); }}>Cancelar</Button>
+          <ModalFooter align="between">
+            <Button variant="ghost" size="sm" onClick={closeBoardModal}>Cancelar</Button>
             <Button variant="primary" size="sm" onClick={handleAddBoard}>{editingBoardId ? 'Salvar Alterações' : 'Criar Quadro'}</Button>
-          </div>
+          </ModalFooter>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Input
             label="Nome do Quadro"
             required
@@ -1034,24 +1223,25 @@ export const CaseStudies: React.FC = () => {
           />
           {!editingBoardId && (
             <div>
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de Quadro</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Tipo de Quadro</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {([
-                  { value: 'geral',      label: 'Geral',       emoji: '📋', desc: 'A Fazer · Em Progresso · Concluído' },
-                  { value: 'clinico',    label: 'Clínico',     emoji: '🧠', desc: 'Avaliação · Acompanhamento · Alta' },
-                  { value: 'projeto',    label: 'Projeto',     emoji: '🚀', desc: 'Backlog · Andamento · Revisão · Entregue' },
-                  { value: 'financeiro', label: 'Financeiro',  emoji: '💰', desc: 'A Receber · Recebido · A Pagar · Pago' },
-                  { value: 'atividade',  label: 'Atividade',   emoji: '⚡', desc: 'Planejado · Execução · Finalizado' },
+                  { value: 'geral',      label: 'Geral',       icon: ClipboardList, desc: 'A Fazer · Em Progresso · Concluído' },
+                  { value: 'clinico',    label: 'Clínico',     icon: Brain,         desc: 'Avaliação · Acompanhamento · Alta' },
+                  { value: 'projeto',    label: 'Projeto',     icon: Rocket,        desc: 'Backlog · Andamento · Revisão · Entregue' },
+                  { value: 'financeiro', label: 'Financeiro',  icon: Wallet,        desc: 'A Receber · Recebido · A Pagar · Pago' },
+                  { value: 'atividade',  label: 'Atividade',   icon: Zap,           desc: 'Planejado · Execução · Finalizado' },
                 ] as const).map(opt => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setNewBoardType(opt.value)}
-                    className={`p-3 rounded-xl border-2 text-left transition-all ${newBoardType === opt.value ? 'border-indigo-400 bg-indigo-50' : 'border-slate-100 hover:border-slate-200 bg-white'}`}
+                    aria-pressed={newBoardType === opt.value}
+                    className={`p-3 rounded-lg border text-left transition-colors ${newBoardType === opt.value ? 'border-primary-400 bg-primary-50' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
                   >
-                    <div className="text-lg mb-1">{opt.emoji}</div>
-                    <div className={`text-xs font-bold ${newBoardType === opt.value ? 'text-indigo-700' : 'text-slate-700'}`}>{opt.label}</div>
-                    <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">{opt.desc}</div>
+                    <opt.icon size={16} className={`mb-1 ${newBoardType === opt.value ? 'text-primary-600' : 'text-slate-500'}`} />
+                    <div className={`text-xs font-medium ${newBoardType === opt.value ? 'text-primary-700' : 'text-slate-700'}`}>{opt.label}</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5 leading-tight">{opt.desc}</div>
                   </button>
                 ))}
               </div>
@@ -1070,325 +1260,185 @@ export const CaseStudies: React.FC = () => {
       {/* --- MODAL: NEW CARD --- */}
       <Modal
         isOpen={isCardModalOpen}
-        onClose={() => { resetCardForm(); setIsCardModalOpen(false); }}
-        title={activeBoard?.board_type === 'clinico' ? 'Novo Caso' : 'Novo Card'}
-        size="lg"
+        onClose={closeCardModal}
+        title={isClinicalBoard ? 'Novo Caso' : 'Novo Card'}
+        size="xl"
+        mobileStyle="fullscreen"
         footer={
-          <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => { resetCardForm(); setIsCardModalOpen(false); }}>
+          <ModalFooter align="between">
+            <Button variant="ghost" size="sm" onClick={closeCardModal}>
               Cancelar
             </Button>
-            <Button variant="primary" size="sm" onClick={handleCreateCard} loading={isSavingCard}>
-              {activeBoard?.board_type === 'clinico' ? 'Criar Caso' : 'Criar Card'}
+            <Button
+              variant="primary"
+              size="sm"
+              loading={isSavingCard}
+              disabled={isSavingCard}
+              onClick={() => {
+                if (!newCardTitle.trim()) setCardTab('geral');
+                handleCreateCard();
+              }}
+            >
+              {isClinicalBoard ? 'Criar Caso' : 'Criar Card'}
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
-        <div className="space-y-4">
-          {/* Título — comum a todos os tipos */}
-          <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Título *</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 transition-colors"
-              placeholder="Ex: Sessão de avaliação, Cobrança pendente, Entrega do relatório..."
-              value={newCardTitle}
-              onChange={(e) => setNewCardTitle(e.target.value)}
-            />
-          </div>
-
-          {/* Paciente — só faz sentido em quadros clínicos ou gerais da clínica */}
-          {activeBoard?.board_type !== 'projeto' && activeBoard?.board_type !== 'atividade' && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">
-                Paciente{activeBoard?.board_type === 'clinico' ? ' *' : ' (opcional)'}
-              </label>
-              <Combobox
-                placeholder="Buscar paciente ativo..."
-                options={patients
-                  .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
-                  .map((p: any) => ({ value: String(p.id), label: p.full_name || p.name || '' }))}
-                value={newCardPatientId}
-                onChange={(val: any) => {
-                  setNewCardPatientId(String(val || ''));
-                }}
-                size="md"
-              />
-            </div>
-          )}
-
-          {/* Responsável — projeto, financeiro e atividade */}
-          {(activeBoard?.board_type === 'projeto' || activeBoard?.board_type === 'financeiro' || activeBoard?.board_type === 'atividade') && (
-            <Input
-              label="Responsável"
-              placeholder="Quem vai executar/acompanhar..."
-              value={newCardAssignee}
-              onChange={(e) => setNewCardAssignee(e.target.value)}
-            />
-          )}
-
-          {/* Valor — só financeiro */}
-          {activeBoard?.board_type === 'financeiro' && (
-            <Input
-              label="Valor (R$)"
-              type="number"
-              placeholder="0,00"
-              value={newCardAmount}
-              onChange={(e) => setNewCardAmount(e.target.value)}
-            />
-          )}
-
-          {/* Descrição */}
-          <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-              Descrição{activeBoard?.board_type === 'clinico' ? ' *' : ' (opcional)'}
-            </label>
-            <textarea
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
-              rows={3}
-              placeholder={activeBoard?.board_type === 'clinico' ? 'Resumo do caso, queixa principal, contexto...' : 'Detalhes adicionais...'}
-              value={newCardDesc}
-              onChange={(e) => setNewCardDesc(e.target.value)}
-            />
-          </div>
-
-          {/* Prioridade + Data de entrega — comum a todos */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Prioridade</label>
-              <select
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm font-medium text-slate-700 transition-colors"
-                value={newCardDetails.priority}
-                onChange={(e) => setNewCardDetails(prev => ({ ...prev, priority: e.target.value }))}
-              >
-                <option value="">Selecione...</option>
-                <option value="Baixa">Baixa</option>
-                <option value="Media">Média</option>
-                <option value="Alta">Alta</option>
-                <option value="Urgente">Urgente</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data de entrega</label>
-              <input
-                type="date"
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm font-medium text-slate-700 transition-colors"
-                value={newCardDueDate}
-                onChange={(e) => setNewCardDueDate(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Campos clínicos — só quadro do tipo Clínico */}
-          {activeBoard?.board_type === 'clinico' && (
-            <>
-              <div>
-                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Risco / Alerta</label>
-                <select
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm font-medium text-slate-700 transition-colors"
-                  value={newCardDetails.risk_level}
-                  onChange={(e) => setNewCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="Baixo">Baixo</option>
-                  <option value="Moderado">Moderado</option>
-                  <option value="Alto">Alto</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Histórico Clínico</label>
-                <textarea
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
-                  rows={2}
-                  placeholder="Diagnósticos anteriores, histórico familiar..."
-                  value={newCardDetails.history}
-                  onChange={(e) => setNewCardDetails(prev => ({ ...prev, history: e.target.value }))}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hipóteses</label>
-                  <textarea
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
-                    rows={2}
-                    placeholder="Hipóteses diagnósticas..."
-                    value={newCardDetails.hypothesis}
-                    onChange={(e) => setNewCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Objetivos Terapêuticos</label>
-                  <textarea
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 resize-none transition-colors"
-                    rows={2}
-                    placeholder="Metas e objetivos..."
-                    value={newCardDetails.objectives}
-                    onChange={(e) => setNewCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Tags */}
-          <div>
-            <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tags</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-sm text-slate-700 placeholder:text-slate-300 transition-colors"
-              placeholder="TCC, Ansiedade, Luto... (separados por vírgula)"
-              value={newCardTags}
-              onChange={(e) => setNewCardTags(e.target.value)}
-            />
-          </div>
-        </div>
+        {isClinicalBoard ? (
+          <Tabs<typeof CARD_TABS[number]['id']> items={CARD_TABS} value={cardTab} onChange={setCardTab} label="Seções do card">
+            {cardFormContent}
+          </Tabs>
+        ) : cardFormContent}
       </Modal>
 
       {/* --- MODAL: CARD DETAIL --- */}
       <Modal
         isOpen={isCardDetailOpen && !!selectedCard}
-        onClose={() => { setIsCardDetailOpen(false); setSelectedCard(null); setIsEditingCard(false); }}
+        onClose={() => { setIsCardDetailOpen(false); setSelectedCard(null); setIsEditingCard(false); setDetailTab('resumo'); }}
         title={selectedCard?.patientName || ''}
-        size="2xl"
+        size="xl"
+        mobileStyle="fullscreen"
         footer={isEditingCard ? (
-          <div className="flex w-full items-center justify-between gap-3">
+          <ModalFooter align="between">
             <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleDeleteCard}>Excluir</Button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsEditingCard(false)}>Cancelar</Button>
-              <Button variant="primary" size="sm" onClick={handleUpdateCard}>Salvar</Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  if ((!editCardPatientName.trim() && !editCardPatientId) || !editCardDesc.trim()) setDetailTab('resumo');
+                  handleUpdateCard();
+                }}
+              >
+                Salvar
+              </Button>
             </div>
-          </div>
+          </ModalFooter>
         ) : (
-          <div className="flex w-full items-center justify-between gap-3">
+          <ModalFooter align="between">
             <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleDeleteCard}>Excluir</Button>
-            <Button variant="secondary" size="sm" onClick={() => setIsEditingCard(true)}>Editar</Button>
-          </div>
+            <Button variant="outline" size="sm" iconLeft={<Pencil size={14} />} onClick={() => setIsEditingCard(true)}>Editar</Button>
+          </ModalFooter>
         )}
       >
         {selectedCard && (
-          isEditingCard ? (
-            <div className="space-y-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Paciente</label>
-                <Combobox
-                  placeholder="Buscar paciente ativo..."
-                  options={patients
-                    .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
-                    .map((p: any) => ({ value: String(p.id), label: p.full_name || p.name || '' }))}
-                  value={editCardPatientId}
-                  onChange={(val: any, label?: string) => {
-                    setEditCardPatientId(String(val || ''));
-                    setEditCardPatientName(label || '');
-                  }}
-                  size="md"
-                />
-              </div>
-              <Textarea
-                label="Resumo / Queixa principal"
-                rows={4}
-                value={editCardDesc}
-                onChange={(e) => setEditCardDesc(e.target.value)}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  label="Prioridade"
-                  value={editCardDetails.priority}
-                  onChange={(e) => setEditCardDetails(prev => ({ ...prev, priority: e.target.value }))}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="Baixa">Baixa</option>
-                  <option value="Media">Média</option>
-                  <option value="Alta">Alta</option>
-                  <option value="Urgente">Urgente</option>
-                </Select>
-                <Select
-                  label="Risco / Alerta"
-                  value={editCardDetails.risk_level}
-                  onChange={(e) => setEditCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="Baixo">Baixo</option>
-                  <option value="Moderado">Moderado</option>
-                  <option value="Alto">Alto</option>
-                </Select>
-              </div>
-              <Textarea label="Histórico Clínico" rows={3} value={editCardDetails.history} onChange={(e) => setEditCardDetails(prev => ({ ...prev, history: e.target.value }))} />
-              <div className="grid grid-cols-2 gap-3">
-                <Textarea label="Hipóteses" rows={3} value={editCardDetails.hypothesis} onChange={(e) => setEditCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))} />
-                <Textarea label="Objetivos Terapêuticos" rows={3} value={editCardDetails.objectives} onChange={(e) => setEditCardDetails(prev => ({ ...prev, objectives: e.target.value }))} />
-              </div>
-              <Textarea label="Intervenções Realizadas" rows={3} value={editCardDetails.interventions} onChange={(e) => setEditCardDetails(prev => ({ ...prev, interventions: e.target.value }))} />
-              <Textarea label="Próximos Passos" rows={3} value={editCardDetails.next_steps} onChange={(e) => setEditCardDetails(prev => ({ ...prev, next_steps: e.target.value }))} />
-              <Textarea label="Observações" rows={3} value={editCardDetails.observations} onChange={(e) => setEditCardDetails(prev => ({ ...prev, observations: e.target.value }))} />
-              <Input label="Tags" placeholder="TCC, Ansiedade... (separados por vírgula)" value={editCardTags} onChange={(e) => setEditCardTags(e.target.value)} />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2 text-xs font-bold">
-                {selectedCard.details?.priority && (
-                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">Prioridade: {selectedCard.details.priority}</span>
-                )}
-                {selectedCard.details?.risk_level && (
-                  <span className="px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100">Risco: {selectedCard.details.risk_level}</span>
-                )}
-              </div>
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                <div className="text-xs font-bold text-slate-500 uppercase mb-2">Resumo / Queixa principal</div>
-                <div className="text-sm text-slate-700 whitespace-pre-line">{selectedCard.description || 'Sem resumo.'}</div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { label: 'Histórico Clínico', value: selectedCard.details?.history },
-                  { label: 'Hipóteses', value: selectedCard.details?.hypothesis },
-                  { label: 'Objetivos Terapêuticos', value: selectedCard.details?.objectives },
-                  { label: 'Intervenções Realizadas', value: selectedCard.details?.interventions },
-                  { label: 'Próximos Passos', value: selectedCard.details?.next_steps },
-                  { label: 'Observações', value: selectedCard.details?.observations },
-                ].map(({ label, value }) => (
-                  <div key={label} className="bg-white border border-slate-100 rounded-2xl p-4">
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-2">{label}</div>
-                    <div className="text-sm text-slate-700 whitespace-pre-line">{value || '-'}</div>
+          <Tabs<typeof DETAIL_TABS[number]['id']> items={DETAIL_TABS} value={detailTab} onChange={setDetailTab} label="Seções do caso">
+            {isEditingCard ? (
+              detailTab === 'resumo' ? (
+                <div className="space-y-3">
+                  <Combobox
+                    label="Paciente"
+                    placeholder="Buscar paciente ativo..."
+                    options={patientOptions}
+                    value={editCardPatientId}
+                    onChange={(val: any, label?: string) => {
+                      setEditCardPatientId(String(val || ''));
+                      setEditCardPatientName(label || '');
+                    }}
+                    size="md"
+                  />
+                  <Textarea
+                    label="Resumo / Queixa principal"
+                    rows={4}
+                    value={editCardDesc}
+                    onChange={(e) => setEditCardDesc(e.target.value)}
+                  />
+                  <FormRow cols={2}>
+                    <Select
+                      label="Prioridade"
+                      value={editCardDetails.priority}
+                      onChange={(e) => setEditCardDetails(prev => ({ ...prev, priority: e.target.value }))}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="Baixa">Baixa</option>
+                      <option value="Media">Média</option>
+                      <option value="Alta">Alta</option>
+                      <option value="Urgente">Urgente</option>
+                    </Select>
+                    <Select
+                      label="Risco / Alerta"
+                      value={editCardDetails.risk_level}
+                      onChange={(e) => setEditCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="Baixo">Baixo</option>
+                      <option value="Moderado">Moderado</option>
+                      <option value="Alto">Alto</option>
+                    </Select>
+                  </FormRow>
+                  <Input label="Tags" placeholder="TCC, Ansiedade... (separados por vírgula)" value={editCardTags} onChange={(e) => setEditCardTags(e.target.value)} />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Textarea label="Histórico Clínico" rows={3} value={editCardDetails.history} onChange={(e) => setEditCardDetails(prev => ({ ...prev, history: e.target.value }))} />
+                  <FormRow cols={2}>
+                    <Textarea label="Hipóteses" rows={3} value={editCardDetails.hypothesis} onChange={(e) => setEditCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))} />
+                    <Textarea label="Objetivos Terapêuticos" rows={3} value={editCardDetails.objectives} onChange={(e) => setEditCardDetails(prev => ({ ...prev, objectives: e.target.value }))} />
+                  </FormRow>
+                  <Textarea label="Intervenções Realizadas" rows={3} value={editCardDetails.interventions} onChange={(e) => setEditCardDetails(prev => ({ ...prev, interventions: e.target.value }))} />
+                  <Textarea label="Próximos Passos" rows={3} value={editCardDetails.next_steps} onChange={(e) => setEditCardDetails(prev => ({ ...prev, next_steps: e.target.value }))} />
+                  <Textarea label="Observações" rows={3} value={editCardDetails.observations} onChange={(e) => setEditCardDetails(prev => ({ ...prev, observations: e.target.value }))} />
+                </div>
+              )
+            ) : (
+              detailTab === 'resumo' ? (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCard.details?.priority && (
+                      <Badge color="primary">Prioridade: {selectedCard.details.priority}</Badge>
+                    )}
+                    {selectedCard.details?.risk_level && (
+                      <Badge color="danger">Risco: {selectedCard.details.risk_level}</Badge>
+                    )}
                   </div>
-                ))}
-              </div>
-              {selectedCard.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedCard.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-md uppercase tracking-wider">{tag}</span>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <div className="text-xs font-medium text-slate-600 mb-1.5">Resumo / Queixa principal</div>
+                    <div className="text-xs text-slate-700 whitespace-pre-line">{selectedCard.description || 'Sem resumo.'}</div>
+                  </div>
+                  {selectedCard.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedCard.tags.map(tag => (
+                        <Badge key={tag} color="default" size="sm">{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { label: 'Histórico Clínico', value: selectedCard.details?.history },
+                    { label: 'Hipóteses', value: selectedCard.details?.hypothesis },
+                    { label: 'Objetivos Terapêuticos', value: selectedCard.details?.objectives },
+                    { label: 'Intervenções Realizadas', value: selectedCard.details?.interventions },
+                    { label: 'Próximos Passos', value: selectedCard.details?.next_steps },
+                    { label: 'Observações', value: selectedCard.details?.observations },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-white border border-slate-200 rounded-lg p-3">
+                      <div className="text-xs font-medium text-slate-600 mb-1.5">{label}</div>
+                      <div className="text-xs text-slate-700 whitespace-pre-line">{value || '-'}</div>
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )
+              )
+            )}
+          </Tabs>
         )}
       </Modal>
 
       {/* --- MODAL: DELETE CONFIRMATION --- */}
-      <Modal
+      <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         title={deleteModalConfig?.title || 'Excluir'}
-        size="sm"
-        footer={
-          <div className="flex w-full items-center justify-end gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(false)}>Cancelar</Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => {
-                deleteModalConfig?.onConfirm();
-                setIsDeleteModalOpen(false);
-              }}
-            >
-              Excluir
-            </Button>
-          </div>
-        }
-      >
-        <p className="text-sm text-slate-600">{deleteModalConfig?.message}</p>
-      </Modal>
+        message={deleteModalConfig?.message || ''}
+        confirmLabel="Excluir"
+        variant="danger"
+        onConfirm={() => {
+          deleteModalConfig?.onConfirm();
+          setIsDeleteModalOpen(false);
+        }}
+      />
 
       {/* --- MODAL: EDIT COLUMN --- */}
       <Modal
@@ -1397,25 +1447,27 @@ export const CaseStudies: React.FC = () => {
         title="Editar Coluna"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-end gap-3">
+          <ModalFooter align="between">
             <Button variant="ghost" size="sm" onClick={() => setIsColumnModalOpen(false)}>Cancelar</Button>
             <Button variant="primary" size="sm" onClick={handleUpdateColumn}>Salvar</Button>
-          </div>
+          </ModalFooter>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Input
             label="Nome"
             value={editingColumnTitle}
             onChange={(e) => setEditingColumnTitle(e.target.value)}
           />
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-slate-600">Cor</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">Cor</label>
             <div className="flex flex-wrap gap-2">
               {COLUMN_COLORS.map(color => (
                 <button
                   key={color}
                   type="button"
+                  aria-label={`Cor ${color.replace('bg-', '')}`}
+                  aria-pressed={editingColumnColor === color}
                   onClick={() => setEditingColumnColor(color)}
                   className={`w-7 h-7 rounded-full ${color} border-2 ${editingColumnColor === color ? 'border-slate-900' : 'border-transparent'}`}
                 />

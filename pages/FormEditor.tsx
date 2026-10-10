@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { FormBuilder } from '../components/Forms/FormBuilder';
 import { FormQuestion, InterpretationRule, FormTheme } from '../types';
+import { PageWrapper, Alert } from '../components/UI';
+import { Loader2 } from 'lucide-react';
 
 type BuilderPayload = {
   title: string;
@@ -91,7 +93,8 @@ export const FormEditor: React.FC = () => {
         await api.post('/forms', payload);
       }
       setNotice({ type: 'success', message: 'Formulário salvo com sucesso.' });
-      setTimeout(() => navigate('/formularios/lista'), 600);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      navigate('/formularios/lista');
     } catch (e) {
       console.error(e);
       setNotice({ type: 'error', message: 'Não foi possível salvar o formulário.' });
@@ -100,30 +103,26 @@ export const FormEditor: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[60vh] text-slate-500">
-        Carregando formulario...
-      </div>
+      <PageWrapper>
+        <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+          <Loader2 size={18} className="animate-spin" />Carregando formulário...
+        </div>
+      </PageWrapper>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {notice ? (
-        <div
-          className={`px-4 py-3 rounded-2xl font-bold text-sm border ${
-            notice.type === 'success'
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : 'bg-red-50 text-red-700 border-red-200'
-          }`}
-        >
-          {notice.message}
-        </div>
-      ) : null}
-      <FormBuilder
-        initialData={initialData}
-        onSave={handleSave}
-        onCancel={() => navigate('/formularios/lista')}
-      />
-    </div>
+    <PageWrapper>
+      <div className="space-y-4">
+        {notice ? (
+          <Alert variant={notice.type === 'success' ? 'success' : 'error'}>{notice.message}</Alert>
+        ) : null}
+        <FormBuilder
+          initialData={initialData}
+          onSave={handleSave}
+          onCancel={() => navigate('/formularios/lista')}
+        />
+      </div>
+    </PageWrapper>
   );
 };

@@ -6,10 +6,10 @@ import { getToken } from '../services/tokenStorage';
 import {
   Modal, ModalFooter, ConfirmModal,
   Button, IconButton,
-  Badge, StatCard, StatGrid,
+  Alert, Badge, FormRow, PanelCard, StatCard, StatGrid, Switch,
   PageWrapper, SectionTitle,
   FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineViewToggle, FilterLineDateRange,
-  GridTable,
+  GridTable, Pagination, Tabs,
 } from '../components/UI';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { DatePicker } from '../components/UI/DatePicker';
@@ -53,6 +53,19 @@ type ComandaTab = 'avulsa' | 'pacote';
 type ViewMode = 'kanban' | 'list';
 type StatusFilter = 'open' | 'closed';
 type DateRangeFilter = 'today' | 'month' | 'year' | 'all';
+
+// Mantidos fora do componente para que o estado e a tipagem das abas sejam
+// estáveis. A ausência dessas constantes fazia a rota /comandas falhar antes
+// mesmo de renderizar a tela.
+const COMANDA_STATUS_TABS = [
+  { id: 'open', label: 'Em aberto', icon: Clock },
+  { id: 'closed', label: 'Pagas', icon: CheckCircle2 },
+] as const;
+
+const COMANDA_TYPE_TABS = [
+  { id: 'avulsa', label: 'Avulsa', icon: FileText },
+  { id: 'pacote', label: 'Pacote', icon: Package },
+] as const;
 
 type EditableItem = {
   id?: string;
@@ -102,19 +115,19 @@ const TypeButton: React.FC<{
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-start gap-4 p-4 rounded-3xl border-2 text-left transition-all w-full flex-1 ${
+      className={`flex items-start gap-4 p-4 rounded-lg border-2 text-left transition-all w-full flex-1 ${
         active
-          ? 'border-indigo-500 bg-indigo-50/50 shadow-md shadow-indigo-100/50'
+          ? 'border-indigo-500 bg-indigo-50/50 shadow-sm shadow-indigo-100/50'
           : 'border-slate-100 bg-white hover:border-indigo-200 hover:bg-slate-50'
       }`}
     >
       {icon && (
-        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${active ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-500'}`}>
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-500'}`}>
           {icon}
         </div>
       )}
       <div className="flex-1">
-        <div className={`font-black text-sm tracking-wide uppercase ${active ? 'text-indigo-900' : 'text-slate-700'}`}>{label}</div>
+        <div className={`font-semibold text-sm   ${active ? 'text-indigo-900' : 'text-slate-700'}`}>{label}</div>
         {description && <div className={`text-xs mt-1 font-medium ${active ? 'text-indigo-600/80' : 'text-slate-500'}`}>{description}</div>}
       </div>
       <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-1.5 ${
@@ -1220,7 +1233,7 @@ export const Comandas: React.FC = () => {
       };
 
       const headersHtml = headers.map((h, i) => `
-        <th style="padding:10px 8px;font-size:11px;font-weight:700;text-transform:uppercase;
+        <th style="padding:10px 8px;font-size:11px;font-weight:700;;
           letter-spacing:.05em;color:#e2e8f0;text-align:${i >= 5 ? 'right' : 'left'};">${h}</th>
       `).join('');
 
@@ -1276,12 +1289,12 @@ export const Comandas: React.FC = () => {
                   ['Total de Comandas', String(rows.length), '#4f46e5', '#eef2ff'],
                 ].map(([label, val, color, bg]) => `
                   <div style="flex:1;background:${bg};border-radius:10px;padding:12px 16px;">
-                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${label}</div>
+                    <div style="font-size:10px;font-weight:700;;letter-spacing:.05em;color:#94a3b8;">${label}</div>
                     <div style="font-size:16px;font-weight:900;color:${color};margin-top:4px;">${val}</div>
                   </div>
                 `).join('')}
               </div>
-            ` : `
+            `:`
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
                 <span style="font-size:13px;font-weight:700;color:#1e293b;">Gestão de Comandas · ${filterLabel}</span>
                 <span style="font-size:11px;color:#94a3b8;">Página ${pageIdx + 1} de ${chunks.length} · ${now}</span>
@@ -1437,20 +1450,86 @@ export const Comandas: React.FC = () => {
     </Badge>
   );
 
+  const handleChangeComandaType = (tab: ComandaTab) => {
+    if (!editingComanda) return;
+    if (tab === 'avulsa') {
+      setModalTab('avulsa');
+      setEditingComanda({
+        ...editingComanda,
+        packageId: '',
+        items: editingComanda.items || [],
+        sessions_total: Number(editingComanda.sessions_total || 1),
+      });
+    } else {
+      setModalTab('pacote');
+      setEditingComanda({
+        ...editingComanda,
+        sessions_total:
+          Number(editingComanda.sessions_total || 0) > 1
+            ? Number(editingComanda.sessions_total || 0)
+            : 4,
+        items:
+          editingComanda.items && editingComanda.items.length > 0
+            ? editingComanda.items
+            : [{ name: '', serviceId: '', qty: 1, price: 0 }],
+      });
+    }
+  };
+
+  const sessionKeyGuard = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
+      e.preventDefault();
+    }
+  };
+
+  const sessionsFields = editingComanda ? (
+    <FormRow cols={2}>
+      <Input
+        label="Total Sessões"
+        type="number"
+        min={1}
+        value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
+        onChange={(e) => {
+          const val = e.target.value;
+          setEditingComanda({
+            ...editingComanda,
+            sessions_total: val === '' ? ('' as any) : Number(val),
+          });
+        }}
+        onKeyDown={sessionKeyGuard}
+      />
+      <Input
+        label="Realizadas"
+        type="number"
+        min={0}
+        value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
+        onChange={(e) => {
+          const val = e.target.value;
+          setEditingComanda({
+            ...editingComanda,
+            sessions_used: val === '' ? ('' as any) : Number(val),
+          });
+        }}
+        onKeyDown={sessionKeyGuard}
+      />
+    </FormRow>
+  ) : null;
+
   return (
     <PageWrapper>
+      <div className="space-y-4">
       <SectionTitle
         title="Gestão de Comandas"
         description="Controle financeiro, pacotes e sessões"
         icon={ShoppingBag}
-        divider
         action={
-          <div className="flex items-center gap-2">
+          <>
             {hasPermission('manage_payments') && (
               <Button
                 onClick={() => { setImportRows([]); setImportResult(null); setIsImportOpen(true); }}
-                iconLeft={<Upload size={16} />}
+                iconLeft={<Upload size={14} />}
                 variant="outline"
+                size="sm"
               >
                 Importar
               </Button>
@@ -1461,32 +1540,36 @@ export const Comandas: React.FC = () => {
               <div className="relative">
                 <Button
                   onClick={() => setExportMenuOpen(o => !o)}
-                  iconLeft={<Download size={16} />}
+                  iconLeft={<Download size={14} />}
                   iconRight={<ChevronDown size={14} />}
                   variant="outline"
+                  size="sm"
                 >
                   Exportar
                 </Button>
                 {exportMenuOpen && (
                   <div
-                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-sm"
                     onMouseLeave={() => setExportMenuOpen(false)}
                   >
                     <button
+                      type="button"
                       onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     >
                       <FileText size={14} className="text-emerald-500" /> Exportar CSV
                     </button>
                     <button
+                      type="button"
                       onClick={() => { setExportMenuOpen(false); handleExportXLSX(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     >
                       <FileText size={14} className="text-green-600" /> Exportar Excel
                     </button>
                     <button
+                      type="button"
                       onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
                     >
                       <FileText size={14} className="text-red-500" /> Exportar PDF
                     </button>
@@ -1498,32 +1581,42 @@ export const Comandas: React.FC = () => {
             {hasPermission('manage_payments') && (
               <Button
                 onClick={() => handleOpenModal()}
-                iconLeft={<Plus size={16} />}
+                iconLeft={<Plus size={14} />}
                 variant="primary"
-                className="shadow-lg shadow-primary-200"
+                size="sm"
               >
                 Nova comanda
               </Button>
             )}
-          </div>
+          </>
         }
       />
 
-      <main className="py-6">
-
-        <StatGrid cols={3} className="mb-6">
+        <StatGrid cols={3}>
           <StatCard title="Faturamento Total" value={formatCurrency(stats.total)} icon={FileText} color="info" />
           <StatCard title={statusFilter === 'open' ? 'Saldo em Aberto' : 'Total Pendente'} value={formatCurrency(stats.open)} icon={Clock} color="warning" />
           <StatCard title="Total Recebido" value={formatCurrency(stats.received)} icon={CheckCircle2} color="success" />
         </StatGrid>
 
-        <FilterLine className="mb-6">
+        <Tabs<StatusFilter>
+          items={COMANDA_STATUS_TABS}
+          value={statusFilter}
+          onChange={(val) => {
+            setStatusFilter(val);
+            updatePreference('comandas', { statusFilter: val });
+          }}
+          label="Status das comandas"
+        >
+        <div className="space-y-3">
+        <FilterLine>
           <FilterLineSection grow>
-            <FilterLineItem grow minWidth={260}>
+            <FilterLineItem grow minWidth={200}>
               <FilterLineSearch
                 value={searchTerm}
                 onChange={setSearchTerm}
                 placeholder="Buscar paciente, descrição ou item..."
+                aria-label="Buscar comandas"
+                className="max-w-[280px]"
               />
             </FilterLineItem>
             <FilterLineItem>
@@ -1538,18 +1631,6 @@ export const Comandas: React.FC = () => {
             </FilterLineItem>
           </FilterLineSection>
           <FilterLineSection align="right">
-            <FilterLineSegmented
-              value={statusFilter}
-              onChange={(val) => {
-                setStatusFilter(val as any);
-                updatePreference('comandas', { statusFilter: val });
-              }}
-              options={[
-                { value: 'open', label: 'Em aberto' },
-                { value: 'closed', label: 'Finalizadas' },
-              ]}
-              size="sm"
-            />
             <FilterLineViewToggle
               value={viewMode}
               onChange={(mode) => {
@@ -1571,11 +1652,11 @@ export const Comandas: React.FC = () => {
                   setHistoryComanda(comanda);
                   setIsHistoryOpen(true);
                 }}
-                className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="cursor-pointer rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-sm"
               >
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100 font-bold text-primary-700">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-100 font-semibold text-primary-700">
                       {String(comanda.patientName || comanda.patient_name || 'P').charAt(0)}
                     </div>
                     <div>
@@ -1618,7 +1699,7 @@ export const Comandas: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mb-4 rounded-xl bg-slate-50 p-4">
+                <div className="mb-4 rounded-lg bg-slate-50 p-4">
                   <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
                     <Package size={15} className="text-primary-500" />
                     <span>{comanda.items?.[0]?.name || comanda.description || 'Sem item'}</span>
@@ -1649,7 +1730,7 @@ export const Comandas: React.FC = () => {
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-xs text-slate-400">Total</p>
-                    <p className="text-lg font-bold text-slate-800">
+                    <p className="text-lg font-semibold text-slate-800">
                       {formatCurrency(getComandaTotal(comanda))}
                     </p>
                   </div>
@@ -1667,7 +1748,7 @@ export const Comandas: React.FC = () => {
           <>
             {/* Bulk action bar */}
             {selectedIds.size > 0 && (
-              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 mb-4 gap-4">
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-5 py-3 mb-4 gap-4">
                 <span className="text-sm font-semibold text-amber-800">{selectedIds.size} comanda{selectedIds.size > 1 ? 's' : ''} selecionada{selectedIds.size > 1 ? 's' : ''}</span>
                 <div className="flex gap-2">
                   <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>
@@ -1689,7 +1770,7 @@ export const Comandas: React.FC = () => {
               tableMinWidth={960}
               mobileBreakpoint="lg"
               renderMobileAvatar={(c: any) => (
-                <div className="w-8 h-8 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs shrink-0 rotate-2 shadow-sm border border-primary-200">
+                <div className="w-8 h-8 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-semibold text-xs shrink-0 rotate-2 shadow-sm border border-primary-200">
                   {String(c.patientName || c.patient_name || 'P').charAt(0)}
                 </div>
               )}
@@ -1699,22 +1780,22 @@ export const Comandas: React.FC = () => {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-slate-400 font-mono text-xs shrink-0">#{c.id}</span>
-                      <span className="font-bold text-slate-800 truncate text-sm">{c.patientName || c.patient_name}</span>
+                      <span className="font-semibold text-slate-800 truncate text-sm">{c.patientName || c.patient_name}</span>
                     </div>
                     <StatusBadge status={c.status} />
                   </div>
 
                   {/* Second line: Service / Package */}
-                  <div className="text-slate-600 text-xs font-semibold bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                    <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Serviço / Pacote</span>
+                  <div className="text-slate-600 text-xs font-semibold bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Serviço / Pacote</span>
                     {c.items?.[0]?.name || c.description || '—'}
                   </div>
 
                   {/* Third line: Info Grid */}
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Sessões</span>
-                      <span className={`font-bold text-xs ${
+                      <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Sessões</span>
+                      <span className={`font-semibold text-xs ${
                         (Number(c.sessions_used || 0)) > (Number(c.sessions_total || 0)) ? 'text-red-600' :
                         (Number(c.sessions_used || 0)) === (Number(c.sessions_total || 0)) ? 'text-emerald-600' : 'text-slate-700'
                       }`}>
@@ -1722,22 +1803,22 @@ export const Comandas: React.FC = () => {
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Valor Total</span>
-                      <span className="font-bold text-xs text-slate-800">{formatCurrency(getComandaTotal(c))}</span>
+                      <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Valor Total</span>
+                      <span className="font-semibold text-xs text-slate-800">{formatCurrency(getComandaTotal(c))}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Recebido</span>
-                      <span className="font-bold text-xs text-emerald-600">{formatCurrency(getComandaPaid(c))}</span>
+                      <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Recebido</span>
+                      <span className="font-semibold text-xs text-emerald-600">{formatCurrency(getComandaPaid(c))}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">Pendente</span>
-                      <span className="font-bold text-xs text-amber-600">{formatCurrency(getComandaPending(c))}</span>
+                      <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Pendente</span>
+                      <span className="font-semibold text-xs text-amber-600">{formatCurrency(getComandaPending(c))}</span>
                     </div>
                   </div>
 
                   {/* Bottom line: Created by + Actions */}
                   <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-1 gap-4">
-                    <div className="text-[10px] text-slate-400 min-w-0">
+                    <div className="text-[11px] text-slate-400 min-w-0">
                       {c.created_at && (
                         <span>
                           Criado em {new Date(c.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
@@ -1753,7 +1834,7 @@ export const Comandas: React.FC = () => {
                             size="sm"
                             onClick={() => handleIncrementSessions(c)}
                             title="Marcar Realizado (+1)"
-                            className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl"
+                            className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg"
                           >
                             <UserCheck size={14} />
                           </IconButton>
@@ -1762,7 +1843,7 @@ export const Comandas: React.FC = () => {
                             size="sm"
                             onClick={() => handleOpenModal(c)}
                             title="Editar"
-                            className="rounded-xl"
+                            className="rounded-lg"
                           >
                             <Edit3 size={14} />
                           </IconButton>
@@ -1773,7 +1854,7 @@ export const Comandas: React.FC = () => {
                         size="sm"
                         onClick={() => { setHistoryComanda(c); setIsHistoryOpen(true); }}
                         title="Histórico"
-                        className="rounded-xl"
+                        className="rounded-lg"
                       >
                         <List size={14} />
                       </IconButton>
@@ -1783,7 +1864,7 @@ export const Comandas: React.FC = () => {
                           size="sm"
                           onClick={() => setDeleteConfirmId(String(c.id))}
                           title="Excluir"
-                          className="rounded-xl"
+                          className="rounded-lg"
                         >
                           <Trash2 size={14} />
                         </IconButton>
@@ -1801,7 +1882,7 @@ export const Comandas: React.FC = () => {
                   header: 'Paciente',
                   render: (c: any) => (
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-semibold text-xs shrink-0">
                         {String(c.patientName || c.patient_name || 'P').charAt(0)}
                       </div>
                       <span className="font-semibold text-slate-800">{c.patientName || c.patient_name}</span>
@@ -1823,7 +1904,7 @@ export const Comandas: React.FC = () => {
                         {c.sessions_used || 0} / {c.sessions_total || 1}
                       </span>
                       {(Number(c.sessions_used || 0)) > (Number(c.sessions_total || 0)) && (
-                        <span className="text-[10px] text-red-500 font-bold uppercase">Excedido</span>
+                        <span className="text-[11px] text-red-500 font-semibold">Excedido</span>
                       )}
                     </div>
                   )
@@ -1852,8 +1933,8 @@ export const Comandas: React.FC = () => {
                     return (
                       <div className="flex flex-col">
                         <span className="text-xs text-slate-600">{d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
-                        {c.created_by_name && <span className="text-[10px] text-slate-400 truncate max-w-[100px]">{c.created_by_name}</span>}
-                        {!c.created_by_name && c.source === 'portal' && <span className="text-[10px] text-indigo-400">Portal</span>}
+                        {c.created_by_name && <span className="text-[11px] text-slate-400 truncate max-w-[100px]">{c.created_by_name}</span>}
+                        {!c.created_by_name && c.source === 'portal' && <span className="text-[11px] text-indigo-400">Portal</span>}
                       </div>
                     );
                   }
@@ -1896,61 +1977,34 @@ export const Comandas: React.FC = () => {
 
             {/* Pagination */}
             {filteredComandas.length > 0 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 p-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <span>Itens por página:</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100"
-                  >
-                    {[5, 15, 30, 50].map(limit => (
-                      <option key={limit} value={limit}>{limit}</option>
-                    ))}
-                  </select>
-                  <span className="text-slate-400">{filteredComandas.length} total</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-500">
-                    Página {currentPage} de {totalPages}
-                  </span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-50 transition-all"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <Pagination
+                total={filteredComandas.length}
+                page={currentPage}
+                pageSize={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+                showPageSizeSelector
+              />
             )}
           </>
         )}
-      </main>
+        </div>
+        </Tabs>
+      </div>
 
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingComanda?.id ? 'Editando Comanda' : 'Criando Comanda'}
-        size="2xl"
-        mobileStyle="bottom-sheet"
+        size="full"
+        mobileStyle="fullscreen"
         footer={
           <ModalFooter align="between">
             <Button
               onClick={() => setIsModalOpen(false)}
               variant="outline"
-              size="sm"
             >
-              FECHAR
+              Fechar
             </Button>
 
             <Button
@@ -1959,524 +2013,340 @@ export const Comandas: React.FC = () => {
               variant="primary"
               loading={isLoading}
             >
-              {isLoading ? (editingComanda?.id ? 'SALVANDO...' : 'CRIANDO...') : (editingComanda?.id ? 'SALVAR' : 'CRIAR')}
+              {isLoading ? (editingComanda?.id ? 'Salvando...' : 'Criando...') : (editingComanda?.id ? 'Salvar' : 'Criar')}
             </Button>
           </ModalFooter>
         }
       >
         {editingComanda && (
-          <div className="space-y-6 pt-2 pb-6 px-1">
-            {/* TYPE SELECTOR (CARDS) */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <TypeButton
-                active={modalTab === 'avulsa'}
-                label="Comanda Avulsa"
-                description="Serviço único formatado"
-                icon={<FileText size={20} />}
-                onClick={() => {
-                  setModalTab('avulsa');
-                  setEditingComanda({
-                    ...editingComanda,
-                    packageId: '',
-                    items: editingComanda.items || [],
-                    sessions_total: Number(editingComanda.sessions_total || 1),
-                  });
-                }}
-              />
-
-              <TypeButton
-                active={modalTab === 'pacote'}
-                label="Protocolo de Pacote"
-                description="Controle múltiplo de sessões"
-                icon={<Package size={20} />}
-                onClick={() => {
-                  setModalTab('pacote');
-                  setEditingComanda({
-                    ...editingComanda,
-                    sessions_total:
-                      Number(editingComanda.sessions_total || 0) > 1
-                        ? Number(editingComanda.sessions_total || 0)
-                        : 4,
-                    items:
-                      editingComanda.items && editingComanda.items.length > 0
-                        ? editingComanda.items
-                        : [{ name: '', serviceId: '', qty: 1, price: 0 }],
-                  });
-                }}
-              />
-            </div>
-
-            {/* VINCULAR AO LIVRO CAIXA */}
-            <div
-              className={`group flex items-center justify-between rounded-3xl border-2 px-6 py-5 transition-all cursor-pointer ${
-                editingComanda.syncToLivrocaixa
-                  ? 'border-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-100/50 shadow-md shadow-emerald-100/40'
-                  : 'border-slate-100 bg-slate-50 hover:bg-slate-100 hover:border-slate-200'
-              }`}
-              onClick={() =>
-                setEditingComanda({
-                  ...editingComanda,
-                  syncToLivrocaixa: !editingComanda.syncToLivrocaixa,
-                })
-              }
-            >
-              <div className="flex items-center gap-4">
-                <div className={`flex w-12 h-12 rounded-2xl items-center justify-center shrink-0 transition-colors ${
-                  editingComanda.syncToLivrocaixa ? 'bg-emerald-500 text-white' : 'bg-white block border border-slate-200 text-slate-400'
-                }`}>
-                  <BookOpen size={22} />
-                </div>
-                <div className="flex flex-col">
-                  <span className={`text-[13px] font-black tracking-wide uppercase ${editingComanda.syncToLivrocaixa ? 'text-emerald-900' : 'text-slate-700'}`}>
-                    Sincronizar no Livro Caixa
-                  </span>
-                  <span className={`text-sm mt-0.5 font-medium ${editingComanda.syncToLivrocaixa ? 'text-emerald-700/80' : 'text-slate-500'}`}>
-                    {editingComanda.syncToLivrocaixa
-                      ? 'Ativo - O saldo será espelhado no financeiro instantaneamente'
-                      : 'Inativo - Criar comanda de forma isolada'}
-                  </span>
-                </div>
-              </div>
-              <div
-                className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ease-in-out cursor-pointer ${
-                  editingComanda.syncToLivrocaixa
-                    ? 'border-emerald-500 bg-emerald-500'
-                    : 'border-slate-300 bg-slate-200'
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`pointer-events-none inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                    editingComanda.syncToLivrocaixa ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </div>
-            </div>
-
-            {/* DATA DO LANÇAMENTO NO LIVRO CAIXA */}
-            {editingComanda.syncToLivrocaixa && (
-              <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-5 py-3.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
-                  <BookOpen size={16} />
-                </div>
-                <div className="flex flex-1 flex-col gap-1">
-                  <label className="text-[11px] font-black uppercase tracking-wide text-emerald-700">
-                    Data do lançamento no Livro Caixa
-                  </label>
-                  <DatePicker
-                    value={editingComanda.livrocaixaDate || editingComanda.startDate || ''}
-                    onChange={(val) =>
-                      setEditingComanda({ ...editingComanda, livrocaixaDate: val ?? undefined })
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* DADOS DA COMANDA */}
-            <div className="bg-slate-50/50 border border-slate-100 rounded-[28px] p-6 shadow-sm">
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
-                <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                Detalhes do Lançamento
-              </h3>
-
-            {modalTab === 'avulsa' ? (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <Input
-                    label="Descrição"
-                    value={editingComanda.description || ''}
-                    onChange={(e) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Ex: Sessão de Terapia Analítica..."
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Paciente</label>
-                  <Combobox
-                    options={activePatients.map((p: any) => ({ value: String(p.id), label: normalizePatientName(p) }))}
-                    value={editingComanda.patientId || ''}
-                    onChange={(val) => {
-                      const selectedId = Array.isArray(val) ? val[0] : val;
-                      const found = activePatients.find((p: any) => String(p.id) === selectedId);
-                      setEditingComanda({
-                        ...editingComanda,
-                        patientId: selectedId,
-                        patientSearch: found ? normalizePatientName(found) : '',
-                      });
-                    }}
-                    placeholder="Buscar pelo nome..."
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
-                  <DatePicker
-                    value={editingComanda.startDate || ''}
-                    onChange={(val) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        startDate: val ?? undefined,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Valor Total (R$)</label>
-                  <input
-                    type="text"
-                    value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
-                    onChange={(e) =>
-                      handleMonetaryChange(e.target.value, (v) => 
-                        setEditingComanda({
-                          ...editingComanda,
-                          totalValue: parseMonetaryValue(v),
-                        })
-                      )
-                    }
-                    className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditingComanda({
-                          ...editingComanda,
-                          sessions_total: val === '' ? ('' as any) : Number(val),
-                        });
-                      }}
-                      onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditingComanda({
-                          ...editingComanda,
-                          sessions_used: val === '' ? ('' as any) : Number(val),
-                        });
-                      }}
-                      onKeyDown={(e) => {
-                        if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5 md:col-span-2">
-                  <label className="text-[12px] font-semibold text-slate-600">Profissional</label>
-                  <Combobox
-                    options={professionals.map((p: any) => ({ value: String(p.id), label: p.full_name || p.name }))}
-                    value={editingComanda.professionalId || ''}
-                    onChange={(val) => {
-                      const selectedId = Array.isArray(val) ? val[0] : val;
-                      setEditingComanda({ ...editingComanda, professionalId: selectedId });
-                    }}
-                    placeholder="Buscar profissional..."
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="flex flex-col gap-1.5 md:col-span-2">
-                  <label className="text-[12px] font-semibold text-slate-600">Pacote Base (Opcional)</label>
-                  <Combobox
-                    options={packages.map((pkg) => ({ value: String(pkg.id), label: pkg.name }))}
-                    value={editingComanda.packageId || ''}
-                    onChange={(val) => {
-                      const selectedId = Array.isArray(val) ? val[0] : val;
-                      handleSelectPackage(selectedId || '');
-                    }}
-                    placeholder="Selecione uma definição de pacote"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Paciente</label>
-                  <Combobox
-                    options={patients.map((p: any) => ({ value: String(p.id), label: normalizePatientName(p) }))}
-                    value={editingComanda.patientId || ''}
-                    onChange={(val) => {
-                      const selectedId = Array.isArray(val) ? val[0] : val;
-                      const found = patients.find((p: any) => String(p.id) === selectedId);
-                      setEditingComanda({
-                        ...editingComanda,
-                        patientId: selectedId,
-                        patientSearch: found ? normalizePatientName(found) : '',
-                      });
-                    }}
-                    placeholder="Buscar pelo nome..."
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Data Base</label>
-                  <DatePicker
-                    value={editingComanda.startDate || ''}
-                    onChange={(val) =>
-                      setEditingComanda({
-                        ...editingComanda,
-                        startDate: val ?? undefined,
-                      })
-                    }
-                  />
-                </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[12px] font-semibold text-slate-600">Total Sessões</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={editingComanda.sessions_total !== undefined ? editingComanda.sessions_total : 1}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEditingComanda({
-                            ...editingComanda,
-                            sessions_total: val === '' ? ('' as any) : Number(val),
-                          });
-                        }}
-                        onKeyDown={(e) => {
-                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                            e.preventDefault();
+          <Tabs<ComandaTab> items={COMANDA_TYPE_TABS} value={modalTab} onChange={handleChangeComandaType} label="Tipo de comanda">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+              {/* COLUNA PRINCIPAL */}
+              <div className="min-w-0 space-y-3">
+                <PanelCard title="Detalhes do Lançamento" icon={FileText}>
+                  {modalTab === 'avulsa' ? (
+                    <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
+                      <div className="md:col-span-2">
+                        <Input
+                          label="Descrição"
+                          value={editingComanda.description || ''}
+                          onChange={(e) =>
+                            setEditingComanda({
+                              ...editingComanda,
+                              description: e.target.value,
+                            })
                           }
-                        }}
-                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[12px] font-semibold text-slate-600">Realizadas</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={editingComanda.sessions_used !== undefined ? editingComanda.sessions_used : 0}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setEditingComanda({
-                            ...editingComanda,
-                            sessions_used: val === '' ? ('' as any) : Number(val),
-                          });
-                        }}
-                        onKeyDown={(e) => {
-                          if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Tab') {
-                            e.preventDefault();
-                          }
-                        }}
-                        className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-                      />
-                    </div>
-                  </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-slate-600">Profissional</label>
-                  <Combobox
-                    options={professionals.map((p: any) => ({ value: String(p.id), label: p.full_name || p.name }))}
-                    value={editingComanda.professionalId || ''}
-                    onChange={(val) => {
-                      const selectedId = Array.isArray(val) ? val[0] : val;
-                      setEditingComanda({ ...editingComanda, professionalId: selectedId });
-                    }}
-                    placeholder="Buscar profissional..."
-                  />
-                </div>
-
-                <div className="pt-2 md:col-span-2">
-                  <div className="mb-4 flex items-center gap-2">
-                    <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-                    <span className="text-sm font-black uppercase tracking-widest text-slate-800">
-                      Serviços do Pacote
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                    <div className="hidden md:grid grid-cols-12 gap-3 text-[11px] font-bold text-slate-400 tracking-wider">
-                      <div className="col-span-6 uppercase">Serviço</div>
-                      <div className="col-span-2 uppercase">Qtd</div>
-                      <div className="col-span-3 uppercase">Preço</div>
-                      <div className="col-span-1" />
-                    </div>
-
-                    {(editingComanda.items || []).map((item, index) => (
-                      <div key={index} className="grid grid-cols-1 md:grid-cols-12 items-end gap-3 p-3 md:p-0 bg-slate-50 md:bg-transparent rounded-xl border md:border-0 border-slate-200">
-                        <div className="md:col-span-6">
-                          <label className="md:hidden block text-[11px] font-bold text-slate-400 tracking-wider mb-1">SERVIÇO</label>
-                          <Select
-                            label=""
-                            value={item.serviceId || ''}
-                            onChange={(e) =>
-                              updatePackageItem(
-                                index,
-                                { serviceId: e.target.value },
-                                true
-                              )
-                            }
-                            size="sm"
-                            wrapperClassName="!mb-0"
-                          >
-                            <option value="">Selecione</option>
-                            {services.map((service) => (
-                              <option key={service.id} value={String(service.id)}>
-                                {service.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-
-                        <div className="col-span-2">
-                          <input
-                            type="number"
-                            min={1}
-                            value={item.qty || 1}
-                            onChange={(e) =>
-                              updatePackageItem(index, {
-                                qty: Math.max(1, Number(e.target.value || 1)),
-                              })
-                            }
-                            className={lineInputClass}
-                          />
-                        </div>
-
-                        <div className="col-span-3">
-                          <input
-                            type="text"
-                            value={formatCurrencyInput(Number(item.price || 0))}
-                            onChange={(e) =>
-                              handleMonetaryChange(e.target.value, (v) => 
-                                updatePackageItem(index, {
-                                  price: parseMonetaryValue(v),
-                                })
-                              )
-                            }
-                            className={lineInputClass}
-                          />
-                        </div>
-
-                        <div className="col-span-1 flex justify-end">
-                          <IconButton
-                            variant="danger"
-                            size="sm"
-                            onClick={() => removePackageItem(index)}
-                            title="Remover item"
-                          >
-                            <Trash2 size={14} />
-                          </IconButton>
-                        </div>
+                          placeholder="Ex: Sessão de Terapia Analítica..."
+                        />
                       </div>
-                    ))}
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={addPackageItem}
-                    className="mt-4 w-full rounded-2xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 py-3.5 text-sm font-bold tracking-wide text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 flex items-center justify-center gap-2"
-                  >
-                    + Adicionar Serviço
-                  </button>
-                </div>
-              </div>
-            )}
+                      <div className="flex flex-col gap-1">
+                        <label className="ds-label">Paciente</label>
+                        <Combobox
+                          options={activePatients.map((p: any) => ({ value: String(p.id), label: normalizePatientName(p) }))}
+                          value={editingComanda.patientId || ''}
+                          onChange={(val) => {
+                            const selectedId = Array.isArray(val) ? val[0] : val;
+                            const found = activePatients.find((p: any) => String(p.id) === selectedId);
+                            setEditingComanda({
+                              ...editingComanda,
+                              patientId: selectedId,
+                              patientSearch: found ? normalizePatientName(found) : '',
+                            });
+                          }}
+                          placeholder="Buscar pelo nome..."
+                        />
+                      </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-200/60 flex flex-col items-end">
-              <div className="w-full max-w-[340px] bg-slate-100/50 rounded-3xl p-5 border border-slate-100 shadow-inner">
-                <div className="flex items-center justify-between text-[13px] font-semibold text-slate-500 mb-3">
-                  <span>Valor Original:</span>
-                  <strong className="text-slate-700">
-                    {formatCurrency(modalGrossTotal)}
-                  </strong>
-                </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="ds-label">Data Base</label>
+                        <DatePicker
+                          value={editingComanda.startDate || ''}
+                          onChange={(val) =>
+                            setEditingComanda({
+                              ...editingComanda,
+                              startDate: val ?? undefined,
+                            })
+                          }
+                        />
+                      </div>
 
-                <div className="grid grid-cols-[1fr_auto_96px] items-center gap-3 mb-4">
-                  <span className="text-[13px] font-semibold text-slate-500">Descontos:</span>
+                      <Input
+                        label="Valor Total (R$)"
+                        type="text"
+                        value={formatCurrencyInput(Number(editingComanda.totalValue || 0))}
+                        onChange={(e) =>
+                          handleMonetaryChange(e.target.value, (v) =>
+                            setEditingComanda({
+                              ...editingComanda,
+                              totalValue: parseMonetaryValue(v),
+                            })
+                          )
+                        }
+                      />
 
-                  <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingComanda({
-                          ...editingComanda,
-                          discount_type: 'percentage',
-                        })
-                      }
-                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
-                        editingComanda.discount_type === 'percentage'
-                          ? 'bg-indigo-500 text-white'
-                          : 'text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      %
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingComanda({
-                          ...editingComanda,
-                          discount_type: 'fixed',
-                        })
-                      }
-                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors border-l border-slate-100 ${
-                        editingComanda.discount_type === 'fixed'
-                          ? 'bg-indigo-500 text-white'
-                          : 'text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      R$
-                    </button>
-                  </div>
+                      {sessionsFields}
 
-                  <input
-                    value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
-                    onChange={(e) =>
-                      handleMonetaryChange(e.target.value, (v) => 
-                        setEditingComanda({
-                          ...editingComanda,
-                          discount_value: parseMonetaryValue(v),
-                        })
-                      )
+                      <div className="flex flex-col gap-1 md:col-span-2">
+                        <label className="ds-label">Profissional</label>
+                        <Combobox
+                          options={professionals.map((p: any) => ({ value: String(p.id), label: p.full_name || p.name }))}
+                          value={editingComanda.professionalId || ''}
+                          onChange={(val) => {
+                            const selectedId = Array.isArray(val) ? val[0] : val;
+                            setEditingComanda({ ...editingComanda, professionalId: selectedId });
+                          }}
+                          placeholder="Buscar profissional..."
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2">
+                      <div className="flex flex-col gap-1 md:col-span-2">
+                        <label className="ds-label">Pacote Base (Opcional)</label>
+                        <Combobox
+                          options={packages.map((pkg) => ({ value: String(pkg.id), label: pkg.name }))}
+                          value={editingComanda.packageId || ''}
+                          onChange={(val) => {
+                            const selectedId = Array.isArray(val) ? val[0] : val;
+                            handleSelectPackage(selectedId || '');
+                          }}
+                          placeholder="Selecione uma definição de pacote"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="ds-label">Paciente</label>
+                        <Combobox
+                          options={patients.map((p: any) => ({ value: String(p.id), label: normalizePatientName(p) }))}
+                          value={editingComanda.patientId || ''}
+                          onChange={(val) => {
+                            const selectedId = Array.isArray(val) ? val[0] : val;
+                            const found = patients.find((p: any) => String(p.id) === selectedId);
+                            setEditingComanda({
+                              ...editingComanda,
+                              patientId: selectedId,
+                              patientSearch: found ? normalizePatientName(found) : '',
+                            });
+                          }}
+                          placeholder="Buscar pelo nome..."
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="ds-label">Data Base</label>
+                        <DatePicker
+                          value={editingComanda.startDate || ''}
+                          onChange={(val) =>
+                            setEditingComanda({
+                              ...editingComanda,
+                              startDate: val ?? undefined,
+                            })
+                          }
+                        />
+                      </div>
+
+                      {sessionsFields}
+
+                      <div className="flex flex-col gap-1">
+                        <label className="ds-label">Profissional</label>
+                        <Combobox
+                          options={professionals.map((p: any) => ({ value: String(p.id), label: p.full_name || p.name }))}
+                          value={editingComanda.professionalId || ''}
+                          onChange={(val) => {
+                            const selectedId = Array.isArray(val) ? val[0] : val;
+                            setEditingComanda({ ...editingComanda, professionalId: selectedId });
+                          }}
+                          placeholder="Buscar profissional..."
+                        />
+                      </div>
+                    </div>
+                  )}
+                </PanelCard>
+
+                {modalTab === 'pacote' && (
+                  <PanelCard
+                    title="Serviços do Pacote"
+                    icon={Package}
+                    action={
+                      <Button type="button" variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={addPackageItem}>
+                        Adicionar serviço
+                      </Button>
                     }
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-right shadow-sm"
-                  />
-                </div>
+                  >
+                    <div className="space-y-2 p-3">
+                      <div className="hidden grid-cols-12 gap-3 text-[11px] font-medium text-slate-500 md:grid">
+                        <div className="col-span-6">Serviço</div>
+                        <div className="col-span-2">Qtd</div>
+                        <div className="col-span-3">Preço</div>
+                        <div className="col-span-1" />
+                      </div>
 
-                <div className="flex items-center justify-between bg-white rounded-2xl px-5 py-4 shadow-sm border border-slate-100 mt-2">
-                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Total a Pagar</span>
-                  <strong className="text-[22px] font-black text-indigo-600">
-                    {formatCurrency(modalNetTotal)}
-                  </strong>
-                </div>
+                      {(editingComanda.items || []).map((item, index) => (
+                        <div key={index} className="grid grid-cols-1 items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 md:grid-cols-12 md:border-0 md:bg-transparent md:p-0">
+                          <div className="md:col-span-6">
+                            <Select
+                              aria-label="Serviço"
+                              value={item.serviceId || ''}
+                              onChange={(e) =>
+                                updatePackageItem(
+                                  index,
+                                  { serviceId: e.target.value },
+                                  true
+                                )
+                              }
+                              size="sm"
+                              wrapperClassName="!mb-0"
+                            >
+                              <option value="">Selecione</option>
+                              {services.map((service) => (
+                                <option key={service.id} value={String(service.id)}>
+                                  {service.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <Input
+                              aria-label="Quantidade"
+                              type="number"
+                              min={1}
+                              size="sm"
+                              value={item.qty || 1}
+                              onChange={(e) =>
+                                updatePackageItem(index, {
+                                  qty: Math.max(1, Number(e.target.value || 1)),
+                                })
+                              }
+                            />
+                          </div>
+
+                          <div className="md:col-span-3">
+                            <Input
+                              aria-label="Preço"
+                              type="text"
+                              size="sm"
+                              value={formatCurrencyInput(Number(item.price || 0))}
+                              onChange={(e) =>
+                                handleMonetaryChange(e.target.value, (v) =>
+                                  updatePackageItem(index, {
+                                    price: parseMonetaryValue(v),
+                                  })
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="flex justify-end md:col-span-1">
+                            <IconButton
+                              variant="danger"
+                              size="sm"
+                              aria-label="Remover item"
+                              onClick={() => removePackageItem(index)}
+                              title="Remover item"
+                            >
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </PanelCard>
+                )}
               </div>
+
+              {/* COLUNA LATERAL */}
+              <aside className="min-w-0 space-y-3 xl:sticky xl:top-0">
+                <PanelCard title="Livro Caixa" icon={BookOpen}>
+                  <div className="space-y-3 p-3">
+                    <Switch
+                      checked={!!editingComanda.syncToLivrocaixa}
+                      onCheckedChange={(checked) =>
+                        setEditingComanda({
+                          ...editingComanda,
+                          syncToLivrocaixa: checked,
+                        })
+                      }
+                      label="Sincronizar no Livro Caixa"
+                      description={editingComanda.syncToLivrocaixa
+                        ? 'Ativo - O saldo será espelhado no financeiro instantaneamente'
+                        : 'Inativo - Criar comanda de forma isolada'}
+                    />
+
+                    {editingComanda.syncToLivrocaixa && (
+                      <div className="flex flex-col gap-1">
+                        <label className="ds-label">Data do lançamento no Livro Caixa</label>
+                        <DatePicker
+                          value={editingComanda.livrocaixaDate || editingComanda.startDate || ''}
+                          onChange={(val) =>
+                            setEditingComanda({ ...editingComanda, livrocaixaDate: val ?? undefined })
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                </PanelCard>
+
+                <PanelCard title="Resumo e descontos" icon={DollarSign}>
+                  <div className="space-y-3 p-3">
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>Valor Original:</span>
+                      <strong className="font-semibold text-slate-700">
+                        {formatCurrency(modalGrossTotal)}
+                      </strong>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="ds-label">Descontos</span>
+                      <div className="flex items-center gap-2">
+                        <FilterLineSegmented
+                          value={editingComanda.discount_type || ''}
+                          onChange={(type) =>
+                            setEditingComanda({
+                              ...editingComanda,
+                              discount_type: type as 'percentage' | 'fixed',
+                            })
+                          }
+                          options={[
+                            { value: 'percentage', label: '%' },
+                            { value: 'fixed', label: 'R$' },
+                          ]}
+                          size="sm"
+                          className="!w-auto shrink-0"
+                        />
+                        <Input
+                          aria-label="Valor do desconto"
+                          value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
+                          onChange={(e) =>
+                            handleMonetaryChange(e.target.value, (v) =>
+                              setEditingComanda({
+                                ...editingComanda,
+                                discount_value: parseMonetaryValue(v),
+                              })
+                            )
+                          }
+                          wrapperClassName="flex-1"
+                          className="text-right"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg border border-primary-100 bg-primary-50 px-3 py-2">
+                      <span className="text-xs font-medium text-slate-600">Total a Pagar</span>
+                      <strong className="text-base font-medium text-primary-700">
+                        {formatCurrency(modalNetTotal)}
+                      </strong>
+                    </div>
+                  </div>
+                </PanelCard>
+              </aside>
             </div>
-
-            </div> {/* fechar dados da comanda */}
-
-          </div>
+          </Tabs>
         )}
       </Modal>
+
+
 
       <ActionDrawer
         isOpen={isHistoryOpen}
@@ -2491,9 +2361,9 @@ export const Comandas: React.FC = () => {
     <div className="min-w-0 flex-1 space-y-3">
 
       {/* topo compacto */}
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-sm font-bold text-primary-700">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-sm font-semibold text-primary-700">
             {String(
               (historyComanda as any).patientName ||
                 (historyComanda as any).patient_name ||
@@ -2552,16 +2422,16 @@ export const Comandas: React.FC = () => {
       {/* resumo financeiro compacto */}
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-lg bg-slate-50 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Total</p>
-          <p className="text-sm font-bold text-slate-800">{formatCurrency(getComandaTotal(historyComanda))}</p>
+          <p className="text-[11px] font-semibold text-slate-400">Total</p>
+          <p className="text-sm font-semibold text-slate-800">{formatCurrency(getComandaTotal(historyComanda))}</p>
         </div>
         <div className="rounded-lg bg-emerald-50 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-500">Recebido</p>
-          <p className="text-sm font-bold text-emerald-700">{formatCurrency(getComandaPaid(historyComanda))}</p>
+          <p className="text-[11px] font-semibold text-emerald-500">Recebido</p>
+          <p className="text-sm font-semibold text-emerald-700">{formatCurrency(getComandaPaid(historyComanda))}</p>
         </div>
         <div className="rounded-lg bg-amber-50 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Pendente</p>
-          <p className="text-sm font-bold text-amber-700">{formatCurrency(getComandaPending(historyComanda))}</p>
+          <p className="text-[11px] font-semibold text-amber-500">Pendente</p>
+          <p className="text-sm font-semibold text-amber-700">{formatCurrency(getComandaPending(historyComanda))}</p>
         </div>
       </div>
 
@@ -2569,12 +2439,12 @@ export const Comandas: React.FC = () => {
       {(historyComanda as any).created_at && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
           <span>
-            <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-1">Criado em</span>
+            <span className="font-semibold text-slate-400 text-[11px] mr-1">Criado em</span>
             {new Date((historyComanda as any).created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </span>
           {(historyComanda as any).created_by_name && (
             <span>
-              <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-1">Por</span>
+              <span className="font-semibold text-slate-400 text-[11px] mr-1">Por</span>
               {(historyComanda as any).created_by_name}
             </span>
           )}
@@ -2606,7 +2476,7 @@ export const Comandas: React.FC = () => {
       </div>
 
       {/* conteúdo das tabs */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
         {managerTab === 'atendimentos' && (
           <div className="divide-y divide-slate-100">
             {(historyComanda as any).appointments?.map((appointment: any, idx: number) => {
@@ -2710,7 +2580,7 @@ export const Comandas: React.FC = () => {
                         <Trash2 size={12} />
                       </button>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 group-hover:hidden">Recebido</span>
+                    <span className="text-[11px] font-semibold text-emerald-400 group-hover:hidden">Recebido</span>
                   </div>
               </div>
             ))}
@@ -2725,7 +2595,7 @@ export const Comandas: React.FC = () => {
                   <BookOpen size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-wide text-indigo-700">
+                  <p className="text-[11px] font-semibold text-indigo-700">
                     Sincronizado no Livro Caixa
                   </p>
                   <p className="text-[11px] text-indigo-500 truncate">
@@ -2739,7 +2609,7 @@ export const Comandas: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 text-indigo-400 shrink-0">
-                  <span className="text-[10px] font-bold">Ver no Livro Caixa</span>
+                  <span className="text-[11px] font-semibold">Ver no Livro Caixa</span>
                   <ExternalLink size={11} />
                 </div>
               </a>
@@ -2777,10 +2647,10 @@ export const Comandas: React.FC = () => {
             <div className="divide-y divide-slate-100">
               {/* tabela de uso do pacote */}
               <div className="px-3 py-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Uso do Pacote</p>
+                <p className="mb-2 text-[11px] font-semibold text-slate-400">Uso do Pacote</p>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400">
                       <th className="pb-1.5 text-left">Serviço</th>
                       <th className="pb-1.5 text-center">Quantidade</th>
                       <th className="pb-1.5 text-center">Utilizados</th>
@@ -2800,7 +2670,7 @@ export const Comandas: React.FC = () => {
                           <td className="py-2 text-center font-semibold text-slate-800">{itemUsed}</td>
                           <td className="py-2 text-center">
                             {itemOver ? (
-                              <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-bold text-rose-600">
+                              <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-600">
                                 Excedido {itemUsed - itemQty}
                               </span>
                             ) : itemRem === 0 ? (
@@ -2822,7 +2692,7 @@ export const Comandas: React.FC = () => {
                         <td className="py-2 text-center font-semibold text-slate-800">{used}</td>
                         <td className="py-2 text-center">
                           {over ? (
-                            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-bold text-rose-600">Excedido {used - total}</span>
+                            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-600">Excedido {used - total}</span>
                           ) : remaining === 0 ? (
                             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-400">Completo</span>
                           ) : (
@@ -2851,14 +2721,14 @@ export const Comandas: React.FC = () => {
               {/* detalhe dos atendimentos */}
               {apts.length > 0 && (
                 <div className="px-3 py-3">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Detalhe das Sessões</p>
+                  <p className="mb-2 text-[11px] font-semibold text-slate-400">Detalhe das Sessões</p>
                   <div className="flex flex-wrap gap-1.5">
                     {apts.map((apt: any, i: number) => (
                       <span
                         key={apt.id || i}
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${aptColors[apt.status] || aptColors.scheduled}`}
                       >
-                        <span className="font-bold">#{i + 1}</span>
+                        <span className="font-semibold">#{i + 1}</span>
                         <span>·</span>
                         <span>{new Date(apt.start_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
                         <span>·</span>
@@ -2876,9 +2746,9 @@ export const Comandas: React.FC = () => {
 
     {/* lateral direita */}
     <aside className="w-full shrink-0 space-y-3 xl:w-56 xl:sticky xl:top-0 xl:self-start">
-      <div className="rounded-xl bg-primary-600 p-4 text-white shadow-md shadow-primary-100">
-        <p className="text-[10px] uppercase tracking-wider text-primary-200">Valor total</p>
-        <p className="mt-0.5 text-xl font-bold">{formatCurrency(getComandaTotal(historyComanda))}</p>
+      <div className="rounded-lg bg-primary-600 p-4 text-white shadow-sm shadow-primary-100">
+        <p className="text-[11px] text-primary-200">Valor total</p>
+        <p className="mt-0.5 text-xl font-semibold">{formatCurrency(getComandaTotal(historyComanda))}</p>
         <div className="mt-3 space-y-1.5 border-t border-primary-500 pt-3 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-primary-200">Recebido</span>
@@ -2946,8 +2816,8 @@ export const Comandas: React.FC = () => {
         const ratio = grossTotal > 0 ? (grossTotal - discountAmt) / grossTotal : 1;
 
         return (
-          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Itens</p>
+          <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+            <p className="mb-2 text-[11px] font-semibold text-slate-400">Itens</p>
             <div className="space-y-2">
               {items.map((item: any, index: number) => {
                 const lineGross = Number(item.qty || 0) * Number(item.price || 0);
@@ -2967,7 +2837,7 @@ export const Comandas: React.FC = () => {
               {discountAmt > 0 && (
                 <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-emerald-600">
                   <span>Desconto{(historyComanda as any).discount_type === 'percentage' ? ` (${discountVal}%)` : ''}</span>
-                  <span className="font-bold">− {formatCurrency(discountAmt)}</span>
+                  <span className="font-semibold">− {formatCurrency(discountAmt)}</span>
                 </div>
               )}
             </div>
@@ -3004,23 +2874,21 @@ export const Comandas: React.FC = () => {
           </ModalFooter>
         }
       >
-        <div className="space-y-4 py-2">
-          <Field label="Valor do pagamento">
-            <input
-              value={newPayment.value}
-              onChange={(e) =>
-                handleMonetaryChange(e.target.value, (v) => 
-                  setNewPayment(prev => ({ ...prev, value: v }))
-                )
-              }
-              placeholder="0,00"
-              className={compactInputClass}
-            />
-          </Field>
+        <div className="space-y-3">
+          <Input
+            label="Valor do pagamento"
+            value={newPayment.value}
+            onChange={(e) =>
+              handleMonetaryChange(e.target.value, (v) =>
+                setNewPayment(prev => ({ ...prev, value: v }))
+              )
+            }
+            placeholder="0,00"
+          />
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+          <FormRow cols={2}>
+            <div className="flex flex-col gap-1">
+              <label className="ds-label">Data</label>
               <DatePicker
                 value={newPayment.date}
                 onChange={(val) =>
@@ -3029,33 +2897,29 @@ export const Comandas: React.FC = () => {
               />
             </div>
 
-            <Field label="Método">
-              <select
-                value={newPayment.method}
-                onChange={(e) =>
-                  setNewPayment((prev) => ({ ...prev, method: e.target.value }))
-                }
-                className={compactInputClass}
-              >
-                <option value="Pix">Pix</option>
-                <option value="Cartão de Crédito">Cartão de Crédito</option>
-                <option value="Débito">Débito</option>
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Boleto">Boleto</option>
-              </select>
-            </Field>
-          </div>
-
-          <Field label="Código de transação / comprovante">
-            <input
-              value={newPayment.receiptCode}
+            <Select
+              label="Método"
+              value={newPayment.method}
               onChange={(e) =>
-                setNewPayment((prev) => ({ ...prev, receiptCode: e.target.value }))
+                setNewPayment((prev) => ({ ...prev, method: e.target.value }))
               }
-              placeholder="Ex: 123ABC..."
-              className={compactInputClass}
-            />
-          </Field>
+            >
+              <option value="Pix">Pix</option>
+              <option value="Cartão de Crédito">Cartão de Crédito</option>
+              <option value="Débito">Débito</option>
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Boleto">Boleto</option>
+            </Select>
+          </FormRow>
+
+          <Input
+            label="Código de transação / comprovante"
+            value={newPayment.receiptCode}
+            onChange={(e) =>
+              setNewPayment((prev) => ({ ...prev, receiptCode: e.target.value }))
+            }
+            placeholder="Ex: 123ABC..."
+          />
         </div>
       </Modal>
 
@@ -3120,7 +2984,7 @@ export const Comandas: React.FC = () => {
 
           {/* upload — sempre visível para trocar arquivo */}
           {!importResult && (
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-5 py-4 transition hover:border-primary-400 hover:bg-primary-50/50">
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-5 py-4 transition hover:border-primary-400 hover:bg-primary-50/50">
               <Upload size={22} className="shrink-0 text-slate-400" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-700">
@@ -3162,7 +3026,7 @@ export const Comandas: React.FC = () => {
             };
 
             return (
-              <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="overflow-hidden rounded-lg border border-slate-200">
                 {/* barra de ações em lote */}
                 {someSelected && (
                   <div className="flex items-center justify-between bg-primary-50 px-4 py-2.5 border-b border-primary-100">
@@ -3192,7 +3056,7 @@ export const Comandas: React.FC = () => {
                           />
                         </th>
                         {['Descrição', 'Paciente', 'Data', 'Sessões', 'Total', 'Pago', 'Status', ''].map((h, i) => (
-                          <th key={i} className={`px-3 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400 ${
+                          <th key={i} className={`px-3 py-3 text-[11px] font-semibold   text-slate-400 ${
                             i >= 4 && i <= 5 ? 'text-right' : i === 3 || i === 6 ? 'text-center' : 'text-left'
                           }`}>{h}</th>
                         ))}
@@ -3229,7 +3093,7 @@ export const Comandas: React.FC = () => {
                             <td className="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{formatCurrency(r.total)}</td>
                             <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-emerald-700">{formatCurrency(r.paid)}</td>
                             <td className="px-3 py-2.5 text-center">
-                              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold   ${
                                 closed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'
                               }`}>
                                 {closed ? 'Finalizada' : 'Aberta'}
@@ -3257,8 +3121,8 @@ export const Comandas: React.FC = () => {
           {/* resultado */}
           {importResult && (
             <div className="space-y-3">
-              <div className="flex items-center gap-3 rounded-xl bg-emerald-50 px-4 py-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
+              <div className="flex items-center gap-3 rounded-lg bg-emerald-50 px-4 py-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
                   <CheckCircle2 size={20} className="text-emerald-600" />
                 </div>
                 <div>
@@ -3267,7 +3131,7 @@ export const Comandas: React.FC = () => {
                 </div>
               </div>
               {importResult.errors.length > 0 && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
                   <p className="mb-2 text-xs font-semibold text-rose-700">Erros ({importResult.errors.length}):</p>
                   <ul className="space-y-1 text-xs text-rose-600">
                     {importResult.errors.map((e: any, i: number) => (
@@ -3360,18 +3224,13 @@ export const Comandas: React.FC = () => {
           </ModalFooter>
         }
       >
-        <div className="py-2 text-slate-600">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 mb-4">
-             <AlertTriangle size={28} />
-          </div>
-          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Confirmar Exclusão</h3>
-          <p className="text-sm font-semibold text-slate-500 leading-relaxed">
-            Você está prestes a excluir este registro de pagamento no valor de <span className="text-rose-600 underline font-black">{formatCurrency(paymentToDelete?.amount || 0)}</span>. Esta ação removerá o lançamento do financeiro e não pode ser desfeita.
+        <div className="space-y-3">
+          <p className="text-[13px] leading-relaxed text-slate-600">
+            Você está prestes a excluir este registro de pagamento no valor de <span className="font-semibold text-red-600">{formatCurrency(paymentToDelete?.amount || 0)}</span>. Esta ação removerá o lançamento do financeiro e não pode ser desfeita.
           </p>
-          <div className="mt-4 p-3 bg-rose-50 border border-rose-100 rounded-2xl">
-            <p className="text-[10px] font-black uppercase tracking-widest text-rose-700">Atenção</p>
-            <p className="text-xs font-bold text-rose-600">Se esta comanda estiver vinculada ao Livro Caixa, a transação correspondente também será removida ou atualizada.</p>
-          </div>
+          <Alert variant="warning" title="Atenção">
+            Se esta comanda estiver vinculada ao Livro Caixa, a transação correspondente também será removida ou atualizada.
+          </Alert>
         </div>
       </Modal>
     </PageWrapper>

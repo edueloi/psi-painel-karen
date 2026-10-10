@@ -5,7 +5,7 @@ import {
   Wallet, PieChart, ArrowUpRight, ArrowDownRight, ArrowLeft, Filter, Download,
   Calculator, AlertCircle, Trash2, Loader2,
   Plus, Edit3, X, Tag, User, List as ListIcon, Smartphone, Banknote, Receipt, FileText, CheckCircle2, Sparkles,
-  Inbox, CheckCircle, XCircle, Clock, Eye, Paperclip
+  Inbox, CheckCircle, XCircle, Clock, Eye, Paperclip, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -13,10 +13,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { FinancialTransaction, Patient } from '../types';
 import {
-  Button, ConfirmModal, Modal, ModalFooter, PageWrapper, SectionTitle,
-  StatGrid, StatCard, FilterLineSegmented,
+  Button, IconButton, ConfirmModal, Modal, ModalFooter, PageWrapper, SectionTitle,
+  StatGrid, StatCard, PanelCard, ContentCard, FormRow, Tabs, Badge, EmptyState,
+  FilterLine, FilterLineSection, GridTable, usePagination, Input, Select, Textarea,
 } from '../components/UI';
-import { Input, Select, Textarea } from '../components/UI/Input';
+import type { Column } from '../components/UI';
+import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { useToast } from '../contexts/ToastContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
@@ -24,8 +26,8 @@ import { AuraContabil } from '../components/AI/AuraContabil';
 
 const PAYMENT_METHODS = [
   { id: 'pix', label: 'Pix', Icon: Smartphone, color: 'bg-emerald-500' },
-  { id: 'credit', label: 'Crédito', Icon: CreditCard, color: 'bg-indigo-500' },
-  { id: 'debit', label: 'Débito', Icon: CreditCard, color: 'bg-blue-500' },
+  { id: 'credit', label: 'Crédito', Icon: CreditCard, color: 'bg-violet-500' },
+  { id: 'debit', label: 'Débito', Icon: CreditCard, color: 'bg-sky-500' },
   { id: 'cash', label: 'Dinheiro', Icon: Banknote, color: 'bg-green-600' },
   { id: 'transfer', label: 'Transferência', Icon: ArrowUpRight, color: 'bg-slate-500' },
   { id: 'check', label: 'Cheque', Icon: Receipt, color: 'bg-amber-500' },
@@ -35,6 +37,20 @@ const PAYMENT_METHODS = [
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
+
+const FINANCE_TABS = [
+  { id: 'dashboard', label: 'Dashboard', icon: PieChart },
+  { id: 'daily', label: 'Fluxo diário', icon: ListIcon },
+  { id: 'tax', label: 'Fiscal', icon: Calculator },
+  { id: 'portal', label: 'Portal', icon: Inbox },
+] as const;
+type FinanceTab = typeof FINANCE_TABS[number]['id'];
+
+const TX_MODAL_TABS = [
+  { id: 'lancamento', label: 'Lançamento', icon: DollarSign },
+  { id: 'detalhes', label: 'Pagador e detalhes', icon: FileText },
+] as const;
+type TxModalTab = typeof TX_MODAL_TABS[number]['id'];
 
 const CATEGORIES_INCOME = [
     'Sessão Individual', 'Pacote de Sessões', 'Avaliação', 'Supervisão', 'Palestra/Curso', 'Outros'
@@ -48,7 +64,7 @@ export const Finance: React.FC = () => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { user, isAdmin, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'daily' | 'tax' | 'portal'>('dashboard');
+  const [activeTab, setActiveTab] = useState<FinanceTab>('dashboard');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
   
@@ -76,6 +92,8 @@ export const Finance: React.FC = () => {
   const [txBeneficiaryCpf, setTxBeneficiaryCpf] = useState('');
   const [txObservation, setTxObservation] = useState('');
   
+  const [txModalTab, setTxModalTab] = useState<TxModalTab>('lancamento');
+  const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isAuraOpen, setIsAuraOpen] = useState(false);
   const { pushToast } = useToast();
@@ -209,6 +227,7 @@ export const Finance: React.FC = () => {
           setTxBeneficiaryCpf('');
           setTxObservation('');
       }
+      setTxModalTab('lancamento');
       setIsModalOpen(true);
   };
 
@@ -243,6 +262,8 @@ export const Finance: React.FC = () => {
           observation: txObservation
       };
 
+      if (isSaving) return;
+      setIsSaving(true);
       try {
           if (editingTx) {
               await api.put(`/finance/${editingTx.id}`, payload);
@@ -254,6 +275,8 @@ export const Finance: React.FC = () => {
       } catch (err) {
           console.error('Erro ao salvar transação:', err);
           pushToast('error', 'Erro ao salvar transação');
+      } finally {
+          setIsSaving(false);
       }
   };
 
@@ -351,7 +374,7 @@ export const Finance: React.FC = () => {
     return withRevenue.reduce((worst, d) => d.revenue < worst.revenue ? d : worst, withRevenue[0]);
   }, [yearData]);
 
-  const maxChartValue = Math.max(...yearData.map(d => Math.max(d.revenue, d.expense, 1)));
+  const dailyPagination = usePagination(transactions, 15);
 
   // --- CARNÊ LEÃO SIMULATION LOGIC ---
   const taxSimulation = useMemo(() => {
@@ -393,85 +416,85 @@ export const Finance: React.FC = () => {
     const pending = portalPayments.filter(p => p.status === 'pending');
     const reviewed = portalPayments.filter(p => p.status !== 'pending');
 
-    const StatusBadge = ({ status }: { status: string }) => {
-      if (status === 'pending') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200"><Clock size={10}/> Aguardando</span>;
-      if (status === 'confirmed') return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200"><CheckCircle size={10}/> Confirmado</span>;
-      return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-red-50 text-red-500 border border-red-200"><XCircle size={10}/> Recusado</span>;
+    const PortalStatusBadge = ({ status }: { status: string }) => {
+      if (status === 'pending') return <Badge color="warning" size="sm" icon={<Clock size={10} />}>Aguardando</Badge>;
+      if (status === 'confirmed') return <Badge color="success" size="sm" icon={<CheckCircle size={10} />}>Confirmado</Badge>;
+      return <Badge color="danger" size="sm" icon={<XCircle size={10} />}>Recusado</Badge>;
     };
 
-    const PaymentCard = ({ p }: { p: any }) => (
-      <div key={p.id} className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4 shadow-sm hover:border-indigo-100 transition-all">
+    const renderPaymentCard = (p: any) => (
+      <ContentCard key={p.id} padding="md" className="flex flex-col md:flex-row md:items-center gap-3 hover:border-primary-200 transition-all">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-black text-slate-800 text-base">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.amount))}</span>
-            <StatusBadge status={p.status} />
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span className="font-medium text-slate-800 text-sm tabular-nums">{formatCurrency(Number(p.amount))}</span>
+            <PortalStatusBadge status={p.status} />
           </div>
-          <p className="text-xs text-slate-500 font-semibold">{p.patient_name}</p>
-          <p className="text-[11px] text-slate-400">{new Date(p.payment_date).toLocaleDateString('pt-BR')} · {PORTAL_METHOD_LABELS[p.payment_method] || p.payment_method}</p>
-          {p.notes && <p className="text-[11px] text-slate-400 italic mt-1">"{p.notes}"</p>}
+          <p className="text-xs text-slate-700 font-medium">{p.patient_name}</p>
+          <p className="text-[11px] text-slate-500">{new Date(p.payment_date).toLocaleDateString('pt-BR')} · {PORTAL_METHOD_LABELS[p.payment_method] || p.payment_method}</p>
+          {p.notes && <p className="text-[11px] text-slate-500 italic mt-1">"{p.notes}"</p>}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {p.attachments?.length > 0 && (
-            <button onClick={() => setPortalAttachModal(p)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all">
-              <Paperclip size={12}/> {p.attachments.length} anexo{p.attachments.length > 1 ? 's' : ''}
-            </button>
+            <Button variant="outline" size="sm" iconLeft={<Paperclip size={14} />} onClick={() => setPortalAttachModal(p)}>
+              {p.attachments.length} anexo{p.attachments.length > 1 ? 's' : ''}
+            </Button>
           )}
           {p.status === 'pending' && (
             <>
-              <button
+              <Button
+                variant="success"
+                size="sm"
+                loading={portalReviewing === p.id}
+                disabled={portalReviewing === p.id}
+                iconLeft={<CheckCircle size={14} />}
                 onClick={() => reviewPortalPayment(p.id, 'confirmed')}
-                disabled={portalReviewing === p.id}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 text-white text-[10px] font-black hover:bg-emerald-600 transition-all disabled:opacity-50"
               >
-                {portalReviewing === p.id ? <Loader2 size={12} className="animate-spin"/> : <CheckCircle size={12}/>} Confirmar
-              </button>
-              <button
+                Confirmar
+              </Button>
+              <Button
+                variant="softDanger"
+                size="sm"
+                disabled={portalReviewing === p.id}
+                iconLeft={<XCircle size={14} />}
                 onClick={() => reviewPortalPayment(p.id, 'rejected')}
-                disabled={portalReviewing === p.id}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-50 text-red-500 border border-red-200 text-[10px] font-black hover:bg-red-100 transition-all disabled:opacity-50"
               >
-                <XCircle size={12}/> Recusar
-              </button>
+                Recusar
+              </Button>
             </>
           )}
-          <button
-            onClick={() => setPortalDeleteConfirm(p.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all"
-            title="Remover declaração"
-          >
-            <Trash2 size={12}/>
-          </button>
+          <IconButton variant="ghost" size="sm" aria-label="Remover declaração" title="Remover declaração" onClick={() => setPortalDeleteConfirm(p.id)}>
+            <Trash2 size={14} />
+          </IconButton>
         </div>
-      </div>
+      </ContentCard>
     );
 
     return (
-      <div className="space-y-6 animate-fadeIn">
+      <div className="space-y-3">
         {portalLoading ? (
-          <div className="flex items-center justify-center p-20 text-indigo-500">
-            <Loader2 className="animate-spin" size={40}/>
+          <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+            <Loader2 size={18} className="animate-spin" />Carregando…
           </div>
         ) : portalPayments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-20 gap-4 text-slate-400">
-            <Inbox size={48} className="opacity-30"/>
-            <p className="text-sm font-black uppercase tracking-widest opacity-50">Nenhuma declaração ainda</p>
-          </div>
+          <ContentCard>
+            <EmptyState icon={Inbox} title="Nenhuma declaração ainda" description="Os pagamentos declarados pelos pacientes no portal aparecem aqui." />
+          </ContentCard>
         ) : (
           <>
             {pending.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
-                  <Clock size={12}/> Aguardando revisão ({pending.length})
+                <h3 className="text-xs font-medium text-amber-700 flex items-center gap-2">
+                  <Clock size={14} /> Aguardando revisão ({pending.length})
                 </h3>
-                {pending.map(p => <PaymentCard key={p.id} p={p}/>)}
+                {pending.map(renderPaymentCard)}
               </div>
             )}
             {reviewed.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <CheckCircle2 size={12}/> Revisados ({reviewed.length})
+                <h3 className="text-xs font-medium text-slate-600 flex items-center gap-2">
+                  <CheckCircle2 size={14} /> Revisados ({reviewed.length})
                 </h3>
-                {reviewed.map(p => <PaymentCard key={p.id} p={p}/>)}
+                {reviewed.map(renderPaymentCard)}
               </div>
             )}
           </>
@@ -479,29 +502,33 @@ export const Finance: React.FC = () => {
 
         {/* Modal de anexos */}
         {portalAttachModal && (
-          <Modal isOpen={true} onClose={() => setPortalAttachModal(null)} title="Comprovantes" maxWidth="max-w-md">
-            <div className="space-y-3 p-2">
+          <Modal
+            isOpen={true}
+            onClose={() => setPortalAttachModal(null)}
+            title="Comprovantes"
+            size="md"
+            footer={<ModalFooter><Button variant="outline" size="sm" onClick={() => setPortalAttachModal(null)}>Fechar</Button></ModalFooter>}
+          >
+            <div className="space-y-3">
               {portalAttachModal.attachments.map((a: any) => {
                 const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name || a.file_url || '');
                 return (
-                  <div key={a.id} className="rounded-xl border border-slate-100 overflow-hidden">
+                  <div key={a.id} className="rounded-lg border border-slate-200 overflow-hidden">
                     {isImage && (
                       <div className="bg-slate-50 border-b border-slate-100 max-h-64 overflow-hidden flex items-center justify-center">
                         <img src={a.file_url} alt={a.file_name} className="max-w-full max-h-64 object-contain" />
                       </div>
                     )}
-                    <div className="flex items-center gap-3 p-3">
-                      <Paperclip size={16} className="text-indigo-400 flex-shrink-0"/>
-                      <span className="text-sm font-semibold text-slate-700 truncate flex-1">{a.file_name || 'Anexo'}</span>
-                      <a href={a.file_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[10px] font-black text-slate-500 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                        title="Visualizar">
-                        <Eye size={12}/> Ver
+                    <div className="flex flex-wrap items-center gap-2 p-3">
+                      <Paperclip size={14} className="text-primary-500 shrink-0" />
+                      <span className="text-xs font-medium text-slate-700 truncate flex-1 min-w-[120px]">{a.file_name || 'Anexo'}</span>
+                      <a href={a.file_url} target="_blank" rel="noopener noreferrer" title="Visualizar"
+                        className="inline-flex h-7 items-center gap-1 px-2.5 rounded-md border border-slate-200 text-[11px] font-medium text-slate-600 hover:border-primary-300 hover:text-primary-700 hover:bg-primary-50 transition-colors">
+                        <Eye size={14} /> Ver
                       </a>
-                      <a href={a.file_url} download={a.file_name || 'comprovante'}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[10px] font-black text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
-                        title="Baixar">
-                        <Download size={12}/> Baixar
+                      <a href={a.file_url} download={a.file_name || 'comprovante'} title="Baixar"
+                        className="inline-flex h-7 items-center gap-1 px-2.5 rounded-md border border-slate-200 text-[11px] font-medium text-slate-600 hover:border-primary-300 hover:text-primary-700 hover:bg-primary-50 transition-colors">
+                        <Download size={14} /> Baixar
                       </a>
                     </div>
                   </div>
@@ -525,472 +552,352 @@ export const Finance: React.FC = () => {
     );
   };
 
+  const incomeTxs = transactions.filter(tx => tx.type === 'income');
+
   const renderDashboard = () => (
-    <div className="space-y-6 animate-fadeIn">
-        {/* Main Chart & Methods breakdown */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Chart Area */}
-            <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-                <div className="flex justify-between items-center mb-8 relative z-10">
-                    <div>
-                        <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest flex items-center gap-2">
-                             <PieChart size={14} className="text-indigo-500"/>
-                             {t('finance.balance')}
-                        </h3>
-                        <p className="text-lg font-black text-slate-600 mt-0.5">{t('finance.year')}</p>
-                    </div>
-                    <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-wider">
-                       <div className="flex items-center gap-2 px-2 py-1 bg-emerald-50 rounded-lg text-emerald-600 border border-emerald-100"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {t('finance.income')}</div>
-                       <div className="flex items-center gap-2 px-2 py-1 bg-rose-50 rounded-lg text-rose-600 border border-rose-100"><span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> {t('finance.expense')}</div>
-                    </div>
-                </div>
-                
-                <div className="h-64 flex items-end gap-3 md:gap-4 relative z-10">
-                    {yearData.map((m, i) => (
-                        <div key={i} className="flex-1 flex gap-1 justify-center items-end h-full group/bar relative">
-                            {/* Bars */}
-                            <div className="w-full max-w-[12px] bg-emerald-500 rounded-t-full hover:opacity-80 transition-all shadow-lg shadow-emerald-100" style={{ height: `${(m.revenue / maxChartValue) * 100}%` }}></div>
-                            <div className="w-full max-w-[12px] bg-rose-400 rounded-t-full hover:opacity-80 transition-all shadow-lg shadow-rose-100" style={{ height: `${(m.expense / maxChartValue) * 100}%` }}></div>
-                            
-                            {/* Tooltip */}
-                            <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white text-[9px] p-3 rounded-2xl opacity-0 group-hover/bar:opacity-100 pointer-events-none transition-all z-20 whitespace-nowrap shadow-2xl border border-white/10 scale-90 group-hover/bar:scale-100">
-                                <div className="font-black mb-1.5 text-indigo-300 uppercase tracking-widest">{m.label}</div>
-                                <div className="flex justify-between gap-4 font-bold">
-                                    <span className="text-emerald-400">REC:</span> 
-                                    <span>{formatCurrency(m.revenue)}</span>
-                                </div>
-                                <div className="flex justify-between gap-4 font-bold border-t border-white/10 mt-1 pt-1">
-                                    <span className="text-rose-400">DES:</span> 
-                                    <span>{formatCurrency(m.expense)}</span>
-                                </div>
-                            </div>
-
-                            {/* Label */}
-                            <div className="absolute -bottom-7 text-[8px] font-black text-slate-300 uppercase tracking-tighter">{m.label}</div>
-                        </div>
-                    ))}
-                </div>
+    <div className="space-y-3">
+      {/* Gráfico anual + formas de pagamento */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <PanelCard
+          className="lg:col-span-2"
+          title={t('finance.balance')}
+          description={t('finance.year')}
+          icon={PieChart}
+          action={
+            <div className="flex items-center gap-2">
+              <Badge color="success" size="sm" dot>{t('finance.income')}</Badge>
+              <Badge color="danger" size="sm" dot>{t('finance.expense')}</Badge>
             </div>
+          }
+        >
+          <div className="h-64 min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={yearData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={4}>
+                <CartesianGrid vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} width={56} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(148,163,184,0.12)' }}
+                  contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: 'none' }}
+                  formatter={(value: any, name: any) => [formatCurrency(Number(value)), name === 'revenue' ? t('finance.income') : t('finance.expense')]}
+                />
+                <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </PanelCard>
 
-            {/* Methods Breakdown */}
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                <h3 className="font-black text-slate-800 text-[10px] uppercase tracking-widest mb-8 flex items-center gap-2 text-indigo-500">
-                    <Smartphone size={14}/>
-                    {t('finance.methods')}
-                </h3>
-                <div className="space-y-6">
-                    {PAYMENT_METHODS.filter(m => (stats.methods[m.id] || 0) > 0).map(method => {
-                        const amount = stats.methods[method.id] || 0;
-                        const percentage = stats.revenue > 0 ? (amount / stats.revenue) * 100 : 0;
-                        
-                        return (
-                            <div key={method.id} className="group">
-                                <div className="flex justify-between items-center mb-2.5">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-white shadow-lg ${method.color}`}>
-                                            <method.Icon size={14} />
-                                        </div>
-                                        <span className="text-xs font-black text-slate-600 uppercase tracking-tight">{method.label}</span>
-                                    </div>
-                                    <div className="text-sm font-black text-slate-800 text-right">{formatCurrency(amount)}</div>
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-50">
-                                    <div className={`h-full rounded-full ${method.color} transition-all duration-1000 group-hover:brightness-110`} style={{ width: `${percentage}%` }}></div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {Object.values(stats.methods).every(v => v === 0) && (
-                         <div className="text-center py-10 opacity-30">
-                             <AlertCircle className="mx-auto mb-2" size={24}/>
-                             <p className="text-[10px] font-black uppercase tracking-widest">Sem lançamentos</p>
-                         </div>
-                    )}
+        <PanelCard title={t('finance.methods')} icon={Smartphone}>
+          <div className="space-y-3">
+            {PAYMENT_METHODS.filter(m => (stats.methods[m.id] || 0) > 0).map(method => {
+              const amount = stats.methods[method.id] || 0;
+              const percentage = stats.revenue > 0 ? (amount / stats.revenue) * 100 : 0;
+              return (
+                <div key={method.id}>
+                  <div className="flex justify-between items-center mb-1.5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`h-7 w-7 rounded-md flex items-center justify-center text-white shrink-0 ${method.color}`}>
+                        <method.Icon size={14} />
+                      </div>
+                      <span className="text-xs font-medium text-slate-600 truncate">{method.label}</span>
+                    </div>
+                    <div className="text-xs font-semibold text-slate-800 tabular-nums whitespace-nowrap">{formatCurrency(amount)}</div>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div className={`h-full rounded-full ${method.color} transition-all`} style={{ width: `${percentage}%` }} />
+                  </div>
                 </div>
-            </div>
-        </div>
+              );
+            })}
+            {Object.values(stats.methods).every(v => v === 0) && (
+              <EmptyState icon={AlertCircle} title="Sem lançamentos" />
+            )}
+          </div>
+        </PanelCard>
+      </div>
 
-        {/* Category Breakdown + Top Payers */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Category breakdown */}
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-            <h3 className="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-              <Tag size={13} className="text-emerald-500" /> Receitas por Categoria
-            </h3>
-            {categoryData.income.length === 0 ? (
-              <p className="text-center py-8 text-slate-300 text-[10px] font-black uppercase tracking-widest">Sem dados no mês</p>
-            ) : (
+      {/* Categorias + maiores pagadores */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <PanelCard title="Receitas e despesas por categoria" icon={Tag}>
+          <h4 className="text-xs font-semibold text-slate-700 mb-2">Receitas por Categoria</h4>
+          {categoryData.income.length === 0 ? (
+            <p className="text-center py-6 text-slate-400 text-[11px]">Sem dados no mês</p>
+          ) : (
+            <div className="space-y-3">
+              {categoryData.income.map(([cat, amount]) => {
+                const pct = summary.income > 0 ? (amount / summary.income) * 100 : 0;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[11px] font-medium text-slate-600 truncate">{cat}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] text-slate-500">{pct.toFixed(0)}%</span>
+                        <span className="text-[11px] font-medium text-emerald-700 tabular-nums">{formatCurrency(amount)}</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {categoryData.expense.length > 0 && (
+            <>
+              <h4 className="text-xs font-semibold text-slate-700 mt-4 mb-2">Despesas por Categoria</h4>
               <div className="space-y-3">
-                {categoryData.income.map(([cat, amount]) => {
-                  const pct = summary.income > 0 ? (amount / summary.income) * 100 : 0;
+                {categoryData.expense.map(([cat, amount]) => {
+                  const pct = summary.expense > 0 ? (amount / summary.expense) * 100 : 0;
                   return (
                     <div key={cat}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-black text-slate-600 truncate max-w-[160px]">{cat}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-black text-slate-400">{pct.toFixed(0)}%</span>
-                          <span className="text-[11px] font-black text-emerald-600">{formatCurrency(amount)}</span>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[11px] font-medium text-slate-600 truncate">{cat}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] text-slate-500">{pct.toFixed(0)}%</span>
+                          <span className="text-[11px] font-medium text-red-600 tabular-nums">{formatCurrency(amount)}</span>
                         </div>
                       </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {categoryData.expense.length > 0 && (
-              <>
-                <h3 className="font-black text-[10px] uppercase tracking-widest text-slate-400 mt-5 mb-4 flex items-center gap-2">
-                  <Tag size={13} className="text-rose-500" /> Despesas por Categoria
-                </h3>
-                <div className="space-y-3">
-                  {categoryData.expense.map(([cat, amount]) => {
-                    const pct = summary.expense > 0 ? (amount / summary.expense) * 100 : 0;
-                    return (
-                      <div key={cat}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[11px] font-black text-slate-600 truncate max-w-[160px]">{cat}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-slate-400">{pct.toFixed(0)}%</span>
-                            <span className="text-[11px] font-black text-rose-500">{formatCurrency(amount)}</span>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-rose-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Top Payers */}
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-            <h3 className="font-black text-[10px] uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-              <User size={13} className="text-indigo-500" /> Maiores Pagadores do Mês
-            </h3>
-            {topPayers.length === 0 ? (
-              <p className="text-center py-8 text-slate-300 text-[10px] font-black uppercase tracking-widest">Sem pagadores identificados</p>
-            ) : (
-              <div className="space-y-3">
-                {topPayers.map(([name, amount], idx) => {
-                  const pct = summary.income > 0 ? (amount / summary.income) * 100 : 0;
-                  const colors = ['bg-indigo-500','bg-emerald-500','bg-amber-500','bg-rose-400','bg-purple-500','bg-slate-500'];
-                  return (
-                    <div key={name} className="flex items-center gap-3">
-                      <div className={`w-7 h-7 rounded-xl ${colors[idx % colors.length]} flex items-center justify-center text-white text-[10px] font-black shrink-0`}>
-                        {idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[11px] font-black text-slate-700 truncate max-w-[140px]">{name}</span>
-                          <span className="text-[11px] font-black text-slate-800">{formatCurrency(amount)}</span>
-                        </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${colors[idx % colors.length]} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
-                        </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-rose-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )}
-
-            {/* Ticket médio */}
-            {transactions.filter(t => t.type === 'income').length > 0 && (
-              <div className="mt-5 pt-4 border-t border-slate-50 flex items-center justify-between">
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ticket Médio</p>
-                  <p className="text-lg font-black text-slate-800">
-                    {formatCurrency(summary.income / transactions.filter(t => t.type === 'income').length)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Atendimentos</p>
-                  <p className="text-lg font-black text-slate-800">{transactions.filter(t => t.type === 'income').length}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Pendentes</p>
-                  <p className="text-lg font-black text-amber-600">
-                    {formatCurrency(transactions.filter(t => t.type === 'income' && t.status === 'pending').reduce((s,t) => s + t.amount, 0))}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Comparison Insight Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-emerald-200 transition-all overflow-hidden relative">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 opacity-20 pointer-events-none"></div>
-                <div className="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 relative z-10">
-                    <TrendingUp size={28} />
-                </div>
-                <div className="relative z-10">
-                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-0.5">{t('finance.bestMonth')}</p>
-                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{bestMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(bestMonth.revenue)}</span></p>
-                </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-rose-200 transition-all overflow-hidden relative">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-rose-50 rounded-bl-full -mr-8 -mt-8 opacity-20 pointer-events-none"></div>
-                <div className="h-14 w-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center border border-rose-100 relative z-10">
-                    <TrendingDown size={28} />
-                </div>
-                <div className="relative z-10">
-                    <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5">{t('finance.worstMonth')}</p>
-                    <p className="text-base font-black text-slate-800 uppercase tracking-tighter">{worstMonth.label} <span className="opacity-40 text-sm font-bold bg-slate-100 px-2 py-0.5 rounded-lg ml-1">{formatCurrency(worstMonth.revenue)}</span></p>
-                </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-indigo-200 transition-all overflow-hidden relative">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-8 -mt-8 opacity-20 pointer-events-none"></div>
-                <div className="h-14 w-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 relative z-10">
-                    <PieChart size={28} />
-                </div>
-                <div className="relative z-10">
-                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">{t('finance.avgMonthly')}</p>
-                    <p className="text-lg font-black text-slate-800 uppercase tracking-tighter">{formatCurrency(yearData.length > 0 ? yearData.reduce((s, d) => s + d.revenue, 0) / yearData.length : 0)}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-  );
-
-  const renderDailyFlow = () => (
-    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden animate-fadeIn">
-         {/* Table Header Controls */}
-         <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-center gap-6 bg-slate-50/30">
-             <div className="flex items-center gap-4">
-                 <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center border border-indigo-200">
-                     <ListIcon size={20}/>
-                 </div>
-                 <div>
-                     <h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">{t('finance.daily')}</h3>
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{transactions.length} LANÇAMENTOS</p>
-                 </div>
-             </div>
-             
-             {hasPermission('view_financial_reports') && (
-               <button className="h-11 px-5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all uppercase tracking-widest flex items-center gap-2">
-                   <Download size={14} /> {t('finance.export')}
-               </button>
-             )}
-         </div>
-
-         {/* Transactions List */}
-         <div className="divide-y divide-slate-50 overflow-y-auto max-h-[600px] custom-scrollbar">
-            {transactions.length === 0 ? (
-                <div className="p-32 text-center flex flex-col items-center gap-6 text-slate-300">
-                    <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center border border-slate-100 border-dashed">
-                        <AlertCircle size={48} className="opacity-20" />
-                    </div>
-                    <p className="font-black text-[10px] uppercase tracking-[0.3em]">Nenhum lançamento encontrado</p>
-                </div>
-            ) : (
-                transactions.map((tx) => (
-                    <div key={tx.id} className="group hover:bg-slate-50 transition-all p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
-                        <div className="flex items-center gap-5 md:flex-1">
-                            {/* Date Badge */}
-                            <div className="flex flex-col items-center justify-center w-14 h-14 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-0.5">
-                                    {new Date(tx.date).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}
-                                </span>
-                                <span className="text-lg font-black text-slate-800 leading-none">
-                                    {new Date(tx.date).getDate().toString().padStart(2, '0')}
-                                </span>
-                            </div>
-
-                            <div className="flex flex-col overflow-hidden">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className={`h-2 w-2 rounded-full ${tx.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                                    <h4 className="font-black text-slate-700 text-sm capitalize truncate max-w-[200px] md:max-w-md">{tx.description}</h4>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50">
-                                        {tx.category}
-                                    </span>
-                                    {tx.patient_name && (
-                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100/50 flex items-center gap-1">
-                                            <User size={10} /> {tx.patient_name}
-                                        </span>
-                                    )}
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
-                                        <CreditCard size={10} /> {tx.payment_method}
-                                    </span>
-                                    {tx.payer_name && (
-                                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
-                                            <Banknote size={10} /> De: {tx.payer_name}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between md:justify-end gap-10">
-                            <div className="text-right">
-                                <p className={`text-lg font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                                </p>
-                                <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                                    <span className={`h-1.5 w-1.5 rounded-full ${tx.status === 'paid' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${tx.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                        {tx.status === 'paid' ? t('finance.status.paid') : t('finance.status.pending')}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                                {hasPermission('manage_payments') && (
-                                  <>
-                                    <button 
-                                        onClick={() => handleRepeatTransaction(tx.id)}
-                                        title="Repetir para próximo mês"
-                                        className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-emerald-600 transition-all border border-slate-100"
-                                    >
-                                        <Calendar size={16} />
-                                    </button>
-                                    <button 
-                                        onClick={() => handleOpenModal(tx.type, tx)}
-                                        className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-indigo-600 transition-all border border-slate-100"
-                                    >
-                                        <Edit3 size={16} />
-                                    </button>
-                                    <button 
-                                        onClick={() => handleDeleteTransaction(tx.id)}
-                                        className="p-3 bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-400 hover:text-rose-600 transition-all border border-slate-100"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                  </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                ))
-            )}
-         </div>
-    </div>
-  );
-
-  const financeTabs = [
-    { value: 'dashboard' as const, label: t('finance.dashboard'), icon: <PieChart size={14} /> },
-    { value: 'daily' as const, label: t('finance.daily'), icon: <ListIcon size={14} /> },
-    { value: 'tax' as const, label: t('finance.fiscal'), icon: <Calculator size={14} /> },
-    {
-      value: 'portal' as const,
-      label: 'Portal',
-      icon: (
-        <span className="relative inline-flex">
-          <Inbox size={14} />
-          {portalPayments.filter(p => p.status === 'pending').length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-amber-500 text-white text-[8px] font-black flex items-center justify-center">
-              {portalPayments.filter(p => p.status === 'pending').length}
-            </span>
+            </>
           )}
+        </PanelCard>
+
+        <PanelCard title="Maiores Pagadores do Mês" icon={User}>
+          {topPayers.length === 0 ? (
+            <p className="text-center py-6 text-slate-400 text-[11px]">Sem pagadores identificados</p>
+          ) : (
+            <div className="space-y-3">
+              {topPayers.map(([name, amount], idx) => {
+                const pct = summary.income > 0 ? (amount / summary.income) * 100 : 0;
+                return (
+                  <div key={name} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-md bg-primary-50 text-primary-700 border border-primary-100 flex items-center justify-center text-[11px] font-medium shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[11px] font-medium text-slate-700 truncate">{name}</span>
+                        <span className="text-[11px] font-medium text-slate-800 tabular-nums shrink-0">{formatCurrency(amount)}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {incomeTxs.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-[11px] text-slate-500">Ticket Médio</p>
+                <p className="text-sm font-medium text-slate-800 tabular-nums">{formatCurrency(summary.income / incomeTxs.length)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-500">Atendimentos</p>
+                <p className="text-sm font-medium text-slate-800">{incomeTxs.length}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-500">Pendentes</p>
+                <p className="text-sm font-medium text-amber-700 tabular-nums">
+                  {formatCurrency(incomeTxs.filter(t => t.status === 'pending').reduce((s, t) => s + t.amount, 0))}
+                </p>
+              </div>
+            </div>
+          )}
+        </PanelCard>
+      </div>
+
+      {/* Comparativos */}
+      <StatGrid cols={3}>
+        <StatCard title={t('finance.bestMonth')} value={`${bestMonth.label} · ${formatCurrency(bestMonth.revenue)}`} icon={TrendingUp} color="success" />
+        <StatCard title={t('finance.worstMonth')} value={`${worstMonth.label} · ${formatCurrency(worstMonth.revenue)}`} icon={TrendingDown} color="danger" />
+        <StatCard title={t('finance.avgMonthly')} value={formatCurrency(yearData.length > 0 ? yearData.reduce((s, d) => s + d.revenue, 0) / yearData.length : 0)} icon={PieChart} color="info" />
+      </StatGrid>
+    </div>
+  );
+
+  const dailyColumns: Column<FinancialTransaction>[] = [
+    {
+      header: 'Data',
+      className: 'whitespace-nowrap',
+      render: tx => <span className="text-xs whitespace-nowrap">{new Date(tx.date).toLocaleDateString('pt-BR')}</span>,
+    },
+    {
+      header: 'Descrição',
+      render: tx => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full shrink-0 ${tx.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <span className="text-xs font-medium text-slate-800 truncate">{tx.description}</span>
+          </div>
+          <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+            {[tx.patient_name, tx.payer_name ? `De: ${tx.payer_name}` : ''].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      ),
+    },
+    { header: 'Categoria', render: tx => tx.category ? <Badge size="sm">{tx.category}</Badge> : <span className="text-[11px] text-slate-400">-</span> },
+    { header: 'Método', render: tx => <span className="text-xs text-slate-600">{tx.payment_method}</span> },
+    {
+      header: 'Status',
+      render: tx => (
+        <Badge size="sm" dot color={tx.status === 'paid' ? 'success' : 'warning'}>
+          {tx.status === 'paid' ? t('finance.status.paid') : t('finance.status.pending')}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Valor',
+      className: 'text-right',
+      headerClassName: 'text-right',
+      render: tx => (
+        <span className={`text-xs font-semibold tabular-nums whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-700' : 'text-red-600'}`}>
+          {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
         </span>
       ),
     },
+    {
+      header: '',
+      className: 'text-right',
+      render: tx => hasPermission('manage_payments') ? (
+        <div className="flex justify-end gap-1">
+          <IconButton variant="ghost" size="xs" aria-label="Repetir para próximo mês" title="Repetir para próximo mês" onClick={() => handleRepeatTransaction(tx.id)}>
+            <Calendar size={14} />
+          </IconButton>
+          <IconButton variant="ghost" size="xs" aria-label="Editar lançamento" title="Editar" onClick={() => handleOpenModal(tx.type, tx)}>
+            <Edit3 size={14} />
+          </IconButton>
+          <IconButton variant="ghost" size="xs" aria-label="Excluir lançamento" title="Excluir" onClick={() => handleDeleteTransaction(tx.id)}>
+            <Trash2 size={14} />
+          </IconButton>
+        </div>
+      ) : null,
+    },
   ];
 
+  const renderDailyFlow = () => (
+    <div className="space-y-3">
+      <FilterLine>
+        <FilterLineSection grow>
+          <span className="text-xs text-slate-500">{transactions.length} lançamento{transactions.length === 1 ? '' : 's'}</span>
+        </FilterLineSection>
+        {hasPermission('view_financial_reports') && (
+          <FilterLineSection align="right">
+            <Button variant="outline" size="sm" iconLeft={<Download size={14} />}>{t('finance.export')}</Button>
+          </FilterLineSection>
+        )}
+      </FilterLine>
+      <ContentCard padding="none">
+        <GridTable<FinancialTransaction>
+          noDesktopCard
+          data={dailyPagination.paginatedData}
+          columns={dailyColumns}
+          keyExtractor={tx => tx.id}
+          emptyMessage="Nenhum lançamento encontrado"
+          pagination={{
+            total: transactions.length,
+            page: dailyPagination.page,
+            pageSize: dailyPagination.pageSize,
+            onPageChange: dailyPagination.setPage,
+            onPageSizeChange: dailyPagination.setPageSize,
+          }}
+        />
+      </ContentCard>
+    </div>
+  );
+
+  const pendingPortalCount = portalPayments.filter(p => p.status === 'pending').length;
+  const financeTabs = FINANCE_TABS.map(tab => ({
+    ...tab,
+    label: tab.id === 'dashboard' ? t('finance.dashboard') : tab.id === 'daily' ? t('finance.daily') : tab.id === 'tax' ? t('finance.fiscal') : 'Portal',
+    badge: tab.id === 'portal' && pendingPortalCount > 0 ? pendingPortalCount : undefined,
+  }));
+
+  const typeColor = txType === 'income' ? 'success' : 'danger';
+
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
-      <SectionTitle
-        icon={DollarSign}
-        title={t('finance.title')}
-        description={t('finance.subtitle')}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/')}>
-              Voltar
-            </Button>
-            {hasPermission('manage_payments') && (
-              <>
-                <Button
-                  variant="success"
-                  onClick={() => handleOpenModal('income')}
-                  iconLeft={<Plus size={16} />}
-                >
-                  {t('finance.addIncome')}
-                </Button>
-                <Button
-                  variant="danger"
-                  onClick={() => handleOpenModal('expense')}
-                  iconLeft={<Plus size={16} />}
-                >
-                  {t('finance.addExpense')}
-                </Button>
-              </>
-            )}
-            {hasPermission('view_financial_reports') && hasPermission('access_ai_features') && (
-              <Button
-                variant="secondary"
-                onClick={() => setIsAuraOpen(true)}
-                iconLeft={<Sparkles size={16} />}
-              >
-                Aura Fiscal
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={DollarSign}
+          title={t('finance.title')}
+          description={t('finance.subtitle')}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/')}>
+                Voltar
               </Button>
-            )}
-          </div>
-        }
-      />
-
-      <div className="space-y-4 sm:space-y-6">
-      {/* STATS BAR */}
-      <StatGrid cols={3}>
-        <StatCard title={t('finance.totalRevenue')} value={formatCurrency(summary.income)} icon={TrendingUp} color="success" />
-        <StatCard title={t('finance.expenses')} value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" />
-        <StatCard title={t('finance.netProfit')} value={formatCurrency(summary.balance)} icon={Wallet} color="info" />
-      </StatGrid>
-
-      {/* FILTERS & TABS BAR */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-center z-40">
-           <FilterLineSegmented<'dashboard' | 'daily' | 'tax' | 'portal'>
-             value={activeTab}
-             onChange={setActiveTab}
-             options={financeTabs}
-             className="w-full lg:w-auto"
-           />
-
-           <div className={`flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100 ${activeTab === 'portal' ? 'invisible' : ''}`}>
-                <button
-                    onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
-                    className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-slate-400 transition-all"
-                >
-                    <ArrowUpRight className="rotate-[225deg]" size={16}/>
-                </button>
-                <div className="flex items-center gap-2 px-3 text-sm font-black text-slate-700 uppercase tracking-tighter text-center">
-                   <Calendar size={16} className="text-primary-500"/>
-                   {currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
-                </div>
-                <button
-                    onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
-                    className="p-2 hover:bg-white hover:shadow-sm rounded-xl text-slate-400 transition-all"
-                >
-                    <ArrowUpRight size={16}/>
-                </button>
-           </div>
-      </div>
-
-      {/* Content Switch */}
-      <div className="opacity-100 transition-opacity duration-300">
-          {isLoading && activeTab !== 'portal' ? (
-            <div className="flex flex-col items-center justify-center p-40 gap-6 text-primary-500">
-                <div className="relative">
-                    <Loader2 className="animate-spin" size={64} />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <DollarSign size={20} className="animate-pulse" />
-                    </div>
-                </div>
-                <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-30">Processando Fluxo...</span>
+              {hasPermission('manage_payments') && (
+                <>
+                  <Button variant="success" size="sm" onClick={() => handleOpenModal('income')} iconLeft={<Plus size={14} />}>
+                    {t('finance.addIncome')}
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => handleOpenModal('expense')} iconLeft={<Plus size={14} />}>
+                    {t('finance.addExpense')}
+                  </Button>
+                </>
+              )}
+              {hasPermission('view_financial_reports') && hasPermission('access_ai_features') && (
+                <Button variant="outline" size="sm" onClick={() => setIsAuraOpen(true)} iconLeft={<Sparkles size={14} />}>
+                  Aura Fiscal
+                </Button>
+              )}
             </div>
-          ) : (
-            <>
+          }
+        />
+
+        <StatGrid cols={3}>
+          <StatCard title={t('finance.totalRevenue')} value={formatCurrency(summary.income)} icon={TrendingUp} color="success" />
+          <StatCard title={t('finance.expenses')} value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" />
+          <StatCard title={t('finance.netProfit')} value={formatCurrency(summary.balance)} icon={Wallet} color="info" />
+        </StatGrid>
+
+        <Tabs<FinanceTab> items={financeTabs} value={activeTab} onChange={setActiveTab} label="Visões financeiras">
+          <div className="space-y-3">
+            {activeTab !== 'portal' && (
+              <FilterLine>
+                <FilterLineSection>
+                  <IconButton
+                    variant="outline"
+                    size="sm"
+                    aria-label="Mês anterior"
+                    onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
+                  >
+                    <ChevronLeft size={14} />
+                  </IconButton>
+                  <div className="flex items-center gap-2 px-2 text-xs font-medium text-slate-700 capitalize">
+                    <Calendar size={14} className="text-primary-600" />
+                    {currentDate.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' })}
+                  </div>
+                  <IconButton
+                    variant="outline"
+                    size="sm"
+                    aria-label="Próximo mês"
+                    onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
+                  >
+                    <ChevronRight size={14} />
+                  </IconButton>
+                </FilterLineSection>
+              </FilterLine>
+            )}
+
+            {isLoading && activeTab !== 'portal' ? (
+              <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                <Loader2 size={18} className="animate-spin" />Processando fluxo…
+              </div>
+            ) : (
+              <>
                 {activeTab === 'dashboard' && renderDashboard()}
                 {activeTab === 'daily' && renderDailyFlow()}
                 {activeTab === 'tax' && (
@@ -1006,193 +913,127 @@ export const Finance: React.FC = () => {
                   />
                 )}
                 {activeTab === 'portal' && renderPortalPayments()}
-            </>
-          )}
-      </div>
+              </>
+            )}
+          </div>
+        </Tabs>
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
+      <Modal
+        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        maxWidth="max-w-lg"
+        size="lg"
         title={editingTx ? 'Revisar Lançamento' : txType === 'income' ? t('finance.addIncome') : t('finance.addExpense')}
-        subtitle={txType === 'income' ? 'CREDITAR EM CAIXA' : 'DEBITAR EM CAIXA'}
+        subtitle={txType === 'income' ? 'Creditar em caixa' : 'Debitar em caixa'}
         footer={
-          <>
-            <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">{t('common.cancel')}</button>
-            <button 
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => setIsModalOpen(false)} disabled={isSaving}>{t('common.cancel')}</Button>
+            <Button
+              variant={typeColor}
+              size="sm"
+              loading={isSaving}
+              disabled={isSaving}
               onClick={handleSaveTransaction}
-              className={`px-8 py-3 rounded-2xl text-[10px] font-black text-white shadow-xl transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2 ${txType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-100'}`}
+              iconLeft={<CheckCircle2 size={14} />}
             >
-                <CheckCircle2 size={16}/>
-                {editingTx ? 'SALVAR ALTERAÇÕES' : 'CONFIRMAR'}
-            </button>
-          </>
+              {editingTx ? 'Salvar alterações' : 'Confirmar'}
+            </Button>
+          </ModalFooter>
         }
       >
-          <div className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.amount')}</label>
-                      <div className="relative group">
-                          <DollarSign className={`absolute left-4 top-1/2 -translate-y-1/2 ${txType === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} size={16} />
-                          <input 
-                            type="number"
-                            value={txAmount}
-                            onChange={e => setTxAmount(e.target.value)}
-                            placeholder="0,00"
-                            className={`w-full text-lg font-black p-3.5 pl-10 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white transition-all ${txType === 'income' ? 'focus:border-emerald-400 text-emerald-700' : 'focus:border-rose-400 text-rose-700'}`}
-                          />
-                      </div>
-                  </div>
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.date')}</label>
-                      <div className="relative group">
-                          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                          <input 
-                            type="date"
-                            value={txDate}
-                            onChange={e => setTxDate(e.target.value)}
-                            className="w-full text-xs font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all text-slate-700"
-                          />
-                      </div>
-                  </div>
-              </div>
+        <Tabs<TxModalTab> items={TX_MODAL_TABS} value={txModalTab} onChange={setTxModalTab} label="Seções do lançamento">
+          {txModalTab === 'lancamento' && (
+            <div className="space-y-3">
+              <FormRow>
+                <Input
+                  label={t('finance.form.amount')}
+                  type="number"
+                  value={txAmount}
+                  onChange={e => setTxAmount(e.target.value)}
+                  placeholder="0,00"
+                  iconLeft={<DollarSign size={14} />}
+                />
+                <Input
+                  label={t('finance.date')}
+                  type="date"
+                  value={txDate}
+                  onChange={e => setTxDate(e.target.value)}
+                />
+              </FormRow>
 
-              <div>
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.category')}</label>
-                  <div className="relative group">
-                      <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <select 
-                        value={txCategory}
-                        onChange={e => setTxCategory(e.target.value)}
-                        className="w-full text-xs font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 appearance-none transition-all"
-                      >
-                          <option value="">Selecione uma categoria</option>
-                          {(txType === 'income' ? CATEGORIES_INCOME : CATEGORIES_EXPENSE).map(c => (
-                              <option key={c} value={c}>{c}</option>
-                          ))}
-                      </select>
-                  </div>
-              </div>
+              <Select label={t('finance.form.category')} value={txCategory} onChange={e => setTxCategory(e.target.value)} iconLeft={<Tag size={14} />}>
+                <option value="">Selecione uma categoria</option>
+                {(txType === 'income' ? CATEGORIES_INCOME : CATEGORIES_EXPENSE).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+
               {txType === 'income' && (
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      {!txPatientId && !editingTx ? (
-                          <button 
-                            type="button"
-                            onClick={() => setTxPatientId('select_pending')}
-                            className="flex items-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 transition-colors"
-                          >
-                              <Plus size={14} /> Vincular Paciente
-                          </button>
-                      ) : (
-                          <div>
-                              <div className="flex justify-between items-center mb-2">
-                                  <label className="text-[9px] font-black text-indigo-900 uppercase tracking-widest px-1">{t('finance.form.patient')}</label>
-                                  <button onClick={() => setTxPatientId('')} className="text-[8px] font-black text-rose-500 uppercase tracking-widest hover:underline">Remover</button>
-                              </div>
-                              <div className="relative group">
-                                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16} />
-                                  <select 
-                                    value={txPatientId === 'select_pending' ? '' : txPatientId}
-                                    onChange={e => setTxPatientId(e.target.value)}
-                                    className="w-full text-xs font-black p-3 pl-11 rounded-xl border border-indigo-100 bg-white outline-none focus:ring-4 focus:ring-indigo-100 appearance-none transition-all"
-                                  >
-                                        <option value="">Selecionar paciente...</option>
-                                        {patients.map(p => (
-                                            <option key={p.id} value={p.id}>{p.full_name || p.name}</option>
-                                        ))}
-                                  </select>
-                              </div>
-                          </div>
-                      )}
-                  </div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  {!txPatientId && !editingTx ? (
+                    <Button type="button" variant="ghost" size="sm" iconLeft={<Plus size={14} />} onClick={() => setTxPatientId('select_pending')}>
+                      Vincular Paciente
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-slate-600">{t('finance.form.patient')}</span>
+                        <Button variant="ghost" size="xs" onClick={() => setTxPatientId('')}>Remover</Button>
+                      </div>
+                      <Select
+                        aria-label={t('finance.form.patient')}
+                        value={txPatientId === 'select_pending' ? '' : txPatientId}
+                        onChange={e => setTxPatientId(e.target.value)}
+                        iconLeft={<User size={14} />}
+                      >
+                        <option value="">Selecionar paciente...</option>
+                        {patients.map(p => (
+                          <option key={p.id} value={p.id}>{p.full_name || p.name}</option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
+                </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Pagador (Nome)</label>
-                      <Input 
-                        value={txPayerName}
-                        onChange={e => setTxPayerName(e.target.value)}
-                        placeholder="Nome no extrato/pix"
-                      />
-                  </div>
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Pagador (CPF)</label>
-                      <Input 
-                        value={txPayerCpf}
-                        onChange={e => setTxPayerCpf(e.target.value)}
-                        placeholder="000.000.000-00"
-                      />
-                  </div>
-              </div>
+              <FormRow>
+                <Select label={t('finance.form.method')} value={txMethod} onChange={e => setTxMethod(e.target.value)}>
+                  {PAYMENT_METHODS.map(m => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </Select>
+                <Select label={t('finance.status')} value={txStatus} onChange={e => setTxStatus(e.target.value as any)}>
+                  <option value="paid">{t('finance.status.paid')}</option>
+                  <option value="pending">{t('finance.status.pending')}</option>
+                </Select>
+              </FormRow>
+            </div>
+          )}
 
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Beneficiário (Nome)</label>
-                      <Input 
-                        value={txBeneficiaryName}
-                        onChange={e => setTxBeneficiaryName(e.target.value)}
-                        placeholder="Caso não seja você"
-                      />
-                  </div>
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Beneficiário (CPF)</label>
-                      <Input 
-                        value={txBeneficiaryCpf}
-                        onChange={e => setTxBeneficiaryCpf(e.target.value)}
-                        placeholder="000.000.000-00"
-                      />
-                  </div>
-              </div>
-
-              <div>
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Observações / Detalhes</label>
-                  <Textarea 
-                    value={txObservation}
-                    onChange={e => setTxObservation(e.target.value)}
-                    placeholder="Detalhes adicionais do lançamento..."
-                  />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.method')}</label>
-                      <select 
-                        value={txMethod}
-                        onChange={e => setTxMethod(e.target.value)}
-                        className="w-full text-xs font-black p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white appearance-none transition-all"
-                      >
-                          {PAYMENT_METHODS.map(m => (
-                              <option key={m.id} value={m.id}>{m.label}</option>
-                          ))}
-                      </select>
-                  </div>
-                  <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.status')}</label>
-                      <select 
-                        value={txStatus}
-                        onChange={e => setTxStatus(e.target.value as any)}
-                        className="w-full text-xs font-black p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white appearance-none transition-all"
-                      >
-                          <option value="paid">{t('finance.status.paid')}</option>
-                          <option value="pending">{t('finance.status.pending')}</option>
-                      </select>
-                  </div>
-              </div>
-
-              <div>
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">{t('finance.form.description')}</label>
-                  <textarea 
-                    value={txDescription}
-                    onChange={e => setTxDescription(e.target.value)}
-                    placeholder="Detalhes internos do lançamento..."
-                    rows={2}
-                    className="w-full text-xs font-bold p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-indigo-400 transition-all resize-none"
-                  />
-              </div>
-          </div>
+          {txModalTab === 'detalhes' && (
+            <div className="space-y-3">
+              <FormRow>
+                <Input label="Pagador (Nome)" value={txPayerName} onChange={e => setTxPayerName(e.target.value)} placeholder="Nome no extrato/pix" />
+                <Input label="Pagador (CPF)" value={txPayerCpf} onChange={e => setTxPayerCpf(e.target.value)} placeholder="000.000.000-00" />
+                <Input label="Beneficiário (Nome)" value={txBeneficiaryName} onChange={e => setTxBeneficiaryName(e.target.value)} placeholder="Caso não seja você" />
+                <Input label="Beneficiário (CPF)" value={txBeneficiaryCpf} onChange={e => setTxBeneficiaryCpf(e.target.value)} placeholder="000.000.000-00" />
+              </FormRow>
+              <Textarea
+                label="Observações / Detalhes"
+                value={txObservation}
+                onChange={e => setTxObservation(e.target.value)}
+                placeholder="Detalhes adicionais do lançamento..."
+              />
+              <Textarea
+                label={t('finance.form.description')}
+                value={txDescription}
+                onChange={e => setTxDescription(e.target.value)}
+                placeholder="Detalhes internos do lançamento..."
+                rows={2}
+              />
+            </div>
+          )}
+        </Tabs>
       </Modal>
 
       <ConfirmModal

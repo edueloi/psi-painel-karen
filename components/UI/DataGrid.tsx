@@ -86,7 +86,7 @@ export function DataGrid<T>({
     align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
 
   return (
-    <div className={cn('w-full h-full flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm', className)}>
+    <div className={cn('w-full h-full flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm', className)}>
       <div
         className="flex-1 min-h-0 overflow-auto custom-scrollbar"
         style={{ maxHeight: maxHeight ?? undefined }}
@@ -131,7 +131,7 @@ export function DataGrid<T>({
                 <th
                   key={col.key}
                   className={cn(
-                    'border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 whitespace-nowrap overflow-hidden text-ellipsis',
+                    'border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-[11px] font-semibold text-zinc-500 whitespace-nowrap overflow-hidden text-ellipsis',
                     col.sticky ? 'sticky top-0 z-30' : 'sticky top-0 z-20',
                     alignClass(col.align),
                     col.key === lastStickyKey
@@ -162,7 +162,7 @@ export function DataGrid<T>({
               <tr>
                 <td
                   colSpan={columns.length + (isSelectable ? 1 : 0) + (rowIcon ? 1 : 0)}
-                  className="py-12 bg-white text-center text-xs font-bold text-zinc-400 uppercase tracking-widest"
+                  className="py-12 bg-white text-center text-xs font-semibold text-zinc-400"
                 >
                   {emptyMessage}
                 </td>
@@ -176,7 +176,7 @@ export function DataGrid<T>({
                 // células da linha — incluindo as sticky, que têm seu próprio
                 // fundo opaco explícito — mudem de cor juntas ao passar o mouse
                 // em qualquer ponto da linha, não só nas colunas não fixas.
-                const hoverBg = isSelected ? 'group-hover:bg-primary-100/70' : 'group-hover:bg-amber-50/70';
+                const hoverBg = isSelected ? 'group-hover:bg-primary-100/70' : 'group-hover:bg-primary-50/70';
                 return (
                   <tr
                     key={id}
@@ -304,11 +304,11 @@ export function DataGridToolbar({ icons, onApplyAll, className }: DataGridToolba
           type="button"
           title={it.label}
           onClick={it.onClick}
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:border-primary-300 hover:text-primary-600"
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition-colors hover:border-primary-300 hover:text-primary-600"
         >
           {it.icon}
           {!!it.count && (
-            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-600 px-1 text-[9px] font-black text-white">
+            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold text-white">
               {it.count}
             </span>
           )}
@@ -318,7 +318,7 @@ export function DataGridToolbar({ icons, onApplyAll, className }: DataGridToolba
         <button
           type="button"
           onClick={onApplyAll}
-          className="ml-1 text-left text-[10px] font-bold leading-tight text-zinc-500 hover:text-primary-600 transition-colors"
+          className="ml-1 text-left text-[11px] font-semibold leading-tight text-zinc-500 hover:text-primary-600 transition-colors"
         >
           aplicar<br />todos
         </button>
@@ -441,7 +441,7 @@ export function DataGridCustomizeModal<T>({
           <button
             type="button"
             onClick={() => { onReset(); onClose(); }}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-400 hover:text-zinc-700 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-700 transition-colors"
           >
             <RotateCcw size={13} /> Resetar Campos
           </button>
@@ -452,7 +452,7 @@ export function DataGridCustomizeModal<T>({
         </ModalFooter>
       }
     >
-      <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-400 mb-3">
+      <div className="flex items-center gap-2 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-400 mb-3">
         <Lock size={12} /> A coluna de seleção fica sempre fixa na primeira posição.
       </div>
 
@@ -465,7 +465,7 @@ export function DataGridCustomizeModal<T>({
             <div
               key={key}
               className={cn(
-                'flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors',
+                'flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors',
                 isHidden ? 'border-zinc-100 bg-zinc-50/60 opacity-60' : 'border-zinc-200 bg-white',
               )}
             >

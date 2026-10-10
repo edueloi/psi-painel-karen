@@ -1,732 +1,172 @@
-# Padrão de Criação de Telas — PsiFlux
+# Padrão de telas do painel (PsiFlux / Plaelo)
 
-> Leia este arquivo antes de criar ou refatorar qualquer página.  
-> O objetivo é garantir que **todas as telas sejam visualmente consistentes**, responsivas e sem erros TypeScript.
+Padrão visual único do painel, o mesmo adotado nos demais sistemas (MFC / store-stock / cardápio). Denso, limpo, sem sombras fortes. **Toda tela é montada só com os componentes de `components/UI`** (`import { ... } from '../components/UI'`, barrel em `index.ts`). Não criar HTML/Tailwind solto para o que já existe como componente.
 
----
+Visual: fundo branco, borda `slate-200`, cantos `rounded-lg`, texto pequeno (`text-xs` / `text-[13px]`), cor de destaque = **cor primária do tema** (`primary-*`).
 
-## 1. Estrutura obrigatória de uma página
+## 0. Notas específicas deste projeto
 
-Toda página começa com `PageWrapper` e `SectionTitle`. **Nunca use `PageHeader` — ele cria um card boxado que foge do padrão.**
+- **Cor primária**: nunca usar `blue-*`/`amber-*`/`indigo-*` como cor de marca. Use `primary-50 … primary-900` (variáveis CSS `--c-*` definidas por `ThemeContext`), assim a tela respeita o tema escolhido em Configurações > Aparência. Cores semânticas ficam fixas: verde (`emerald`) sucesso/ok, vermelho (`red`/`rose`) erro/perigo, âmbar (`amber`/`yellow`) atenção, azul (`blue`) só para o badge/estado `info`.
+- **Tailwind v3 via CDN** (`index.html`): sem pipeline de CSS. Não use sintaxe exclusiva do v4 (`bg-linear-*`, `shadow-xs`, `outline-hidden`, `rounded-xs`...). `size-*` funciona (3.4). CSS próprio vai em `components/UI/styles.css` (CSS puro, sem `@layer`/`@apply`/`@tailwind`), importado em `index.tsx`.
+- **i18n**: textos de interface vêm de `useLanguage().t(...)` / `translations.ts` quando a tela já usa; os componentes de UI não traduzem sozinhos (props `title`, `label`, `emptyMessage` recebem o texto já traduzido).
+- **Dark mode**: existe só como `data-theme`, sem CSS. Ignorar.
+- `styles.css` também aplica `cursor: pointer` em todo controle clicável (`button`, `[role=tab]`, `summary`, `select`, `label[for]`, checkbox/radio) e `not-allowed` em `:disabled`. Não repetir `cursor-pointer` manualmente em botões.
+
+## 1. Esqueleto de toda página
 
 ```tsx
-import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
-
-export const MinhaTela: React.FC = () => {
-  return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
-
-      {/* Cabeçalho — SectionTitle com padding próprio */}
-      <SectionTitle
-        icon={MinhaIcone}
-        title="Título da Página"
-        description="Subtítulo / descrição curta"
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" iconLeft={<Plus size={14} />}>
-              Ação Secundária
-            </Button>
-            <Button variant="primary" size="sm" iconLeft={<Plus size={14} />}>
-              Ação Principal
-            </Button>
-          </div>
-        }
-      />
-
-      {/* Todo o resto fica dentro deste div com padding lateral */}
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
-
-        {/* Stats */}
-        {/* Filtros */}
-        {/* Conteúdo (tabela/cards) */}
-        {/* Paginação */}
-
-      </div>
-
-    </PageWrapper>
-  );
-};
+<PageWrapper>
+  <div className="space-y-4">          {/* espaçamento vertical padrão entre blocos */}
+    <SectionTitle title="..." description="..." icon={X} action={...} />
+    ...blocos...
+  </div>
+  {/* modais ficam FORA do space-y, no fim do PageWrapper */}
+  <ConfirmModal ... />
+</PageWrapper>
 ```
 
-### Por que `!px-0 !pt-0 !pb-0`?
-O `PageWrapper` tem padding padrão embutido. Ao usar `!px-0 !pt-0 !pb-0` zeramos ele no nível do wrapper para que o `SectionTitle` e o conteúdo interno controlem o espaço individualmente — igual às páginas Pacientes e Agenda.
+- `PageWrapper` cuida do padding responsivo e do espaço inferior (o assistente flutuante não pode cobrir o rodapé). Dentro de outro `PageWrapper` ele não duplica o espaçamento. Nunca colocar padding próprio por fora.
+- `space-y-4` entre blocos principais; `space-y-3` dentro de uma aba/seção; `gap-3` em grades de cards.
+- Modais/`ConfirmModal` ficam como irmãos do `div.space-y-4`, nunca no meio do fluxo.
 
----
+## 2. Cabeçalho da página
 
-## 2. Importações — de onde vem cada componente
+- **Listagem/gestão** → `SectionTitle` (ícone em quadradinho `primary`, título `text-base sm:text-lg font-medium`, descrição `text-xs slate-500`).
+  - `action`: botões `size="sm"`. Ação secundária = `variant="outline"`, principal = `primary`, sempre com `iconLeft={<Icon size={14} />}`.
+  - A descrição resume o contexto com `·` (`[...].filter(Boolean).join(' · ')`).
+- **Detalhe** (ficha de paciente etc.) → sem `SectionTitle`: barra superior com `Button variant="ghost" size="sm"` "Voltar" à esquerda e `Button variant="outline" size="sm"` "Editar" à direita; depois `ContentCard padding="md"` com avatar 56px (`h-14 w-14 rounded-lg border bg-primary-50 text-primary-700`), nome `h1 text-base sm:text-lg font-medium`, linha de contexto `text-xs text-slate-500`, `Badge dot` de status e ações rápidas `outline`/`sm` (desabilitadas com `title` explicando o motivo quando faltam dados).
+
+## 3. Abas (`Tabs`)
 
 ```tsx
-// Layout
-import { PageWrapper, SectionTitle, StatGrid, ContentCard, FormRow } from '../components/UI/PageWrapper';
-
-// Botões
-import { Button, IconButton } from '../components/UI/Button';
-
-// Formulários
-import { Input, Select, Textarea } from '../components/UI/Input';
-import { Combobox } from '../components/UI/Combobox';
-
-// Filtros
-import {
-  FilterLine,
-  FilterLineSection,
-  FilterLineItem,
-  FilterLineSearch,
-  FilterLineSegmented,
-  FilterLineViewToggle,
-  FilterLineDateRange,
-} from '../components/UI/FilterLine';
-
-// Tabela responsiva
-import { GridTable } from '../components/UI/GridTable';
-
-// Cards de estatística
-import { StatCard } from '../components/UI/StatCard';
-
-// Estado vazio
-import { EmptyState } from '../components/UI/EmptyState';
-
-// Modal
-import { Modal } from '../components/UI/Modal';
-
-// Drawer lateral
-import { ActionDrawer } from '../components/UI/ActionDrawer';
-
-// Alertas inline
-import { StatusAlert } from '../components/UI/StatusAlert';
-
-// Paginação
-import { Pagination } from '../components/UI/Pagination';
+const tabs = [{ id: 'resumo', label: 'Resumo', icon: User }, ...] as const;
+<Tabs<typeof tabs[number]['id']> items={tabs} value={activeTab} onChange={setActiveTab} label="Detalhes do paciente">
+  {activeTab === 'resumo' && <div className="space-y-3">...</div>}
+</Tabs>
 ```
 
----
+- Abas **sublinhadas** (texto `text-xs font-medium`, ativa com borda inferior `primary-600`). Constante `tabs` fora do componente com `as const`; passe o genérico para o `onChange={setActiveTab}` tipar.
+- `label` obrigatório no modo com filhos (vira `aria-label`). Um ícone lucide por aba, rótulo curto. `dataTour` no item vira `data-tour` do botão (tours de onboarding).
+- Também aceito (compatibilidade): itens com `key` no lugar de `id`, `icon` como elemento JSX, `label` como ReactNode, `children` omitido (só a barra de abas) e o modo composto `<Tabs defaultTab><TabList><Tab id/></TabList><TabPanel id/></Tabs>`.
+- `Switch` aceita `onCheckedChange` ou `onChange(checked)`.
 
-## 3. Escala tipográfica — tamanhos de fonte padrão
-
-Toda tela deve seguir esta escala. **Nunca use `text-2xl` ou maior fora do título de página** — números/valores de destaque (dashboards, stat cards, cards de resumo) usam no máximo `text-xl`, para manter o sistema com fontes contidas e consistentes.
-
-| Papel | Classe Tailwind | Onde usar |
-|-------|-----------------|-----------|
-| Título de página | `text-lg sm:text-xl lg:text-2xl font-black` | Só no `SectionTitle` (topo da página). Não replicar em outro lugar. |
-| Valor de destaque (stat card, resumo financeiro) | `text-base sm:text-xl font-black` | Número/valor principal de um card (ex: `StatCard`, cards de faturamento/lucro). **Nunca `text-2xl`+ aqui.** |
-| Título de card/seção interna | `text-sm sm:text-base font-bold` | Cabeçalho de um `PanelCard`, `ContentCard` ou bloco dentro da página. |
-| Label / rótulo uppercase | `text-[10px] sm:text-xs font-bold uppercase tracking-widest text-zinc-400` | Legenda acima de um valor (ex: "PACIENTES CADASTRADOS"). |
-| Corpo / texto de linha de lista | `text-sm` | Nome, descrição principal de um item em lista/tabela. |
-| Texto secundário / metadado | `text-xs text-zinc-400` | Subtítulo, data, telefone, texto de apoio. |
-| Badge / tag | `text-[10px] sm:text-[11px] font-bold` | `Badge`, status pill, contador pequeno. |
-
-Regra prática: se um número em um card está competindo visualmente com o título da página, ele está grande demais — a hierarquia certa é o título da página ser o maior texto da tela, nunca um valor dentro de um card.
-
----
-
-## 3.1 Espaçamento, tamanho e radius — padrão de layout
-
-Além da tipografia (seção 3), estes são os padrões de layout do sistema:
-
-| Aspecto | Padrão | Onde aplicar |
-|---|---|---|
-| Radius de card grande (stat card, painel, tabela) | `rounded-2xl sm:rounded-3xl` | `StatCard`, `PanelCard`, `GridTable` (card desktop e mobile), `EmptyState`, `Modal`, `AppCard` — cantos mais sutis no mobile, mais arredondados no desktop. |
-| Radius de elemento pequeno (ícone wrap, avatar, botão de fechar) | `rounded-xl` | Ícone de `PanelCard`/`EmptyState`, botão fechar de `Modal`/`ActionDrawer`. |
-| Radius de botão (`Button`/`IconButton`) | `rounded-xl` (default da prop `radius="md"`) | Não usar `rounded-[20px]` nem outros valores em px fixo — a prop `radius` já existe para casos que precisem de `lg`/`full`. |
-| Radius de input/select/textarea | `rounded-xl` | `Input`, `Textarea`, `.ds-input` (Select). |
-| Sombra de card estático | `shadow-sm` (com `hover:shadow-md` se for clicável) | Todos os cards — não usar `shadow-[...]` customizado exceto em painéis flutuantes de fato elevados (Modal, ActionDrawer, que já têm sombra própria maior). |
-| Borda de card | `border border-zinc-200` (1px) | Sempre `zinc`, nunca `slate`, para manter a mesma paleta neutra em todo o sistema. |
-| Borda de botão | `border` (1px) | `Button`/`IconButton` — não usar `border-2`. |
-| Altura de Input/Select por tamanho | `sm` = `h-9`, `md` = `h-10`, `lg` = `h-11` | Mesma escala nos dois componentes. |
-| Padding de card em telas maiores | `p-4 sm:p-6` (ou próximo) | `PanelCard`, `ContentCard` (md). |
-| Gap/space-y entre seções de página | `space-y-4 sm:space-y-6` | Já documentado na seção 1 — reforçado aqui. |
-
-### Nota sobre `ds-input` / `ds-label`
-O Tailwind deste projeto roda via CDN (`index.html`), sem PostCSS/`@apply` — por isso `.ds-input` e `.ds-label` (usadas por `Select`, `Combobox`, `DatePicker`) são definidas como CSS puro dentro da tag `<style>` do `index.html`, não em um arquivo `.css` separado. Se precisar ajustar o visual desses dois, edite ali.
-
----
-
-## 3.2 StatCard — cards de resumo no topo
-
-Use o grid manual em vez de `StatGrid` para controle responsivo de colunas:
+## 4. Detalhe de dados (leitura) — `PanelCard` + `DetailField`
 
 ```tsx
-<div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-  <StatCard
-    title="Total"
-    value={42}
-    icon={Users}
-    color="default"   // default | success | info | danger | purple | warning
-    delay={0}
-  />
-  <StatCard title="Ativos" value={38} icon={CheckCircle} color="success" delay={1} />
-  <StatCard title="Receita" value={formatCurrency(9800)} icon={DollarSign} color="warning" delay={2} />
+<PanelCard title="Dados pessoais">
+  <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6">
+    <DetailField label="CPF" value={maskCPF(p.cpf || '')} />
+    <DetailField label="Nascimento" value={dateLabel(p.birthDate)} />
+  </dl>
+</PanelCard>
+```
+
+- Um `PanelCard` por assunto, título curto; várias seções em `space-y-3`.
+- Sempre `<dl>` + `DetailField`. Mostra "Não informado" em cinza quando vazio: não precisa de `value || '-'`.
+- Formatar antes de passar (máscaras, datas, moeda). Campo condicional: `{x && <DetailField .../>}`.
+- Subtítulo dentro do card `text-xs font-semibold text-slate-700 mt-4 mb-2`; listas `divide-y divide-slate-100` com `li text-[13px] py-2`.
+
+## 5. Estados da tela (carregando / erro / vazio)
+
+```tsx
+<div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+  <Loader2 size={18} className="animate-spin" />Carregando…
 </div>
+
+<ContentCard>
+  <EmptyState icon={User} title="Não foi possível carregar" description="Confira a conexão e tente novamente."
+    action={<Button variant="outline" onClick={retry}>Tentar novamente</Button>} />
+</ContentCard>
 ```
 
-**Cores disponíveis para `color`:**
-| valor | uso sugerido |
-|-------|--------------|
-| `default` | neutro / amber |
-| `success` | positivo / verde |
-| `info` | informativo / azul |
-| `danger` | alerta / vermelho |
-| `purple` | destaque / violeta |
-| `warning` | atenção / laranja |
-
----
-
-## 4. FilterLine — barra de filtros
-
-Sempre use a hierarquia `FilterLine > FilterLineSection > FilterLineItem`.  
-**Nunca use `<div>` solto dentro do `FilterLine`** — causa desalinhamento.
-
-```tsx
-<FilterLine className="mb-6">
-
-  {/* Lado esquerdo — busca e filtros de data */}
-  <FilterLineSection grow>
-    <FilterLineItem grow minWidth={260}>
-      <FilterLineSearch
-        value={searchTerm}
-        onChange={setSearchTerm}
-        placeholder="Buscar..."
-      />
-    </FilterLineItem>
-
-    {/* Opcional: filtro por data */}
-    <FilterLineItem>
-      <FilterLineDateRange
-        from={dateFrom}
-        to={dateTo}
-        onFromChange={setDateFrom}
-        onToChange={setDateTo}
-      />
-    </FilterLineItem>
-  </FilterLineSection>
-
-  {/* Lado direito — toggles e view */}
-  <FilterLineSection align="right">
-    <FilterLineSegmented
-      value={activeTab}
-      onChange={setActiveTab}
-      options={[
-        { value: 'todos', label: 'Todos' },
-        { value: 'ativos', label: 'Ativos' },
-      ]}
-    />
-    <FilterLineViewToggle
-      value={viewMode}
-      onChange={setViewMode}
-      gridValue="cards"
-      listValue="list"
-    />
-  </FilterLineSection>
-
-</FilterLine>
-```
-
----
-
-## 5. Button — props corretas
-
-```tsx
-// ✅ Correto
-<Button variant="primary" size="sm" iconLeft={<Plus size={14} />} loading={isLoading}>
-  Salvar
-</Button>
-
-// ✅ Variantes válidas
-variant="primary" | "secondary" | "outline" | "ghost" | "danger" | "success"
-
-// ✅ Tamanhos válidos
-size="xs" | "sm" | "md" | "lg"
-
-// ✅ Props válidas
-iconLeft={<ReactNode>}
-iconRight={<ReactNode>}
-loading={boolean}
-fullWidth={boolean}
-disabled={boolean}
-```
-
-```tsx
-// ❌ NÃO EXISTE — causam erro TypeScript
-variant="softDanger"    // → use "danger"
-variant="soft"          // → use "ghost" ou "outline"
-iconOnly                // → prop não existe
-leftIcon / rightIcon    // → use iconLeft / iconRight
-isLoading               // → use loading
-radius="xl"             // → não existe
-as="span"               // → não existe
-```
-
-### IconButton — botão quadrado para ícones
-
-Use `IconButton` (não `Button`) quando o botão só tem ícone, especialmente no mobile.  
-O `Button size="xs"` tem `min-w-[74px]` e vai estourar em espaços pequenos.
-
-```tsx
-import { IconButton } from '../components/UI/Button';
-
-<IconButton variant="outline" size="xs" onClick={handleEdit}>
-  <Edit3 size={13} />
-</IconButton>
-<IconButton variant="danger" size="xs" onClick={handleDelete}>
-  <Trash2 size={13} />
-</IconButton>
-```
-
----
-
-## 6. Modal — props corretas
-
-```tsx
-<Modal
-  isOpen={isOpen}
-  onClose={() => setIsOpen(false)}
-  title="Título"
-  size="lg"           // xs | sm | md | lg | xl | 2xl | full | auto
-  footer={
-    <div className="flex w-full items-center justify-between">
-      <Button variant="ghost" onClick={() => setIsOpen(false)}>Cancelar</Button>
-      <Button variant="primary" onClick={handleSave}>Salvar</Button>
-    </div>
-  }
->
-  {/* conteúdo */}
-</Modal>
-```
-
-```tsx
-// ❌ NÃO EXISTE
-maxWidth="lg"   // → use size="lg"
-subtitle="..."  // → prop não existe no Modal
-```
-
-**Tamanhos desktop:**
-| size | largura |
-|------|---------|
-| `xs` | 360px |
-| `sm` | 448px |
-| `md` | 512px (padrão) |
-| `lg` | 640px |
-| `xl` | 768px |
-| `2xl` | 900px |
-| `full` | 95vw |
-
----
-
-## 7. Input / Textarea / Select — props corretas
-
-```tsx
-// ✅ Correto
-<Input
-  label="Nome"
-  value={value}
-  onChange={(e) => setValue(e.target.value)}
-  addonLeft="R$"    // prefixo visual (texto ou ícone)
-  addonRight="%"    // sufixo visual
-  hint="Texto de ajuda"
-  error="Mensagem de erro"
-  size="sm" | "md" | "lg"
-/>
-
-// ❌ NÃO EXISTE
-prefix="R$"         // → use addonLeft
-suffix="%"          // → use addonRight
-labelClassName      // → prop não existe
-```
-
----
-
-## 8. Combobox — props corretas
-
-```tsx
-// ✅ Options obrigatoriamente com { value, label }
-const options = items.map(i => ({ value: String(i.id), label: i.name }));
-
-<Combobox
-  options={options}
-  value={selectedValue}
-  onChange={(val) => setSelectedValue(String(val))}
-  placeholder="Selecione..."
-  size="sm" | "md"
-  multiple={false}      // opcional — true para multi-seleção
-/>
-```
-
-```tsx
-// ❌ NÃO EXISTE
-label="..."           // → Combobox não tem prop label, coloque fora
-showSelectedBadge     // → não existe
-options={[{ id: '1', label: 'X' }]}  // → 'id' não existe, use 'value'
-```
-
-Para colocar label em cima do Combobox, envolva manualmente:
-
-```tsx
-<div className="flex flex-col gap-1.5">
-  <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">
-    Profissional
-  </label>
-  <Combobox options={options} value={val} onChange={setVal} />
-</div>
-```
-
----
-
-## 9. GridTable — tabela responsiva
-
-```tsx
-<GridTable<MinhaEntidade>
-  data={currentItems}
-  isLoading={isLoading}
-  keyExtractor={(row) => row.id}
-  selectedIds={selectedIds}
-  onToggleSelect={toggleSelect}
-  onToggleSelectAll={toggleSelectAll}
-  onRowClick={(row) => handleOpen(row)}
-  emptyMessage="Nenhum item encontrado."
-
-  // Card mobile — obrigatório para boa UX no celular
-  renderMobileItem={(row) => (
-    <div className="flex flex-col gap-2 w-full min-w-0">
-      <div className="flex items-start gap-2 w-full min-w-0">
-        {/* Avatar / cor */}
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-slate-800 truncate text-sm">{row.name}</div>
-          <div className="text-[11px] text-slate-400">{row.subtitle}</div>
-        </div>
-        <div className="text-right shrink-0 ml-auto">
-          <div className="font-bold text-primary-600 text-sm">{row.value}</div>
-        </div>
-      </div>
-      {/* Ações — sempre com stopPropagation para não acionar onRowClick */}
-      <div className="flex gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-        <IconButton variant="outline" size="xs" onClick={() => handleEdit(row)}><Edit3 size={13} /></IconButton>
-        <IconButton variant="danger"  size="xs" onClick={() => handleDelete(row)}><Trash2 size={13} /></IconButton>
-      </div>
-    </div>
-  )}
-
-  columns={[
-    {
-      header: 'Nome',
-      render: (row) => <span className="font-semibold">{row.name}</span>,
-    },
-    {
-      header: 'Ações',
-      className: 'text-right',
-      headerClassName: 'text-right',
-      render: (row) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="outline" size="xs" onClick={() => handleEdit(row)}><Edit3 size={14} /></Button>
-          <Button variant="danger"  size="xs" onClick={() => handleDelete(row)}><Trash2 size={14} /></Button>
-        </div>
-      ),
-    },
-  ]}
-/>
-```
-
----
-
-## 10. EmptyState
-
-```tsx
-<EmptyState
-  icon={Users}
-  title="Nenhum registro encontrado"
-  description="Crie o primeiro clicando em + Novo."
-  action={
-    <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={handleNew}>
-      Novo
-    </Button>
-  }
-/>
-```
-
----
-
-## 11. StatusAlert — alertas inline
-
-```tsx
-<StatusAlert
-  variant="warning"    // success | warning | error | info
-  title="Atenção"
-  message="Descrição do alerta."
-  compact             // versão menor, sem padding extra
-/>
-```
-
----
-
-## 12. ActionDrawer — painel lateral
-
-```tsx
-<ActionDrawer
-  isOpen={drawerOpen}
-  onClose={() => setDrawerOpen(false)}
-  title="Título do Drawer"
-  subtitle="Subtítulo opcional"
-  size="md"           // sm | md | lg | xl | full
-  footer={
-    <div className="flex justify-end gap-2">
-      <Button variant="ghost" onClick={() => setDrawerOpen(false)}>Fechar</Button>
-      <Button variant="primary" onClick={handleSave}>Salvar</Button>
-    </div>
-  }
->
-  {/* conteúdo */}
-</ActionDrawer>
-```
-
----
-
-## 13. Paginação
-
-Sempre separe a paginação do `GridTable` para ter controle total:
-
-```tsx
-{activeList.length > 0 && (
-  <Pagination
-    total={activeList.length}
-    page={currentPage}
-    pageSize={itemsPerPage}
-    onPageChange={setCurrentPage}
-    onPageSizeChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
-    showPageSizeSelector
-  />
-)}
-```
-
-E calcule os items do slice no componente:
-
-```tsx
-const currentItems = useMemo(
-  () => activeList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
-  [activeList, currentPage, itemsPerPage]
-);
-```
-
----
-
-## 14. Template completo de tela
-
-Copie este esqueleto e substitua os dados:
-
-```tsx
-import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Edit3, Trash2, Users } from 'lucide-react';
-import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
-import { Button, IconButton } from '../components/UI/Button';
-import { Modal } from '../components/UI/Modal';
-import { Input } from '../components/UI/Input';
-import {
-  FilterLine, FilterLineSection, FilterLineItem,
-  FilterLineSearch, FilterLineSegmented, FilterLineViewToggle,
-} from '../components/UI/FilterLine';
-import { GridTable } from '../components/UI/GridTable';
-import { StatCard } from '../components/UI/StatCard';
-import { EmptyState } from '../components/UI/EmptyState';
-import { Pagination } from '../components/UI/Pagination';
-import { StatusAlert } from '../components/UI/StatusAlert';
-import { useToast } from '../contexts/ToastContext';
-import { api } from '../services/api';
-
-interface MeuItem { id: string; name: string; }
-
-export const MinhaTela: React.FC = () => {
-  const { pushToast } = useToast();
-  const [items, setItems] = useState<MeuItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Partial<MeuItem> | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  useEffect(() => {
-    api.get<MeuItem[]>('/meus-items')
-      .then(data => setItems(data || []))
-      .catch(() => pushToast('error', 'Erro ao carregar dados.'))
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const norm = (s: string) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-
-  const filtered = useMemo(() =>
-    items.filter(i => norm(i.name).includes(norm(searchTerm))),
-    [items, searchTerm]
-  );
-
-  const currentItems = useMemo(
-    () => filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
-    [filtered, currentPage, itemsPerPage]
-  );
-
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, itemsPerPage]);
-
-  const handleSave = async () => {
-    if (!editing?.name) { pushToast('warning', 'Nome obrigatório'); return; }
-    setIsProcessing(true);
-    try {
-      if (editing.id) {
-        const updated = await api.put<MeuItem>(`/meus-items/${editing.id}`, editing);
-        setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
-      } else {
-        const saved = await api.post<MeuItem>('/meus-items', editing);
-        setItems(prev => [saved, ...prev]);
-      }
-      setIsModalOpen(false);
-      pushToast('success', 'Salvo com sucesso!');
-    } catch {
-      pushToast('error', 'Erro ao salvar.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setIsProcessing(true);
-    try {
-      await api.delete(`/meus-items/${deleteId}`);
-      setItems(prev => prev.filter(i => i.id !== deleteId));
-      setDeleteId(null);
-      pushToast('success', 'Excluído com sucesso!');
-    } catch {
-      pushToast('error', 'Erro ao excluir.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  return (
-    <PageWrapper mobileBottomPad={false} className="space-y-4 sm:space-y-6 !px-0 !pt-0 !pb-0">
-
-      <SectionTitle
-        icon={Users}
-        title="Minha Tela"
-        description="Gerenciamento de itens"
-        action={
-          <Button variant="primary" size="sm" iconLeft={<Plus size={14} />}
-            onClick={() => { setEditing({ name: '' }); setIsModalOpen(true); }}>
-            Novo Item
-          </Button>
-        }
-      />
-
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-          <StatCard title="Total" value={items.length} icon={Users} color="default" delay={0} />
-        </div>
-
-        {/* Filtros */}
-        <FilterLine>
-          <FilterLineSection grow>
-            <FilterLineItem grow minWidth={260}>
-              <FilterLineSearch value={searchTerm} onChange={setSearchTerm} placeholder="Buscar..." />
-            </FilterLineItem>
-          </FilterLineSection>
-          <FilterLineSection align="right">
-            <FilterLineViewToggle value={viewMode} onChange={v => setViewMode(v as any)} gridValue="cards" listValue="list" />
-          </FilterLineSection>
-        </FilterLine>
-
-        {/* Tabela */}
-        <GridTable<MeuItem>
-          data={currentItems}
-          isLoading={isLoading}
-          keyExtractor={r => r.id}
-          onRowClick={r => { setEditing(r); setIsModalOpen(true); }}
-          emptyMessage="Nenhum item encontrado."
-          renderMobileItem={(r) => (
-            <div className="flex items-center justify-between w-full min-w-0">
-              <span className="font-semibold text-slate-800 truncate text-sm">{r.name}</span>
-              <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                <IconButton variant="outline" size="xs" onClick={() => { setEditing(r); setIsModalOpen(true); }}><Edit3 size={13} /></IconButton>
-                <IconButton variant="danger"  size="xs" onClick={() => setDeleteId(r.id)}><Trash2 size={13} /></IconButton>
-              </div>
-            </div>
-          )}
-          columns={[
-            { header: 'Nome', render: r => <span className="font-semibold">{r.name}</span> },
-            {
-              header: 'Ações', className: 'text-right', headerClassName: 'text-right',
-              render: r => (
-                <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
-                  <Button variant="outline" size="xs" onClick={() => { setEditing(r); setIsModalOpen(true); }}><Edit3 size={14} /></Button>
-                  <Button variant="danger"  size="xs" onClick={() => setDeleteId(r.id)}><Trash2 size={14} /></Button>
-                </div>
-              ),
-            },
-          ]}
-        />
-
-        {/* Paginação */}
-        {filtered.length > 0 && (
-          <Pagination
-            total={filtered.length} page={currentPage} pageSize={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={size => { setItemsPerPage(size); setCurrentPage(1); }}
-            showPageSizeSelector
-          />
-        )}
-
-      </div>
-
-      {/* Modal Criar/Editar */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}
-        title={editing?.id ? 'Editar Item' : 'Novo Item'} size="md"
-        footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={handleSave} loading={isProcessing}>Salvar</Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <Input label="Nome" value={editing?.name || ''}
-            onChange={e => setEditing(prev => ({ ...prev, name: e.target.value }))}
-            placeholder="Digite o nome..." />
-        </div>
-      </Modal>
-
-      {/* Modal Excluir */}
-      <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Excluir item" size="sm"
-        footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setDeleteId(null)}>Cancelar</Button>
-            <Button variant="danger" onClick={handleDelete} loading={isProcessing} disabled={isProcessing}>
-              Confirmar exclusão
-            </Button>
-          </div>
-        }
-      >
-        <div className="py-2">
-          <StatusAlert variant="warning" title="Confirmação" message="Esta ação não pode ser desfeita." />
-        </div>
-      </Modal>
-
-    </PageWrapper>
-  );
-};
-```
-
----
-
-## 15. Checklist antes de fazer PR
-
-- [ ] Usa `PageWrapper` com `!px-0 !pt-0 !pb-0`?
-- [ ] Usa `SectionTitle` (não `PageHeader`)?
-- [ ] Todo conteúdo interno está dentro do `div` com `px-3 sm:px-5 lg:px-6 xl:px-8`?
-- [ ] Filtros usam `FilterLine > FilterLineSection > FilterLineItem`?
-- [ ] Botões usam `iconLeft` / `iconRight` (não `leftIcon` / `rightIcon`)?
-- [ ] Botões usam `loading` (não `isLoading`)?
-- [ ] Modal usa `size` (não `maxWidth`)?
-- [ ] `Input` usa `addonLeft` / `addonRight` (não `prefix` / `suffix`)?
-- [ ] `Combobox` options têm `{ value, label }` (não `{ id, label }`)?
-- [ ] `IconButton` usado em vez de `Button` nos cards mobile de `renderMobileItem`?
-- [ ] `npx tsc --noEmit --skipLibCheck` sem erros em Services.tsx?
+- Distinguir erro de rede de "não existe" e oferecer "Tentar novamente".
+- Lista vazia: `EmptyState` com mensagem diferente se há busca ativa. Em `GridTable` use `isLoading` e `emptyMessage`.
+
+## 6. Listagem com resumo
+
+Ordem: **SectionTitle → StatGrid → (Tabs) → FilterLine → ContentCard > GridTable**.
+
+1. **KPIs**: `StatGrid cols={3|4}` + `StatCard` (`title`, `value`, `icon`, `color`). Cores com significado: `success` ok/entradas, `danger` pendência/saídas, `info` total/saldo, `default` = cor primária. Dinheiro com `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })` (ou `isCurrency`).
+2. **Filtros**: `FilterLine` > `FilterLineSection grow` > `FilterLineSearch` (com `aria-label`); `FilterLineSegmented` para alternar visão; `FilterLineDateRange`/`FilterLineSelect` para período/status; `FilterPopover` quando há muitos filtros (botão com contador + "Aplicar"/"Limpar").
+3. **Tabela**: `ContentCard padding="none"` > `GridTable` com `noDesktopCard`, `keyExtractor`, `isLoading`, `columns`, `emptyMessage`, `pagination` via `usePagination(lista, 15)`. `mobileBreakpoint` aceita `sm | md | lg | xl`.
+4. **Gráficos**: `PanelCard` > `div.h-64.min-w-0` > Recharts; eixos sem linha, fonte 11, grade só horizontal `#e2e8f0`.
+5. Busca ignora acento e caixa (normalizar nos dois lados).
+
+Células de coluna: texto principal `text-xs text-slate-800` (`font-medium` no título) + secundária `text-[11px] text-slate-500 mt-0.5`; datas `text-xs whitespace-nowrap`; categoria/status em `Badge`; dinheiro `text-xs font-semibold tabular-nums whitespace-nowrap` (`text-emerald-700` / `text-red-600`).
+
+### Ações perigosas / em lote
+- Apagar: **sempre `ConfirmModal`** com `variant="danger"`, título em pergunta, mensagem dizendo que não dá para desfazer e `confirmLabel` específico.
+- Ações assíncronas: `loading` no botão, `disabled` enquanto roda, toast só **depois** da resposta da API (nunca mostrar sucesso sem gravar).
+
+## 7. Cards em grade
+
+- Grade `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3`.
+- Card: `ContentCard padding="none"` com `group hover:border-primary-200 transition-all overflow-hidden flex flex-col h-full`; corpo `p-3` e rodapé `p-3 bg-slate-50/50 border-t border-slate-100` com `Button size="xs"` + `IconButton variant="ghost" size="xs"` (com `aria-label`).
+- Cabeçalho do card: ícone em quadradinho `w-7 h-7 rounded-md border` e `Badge size="sm" dot` à direita.
+
+## 8. Modais e formulários
+
+- `Modal` (`isOpen` ou `open`, `onClose`, `title`, `subtitle`, `size` xs/sm/md/lg/xl/2xl/full, `footer`, `position="right"` para painel lateral, `persistent`, `zIndex`). Header e footer **fixos**, corpo rolável. `maxWidth` legado ("md" ou `max-w-4xl`) continua aceito.
+- Rodapé: `ModalFooter align="between"` — "Fechar"/"Cancelar" (`ghost` ou `outline`, `sm`) e ação principal (`primary`, com ícone e `loading`). Um `ModalFooter` passado como filho também vira rodapé fixo.
+- Confirmações: `ConfirmModal` (`variant` danger/primary/success, `loading`).
+- Formulário: `Input`/`Textarea`/`Select` (label, error, hint, `iconLeft`/`iconRight`, `addonLeft`/`addonRight`; `className` vai no `<input>`, largura do wrapper em `wrapperClassName`). Grade `grid grid-cols-1 sm:grid-cols-2 gap-3` (`FormRow` faz isso); campo largo `sm:col-span-2`. Datas com `DatePicker`; listas grandes com `Combobox`; liga/desliga com `Switch`; avisos com `Alert` (`info|success|warning|error`).
+- Salvar com trava anti duplo clique (`useRef` + `loading`), validar antes de enviar e mostrar erro no campo.
+
+## 9. Tokens visuais (copiar à risca)
+
+| Uso | Classe |
+|---|---|
+| Título de página | `text-base sm:text-lg font-medium text-slate-900` |
+| Título de card | `text-sm font-medium text-slate-900` (PanelCard) |
+| Subtítulo de seção | `text-xs font-semibold text-slate-700` |
+| Texto de dado / item de menu | `text-[13px] text-slate-800` / `font-medium` |
+| Texto auxiliar | `text-xs text-slate-500` |
+| Rótulo pequeno | `text-[11px] text-slate-500` |
+| Label de campo | 12px `font-medium text-slate-600` (`.ds-label`) |
+| Vazio / não informado | `text-slate-400` |
+| Divisor | `border-slate-100` (interno) / `border-slate-200` (contorno) |
+| Raio | `rounded-lg` (cards, inputs, avatar); `rounded-md` botões e ícones pequenos |
+| Padding de card | `p-3` |
+| Alturas | Button xs 28 / sm 32 / md 32 / lg 36px; IconButton 28/32/36/40; Input 34px (sm 32, lg 40) |
+| Ícone em botão | 14px (`size={14}`) |
+| Status (`Badge`) | `success` ativo/ok, `warning` pendente, `danger` atraso, `primary` destaque do tema, `info` informativo, `default` neutro |
+
+Evitar: `uppercase`, `tracking-*`, `font-black`/`font-bold` (usar `font-medium`/`font-semibold`), `text-[8px..10px]`, `rounded-xl/2xl/3xl`, sombras fortes (`shadow-lg/xl/2xl`), gradientes, emojis em textos de interface, cor de marca fixa (`amber`/`blue`).
+
+## 10. Componentes e compatibilidade de API
+
+Todos exportados por `components/UI/index.ts`. Estilos base em `theme.ts` (`uiTheme`, `iconButtonVariants`) e `styles.css`.
+
+| Componente | Observações |
+|---|---|
+| `Button`, `IconButton` | variants `primary secondary outline ghost danger success soft softDanger warning`; sizes `xs sm md lg`. Aliases aceitos: `icon`/`leftIcon` = `iconLeft`, `rightIcon` = `iconRight`, `isLoading` = `loading`, `loadingText`, `iconOnly` (botão quadrado). `radius` e `elevation` são aceitos e ignorados (visual único). Botão só de ícone → `IconButton` com `aria-label`. |
+| `Input`, `Textarea`, `Select` | aliases: `leftIcon`/`rightIcon`, `prefix`/`suffix` = `addonLeft`/`addonRight`; `labelClassName`; `showCount`. `Select` aceita `options` ou `<option>` filhos. |
+| `Modal`, `ModalFooter`, `ConfirmModal` | `isOpen` = `open`; `maxWidth`/`headerClassName` legados. |
+| `Tabs`, `TabList`, `Tab`, `TabPanel` | ver seção 3. |
+| `Badge`, `StatusBadge`, `PaymentBadge` | `color` default/primary/success/warning/danger/info/purple/orange/teal; `dot`, `icon`, `pill`. |
+| `Switch`, `SwitchGroup` | `checked` + `onCheckedChange` ou `onChange`; `label`/`description` opcionais. |
+| `Alert` | `variant` info/success/warning/error, `title`, `action`. |
+| `PageWrapper`, `SectionTitle`, `StatGrid`, `ContentCard` (`title`, `padding`), `FormRow`, `Divider` | — |
+| `PanelCard`, `StatCard`, `DetailField`, `EmptyState` | — |
+| `GridTable`, `Pagination`, `usePagination` | `mobileBreakpoint` `sm\|md\|lg\|xl`, `tableMinWidth`, `disableMobileCards`, `noDesktopCard`. |
+| `FilterLine*`, `FilterPopover` | `FilterLine`, `Section`, `Item`, `Group`, `Segmented`, `ViewToggle`, `Search`, `Select`, `DateRange`. |
+| `DatePicker`, `Calendar`, `Combobox`, `Toast`/`ToastProvider`/`useToast`, `PaymentModal`, `RichTextEditor`, `TokenTextarea` | APIs preservadas; visual alinhado ao padrão. |
+
+## 11. Acessibilidade e mobile (já embutidos, manter)
+
+- `aria-label` em busca, input de arquivo, `IconButton`, `Tabs` e imagens.
+- `role="status"` no carregando; botões desabilitados explicam o motivo em `title`.
+- `break-words` / `min-w-0` / `truncate` em todo texto que pode ser longo.
+- Mobile: `StatGrid` vira 2 colunas, `FilterLineItem` ocupa 100% abaixo de `sm`, `Tabs` rola na horizontal, `GridTable` vira lista de cards, modais viram tela cheia/rodapé fixo com área segura.
+- Datas nunca por `new Date('YYYY-MM-DD')` direto (fuso): usar `T12:00:00` ou helpers.
+
+## 12. Checklist para migrar uma tela
+
+1. Definir se é **detalhe**, **listagem** ou **formulário**.
+2. `PageWrapper > div.space-y-4`, modais no fim.
+3. Só componentes de `components/UI`; trocar `<button>` por `Button`/`IconButton`, `<input>/<select>/<textarea>` por `Input`/`Select`/`Textarea`, modais próprios por `Modal`.
+4. Trocar `amber/indigo/blue` de marca por `primary`; remover `uppercase`, `tracking-*`, `font-black`, `rounded-2xl/3xl`, sombras fortes.
+5. Implementar loading, erro e vazio.
+6. Ação destrutiva com `ConfirmModal`; ações assíncronas com `loading` e toast após a resposta.
+7. Não alterar lógica, rotas, permissões, `data-tour`, `id`, `ref`, `key`, `aria-*` existentes.
+8. Conferir mobile (390px) e `npx tsc --noEmit -p tsconfig.json`.

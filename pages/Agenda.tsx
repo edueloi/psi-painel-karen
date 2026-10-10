@@ -26,8 +26,9 @@ import { Input, Select, Textarea } from '../components/UI/Input';
 import { Combobox } from '../components/UI/Combobox';
 import { DatePicker } from '../components/UI/DatePicker';
 import { AgendaPlanner, WorkScheduleDay } from '../components/UI/AgendaPlanner';
-import { PageHeader } from '../components/UI/PageHeader';
-import { PageWrapper, StatGrid } from '../components/UI/PageWrapper';
+import { PageWrapper, StatGrid, SectionTitle } from '../components/UI/PageWrapper';
+import { Tabs } from '../components/UI/Tabs';
+import { Switch } from '../components/UI/Switch';
 import { StatCard } from '../components/UI/StatCard';
 import { IconButton } from '../components/UI/Button';
 
@@ -85,23 +86,23 @@ const TypeButton: React.FC<{
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-start gap-4 p-4 rounded-3xl border-2 text-left transition-all w-full flex-1 ${
+      className={`flex items-start gap-4 p-4 rounded-lg border-2 text-left transition-all w-full flex-1 ${
         active
-          ? 'border-indigo-500 bg-indigo-50/50 shadow-md shadow-indigo-100/50'
-          : 'border-slate-100 bg-white hover:border-indigo-200 hover:bg-slate-50'
+          ? 'border-primary-500 bg-primary-50/50 shadow-sm shadow-primary-100/50'
+          : 'border-slate-100 bg-white hover:border-primary-200 hover:bg-slate-50'
       }`}
     >
       {icon && (
-        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${active ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-500'}`}>
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-primary-500 text-white shadow-inner' : 'bg-slate-100 text-slate-500'}`}>
           {icon}
         </div>
       )}
       <div className="flex-1">
-        <div className={`font-black text-sm tracking-wide uppercase ${active ? 'text-indigo-900' : 'text-slate-700'}`}>{label}</div>
-        {description && <div className={`text-xs mt-1 font-medium ${active ? 'text-indigo-600/80' : 'text-slate-500'}`}>{description}</div>}
+        <div className={`font-semibold text-sm   ${active ? 'text-primary-900' : 'text-slate-700'}`}>{label}</div>
+        {description && <div className={`text-xs mt-1 font-medium ${active ? 'text-primary-600/80' : 'text-slate-500'}`}>{description}</div>}
       </div>
       <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-1.5 ${
-          active ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+          active ? 'border-primary-600 bg-primary-600' : 'border-slate-300 bg-white'
       }`}>
         {active && <Check size={12} className="text-white" strokeWidth={4} />}
       </div>
@@ -142,6 +143,21 @@ const recurrenceOptions = [
     { label: 'Personalizado...', freq: 'CUSTOM', interval: 1, count: 1 },
 ];
 
+const VIEW_TABS = [
+  { id: 'day', label: 'Dia', icon: CalendarIcon },
+  { id: 'week', label: 'Semana', icon: CalendarRange },
+  { id: 'month', label: 'Mês', icon: CalendarIcon },
+] as const;
+const MANAGER_TABS = [
+  { id: 'atendimentos', label: 'Atendimentos', icon: CalendarDays },
+  { id: 'pagamentos', label: 'Pagamentos', icon: DollarSign },
+  { id: 'pacote', label: 'Pacote', icon: Package },
+] as const;
+const APPT_TABS = [
+  { id: 'dados', label: 'Agendamento', icon: CalendarIcon },
+  { id: 'notes', label: 'Observações', icon: FileText },
+] as const;
+
 export const Agenda: React.FC = () => {
   const { t, language } = useLanguage();
   const { user, isAdmin, hasPermission } = useAuth();
@@ -155,6 +171,8 @@ export const Agenda: React.FC = () => {
   const [packages, setPackages] = useState<any[]>([]);
   const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [apptTab, setApptTab] = useState<'dados' | 'notes'>('dados');
+  useEffect(() => { if (isModalOpen) setApptTab('dados'); }, [isModalOpen]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [googleMeetEnabled, setGoogleMeetEnabled] = useState(false);
@@ -424,31 +442,31 @@ export const Agenda: React.FC = () => {
   const typeMeta = {
       consulta: {
           label: 'Consulta',
-          chip: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50 backdrop-blur-sm',
-          solid: 'bg-indigo-600',
-          dot: 'bg-indigo-500',
-          event: 'bg-white text-slate-700 border-slate-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-100/50'
+          chip: 'bg-primary-50/50 text-primary-700 border-primary-100/50 backdrop-blur-sm',
+          solid: 'bg-primary-600',
+          dot: 'bg-primary-500',
+          event: 'bg-white text-slate-700 border-slate-100 hover:border-primary-200 hover:shadow-sm hover:shadow-primary-100/50'
       },
       pessoal: {
           label: 'Pessoal',
           chip: 'bg-amber-50/50 text-amber-700 border-amber-100/50 backdrop-blur-sm',
           solid: 'bg-amber-500',
           dot: 'bg-amber-500',
-          event: 'bg-amber-50/40 text-amber-900 border-amber-100 hover:border-amber-300 hover:shadow-xl hover:shadow-amber-100/50'
+          event: 'bg-amber-50/40 text-amber-900 border-amber-100 hover:border-amber-300 hover:shadow-sm hover:shadow-amber-100/50'
       },
       bloqueio: {
           label: 'Feriado/Bloqueio',
           chip: 'bg-slate-200 text-slate-600 border-slate-300',
           solid: 'bg-slate-400',
           dot: 'bg-slate-400',
-          event: 'bg-slate-100 text-slate-600 border-slate-200 hover:border-slate-300 hover:shadow-md'
+          event: 'bg-slate-100 text-slate-600 border-slate-200 hover:border-slate-300 hover:shadow-sm'
       },
   } as const;
 
   const statusMeta: Record<string, { label: string; chip: string; dot: string }> = {
       scheduled:         { label: 'Agendado',          chip: 'bg-slate-100/60 text-slate-500 border-slate-200/40',   dot: 'bg-slate-400' },
       confirmed:         { label: 'Confirmado',         chip: 'bg-emerald-50/60 text-emerald-700 border-emerald-100/60', dot: 'bg-emerald-500' },
-      completed:         { label: 'Realizado',          chip: 'bg-indigo-50/60 text-indigo-700 border-indigo-100/60',  dot: 'bg-indigo-500' },
+      completed:         { label: 'Realizado',          chip: 'bg-primary-50/60 text-primary-700 border-primary-100/60',  dot: 'bg-primary-500' },
       cancelled:         { label: 'Cancelado',          chip: 'bg-rose-50/60 text-rose-700 border-rose-100/60',        dot: 'bg-rose-500' },
       'no-show':         { label: 'Faltou',             chip: 'bg-amber-50/60 text-amber-700 border-amber-100/60',     dot: 'bg-amber-500' },
       no_show:           { label: 'Faltou',             chip: 'bg-amber-50/60 text-amber-700 border-amber-100/60',     dot: 'bg-amber-500' },
@@ -937,7 +955,7 @@ export const Agenda: React.FC = () => {
                 <div style="font-size:12px;color:#94a3b8;">Gerado em: ${now}</div>
               </div>
             </div>
-          ` : `
+          `:`
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
               <span style="font-size:13px;font-weight:700;color:#1e293b;">Agenda de Atendimentos</span>
               <span style="font-size:11px;color:#94a3b8;">Página ${pageIdx + 1} de ${chunks.length} · ${now}</span>
@@ -1198,12 +1216,12 @@ export const Agenda: React.FC = () => {
 
           <div style="margin-top:100px;text-align:center;">
             <div style="border-top:1.5px solid #00214d;width:350px;margin:0 auto;padding-top:10px;">
-              <b style="text-transform:uppercase;font-size:13px;">${profName}</b><br/>
+              <b style=";font-size:13px;">${profName}</b><br/>
               <span style="font-size:11px;">Psicóloga(o)${profCrp ? ` - ${profCrp}` : ''}</span>
             </div>
           </div>
 
-          <div style="position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">
+          <div style="position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:9px;color:#94a3b8;;letter-spacing:1px;">
             ${profileData.address || ''} | ${profileData.phone || ''}
           </div>
         </div>
@@ -1715,14 +1733,13 @@ export const Agenda: React.FC = () => {
 
 
   return (
-    <PageWrapper className="space-y-4 animate-fadeIn font-sans">
-      <PageHeader
-        icon={<CalendarIcon />}
+    <PageWrapper className="space-y-4 animate-fadeIn">
+      <SectionTitle
+        icon={CalendarIcon}
         title={t('agenda.title')}
-        subtitle={t('agenda.subtitle')}
-        containerClassName="mb-0"
-        actions={
-          <div className="flex items-center gap-2">
+        description={t('agenda.subtitle')}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Button
                 variant="outline"
@@ -1734,16 +1751,16 @@ export const Agenda: React.FC = () => {
                 Exportar
               </Button>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-zinc-200 bg-white py-1 shadow-lg" onMouseLeave={() => setExportMenuOpen(false)}>
-                  <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-zinc-200 bg-white py-1 shadow-sm" onMouseLeave={() => setExportMenuOpen(false)}>
+                  <Button variant="ghost" size="sm" className="w-full !justify-start" onClick={() => { setExportMenuOpen(false); handleExportCSV(); }}>
                     <FileText size={14} className="text-emerald-500" /> Exportar CSV
-                  </button>
-                  <button onClick={() => { setExportMenuOpen(false); handleExport(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">
+                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full !justify-start" onClick={() => { setExportMenuOpen(false); handleExport(); }}>
                     <FileText size={14} className="text-green-600" /> Exportar Excel
-                  </button>
-                  <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50">
+                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full !justify-start" onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}>
                     <FileText size={14} className="text-red-500" /> Exportar PDF
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -1761,48 +1778,24 @@ export const Agenda: React.FC = () => {
       />
 
       {/* STATS BAR — sempre visível, não faz parte do sticky */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-2 py-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3">
-          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 shrink-0">
-            <CalendarRange size={13} className="text-blue-600" />
-          </div>
-          <div className="min-w-0 text-center sm:text-left">
-            <p className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Sessões</p>
-            <p className="text-lg sm:text-xl font-black text-zinc-900 leading-none">{stats.todayCount}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-2 py-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3">
-          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 shrink-0">
-            <UserCheck size={13} className="text-emerald-600" />
-          </div>
-          <div className="min-w-0 text-center sm:text-left">
-            <p className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Confirm.</p>
-            <p className="text-lg sm:text-xl font-black text-zinc-900 leading-none">{stats.confirmedCount}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm px-2 py-2.5 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3">
-          <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-yellow-50 border border-yellow-100 shrink-0">
-            <Video size={13} className="text-yellow-600" />
-          </div>
-          <div className="min-w-0 text-center sm:text-left">
-            <p className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none mb-0.5">Online</p>
-            <p className="text-lg sm:text-xl font-black text-zinc-900 leading-none">{stats.onlineCount}</p>
-          </div>
-        </div>
-      </div>
+      <StatGrid cols={3}>
+        <StatCard title="Sessões" value={stats.todayCount} icon={CalendarRange} color="info" />
+        <StatCard title="Confirm." value={stats.confirmedCount} icon={UserCheck} color="success" />
+        <StatCard title="Online" value={stats.onlineCount} icon={Video} color="warning" />
+      </StatGrid>
 
       {/* FILTERS & NAVIGATION BAR — sticky apenas aqui */}
-      <div ref={stickyNavRef} className={stickyStats ? 'sticky top-14 sm:top-16 md:top-[72px] z-30 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-md shadow-slate-200/60' : ''}>
-      <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl border border-zinc-200 shadow-sm flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+      <div ref={stickyNavRef} className={stickyStats ? 'sticky top-12 z-30 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-sm shadow-slate-200/60' : ''}>
+      <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg border border-zinc-200 shadow-sm flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
 
           {/* Linha 1: Navegação + label de data */}
           <div className="flex items-center gap-2 min-w-0">
-              <div className="flex bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
+              <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 shrink-0">
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(-1)}><ChevronLeft size={16}/></IconButton>
-                  <button onClick={() => setCurrentDate(new Date())} className="px-3 text-[10px] font-black text-zinc-700 uppercase tracking-widest underline decoration-indigo-300 underline-offset-4">Hoje</button>
+                  <Button variant="ghost" size="xs" onClick={() => setCurrentDate(new Date())}>Hoje</Button>
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(1)}><ChevronRight size={16}/></IconButton>
               </div>
-              <h2 className="text-sm font-black text-zinc-700 truncate max-w-[160px] sm:max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
+              <h2 className="text-sm font-semibold text-zinc-700 truncate max-w-[160px] sm:max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
               <DatePicker
                 value={currentDate.toISOString().slice(0, 10)}
                 onChange={(val) => val && handleDateChange(val)}
@@ -1814,25 +1807,21 @@ export const Agenda: React.FC = () => {
               {/* View switcher — só mostra views habilitadas nas preferências */}
               {(() => {
                 const enabledViews = preferences.agenda.enabledViews ?? ['day','week','month'];
-                const viewLabels: Record<string, string> = { day: 'Dia', week: 'Semana', month: 'Mês' };
+                const items = VIEW_TABS.filter(v => enabledViews.includes(v.id));
                 return enabledViews.length > 1 ? (
-                  <div className="flex bg-zinc-100 p-0.5 rounded-xl border border-zinc-200 shrink-0">
-                    {enabledViews.map(v => (
-                      <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-widest transition-all ${view === v ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500'}`}>{viewLabels[v]}</button>
-                    ))}
-                  </div>
+                  <Tabs<typeof VIEW_TABS[number]['id']> items={items} value={view as any} onChange={(v) => setView(v as any)} label="Visão da agenda" className="shrink-0" />
                 ) : null;
               })()}
 
               {/* Filtros */}
-              <select className="flex-1 sm:flex-none bg-white border border-zinc-200 rounded-xl px-2 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-0 sm:min-w-[80px] sm:max-w-[120px]" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
+              <Select size="sm" aria-label="Filtrar por status" wrapperClassName="flex-1 sm:flex-none min-w-0 sm:w-36 !mb-0" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
                   <option value="">Status</option>
                   {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-              <select className="flex-1 sm:flex-none bg-white border border-zinc-200 rounded-xl px-2 py-1.5 text-[10px] font-black text-zinc-600 uppercase tracking-wider outline-none focus:border-indigo-400 min-w-0 sm:min-w-[90px] sm:max-w-[140px]" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
+              </Select>
+              <Select size="sm" aria-label="Filtrar por profissional" wrapperClassName="flex-1 sm:flex-none min-w-0 sm:w-40 !mb-0" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
                   <option value="">Profissional</option>
                   {professionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
-              </select>
+              </Select>
 
               {/* Botão fixar barra */}
               <IconButton
@@ -1858,7 +1847,7 @@ export const Agenda: React.FC = () => {
       </div>{/* end sticky wrapper */}
 
       {/* CALENDAR CONTENT */}
-      <div className="bg-white rounded-2xl sm:rounded-[2.5rem] border border-indigo-100/60 shadow-xl shadow-indigo-500/5 animate-fadeIn relative" style={{overflow: view === 'month' ? 'auto' : 'hidden', maxHeight: view === 'month' ? 'calc(100vh - 88px - 40px)' : undefined}}>
+      <div className="bg-white rounded-lg  border border-primary-100/60 shadow-sm animate-fadeIn relative" style={{overflow: view === 'month' ? 'auto' : 'hidden', maxHeight: view === 'month' ? 'calc(100vh - 88px - 40px)' : undefined}}>
         {isLoading ? (
             <div className="flex flex-col h-full animate-pulse">
                 {/* Header Skeleton */}
@@ -1885,23 +1874,23 @@ export const Agenda: React.FC = () => {
                 <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] flex items-center justify-center z-50">
                     <div className="flex flex-col items-center gap-4">
                         <div className="relative">
-                            <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                            <div className="w-12 h-12 border-4 border-primary-100 border-t-primary-600 rounded-full animate-spin"></div>
                             <Sparkles className="absolute -top-2 -right-2 text-amber-400 animate-pulse" size={16}/>
                         </div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Sincronizando Agenda</p>
+                        <p className="text-[11px] font-semibold text-slate-400 animate-pulse">Sincronizando Agenda</p>
                     </div>
                 </div>
             </div>
         ) : view === 'month' ? (
-            <div className="flex flex-col h-full bg-white rounded-2xl sm:rounded-[2.5rem] overflow-hidden">
-                <div className="grid grid-cols-7 border-b border-slate-100 bg-indigo-50/40 sticky top-0 z-20">
+            <div className="flex flex-col h-full bg-white rounded-lg  overflow-hidden">
+                <div className="grid grid-cols-7 border-b border-slate-100 bg-primary-50/40 sticky top-0 z-20">
                     {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => {
                         const fullDay = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'][idx];
                         const isWknd = idx === 0 || idx === 6;
                         return (
-                            <div key={idx} className={`py-2.5 sm:py-4 text-center uppercase ${isWknd ? 'text-slate-400 bg-slate-50/80' : 'text-indigo-400'}`}>
-                                <span className="sm:hidden text-[10px] font-black tracking-wide">{day}</span>
-                                <span className="hidden sm:block text-[9px] font-black tracking-[0.2em]">{fullDay}</span>
+                            <div key={idx} className={`py-2.5 sm:py-4 text-center  ${isWknd ? 'text-slate-400 bg-slate-50/80' : 'text-primary-400'}`}>
+                                <span className="sm:hidden text-[11px] font-semibold">{day}</span>
+                                <span className="hidden sm:block text-[11px] font-semibold">{fullDay}</span>
                             </div>
                         );
                     })}
@@ -1918,16 +1907,16 @@ export const Agenda: React.FC = () => {
                                 key={day.toISOString()}
                                 className={`min-h-[72px] sm:min-h-[110px] p-1 sm:p-1.5 border-b border-r border-slate-100 transition-all group relative
                                     ${!inMonth ? 'bg-slate-50 opacity-40' : isWeekend ? 'bg-slate-50/60' : 'bg-white'}
-                                    hover:bg-indigo-50/30 cursor-alias
+                                    hover:bg-primary-50/30 cursor-alias
                                 `}
                                 onClick={() => inMonth && openNewModal(day)}
                             >
                                 <div className="flex flex-col items-center sm:flex-row sm:justify-between sm:items-start mb-1 sm:mb-1.5 sm:px-0.5">
-                                    <span className={`text-[10px] sm:text-[11px] font-black transition-all leading-none ${isToday ? 'h-5 w-5 sm:h-6 sm:w-6 bg-indigo-600 text-white rounded-lg sm:rounded-md flex items-center justify-center shadow-md shadow-indigo-400' : inMonth ? 'text-slate-700' : 'text-slate-300'}`}>
+                                    <span className={`text-[11px] sm:text-[11px] font-semibold transition-all leading-none ${isToday ? 'h-5 w-5 sm:h-6 sm:w-6 bg-primary-600 text-white rounded-lg sm:rounded-md flex items-center justify-center shadow-sm shadow-primary-400' : inMonth ? 'text-slate-700' : 'text-slate-300'}`}>
                                         {day.getDate()}
                                     </span>
                                     {dayApts.length > 0 && (
-                                        <span className="text-[7px] sm:text-[8px] font-black text-indigo-500 bg-indigo-50 px-1 py-px rounded mt-0.5 sm:mt-0 sm:bg-slate-100 sm:text-slate-400">{dayApts.length}</span>
+                                        <span className="text-[10px] sm:text-[11px] font-semibold text-primary-500 bg-primary-50 px-1 py-px rounded mt-0.5 sm:mt-0 sm:bg-slate-100 sm:text-slate-400">{dayApts.length}</span>
                                     )}
                                 </div>
                                 <div className="space-y-0.5 relative">
@@ -1949,31 +1938,31 @@ export const Agenda: React.FC = () => {
                                             {/* Desktop: chip com texto */}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); openDetailModal(apt); }}
-                                                className={`hidden sm:flex w-full text-left px-1.5 py-0.5 rounded-lg border text-[7px] font-bold truncate transition-all hover:shadow-md active:scale-95 overflow-hidden items-center gap-1 ${typeMeta[apt.type].event}`}
+                                                className={`hidden sm:flex w-full text-left px-1.5 py-0.5 rounded-lg border text-[10px] font-semibold truncate transition-all hover:shadow-sm active:scale-95 overflow-hidden items-center gap-1 ${typeMeta[apt.type].event}`}
                                             >
                                                 <span className={`w-1 h-2.5 rounded-full shrink-0 ${stMeta.dot}`} />
-                                                <span className="text-[7px] font-black text-slate-400 tabular-nums shrink-0">{aptTime}</span>
+                                                <span className="text-[10px] font-semibold text-slate-400 tabular-nums shrink-0">{aptTime}</span>
                                                 <span className="truncate flex-1">{apt.patient_name || apt.title}</span>
                                             </button>
                                             {/* Tooltip on hover */}
                                             <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-50 pointer-events-none opacity-0 group-hover/tip:opacity-100 scale-95 group-hover/tip:scale-100 transition-all duration-150 origin-bottom">
-                                                <div className="relative bg-slate-900/95 backdrop-blur-xl text-white rounded-xl px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.4)] min-w-[180px] max-w-[250px] space-y-1 border border-white/10">
+                                                <div className="relative bg-slate-900/95 backdrop-blur-xl text-white rounded-lg px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.4)] min-w-[180px] max-w-[250px] space-y-1 border border-white/10">
                                                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 rotate-45 border-b border-r border-white/10" />
-                                                    <p className="text-[8px] uppercase tracking-[0.15em] font-black text-slate-500">
+                                                    <p className="text-[11px] font-semibold text-slate-500">
                                                         {day.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
                                                     </p>
                                                     <div className="flex items-center gap-1.5">
                                                         <div className={cx('w-1.5 h-1.5 rounded-full', stMeta.dot)} />
-                                                        <span className="text-[11px] font-black tabular-nums" style={{ color: typeMeta[apt.type].solid === 'bg-indigo-600' ? '#818cf8' : '#f59e0b' }}>
+                                                        <span className="text-[11px] font-semibold tabular-nums" style={{ color: typeMeta[apt.type].solid === 'bg-primary-600' ? '#818cf8' : '#f59e0b' }}>
                                                             {aptTime} <span className="text-white/30">→</span> {aptEndTime}
                                                         </span>
                                                     </div>
-                                                    <p className="font-black text-[11px] text-white leading-tight truncate">{apt.patient_name || apt.title}</p>
-                                                    {srvName && <p className="text-[9px] text-slate-400 font-semibold truncate">{srvName}</p>}
+                                                    <p className="font-semibold text-[11px] text-white leading-tight truncate">{apt.patient_name || apt.title}</p>
+                                                    {srvName && <p className="text-[11px] text-slate-400 font-semibold truncate">{srvName}</p>}
                                                     <div className="flex items-center gap-1.5 pt-1 border-t border-white/10">
-                                                        <span className="text-[8px] font-bold text-slate-300">{stMeta.label}</span>
+                                                        <span className="text-[11px] font-semibold text-slate-300">{stMeta.label}</span>
                                                         {apt.modality && (
-                                                            <span className={`text-[7px] font-black uppercase ml-auto px-1 py-px rounded-full ${apt.modality === 'online' ? 'text-cyan-300 bg-cyan-500/15' : 'text-slate-400 bg-slate-500/15'}`}>
+                                                            <span className={`text-[10px] font-semibold  ml-auto px-1 py-px rounded-full ${apt.modality === 'online' ? 'text-cyan-300 bg-cyan-500/15' : 'text-slate-400 bg-slate-500/15'}`}>
                                                                 {apt.modality === 'online' ? 'Online' : 'Presencial'}
                                                             </span>
                                                         )}
@@ -1986,7 +1975,7 @@ export const Agenda: React.FC = () => {
                                     {dayApts.length > 3 && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setCurrentDate(day); setView('day'); }}
-                                            className="w-full py-0.5 text-[7px] font-black text-indigo-600 bg-indigo-50/50 hover:bg-indigo-100/50 rounded-md transition-colors border border-indigo-100/50 uppercase tracking-widest text-center"
+                                            className="w-full py-0.5 text-[10px] font-semibold text-primary-600 bg-primary-50/50 hover:bg-primary-100/50 rounded-md transition-colors border border-primary-100/50 text-center"
                                         >
                                             <span className="sm:hidden">+{dayApts.length - 3}</span>
                                             <span className="hidden sm:inline">+ {dayApts.length - 3} mais</span>
@@ -1994,7 +1983,7 @@ export const Agenda: React.FC = () => {
                                     )}
                                 </div>
                                 {hasPermission('create_appointment') && (
-                                    <div className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all translate-y-1 group-hover:translate-y-0 text-indigo-600 bg-white shadow-lg border border-indigo-50 p-1 rounded-md z-10 shrink-0">
+                                    <div className="absolute bottom-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all translate-y-1 group-hover:translate-y-0 text-primary-600 bg-white shadow-sm border border-primary-50 p-1 rounded-md z-10 shrink-0">
                                         <Plus size={10} />
                                     </div>
                                 )}
@@ -2081,7 +2070,7 @@ export const Agenda: React.FC = () => {
           isOpen={isModalOpen}
           onClose={closeAppointmentModal}
           title={formData.id ? 'Editar Sessão' : 'Novo Agendamento'}
-          size="2xl"
+          size="full"
           mobileStyle="bottom-sheet"
           footer={
             <div className="flex w-full justify-between items-center gap-2">
@@ -2095,25 +2084,25 @@ export const Agenda: React.FC = () => {
               ) : <div />}
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={closeAppointmentModal} className="text-zinc-500">Descartar</Button>
-                <Button size="sm" loading={isSaving} onClick={handleSave} disabled={isSaving}
+                <Button size="sm" loading={isSaving} onClick={() => { if ((formData.status === 'no-show' || formData.status === 'cancelled') && !formData.notes?.trim()) setApptTab('notes'); handleSave(); }} disabled={isSaving}
                   iconLeft={<CheckCircle2 size={14} />}
-                  className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white"
-                >
+                  >
                   {formData.id ? 'Atualizar' : 'Confirmar'} Agendamento
                 </Button>
               </div>
             </div>
           }
       >
-          <div className="space-y-3 py-0">
+          <Tabs<typeof APPT_TABS[number]['id']> items={APPT_TABS} value={apptTab} onChange={setApptTab} label="Seções do agendamento" className="mb-3" />
+          <div className={apptTab === 'dados' ? 'space-y-3 py-0' : 'hidden'}>
 
               {/* TYPE SELECTOR — segmented no mobile, cards no desktop */}
               {/* Mobile: pill segmented control */}
-              <div className="flex sm:hidden bg-zinc-100 p-0.5 rounded-xl gap-0.5">
+              <div className="flex sm:hidden bg-zinc-100 p-0.5 rounded-lg gap-0.5">
                 {[
-                  { id: 'consulta', label: 'Consulta',  icon: <Briefcase size={13}/>, activeBg: 'bg-indigo-600 text-white shadow-sm' },
-                  { id: 'pessoal',  label: 'Evento',    icon: <UserIcon  size={13}/>, activeBg: 'bg-amber-500  text-white shadow-sm' },
-                  { id: 'bloqueio', label: 'Bloqueio',  icon: <Ban       size={13}/>, activeBg: 'bg-zinc-600   text-white shadow-sm' },
+                  { id: 'consulta', label: 'Consulta',  icon: <Briefcase size={13}/>, activeBg: 'bg-primary-600 text-white shadow-sm' },
+                  { id: 'pessoal',  label: 'Evento',    icon: <UserIcon  size={13}/>, activeBg: 'bg-amber-500 text-white shadow-sm' },
+                  { id: 'bloqueio', label: 'Bloqueio',  icon: <Ban       size={13}/>, activeBg: 'bg-zinc-600 text-white shadow-sm' },
                 ].map(t => {
                   const active = formData.type === t.id;
                   return (
@@ -2121,7 +2110,7 @@ export const Agenda: React.FC = () => {
                       key={t.id}
                       type="button"
                       onClick={() => setFormData({...formData, type: t.id})}
-                      className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-[9px] text-[10px] font-semibold transition-all ${
+                      className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${
                         active ? t.activeBg : 'text-zinc-400 hover:text-zinc-600'
                       }`}
                     >
@@ -2135,9 +2124,9 @@ export const Agenda: React.FC = () => {
               {/* Desktop: cards compactos */}
               <div className="hidden sm:grid grid-cols-3 gap-2">
                    {[
-                       { id: 'consulta',  label: 'Consulta',       icon: <Briefcase size={16}/>, desc: 'Sessão clínica',       activeClass: 'border-indigo-400 bg-indigo-50/70', iconClass: 'bg-indigo-500 text-white', radioClass: 'border-indigo-600 bg-indigo-600', textClass: 'text-indigo-800' },
-                       { id: 'pessoal',   label: 'Evento Pessoal', icon: <UserIcon size={16}/>,  desc: 'Compromisso pessoal',  activeClass: 'border-amber-400  bg-amber-50/70',  iconClass: 'bg-amber-500  text-white', radioClass: 'border-amber-500  bg-amber-500',  textClass: 'text-amber-800'  },
-                       { id: 'bloqueio',  label: 'Bloqueio',        icon: <Ban size={16}/>,       desc: 'Horário indisponível', activeClass: 'border-zinc-400   bg-zinc-100/80',  iconClass: 'bg-zinc-500   text-white', radioClass: 'border-zinc-500   bg-zinc-500',   textClass: 'text-zinc-700'   },
+                       { id: 'consulta',  label: 'Consulta',       icon: <Briefcase size={16}/>, desc: 'Sessão clínica',       activeClass: 'border-primary-400 bg-primary-50/70', iconClass: 'bg-primary-500 text-white', radioClass: 'border-primary-600 bg-primary-600', textClass: 'text-primary-800' },
+                       { id: 'pessoal',   label: 'Evento Pessoal', icon: <UserIcon size={16}/>,  desc: 'Compromisso pessoal',  activeClass: 'border-amber-400 bg-amber-50/70',  iconClass: 'bg-amber-500 text-white', radioClass: 'border-amber-500 bg-amber-500',  textClass: 'text-amber-800'  },
+                       { id: 'bloqueio',  label: 'Bloqueio',        icon: <Ban size={16}/>,       desc: 'Horário indisponível', activeClass: 'border-zinc-400 bg-zinc-100/80',  iconClass: 'bg-zinc-500 text-white', radioClass: 'border-zinc-500 bg-zinc-500',   textClass: 'text-zinc-700'   },
                    ].map(t => {
                        const active = formData.type === t.id;
                        return (
@@ -2145,16 +2134,16 @@ export const Agenda: React.FC = () => {
                           key={t.id}
                           type="button"
                           onClick={() => setFormData({...formData, type: t.id})}
-                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left ${
-                            active ? t.activeClass + ' shadow-sm' : 'border-zinc-200/80 bg-white hover:border-zinc-300 hover:bg-zinc-50'
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all text-left ${
+                            active ? t.activeClass + 'shadow-sm' : 'border-zinc-200/80 bg-white hover:border-zinc-300 hover:bg-zinc-50'
                           }`}
                         >
                           <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all ${active ? t.iconClass : 'bg-zinc-100 text-zinc-400'}`}>
                             {t.icon}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className={`text-[11px] font-bold leading-tight ${active ? t.textClass : 'text-zinc-600'}`}>{t.label}</div>
-                            <div className="text-[10px] text-zinc-400 mt-0.5">{t.desc}</div>
+                            <div className={`text-[11px] font-semibold leading-tight ${active ? t.textClass : 'text-zinc-600'}`}>{t.label}</div>
+                            <div className="text-[11px] text-zinc-400 mt-0.5">{t.desc}</div>
                           </div>
                           <div className={`ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? t.radioClass : 'border-zinc-200'}`}>
                             {active && <Check size={7} className="text-white" strokeWidth={4} />}
@@ -2166,10 +2155,10 @@ export const Agenda: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* LEFT COLUMN: IDENTIFICATION */}
-                  <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-3.5">
+                  <div className="bg-white border border-zinc-200/80 rounded-lg p-4 space-y-3.5">
                       <div className="flex items-center gap-2">
-                          <div className="w-0.5 h-4 bg-indigo-500 rounded-full"></div>
-                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Identificação</h4>
+                          <div className="w-0.5 h-4 bg-primary-500 rounded-full"></div>
+                          <h4 className="text-[11px] font-semibold text-zinc-500">Identificação</h4>
                       </div>
 
                       {formData.type === 'consulta' ? (
@@ -2180,7 +2169,7 @@ export const Agenda: React.FC = () => {
                                 label="Paciente"
                                 options={patients.map(p => ({ id: String(p.id), label: p.full_name || (p as any).name || '' }))}
                                 value={formData.patient_id || ''}
-                                icon={<UserIcon size={18} className="text-indigo-400" />}
+                                icon={<UserIcon size={18} className="text-primary-400" />}
                                 placeholder="Pesquisar ou adicionar paciente..."
                                 allowCustom={true}
                                 onChange={(val) => {
@@ -2204,12 +2193,12 @@ export const Agenda: React.FC = () => {
                                       const sessTot = cc?.sessions_total ?? 0;
                                       const pct = sessTot > 0 ? Math.round((sessUsed / sessTot) * 100) : 0;
                                       return (
-                                        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                                        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
                                           {/* Topo colorido */}
-                                          <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 px-4 py-3 flex items-center justify-between">
+                                          <div className="bg-primary-600 px-4 py-3 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                              <DollarSign size={13} className="text-indigo-200" />
-                                              <span className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">Comanda vinculada</span>
+                                              <DollarSign size={13} className="text-primary-200" />
+                                              <span className="text-[11px] font-semibold text-primary-200">Comanda vinculada</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                               <button
@@ -2224,14 +2213,14 @@ export const Agenda: React.FC = () => {
                                                   setComandaManagerSourceId(String(formData.comanda_id));
                                                   setIsComandaManagerOpen(true);
                                                 }}
-                                                className="flex items-center gap-1 px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[9px] font-black text-white uppercase tracking-widest transition-all"
+                                                className="flex items-center gap-1 px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[11px] font-semibold text-white transition-all"
                                               >
                                                 Detalhes <ChevronRight size={10} />
                                               </button>
                                               <button
                                                 type="button"
                                                 onClick={() => setFormData({...formData, comanda_id: ''})}
-                                                className="flex items-center gap-1 px-2.5 py-1 bg-white/10 hover:bg-rose-500/80 rounded-lg text-[9px] font-black text-white/70 hover:text-white uppercase tracking-widest transition-all"
+                                                className="flex items-center gap-1 px-2.5 py-1 bg-white/10 hover:bg-rose-500/80 rounded-lg text-[11px] font-semibold text-white/70 hover:text-white transition-all"
                                               >
                                                 Trocar
                                               </button>
@@ -2239,21 +2228,21 @@ export const Agenda: React.FC = () => {
                                           </div>
                                           {/* Corpo */}
                                           <div className="px-4 py-3">
-                                            <p className="text-sm font-black text-slate-800 mb-2">{cc?.description || 'Comanda não encontrada'}</p>
+                                            <p className="text-sm font-semibold text-slate-800 mb-2">{cc?.description || 'Comanda não encontrada'}</p>
                                             <div className="flex items-center justify-between gap-3 mb-2.5">
                                               <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                                                <span className="text-[11px] font-semibold text-primary-600 bg-primary-50 border border-primary-100 px-2 py-0.5 rounded-full">
                                                   {sessUsed}/{sessTot} sessões
                                                 </span>
                                                 {cc?.sync_to_livrocaixa && (
-                                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                                                  <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
                                                     <div className="w-1 h-1 rounded-full bg-emerald-500" />
                                                     Livro Caixa
                                                   </span>
                                                 )}
                                               </div>
                                               {totalVal > 0 && (
-                                                <div className="flex items-center gap-2 text-[10px] font-bold">
+                                                <div className="flex items-center gap-2 text-[11px] font-semibold">
                                                   <span className="text-slate-400">{formatCurrency(paidVal)} <span className="text-slate-300">pago</span></span>
                                                   {pending > 0 && <span className="text-rose-500">{formatCurrency(pending)} <span className="text-rose-300">pend.</span></span>}
                                                 </div>
@@ -2261,7 +2250,7 @@ export const Agenda: React.FC = () => {
                                             </div>
                                             {sessTot > 0 && (
                                               <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                                <div className="h-full bg-primary-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                               </div>
                                             )}
                                           </div>
@@ -2271,11 +2260,11 @@ export const Agenda: React.FC = () => {
                                 ) : (
                                     <div className="space-y-2">
                                         {patientComandas.length > 0 ? (
-                                            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                                            <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
                                                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                                                   <div className="flex items-center gap-2">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Comandas</span>
+                                                    <span className="text-[11px] font-semibold text-slate-500">Comandas</span>
                                                   </div>
                                                   <div className="flex items-center gap-1.5">
                                                     {(() => {
@@ -2292,8 +2281,8 @@ export const Agenda: React.FC = () => {
                                                       const esg = patientComandas.length - disp;
                                                       return (
                                                         <>
-                                                          {disp > 0 && <span className="text-[9px] font-black text-indigo-500 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-full">{disp} disponível{disp > 1 ? 'is' : ''}</span>}
-                                                          {esg > 0 && <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{esg} esgotada{esg > 1 ? 's' : ''}</span>}
+                                                          {disp > 0 && <span className="text-[11px] font-semibold text-primary-500 bg-primary-50 border border-primary-100 px-1.5 py-0.5 rounded-full">{disp} disponível{disp > 1 ? 'is' : ''}</span>}
+                                                          {esg > 0 && <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{esg} esgotada{esg > 1 ? 's' : ''}</span>}
                                                         </>
                                                       );
                                                     })()}
@@ -2314,12 +2303,12 @@ export const Agenda: React.FC = () => {
                                                               <DollarSign size={13} />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                              <p className="text-xs font-black text-slate-500 truncate">{c.description}</p>
+                                                              <p className="text-xs font-semibold text-slate-500 truncate">{c.description}</p>
                                                               <div className="flex items-center gap-2 mt-0.5">
                                                                 <div className="w-16 h-1 bg-slate-200 rounded-full overflow-hidden">
                                                                   <div className="h-full bg-slate-400 rounded-full w-full" />
                                                                 </div>
-                                                                <span className="text-[9px] font-bold text-slate-400">{Math.min(agendadas, tot)}/{tot} agendadas</span>
+                                                                <span className="text-[11px] font-semibold text-slate-400">{Math.min(agendadas, tot)}/{tot} agendadas</span>
                                                               </div>
                                                             </div>
                                                             <button
@@ -2334,7 +2323,7 @@ export const Agenda: React.FC = () => {
                                                                 setComandaManagerSourceId(String(c.id));
                                                                 setIsComandaManagerOpen(true);
                                                               }}
-                                                              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[9px] font-black text-slate-400 uppercase tracking-widest transition-all"
+                                                              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-400 transition-all"
                                                             >
                                                               Ver <ChevronRight size={10} />
                                                             </button>
@@ -2346,21 +2335,21 @@ export const Agenda: React.FC = () => {
                                                             key={c.id}
                                                             type="button"
                                                             onClick={() => handleSelectComanda(c)}
-                                                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left group"
+                                                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary-50 transition-colors text-left group"
                                                         >
-                                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-500 shrink-0 group-hover:bg-indigo-100 transition-colors">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 border border-primary-100 text-primary-500 shrink-0 group-hover:bg-primary-100 transition-colors">
                                                                 <DollarSign size={13} />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                              <p className="text-xs font-black text-slate-700 group-hover:text-indigo-700 truncate transition-colors">{c.description}</p>
+                                                              <p className="text-xs font-semibold text-slate-700 group-hover:text-primary-700 truncate transition-colors">{c.description}</p>
                                                               <div className="flex items-center gap-2 mt-0.5">
                                                                 <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                                  <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${pct}%` }} />
+                                                                  <div className="h-full bg-primary-400 rounded-full" style={{ width: `${pct}%` }} />
                                                                 </div>
-                                                                <span className="text-[9px] font-bold text-slate-400">{Math.min(agendadas, tot)}/{tot} agendadas · {used} consumida{used === 1 ? '' : 's'}</span>
+                                                                <span className="text-[11px] font-semibold text-slate-400">{Math.min(agendadas, tot)}/{tot} agendadas · {used} consumida{used === 1 ? '' : 's'}</span>
                                                               </div>
                                                             </div>
-                                                            <ChevronRight size={13} className="text-slate-300 group-hover:text-indigo-400 shrink-0 transition-colors" />
+                                                            <ChevronRight size={13} className="text-slate-300 group-hover:text-primary-400 shrink-0 transition-colors" />
                                                         </button>
                                                       );
                                                     })}
@@ -2369,7 +2358,7 @@ export const Agenda: React.FC = () => {
                                                   <button
                                                     type="button"
                                                     onClick={openNewComandaModal}
-                                                    className="w-full py-2 rounded-xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-all uppercase tracking-widest flex items-center justify-center gap-1.5"
+                                                    className="w-full py-2 rounded-lg bg-slate-50 hover:bg-primary-50 border border-slate-200 hover:border-primary-200 text-[11px] font-semibold text-slate-400 hover:text-primary-600 transition-all flex items-center justify-center gap-1.5"
                                                   >
                                                     <Plus size={12} />
                                                     Nova comanda
@@ -2381,7 +2370,7 @@ export const Agenda: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={openNewComandaModal}
-                                                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all shadow-sm"
+                                                    className="flex items-center gap-2 px-4 py-2.5 bg-primary-50 text-primary-600 border border-primary-100 rounded-lg text-[11px] font-semibold hover:bg-primary-100 transition-all shadow-sm"
                                                 >
                                                     <Plus size={14} />
                                                     NÃO POSSUI COMANDA? CRIAR NOVA AGORA
@@ -2449,19 +2438,19 @@ export const Agenda: React.FC = () => {
                           <div className="space-y-3">
                             <div className="space-y-3">
                                 <div className="space-y-1 flex-1">
-                                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider ml-0.5">Modalidade</label>
+                                    <label className="text-[11px] font-semibold text-zinc-400 ml-0.5">Modalidade</label>
                                     <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 w-full sm:w-2/3">
                                         <button
                                           type="button"
                                           onClick={() => setFormData({...formData, modality: 'presencial'})}
-                                          className={`flex-1 py-1.5 rounded-md text-[10px] font-semibold transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                          className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-all ${formData.modality === 'presencial' ? 'bg-white shadow-sm text-primary-600 border border-primary-100' : 'text-slate-400 border border-transparent'}`}
                                         >
                                           Presencial
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => setFormData({...formData, modality: 'online'})}
-                                          className={`flex-1 py-1.5 rounded-md text-[10px] font-semibold transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-indigo-600 border border-indigo-100' : 'text-slate-400 border border-transparent'}`}
+                                          className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold transition-all ${formData.modality === 'online' ? 'bg-white shadow-sm text-primary-600 border border-primary-100' : 'text-slate-400 border border-transparent'}`}
                                         >
                                           Online
                                         </button>
@@ -2484,22 +2473,22 @@ export const Agenda: React.FC = () => {
                             </div>
                             
                             {formData.status === 'no-show' && (
-                              <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100 animate-fadeIn">
+                              <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-100 animate-fadeIn">
                                 <AlertCircle size={14} className="text-amber-500 shrink-0" />
-                                <p className="text-[10px] font-bold text-amber-700 leading-tight">Preencha o motivo da falta no campo Observações abaixo.</p>
+                                <p className="text-[11px] font-semibold text-amber-700 leading-tight">Preencha o motivo da falta no campo Observações abaixo.</p>
                               </div>
                             )}
                             {formData.status === 'cancelled' && (
-                              <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100 animate-fadeIn">
+                              <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-lg border border-rose-100 animate-fadeIn">
                                 <AlertCircle size={14} className="text-rose-500 shrink-0" />
-                                <p className="text-[10px] font-bold text-rose-700 leading-tight">Sessão cancelada não será contabilizada na comanda e poderá ser reagendada.</p>
+                                <p className="text-[11px] font-semibold text-rose-700 leading-tight">Sessão cancelada não será contabilizada na comanda e poderá ser reagendada.</p>
                               </div>
                             )}
 
                             {preferences.agenda.showLivroCaixa !== false && !(formData.comanda_id && patientComandas.find(c => String(c.id) === String(formData.comanda_id))?.sync_to_livrocaixa) && (
                               <div
                                 onClick={() => setFormData({...formData, sync_to_livrocaixa: !formData.sync_to_livrocaixa})}
-                                className={`px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
+                                className={`px-3 py-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between group ${
                                     formData.sync_to_livrocaixa
                                         ? 'bg-emerald-50/60 border-emerald-200'
                                         : 'bg-zinc-50 border-zinc-200/80 hover:border-zinc-300'
@@ -2513,7 +2502,7 @@ export const Agenda: React.FC = () => {
                                       </div>
                                       <div>
                                           <p className={`text-[11px] font-semibold ${formData.sync_to_livrocaixa ? 'text-emerald-700' : 'text-slate-600'}`}>Lançar no Livro Caixa</p>
-                                          <p className="text-[10px] text-slate-400">Sincronizar com o financeiro</p>
+                                          <p className="text-[11px] text-slate-400">Sincronizar com o financeiro</p>
                                       </div>
                                   </div>
                                   <div
@@ -2528,21 +2517,21 @@ export const Agenda: React.FC = () => {
                   </div>
 
                   {/* RIGHT COLUMN: TIME & RECURRENCE */}
-                  <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-3.5">
+                  <div className="bg-white border border-zinc-200/80 rounded-lg p-4 space-y-3.5">
                       <div className="flex items-center gap-2">
                           <div className="w-0.5 h-4 bg-emerald-500 rounded-full"></div>
-                          <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Horário e Repetição</h4>
+                          <h4 className="text-[11px] font-semibold text-zinc-500">Horário e Repetição</h4>
                       </div>
 
                       {formData.id ? (
                         /* ── MODO EDIÇÃO: data/hora readonly — só muda via botão dedicado ── */
-                        <div className="flex items-center justify-between gap-3 bg-zinc-50 px-3 py-2.5 rounded-xl border border-zinc-200">
+                        <div className="flex items-center justify-between gap-3 bg-zinc-50 px-3 py-2.5 rounded-lg border border-zinc-200">
                           <div className="flex items-center gap-2.5">
-                            <div className="p-1.5 bg-white rounded-lg text-indigo-500 border border-zinc-100 shrink-0">
+                            <div className="p-1.5 bg-white rounded-lg text-primary-500 border border-zinc-100 shrink-0">
                               <Clock size={14}/>
                             </div>
                             <div>
-                              <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider leading-none mb-0.5">Data e Horário</p>
+                              <p className="text-[11px] font-semibold text-slate-400 leading-none mb-0.5">Data e Horário</p>
                               <p className="text-sm font-semibold text-slate-700 tabular-nums">
                                 {new Date(formData.appointment_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                                 {' · '}
@@ -2551,7 +2540,7 @@ export const Agenda: React.FC = () => {
                             </div>
                           </div>
                           {formData.status === 'completed' ? (
-                            <span className="shrink-0 px-2.5 py-1.5 bg-zinc-100 text-zinc-400 text-[10px] font-semibold rounded-lg cursor-not-allowed" title="Sessão já realizada não pode ter o horário alterado">
+                            <span className="shrink-0 px-2.5 py-1.5 bg-zinc-100 text-zinc-400 text-[11px] font-semibold rounded-lg cursor-not-allowed" title="Sessão já realizada não pode ter o horário alterado">
                               Realizada
                             </span>
                           ) : (
@@ -2564,7 +2553,7 @@ export const Agenda: React.FC = () => {
                                 });
                                 setIsRescheduleModalOpen(true);
                               }}
-                              className="shrink-0 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-lg transition-all"
+                              className="shrink-0 px-2.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-[11px] font-semibold rounded-lg transition-all"
                             >
                               Alterar
                             </button>
@@ -2575,21 +2564,21 @@ export const Agenda: React.FC = () => {
                         <div className="space-y-3">
                           <div className="flex gap-3">
                             <div className="flex-1 min-w-0">
-                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider ml-0.5 mb-1 block">Data</label>
+                                <label className="text-[11px] font-semibold text-slate-400 ml-0.5 mb-1 block">Data</label>
                                 <DatePicker
                                   value={formData.appointment_date.slice(0, 10)}
                                   onChange={val => val && setFormData({...formData, appointment_date: `${val}T${formData.appointment_date.slice(11, 16)}`})}
                                 />
                             </div>
                             <div className="w-2/5">
-                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider ml-0.5 mb-1 block">Hora</label>
+                                <label className="text-[11px] font-semibold text-slate-400 ml-0.5 mb-1 block">Hora</label>
                                 <div className="relative">
-                                  <Clock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                  <Clock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-primary-400 pointer-events-none" />
                                   <input
                                     type="time"
                                     value={formData.appointment_date.slice(11, 16)}
                                     onChange={e => setFormData({...formData, appointment_date: `${formData.appointment_date.slice(0, 10)}T${e.target.value}`})}
-                                    className="h-10 w-full rounded-xl border border-slate-200 pl-8 pr-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all bg-white"
+                                    className="h-10 w-full rounded-lg border border-slate-200 pl-8 pr-2 text-sm font-medium text-slate-700 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-500/10 transition-all bg-white"
                                   />
                                 </div>
                             </div>
@@ -2602,19 +2591,19 @@ export const Agenda: React.FC = () => {
                                   placeholder="50"
                                   value={formData.duration_minutes}
                                   onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
-                                  className="!h-10 !rounded-xl"
+                                  className="!h-10 !rounded-lg"
                               />
                           </div>
                         </div>
                       )}
 
                       {/* END TIME PREVIEW */}
-                      <div className="flex items-center justify-between gap-2 bg-indigo-50/50 px-3 py-2.5 rounded-xl border border-indigo-100/80">
+                      <div className="flex items-center justify-between gap-2 bg-primary-50/50 px-3 py-2.5 rounded-lg border border-primary-100/80">
                           <div className="flex items-center gap-2">
-                              <Clock size={13} className="text-indigo-400 shrink-0"/>
+                              <Clock size={13} className="text-primary-400 shrink-0"/>
                               <div>
-                                  <p className="text-[9px] font-semibold text-indigo-400 uppercase tracking-wider leading-none mb-0.5">Término previsto</p>
-                                  <p className="text-sm font-semibold text-indigo-700 tabular-nums">
+                                  <p className="text-[11px] font-semibold text-primary-400 leading-none mb-0.5">Término previsto</p>
+                                  <p className="text-sm font-semibold text-primary-700 tabular-nums">
                                       {(() => {
                                           try {
                                               const start = new Date(formData.appointment_date);
@@ -2635,7 +2624,7 @@ export const Agenda: React.FC = () => {
                                     setIsEndTimeModalOpen(true);
                                 } catch { setTempEndTime(''); }
                             }}
-                            className="shrink-0 px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] font-semibold rounded-lg transition-all"
+                            className="shrink-0 px-2.5 py-1 bg-white hover:bg-primary-50 text-primary-600 border border-primary-200 text-[11px] font-semibold rounded-lg transition-all"
                           >
                             Alterar
                           </button>
@@ -2647,7 +2636,7 @@ export const Agenda: React.FC = () => {
                             label="Profissional Responsável"
                             options={professionals.map(p => ({ id: p.id, label: p.name }))}
                             value={formData.psychologist_id || formData.professional_id || ''}
-                            icon={<UserCheck size={18} className="text-indigo-400" />}
+                            icon={<UserCheck size={18} className="text-primary-400" />}
                             placeholder="Buscar..."
                             allowCustom={true}
                             onChange={(val) => setFormData({...formData, psychologist_id: val, professional_id: val})}
@@ -2659,19 +2648,19 @@ export const Agenda: React.FC = () => {
                           const selComanda = formData.comanda_id ? patientComandas.find((c: any) => String(c.id) === String(formData.comanda_id)) : null;
                           const needsRecurrence = !formData.id && selComanda && (selComanda.package_id || Number(selComanda.sessions_total) > 1) && !formData.recurrence_rule && !formData.recurrence_explicitly_none;
                           return (
-                          <div className={`px-3 py-2.5 rounded-xl border transition-colors ${needsRecurrence ? 'bg-amber-50 border-amber-300' : 'bg-zinc-50 border-zinc-200/80'}`}>
+                          <div className={`px-3 py-2.5 rounded-lg border transition-colors ${needsRecurrence ? 'bg-amber-50 border-amber-300' : 'bg-zinc-50 border-zinc-200/80'}`}>
                               <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-2">
-                                      <Repeat size={13} className={needsRecurrence ? 'text-amber-500' : 'text-indigo-400'} />
+                                      <Repeat size={13} className={needsRecurrence ? 'text-amber-500' : 'text-primary-400'} />
                                       <div>
-                                          <p className="text-[10px] font-semibold text-slate-600 leading-none">Repetição Fixa</p>
-                                          <p className="text-[9px] text-slate-400 mt-0.5">Sessões recorrentes</p>
+                                          <p className="text-[11px] font-semibold text-slate-600 leading-none">Repetição Fixa</p>
+                                          <p className="text-[11px] text-slate-400 mt-0.5">Sessões recorrentes</p>
                                       </div>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => setIsRecurrenceModalOpen(true)}
-                                    className={`flex items-center gap-1 px-2.5 py-1.5 bg-white border rounded-lg text-[10px] font-semibold hover:bg-slate-50 transition-all group/btn ${needsRecurrence ? 'border-amber-400 text-amber-700' : 'border-zinc-200 text-indigo-600'}`}
+                                    className={`flex items-center gap-1 px-2.5 py-1.5 bg-white border rounded-lg text-[11px] font-semibold hover:bg-slate-50 transition-all group/btn ${needsRecurrence ? 'border-amber-400 text-amber-700' : 'border-zinc-200 text-primary-600'}`}
                                   >
                                     {formData.recurrence_rule ? (
                                         <>
@@ -2686,7 +2675,7 @@ export const Agenda: React.FC = () => {
                               {needsRecurrence && (
                                   <div className="flex items-start gap-1.5 pt-2 mt-2 border-t border-amber-200">
                                       <AlertCircle size={12} className="text-amber-500 mt-0.5 shrink-0" />
-                                      <p className="text-[10px] text-amber-600 leading-relaxed">
+                                      <p className="text-[11px] text-amber-600 leading-relaxed">
                                           Pacote de {selComanda.sessions_total} sessões — configure a repetição ou confirme "Não Repete".
                                       </p>
                                   </div>
@@ -2698,35 +2687,41 @@ export const Agenda: React.FC = () => {
               </div>
 
               {formData.type === 'consulta' && formData.modality === 'online' && (
-                  <div className="bg-indigo-950 px-4 py-3 rounded-xl text-white flex items-center gap-3 relative overflow-hidden">
-                      <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-indigo-300 border border-white/10 shrink-0">
+                  <div className="bg-slate-900 px-4 py-3 rounded-lg text-white flex items-center gap-3 relative overflow-hidden">
+                      <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-primary-300 border border-white/10 shrink-0">
                           <Video size={15}/>
                       </div>
                       <div className="flex-1 min-w-0">
-                          <label className="text-[9px] font-semibold text-indigo-300 uppercase tracking-wider mb-1 block">Link da Sala Virtual</label>
-                          <div className="flex gap-1.5">
-                            <input
+                          <div className="flex gap-1.5 items-end">
+                            <Input
+                              label="Link da Sala Virtual"
+                              labelClassName="!text-slate-200"
                               placeholder="Google Meet, Zoom ou sala interna..."
                               value={formData.meeting_url || ''}
                               onChange={e => setFormData({...formData, meeting_url: e.target.value})}
-                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-white/30 outline-none focus:bg-white/10 focus:border-indigo-400 transition-all"
+                              wrapperClassName="flex-1 min-w-0 !mb-0"
                             />
                             {googleMeetEnabled && (
-                              <button
+                              <Button
                                 type="button"
+                                size="sm"
+                                variant="secondary"
                                 onClick={handleGenerateGoogleMeetLink}
+                                loading={generatingMeetLink}
                                 disabled={generatingMeetLink}
                                 title="Gerar link do Google Meet automaticamente"
-                                className="shrink-0 px-2.5 py-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap"
+                                className="shrink-0"
                               >
-                                {generatingMeetLink ? <Loader2 size={13} className="animate-spin" /> : 'Gerar Meet'}
-                              </button>
+                                Gerar Meet
+                              </Button>
                             )}
                           </div>
                       </div>
                   </div>
               )}
 
+          </div>
+          <div className={apptTab === 'notes' ? 'space-y-3 py-0' : 'hidden'}>
               {/* OBSERVATIONS SECTION (MODERN CARD) */}
               {(() => {
                 const isAbsence = formData.status === 'no-show';
@@ -2738,16 +2733,16 @@ export const Agenda: React.FC = () => {
                   : isCancelled
                   ? 'Motivo do Cancelamento'
                   : 'Prontuário e Observações';
-                const notesColor = needsReason ? 'bg-rose-500' : 'bg-indigo-500';
+                const notesColor = needsReason ? 'bg-rose-500' : 'bg-primary-500';
                 const borderClass = needsReason && notesEmpty
                   ? '!border-rose-400 focus:!border-rose-600'
                   : 'border-slate-200';
                 
                 return (
-                  <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-2.5">
+                  <div className="bg-white border border-zinc-200/80 rounded-lg p-4 space-y-2.5">
                       <div className="flex items-center gap-2">
                           <div className={`w-0.5 h-4 ${notesColor} rounded-full`}></div>
-                          <h4 className={`text-[10px] font-bold uppercase tracking-[0.12em] ${needsReason ? 'text-rose-600' : 'text-zinc-500'}`}>
+                          <h4 className={`text-[11px] font-semibold   ${needsReason ? 'text-rose-600' : 'text-zinc-500'}`}>
                             {notesLabel}{needsReason && <span className="text-rose-500 ml-1">*</span>}
                           </h4>
                       </div>
@@ -2760,12 +2755,12 @@ export const Agenda: React.FC = () => {
                           : 'Detalhes sobre o atendimento, queixas ou observações importantes...'}
                         value={formData.notes || ''}
                         onChange={e => setFormData({...formData, notes: e.target.value})}
-                        className={`min-h-[90px] !rounded-xl !bg-zinc-50/50 !p-3.5 focus:!bg-white transition-all text-sm leading-relaxed ${borderClass}`}
+                        className={`min-h-[90px] !rounded-lg !bg-zinc-50/50 !p-3.5 focus:!bg-white transition-all text-sm leading-relaxed ${borderClass}`}
                       />
                       {needsReason && notesEmpty && (
                         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-rose-50 rounded-lg border border-rose-100 animate-fadeIn">
                           <AlertCircle size={12} className="text-rose-500 shrink-0" />
-                          <p className="text-[10px] font-semibold text-rose-600">Campo obrigatório para {isAbsence ? 'falta' : 'cancelamento'}</p>
+                          <p className="text-[11px] font-semibold text-rose-600">Campo obrigatório para {isAbsence ? 'falta' : 'cancelamento'}</p>
                         </div>
                       )}
                   </div>
@@ -2773,8 +2768,8 @@ export const Agenda: React.FC = () => {
               })()}
 
               {formData.id && formData.status !== 'no-show' && formData.status !== 'cancelled' && (
-                <div className="bg-amber-50/70 px-4 pt-3 pb-3.5 rounded-xl border border-amber-200 flex flex-col gap-2">
-                    <p className="text-[10px] font-semibold text-amber-700 flex items-center gap-1.5">
+                <div className="bg-amber-50/70 px-4 pt-3 pb-3.5 rounded-lg border border-amber-200 flex flex-col gap-2">
+                    <p className="text-[11px] font-semibold text-amber-700 flex items-center gap-1.5">
                       <AlertCircle size={11} className="text-amber-500" /> Motivo da alteração (opcional)
                     </p>
                     <Textarea
@@ -2782,7 +2777,7 @@ export const Agenda: React.FC = () => {
                         placeholder="Por que este atendimento foi alterado?"
                         value={formData.reschedule_reason || ''}
                         onChange={e => setFormData({...formData, reschedule_reason: e.target.value})}
-                        className="!bg-white !border-amber-200 min-h-[56px] text-amber-800 placeholder:text-amber-300 !rounded-xl !text-sm"
+                        className="!bg-white !border-amber-200 min-h-[56px] text-amber-800 placeholder:text-amber-300 !rounded-lg !text-sm"
                     />
                 </div>
               )}
@@ -2790,70 +2785,17 @@ export const Agenda: React.FC = () => {
       </Modal>
 
       {/* DELETE CONFIRM */}
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col max-h-[80vh] animate-bounceIn">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center border border-rose-100 shrink-0">
-                <Trash2 size={16} />
-              </div>
-              <div>
-                <p className="text-sm font-black text-slate-800 leading-none">Remover Atendimento?</p>
-                {!(selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1) && (
-                  <p className="text-[10px] font-bold text-slate-400 mt-0.5">Esta ação não pode ser desfeita.</p>
-                )}
-              </div>
-            </div>
-
-            {selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 ? (
-              <>
-                <p className="text-[10px] font-bold text-slate-400 mb-3 leading-relaxed">
-                  Vinculado a uma comanda com outros atendimentos. Selecione quais remover:
-                </p>
-                <div className="flex-1 overflow-y-auto space-y-1 mb-4 custom-scrollbar">
-                  {appointments
-                    .filter(a => a.comanda_id === selectedApt.comanda_id)
-                    .sort((a,b) => a.start.getTime() - b.start.getTime())
-                    .map(apt => (
-                    <label key={apt.id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${selectedDeleteIds.includes(apt.id) ? 'border-rose-200 bg-rose-50' : 'border-slate-100 hover:bg-slate-50'}`}>
-                      <input
-                        type="checkbox"
-                        checked={selectedDeleteIds.includes(apt.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedDeleteIds([...selectedDeleteIds, apt.id]);
-                          else setSelectedDeleteIds(selectedDeleteIds.filter(id => id !== apt.id));
-                        }}
-                        className="w-3.5 h-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-500 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-black text-slate-700 truncate">{apt.patient_name || apt.title}</p>
-                        <p className="text-[9px] font-bold text-slate-400">
-                          {apt.start.toLocaleDateString('pt-BR')} às {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                      {apt.id === selectedApt.id && (
-                        <span className="text-[8px] font-black bg-slate-100 px-1.5 py-0.5 rounded-md text-slate-400 uppercase shrink-0">atual</span>
-                      )}
-                    </label>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <p className="text-[11px] font-bold text-slate-400 mb-4 leading-relaxed">
-                Deseja remover este compromisso permanentemente?
-              </p>
-            )}
-
-            <div className="flex gap-2 shrink-0">
-              <button onClick={() => { setIsDeleteModalOpen(false); setSelectedDeleteIds([]); }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-400 hover:text-slate-600 hover:bg-slate-50 uppercase tracking-widest transition-all">
-                Cancelar
-              </button>
-              <button
-                disabled={selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 && selectedDeleteIds.length === 0}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm shadow-rose-200 transition-all"
-                onClick={async () => {
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => { setIsDeleteModalOpen(false); setSelectedDeleteIds([]); }}
+        title="Remover Atendimento?"
+        size="sm"
+        zIndex={10001}
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setIsDeleteModalOpen(false); setSelectedDeleteIds([]); }}>Cancelar</Button>
+            <Button variant="danger" size="sm" disabled={!!(selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1) && selectedDeleteIds.length === 0}
+              onClick={async () => {
                   const idsToDel = (selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1)
                     ? selectedDeleteIds
                     : [formData.id || selectedApt?.id];
@@ -2866,12 +2808,56 @@ export const Agenda: React.FC = () => {
                     fetchData(); closeAppointmentModal(); setIsDeleteModalOpen(false); setIsDetailModalOpen(false); setSelectedDeleteIds([]);
                   } catch (err) { console.error(err); pushToast('error', 'Erro ao remover agendamento(s).'); fetchData(); }
                 }}>
-                {selectedDeleteIds.length > 1 ? `Excluir ${selectedDeleteIds.length}` : 'Excluir'}
-              </button>
-            </div>
+              {selectedDeleteIds.length > 1 ? `Excluir ${selectedDeleteIds.length}` : 'Excluir'}
+            </Button>
           </div>
+        }
+      >
+        <div className="flex flex-col">
+          {!(selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1) && (
+            <p className="text-[11px] text-slate-500 mb-2">Esta ação não pode ser desfeita.</p>
+          )}
+            {selectedApt?.comanda_id && appointments.filter(a => a.comanda_id === selectedApt.comanda_id).length > 1 ? (
+              <>
+                <p className="text-[11px] font-semibold text-slate-400 mb-3 leading-relaxed">
+                  Vinculado a uma comanda com outros atendimentos. Selecione quais remover:
+                </p>
+                <div className="flex-1 overflow-y-auto space-y-1 mb-4 custom-scrollbar">
+                  {appointments
+                    .filter(a => a.comanda_id === selectedApt.comanda_id)
+                    .sort((a,b) => a.start.getTime() - b.start.getTime())
+                    .map(apt => (
+                    <label key={apt.id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selectedDeleteIds.includes(apt.id) ? 'border-rose-200 bg-rose-50' : 'border-slate-100 hover:bg-slate-50'}`}>
+                      <input
+                        type="checkbox"
+                        checked={selectedDeleteIds.includes(apt.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedDeleteIds([...selectedDeleteIds, apt.id]);
+                          else setSelectedDeleteIds(selectedDeleteIds.filter(id => id !== apt.id));
+                        }}
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-500 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-semibold text-slate-700 truncate">{apt.patient_name || apt.title}</p>
+                        <p className="text-[11px] font-semibold text-slate-400">
+                          {apt.start.toLocaleDateString('pt-BR')} às {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      {apt.id === selectedApt.id && (
+                        <span className="text-[11px] font-semibold bg-slate-100 px-1.5 py-0.5 rounded-md text-slate-400 shrink-0">atual</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-[11px] font-semibold text-slate-400 mb-4 leading-relaxed">
+                Deseja remover este compromisso permanentemente?
+              </p>
+            )}
+
         </div>
-      )}
+      </Modal>
       {/* RECURRENCE SELECTION MODAL */}
       <Modal
         isOpen={isRecurrenceModalOpen}
@@ -2881,13 +2867,13 @@ export const Agenda: React.FC = () => {
         maxWidth="md"
       >
         <div className="space-y-1">
-            <div className="flex items-center gap-3 p-4 mb-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                <div className="p-2 bg-white rounded-lg text-indigo-500 shadow-sm border border-indigo-200">
+            <div className="flex items-center gap-3 p-4 mb-4 bg-primary-50 border border-primary-100 rounded-lg">
+                <div className="p-2 bg-white rounded-lg text-primary-500 shadow-sm border border-primary-200">
                     <Repeat size={18} />
                 </div>
                 <div className="flex-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Opção Atual</p>
-                    <p className="font-bold text-indigo-900">
+                    <p className="text-[11px] font-semibold text-slate-400 leading-none mb-1">Opção Atual</p>
+                    <p className="font-semibold text-primary-900">
                         {formData.recurrence_rule ? (
                             recurrenceOptions.find(o => o.freq === formData.recurrence_freq && o.interval === formData.recurrence_interval)?.label || 'Personalizado'
                         ) : 'Não Repete'}
@@ -2895,7 +2881,7 @@ export const Agenda: React.FC = () => {
                 </div>
             </div>
 
-            <p className="text-[10px] font-bold text-indigo-500 mb-4 px-2 italic leading-relaxed">
+            <p className="text-[11px] font-semibold text-primary-500 mb-4 px-2 italic leading-relaxed">
                Dica: Escolha repetição semanal caso queira que sempre caia no mesmo dia da semana
             </p>
 
@@ -2936,9 +2922,9 @@ export const Agenda: React.FC = () => {
                               setIsRecurrenceModalOpen(false);
                           }
                       }}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
+                      className="w-full flex items-center justify-between p-4 rounded-lg hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
                     >
-                        <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{opt.label}</span>
+                        <span className="text-sm font-semibold text-slate-700 group-hover:text-primary-600 transition-colors">{opt.label}</span>
                         <ChevronRight size={16} className="text-slate-300 group-hover:translate-x-1 transition-all" />
                     </button>
                 ))}
@@ -2958,7 +2944,7 @@ export const Agenda: React.FC = () => {
             <Button variant="ghost" onClick={() => setIsRescheduleModalOpen(false)} className="text-xs font-semibold h-10 px-6">Cancelar</Button>
             <Button
               variant="primary"
-              className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
+              className="!bg-primary-600 hover:!bg-primary-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
               onClick={() => {
                 const newDate = `${tempDateTime.date}T${tempDateTime.time}`;
                 setFormData((prev: any) => ({ ...prev, appointment_date: newDate }));
@@ -2972,7 +2958,7 @@ export const Agenda: React.FC = () => {
       >
         <div className="space-y-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+            <label className="text-[11px] font-semibold text-slate-500 ml-1">Data</label>
             <DatePicker
               value={tempDateTime.date}
               onChange={val => val && setTempDateTime((prev: any) => ({ ...prev, date: val }))}
@@ -2985,7 +2971,7 @@ export const Agenda: React.FC = () => {
             onChange={e => setTempDateTime((prev: any) => ({ ...prev, time: e.target.value }))}
           />
           {tempDateTime.date && tempDateTime.time && (
-            <div className="flex items-center gap-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100 text-sm font-black text-indigo-700">
+            <div className="flex items-center gap-2 bg-primary-50 p-3 rounded-lg border border-primary-100 text-sm font-semibold text-primary-700">
               <Clock size={14} />
               {new Date(`${tempDateTime.date}T${tempDateTime.time}`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
               {' às '}
@@ -3007,7 +2993,7 @@ export const Agenda: React.FC = () => {
             <Button variant="ghost" onClick={() => setIsEndTimeModalOpen(false)} className="text-xs font-semibold h-10 px-6">Cancelar</Button>
             <Button
               variant="primary"
-              className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
+              className="!bg-primary-600 hover:!bg-primary-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
               onClick={() => {
                 try {
                     const start = new Date(formData.appointment_date);
@@ -3041,7 +3027,7 @@ export const Agenda: React.FC = () => {
             value={tempEndTime}
             onChange={e => setTempEndTime(e.target.value)}
           />
-          <p className="text-[10px] text-slate-400 font-medium px-1">
+          <p className="text-[11px] text-slate-400 font-medium px-1">
              Selecione o horário exato em que a sessão deve terminar. A duração total será ajustada.
           </p>
         </div>
@@ -3059,7 +3045,7 @@ export const Agenda: React.FC = () => {
                 <Button variant="ghost" onClick={() => { setIsRecurrenceConfigOpen(false); setIsRecurrenceModalOpen(true); }} className="text-xs font-semibold h-10 px-6">VOLTAR</Button>
                 <Button
                     variant="primary"
-                    className="!bg-indigo-600 hover:!bg-indigo-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
+                    className="!bg-primary-600 hover:!bg-primary-700 !text-white h-10 px-8 text-xs font-semibold rounded-lg"
                     onClick={() => {
                         setFormData({
                             ...formData,
@@ -3098,11 +3084,11 @@ export const Agenda: React.FC = () => {
             {(tempRecurrence.freq === 'DAILY' || tempRecurrence.freq === 'WEEKLY' || tempRecurrence.freq === 'MONTHLY' || tempRecurrence.freq === 'YEARLY') && (
               <div className="flex items-end gap-3">
                 <div className="flex flex-col gap-1.5 w-24">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">A cada</label>
+                  <label className="text-[11px] font-semibold text-slate-400">A cada</label>
                   <input
                     type="text"
                     inputMode="numeric"
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-center"
+                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition-all text-center"
                     value={tempRecurrence.interval || 1}
                     onChange={e => {
                       const val = e.target.value.replace(/\D/g, '');
@@ -3110,7 +3096,7 @@ export const Agenda: React.FC = () => {
                     }}
                   />
                 </div>
-                <div className="h-10 flex items-center px-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-black text-slate-400 uppercase tracking-wide flex-1">
+                <div className="h-10 flex items-center px-4 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-400 flex-1">
                   {tempRecurrence.freq === 'DAILY' ? 'Dia(s)' : tempRecurrence.freq === 'WEEKLY' ? 'Semana(s)' : tempRecurrence.freq === 'MONTHLY' ? 'Mês(es)' : 'Ano(s)'}
                 </div>
               </div>
@@ -3118,7 +3104,7 @@ export const Agenda: React.FC = () => {
 
             {/* Terminar em */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+              <label className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
                 <Repeat size={11} /> Terminar em
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -3126,14 +3112,14 @@ export const Agenda: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setTempRecurrence({...tempRecurrence, endType: 'count'})}
-                  className={`p-3 rounded-xl border-2 transition-all text-left ${tempRecurrence.endType === 'count' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                  className={`p-3 rounded-lg border-2 transition-all text-left ${tempRecurrence.endType === 'count' ? 'border-primary-500 bg-primary-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                 >
-                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${tempRecurrence.endType === 'count' ? 'text-indigo-500' : 'text-slate-400'}`}>Por vezes</p>
+                  <p className={`text-[11px] font-semibold   mb-1.5 ${tempRecurrence.endType === 'count' ? 'text-primary-500' : 'text-slate-400'}`}>Por vezes</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
-                      className={`w-12 h-8 rounded-lg border text-center font-black text-slate-700 outline-none text-sm transition-all ${tempRecurrence.endType === 'count' ? 'border-indigo-300 bg-white focus:ring-2 focus:ring-indigo-100' : 'border-slate-200 bg-slate-50'}`}
+                      className={`w-12 h-8 rounded-lg border text-center font-semibold text-slate-700 outline-none text-sm transition-all ${tempRecurrence.endType === 'count' ? 'border-primary-300 bg-white focus:ring-2 focus:ring-primary-100' : 'border-slate-200 bg-slate-50'}`}
                       value={tempRecurrence.endType === 'count' ? (tempRecurrence.endValue || '') : ''}
                       onClick={e => { e.stopPropagation(); setTempRecurrence({...tempRecurrence, endType: 'count'}); }}
                       onChange={e => {
@@ -3141,7 +3127,7 @@ export const Agenda: React.FC = () => {
                         setTempRecurrence({...tempRecurrence, endValue: val ? parseInt(val) : '' as any, endType: 'count'});
                       }}
                     />
-                    <span className="text-[10px] font-bold text-slate-400">sessões</span>
+                    <span className="text-[11px] font-semibold text-slate-400">sessões</span>
                   </div>
                 </button>
 
@@ -3149,15 +3135,15 @@ export const Agenda: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setTempRecurrence({...tempRecurrence, endType: 'until'})}
-                  className={`p-3 rounded-xl border-2 transition-all text-left ${tempRecurrence.endType === 'until' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                  className={`p-3 rounded-lg border-2 transition-all text-left ${tempRecurrence.endType === 'until' ? 'border-primary-500 bg-primary-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                 >
-                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1.5 ${tempRecurrence.endType === 'until' ? 'text-indigo-500' : 'text-slate-400'}`}>Por data</p>
+                  <p className={`text-[11px] font-semibold   mb-1.5 ${tempRecurrence.endType === 'until' ? 'text-primary-500' : 'text-slate-400'}`}>Por data</p>
                   <div className="flex items-center gap-1.5">
-                    <CalendarIcon size={12} className={tempRecurrence.endType === 'until' ? 'text-indigo-400' : 'text-slate-300'} />
+                    <CalendarIcon size={12} className={tempRecurrence.endType === 'until' ? 'text-primary-400' : 'text-slate-300'} />
                     <DatePicker
                       value={tempRecurrence.endType === 'until' ? String(tempRecurrence.endValue || '') : ''}
                       onChange={(val) => val && setTempRecurrence({...tempRecurrence, endValue: val, endType: 'until'})}
-                      className="text-xs font-black text-slate-700 bg-transparent outline-none"
+                      className="text-xs font-semibold text-slate-700 bg-transparent outline-none"
                     />
                   </div>
                 </button>
@@ -3166,9 +3152,9 @@ export const Agenda: React.FC = () => {
 
             {/* Preview */}
             {tempRecurrence.freq && (tempRecurrence.endValue || tempRecurrence.endType === 'count') && (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl">
-                <Repeat size={12} className="text-indigo-400 shrink-0" />
-                <p className="text-[11px] font-bold text-indigo-700">
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-primary-50 border border-primary-100 rounded-lg">
+                <Repeat size={12} className="text-primary-400 shrink-0" />
+                <p className="text-[11px] font-semibold text-primary-700">
                   {['DAILY','WEEKLY','TWICE_WEEKLY','THREE_WEEKLY','MONTHLY','YEARLY'].includes(tempRecurrence.freq) && (() => {
                     const freqLabel: Record<string,string> = { DAILY: 'dia', WEEKLY: 'semana', TWICE_WEEKLY: '2x/semana', THREE_WEEKLY: '3x/semana', MONTHLY: 'mês', YEARLY: 'ano' };
                     const intv = tempRecurrence.interval > 1 ? ` a cada ${tempRecurrence.interval} ` : ' ';
@@ -3198,7 +3184,7 @@ export const Agenda: React.FC = () => {
               Cancelar
             </Button>
             <Button onClick={handleCreateComanda} size="sm" loading={isSaving}
-              className="bg-indigo-600 hover:bg-indigo-700 border-indigo-700 text-white"
+              className="bg-primary-600 hover:bg-primary-700 border-primary-700 text-white"
               iconLeft={<CheckCircle2 size={14} />}
             >
               {editingComanda?.id ? 'Salvar alterações' : 'Criar comanda'}
@@ -3214,17 +3200,17 @@ export const Agenda: React.FC = () => {
             isLocked = lockedMonths.includes(editingComanda.startDate.slice(0, 7)) || lockedMonths.includes(monthKey);
           }
 
-          const fieldLabel = "text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 block";
-          const fieldInput = "w-full h-10 rounded-xl border border-zinc-200 bg-white px-3.5 text-sm font-medium text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none";
+          const fieldLabel = "text-[11px] font-semibold text-slate-400 mb-1 block";
+          const fieldInput = "w-full h-10 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm font-medium text-slate-700 placeholder:text-slate-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-500/10 transition-all outline-none";
 
           return (
           <div className="space-y-4">
             {/* Alerta mês fechado */}
             {isLocked && editingComanda.syncToLivrocaixa && (
-              <div className="flex items-start gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">
+              <div className="flex items-start gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider mb-0.5">Livro Caixa Fechado</p>
+                  <p className="text-[11px] font-semibold mb-0.5">Livro Caixa Fechado</p>
                   <p className="text-xs leading-relaxed text-rose-600">Este período está bloqueado. Abra o mês no Livro Caixa ou desative a sincronização.</p>
                 </div>
               </div>
@@ -3234,7 +3220,7 @@ export const Agenda: React.FC = () => {
             <div className="grid grid-cols-2 gap-2">
               {[
                 { id: 'avulsa', label: 'Comanda Avulsa', desc: 'Serviço único', icon: <FileText size={15}/>,
-                  activeClass: 'border-indigo-400 bg-indigo-50/60', iconClass: 'bg-indigo-500 text-white', textClass: 'text-indigo-800' },
+                  activeClass: 'border-primary-400 bg-primary-50/60', iconClass: 'bg-primary-500 text-white', textClass: 'text-primary-800' },
                 { id: 'pacote', label: 'Protocolo de Pacote', desc: 'Múltiplas sessões', icon: <Package size={15}/>,
                   activeClass: 'border-violet-400 bg-violet-50/60', iconClass: 'bg-violet-500 text-white', textClass: 'text-violet-800' },
               ].map(t => {
@@ -3252,16 +3238,16 @@ export const Agenda: React.FC = () => {
                         setEditingComanda({ ...editingComanda, sessions_total: Number(editingComanda.sessions_total || 0) > 1 ? Number(editingComanda.sessions_total || 0) : 4, items: editingComanda.items && editingComanda.items.length > 0 ? editingComanda.items : [{ name: '', serviceId: '', qty: 1, price: 0 }] });
                       }
                     }}
-                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left ${active ? t.activeClass + ' shadow-sm' : 'border-zinc-200/80 bg-white hover:border-zinc-300'}`}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all text-left ${active ? t.activeClass + 'shadow-sm' : 'border-zinc-200/80 bg-white hover:border-zinc-300'}`}
                   >
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all ${active ? t.iconClass : 'bg-zinc-100 text-zinc-400'}`}>
                       {t.icon}
                     </div>
                     <div className="min-w-0">
                       <div className={`text-[11px] font-semibold leading-tight ${active ? t.textClass : 'text-zinc-600'}`}>{t.label}</div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5">{t.desc}</div>
+                      <div className="text-[11px] text-zinc-400 mt-0.5">{t.desc}</div>
                     </div>
-                    <div className={`ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? (t.id === 'avulsa' ? 'border-indigo-600 bg-indigo-600' : 'border-violet-600 bg-violet-600') : 'border-zinc-200'}`}>
+                    <div className={`ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${active ? (t.id === 'avulsa' ? 'border-primary-600 bg-primary-600' : 'border-violet-600 bg-violet-600') : 'border-zinc-200'}`}>
                       {active && <Check size={7} className="text-white" strokeWidth={4} />}
                     </div>
                   </button>
@@ -3271,19 +3257,19 @@ export const Agenda: React.FC = () => {
 
             {/* LIVRO CAIXA */}
             {editingComanda.id && editingComanda.syncToLivrocaixa ? (
-              <div className="flex items-center gap-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <div className="flex items-center gap-3 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-white shrink-0">
                   <CheckCircle2 size={14} />
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold text-emerald-800">Vinculado ao Livro Caixa</p>
-                  <p className="text-[10px] text-emerald-600">Esta comanda já reflete no saldo financeiro</p>
+                  <p className="text-[11px] text-emerald-600">Esta comanda já reflete no saldo financeiro</p>
                 </div>
               </div>
             ) : (
               <div
                 onClick={() => setEditingComanda({ ...editingComanda, syncToLivrocaixa: !editingComanda.syncToLivrocaixa })}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all ${
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border cursor-pointer transition-all ${
                   editingComanda.syncToLivrocaixa ? 'border-emerald-300 bg-emerald-50/70' : 'border-zinc-200/80 bg-zinc-50 hover:border-zinc-300'
                 }`}
               >
@@ -3293,7 +3279,7 @@ export const Agenda: React.FC = () => {
                   </div>
                   <div>
                     <p className={`text-[11px] font-semibold ${editingComanda.syncToLivrocaixa ? 'text-emerald-800' : 'text-slate-600'}`}>Sincronizar no Livro Caixa</p>
-                    <p className="text-[10px] text-slate-400">{editingComanda.syncToLivrocaixa ? 'Ativo — saldo espelhado no financeiro' : 'Inativo — comanda isolada'}</p>
+                    <p className="text-[11px] text-slate-400">{editingComanda.syncToLivrocaixa ? 'Ativo — saldo espelhado no financeiro' : 'Inativo — comanda isolada'}</p>
                   </div>
                 </div>
                 <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${editingComanda.syncToLivrocaixa ? 'bg-emerald-500' : 'bg-slate-200'}`}>
@@ -3303,10 +3289,10 @@ export const Agenda: React.FC = () => {
             )}
 
             {/* DADOS DA COMANDA */}
-            <div className="bg-white border border-zinc-200/80 rounded-xl p-4 space-y-4">
+            <div className="bg-white border border-zinc-200/80 rounded-lg p-4 space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-0.5 h-4 bg-indigo-500 rounded-full" />
-                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Detalhes do Lançamento</h3>
+                <div className="w-0.5 h-4 bg-primary-500 rounded-full" />
+                <h3 className="text-[11px] font-semibold text-zinc-500">Detalhes do Lançamento</h3>
               </div>
 
             {modalTab === 'avulsa' ? (
@@ -3444,11 +3430,11 @@ export const Agenda: React.FC = () => {
                 <div className="sm:col-span-2 pt-1">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-0.5 h-4 bg-emerald-500 rounded-full" />
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.12em]">Serviços do Pacote</span>
+                    <span className="text-[11px] font-semibold text-zinc-500">Serviços do Pacote</span>
                   </div>
 
-                  <div className="space-y-2 bg-zinc-50 border border-zinc-200/80 rounded-xl p-3">
-                    <div className="hidden sm:grid grid-cols-12 gap-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-1">
+                  <div className="space-y-2 bg-zinc-50 border border-zinc-200/80 rounded-lg p-3">
+                    <div className="hidden sm:grid grid-cols-12 gap-3 text-[11px] font-semibold text-slate-400 px-1">
                       <div className="col-span-6">Serviço</div>
                       <div className="col-span-2">Qtd</div>
                       <div className="col-span-3">Preço</div>
@@ -3458,7 +3444,7 @@ export const Agenda: React.FC = () => {
                     {(editingComanda.items || []).map((item, index) => (
                       <div key={index} className="grid grid-cols-1 sm:grid-cols-12 items-end gap-2 p-2 sm:p-0 bg-white sm:bg-transparent rounded-lg border sm:border-0 border-zinc-200">
                         <div className="sm:col-span-6">
-                          <label className="sm:hidden block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Serviço</label>
+                          <label className="sm:hidden block text-[11px] font-semibold text-slate-400 mb-1">Serviço</label>
                           <Select label="" value={item.serviceId || ''} onChange={(e) => updatePackageItem(index, { serviceId: e.target.value }, true)} size="sm" wrapperClassName="!mb-0">
                             <option value="">Selecione</option>
                             {services.map((service) => (
@@ -3488,7 +3474,7 @@ export const Agenda: React.FC = () => {
                   </div>
 
                   <button type="button" onClick={addPackageItem}
-                    className="mt-2 w-full rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 py-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:bg-indigo-50 hover:border-indigo-300 flex items-center justify-center gap-1.5"
+                    className="mt-2 w-full rounded-lg border border-dashed border-primary-200 bg-primary-50/40 py-2.5 text-[11px] font-semibold text-primary-600 transition-all hover:bg-primary-50 hover:border-primary-300 flex items-center justify-center gap-1.5"
                   >
                     <Plus size={12} /> Adicionar Serviço
                   </button>
@@ -3498,37 +3484,37 @@ export const Agenda: React.FC = () => {
             </div>
 
             {/* TOTAIS */}
-            <div className="bg-zinc-50 border border-zinc-200/80 rounded-xl p-4">
+            <div className="bg-zinc-50 border border-zinc-200/80 rounded-lg p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Valor original</span>
+                    <span className="text-[11px] font-semibold text-slate-400">Valor original</span>
                     <span className="text-sm font-semibold text-slate-600">{formatCurrency(modalGrossTotal)}</span>
                   </div>
                   <div className="w-px h-8 bg-zinc-200" />
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Desconto</span>
+                    <span className="text-[11px] font-semibold text-slate-400">Desconto</span>
                     <div className="inline-flex overflow-hidden rounded-lg border border-zinc-200 bg-white">
                       <button type="button"
                         onClick={() => setEditingComanda({ ...editingComanda, discount_type: 'percentage' })}
-                        className={`px-2.5 py-1 text-[10px] font-bold transition-colors ${editingComanda.discount_type === 'percentage' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-zinc-50'}`}
+                        className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${editingComanda.discount_type === 'percentage' ? 'bg-primary-500 text-white' : 'text-slate-400 hover:bg-zinc-50'}`}
                       >%</button>
                       <button type="button"
                         onClick={() => setEditingComanda({ ...editingComanda, discount_type: 'fixed' })}
-                        className={`px-2.5 py-1 text-[10px] font-bold border-l border-zinc-100 transition-colors ${editingComanda.discount_type === 'fixed' ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:bg-zinc-50'}`}
+                        className={`px-2.5 py-1 text-[11px] font-semibold border-l border-zinc-100 transition-colors ${editingComanda.discount_type === 'fixed' ? 'bg-primary-500 text-white' : 'text-slate-400 hover:bg-zinc-50'}`}
                       >R$</button>
                     </div>
                     <input
                       value={formatCurrencyInput(Number(editingComanda.discount_value || 0))}
                       onChange={(e) => setEditingComanda({ ...editingComanda, discount_value: parseMonetaryValue(e.target.value) })}
-                      className="h-8 w-24 rounded-lg border border-zinc-200 bg-white px-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all text-right"
+                      className="h-8 w-24 rounded-lg border border-zinc-200 bg-white px-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-500/10 transition-all text-right"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 bg-white border border-zinc-200 rounded-xl px-4 py-2.5 sm:min-w-[180px]">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total a pagar</span>
-                  <strong className="text-xl font-bold text-indigo-600">{formatCurrency(modalNetTotal)}</strong>
+                <div className="flex items-center justify-between sm:justify-end gap-3 bg-white border border-zinc-200 rounded-lg px-4 py-2.5 sm:min-w-[180px]">
+                  <span className="text-[11px] font-semibold text-slate-400">Total a pagar</span>
+                  <strong className="text-xl font-semibold text-primary-600">{formatCurrency(modalNetTotal)}</strong>
                 </div>
               </div>
             </div>
@@ -3555,12 +3541,12 @@ export const Agenda: React.FC = () => {
         const accentColor = statusColor[currentStatus] || '#6366f1';
 
         const quickStatuses = [
-          { key: 'scheduled', label: 'Agendado', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', active: 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' },
-          { key: 'confirmed', label: 'Confirmado', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', active: 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-100' },
-          { key: 'completed', label: 'Realizado', color: 'bg-green-50 text-green-700 border-green-200', active: 'bg-green-600 text-white border-green-600 shadow-lg shadow-green-100' },
-          { key: 'no-show', label: 'Faltou', color: 'bg-amber-50 text-amber-700 border-amber-200', active: 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100' },
-          { key: 'rescheduled', label: 'Reagendado', color: 'bg-violet-50 text-violet-700 border-violet-200', active: 'bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-100' },
-          { key: 'cancelled', label: 'Cancelado', color: 'bg-rose-50 text-rose-700 border-rose-200', active: 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-100' },
+          { key: 'scheduled', label: 'Agendado', color: 'bg-primary-100 text-primary-700 border-primary-200', active: 'bg-primary-600 text-white border-primary-600 shadow-sm shadow-primary-100' },
+          { key: 'confirmed', label: 'Confirmado', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', active: 'bg-emerald-500 text-white border-emerald-500 shadow-sm shadow-emerald-100' },
+          { key: 'completed', label: 'Realizado', color: 'bg-green-50 text-green-700 border-green-200', active: 'bg-green-600 text-white border-green-600 shadow-sm shadow-green-100' },
+          { key: 'no-show', label: 'Faltou', color: 'bg-amber-50 text-amber-700 border-amber-200', active: 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-100' },
+          { key: 'rescheduled', label: 'Reagendado', color: 'bg-violet-50 text-violet-700 border-violet-200', active: 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-100' },
+          { key: 'cancelled', label: 'Cancelado', color: 'bg-rose-50 text-rose-700 border-rose-200', active: 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-100' },
         ];
 
         const handleQuickSave = async () => {
@@ -3609,32 +3595,32 @@ export const Agenda: React.FC = () => {
             <div className="pb-2 -mt-2">
 
               {/* ── HERO HEADER ── */}
-              <div className="relative rounded-2xl overflow-hidden mb-4 px-4 pt-4 pb-3" style={{ background: `linear-gradient(135deg, ${accentColor}18 0%, ${accentColor}08 100%)`, border: `1px solid ${accentColor}25` }}>
+              <div className="relative rounded-lg overflow-hidden mb-4 px-4 pt-4 pb-3" style={{ background: `linear-gradient(135deg, ${accentColor}18 0%, ${accentColor}08 100%)`, border: `1px solid ${accentColor}25` }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-base font-black shadow-lg shrink-0" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}>
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white text-base font-semibold shadow-sm shrink-0" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}>
                     {initials}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-sm font-black text-slate-900 truncate">{apt.patient_name || apt.title || 'Paciente'}</h2>
+                    <h2 className="text-sm font-semibold text-slate-900 truncate">{apt.patient_name || apt.title || 'Paciente'}</h2>
                     {patient?.phone && <p className="text-[11px] font-semibold text-slate-500 mt-0.5">{patient.phone}</p>}
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
                         <Clock size={10} />
                         {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-500 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
+                      <span className="text-[11px] font-semibold text-slate-500 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
                         {apt.start.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short' })}
                       </span>
                       {apt.recurrence_index && (
-                        <span className="text-[10px] font-black bg-white/80 px-2 py-0.5 rounded-full border border-white/50" style={{ color: accentColor }}>
+                        <span className="text-[11px] font-semibold bg-white/80 px-2 py-0.5 rounded-full border border-white/50" style={{ color: accentColor }}>
                           {apt.recurrence_index}/{apt.recurrence_count}
                         </span>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/60 text-slate-400 hover:bg-white hover:text-slate-600 transition-all border border-white/50">
+                  <IconButton variant="ghost" size="sm" aria-label="Fechar" onClick={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }}>
                     <X size={14} />
-                  </button>
+                  </IconButton>
                 </div>
               </div>
 
@@ -3642,14 +3628,14 @@ export const Agenda: React.FC = () => {
               <div className="flex flex-wrap gap-1.5 px-1 mb-4">
                 {(srv || pkg) && (
                   <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
-                    <Stethoscope size={12} className="text-indigo-500 shrink-0" />
+                    <Stethoscope size={12} className="text-primary-500 shrink-0" />
                     <span className="text-[11px] font-semibold text-slate-700 truncate max-w-[140px]">{srv?.name || pkg?.name || 'Serviço'}</span>
-                    {srv && <span className="text-[10px] font-bold text-slate-400 ml-0.5">{formatCurrency(srv.price)}</span>}
+                    {srv && <span className="text-[11px] font-semibold text-slate-400 ml-0.5">{formatCurrency(srv.price)}</span>}
                   </div>
                 )}
                 {apt.modality && (
                   <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
-                    {apt.modality === 'online' ? <Video size={12} className="text-indigo-500" /> : <MapPin size={12} className="text-slate-400" />}
+                    {apt.modality === 'online' ? <Video size={12} className="text-primary-500" /> : <MapPin size={12} className="text-slate-400" />}
                     <span className="text-[11px] font-semibold text-slate-600 capitalize">{apt.modality}</span>
                   </div>
                 )}
@@ -3670,9 +3656,9 @@ export const Agenda: React.FC = () => {
                   }} className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 hover:bg-emerald-100 transition-colors">
                     <DollarSign size={12} className="text-emerald-600 shrink-0" />
                     <span className="text-[11px] font-semibold text-emerald-700">{formatCurrency(cmnd.paidValue || 0)}</span>
-                    <span className="text-[9px] text-emerald-500 font-bold">pago</span>
+                    <span className="text-[11px] text-emerald-500 font-semibold">pago</span>
                     {((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0)) > 0 && (
-                      <><span className="text-emerald-300 mx-0.5">·</span><span className="text-[11px] font-semibold text-rose-500">{formatCurrency((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0))}</span><span className="text-[9px] text-rose-400 font-bold">dev</span></>
+                      <><span className="text-emerald-300 mx-0.5">·</span><span className="text-[11px] font-semibold text-rose-500">{formatCurrency((cmnd.totalValue || cmnd.total || 0) - (cmnd.paidValue || 0))}</span><span className="text-[11px] text-rose-400 font-semibold">dev</span></>
                     )}
                     <ChevronRight size={10} className="text-emerald-400 ml-0.5" />
                   </button>
@@ -3690,8 +3676,8 @@ export const Agenda: React.FC = () => {
 
               {/* ── OBSERVAÇÕES ── */}
               {apt.notes && (
-                <div className="mx-1 mb-3 bg-slate-50 rounded-xl border border-slate-100 px-3 py-2">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Observações</p>
+                <div className="mx-1 mb-3 bg-slate-50 rounded-lg border border-slate-100 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-slate-400 mb-1">Observações</p>
                   <p className="text-[11px] text-slate-600 leading-relaxed">{apt.notes}</p>
                 </div>
               )}
@@ -3707,7 +3693,7 @@ export const Agenda: React.FC = () => {
                 if (upcomingApts.length === 0) return null;
                 return (
                   <div className="mx-1 mb-3">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <p className="text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center gap-1.5">
                       <CalendarDays size={10} />
                       Datas do pacote ({upcomingApts.length})
                     </p>
@@ -3720,15 +3706,15 @@ export const Agenda: React.FC = () => {
                           <button
                             key={ua.id}
                             onClick={() => { setSelectedApt(ua); setCurrentDate(uaDate); }}
-                            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100 hover:bg-indigo-50 hover:border-indigo-100 transition-all text-left group"
+                            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100 hover:bg-primary-50 hover:border-primary-100 transition-all text-left group"
                           >
                             <div className={cx('w-1 h-4 rounded-full shrink-0', uaStatus.dot)} />
-                            <span className="text-[10px] font-black text-slate-500 tabular-nums shrink-0 w-[70px]">
+                            <span className="text-[11px] font-semibold text-slate-500 tabular-nums shrink-0 w-[70px]">
                               {uaDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {uaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            <span className="text-[10px] font-semibold text-slate-600 truncate flex-1">{uaSrv?.name || 'Consulta'}</span>
-                            <span className={cx('text-[8px] font-black px-1.5 py-0.5 rounded-full border shrink-0', uaStatus.chip)}>{uaStatus.label}</span>
-                            <ChevronRight size={10} className="text-slate-300 group-hover:text-indigo-400 transition-colors shrink-0" />
+                            <span className="text-[11px] font-semibold text-slate-600 truncate flex-1">{uaSrv?.name || 'Consulta'}</span>
+                            <span className={cx('text-[11px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0', uaStatus.chip)}>{uaStatus.label}</span>
+                            <ChevronRight size={10} className="text-slate-300 group-hover:text-primary-400 transition-colors shrink-0" />
                           </button>
                         );
                       })}
@@ -3739,7 +3725,7 @@ export const Agenda: React.FC = () => {
 
               {/* ── QUICK STATUS ── */}
               <div className="px-1 mb-3">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Atualizar Status</p>
+                <p className="text-[11px] font-semibold text-slate-400 mb-2">Atualizar Status</p>
                 <div className="flex flex-wrap gap-1.5">
                   {quickStatuses.map(s => {
                     const isRescheduleBlocked = s.key === 'rescheduled' && apt.status === 'completed';
@@ -3761,7 +3747,7 @@ export const Agenda: React.FC = () => {
                           });
                         }
                       }}
-                      className={cx('text-[10px] font-black px-2.5 py-1 rounded-lg border transition-all', currentStatus === s.key ? s.active : s.color, isRescheduleBlocked && 'opacity-40 cursor-not-allowed')}
+                      className={cx('text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all', currentStatus === s.key ? s.active : s.color, isRescheduleBlocked && 'opacity-40 cursor-not-allowed')}
                     >
                       {s.label}
                     </button>
@@ -3773,7 +3759,7 @@ export const Agenda: React.FC = () => {
                 {detailQuickStatus === 'rescheduled' && (
                   <div className="mt-3 grid grid-cols-2 gap-2 animate-fadeIn">
                     <div>
-                      <label className="text-[9px] font-black text-violet-500 uppercase tracking-widest block mb-1 ml-1">Nova Data</label>
+                      <label className="text-[11px] font-semibold text-violet-500 block mb-1 ml-1">Nova Data</label>
                       <DatePicker
                         value={detailRescheduleDateTime.date}
                         onChange={val => setDetailRescheduleDateTime((prev: any) => ({ ...prev, date: val ?? '' }))}
@@ -3781,14 +3767,14 @@ export const Agenda: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] font-black text-violet-500 uppercase tracking-widest block mb-1 ml-1">Novo Horário</label>
+                      <label className="text-[11px] font-semibold text-violet-500 block mb-1 ml-1">Novo Horário</label>
                       <div className="relative">
                         <Clock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400" />
                         <input
                           type="time"
                           value={detailRescheduleDateTime.time}
                           onChange={e => setDetailRescheduleDateTime((prev: any) => ({ ...prev, time: e.target.value }))}
-                          className="w-full rounded-xl border border-violet-200 pl-8 pr-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 transition-colors bg-violet-50/20"
+                          className="w-full rounded-lg border border-violet-200 pl-8 pr-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 transition-colors bg-violet-50/20"
                         />
                       </div>
                     </div>
@@ -3798,7 +3784,7 @@ export const Agenda: React.FC = () => {
                 {/* Notes required when faltou/cancelado/reagendado */}
                 {detailQuickStatus && needsNotes && (
                   <div className="mt-2">
-                    <label className={cx('text-[9px] font-black uppercase tracking-widest mb-1 block', currentStatus === 'rescheduled' ? 'text-violet-500' : 'text-rose-500')}>
+                    <label className={cx('text-[11px] font-semibold mb-1 block', currentStatus === 'rescheduled' ? 'text-violet-500' : 'text-rose-500')}>
                       {currentStatus === 'no-show' ? 'Motivo da Falta *' : currentStatus === 'rescheduled' ? 'Observação / Motivo *' : 'Motivo do Cancelamento *'}
                     </label>
                     <textarea
@@ -3806,7 +3792,7 @@ export const Agenda: React.FC = () => {
                       onChange={e => setDetailQuickNotes(e.target.value)}
                       placeholder={currentStatus === 'no-show' ? 'Descreva o motivo da falta...' : currentStatus === 'rescheduled' ? 'Ex: Paciente solicitou por motivos de trabalho...' : 'Descreva o motivo do cancelamento...'}
                       rows={2}
-                      className={cx('w-full rounded-xl border px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-colors',
+                      className={cx('w-full rounded-lg border px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300 outline-none resize-none transition-colors',
                         currentStatus === 'rescheduled' 
                           ? (detailQuickNotes.trim() ? 'border-violet-300 focus:border-violet-500' : 'border-violet-400 focus:border-violet-600 bg-violet-50/30')
                           : (detailQuickNotes.trim() ? 'border-rose-300 focus:border-rose-500' : 'border-rose-400 focus:border-rose-600 bg-rose-50/30')
@@ -3816,13 +3802,9 @@ export const Agenda: React.FC = () => {
                 )}
 
                 {hasPermission('confirm_appointment') && detailQuickStatus && detailQuickStatus !== (apt.status || 'scheduled') && (
-                  <button
-                    onClick={handleQuickSave}
-                    className="mt-2 w-full py-2 rounded-xl text-[11px] font-black text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98]"
-                    style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}
-                  >
+                  <Button size="sm" className="w-full mt-2" onClick={handleQuickSave}>
                     Confirmar alteração para "{quickStatuses.find(s => s.key === detailQuickStatus)?.label}"
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -3830,42 +3812,42 @@ export const Agenda: React.FC = () => {
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 pt-3 border-t border-slate-100">
                 {(patient?.whatsapp || patient?.phone) && (
                   <button onClick={() => openQuickMessage({ apt, patient, service: srv, package: pkg, comanda: cmnd })}
-                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-lg bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
                     <MessageSquare size={15} className="text-emerald-600" />
-                    <span className="text-[8px] font-black text-emerald-600 uppercase tracking-wider">WhatsApp</span>
+                    <span className="text-[11px] font-semibold text-emerald-600">WhatsApp</span>
                   </button>
                 )}
                 {(patient?.whatsapp || patient?.phone) && ['scheduled', 'rescheduled'].includes(apt.status || 'scheduled') && (
                   <button onClick={handleResendConfirmation} disabled={isResendingConfirmation}
-                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-amber-50 border border-amber-100 hover:bg-amber-100 transition-all disabled:opacity-50">
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-lg bg-amber-50 border border-amber-100 hover:bg-amber-100 transition-all disabled:opacity-50">
                     {isResendingConfirmation ? <Loader2 size={15} className="text-amber-600 animate-spin" /> : <RefreshCw size={15} className="text-amber-600" />}
-                    <span className="text-[8px] font-black text-amber-600 uppercase tracking-wider">Reenviar 24h</span>
+                    <span className="text-[11px] font-semibold text-amber-600">Reenviar 24h</span>
                   </button>
                 )}
                 <button
                    onClick={() => navigate(`/records?patient_id=${apt.patient_id}&appointment_id=${apt.id}`)}
-                   className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all"
+                   className="flex flex-col items-center gap-0.5 py-2 rounded-lg bg-primary-50 border border-primary-100 hover:bg-primary-100 transition-all"
                 >
-                  <Stethoscope size={15} className="text-indigo-600" />
-                  <span className="text-[8px] font-black text-indigo-600 uppercase tracking-wider">Prontuário</span>
+                  <Stethoscope size={15} className="text-primary-600" />
+                  <span className="text-[11px] font-semibold text-primary-600">Prontuário</span>
                 </button>
                 <button onClick={handleGenerateReceipt}
-                  className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all">
+                  className="flex flex-col items-center gap-0.5 py-2 rounded-lg bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-all">
                   <FileText size={15} className="text-slate-500" />
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Recibo</span>
+                  <span className="text-[11px] font-semibold text-slate-500">Recibo</span>
                 </button>
                 {hasPermission('edit_appointment') && (
                   <button onClick={() => { if (apt) openEditModal(apt); setIsDetailModalOpen(false); }}
-                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all">
-                    <Edit3 size={15} className="text-indigo-600" />
-                    <span className="text-[8px] font-black text-indigo-600 uppercase tracking-wider">Editar</span>
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-lg bg-primary-50 border border-primary-100 hover:bg-primary-100 transition-all">
+                    <Edit3 size={15} className="text-primary-600" />
+                    <span className="text-[11px] font-semibold text-primary-600">Editar</span>
                   </button>
                 )}
                 {hasPermission('delete_appointment') && (
                   <button onClick={() => { if (apt) setSelectedDeleteIds([apt.id]); setIsDetailModalOpen(false); setIsDeleteModalOpen(true); }}
-                    className="flex flex-col items-center gap-0.5 py-2 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
+                    className="flex flex-col items-center gap-0.5 py-2 rounded-lg bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-all">
                     <Trash2 size={15} className="text-rose-500" />
-                    <span className="text-[8px] font-black text-rose-500 uppercase tracking-wider">Deletar</span>
+                    <span className="text-[11px] font-semibold text-rose-500">Deletar</span>
                   </button>
                 )}
               </div>
@@ -3888,9 +3870,9 @@ export const Agenda: React.FC = () => {
           </p>
           <div className="space-y-2 max-h-56 overflow-y-auto mb-4">
             {/* Current appointment always shown as checked */}
-            <label className="flex items-center gap-3 p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 cursor-default">
-              <input type="checkbox" checked readOnly className="accent-indigo-600 w-4 h-4" />
-              <span className="text-sm font-semibold text-indigo-700">Este agendamento (atual)</span>
+            <label className="flex items-center gap-3 p-2.5 rounded-lg bg-primary-50 border border-primary-200 cursor-default">
+              <input type="checkbox" checked readOnly className="accent-primary-600 w-4 h-4" />
+              <span className="text-sm font-semibold text-primary-700">Este agendamento (atual)</span>
             </label>
             {scopeRelatedApts.map(a => {
               const id = String(a.id);
@@ -3898,12 +3880,12 @@ export const Agenda: React.FC = () => {
               const dateChangedForScope = pendingSavePayload?.start_time != null;
               const isCompleted = dateChangedForScope && a.status === 'completed';
               return (
-                <label key={id} className={cx('flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 transition-colors', isCompleted ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer')}>
+                <label key={id} className={cx('flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 transition-colors', isCompleted ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer')}>
                   <input
                     type="checkbox"
                     checked={checked && !isCompleted}
                     disabled={isCompleted}
-                    className="accent-indigo-600 w-4 h-4"
+                    className="accent-primary-600 w-4 h-4"
                     onChange={() => {
                       if (isCompleted) return;
                       setSelectedScopeIds((prev: any) => {
@@ -3921,46 +3903,34 @@ export const Agenda: React.FC = () => {
                       {new Date(a.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  {isCompleted && <span className="text-[9px] font-black text-emerald-600 uppercase ml-auto">Realizada</span>}
+                  {isCompleted && <span className="text-[11px] font-semibold text-emerald-600 ml-auto">Realizada</span>}
                 </label>
               );
             })}
           </div>
           <div className="flex items-center gap-2 mb-4">
-            <button
-              onClick={() => {
+            <Button variant="ghost" size="xs" onClick={() => {
                 const allIds = new Set([String(pendingSavePayload?.id), ...scopeRelatedApts.map(a => String(a.id))]);
                 setSelectedScopeIds(allIds);
-              }}
-              className="text-xs font-bold text-indigo-600 hover:underline"
-            >
+              }}>
               Selecionar todos
-            </button>
+            </Button>
             <span className="text-slate-300">·</span>
-            <button
-              onClick={() => setSelectedScopeIds(new Set([String(pendingSavePayload?.id)]))}
-              className="text-xs font-bold text-slate-400 hover:underline"
-            >
+            <Button variant="ghost" size="xs" onClick={() => setSelectedScopeIds(new Set([String(pendingSavePayload?.id)]))}>
               Somente este
-            </button>
+            </Button>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => { setIsScopeModalOpen(false); setPendingSavePayload(null); }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-            >
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setIsScopeModalOpen(false); setPendingSavePayload(null); }}>
               Cancelar
-            </button>
-            <button
-              onClick={() => {
+            </Button>
+            <Button variant="primary" size="sm" className="flex-1" onClick={() => {
                 if (!pendingSavePayload) return;
                 setIsScopeModalOpen(false);
                 executeSaveAppointment(pendingSavePayload, [...selectedScopeIds].filter(id => String(id) !== String(pendingSavePayload.id)));
-              }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-            >
+              }}>
               Salvar ({selectedScopeIds.size})
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -3977,11 +3947,11 @@ export const Agenda: React.FC = () => {
               ['birthday', 'Aniversário'],
               ...(quickMessageContext?.apt?.meeting_url ? [['virtual_room_link', 'Sala Virtual']] : []),
             ].map(([key, label]) => (
-              <button key={key} type="button" onClick={() => { setQuickCategory(key); setQuickMessage(renderQuickMessage(quickTemplates[`${key}_msg`], quickMessageContext)); }} className={cx('px-3 py-2 rounded-xl border text-xs font-bold transition', quickCategory === key ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300')}>{label}</button>
+              <button key={key} type="button" onClick={() => { setQuickCategory(key); setQuickMessage(renderQuickMessage(quickTemplates[`${key}_msg`], quickMessageContext)); }} className={cx('px-3 py-2 rounded-lg border text-xs font-semibold transition', quickCategory === key ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300')}>{label}</button>
             ))}
           </div>
-          <textarea value={quickMessage} onChange={e => setQuickMessage(e.target.value)} rows={9} className="w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none resize-none" />
-          <button onClick={sendQuickMessage} disabled={isSendingQuickMessage || !quickMessage.trim()} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-center gap-2 disabled:opacity-50">{isSendingQuickMessage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Enviar pelo bot</button>
+          <textarea value={quickMessage} onChange={e => setQuickMessage(e.target.value)} rows={9} className="w-full rounded-lg border border-slate-200 p-3 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none resize-none" />
+          <Button variant="success" size="md" className="w-full" onClick={sendQuickMessage} disabled={isSendingQuickMessage || !quickMessage.trim()}>{isSendingQuickMessage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Enviar pelo bot</Button>
         </div>
       </Modal>
 
@@ -3995,40 +3965,40 @@ export const Agenda: React.FC = () => {
           <p className="text-sm text-slate-500 mb-4">Escolha a nova data e horário para este agendamento.</p>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Data</label>
+              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Data</label>
               <input
                 type="date"
                 value={detailRescheduleDateTime.date}
                 onChange={e => setDetailRescheduleDateTime((prev: any) => ({ ...prev, date: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-indigo-400"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-primary-400"
               />
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Horário</label>
+              <label className="text-[11px] font-semibold text-slate-500 block mb-1">Horário</label>
               <input
                 type="time"
                 value={detailRescheduleDateTime.time}
                 onChange={e => setDetailRescheduleDateTime((prev: any) => ({ ...prev, time: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-indigo-400"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-primary-400"
               />
             </div>
           </div>
 
           {scopeRelatedApts.length > 0 && (
             <>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Aplicar também em</p>
+              <p className="text-[11px] font-semibold text-slate-400 mb-2">Aplicar também em</p>
               <div className="space-y-2 max-h-44 overflow-y-auto mb-4">
                 {scopeRelatedApts.map(a => {
                   const id = String(a.id);
                   const checked = detailRescheduleScopeIds.has(id);
                   const isCompleted = a.status === 'completed';
                   return (
-                    <label key={id} className={cx('flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 transition-colors', isCompleted ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer')}>
+                    <label key={id} className={cx('flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 transition-colors', isCompleted ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer')}>
                       <input
                         type="checkbox"
                         checked={checked && !isCompleted}
                         disabled={isCompleted}
-                        className="accent-indigo-600 w-4 h-4"
+                        className="accent-primary-600 w-4 h-4"
                         onChange={() => {
                           if (isCompleted) return;
                           setDetailRescheduleScopeIds((prev: any) => {
@@ -4044,38 +4014,28 @@ export const Agenda: React.FC = () => {
                       <span className="text-xs text-slate-400">
                         {new Date(a.start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                      {isCompleted && <span className="text-[9px] font-black text-emerald-600 uppercase ml-auto">Realizada</span>}
+                      {isCompleted && <span className="text-[11px] font-semibold text-emerald-600 ml-auto">Realizada</span>}
                     </label>
                   );
                 })}
               </div>
               <div className="flex items-center gap-2 mb-4">
-                <button
-                  onClick={() => setDetailRescheduleScopeIds(new Set(scopeRelatedApts.map(a => String(a.id))))}
-                  className="text-xs font-bold text-indigo-600 hover:underline"
-                >
+                <Button variant="ghost" size="xs" onClick={() => setDetailRescheduleScopeIds(new Set(scopeRelatedApts.map(a => String(a.id))))}>
                   Selecionar todos
-                </button>
+                </Button>
                 <span className="text-slate-300">·</span>
-                <button
-                  onClick={() => setDetailRescheduleScopeIds(new Set())}
-                  className="text-xs font-bold text-slate-400 hover:underline"
-                >
+                <Button variant="ghost" size="xs" onClick={() => setDetailRescheduleScopeIds(new Set())}>
                   Nenhum
-                </button>
+                </Button>
               </div>
             </>
           )}
 
           <div className="flex gap-2">
-            <button
-              onClick={() => setIsDetailRescheduleOpen(false)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-            >
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => setIsDetailRescheduleOpen(false)}>
               Cancelar
-            </button>
-            <button
-              onClick={async () => {
+            </Button>
+            <Button variant="primary" size="sm" className="flex-1" onClick={async () => {
                 if (!selectedApt || !detailRescheduleDateTime.date || !detailRescheduleDateTime.time) return;
                 if (selectedApt.status === 'completed') {
                   pushToast('error', 'Não é possível alterar o horário de uma sessão já realizada.');
@@ -4122,11 +4082,9 @@ export const Agenda: React.FC = () => {
                   fetchData();
                   setIsDetailRescheduleOpen(false);
                 } catch { pushToast('error', 'Erro ao atualizar horário.'); }
-              }}
-              className="flex-1 py-2.5 rounded-xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-            >
+              }}>
               Confirmar
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -4136,7 +4094,7 @@ export const Agenda: React.FC = () => {
         isOpen={isComandaManagerOpen}
         onClose={() => { setIsComandaManagerOpen(false); setComandaManagerSourceId(null); }}
         title="Comanda"
-        maxWidth="max-w-5xl"
+        size="full"
       >
         {(() => {
           const cmnd = patientComandas.find(c => String(c.id) === String(comandaManagerSourceId ?? selectedApt?.comanda_id));
@@ -4144,10 +4102,10 @@ export const Agenda: React.FC = () => {
           if (!cmnd) {
             return (
               <div className="py-16 text-center space-y-3">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-slate-100">
+                <div className="w-14 h-14 bg-slate-50 rounded-lg flex items-center justify-center mx-auto border border-slate-100">
                   <DollarSign size={22} className="text-slate-300" />
                 </div>
-                <p className="text-slate-600 font-bold">Comanda não encontrada</p>
+                <p className="text-slate-600 font-semibold">Comanda não encontrada</p>
                 <p className="text-slate-400 text-xs">Este atendimento pode não estar vinculado a um registro financeiro.</p>
                 <Button size="sm" variant="outline" onClick={() => setIsComandaManagerOpen(false)}>Fechar</Button>
               </div>
@@ -4189,22 +4147,16 @@ export const Agenda: React.FC = () => {
               {/* Header do paciente + resumo financeiro */}
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                 {/* Paciente */}
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 font-black text-primary-700 text-sm">
+                <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100 font-semibold text-primary-700 text-sm">
                     {String(patientName).charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-slate-800 truncate">{patientName}</p>
+                    <p className="font-semibold text-slate-800 truncate">{patientName}</p>
                     <p className="text-xs text-slate-400">Comanda #{cmnd.id}</p>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
-                    <button
-                      onClick={handleGenerateReceipt}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all"
-                      title="Gerar recibo"
-                    >
-                      <FileText size={14} />
-                    </button>
+                    <IconButton variant="outline" size="sm" aria-label="Gerar recibo" title="Gerar recibo" onClick={handleGenerateReceipt}><FileText size={14} /></IconButton>
                     <button
                       onClick={() => {
                         setIsComandaManagerOpen(false);
@@ -4218,7 +4170,7 @@ export const Agenda: React.FC = () => {
                         setModalTab(cmnd.package_id ? 'pacote' : 'avulsa');
                         setIsNewComandaModalOpen(true);
                       }}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-primary-600 hover:border-primary-200 hover:bg-primary-50 transition-all"
                       title="Editar comanda"
                     >
                       <Edit3 size={14} />
@@ -4228,26 +4180,26 @@ export const Agenda: React.FC = () => {
 
                 {/* Resumo financeiro compacto */}
                 <div className="flex items-stretch gap-2">
-                  <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 px-4 py-3 text-white min-w-[120px] shadow-lg shadow-indigo-200/60">
-                    <p className="text-[10px] uppercase tracking-widest text-indigo-200 mb-0.5">Total</p>
-                    <p className="text-xl font-black leading-tight">{formatCurrency(cmndTotal)}</p>
+                  <div className="flex flex-col items-center justify-center rounded-lg bg-primary-600 px-4 py-3 text-white min-w-[120px] shadow-sm">
+                    <p className="text-[11px] text-primary-200 mb-0.5">Total</p>
+                    <p className="text-xl font-semibold leading-tight">{formatCurrency(cmndTotal)}</p>
                   </div>
-                  <div className="flex flex-col gap-1.5 justify-center rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
+                  <div className="flex flex-col gap-1.5 justify-center rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                       <span className="text-slate-500">Recebido</span>
-                      <span className="ml-auto font-bold text-slate-700">{formatCurrency(cmndPaid)}</span>
+                      <span className="ml-auto font-semibold text-slate-700">{formatCurrency(cmndPaid)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={cx('w-2 h-2 rounded-full shrink-0', cmndPending > 0 ? 'bg-amber-400' : 'bg-slate-200')} />
                       <span className="text-slate-500">Pendente</span>
-                      <span className={cx('ml-auto font-bold', cmndPending > 0 ? 'text-amber-600' : 'text-slate-400')}>{formatCurrency(cmndPending)}</span>
+                      <span className={cx('ml-auto font-semibold', cmndPending > 0 ? 'text-amber-600' : 'text-slate-400')}>{formatCurrency(cmndPending)}</span>
                     </div>
                     {totalSessions > 0 && (
                       <div className="flex items-center gap-2 border-t border-slate-100 pt-1.5 mt-0.5">
-                        <span className="w-2 h-2 rounded-full bg-indigo-300 shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-primary-300 shrink-0" />
                         <span className="text-slate-500">Sessões</span>
-                        <span className="ml-auto font-bold text-slate-700">{usedCount}/{totalSessions}</span>
+                        <span className="ml-auto font-semibold text-slate-700">{usedCount}/{totalSessions}</span>
                       </div>
                     )}
                   </div>
@@ -4259,11 +4211,11 @@ export const Agenda: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span>Progresso das sessões</span>
-                    <span className="font-bold text-slate-600">{Math.round(progress)}%</span>
+                    <span className="font-semibold text-slate-600">{Math.round(progress)}%</span>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                     <div
-                      className={cx('h-full rounded-full transition-all duration-500', progress >= 100 ? 'bg-rose-500' : progress >= 75 ? 'bg-amber-400' : 'bg-indigo-500')}
+                      className={cx('h-full rounded-full transition-all duration-500', progress >= 100 ? 'bg-rose-500' : progress >= 75 ? 'bg-amber-400' : 'bg-primary-500')}
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -4274,27 +4226,7 @@ export const Agenda: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
                 <div className="flex flex-col gap-3">
                   {/* Tabs */}
-                  <div className="flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
-                    {([
-                      { key: 'atendimentos', label: 'Atendimentos', icon: CalendarDays },
-                      { key: 'pagamentos', label: 'Pagamentos', icon: DollarSign },
-                      { key: 'pacote', label: 'Pacote', icon: Package },
-                    ] as const).map(({ key, label, icon: TabIcon }) => (
-                      <button
-                        key={key}
-                        onClick={() => setManagerTab(key)}
-                        className={cx(
-                          'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
-                          managerTab === key
-                            ? 'bg-white text-indigo-600 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
-                        )}
-                      >
-                        <TabIcon size={13} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <Tabs<typeof MANAGER_TABS[number]['id']> items={MANAGER_TABS} value={managerTab} onChange={setManagerTab} label="Seções da comanda" />
 
                   {/* Atendimentos */}
                   {managerTab === 'atendimentos' && (
@@ -4348,7 +4280,7 @@ export const Agenda: React.FC = () => {
 
                         const statusKey = (appointment.status || 'scheduled').replace('-', '_');
                         const statusDot: Record<string, string> = {
-                          scheduled: 'bg-indigo-400', confirmed: 'bg-emerald-400',
+                          scheduled: 'bg-primary-400', confirmed: 'bg-emerald-400',
                           completed: 'bg-green-500', cancelled: 'bg-rose-400',
                           no_show: 'bg-amber-400',
                         };
@@ -4356,9 +4288,9 @@ export const Agenda: React.FC = () => {
                         return (
                           <div
                             key={appointment.id}
-                            className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2.5 hover:border-slate-200 hover:shadow-sm transition-all"
+                            className="flex items-center gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2.5 hover:border-slate-200 hover:shadow-sm transition-all"
                           >
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-500">
                               <CalendarDays size={14} />
                             </div>
 
@@ -4368,30 +4300,30 @@ export const Agenda: React.FC = () => {
                                   <DatePicker
                                     value={editAptValues.date}
                                     onChange={(val) => setEditAptValues((prev: any) => ({ ...prev, date: val ?? '' }))}
-                                    className="!h-7 !border-slate-200 !rounded-lg text-[11px] font-black"
+                                    className="!h-7 !border-slate-200 !rounded-lg text-[11px] font-semibold"
                                   />
                                 </div>
                                 <div className="relative">
-                                  <Clock size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                  <Clock size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-primary-400 pointer-events-none" />
                                   <input
                                     type="time"
                                     value={editAptValues.time}
                                     onChange={e => setEditAptValues((prev: any) => ({ ...prev, time: e.target.value }))}
-                                    className="h-7 w-[86px] rounded-lg border border-slate-200 pl-7 pr-2 text-[11px] font-black text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 bg-white"
+                                    className="h-7 w-[86px] rounded-lg border border-slate-200 pl-7 pr-2 text-[11px] font-semibold text-slate-700 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 bg-white"
                                   />
                                 </div>
                                 <div className="flex gap-1 ml-auto">
-                                  <button onClick={handleSaveAptEdit} className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all">
-                                    <Check size={12} />
-                                  </button>
-                                  <button onClick={() => setEditingAptId(null)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-400 hover:bg-slate-200 transition-all">
-                                    <X size={12} />
-                                  </button>
+                                  <IconButton variant="primary" size="sm" aria-label="Salvar" onClick={handleSaveAptEdit}>
+                                    <Check size={14} />
+                                  </IconButton>
+                                  <IconButton variant="ghost" size="sm" aria-label="Cancelar edição" onClick={() => setEditingAptId(null)}>
+                                    <X size={14} />
+                                  </IconButton>
                                 </div>
                               </div>
                             ) : (
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-slate-800">
+                                <p className="text-sm font-semibold text-slate-800">
                                   {aptStart.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}
                                 </p>
                                 <p className="text-[11px] text-slate-400">
@@ -4403,14 +4335,9 @@ export const Agenda: React.FC = () => {
 
                             {!isEditing && (
                               <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                  onClick={handleStartEdit}
-                                  disabled={appointment.status === 'completed'}
-                                  className={cx('flex h-7 w-7 items-center justify-center rounded-lg transition-all', appointment.status === 'completed' ? 'text-slate-200 cursor-not-allowed' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50')}
-                                  title={appointment.status === 'completed' ? 'Sessão já realizada não pode ter o horário alterado' : 'Editar data/hora'}
-                                >
-                                  <Edit3 size={12} />
-                                </button>
+                                <IconButton variant="secondary" size="sm" aria-label={appointment.status === 'completed' ? 'Sessão já realizada não pode ter o horário alterado' : 'Editar data/hora'} onClick={handleStartEdit} disabled={appointment.status === 'completed'} title={appointment.status === 'completed' ? 'Sessão já realizada não pode ter o horário alterado' : 'Editar data/hora'}>
+                                  <Edit3 size={14} />
+                                </IconButton>
                                 <div className="w-[130px]">
                                   <Combobox
                                     options={statusOptions}
@@ -4427,7 +4354,7 @@ export const Agenda: React.FC = () => {
                       })}
 
                       {cmndAppointments.length === 0 && (
-                        <div className="py-10 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                        <div className="py-10 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
                           Nenhum atendimento vinculado.
                         </div>
                       )}
@@ -4440,21 +4367,20 @@ export const Agenda: React.FC = () => {
                       {cmnd.payments?.map((payment: any) => (
                         <div
                           key={payment.id}
-                          className="group flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-2.5 hover:border-emerald-200 transition-all"
+                          className="group flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-2.5 hover:border-emerald-200 transition-all"
                         >
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white border border-emerald-100 text-emerald-500">
                             <Check size={14} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-800">{formatCurrency(Number(payment.amount || 0))}</p>
+                            <p className="text-sm font-semibold text-slate-800">{formatCurrency(Number(payment.amount || 0))}</p>
                             <p className="text-[11px] text-slate-400 truncate">
                               {payment.payment_date ? formatDate(payment.payment_date) : '—'} · {payment.payment_method}
                               {payment.receipt_code ? ` · #${payment.receipt_code}` : ''}
                             </p>
                           </div>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button
-                              onClick={() => {
+                            <IconButton variant="secondary" size="sm" aria-label="Editar" onClick={() => {
                                 setNewPayment({
                                   id: String(payment.id),
                                   value: formatCurrencyInput(Number(payment.amount || 0)),
@@ -4464,26 +4390,19 @@ export const Agenda: React.FC = () => {
                                   comandaId: String(cmnd.id),
                                 });
                                 setIsAddPaymentModalOpen(true);
-                              }}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition-all"
-                              title="Editar"
-                            >
-                              <Edit3 size={12} />
-                            </button>
-                            <button
-                              onClick={() => {
+                              }} title="Editar">
+                              <Edit3 size={14} />
+                            </IconButton>
+                            <IconButton variant="danger" size="sm" aria-label="Excluir" onClick={() => {
                                 if (window.confirm('Excluir este pagamento?')) handleDeletePayment(payment.id, cmnd.id);
-                              }}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all"
-                              title="Excluir"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                              }} title="Excluir">
+                              <Trash2 size={14} />
+                            </IconButton>
                           </div>
                         </div>
                       ))}
                       {(!cmnd.payments || cmnd.payments.length === 0) && (
-                        <div className="py-10 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                        <div className="py-10 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
                           Nenhum pagamento registrado.
                         </div>
                       )}
@@ -4492,9 +4411,9 @@ export const Agenda: React.FC = () => {
 
                   {/* Pacote */}
                   {managerTab === 'pacote' && (
-                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-5 flex flex-col items-center gap-4">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-5 flex flex-col items-center gap-4">
                       <div className="flex items-end gap-1.5">
-                        <span className={cx('text-base sm:text-xl font-black leading-none', usedCount > totalSessions ? 'text-rose-600' : 'text-indigo-600')}>
+                        <span className={cx('text-base sm:text-xl font-semibold leading-none', usedCount > totalSessions ? 'text-rose-600' : 'text-primary-600')}>
                           {usedCount}
                         </span>
                         <span className="text-lg text-slate-400 font-medium mb-1">/ {totalSessions}</span>
@@ -4502,7 +4421,7 @@ export const Agenda: React.FC = () => {
                       <p className="text-xs text-slate-500">sessões utilizadas</p>
                       <div className="w-full max-w-xs h-2 rounded-full bg-slate-200 overflow-hidden">
                         <div
-                          className={cx('h-full rounded-full transition-all duration-500', progress >= 100 ? 'bg-rose-500' : progress >= 75 ? 'bg-amber-400' : 'bg-indigo-500')}
+                          className={cx('h-full rounded-full transition-all duration-500', progress >= 100 ? 'bg-rose-500' : progress >= 75 ? 'bg-amber-400' : 'bg-primary-500')}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -4512,8 +4431,7 @@ export const Agenda: React.FC = () => {
 
                 {/* Painel lateral: itens + novo pagamento */}
                 <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => {
+                  <Button size="md" className="w-full" onClick={() => {
                       setNewPayment({
                         value: formatCurrencyInput(cmndPending) || '0,00',
                         date: new Date().toISOString().slice(0, 10),
@@ -4522,15 +4440,13 @@ export const Agenda: React.FC = () => {
                         comandaId: String(cmnd.id),
                       });
                       setIsAddPaymentModalOpen(true);
-                    }}
-                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2.5 transition-colors shadow-md shadow-indigo-200/60"
-                  >
+                    }}>
                     <Plus size={15} />
                     Novo pagamento
-                  </button>
+                  </Button>
 
-                  <div className="rounded-xl border border-slate-100 bg-white p-4 space-y-2.5">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Itens cobrados</p>
+                  <div className="rounded-lg border border-slate-100 bg-white p-4 space-y-2.5">
+                    <p className="text-xs font-semibold text-slate-500">Itens cobrados</p>
                     {(cmnd.items || []).map((item: any, index: number) => {
                       const lineGross = Number(item.qty || 0) * Number(item.price || 0);
                       const lineNet = lineGross * ratio;
@@ -4540,22 +4456,22 @@ export const Agenda: React.FC = () => {
                             <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
                             <p className="text-[11px] text-slate-400">{item.qty} × {formatCurrency(item.price)}</p>
                           </div>
-                          <span className="text-xs font-bold text-slate-700 shrink-0">{formatCurrency(lineNet)}</span>
+                          <span className="text-xs font-semibold text-slate-700 shrink-0">{formatCurrency(lineNet)}</span>
                         </div>
                       );
                     })}
                     {discountAmt > 0 && (
                       <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-emerald-600">
                         <span>Desconto{cmnd.discount_type === 'percentage' ? ` (${discountVal}%)` : ''}</span>
-                        <span className="font-bold">− {formatCurrency(discountAmt)}</span>
+                        <span className="font-semibold">− {formatCurrency(discountAmt)}</span>
                       </div>
                     )}
                     {(!cmnd.items || cmnd.items.length === 0) && (
                       <p className="text-xs text-slate-400">Nenhum item registrado.</p>
                     )}
                     <div className="flex items-center justify-between border-t border-slate-100 pt-2">
-                      <span className="text-xs font-bold text-slate-500">Total</span>
-                      <span className="text-sm font-black text-slate-800">{formatCurrency(cmndTotal)}</span>
+                      <span className="text-xs font-semibold text-slate-500">Total</span>
+                      <span className="text-sm font-semibold text-slate-800">{formatCurrency(cmndTotal)}</span>
                     </div>
                   </div>
                 </div>
@@ -4591,7 +4507,7 @@ export const Agenda: React.FC = () => {
       >
         <div className="space-y-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Valor do pagamento</label>
+            <label className="text-xs font-semibold text-slate-500 ml-1">Valor do pagamento</label>
             <input
               value={newPayment.value}
               onChange={(e) => {
@@ -4606,7 +4522,7 @@ export const Agenda: React.FC = () => {
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data do Pagamento</label>
+              <label className="text-xs font-semibold text-slate-500 ml-1">Data do Pagamento</label>
               <DatePicker
                 value={newPayment.date}
                 onChange={(val) =>
@@ -4672,29 +4588,27 @@ export const Agenda: React.FC = () => {
               {/* ── VISUALIZAÇÃO ── */}
               <section className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-1 h-4 bg-indigo-500 rounded-full" />
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-600">Visualização</p>
+                  <div className="w-1 h-4 bg-primary-500 rounded-full" />
+                  <p className="text-xs font-semibold text-slate-600">Visualização</p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-3">
                   <p className="text-[11px] text-slate-500 font-semibold">Modos de visualização disponíveis <span className="text-slate-400">(mínimo 1)</span></p>
                   <div className="flex gap-2">
                     {allViews.map(({ key, label }) => {
                       const active = enabledViews.includes(key);
                       const isLast = enabledViews.length === 1 && active;
                       return (
-                        <button
+                        <Button
                           key={key}
+                          size="sm"
+                          variant={active ? 'primary' : 'outline'}
+                          className="flex-1"
                           onClick={() => !isLast && toggleView(key)}
                           disabled={isLast}
-                          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wide transition-all border ${
-                            active
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
-                              : 'bg-white text-slate-400 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'
-                          } ${isLast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           {label}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
@@ -4705,65 +4619,50 @@ export const Agenda: React.FC = () => {
               <section className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-600">Campos no Novo Agendamento</p>
+                  <p className="text-xs font-semibold text-slate-600">Campos no Novo Agendamento</p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                <div className="rounded-lg border border-slate-100 divide-y divide-slate-100 overflow-hidden">
                   {/* Serviços/Pacotes */}
                   <div className="flex items-center justify-between px-4 py-3 bg-white">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${ap.showServicesField !== false ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-400'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${ap.showServicesField !== false ? 'bg-primary-50 text-primary-500' : 'bg-slate-100 text-slate-400'}`}>
                         <Package size={14} />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-700">Serviço ou Pacote</p>
-                        <p className="text-[10px] text-slate-400">Mostrar campo de serviço/pacote</p>
+                        <p className="text-sm font-semibold text-slate-700">Serviço ou Pacote</p>
+                        <p className="text-[11px] text-slate-400">Mostrar campo de serviço/pacote</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => updatePreference('agenda', { showServicesField: !(ap.showServicesField !== false) })}
-                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${ap.showServicesField !== false ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-200 border-slate-200'}`}
-                    >
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 mt-[1px] ${ap.showServicesField !== false ? 'translate-x-[17px]' : 'translate-x-[1px]'}`} />
-                    </button>
+                    <Switch checked={ap.showServicesField !== false} onCheckedChange={() => updatePreference('agenda', { showServicesField: !(ap.showServicesField !== false) })} />
                   </div>
 
                   {/* Profissional */}
                   <div className="flex items-center justify-between px-4 py-3 bg-white">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${ap.showProfessionalField !== false ? 'bg-indigo-50 text-indigo-500' : 'bg-slate-100 text-slate-400'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${ap.showProfessionalField !== false ? 'bg-primary-50 text-primary-500' : 'bg-slate-100 text-slate-400'}`}>
                         <UserCheck size={14} />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-700">Campo Profissional</p>
-                        <p className="text-[10px] text-slate-400">Mostrar seletor de profissional</p>
+                        <p className="text-sm font-semibold text-slate-700">Campo Profissional</p>
+                        <p className="text-[11px] text-slate-400">Mostrar seletor de profissional</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => updatePreference('agenda', { showProfessionalField: !(ap.showProfessionalField !== false) })}
-                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${ap.showProfessionalField !== false ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-200 border-slate-200'}`}
-                    >
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 mt-[1px] ${ap.showProfessionalField !== false ? 'translate-x-[17px]' : 'translate-x-[1px]'}`} />
-                    </button>
+                    <Switch checked={ap.showProfessionalField !== false} onCheckedChange={() => updatePreference('agenda', { showProfessionalField: !(ap.showProfessionalField !== false) })} />
                   </div>
 
                   {/* Livro Caixa */}
                   <div className="flex items-center justify-between px-4 py-3 bg-white">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${ap.showLivroCaixa !== false ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${ap.showLivroCaixa !== false ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
                         <BookOpen size={14} />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-700">Lançar no Livro Caixa</p>
-                        <p className="text-[10px] text-slate-400">Mostrar toggle de sincronização financeira</p>
+                        <p className="text-sm font-semibold text-slate-700">Lançar no Livro Caixa</p>
+                        <p className="text-[11px] text-slate-400">Mostrar toggle de sincronização financeira</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => updatePreference('agenda', { showLivroCaixa: !(ap.showLivroCaixa !== false) })}
-                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${ap.showLivroCaixa !== false ? 'bg-indigo-500 border-indigo-500' : 'bg-slate-200 border-slate-200'}`}
-                    >
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 mt-[1px] ${ap.showLivroCaixa !== false ? 'translate-x-[17px]' : 'translate-x-[1px]'}`} />
-                    </button>
+                    <Switch checked={ap.showLivroCaixa !== false} onCheckedChange={() => updatePreference('agenda', { showLivroCaixa: !(ap.showLivroCaixa !== false) })} />
                   </div>
                 </div>
               </section>
@@ -4772,16 +4671,16 @@ export const Agenda: React.FC = () => {
               <section className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-4 bg-amber-400 rounded-full" />
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-600">Valores Padrão</p>
+                  <p className="text-xs font-semibold text-slate-600">Valores Padrão</p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden divide-y divide-slate-100">
+                <div className="rounded-lg border border-slate-100 bg-white overflow-hidden divide-y divide-slate-100">
                   {/* Profissional padrão */}
                   <div className="px-4 py-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <UserCog size={13} className="text-slate-400" />
-                      <p className="text-xs font-bold text-slate-600">Profissional padrão</p>
-                      <p className="text-[10px] text-slate-400 ml-auto">Pré-selecionar ao abrir</p>
+                      <p className="text-xs font-semibold text-slate-600">Profissional padrão</p>
+                      <p className="text-[11px] text-slate-400 ml-auto">Pré-selecionar ao abrir</p>
                     </div>
                     <Combobox
                       options={[{ id: '', label: 'Nenhum (não pré-selecionar)' }, ...professionals.map(p => ({ id: String(p.id), label: p.name }))]}
@@ -4799,8 +4698,8 @@ export const Agenda: React.FC = () => {
                   <div className="px-4 py-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <RefreshCw size={13} className="text-slate-400" />
-                      <p className="text-xs font-bold text-slate-600">Repetição padrão</p>
-                      <p className="text-[10px] text-slate-400 ml-auto">Selecionado ao abrir</p>
+                      <p className="text-xs font-semibold text-slate-600">Repetição padrão</p>
+                      <p className="text-[11px] text-slate-400 ml-auto">Selecionado ao abrir</p>
                     </div>
                     <Combobox
                       options={[

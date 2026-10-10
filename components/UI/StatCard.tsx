@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/src/lib/utils";
+import { uiTheme } from './theme';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // StatCard — Design System
@@ -10,16 +11,16 @@ import { cn } from "@/src/lib/utils";
 //  • Mobile (2 colunas): valor grande, ícone menor, menos padding
 //  • Tablet+ (4 colunas): versão completa com hover animado
 //
-// Variantes de cor de ícone: default (amber) | success | info | danger | purple | warning
+// Variantes de cor de ícone: default (cor primária) | success | info | danger | purple | warning
 // ─────────────────────────────────────────────────────────────────────────────
 
 type StatCardColor = "default" | "success" | "info" | "danger" | "purple" | "warning";
 
 const colorMap: Record<StatCardColor, { wrap: string; icon: string; glow: string }> = {
   default: {
-    wrap: "bg-amber-50 border-amber-100 group-hover:bg-amber-500 group-hover:border-amber-500",
-    icon: "text-amber-600 group-hover:text-white",
-    glow: "bg-amber-500/5",
+    wrap: "bg-primary-50 border-primary-100 group-hover:bg-primary-500 group-hover:border-primary-500",
+    icon: "text-primary-600 group-hover:text-white",
+    glow: "bg-primary-500/5",
   },
   success: {
     wrap: "bg-emerald-50 border-emerald-100 group-hover:bg-emerald-500 group-hover:border-emerald-500",
@@ -56,6 +57,8 @@ interface StatCardProps {
   description?: string;
   color?: StatCardColor;
   className?: string;
+  isCurrency?: boolean;
+  variant?: "default" | "flat";
   /** Animação com delay para entrada escalonada */
   delay?: number;
 }
@@ -68,60 +71,50 @@ export function StatCard({
   description,
   color = "default",
   className,
+  isCurrency = false,
+  variant = "default",
   delay = 0,
 }: StatCardProps) {
   const c = colorMap[color];
 
+  const formattedValue = isCurrency 
+    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value))
+    : value;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.3, ease: "easeOut" }}
+      transition={{ delay, duration: 0.2, ease: "easeOut" }}
       className={cn(
-        "bg-white rounded-2xl sm:rounded-3xl border border-zinc-200 shadow-sm",
-        "hover:shadow-md transition-all duration-300 group",
-        "relative overflow-hidden",
-        "p-3 sm:p-5",
+        "rounded-lg shadow-none relative overflow-hidden transition-all duration-200 group p-3",
+        variant === "default" ? `${uiTheme.surface} hover:border-slate-300` : "bg-slate-50/50 border border-transparent hover:bg-slate-50",
         className
       )}
     >
-      {/* Círculo decorativo de fundo */}
-      <div
-        className={cn(
-          "absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 rounded-full -mr-8 -mt-8 sm:-mr-10 sm:-mt-10",
-          "transition-transform group-hover:scale-150 duration-700",
-          c.glow
-        )}
-      />
-
       {/* Header: ícone + trend */}
-      <div className="flex justify-between items-start mb-2 sm:mb-4 relative z-10">
+      <div className="flex justify-between items-center mb-1.5 relative z-10">
         <div
           className={cn(
-            "p-1.5 sm:p-2.5 rounded-xl border transition-all duration-300",
+            "p-1.5 rounded-lg border transition-all duration-300",
             c.wrap
           )}
         >
-          <Icon size={14} className={cn("transition-colors duration-300 sm:hidden", c.icon)} />
-          <Icon size={18} className={cn("hidden sm:block transition-colors duration-300", c.icon)} />
+          <Icon size={14} className={cn("transition-colors duration-300", c.icon)} />
         </div>
 
         {trend && (
           <div
             className={cn(
-              "flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg border text-[9px] sm:text-[10px] font-bold",
+              "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium",
               trend.isUp
                 ? "bg-emerald-50 text-emerald-600 border-emerald-200"
                 : "bg-red-50 text-red-500 border-red-200"
             )}
           >
             {trend.isUp
-              ? <ArrowUpRight size={10} className="sm:hidden" />
-              : <ArrowDownRight size={10} className="sm:hidden" />
-            }
-            {trend.isUp
-              ? <ArrowUpRight size={11} className="hidden sm:block" />
-              : <ArrowDownRight size={11} className="hidden sm:block" />
+              ? <ArrowUpRight size={10} />
+              : <ArrowDownRight size={10} />
             }
             {trend.value}%
           </div>
@@ -130,16 +123,15 @@ export function StatCard({
 
       {/* Conteúdo */}
       <div className="relative z-10">
-        <p className="text-[7px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5 sm:mb-1 truncate">
+        <p className="text-[11px] font-medium text-slate-500 mb-0.5 truncate">
           {title}
         </p>
-        <h3 className="text-base sm:text-xl font-black text-zinc-900 tracking-tight leading-none">
-          {value}
+        <h3 className="text-base font-medium text-slate-900 leading-none">
+          {formattedValue}
         </h3>
         {description && (
-          <p className="hidden sm:flex text-[9px] sm:text-[10px] text-zinc-400 mt-1 sm:mt-1.5 font-medium items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-zinc-300 shrink-0" />
-            <span className="truncate">{description}</span>
+          <p className="text-[11px] text-slate-500 mt-1 font-normal leading-snug">
+            {description}
           </p>
         )}
       </div>

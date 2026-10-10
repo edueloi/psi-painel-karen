@@ -5,6 +5,8 @@ import { Modal } from '../UI/Modal';
 import { Input, Textarea } from '../UI/Input';
 import { Combobox } from '../UI/Combobox';
 import { Switch } from '../UI/Switch';
+import { Badge } from '../UI/Badge';
+import { StatGrid, FormRow } from '../UI/PageWrapper';
 import {
   FilterLine, FilterLineSection, FilterLineItem, FilterLineSearch,
 } from '../UI/FilterLine';
@@ -113,12 +115,12 @@ export const ProfessionalAreasTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+    <div className="space-y-3">
+      <StatGrid cols={3}>
         <StatCard title="Total de áreas" value={areas.length} icon={Stethoscope} color="default" delay={0} />
         <StatCard title="Ativas" value={areas.filter(a => a.active).length} icon={Stethoscope} color="success" delay={1} />
         <StatCard title="Categorias" value={categories.length} icon={Stethoscope} color="purple" delay={2} />
-      </div>
+      </StatGrid>
 
       <FilterLine>
         <FilterLineSection grow>
@@ -150,33 +152,31 @@ export const ProfessionalAreasTab: React.FC = () => {
         renderMobileItem={(r) => (
           <div className="flex items-center justify-between w-full min-w-0">
             <div className="min-w-0">
-              <p className="font-semibold text-slate-800 truncate text-sm">{r.name}</p>
-              <p className="text-xs text-slate-400 truncate">{r.category}</p>
+              <p className="font-medium text-slate-800 truncate text-[13px]">{r.name}</p>
+              <p className="text-[11px] text-slate-500 truncate">{r.category}</p>
             </div>
             <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-              <IconButton variant="outline" size="xs" onClick={() => openEdit(r)}><Edit3 size={13} /></IconButton>
-              <IconButton variant="danger" size="xs" onClick={() => setDeleteId(r.id)}><Trash2 size={13} /></IconButton>
+              <IconButton variant="outline" size="xs" aria-label="Editar área" onClick={() => openEdit(r)}><Edit3 size={14} /></IconButton>
+              <IconButton variant="danger" size="xs" aria-label="Excluir área" onClick={() => setDeleteId(r.id)}><Trash2 size={14} /></IconButton>
             </div>
           </div>
         )}
         columns={[
-          { header: 'Nome', render: r => <span className="font-semibold">{r.name}</span> },
-          { header: 'Categoria', render: r => <span className="text-slate-500 text-sm">{r.category}</span> },
-          { header: 'Registro', render: r => <span className="text-slate-500 text-sm">{r.registry_label || '—'}</span> },
+          { header: 'Nome', render: r => <span className="text-xs font-medium text-slate-800">{r.name}</span> },
+          { header: 'Categoria', render: r => <span className="text-slate-500 text-xs">{r.category}</span> },
+          { header: 'Registro', render: r => <span className="text-slate-500 text-xs">{r.registry_label || '—'}</span> },
           {
             header: 'Status',
             render: r => (
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                {r.active ? 'Ativa' : 'Inativa'}
-              </span>
+              <Badge size="sm" dot color={r.active ? 'success' : 'default'}>{r.active ? 'Ativa' : 'Inativa'}</Badge>
             ),
           },
           {
             header: 'Ações', className: 'text-right', headerClassName: 'text-right',
             render: r => (
               <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
-                <Button variant="outline" size="xs" onClick={() => openEdit(r)}><Edit3 size={14} /></Button>
-                <Button variant="danger" size="xs" onClick={() => setDeleteId(r.id)}><Trash2 size={14} /></Button>
+                <IconButton variant="outline" size="xs" aria-label="Editar área" onClick={() => openEdit(r)}><Edit3 size={14} /></IconButton>
+                <IconButton variant="danger" size="xs" aria-label="Excluir área" onClick={() => setDeleteId(r.id)}><Trash2 size={14} /></IconButton>
               </div>
             ),
           },
@@ -190,12 +190,12 @@ export const ProfessionalAreasTab: React.FC = () => {
         size="md"
         footer={
           <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-            <Button variant="primary" onClick={handleSave} loading={isProcessing}>Salvar</Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+            <Button variant="primary" size="sm" onClick={handleSave} loading={isProcessing}>Salvar</Button>
           </div>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Input
             label="Nome"
             value={editing?.name || ''}
@@ -218,7 +218,7 @@ export const ProfessionalAreasTab: React.FC = () => {
             onCustomAdd={v => setEditing(prev => ({ ...prev, category: v }))}
             placeholder="Selecione ou digite uma categoria"
           />
-          <div className="grid grid-cols-2 gap-3">
+          <FormRow cols={2}>
             <Input
               label="Sigla do registro"
               value={editing?.registry_label || ''}
@@ -231,15 +231,15 @@ export const ProfessionalAreasTab: React.FC = () => {
               onChange={e => setEditing(prev => ({ ...prev, registry_mask: e.target.value }))}
               placeholder="Ex: 00000/UF"
             />
-          </div>
+          </FormRow>
           <Textarea
             label="Descrição"
             value={editing?.description || ''}
             onChange={e => setEditing(prev => ({ ...prev, description: e.target.value }))}
             placeholder="Breve descrição da área de atuação"
           />
-          <div className="flex items-center justify-between rounded-xl border border-slate-100 p-3">
-            <span className="text-sm font-semibold text-slate-700">Área ativa</span>
+          <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
+            <span className="text-xs font-medium text-slate-700">Área ativa</span>
             <Switch
               checked={editing?.active ?? true}
               onCheckedChange={v => setEditing(prev => ({ ...prev, active: v }))}

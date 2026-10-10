@@ -98,7 +98,7 @@ const BadgeEditor = ({
       .replace(/\n/g, '<br>')
       .replace(/\{([^}]+)\}/g, (_, p1) => {
         const cls = VAR_COLORS[p1] || 'bg-slate-100 text-slate-700 border-slate-200';
-        return `<strong contenteditable="false" data-var="{${p1}}" class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border mx-0.5 select-none align-middle cursor-default ${cls}">{${p1}}</strong>`;
+        return `<strong contenteditable="false" data-var="{${p1}}" class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border mx-0.5 select-none align-middle cursor-default ${cls}">{${p1}}</strong>`;
       });
 
   useEffect(() => {
@@ -151,7 +151,7 @@ const BadgeEditor = ({
     const badge = document.createElement('strong');
     badge.contentEditable = 'false';
     badge.setAttribute('data-var', `{${key}}`);
-    badge.className = `inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border mx-0.5 select-none align-middle cursor-default ${cls}`;
+    badge.className = `inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border mx-0.5 select-none align-middle cursor-default ${cls}`;
     badge.innerText = `{${key}}`;
     const space = document.createTextNode(' ');
     const sel = window.getSelection();
@@ -178,14 +178,14 @@ const BadgeEditor = ({
   return (
     <div className="space-y-2">
       {/* Barra de variáveis + toggle preview */}
-      <div className="flex flex-wrap gap-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-xl">
-        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center mr-1">Variáveis:</span>
+      <div className="flex flex-wrap gap-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
+        <span className="text-[11px] font-semibold text-zinc-400 flex items-center mr-1">Variáveis:</span>
         {variables.map(v => (
           <button
             key={v.key}
             type="button"
             onClick={() => insertVar(v.key)}
-            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer hover:opacity-80 active:scale-95 transition-all ${VAR_COLORS[v.key] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
+            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer hover:opacity-80 active:scale-95 transition-all ${VAR_COLORS[v.key] || 'bg-slate-100 text-slate-700 border-slate-200'}`}
           >
             +{v.label}
           </button>
@@ -197,14 +197,14 @@ const BadgeEditor = ({
         <button
           type="button"
           onClick={() => setShowPreview(false)}
-          className={`px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition-colors border-b-2 -mb-px ${!showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
+          className={`px-3 py-1.5 text-[11px] font-semibold   transition-colors border-b-2 -mb-px ${!showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
         >
           Editar
         </button>
         <button
           type="button"
           onClick={() => setShowPreview(true)}
-          className={`px-3 py-1.5 text-[11px] font-black uppercase tracking-wide transition-colors border-b-2 -mb-px flex items-center gap-1 ${showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
+          className={`px-3 py-1.5 text-[11px] font-semibold   transition-colors border-b-2 -mb-px flex items-center gap-1 ${showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
         >
           <Eye size={11} /> Pré-visualizar
         </button>
@@ -221,25 +221,25 @@ const BadgeEditor = ({
             e.preventDefault();
             document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
           }}
-          className="w-full min-h-[130px] p-4 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all text-sm text-zinc-700 bg-white leading-relaxed"
+          className="w-full min-h-[130px] p-4 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all text-sm text-zinc-700 bg-white leading-relaxed"
           style={{ whiteSpace: 'pre-wrap' }}
         />
       )}
 
       {/* Pré-visualização estilo WhatsApp */}
       {showPreview && (
-        <div className="bg-[#e5ddd5] rounded-xl p-4 min-h-[130px]">
+        <div className="bg-[#e5ddd5] rounded-lg p-4 min-h-[130px]">
           <div className="flex justify-end">
-            <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm">
+            <div className="bg-[#dcf8c6] rounded-lg rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm">
               <p
                 className="text-sm text-zinc-800 leading-relaxed"
                 style={{ whiteSpace: 'pre-wrap' }}
                 dangerouslySetInnerHTML={{ __html: renderPreview(value) }}
               />
-              <p className="text-[10px] text-zinc-500 text-right mt-1.5">14:30 ✓✓</p>
+              <p className="text-[11px] text-zinc-500 text-right mt-1.5">14:30 ✓✓</p>
             </div>
           </div>
-          <p className="text-[10px] text-zinc-500 text-center mt-3 font-medium">
+          <p className="text-[11px] text-zinc-500 text-center mt-3 font-medium">
             Pré-visualização com dados de exemplo
           </p>
         </div>
@@ -272,26 +272,26 @@ const DispatchBlock = ({
   showTime?: boolean;
   children?: React.ReactNode;
 }) => (
-  <div className={`rounded-2xl border transition-all duration-200 ${enabled ? 'border-zinc-200 bg-white shadow-sm' : 'border-zinc-100 bg-zinc-50/60 opacity-70'}`}>
+  <div className={`rounded-lg border transition-all duration-200 ${enabled ? 'border-zinc-200 bg-white shadow-sm' : 'border-zinc-100 bg-zinc-50/60 opacity-70'}`}>
     <div className="flex items-center justify-between gap-4 p-4">
       <div className="flex items-center gap-3 min-w-0">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
           <Icon size={17} />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-black text-zinc-800">{label}</p>
+          <p className="text-sm font-semibold text-zinc-800">{label}</p>
           {description && <p className="text-[11px] text-zinc-400 font-medium truncate">{description}</p>}
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
         {showTime && enabled && onTimeChange && (
-          <div className="flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-xl">
+          <div className="flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-lg">
             <Clock size={13} className="text-zinc-400" />
             <input
               type="time"
               value={time}
               onChange={e => onTimeChange(e.target.value)}
-              className="text-xs font-bold text-zinc-700 focus:outline-none bg-transparent w-16 cursor-pointer"
+              className="text-xs font-semibold text-zinc-700 focus:outline-none bg-transparent w-16 cursor-pointer"
             />
           </div>
         )}
@@ -450,7 +450,7 @@ export const BotIntegration: React.FC = () => {
             leftIcon={isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
             onClick={handleSave}
             loading={isSaving}
-            className="shadow-lg"
+            className="shadow-sm"
           >
             Salvar Tudo
           </Button>
@@ -507,8 +507,8 @@ export const BotIntegration: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-center">
-                    <p className="font-black text-zinc-800 text-base">Conectado</p>
-                    <p className="text-sm text-emerald-600 font-bold mt-0.5">{phone || 'Dispositivo vinculado'}</p>
+                    <p className="font-semibold text-zinc-800 text-base">Conectado</p>
+                    <p className="text-sm text-emerald-600 font-semibold mt-0.5">{phone || 'Dispositivo vinculado'}</p>
                     <p className="text-xs text-zinc-400 mt-1">Bot ativo e enviando notificações</p>
                   </div>
                   <Badge color="success" dot>Online</Badge>
@@ -525,8 +525,8 @@ export const BotIntegration: React.FC = () => {
               ) : (
                 <div className="flex flex-col items-center gap-4 py-4">
                   {/* QR frame */}
-                  <div className="relative bg-zinc-900 p-4 rounded-[20px] shadow-xl border border-zinc-800">
-                    <div className="w-52 h-52 bg-white rounded-xl flex items-center justify-center overflow-hidden relative">
+                  <div className="relative bg-zinc-900 p-4 rounded-[20px] shadow-sm border border-zinc-800">
+                    <div className="w-52 h-52 bg-white rounded-lg flex items-center justify-center overflow-hidden relative">
                       {qrCode ? (
                         <img src={qrCode} alt="QR Code" className="w-full h-full object-contain p-2 animate-fadeIn" />
                       ) : (
@@ -538,11 +538,11 @@ export const BotIntegration: React.FC = () => {
                       )}
                       {/* Overlay loading/button */}
                       {(isActionLoading || (isConnecting && !qrCode) || (!isConnecting && !qrCode)) && (
-                        <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center gap-3 p-4 rounded-xl">
+                        <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center gap-3 p-4 rounded-lg">
                           {isActionLoading || (isConnecting && !qrCode) ? (
                             <>
                               <Loader2 size={30} className="animate-spin text-emerald-600" />
-                              <span className="text-xs font-bold text-emerald-700 animate-pulse">
+                              <span className="text-xs font-semibold text-emerald-700 animate-pulse">
                                 {isActionLoading ? 'Iniciando...' : 'Gerando código...'}
                               </span>
                             </>
@@ -550,7 +550,7 @@ export const BotIntegration: React.FC = () => {
                             <Button
                               variant="primary"
                               onClick={handleConnect}
-                              className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 gap-2"
+                              className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-200 gap-2"
                             >
                               <Smartphone size={15} /> Gerar QR Code
                             </Button>
@@ -560,7 +560,7 @@ export const BotIntegration: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-black text-zinc-800 uppercase tracking-wide">Conectar Aparelho</p>
+                    <p className="text-sm font-semibold text-zinc-800">Conectar Aparelho</p>
                     <p className="text-xs text-zinc-400 mt-1 max-w-[200px] leading-relaxed">
                       Abra seu WhatsApp e escaneie o código para ativar o robô
                     </p>
@@ -568,7 +568,7 @@ export const BotIntegration: React.FC = () => {
                   {isConnecting && (
                     <button
                       onClick={handleDisconnect}
-                      className="text-[11px] font-bold text-zinc-400 hover:text-rose-500 underline uppercase tracking-wider transition-colors"
+                      className="text-[11px] font-semibold text-zinc-400 hover:text-rose-500 underline transition-colors"
                     >
                       Cancelar
                     </button>
@@ -609,7 +609,7 @@ export const BotIntegration: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
-                  <span className="text-emerald-700 font-bold">As mensagens são disparadas automaticamente pelos cron jobs a cada minuto.</span>
+                  <span className="text-emerald-700 font-semibold">As mensagens são disparadas automaticamente pelos cron jobs a cada minuto.</span>
                 </li>
               </ul>
             </PanelCard>
@@ -619,8 +619,8 @@ export const BotIntegration: React.FC = () => {
           <div className="xl:col-span-8 space-y-5">
 
             {/* Legenda de variáveis */}
-            <div className="rounded-2xl border border-zinc-100 bg-zinc-50 p-4">
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">Variáveis disponíveis nas mensagens</p>
+            <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
+              <p className="text-[11px] font-semibold text-zinc-400 mb-3">Variáveis disponíveis nas mensagens</p>
               <div className="flex flex-wrap gap-2">
                 {[
                   { key: 'patient_name',      label: 'Nome Paciente',      desc: 'Ex: Maria Silva',            cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
@@ -634,16 +634,16 @@ export const BotIntegration: React.FC = () => {
                   { key: 'amount',            label: 'Valor',              desc: 'Ex: 150,00 (só cobrança)',   cls: 'bg-rose-100 text-rose-700 border-rose-200' },
                 ].map(v => (
                   <div key={v.key} className="group relative">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-default ${v.cls}`}>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-default ${v.cls}`}>
                       {`{${v.key}}`}
                     </span>
-                    <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-10 bg-zinc-900 text-white text-[10px] font-medium rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-xl">
-                      <span className="font-black">{v.label}</span> — {v.desc}
+                    <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-10 bg-zinc-900 text-white text-[11px] font-medium rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-sm">
+                      <span className="font-semibold">{v.label}</span> — {v.desc}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-zinc-400 mt-3 leading-relaxed">
+              <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed">
                 Clique nas variáveis coloridas dentro dos editores abaixo para inseri-las na mensagem. Passe o mouse sobre cada variável para ver o exemplo.
               </p>
             </div>
@@ -796,13 +796,13 @@ export const BotIntegration: React.FC = () => {
               type="date"
               value={filterDate}
               onChange={e => { setFilterDate(e.target.value); fetchQueue(filterStatus, e.target.value); }}
-              className="text-xs border border-zinc-200 rounded-xl px-3 py-1.5 text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="text-xs border border-zinc-200 rounded-lg px-3 py-1.5 text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
             {(['', 'sent', 'pending', 'error', 'canceled'] as const).map(s => (
               <button
                 key={s}
                 onClick={() => { setFilterStatus(s); fetchQueue(s, filterDate); }}
-                className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-all ${
+                className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
                   filterStatus === s
                     ? s === 'sent'     ? 'bg-emerald-500 border-emerald-500 text-white'
                     : s === 'error'    ? 'bg-red-500 border-red-500 text-white'
@@ -818,7 +818,7 @@ export const BotIntegration: React.FC = () => {
             {(filterDate || filterStatus) && (
               <button
                 onClick={() => { setFilterDate(''); setFilterStatus(''); fetchQueue('', ''); }}
-                className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200 text-zinc-400 hover:text-zinc-600 flex items-center gap-1"
+                className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-600 flex items-center gap-1"
               >
                 <X size={10} /> Limpar
               </button>
@@ -856,26 +856,26 @@ export const BotIntegration: React.FC = () => {
                 const name = item.patient_name || null;
 
                 return (
-                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border border-zinc-100 bg-white hover:border-zinc-200 transition-all">
-                    <div className="w-9 h-9 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0">
+                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border border-zinc-100 bg-white hover:border-zinc-200 transition-all">
+                    <div className="w-9 h-9 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0">
                       <User size={15} className="text-zinc-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-black text-zinc-800 truncate">{name || phone}</span>
-                        {name && <span className="text-[10px] text-zinc-400 font-medium">{phone}</span>}
+                        <span className="text-xs font-semibold text-zinc-800 truncate">{name || phone}</span>
+                        {name && <span className="text-[11px] text-zinc-400 font-medium">{phone}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         <Badge color={type.color as any} size="sm">{type.label}</Badge>
                         <Badge color={st.color as any} size="sm" dot>{st.label}</Badge>
-                        <span className="text-[10px] text-zinc-400 flex items-center gap-0.5">
+                        <span className="text-[11px] text-zinc-400 flex items-center gap-0.5">
                           <Clock size={10} /> {sentAt}
                         </span>
                       </div>
                     </div>
                     <button
                       onClick={() => setSelectedMsg(item)}
-                      className="p-2 rounded-xl hover:bg-zinc-50 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0"
+                      className="p-2 rounded-lg hover:bg-zinc-50 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0"
                       title="Ver mensagem"
                     >
                       <Eye size={14} />
@@ -890,24 +890,24 @@ export const BotIntegration: React.FC = () => {
         {/* Modal conteúdo da mensagem */}
         {selectedMsg && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelectedMsg(null)}>
-            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-lg shadow-sm max-w-md w-full p-6 space-y-4" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <p className="text-sm font-black text-zinc-800 uppercase tracking-tight">Conteúdo da Mensagem</p>
-                <button onClick={() => setSelectedMsg(null)} className="p-1.5 rounded-xl hover:bg-zinc-100 text-zinc-400"><X size={16} /></button>
+                <p className="text-sm font-semibold text-zinc-800">Conteúdo da Mensagem</p>
+                <button onClick={() => setSelectedMsg(null)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400"><X size={16} /></button>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Destinatário</p>
-                <p className="text-sm font-bold text-zinc-700">{selectedMsg.patient_name || selectedMsg.recipient_phone}</p>
+                <p className="text-[11px] font-semibold text-zinc-400">Destinatário</p>
+                <p className="text-sm font-semibold text-zinc-700">{selectedMsg.patient_name || selectedMsg.recipient_phone}</p>
                 {selectedMsg.patient_name && <p className="text-xs text-zinc-400">{selectedMsg.recipient_phone}</p>}
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Mensagem</p>
-                <pre className="text-xs text-zinc-700 whitespace-pre-wrap bg-zinc-50 border border-zinc-100 rounded-2xl p-4 font-sans leading-relaxed max-h-60 overflow-y-auto">{selectedMsg.content}</pre>
+                <p className="text-[11px] font-semibold text-zinc-400">Mensagem</p>
+                <pre className="text-xs text-zinc-700 whitespace-pre-wrap bg-zinc-50 border border-zinc-100 rounded-lg p-4 font-sans leading-relaxed max-h-60 overflow-y-auto">{selectedMsg.content}</pre>
               </div>
               {selectedMsg.last_error && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">Erro</p>
-                  <p className="text-xs text-red-600 bg-red-50 rounded-xl p-3">{selectedMsg.last_error}</p>
+                  <p className="text-[11px] font-semibold text-red-400">Erro</p>
+                  <p className="text-xs text-red-600 bg-red-50 rounded-lg p-3">{selectedMsg.last_error}</p>
                 </div>
               )}
             </div>
@@ -920,7 +920,7 @@ export const BotIntegration: React.FC = () => {
             variant="primary"
             onClick={handleSave}
             loading={isSaving}
-            className="w-full h-14 text-base shadow-2xl shadow-emerald-200 bg-emerald-600 border-emerald-600 hover:bg-emerald-700 gap-3"
+            className="w-full h-14 text-base shadow-sm shadow-emerald-200 bg-emerald-600 border-emerald-600 hover:bg-emerald-700 gap-3"
           >
             <Save size={20} /> Salvar Configurações
           </Button>

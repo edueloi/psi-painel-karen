@@ -3,6 +3,8 @@ import { MessageSquare, Search, Send, Plus, Loader2, User, Phone as PhoneIcon } 
 import { Button, IconButton } from '../UI/Button';
 import { Modal } from '../UI/Modal';
 import { Input } from '../UI/Input';
+import { Tabs } from '../UI/Tabs';
+import { Badge } from '../UI/Badge';
 import { EmptyState } from '../UI/EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import { api, API_BASE_URL } from '../../services/api';
@@ -26,6 +28,11 @@ interface Message {
   status: string;
   created_at: string;
 }
+
+const NEW_CONV_MODES = [
+  { id: 'contact', label: 'Contato cadastrado', icon: User },
+  { id: 'phone', label: 'Novo número', icon: PhoneIcon },
+] as const;
 
 function formatPhoneLabel(phone: string) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -147,21 +154,21 @@ export const ConversationsTab: React.FC = () => {
   const selected = conversations.find(c => c.id === selectedId) || null;
 
   return (
-    <div className="flex h-[calc(100vh-220px)] min-h-[420px] rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+    <div className="flex h-[calc(100vh-260px)] min-h-[420px] rounded-lg border border-slate-200 bg-white overflow-hidden">
       {/* Lista de conversas */}
-      <div className="w-full max-w-[320px] shrink-0 border-r border-slate-100 flex flex-col">
+      <div className="w-full sm:max-w-[280px] lg:max-w-[320px] shrink-0 border-r border-slate-100 flex flex-col">
         <div className="p-3 border-b border-slate-100 flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
+          <div className="flex-1 min-w-0">
+            <Input
+              aria-label="Buscar conversa"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar conversa..."
-              className="w-full h-9 pl-8 pr-3 rounded-xl border border-slate-200 bg-slate-50 text-xs outline-none focus:border-indigo-400 focus:bg-white transition-all"
+              iconLeft={<Search size={14} />}
             />
           </div>
           <IconButton size="sm" variant="primary" onClick={() => setNewConvOpen(true)} aria-label="Nova conversa">
-            <Plus size={16} />
+            <Plus size={14} />
           </IconButton>
         </div>
 
@@ -177,20 +184,20 @@ export const ConversationsTab: React.FC = () => {
               <button
                 key={conv.id}
                 onClick={() => setSelectedId(conv.id)}
-                className={`w-full flex items-start gap-2.5 px-3 py-3 text-left border-b border-slate-50 transition-colors ${selectedId === conv.id ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                className={`w-full flex items-start gap-2.5 px-3 py-3 text-left border-b border-slate-50 transition-colors ${selectedId === conv.id ? 'bg-primary-50' : 'hover:bg-slate-50'}`}
               >
-                <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 font-black text-xs">
+                <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 font-semibold text-xs">
                   {(conv.contact_name || formatPhoneLabel(conv.contact_phone)).charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-bold text-slate-700 truncate">{conv.contact_name || formatPhoneLabel(conv.contact_phone)}</p>
-                    <span className="text-[10px] text-slate-400 shrink-0">{formatTime(conv.last_message_at)}</span>
+                    <p className="text-[13px] font-medium text-slate-700 truncate">{conv.contact_name || formatPhoneLabel(conv.contact_phone)}</p>
+                    <span className="text-[11px] text-slate-400 shrink-0">{formatTime(conv.last_message_at)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <p className="text-xs text-slate-400 truncate">{conv.last_message_preview || '—'}</p>
+                    <p className="text-xs text-slate-500 truncate">{conv.last_message_preview || '—'}</p>
                     {conv.unread_count > 0 && (
-                      <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                      <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary-600 text-white text-[11px] font-medium flex items-center justify-center">
                         {conv.unread_count}
                       </span>
                     )}
@@ -211,11 +218,11 @@ export const ConversationsTab: React.FC = () => {
         ) : (
           <>
             <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 font-black text-xs">
+              <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 font-semibold text-xs">
                 {(selected.contact_name || formatPhoneLabel(selected.contact_phone)).charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-800 truncate">{selected.contact_name || formatPhoneLabel(selected.contact_phone)}</p>
+                <p className="text-sm font-medium text-slate-800 truncate">{selected.contact_name || formatPhoneLabel(selected.contact_phone)}</p>
                 <p className="text-xs text-slate-400">{formatPhoneLabel(selected.contact_phone)}</p>
               </div>
             </div>
@@ -228,9 +235,9 @@ export const ConversationsTab: React.FC = () => {
               ) : (
                 messages.map(msg => (
                   <div key={msg.id} className={`flex ${msg.direction === 'out' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${msg.direction === 'out' ? 'bg-indigo-600 text-white rounded-br-md' : 'bg-white border border-slate-100 text-slate-700 rounded-bl-md'}`}>
+                    <div className={`max-w-[75%] px-3 py-2 rounded-lg text-[13px] ${msg.direction === 'out' ? 'bg-primary-600 text-white rounded-br-md' : 'bg-white border border-slate-100 text-slate-700 rounded-bl-md'}`}>
                       <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                      <p className={`text-[10px] mt-1 ${msg.direction === 'out' ? 'text-indigo-200' : 'text-slate-400'}`}>{formatTime(msg.created_at)}</p>
+                      <p className={`text-[11px] mt-1 ${msg.direction === 'out' ? 'text-primary-100' : 'text-slate-400'}`}>{formatTime(msg.created_at)}</p>
                     </div>
                   </div>
                 ))
@@ -239,14 +246,16 @@ export const ConversationsTab: React.FC = () => {
             </div>
 
             <div className="p-3 border-t border-slate-100 flex items-center gap-2">
-              <input
-                value={draft}
-                onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                placeholder="Digite uma mensagem..."
-                className="flex-1 h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-indigo-400 focus:bg-white transition-all"
-              />
-              <Button size="md" onClick={handleSend} disabled={!draft.trim() || sending} loading={sending} iconLeft={<Send size={15} />}>
+              <div className="flex-1 min-w-0">
+                <Input
+                  aria-label="Mensagem"
+                  value={draft}
+                  onChange={e => setDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  placeholder="Digite uma mensagem..."
+                />
+              </div>
+              <Button size="md" onClick={handleSend} disabled={!draft.trim() || sending} loading={sending} iconLeft={<Send size={14} />}>
                 Enviar
               </Button>
             </div>
@@ -328,30 +337,21 @@ const NewConversationModal: React.FC<{ onClose: () => void; onCreated: (conv: Co
   return (
     <Modal isOpen onClose={onClose} title="Nova Conversa" subtitle="Escolha um contato cadastrado ou digite um telefone" size="sm">
       <div className="space-y-4">
-        <div className="bg-slate-50 p-1 rounded-xl flex border border-slate-200">
-          <button onClick={() => setMode('contact')} className={`flex-1 h-9 rounded-lg text-[10px] font-black flex items-center justify-center gap-2 uppercase tracking-wide transition-all ${mode === 'contact' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}>
-            <User size={13} /> Contato cadastrado
-          </button>
-          <button onClick={() => setMode('phone')} className={`flex-1 h-9 rounded-lg text-[10px] font-black flex items-center justify-center gap-2 uppercase tracking-wide transition-all ${mode === 'phone' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}>
-            <PhoneIcon size={13} /> Novo número
-          </button>
-        </div>
+        <Tabs<'contact' | 'phone'> items={NEW_CONV_MODES} value={mode} onChange={setMode} label="Tipo de contato" />
 
         {mode === 'contact' ? (
           <div>
-            <label className="ds-label mb-1.5 block">Paciente ou responsável</label>
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={selectedContact ? `${selectedContact.name} — ${selectedContact.tenantName}` : contactQuery}
-                onChange={e => handleContactQueryChange(e.target.value)}
-                placeholder="Buscar por nome ou telefone..."
-                className="w-full h-10 pl-8 pr-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-indigo-400 focus:bg-white transition-all"
-              />
-              {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />}
-            </div>
+            <label className="ds-label mb-1 block">Paciente ou responsável</label>
+            <Input
+              aria-label="Buscar paciente ou responsável"
+              value={selectedContact ? `${selectedContact.name} — ${selectedContact.tenantName}` : contactQuery}
+              onChange={e => handleContactQueryChange(e.target.value)}
+              placeholder="Buscar por nome ou telefone..."
+              iconLeft={<Search size={14} />}
+              iconRight={searching ? <Loader2 size={14} className="animate-spin" /> : undefined}
+            />
             {!selectedContact && contactResults.length > 0 && (
-              <div className="mt-2 border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-52 overflow-y-auto">
+              <div className="mt-2 border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-52 overflow-y-auto">
                 {contactResults.map(c => (
                   <button
                     key={`${c.kind}:${c.id}`}
@@ -359,12 +359,12 @@ const NewConversationModal: React.FC<{ onClose: () => void; onCreated: (conv: Co
                     className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-700 truncate">{c.name}</p>
+                      <p className="text-[13px] font-medium text-slate-700 truncate">{c.name}</p>
                       <p className="text-[11px] text-slate-400 truncate">{formatPhoneLabel(c.phone)} · {c.tenantName}</p>
                     </div>
-                    <span className={`shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${c.kind === 'patient' ? 'bg-amber-50 text-amber-600' : 'bg-violet-50 text-violet-600'}`}>
+                    <Badge size="sm" color={c.kind === 'patient' ? 'warning' : 'purple'}>
                       {c.kind === 'patient' ? 'Paciente' : 'Equipe'}
-                    </span>
+                    </Badge>
                   </button>
                 ))}
               </div>

@@ -196,57 +196,57 @@ export const PlayTherapyPage: React.FC = () => {
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
               <Users size={32} />
             </div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-loose">Selecione um paciente para iniciar o registro lúdico.</p>
+            <p className="text-xs font-semibold text-slate-400 leading-loose">Selecione um paciente para iniciar o registro lúdico.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             {/* Nova Sessão */}
             <div className="xl:col-span-1 space-y-6">
               <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm space-y-6">
-                <h3 className="flex items-center gap-3 text-lg font-black text-slate-900 uppercase tracking-tight">
+                <h3 className="flex items-center gap-3 text-lg font-semibold text-slate-900">
                    <Gamepad2 className="text-rose-500" size={20} /> Novo Registro Lúdico
                 </h3>
 
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data do Atendimento</label>
+                    <label className="text-[11px] font-semibold text-slate-400 ml-1">Data do Atendimento</label>
                     <input 
                       type="date"
                       value={newSession.date}
                       onChange={e => setNewSession({...newSession, date: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-3.5 text-xs font-semibold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Temas Emergentes</label>
+                    <label className="text-[11px] font-semibold text-slate-400 ml-1">Temas Emergentes</label>
                     <input 
                       placeholder="Ex: Agressividade, Cuidado, Separação..."
                       value={newSession.themes}
                       onChange={e => setNewSession({...newSession, themes: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-3.5 text-xs font-semibold focus:ring-4 focus:ring-rose-50 outline-none transition-all"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Brinquedos/Recursos Utilizados</label>
+                    <label className="text-[11px] font-semibold text-slate-400 ml-1">Brinquedos/Recursos Utilizados</label>
                     <textarea 
                       placeholder="Liste os itens usados na sessão..."
                       rows={3}
                       value={newSession.toysUsed?.join(', ')}
                       onChange={e => setNewSession({...newSession, toysUsed: e.target.value.split(',').map(s => s.trim())})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-3.5 text-xs font-semibold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observações do Brincar</label>
+                    <label className="text-[11px] font-semibold text-slate-400 ml-1">Observações do Brincar</label>
                     <textarea 
                       placeholder="Como a criança se expressou no setting?"
                       rows={5}
                       value={newSession.observations}
                       onChange={e => setNewSession({...newSession, observations: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-xs font-bold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-3.5 text-xs font-semibold focus:ring-4 focus:ring-rose-50 outline-none transition-all resize-none"
                     />
                   </div>
                 </div>
@@ -255,7 +255,7 @@ export const PlayTherapyPage: React.FC = () => {
                   fullWidth
                   onClick={handleSave}
                   isLoading={isSaving}
-                  className="bg-rose-500 hover:bg-rose-600 text-white rounded-2xl py-6 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-rose-200"
+                  className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg py-6 font-semibold text-[11px] shadow-sm shadow-rose-200"
                 >
                   Salvar Registro <Save size={16} className="ml-2" />
                 </Button>
@@ -266,15 +266,15 @@ export const PlayTherapyPage: React.FC = () => {
             <div className="xl:col-span-2 space-y-8">
                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessões Realizadas</p>
-                     <h2 className="text-3xl font-black text-slate-900">{sessions.length}</h2>
+                     <p className="text-[11px] font-semibold text-slate-400">Sessões Realizadas</p>
+                     <h2 className="text-3xl font-semibold text-slate-900">{sessions.length}</h2>
                   </div>
                   <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Temas Identificados</p>
-                     <h2 className="text-3xl font-black text-rose-500">{Array.from(new Set(sessions.flatMap(s => s.themes.split(',')))).filter((t: string) => t.trim()).length}</h2>
+                     <p className="text-[11px] font-semibold text-slate-400">Temas Identificados</p>
+                     <h2 className="text-3xl font-semibold text-rose-500">{Array.from(new Set(sessions.flatMap(s => s.themes.split(',')))).filter((t: string) => t.trim()).length}</h2>
                   </div>
                   <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm text-center space-y-1">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conserto do Vínculo</p>
+                     <p className="text-[11px] font-semibold text-slate-400">Conserto do Vínculo</p>
                      <div className="flex justify-center gap-1.5 pt-2">
                         {[1,2,3,4,5].map(i => <Star key={i} size={14} className={i <= 4 ? "text-amber-400 fill-amber-400" : "text-slate-200"} />)}
                      </div>
@@ -283,8 +283,8 @@ export const PlayTherapyPage: React.FC = () => {
 
                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                   <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Crônica das Sessões</h3>
-                     <div className="p-2 bg-rose-50 rounded-xl text-rose-500">
+                     <h3 className="text-sm font-semibold text-slate-900">Crônica das Sessões</h3>
+                     <div className="p-2 bg-rose-50 rounded-lg text-rose-500">
                         <History size={18} />
                      </div>
                   </div>
@@ -295,7 +295,7 @@ export const PlayTherapyPage: React.FC = () => {
                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
                               <ClipboardList size={32} />
                            </div>
-                           <p className="text-xs font-bold text-slate-400">Nenhum registro encontrado para este paciente.</p>
+                           <p className="text-xs font-semibold text-slate-400">Nenhum registro encontrado para este paciente.</p>
                         </div>
                      ) : (
                         sessions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(session => (
@@ -303,12 +303,12 @@ export const PlayTherapyPage: React.FC = () => {
                               <div className="flex items-start justify-between gap-4">
                                  <div className="space-y-4 flex-1">
                                     <div className="flex items-center gap-3">
-                                       <span className="text-[11px] font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-lg uppercase">
+                                       <span className="text-[11px] font-semibold text-slate-900 bg-slate-100 px-3 py-1 rounded-lg">
                                           {new Date(session.date).toLocaleDateString('pt-BR')}
                                        </span>
                                        <div className="flex flex-wrap gap-2">
                                           {(session.themes || '').split(',').map(t => (
-                                             <span key={t} className="text-[8px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md uppercase tracking-tighter">
+                                             <span key={t} className="text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md">
                                                 #{t.trim()}
                                              </span>
                                           ))}
@@ -316,14 +316,14 @@ export const PlayTherapyPage: React.FC = () => {
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                        <div className="space-y-2">
-                                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Brinquedos & Recursos</p>
-                                          <p className="text-xs font-bold text-slate-600 leading-relaxed italic border-l-2 border-slate-200 pl-4">
+                                          <p className="text-[11px] font-semibold text-slate-400">Brinquedos & Recursos</p>
+                                          <p className="text-xs font-semibold text-slate-600 leading-relaxed italic border-l-2 border-slate-200 pl-4">
                                              {(session.toysUsed || []).join(', ') || 'Nenhum especificado'}
                                           </p>
                                        </div>
                                        <div className="space-y-2">
-                                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Observação Clínica</p>
-                                          <p className="text-xs font-bold text-slate-600 leading-relaxed">
+                                          <p className="text-[11px] font-semibold text-slate-400">Observação Clínica</p>
+                                          <p className="text-xs font-semibold text-slate-600 leading-relaxed">
                                              {session.observations}
                                           </p>
                                        </div>
@@ -331,7 +331,7 @@ export const PlayTherapyPage: React.FC = () => {
                                  </div>
                                  <button 
                                     onClick={() => deleteSession(session.id)}
-                                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                  >
                                     <Trash2 size={16} />
                                  </button>

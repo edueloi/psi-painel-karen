@@ -75,10 +75,10 @@ export const InstallPWAPrompt: React.FC = () => {
 
   return (
     <div className="fixed bottom-6 left-6 z-[9998] max-w-sm animate-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-start gap-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4">
-        <img src={logoUrl} alt="Plaelo" className="w-11 h-11 rounded-xl object-contain shrink-0 border border-slate-100" />
+      <div className="flex items-start gap-3.5 bg-white border border-slate-200 rounded-lg shadow-sm p-4">
+        <img src={logoUrl} alt="Plaelo" className="w-11 h-11 rounded-lg object-contain shrink-0 border border-slate-100" />
         <div className="min-w-0 flex-1">
-          <p className="font-black text-sm text-slate-800 flex items-center gap-1.5">
+          <p className="font-semibold text-sm text-slate-800 flex items-center gap-1.5">
             <Monitor size={14} className="text-indigo-500" /> Instale a Plaelo
           </p>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
@@ -87,13 +87,13 @@ export const InstallPWAPrompt: React.FC = () => {
           <div className="flex items-center gap-2 mt-3">
             <button
               onClick={handleInstall}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors"
             >
               <Download size={13} /> Instalar
             </button>
             <button
               onClick={dismiss}
-              className="px-3.5 py-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-xs font-bold transition-colors"
+              className="px-3.5 py-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-xs font-semibold transition-colors"
             >
               Agora não
             </button>

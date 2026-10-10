@@ -2,11 +2,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, StatGrid, ContentCard } from '../components/UI/PageWrapper';
+import { PanelCard } from '../components/UI/PanelCard';
+import { StatCard } from '../components/UI/StatCard';
+import { Tabs } from '../components/UI/Tabs';
+import { Badge } from '../components/UI/Badge';
+import { EmptyState } from '../components/UI/EmptyState';
+import { Button, IconButton } from '../components/UI/Button';
+import { FilterLineSearch } from '../components/UI/FilterLine';
 import {
   Radar, Activity, ChevronRight, ArrowLeft, Users, Calendar,
   Plus, Loader2, BarChart2, TrendingUp, AlertTriangle, CheckCircle2,
-  Brain, Zap, Search, Clock, Hash, ArrowRight, FileText
+  Brain, Zap, Clock, Hash, ArrowRight, FileText, LayoutGrid
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -60,19 +67,32 @@ const dassLevel = (val: number, sub: 'Depression' | 'Anxiety' | 'Stress') => {
 
 const ScoreBadge: React.FC<{ val: number; sub: 'Depression'|'Anxiety'|'Stress' }> = ({ val, sub }) => {
   const { label, color } = dassLevel(val, sub);
-  const cls: Record<string, string> = {
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    amber:   'bg-amber-50 text-amber-700 border-amber-200',
-    orange:  'bg-orange-50 text-orange-700 border-orange-200',
-    rose:    'bg-rose-50 text-rose-700 border-rose-200',
-    red:     'bg-red-100 text-red-700 border-red-200',
+  const map: Record<string, 'success' | 'warning' | 'orange' | 'danger'> = {
+    emerald: 'success', amber: 'warning', orange: 'orange', rose: 'danger', red: 'danger',
   };
   return (
-    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${cls[color]}`}>
+    <Badge color={map[color] || 'default'} size="sm">
       {val} · {label}
-    </span>
+    </Badge>
   );
 };
+
+/* ─── Navegação por abas ────────────────────────────────────── */
+type ViewType = 'hub' | 'disc' | 'dass' | 'bdi' | 'bai' | 'snap' | 'mchat';
+
+const instrumentTabs = [
+  { id: 'hub', label: 'Visão geral', icon: LayoutGrid },
+  { id: 'disc', label: 'DISC', icon: Radar },
+  { id: 'dass', label: 'DASS-21', icon: Activity },
+  { id: 'bdi', label: 'BDI-II', icon: Brain },
+  { id: 'bai', label: 'BAI', icon: Zap },
+  { id: 'snap', label: 'SNAP-IV', icon: BarChart2 },
+  { id: 'mchat', label: 'M-CHAT-R/F', icon: CheckCircle2 },
+] as const;
+
+const InstrumentNav: React.FC<{ value: ViewType; onChange: (v: ViewType) => void }> = ({ value, onChange }) => (
+  <Tabs<ViewType> items={instrumentTabs} value={value} onChange={onChange} label="Instrumentos psicológicos" />
+);
 
 /* ─── Patient Row ───────────────────────────────────────────── */
 interface PatientRowProps {
@@ -80,80 +100,68 @@ interface PatientRowProps {
   name: string;
   date: string;
   sessions: number;
-  accentClass: string;
   extra?: React.ReactNode;
   avgTime?: number | null;
   onOpen: () => void;
 }
-const PatientRow: React.FC<PatientRowProps> = ({ avatar, name, date, sessions, accentClass, extra, avgTime, onOpen }) => (
-  <div className={`group flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all cursor-pointer`} onClick={onOpen}>
-    <div className={`w-11 h-11 rounded-2xl ${accentClass} flex items-center justify-center font-black text-base shrink-0`}>
+const PatientRow: React.FC<PatientRowProps> = ({ avatar, name, date, sessions, extra, avgTime, onOpen }) => (
+  <div className="group flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-primary-200 hover:bg-primary-50/30 transition-all cursor-pointer" onClick={onOpen}>
+    <div className="w-9 h-9 rounded-lg border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center font-medium text-sm shrink-0">
       {avatar}
     </div>
     <div className="flex-1 min-w-0 space-y-1">
-      <p className="font-black text-slate-800 text-sm truncate">{name}</p>
-      <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 font-bold">
-        <span className="flex items-center gap-1"><Calendar size={9}/> {date}</span>
-        <span className="flex items-center gap-1"><Hash size={9}/> {sessions} resposta{sessions !== 1 ? 's' : ''}</span>
+      <p className="font-medium text-slate-800 text-xs truncate">{name}</p>
+      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+        <span className="flex items-center gap-1"><Calendar size={11}/> {date}</span>
+        <span className="flex items-center gap-1"><Hash size={11}/> {sessions} resposta{sessions !== 1 ? 's' : ''}</span>
         {avgTime != null && (
-          <span className="flex items-center gap-1"><Clock size={9}/> {fmtTime(avgTime)}</span>
+          <span className="flex items-center gap-1"><Clock size={11}/> {fmtTime(avgTime)}</span>
         )}
       </div>
       {extra && <div className="flex flex-wrap gap-1.5 pt-0.5">{extra}</div>}
     </div>
     <div className="flex items-center gap-2 shrink-0">
-      <div className="flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 text-slate-400 text-[10px] font-black">
-        {sessions}
-      </div>
-      <button className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 flex items-center justify-center transition shrink-0">
-        <ArrowRight size={13}/>
-      </button>
+      <Badge color="default" size="sm">{sessions}</Badge>
+      <IconButton variant="outline" size="sm" aria-label={`Abrir ${name}`} title="Abrir" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+        <ArrowRight size={14}/>
+      </IconButton>
     </div>
-  </div>
-);
-
-/* ─── Search box ─────────────────────────────────────────────── */
-const SearchBox: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
-  <div className="relative">
-    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
-    <input
-      className="w-full h-9 pl-8 pr-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none focus:border-indigo-300 font-medium"
-      placeholder="Buscar paciente..." value={value} onChange={e => onChange(e.target.value)}
-    />
   </div>
 );
 
 /* ─── View Header ────────────────────────────────────────────── */
 const ViewHeader: React.FC<{
-  onBack: () => void;
+  icon: React.ElementType;
   title: string;
   subtitle: string;
   applyLabel: string;
-  applyColor: string;
   applyPath: string;
-}> = ({ onBack, title, subtitle, applyLabel, applyColor, applyPath }) => {
+}> = ({ icon, title, subtitle, applyLabel, applyPath }) => {
   const navigate = useNavigate();
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-      <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-xs uppercase transition shrink-0">
-        <ArrowLeft size={14}/> Voltar
-      </button>
-      <div className="flex-1 min-w-0">
-        <h2 className="font-black text-slate-800 text-xl truncate">{title}</h2>
-        <p className="text-xs text-slate-400 font-medium mt-0.5">{subtitle}</p>
-      </div>
-      <button onClick={() => navigate(applyPath)}
-        className={`shrink-0 h-10 px-5 ${applyColor} text-white rounded-xl font-black text-xs uppercase hover:opacity-90 transition flex items-center gap-2 shadow`}>
-        <Plus size={14}/> {applyLabel}
-      </button>
-    </div>
+    <SectionTitle
+      icon={icon}
+      title={title}
+      description={subtitle}
+      action={
+        <Button variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => navigate(applyPath)}>
+          {applyLabel}
+        </Button>
+      }
+    />
   );
 };
+
+const LoadingBlock: React.FC = () => (
+  <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+    <Loader2 size={18} className="animate-spin"/> Carregando…
+  </div>
+);
 
 /* ═══════════════════════════════════════════════════════════
    DISC DETAIL VIEW
 ═══════════════════════════════════════════════════════════ */
-const DiscView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const DiscView: React.FC<{ onNavigate: (v: ViewType) => void }> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const { pushToast } = useToast();
   const [results, setResults] = useState<DiscResult[]>([]);
@@ -199,103 +207,107 @@ const DiscView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const radarData = avgChart.map(d => ({ subject: d.dim, A: d.value, fullMark: 5 }));
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <ViewHeader
-        onBack={onBack}
-        title="DISC — Perfil Comportamental"
-        subtitle={`${patientMap.length} paciente${patientMap.length !== 1 ? 's' : ''} · ${results.length} avaliação${results.length !== 1 ? 'ões' : ''} total`}
-        applyLabel="Aplicar DISC"
-        applyColor="bg-indigo-600"
-        applyPath="/caixa-ferramentas/disc-avaliativo"
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <ViewHeader
+          icon={Radar}
+          title="DISC — Perfil Comportamental"
+          subtitle={`${patientMap.length} paciente${patientMap.length !== 1 ? 's' : ''} · ${results.length} avaliação${results.length !== 1 ? 'ões' : ''} total`}
+          applyLabel="Aplicar DISC"
+          applyPath="/caixa-ferramentas/disc-avaliativo"
+        />
+        <InstrumentNav value="disc" onChange={onNavigate}/>
 
-      {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={28} className="text-indigo-400 animate-spin"/></div>
-      ) : patientMap.length === 0 ? (
-        <div className="bg-white rounded-2xl sm:rounded-[28px] border border-slate-100 p-8 sm:p-16 text-center shadow-sm">
-          <Radar size={32} className="text-slate-200 mx-auto mb-4"/>
-          <p className="font-bold text-slate-400">Nenhuma avaliação DISC ainda.</p>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-              <p className="font-black text-slate-700 text-[10px] uppercase tracking-widest mb-4">Médias por Dimensão</p>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={avgChart} barCategoryGap="30%">
-                  <XAxis dataKey="dim" tick={{ fontSize: 13, fontWeight: 700 }}/>
-                  <YAxis domain={[0, 5]} tick={{ fontSize: 11 }}/>
-                  <Tooltip formatter={(v: any) => [Number(v).toFixed(2), 'Média']}/>
-                  <Bar dataKey="value" radius={[8,8,0,0]}>
-                    {avgChart.map((d, i) => <Cell key={i} fill={d.fill}/>)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+        {loading ? (
+          <LoadingBlock/>
+        ) : patientMap.length === 0 ? (
+          <ContentCard>
+            <EmptyState icon={Radar} title="Nenhuma avaliação DISC ainda."/>
+          </ContentCard>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <PanelCard title="Médias por Dimensão">
+                <div className="h-48 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={avgChart} barCategoryGap="30%">
+                      <XAxis dataKey="dim" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}/>
+                      <YAxis domain={[0, 5]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false}/>
+                      <Tooltip formatter={(v: any) => [Number(v).toFixed(2), 'Média']}/>
+                      <Bar dataKey="value" radius={[8,8,0,0]}>
+                        {avgChart.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </PanelCard>
+              <PanelCard title="Radar Médio DISC">
+                <div className="h-48 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={radarData}>
+                      <PolarGrid/>
+                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }}/>
+                      <PolarRadiusAxis domain={[0, 5]} tick={{ fontSize: 10 }}/>
+                      <RadarPlot dataKey="A" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.25}/>
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </PanelCard>
             </div>
-            <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-              <p className="font-black text-slate-700 text-[10px] uppercase tracking-widest mb-4">Radar Médio DISC</p>
-              <ResponsiveContainer width="100%" height={180}>
-                <RadarChart data={radarData}>
-                  <PolarGrid/>
-                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 14, fontWeight: 700 }}/>
-                  <PolarRadiusAxis domain={[0, 5]} tick={{ fontSize: 9 }}/>
-                  <RadarPlot dataKey="A" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.25}/>
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <p className="font-black text-slate-700 text-[10px] uppercase tracking-widest">Pacientes Avaliados</p>
-              <SearchBox value={search} onChange={setSearch}/>
-            </div>
-            <div className="space-y-2">
-              {filtered.map(({ latest: r, count }) => (
-                <PatientRow
-                  key={r.id}
-                  avatar={(r.patient_name || '?')[0].toUpperCase()}
-                  name={r.patient_name}
-                  date={fmtDate(r.created_at)}
-                  sessions={count}
-                  accentClass="bg-indigo-100 text-indigo-600"
-                  onOpen={() => navigate(`/caixa-ferramentas/disc-avaliativo?patient_id=${r.patient_id}`)}
-                  extra={
-                    <div className="flex items-end gap-2">
-                      {(['D','I','S','C'] as const).map(dim => {
-                        const key = `score_${dim.toLowerCase()}` as keyof DiscResult;
-                        const val = (r[key] as number) || 0;
-                        return (
-                          <div key={dim} className="flex flex-col items-center gap-0.5">
-                            <span className="text-[9px] font-black" style={{ color: DISC_COLORS[dim] }}>{val.toFixed(1)}</span>
-                            <div className="w-5 bg-slate-100 rounded-full overflow-hidden" style={{ height: 28 }}>
-                              <div className="w-full rounded-full" style={{
-                                height: `${(val/5)*100}%`,
-                                background: DISC_COLORS[dim],
-                                marginTop: `${100-(val/5)*100}%`
-                              }}/>
-                            </div>
-                            <span className="text-[9px] font-black text-slate-400">{dim}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  }
-                />
-              ))}
-              {filtered.length === 0 && <p className="text-center text-slate-400 text-xs font-medium py-6">Nenhum paciente encontrado.</p>}
-            </div>
+            <ContentCard>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <h2 className="text-sm font-medium text-slate-900">Pacientes Avaliados</h2>
+                  <FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar paciente..." aria-label="Buscar paciente" className="sm:max-w-[280px]"/>
+                </div>
+                <div className="space-y-2">
+                  {filtered.map(({ latest: r, count }) => (
+                    <PatientRow
+                      key={r.id}
+                      avatar={(r.patient_name || '?')[0].toUpperCase()}
+                      name={r.patient_name}
+                      date={fmtDate(r.created_at)}
+                      sessions={count}
+                      onOpen={() => navigate(`/caixa-ferramentas/disc-avaliativo?patient_id=${r.patient_id}`)}
+                      extra={
+                        <div className="flex items-end gap-2">
+                          {(['D','I','S','C'] as const).map(dim => {
+                            const key = `score_${dim.toLowerCase()}` as keyof DiscResult;
+                            const val = (r[key] as number) || 0;
+                            return (
+                              <div key={dim} className="flex flex-col items-center gap-0.5">
+                                <span className="text-[11px] font-medium" style={{ color: DISC_COLORS[dim] }}>{val.toFixed(1)}</span>
+                                <div className="w-5 bg-slate-100 rounded-full overflow-hidden" style={{ height: 28 }}>
+                                  <div className="w-full rounded-full" style={{
+                                    height: `${(val/5)*100}%`,
+                                    background: DISC_COLORS[dim],
+                                    marginTop: `${100-(val/5)*100}%`
+                                  }}/>
+                                </div>
+                                <span className="text-[11px] font-medium text-slate-500">{dim}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      }
+                    />
+                  ))}
+                  {filtered.length === 0 && <p className="text-center text-slate-500 text-xs py-6">Nenhum paciente encontrado.</p>}
+                </div>
+              </div>
+            </ContentCard>
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </div>
+    </PageWrapper>
   );
 };
 
 /* ═══════════════════════════════════════════════════════════
    DASS-21 DETAIL VIEW
 ═══════════════════════════════════════════════════════════ */
-const DassView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const DassView: React.FC<{ onNavigate: (v: ViewType) => void }> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const { pushToast } = useToast();
   const [patients, setPatients] = useState<DassPatient[]>([]);
@@ -337,94 +349,98 @@ const DassView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <ViewHeader
-        onBack={onBack}
-        title="DASS-21 — Depressão, Ansiedade e Estresse"
-        subtitle={`${patients.length} paciente${patients.length !== 1 ? 's' : ''} avaliado${patients.length !== 1 ? 's' : ''}`}
-        applyLabel="Aplicar DASS-21"
-        applyColor="bg-rose-600"
-        applyPath="/caixa-ferramentas/dass-21"
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <ViewHeader
+          icon={Activity}
+          title="DASS-21 — Depressão, Ansiedade e Estresse"
+          subtitle={`${patients.length} paciente${patients.length !== 1 ? 's' : ''} avaliado${patients.length !== 1 ? 's' : ''}`}
+          applyLabel="Aplicar DASS-21"
+          applyPath="/caixa-ferramentas/dass-21"
+        />
+        <InstrumentNav value="dass" onChange={onNavigate}/>
 
-      {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={28} className="text-rose-400 animate-spin"/></div>
-      ) : patients.length === 0 ? (
-        <div className="bg-white rounded-2xl sm:rounded-[28px] border border-slate-100 p-8 sm:p-16 text-center shadow-sm">
-          <Activity size={32} className="text-slate-200 mx-auto mb-4"/>
-          <p className="font-bold text-slate-400">Nenhuma avaliação DASS-21 ainda.</p>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-              <p className="font-black text-slate-700 text-[10px] uppercase tracking-widest mb-4">Distribuição de Severidade</p>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={distChart} barCategoryGap="30%">
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700 }}/>
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }}/>
-                  <Tooltip/>
-                  <Bar dataKey="value" radius={[8,8,0,0]} name="Contagem">
-                    {distChart.map((d, i) => <Cell key={i} fill={DIST_COLORS[d.name] || '#94a3b8'}/>)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm space-y-2.5">
-              <p className="font-black text-slate-700 text-[10px] uppercase tracking-widest mb-1">Legenda de Severidade</p>
-              {[
-                { label: 'Normal',      color: 'bg-emerald-500', dep: '0-9',   anx: '0-7',  str: '0-14' },
-                { label: 'Leve',        color: 'bg-amber-500',   dep: '10-13', anx: '8-9',  str: '15-18' },
-                { label: 'Moderado',    color: 'bg-orange-500',  dep: '14-20', anx: '10-14',str: '19-25' },
-                { label: 'Grave',       color: 'bg-rose-500',    dep: '21-27', anx: '15-19',str: '26-33' },
-                { label: 'Muito Grave', color: 'bg-red-600',     dep: '28+',   anx: '20+',  str: '34+' },
-              ].map(({ label, color, dep, anx, str }) => (
-                <div key={label} className="flex items-center gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${color}`}/>
-                  <span className="font-black text-slate-700 text-xs w-20">{label}</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Dep {dep} · Ans {anx} · Est {str}</span>
+        {loading ? (
+          <LoadingBlock/>
+        ) : patients.length === 0 ? (
+          <ContentCard>
+            <EmptyState icon={Activity} title="Nenhuma avaliação DASS-21 ainda."/>
+          </ContentCard>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <PanelCard title="Distribuição de Severidade">
+                <div className="h-48 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={distChart} barCategoryGap="30%">
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}/>
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false}/>
+                      <Tooltip/>
+                      <Bar dataKey="value" radius={[8,8,0,0]} name="Contagem">
+                        {distChart.map((d, i) => <Cell key={i} fill={DIST_COLORS[d.name] || '#94a3b8'}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
+              </PanelCard>
+              <PanelCard title="Legenda de Severidade">
+                <div className="space-y-2">
+                  {[
+                    { label: 'Normal',      color: 'bg-emerald-500', dep: '0-9',   anx: '0-7',  str: '0-14' },
+                    { label: 'Leve',        color: 'bg-amber-500',   dep: '10-13', anx: '8-9',  str: '15-18' },
+                    { label: 'Moderado',    color: 'bg-orange-500',  dep: '14-20', anx: '10-14',str: '19-25' },
+                    { label: 'Grave',       color: 'bg-rose-500',    dep: '21-27', anx: '15-19',str: '26-33' },
+                    { label: 'Muito Grave', color: 'bg-red-600',     dep: '28+',   anx: '20+',  str: '34+' },
+                  ].map(({ label, color, dep, anx, str }) => (
+                    <div key={label} className="flex items-center gap-3">
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${color}`}/>
+                      <span className="font-medium text-slate-700 text-xs w-20">{label}</span>
+                      <span className="text-[11px] text-slate-500">Dep {dep} · Ans {anx} · Est {str}</span>
+                    </div>
+                  ))}
+                </div>
+              </PanelCard>
             </div>
-          </div>
 
-          <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <p className="font-black text-slate-700 text-[10px] uppercase tracking-widest">Pacientes Avaliados</p>
-              <SearchBox value={search} onChange={setSearch}/>
-            </div>
-            <div className="space-y-2">
-              {filtered.map(p => (
-                <PatientRow
-                  key={p.patient_id}
-                  avatar={(p.patient_name || '?')[0].toUpperCase()}
-                  name={p.patient_name}
-                  date={fmtDate(p.last_date)}
-                  sessions={p.sessions}
-                  accentClass="bg-rose-100 text-rose-600"
-                  avgTime={avgTimeForPatient(p)}
-                  onOpen={() => navigate(`/caixa-ferramentas/dass-21?patient_id=${p.patient_id}`)}
-                  extra={p.last_scores ? (
-                    <>
-                      {(['Depression','Anxiety','Stress'] as const).map(sub => {
-                        const labels: Record<string,string> = { Depression: 'Dep', Anxiety: 'Ans', Stress: 'Est' };
-                        return (
-                          <span key={sub} className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-bold">{labels[sub]}</span>
-                            <ScoreBadge val={p.last_scores![sub]} sub={sub}/>
-                          </span>
-                        );
-                      })}
-                    </>
-                  ) : undefined}
-                />
-              ))}
-              {filtered.length === 0 && <p className="text-center text-slate-400 text-xs font-medium py-6">Nenhum paciente encontrado.</p>}
-            </div>
+            <ContentCard>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <h2 className="text-sm font-medium text-slate-900">Pacientes Avaliados</h2>
+                  <FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar paciente..." aria-label="Buscar paciente" className="sm:max-w-[280px]"/>
+                </div>
+                <div className="space-y-2">
+                  {filtered.map(p => (
+                    <PatientRow
+                      key={p.patient_id}
+                      avatar={(p.patient_name || '?')[0].toUpperCase()}
+                      name={p.patient_name}
+                      date={fmtDate(p.last_date)}
+                      sessions={p.sessions}
+                      avgTime={avgTimeForPatient(p)}
+                      onOpen={() => navigate(`/caixa-ferramentas/dass-21?patient_id=${p.patient_id}`)}
+                      extra={p.last_scores ? (
+                        <>
+                          {(['Depression','Anxiety','Stress'] as const).map(sub => {
+                            const labels: Record<string,string> = { Depression: 'Dep', Anxiety: 'Ans', Stress: 'Est' };
+                            return (
+                              <span key={sub} className="flex items-center gap-1">
+                                <span className="text-[11px] text-slate-500">{labels[sub]}</span>
+                                <ScoreBadge val={p.last_scores![sub]} sub={sub}/>
+                              </span>
+                            );
+                          })}
+                        </>
+                      ) : undefined}
+                    />
+                  ))}
+                  {filtered.length === 0 && <p className="text-center text-slate-500 text-xs py-6">Nenhum paciente encontrado.</p>}
+                </div>
+              </div>
+            </ContentCard>
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </div>
+    </PageWrapper>
   );
 };
 
@@ -432,21 +448,19 @@ const DassView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
    GENERIC RESULTS VIEW (BDI, BAI, SNAP-IV, M-CHAT)
 ═══════════════════════════════════════════════════════════ */
 interface GenericViewProps {
-  onBack: () => void;
+  onNavigate: (v: ViewType) => void;
+  viewId: ViewType;
+  icon: React.ElementType;
   title: string;
   applyLabel: string;
-  applyColor: string;
   applyPath: string;
   resultPath: string;
   endpoint: string;
-  accentClass: string;
-  spinColor: string;
-  emptyIcon: React.ReactNode;
   scoreLabel?: string;
 }
 const GenericView: React.FC<GenericViewProps> = ({
-  onBack, title, applyLabel, applyColor, applyPath, resultPath,
-  endpoint, accentClass, spinColor, emptyIcon, scoreLabel = 'Score'
+  onNavigate, viewId, icon, title, applyLabel, applyPath, resultPath,
+  endpoint, scoreLabel = 'Score'
 }) => {
   const navigate = useNavigate();
   const { pushToast } = useToast();
@@ -483,54 +497,56 @@ const GenericView: React.FC<GenericViewProps> = ({
   );
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <ViewHeader
-        onBack={onBack}
-        title={title}
-        subtitle={`${patients.length} paciente${patients.length !== 1 ? 's' : ''} avaliado${patients.length !== 1 ? 's' : ''} · ${raw.length} resultado${raw.length !== 1 ? 's' : ''}`}
-        applyLabel={applyLabel}
-        applyColor={applyColor}
-        applyPath={applyPath}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <ViewHeader
+          icon={icon}
+          title={title}
+          subtitle={`${patients.length} paciente${patients.length !== 1 ? 's' : ''} avaliado${patients.length !== 1 ? 's' : ''} · ${raw.length} resultado${raw.length !== 1 ? 's' : ''}`}
+          applyLabel={applyLabel}
+          applyPath={applyPath}
+        />
+        <InstrumentNav value={viewId} onChange={onNavigate}/>
 
-      {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={28} className={`${spinColor} animate-spin`}/></div>
-      ) : patients.length === 0 ? (
-        <div className="bg-white rounded-2xl sm:rounded-[28px] border border-slate-100 p-8 sm:p-16 text-center shadow-sm">
-          <div className="opacity-20 mx-auto mb-4 w-8 h-8 flex items-center justify-center">{emptyIcon}</div>
-          <p className="font-bold text-slate-400">Nenhuma avaliação {title} ainda.</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-[28px] border border-slate-100 shadow-sm p-6 space-y-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <p className="font-black text-slate-700 text-[10px] uppercase tracking-widest">Pacientes</p>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">{patients.length}</span>
+        {loading ? (
+          <LoadingBlock/>
+        ) : patients.length === 0 ? (
+          <ContentCard>
+            <EmptyState icon={icon} title={`Nenhuma avaliação ${title} ainda.`}/>
+          </ContentCard>
+        ) : (
+          <ContentCard>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-medium text-slate-900">Pacientes</h2>
+                  <Badge color="default" size="sm">{patients.length}</Badge>
+                </div>
+                <FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar paciente..." aria-label="Buscar paciente" className="sm:max-w-[280px]"/>
+              </div>
+              <div className="space-y-2">
+                {filtered.map(p => (
+                  <PatientRow
+                    key={String(p.patient_id)}
+                    avatar={(p.patient_name || '?')[0].toUpperCase()}
+                    name={p.patient_name}
+                    date={fmtDate(p.last_date || '')}
+                    sessions={p.sessions || 1}
+                    onOpen={() => navigate(`${resultPath}?patient_id=${p.patient_id}`)}
+                    extra={p.last_score != null ? (
+                      <span className="text-[11px] font-medium text-slate-500">
+                        {scoreLabel}: <span className="text-slate-800">{p.last_score}</span>
+                      </span>
+                    ) : undefined}
+                  />
+                ))}
+                {filtered.length === 0 && <p className="text-center text-slate-500 text-xs py-6">Nenhum paciente encontrado.</p>}
+              </div>
             </div>
-            <SearchBox value={search} onChange={setSearch}/>
-          </div>
-          <div className="space-y-2">
-            {filtered.map(p => (
-              <PatientRow
-                key={String(p.patient_id)}
-                avatar={(p.patient_name || '?')[0].toUpperCase()}
-                name={p.patient_name}
-                date={fmtDate(p.last_date || '')}
-                sessions={p.sessions || 1}
-                accentClass={accentClass}
-                onOpen={() => navigate(`${resultPath}?patient_id=${p.patient_id}`)}
-                extra={p.last_score != null ? (
-                  <span className="text-[10px] font-black text-slate-500">
-                    {scoreLabel}: <span className="text-slate-800">{p.last_score}</span>
-                  </span>
-                ) : undefined}
-              />
-            ))}
-            {filtered.length === 0 && <p className="text-center text-slate-400 text-xs font-medium py-6">Nenhum paciente encontrado.</p>}
-          </div>
-        </div>
-      )}
-    </div>
+          </ContentCard>
+        )}
+      </div>
+    </PageWrapper>
   );
 };
 
@@ -543,11 +559,9 @@ const INSTRUMENTS_CONFIG = [
     title: 'DISC',
     subtitle: 'Perfil Comportamental',
     description: 'Avalia Dominância, Influência, Estabilidade e Conformidade. Compreenda estilos de comportamento clínico.',
-    gradient: 'from-indigo-600 to-violet-700',
-    icon: <Radar size={22} className="text-white"/>,
+    icon: Radar,
     tags: ['Comportamento', 'Perfil'],
     applyPath: '/caixa-ferramentas/disc-avaliativo',
-    applyColor: 'bg-indigo-600 hover:bg-indigo-700',
     viewId: 'disc',
   },
   {
@@ -555,11 +569,9 @@ const INSTRUMENTS_CONFIG = [
     title: 'DASS-21',
     subtitle: 'Depressão, Ansiedade e Estresse',
     description: 'Rastreio de sintomas com classificação de severidade em três subescalas clínicas validadas.',
-    gradient: 'from-rose-500 to-pink-600',
-    icon: <Activity size={22} className="text-white"/>,
+    icon: Activity,
     tags: ['Saúde Mental', 'Rastreio'],
     applyPath: '/caixa-ferramentas/dass-21',
-    applyColor: 'bg-rose-600 hover:bg-rose-700',
     viewId: 'dass',
   },
   {
@@ -567,11 +579,9 @@ const INSTRUMENTS_CONFIG = [
     title: 'BDI-II',
     subtitle: 'Inventário de Depressão de Beck',
     description: 'Padrão ouro para avaliação da presença e intensidade de sintomas depressivos.',
-    gradient: 'from-amber-500 to-orange-600',
-    icon: <Brain size={22} className="text-white"/>,
+    icon: Brain,
     tags: ['Depressão', 'Beck'],
     applyPath: '/caixa-ferramentas/bdi-ii',
-    applyColor: 'bg-amber-600 hover:bg-amber-700',
     viewId: 'bdi',
   },
   {
@@ -579,11 +589,9 @@ const INSTRUMENTS_CONFIG = [
     title: 'BAI',
     subtitle: 'Inventário de Ansiedade de Beck',
     description: 'Mensura intensidade de sintomas de ansiedade, incluindo componentes autonômicos e somáticos.',
-    gradient: 'from-emerald-500 to-teal-600',
-    icon: <Zap size={22} className="text-white"/>,
+    icon: Zap,
     tags: ['Ansiedade', 'Beck'],
     applyPath: '/caixa-ferramentas/bai',
-    applyColor: 'bg-emerald-600 hover:bg-emerald-700',
     viewId: 'bai',
   },
   {
@@ -591,11 +599,9 @@ const INSTRUMENTS_CONFIG = [
     title: 'SNAP-IV',
     subtitle: 'Rastreio de TDAH',
     description: 'Escala para avaliação de desatenção, hiperatividade e comportamento opositor desafiador.',
-    gradient: 'from-blue-600 to-sky-700',
-    icon: <BarChart2 size={22} className="text-white"/>,
+    icon: BarChart2,
     tags: ['TDAH', 'Infantil'],
     applyPath: '/caixa-ferramentas/snap-iv',
-    applyColor: 'bg-blue-600 hover:bg-blue-700',
     viewId: 'snap',
   },
   {
@@ -603,16 +609,12 @@ const INSTRUMENTS_CONFIG = [
     title: 'M-CHAT-R/F',
     subtitle: 'Triagem para Autismo (TEA)',
     description: 'Triagem precoce para sinais de autismo em crianças de 16 a 30 meses. Alta sensibilidade.',
-    gradient: 'from-purple-500 to-fuchsia-600',
-    icon: <CheckCircle2 size={22} className="text-white"/>,
+    icon: CheckCircle2,
     tags: ['Autismo', 'TEA'],
     applyPath: '/caixa-ferramentas/m-chat-r',
-    applyColor: 'bg-purple-600 hover:bg-purple-700',
     viewId: 'mchat',
   },
 ];
-
-type ViewType = 'hub' | 'disc' | 'dass' | 'bdi' | 'bai' | 'snap' | 'mchat';
 
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE
@@ -643,162 +645,124 @@ export const Instruments: React.FC = () => {
   }, []);
 
   // Generic view configs
-  const genericConfigs: Record<string, Omit<GenericViewProps, 'onBack'>> = {
+  const genericConfigs: Record<string, Omit<GenericViewProps, 'onNavigate' | 'viewId'>> = {
     bdi: {
+      icon: Brain,
       title: 'BDI-II — Inventário de Depressão',
       applyLabel: 'Aplicar BDI-II',
-      applyColor: 'bg-amber-600',
       applyPath: '/caixa-ferramentas/bdi-ii',
       resultPath: '/caixa-ferramentas/bdi-ii',
       endpoint: '/clinical-tools/bdi-ii/all',
-      accentClass: 'bg-amber-100 text-amber-700',
-      spinColor: 'text-amber-400',
-      emptyIcon: <Brain size={32}/>,
       scoreLabel: 'Total',
     },
     bai: {
+      icon: Zap,
       title: 'BAI — Inventário de Ansiedade',
       applyLabel: 'Aplicar BAI',
-      applyColor: 'bg-emerald-600',
       applyPath: '/caixa-ferramentas/bai',
       resultPath: '/caixa-ferramentas/bai',
       endpoint: '/clinical-tools/bai/all',
-      accentClass: 'bg-emerald-100 text-emerald-700',
-      spinColor: 'text-emerald-400',
-      emptyIcon: <Zap size={32}/>,
       scoreLabel: 'Total',
     },
     snap: {
+      icon: BarChart2,
       title: 'SNAP-IV — Rastreio de TDAH',
       applyLabel: 'Aplicar SNAP-IV',
-      applyColor: 'bg-blue-600',
       applyPath: '/caixa-ferramentas/snap-iv',
       resultPath: '/caixa-ferramentas/snap-iv',
       endpoint: '/clinical-tools/snap-iv/all',
-      accentClass: 'bg-blue-100 text-blue-700',
-      spinColor: 'text-blue-400',
-      emptyIcon: <BarChart2 size={32}/>,
     },
     mchat: {
+      icon: CheckCircle2,
       title: 'M-CHAT-R/F — Triagem TEA',
       applyLabel: 'Aplicar M-CHAT',
-      applyColor: 'bg-purple-600',
       applyPath: '/caixa-ferramentas/m-chat-r',
       resultPath: '/caixa-ferramentas/m-chat-r',
       endpoint: '/clinical-tools/m-chat-r/all',
-      accentClass: 'bg-purple-100 text-purple-700',
-      spinColor: 'text-purple-400',
-      emptyIcon: <CheckCircle2 size={32}/>,
     },
   };
 
-  if (view === 'disc') return <DiscView onBack={() => setView('hub')}/>;
-  if (view === 'dass') return <DassView onBack={() => setView('hub')}/>;
+  if (view === 'disc') return <DiscView onNavigate={setView}/>;
+  if (view === 'dass') return <DassView onNavigate={setView}/>;
   if (['bdi','bai','snap','mchat'].includes(view)) {
     const cfg = genericConfigs[view];
-    return <GenericView onBack={() => setView('hub')} {...cfg}/>;
+    return <GenericView key={view} onNavigate={setView} viewId={view} {...cfg}/>;
   }
 
   const totalPatients = Object.values(stats).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="flex flex-col gap-6 pb-10 animate-fadeIn">
-      <PageHeader
-        icon={<Radar/>}
-        title="Instrumentos Psicológicos"
-        subtitle="Escalas e inventários clínicos padronizados"
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={Radar}
+          title="Instrumentos Psicológicos"
+          description="Escalas e inventários clínicos padronizados. Acompanhe a evolução longitudinal com análise assistida por IA."
+        />
 
-      {/* Banner */}
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl sm:rounded-[32px] p-5 sm:p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #4f46e5 0%, transparent 50%), radial-gradient(circle at 80% 50%, #701a75 0%, transparent 50%)' }}/>
-        <div className="relative flex flex-col lg:flex-row items-center gap-5 sm:gap-8">
-          <div className="w-14 h-14 sm:w-20 sm:h-20 bg-white/10 rounded-2xl sm:rounded-[28px] flex items-center justify-center shrink-0 border border-white/20 backdrop-blur-xl shadow-inner">
-            <Brain size={28} className="text-indigo-300 sm:hidden"/>
-            <Brain size={40} className="text-indigo-300 hidden sm:block"/>
-          </div>
-          <div className="flex-1 text-center lg:text-left">
-            <h2 className="text-lg sm:text-xl lg:text-2xl font-black mb-1.5 tracking-tight">Hub de Instrumentos <span className="text-indigo-400">Plaelo</span></h2>
-            <p className="text-slate-300 text-sm font-medium leading-relaxed max-w-2xl">
-              Centralize escalas psicométricas e inventários clínicos. Acompanhe a evolução longitudinal com análise assistida por IA.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-3 shrink-0">
-            <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center backdrop-blur-sm">
-              <div className="text-base sm:text-xl font-black text-indigo-400">{INSTRUMENTS_CONFIG.length}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Instrumentos</div>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center backdrop-blur-sm">
-              <div className="text-base sm:text-xl font-black text-rose-400">{totalPatients}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Pacientes</div>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-center backdrop-blur-sm">
-              <div className="text-base sm:text-xl font-black text-emerald-400">{stats.disc + stats.dass + stats.bdi + stats.bai}</div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Ativos</div>
-            </div>
-          </div>
+        <InstrumentNav value={view} onChange={setView}/>
+
+        <StatGrid cols={3}>
+          <StatCard title="Instrumentos" value={INSTRUMENTS_CONFIG.length} icon={Radar} color="default"/>
+          <StatCard title="Pacientes" value={totalPatients} icon={Users} color="info"/>
+          <StatCard title="Ativos" value={stats.disc + stats.dass + stats.bdi + stats.bai} icon={Activity} color="success"/>
+        </StatGrid>
+
+        {/* Instrument cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {INSTRUMENTS_CONFIG.map(inst => {
+            const count = stats[inst.id] || 0;
+            const InstIcon = inst.icon;
+            return (
+              <ContentCard
+                key={inst.id}
+                padding="none"
+                className="group hover:border-primary-200 transition-all overflow-hidden flex flex-col h-full cursor-pointer"
+                onClick={() => setView(inst.viewId as ViewType)}
+              >
+                <div className="p-3 flex-1 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                      <InstIcon size={14}/>
+                    </div>
+                    <Badge color="default" size="sm" dot>{count} paciente{count !== 1 ? 's' : ''}</Badge>
+                  </div>
+                  <div className="flex-1 space-y-0.5">
+                    <h3 className="text-sm font-medium text-slate-900">{inst.title}</h3>
+                    <p className="text-[11px] text-slate-500">{inst.subtitle}</p>
+                    <p className="text-xs text-slate-600 pt-1 line-clamp-2">{inst.description}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {inst.tags.map(tag => (
+                      <Badge key={tag} color="default" size="sm">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-50/50 border-t border-slate-100 flex gap-2">
+                  <Button
+                    variant="primary"
+                    size="xs"
+                    iconLeft={<Plus size={14}/>}
+                    className="flex-1"
+                    onClick={e => { e.stopPropagation(); navigate(inst.applyPath); }}
+                  >
+                    Aplicar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    iconLeft={<FileText size={14}/>}
+                    className="flex-1"
+                    onClick={e => { e.stopPropagation(); setView(inst.viewId as ViewType); }}
+                  >
+                    Resultados
+                  </Button>
+                </div>
+              </ContentCard>
+            );
+          })}
         </div>
       </div>
-
-      {/* Instrument cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-        {INSTRUMENTS_CONFIG.map(inst => {
-          const count = stats[inst.id] || 0;
-          return (
-            <div key={inst.id}
-              className="bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group cursor-pointer"
-              onClick={() => setView(inst.viewId as ViewType)}
-            >
-              <div className={`h-1.5 bg-gradient-to-r ${inst.gradient}`}/>
-
-              <div className="p-6 flex-1 flex flex-col gap-4">
-                {/* Top row */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className={`w-12 h-12 bg-gradient-to-br ${inst.gradient} rounded-2xl flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300`}>
-                    {inst.icon}
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl px-3 py-2 text-center min-w-[56px]">
-                    <div className="text-lg font-black text-slate-800 tabular-nums">{count}</div>
-                    <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest leading-tight">pacientes</div>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className="flex-1">
-                  <h3 className="font-black text-slate-800 text-lg tracking-tight leading-tight">{inst.title}</h3>
-                  <p className="text-[10px] font-black uppercase tracking-widest mt-0.5 mb-2" style={{ color: `var(--tw-gradient-from, #6366f1)` }}>
-                    {inst.subtitle}
-                  </p>
-                  <p className="text-slate-500 text-xs font-medium leading-relaxed line-clamp-2">{inst.description}</p>
-                </div>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1.5">
-                  {inst.tags.map(tag => (
-                    <span key={tag} className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-slate-50 text-slate-500 border border-slate-100">{tag}</span>
-                  ))}
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate(inst.applyPath); }}
-                    className={`flex-1 h-10 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all ${inst.applyColor} text-white shadow-sm`}
-                  >
-                    <Plus size={13}/> Aplicar
-                  </button>
-                  <button
-                    onClick={e => { e.stopPropagation(); setView(inst.viewId as ViewType); }}
-                    className="flex-1 h-10 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200"
-                  >
-                    <FileText size={13}/> Resultados
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    </PageWrapper>
   );
 };

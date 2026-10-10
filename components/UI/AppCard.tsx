@@ -120,7 +120,7 @@ const ActionButton: React.FC<CardAction & { compact?: boolean }> = ({
     disabled={disabled}
     title={label}
     className={cx(
-      'inline-flex items-center justify-center rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed',
+      'inline-flex items-center justify-center rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed',
       compact ? 'h-9 w-9' : 'h-10 px-4 gap-2 text-sm font-medium',
       actionVariantMap[variant]
     )}
@@ -165,8 +165,8 @@ export const AppCard: React.FC<AppCardProps> = ({
       id={id}
       onClick={onClick}
       className={cx(
-        'relative overflow-hidden rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white shadow-sm transition-all text-left',
-        onClick && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md',
+        'relative overflow-hidden rounded-lg sm:rounded-lg border border-zinc-200 bg-white shadow-sm transition-all text-left',
+        onClick && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-sm',
         compact ? 'p-4' : 'p-5',
         className
       )}
@@ -203,14 +203,14 @@ export const AppCard: React.FC<AppCardProps> = ({
                     src={imageUrl}
                     alt={title || ''}
                     className={cx(
-                      'object-cover rounded-2xl border border-zinc-200',
+                      'object-cover rounded-lg border border-zinc-200',
                       compact ? 'h-12 w-12' : 'h-14 w-14'
                     )}
                   />
                 ) : (
                   <div
                     className={cx(
-                      'flex items-center justify-center rounded-2xl bg-primary-100 text-primary-700 font-bold border border-primary-100',
+                      'flex items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-semibold border border-primary-100',
                       compact ? 'h-12 w-12 text-base' : 'h-14 w-14 text-lg'
                     )}
                   >
@@ -293,7 +293,7 @@ export const AppCard: React.FC<AppCardProps> = ({
               {sections.map((section, index) => (
                 <div
                   key={index}
-                  className="rounded-2xl border border-zinc-100 bg-zinc-50 p-4 text-left"
+                  className="rounded-lg border border-zinc-100 bg-zinc-50 p-4 text-left"
                 >
                   {(section.icon || section.title || section.subtitle) && (
                     <div className="mb-2 flex items-start gap-2 text-left">
@@ -359,10 +359,10 @@ export const AppCard: React.FC<AppCardProps> = ({
                     stat.align === 'right' && 'text-right'
                   )}
                 >
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide truncate">{stat.label}</p>
+                  <p className="text-[11px] font-semibold text-zinc-400 truncate">{stat.label}</p>
                   <p
                     className={cx(
-                      'text-base font-black truncate',
+                      'text-base font-semibold truncate',
                       statToneMap[stat.tone || 'default']
                     )}
                   >

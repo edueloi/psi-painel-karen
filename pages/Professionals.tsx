@@ -11,18 +11,16 @@ const maskCpf = (v: string) => {
   const d = v.replace(/\D/g, '').slice(0, 11);
   return d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4').replace(/[.-]$/, '').replace(/\.$/, '');
 };
-import { useNavigate, Link } from 'react-router-dom';
 import { 
   UserCheck, Plus, Edit3, Trash2, Shield,
   Briefcase, CheckCircle, X, DollarSign, Users, Lock, Key,
   Loader2, Phone, Mail, ShieldAlert, UserPlus, Power, Eye, EyeOff, ChevronRight, AlertCircle,
   Layout, Settings, FileText, Smartphone, Tablet, Calendar, Check, Sparkles
 } from 'lucide-react';
-import { PageHeader } from '../components/UI/PageHeader';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ConfirmModal, PageWrapper } from '../components/UI';
+import { ConfirmModal, ContentCard, EmptyState, PageWrapper, SectionTitle, StatCard, StatGrid } from '../components/UI';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select } from '../components/UI/Input';
@@ -35,7 +33,6 @@ const cx = (...classes: Array<string | false | null | undefined>) =>
 
 export const Professionals: React.FC = () => {
   const { t } = useLanguage();
-  const navigate = useNavigate();
   const { user: currentUser, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<'team' | 'permissions' | 'commissions'>('team');
   const [professionals, setProfessionals] = useState<any[]>([]);
@@ -225,7 +222,7 @@ export const Professionals: React.FC = () => {
       await api.put(`/commissions/users/${selectedComProId}`, commissions);
       pushToast('success', 'Regras de comissão atualizadas com sucesso!');
     } catch (e: any) {
-      pushToast('error', 'Erro ao salvar comissões: ' + e.message);
+      pushToast('error', 'Erro ao salvar comissões:' + e.message);
     } finally {
       setIsSavingCommissions(false);
     }
@@ -341,7 +338,7 @@ export const Professionals: React.FC = () => {
           setDeleteConfirmPro(null);
           pushToast('success', 'Usuário removido.');
       } catch (e: any) {
-          pushToast('error', "Erro ao remover: " + e.message);
+          pushToast('error', "Erro ao remover:" + e.message);
       }
   };
 
@@ -362,7 +359,7 @@ export const Professionals: React.FC = () => {
       
       pushToast('success', 'Perfil de acesso atualizado!');
     } catch (e: any) {
-      pushToast('error', 'Erro ao salvar perfil: ' + e.message);
+      pushToast('error', 'Erro ao salvar perfil:' + e.message);
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -401,7 +398,7 @@ export const Professionals: React.FC = () => {
       if (selectedProfileId === deleteConfirmProfile.id) setSelectedProfileId(newProfiles[0]?.id || null);
       pushToast('success', 'Perfil removido.');
     } catch (e: any) {
-      pushToast('error', 'Erro ao remover: ' + e.message);
+      pushToast('error', 'Erro ao remover:' + e.message);
     } finally {
       setDeleteConfirmProfile(null);
     }
@@ -426,22 +423,19 @@ export const Professionals: React.FC = () => {
   }, [professionals]);
 
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
-      <PageHeader
-        icon={<Users />}
+    <PageWrapper className="font-sans">
+      <div className="space-y-4">
+      <SectionTitle
+        icon={Users}
         title={t('professionals.title')}
-        subtitle={t('professionals.subtitle')}
-        showBackButton
-        onBackClick={() => navigate('/')}
-        containerClassName="mb-0"
-        actions={
+        description={t('professionals.subtitle')}
+        action={
           hasPermission('manage_professionals') && (
             <Button
               onClick={() => handleOpenModal()}
-              leftIcon={<UserPlus size={18} />}
+              iconLeft={<UserPlus size={14} />}
               variant="primary"
-              radius="xl"
-              className="shadow-lg shadow-indigo-200 uppercase tracking-tighter text-xs font-black"
+              size="sm"
             >
               {t('professionals.new')}
             </Button>
@@ -449,33 +443,19 @@ export const Professionals: React.FC = () => {
         }
       />
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6 sm:space-y-8">
+      <div className="space-y-4">
 
         {/* STATS BAR */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatGrid cols={4}>
           {[
-            { label: t('professionals.team'), value: stats.total, icon: <Users size={22} />, color: 'primary' },
-            { label: 'Admins', value: stats.admins, icon: <Shield size={22} />, color: 'amber' },
-            { label: 'Ativos', value: stats.active, icon: <UserCheck size={22} />, color: 'emerald' },
-            { label: 'Staff', value: stats.pros, icon: <Briefcase size={22} />, color: 'violet' }
+            { label: t('professionals.team'), value: stats.total, icon: Users, color: 'default' as const },
+            { label: 'Administradores', value: stats.admins, icon: Shield, color: 'warning' as const },
+            { label: 'Ativos', value: stats.active, icon: UserCheck, color: 'success' as const },
+            { label: 'Profissionais', value: stats.pros, icon: Briefcase, color: 'purple' as const }
           ].map((stat, i) => (
-            <div key={i} className="bg-white p-5 rounded-[24px] border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-indigo-300 transition-all">
-                <div className={cx(
-                  "h-12 w-12 rounded-2xl flex items-center justify-center border transition-all",
-                  stat.color === 'primary' ? "bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white" :
-                  stat.color === 'amber'   ? "bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-500 group-hover:text-white" :
-                  stat.color === 'emerald' ? "bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white" :
-                  "bg-violet-50 text-violet-600 border-violet-100 group-hover:bg-violet-600 group-hover:text-white"
-                )}>
-                    {stat.icon}
-                </div>
-                <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                    <p className="text-xl font-black text-slate-800">{stat.value}</p>
-                </div>
-            </div>
+            <StatCard key={i} title={stat.label} value={stat.value} icon={stat.icon} color={stat.color} />
           ))}
-        </div>
+        </StatGrid>
 
         {/* FILTERS */}
         <FilterLine>
@@ -505,10 +485,10 @@ export const Professionals: React.FC = () => {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400">
             <Loader2 className="animate-spin text-indigo-600 mb-6" size={48} />
-            <p className="text-sm font-bold uppercase tracking-widest">Sincronizando com a clínica...</p>
+            <p className="text-sm font-semibold">Sincronizando com a clínica...</p>
           </div>
         ) : activeTab === 'team' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filteredPros.map(pro => {
               const isOwner = currentUser?.id === pro.id;
               const effectiveActive = isOwner ? true : pro.is_active;
@@ -516,19 +496,17 @@ export const Professionals: React.FC = () => {
               <div
                 key={pro.id}
                 className={cx(
-                  "bg-white p-6 rounded-[32px] border transition-all group relative overflow-hidden flex flex-col",
-                  !effectiveActive ? "opacity-75 border-slate-200" : "border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1"
+                  "bg-white p-3 rounded-lg border transition-all group relative overflow-hidden flex flex-col",
+                  !effectiveActive ? "opacity-75 border-slate-200" : "border-slate-200 hover:border-primary-200"
                 )}
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/20 rounded-bl-[4rem] -mr-8 -mt-8 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                <div className="flex justify-between items-start mb-6 relative z-10">
-                  <div className="flex items-center gap-4">
+                <div className="flex justify-between items-start mb-3 relative z-10">
+                  <div className="flex items-center gap-3">
                     <div className={cx(
-                      "h-14 w-14 rounded-2xl flex items-center justify-center font-bold text-xl border transition-all overflow-hidden",
+                      "h-14 w-14 rounded-lg flex items-center justify-center font-semibold text-xl border transition-all overflow-hidden",
                       !effectiveActive
                         ? "bg-slate-50 text-slate-300 border-slate-200"
-                        : "bg-indigo-50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-400 group-hover:shadow-lg group-hover:shadow-indigo-100"
+                        : "bg-primary-50 text-primary-600 border-primary-100 group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-400"
                     )}>
                       {pro.avatar_url
                         ? <img src={getStaticUrl(pro.avatar_url)} alt={pro.name} className="h-full w-full object-cover" />
@@ -536,17 +514,17 @@ export const Professionals: React.FC = () => {
                       }
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-bold text-slate-800 text-[16px] truncate max-w-[150px]">{pro.name}</h3>
+                      <h3 className="font-semibold text-slate-800 text-[16px] truncate max-w-[150px]">{pro.name}</h3>
                       <div className="flex flex-col gap-1 mt-1">
                         <span className={cx(
-                          "inline-flex w-fit px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest border",
+                          "inline-flex w-fit px-2 py-0.5 rounded-lg text-[11px] font-semibold border",
                           pro.role === 'admin' ? "bg-amber-50 text-amber-600 border-amber-100" :
                           "bg-indigo-50 text-indigo-600 border-indigo-100"
                         )}>
                           {profiles.find(p => p.id === pro.tenant_profile_id)?.name || pro.role}
                         </span>
                         {pro.specialty && (
-                          <span className="text-[10px] font-medium text-indigo-400 italic truncate max-w-[180px]">
+                          <span className="text-[11px] font-medium text-indigo-400 italic truncate max-w-[180px]">
                             {pro.specialty}
                           </span>
                         )}
@@ -555,7 +533,7 @@ export const Professionals: React.FC = () => {
                   </div>
                   
                   {!isOwner && hasPermission('manage_professionals') && (
-                    <div className="flex gap-1.5 p-1 bg-white/60 backdrop-blur-sm rounded-xl border border-slate-100 shadow-sm">
+                    <div className="flex gap-1.5 p-1 bg-white/60 backdrop-blur-sm rounded-lg border border-slate-100 shadow-sm">
                       <Button
                         variant="ghost"
                         size="xs"
@@ -578,8 +556,8 @@ export const Professionals: React.FC = () => {
                   )}
                 </div>
 
-                <div className="space-y-3 mb-6 flex-1 relative z-10">
-                  <div className="bg-slate-50/50 border border-slate-100/50 p-4 rounded-2xl space-y-2.5">
+                <div className="space-y-3 mb-3 flex-1 relative z-10">
+                  <div className="bg-slate-50/50 border border-slate-100 p-3 rounded-lg space-y-2.5">
                     <div className="flex items-center gap-3 text-[13px] text-slate-600">
                       <Mail size={15} className="text-indigo-400 shrink-0" />
                       <span className="font-medium truncate" title={pro.email}>{pro.email}</span>
@@ -591,7 +569,7 @@ export const Professionals: React.FC = () => {
                     {pro.crp && (
                       <div className="flex items-center gap-3 text-[13px] text-slate-600">
                         <CheckCircle size={15} className="text-emerald-400 shrink-0" />
-                        <span className="font-bold text-[10px] uppercase tracking-widest text-slate-500">Reg: {pro.crp}</span>
+                        <span className="font-semibold text-[11px] text-slate-500">Reg: {pro.crp}</span>
                       </div>
                     )}
                   </div>
@@ -604,7 +582,7 @@ export const Professionals: React.FC = () => {
                       effectiveActive ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" : "bg-rose-400 shadow-sm"
                     )} />
                     <span className={cx(
-                      "font-bold text-[10px] uppercase tracking-wider",
+                      "font-semibold text-[11px]",
                       effectiveActive ? "text-emerald-600" : "text-rose-500"
                     )}>
                       {effectiveActive ? 'Acesso Ativo' : 'Suspenso'}
@@ -617,12 +595,9 @@ export const Professionals: React.FC = () => {
             })}
             
             {filteredPros.length === 0 && (
-              <div className="col-span-full py-32 text-center bg-white rounded-[32px] border border-slate-200 shadow-sm flex flex-col items-center">
-                <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mb-6 border border-slate-100">
-                  <Users size={36} className="text-slate-200" />
-                </div>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">Nenhum profissional encontrado</p>
-              </div>
+              <ContentCard className="col-span-full">
+                <EmptyState icon={Users} title="Nenhum profissional encontrado" />
+              </ContentCard>
             )}
           </div>
         ) : activeTab === 'permissions' ? (
@@ -631,7 +606,7 @@ export const Professionals: React.FC = () => {
             <div className="w-full lg:w-80 shrink-0 space-y-4">
               <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Perfis de Acesso</h3>
+                  <h3 className="text-xs font-semibold text-slate-400">Perfis de Acesso</h3>
                   <Button variant="ghost" size="xs" onClick={() => setIsCreatingProfile(true)} iconOnly title="Novo Perfil"><Plus size={16} /></Button>
                 </div>
                 {isCreatingProfile && (
@@ -661,17 +636,17 @@ export const Professionals: React.FC = () => {
                       
                       <div className="flex items-center gap-4">
                         <div className={cx(
-                          "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0",
-                          selectedProfileId === pro.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-slate-100 text-slate-400"
+                          "h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-sm shrink-0",
+                          selectedProfileId === pro.id ? "bg-indigo-600 text-white shadow-sm shadow-indigo-100" : "bg-slate-100 text-slate-400"
                         )}>
                           {(pro.name || '?').charAt(0).toUpperCase()}
                         </div>
                         
                         <div className="text-left min-w-0">
-                          <p className={cx("text-sm font-bold truncate", selectedProfileId === pro.id ? "text-indigo-600" : "text-slate-700")}>
+                          <p className={cx("text-sm font-semibold truncate", selectedProfileId === pro.id ? "text-indigo-600" : "text-slate-700")}>
                             {pro.name}
                           </p>
-                          <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{pro.is_default ? 'Padrão do Sistema' : 'Personalizado'}</p>
+                          <p className="text-[11px] text-slate-400 font-semibold">{pro.is_default ? 'Padrão do Sistema' : 'Personalizado'}</p>
                         </div>
                       </div>
 
@@ -689,10 +664,10 @@ export const Professionals: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-amber-50 rounded-3xl p-5 border border-amber-100">
+              <div className="bg-amber-50 rounded-lg p-5 border border-amber-100">
                 <div className="flex gap-3 text-amber-600 mb-2">
                   <ShieldAlert size={20} className="shrink-0" />
-                  <h4 className="text-xs font-black uppercase tracking-widest mt-0.5">Aviso Importante</h4>
+                  <h4 className="text-xs font-semibold mt-0.5">Aviso Importante</h4>
                 </div>
                 <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
                   Permissões granulares permitem restringir acessos específicos. Administradores sempre terão acesso total a todos os módulos, independente destas configurações.
@@ -707,17 +682,17 @@ export const Professionals: React.FC = () => {
                   <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
                     <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-20">
                       <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
                           <Key size={24} />
                         </div>
                         <div>
-                          <h3 className="text-sm sm:text-base font-bold text-slate-800">Definição de Acessos</h3>
+                          <h3 className="text-sm sm:text-base font-semibold text-slate-800">Definição de Acessos</h3>
                           <p className="text-xs text-slate-400 font-medium">Configure as funções do perfil "{profiles.find(p => p.id === selectedProfileId)?.name}"</p>
                         </div>
                       </div>
                       
                       {profiles.find(p => p.id === selectedProfileId)?.slug === 'admin' ? (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 font-bold text-xs uppercase tracking-widest">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 font-semibold text-xs">
                           <Lock size={14} />
                           Acesso Total (Fixo)
                         </div>
@@ -727,7 +702,7 @@ export const Professionals: React.FC = () => {
                           onClick={handleSaveProfilePermissions}
                           isLoading={isUpdatingProfile}
                           leftIcon={<CheckCircle size={18} />}
-                          className="shadow-lg shadow-indigo-100"
+                          className="shadow-sm shadow-indigo-100"
                         >
                           SALVAR PERFIL
                         </Button>
@@ -741,7 +716,7 @@ export const Professionals: React.FC = () => {
                             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
                               {cat.icon}
                             </div>
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{cat.category}</h4>
+                            <h4 className="text-[11px] font-semibold text-slate-400">{cat.category}</h4>
                             <div className="flex-1 h-px bg-slate-100"></div>
                           </div>
 
@@ -751,7 +726,7 @@ export const Professionals: React.FC = () => {
                                 key={perm.key}
                                 onClick={() => toggleProfilePermission(perm.key)}
                                 className={cx(
-                                  "group flex items-center justify-between p-5 rounded-3xl border-2 cursor-pointer transition-all duration-300",
+                                  "group flex items-center justify-between p-5 rounded-lg border-2 cursor-pointer transition-all duration-300",
                                   pendingProfilePermissions[perm.key] 
                                     ? "bg-indigo-50/30 border-indigo-100 shadow-sm" 
                                     : "bg-white border-slate-50 hover:border-slate-200"
@@ -759,16 +734,16 @@ export const Professionals: React.FC = () => {
                               >
                                 <div className="flex items-center gap-4">
                                   <div className={cx(
-                                    "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
-                                    pendingProfilePermissions[perm.key] ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "bg-slate-100 text-slate-400"
+                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300",
+                                    pendingProfilePermissions[perm.key] ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200" : "bg-slate-100 text-slate-400"
                                   )}>
                                     {pendingProfilePermissions[perm.key] ? <Check size={18} strokeWidth={3} /> : <X size={18} />}
                                   </div>
                                   <div>
-                                    <p className={cx("text-sm font-bold transition-colors", pendingProfilePermissions[perm.key] ? "text-indigo-700" : "text-slate-700")}>
+                                    <p className={cx("text-sm font-semibold transition-colors", pendingProfilePermissions[perm.key] ? "text-indigo-700" : "text-slate-700")}>
                                       {perm.label}
                                     </p>
-                                    <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">
+                                    <p className="text-[11px] text-slate-400 font-medium leading-none mt-1">
                                       {perm.description}
                                     </p>
                                   </div>
@@ -794,7 +769,7 @@ export const Professionals: React.FC = () => {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center bg-white rounded-[40px] border border-slate-200 border-dashed p-12 text-slate-400">
                   <Key size={48} className="mb-4 opacity-20" />
-                  <p className="font-bold uppercase tracking-widest text-xs">Selecione um perfil à esquerda</p>
+                  <p className="font-semibold text-xs">Selecione um perfil à esquerda</p>
                 </div>
               )}
             </div>
@@ -805,7 +780,7 @@ export const Professionals: React.FC = () => {
             <div className="w-full lg:w-80 shrink-0 space-y-4">
               <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Selecionar Equipe</h3>
+                  <h3 className="text-xs font-semibold text-slate-400">Selecionar Equipe</h3>
                 </div>
                 <div className="max-h-[500px] overflow-y-auto no-scrollbar py-2">
                   {professionals.map(pro => (
@@ -819,13 +794,13 @@ export const Professionals: React.FC = () => {
                     >
                       {selectedComProId === pro.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-[2px_0_10px_rgba(79,70,229,0.3)]" />}
                       <div className={cx(
-                        "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0",
+                        "h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-sm shrink-0",
                         selectedComProId === pro.id ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
                       )}>
                         {(pro.name || '?').charAt(0).toUpperCase()}
                       </div>
                       <div className="text-left min-w-0">
-                        <p className={cx("text-sm font-bold truncate", selectedComProId === pro.id ? "text-indigo-600" : "text-slate-700")}>{pro.name}</p>
+                        <p className={cx("text-sm font-semibold truncate", selectedComProId === pro.id ? "text-indigo-600" : "text-slate-700")}>{pro.name}</p>
                       </div>
                     </button>
                   ))}
@@ -839,9 +814,9 @@ export const Professionals: React.FC = () => {
                 <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
                   <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-20">
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign size={24} /></div>
+                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><DollarSign size={24} /></div>
                       <div>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-800">Regras de Comissão</h3>
+                        <h3 className="text-sm sm:text-base font-semibold text-slate-800">Regras de Comissão</h3>
                         <p className="text-xs text-slate-400 font-medium">Configure os repasses para {professionals.find(p => p.id === selectedComProId)?.name}</p>
                       </div>
                     </div>
@@ -853,7 +828,7 @@ export const Professionals: React.FC = () => {
                   <div className="p-8 space-y-8">
                     {/* Regra Geral */}
                     <div className="space-y-4">
-                      <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <h4 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
                         <Layout size={14} /> Regra Global (Padrão)
                       </h4>
                       <div className="p-5 border-2 border-slate-100 rounded-[24px] flex flex-wrap md:flex-nowrap items-center gap-4 bg-slate-50/50">
@@ -882,7 +857,7 @@ export const Professionals: React.FC = () => {
                     {/* Regras por Serviço */}
                     <div className="space-y-4 pt-6 border-t border-slate-100">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <h4 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
                           <CheckCircle size={14} /> Regras Específicas Override
                         </h4>
                         <div className="w-64">
@@ -901,10 +876,10 @@ export const Professionals: React.FC = () => {
                         {commissions.filter(c => c.service_id !== null).map((c) => {
                           const srv = services.find(s => s.id === c.service_id);
                           return (
-                            <div key={c.service_id} className="p-4 bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:border-indigo-200">
+                            <div key={c.service_id} className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:border-indigo-200">
                               <div>
-                                <p className="font-bold text-slate-800 text-sm">{srv?.name || 'Serviço Excluído'}</p>
-                                <p className="text-xs text-slate-400 font-medium tracking-wide">Preço do Módulo: R$ {srv?.price || '0.00'}</p>
+                                <p className="font-semibold text-slate-800 text-sm">{srv?.name || 'Serviço Excluído'}</p>
+                                <p className="text-xs text-slate-400 font-medium">Preço do Módulo: R$ {srv?.price || '0.00'}</p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="w-36">
@@ -931,7 +906,7 @@ export const Professionals: React.FC = () => {
                           );
                         })}
                         {commissions.filter(c => c.service_id !== null).length === 0 && (
-                          <div className="p-8 text-center text-slate-400 text-[13px] font-medium border-2 border-dashed border-slate-200 bg-slate-50/50 rounded-3xl">
+                          <div className="p-8 text-center text-slate-400 text-[13px] font-medium border-2 border-dashed border-slate-200 bg-slate-50/50 rounded-lg">
                             Nenhuma regra específica configurada.
                           </div>
                         )}
@@ -942,7 +917,7 @@ export const Professionals: React.FC = () => {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center bg-white rounded-[40px] border border-slate-200 border-dashed p-12 text-slate-400">
                   <DollarSign size={48} className="mb-4 opacity-20" />
-                  <p className="font-bold uppercase tracking-widest text-xs">Selecione um profissional à esquerda para comissões</p>
+                  <p className="font-semibold text-xs">Selecione um profissional à esquerda para comissões</p>
                 </div>
               )}
             </div>
@@ -1014,8 +989,8 @@ export const Professionals: React.FC = () => {
               />
             </div>
 
-            <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 space-y-6">
-              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <div className="bg-slate-50/50 p-6 rounded-lg border border-slate-100 space-y-6">
+              <h4 className="text-[11px] font-semibold text-slate-400">
                 Credenciais de Acesso
               </h4>
 
@@ -1067,21 +1042,21 @@ export const Professionals: React.FC = () => {
             <div 
               onClick={() => setEditingPro({...editingPro, is_active: !editingPro.is_active})}
               className={cx(
-                "flex items-center justify-between p-5 rounded-2xl border-2 cursor-pointer transition-all",
+                "flex items-center justify-between p-5 rounded-lg border-2 cursor-pointer transition-all",
                 editingPro.is_active ? "bg-emerald-50/50 border-emerald-100" : "bg-rose-50/50 border-rose-100"
               )}
             >
               <div className="flex items-center gap-4">
                 <div className={cx(
-                  "w-12 h-12 rounded-xl flex items-center justify-center text-white",
-                  editingPro.is_active ? "bg-emerald-500 shadow-md shadow-emerald-100" : "bg-rose-500 shadow-md shadow-rose-100"
+                  "w-12 h-12 rounded-lg flex items-center justify-center text-white",
+                  editingPro.is_active ? "bg-emerald-500 shadow-sm shadow-emerald-100" : "bg-rose-500 shadow-sm shadow-rose-100"
                 )}>
                   <Power size={20} />
                 </div>
                 <div>
-                  <span className="block font-bold text-slate-800 text-sm">Status da Conta</span>
+                  <span className="block font-semibold text-slate-800 text-sm">Status da Conta</span>
                   <span className={cx(
-                    "text-[10px] font-bold uppercase tracking-widest",
+                    "text-[11px] font-semibold",
                     editingPro.is_active ? "text-emerald-600" : "text-rose-600"
                   )}>
                     {editingPro.is_active ? 'Ativo - Login Habilitado' : 'Suspenso - Login Bloqueado'}
@@ -1110,7 +1085,7 @@ export const Professionals: React.FC = () => {
         message={
           <>
             Esta ação irá remover permanentemente o acesso de{' '}
-            <span className="font-bold text-slate-900">{deleteConfirmPro?.name}</span> ao sistema.
+            <span className="font-semibold text-slate-900">{deleteConfirmPro?.name}</span> ao sistema.
           </>
         }
         confirmLabel="Confirmar exclusão"
@@ -1124,11 +1099,12 @@ export const Professionals: React.FC = () => {
         message={
           <>
             Tem certeza que deseja apagar o perfil{' '}
-            <span className="font-bold text-slate-900">"{deleteConfirmProfile?.name}"</span>? Eles perderão acesso até que você reatribua um novo.
+            <span className="font-semibold text-slate-900">"{deleteConfirmProfile?.name}"</span>? Eles perderão acesso até que você reatribua um novo.
           </>
         }
         confirmLabel="Apagar perfil"
       />
+      </div>
     </PageWrapper>
   );
 };

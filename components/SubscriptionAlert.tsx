@@ -37,9 +37,10 @@ export const SubscriptionAlert: React.FC = () => {
 
   return (
     <button
+      type="button"
       onClick={() => navigate('/assinatura')}
-      className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-        isOverdue ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+      className={`relative flex h-8 items-center gap-1.5 px-2.5 rounded-md text-xs font-medium transition-colors ${
+        isOverdue ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
       }`}
       title={isOverdue ? 'Assinatura vencida — regularize para não perder o acesso' : 'Assinatura vencendo em breve'}
     >
@@ -49,7 +50,7 @@ export const SubscriptionAlert: React.FC = () => {
           ? `Vencida${status.grace_days_left != null ? ` — ${status.grace_days_left}d restantes` : ''}`
           : `Vence em ${status.days_left}d`}
       </span>
-      <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${isOverdue ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
+      <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${isOverdue ? 'bg-red-500' : 'bg-amber-500'}`} />
     </button>
   );
 };

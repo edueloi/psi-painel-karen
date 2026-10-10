@@ -44,29 +44,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
 
   const isDark = resolvedMode === 'dark';
 
-  /* ── Theme tokens ── */
-  const sidebarSurface = isDark ? 'bg-slate-950 border-slate-800/60' : 'bg-white border-slate-100/80';
-  const headerBorder   = isDark ? 'border-slate-800/60' : 'border-slate-100';
-  const headerBg       = isDark
-    ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
-    : 'bg-gradient-to-br from-indigo-50/60 via-white to-primary-50/40';
+  /* ── Theme tokens (padrão MFC: limpo, denso, sem sombras fortes) ── */
+  const sidebarSurface = isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200';
+  const headerBorder   = isDark ? 'border-slate-800' : 'border-slate-200';
+  const headerBg       = isDark ? 'bg-slate-950' : 'bg-white';
   const activeItem  = isDark
-    ? 'bg-gradient-to-r from-indigo-500/25 to-primary-500/15 text-indigo-100 shadow-sm border border-indigo-400/20'
-    : 'bg-gradient-to-r from-indigo-50 to-primary-50/60 text-indigo-700 shadow-sm border border-indigo-100/60';
+    ? 'bg-primary-500/15 text-primary-200'
+    : 'bg-primary-50 text-primary-700';
   const inactiveItem = isDark
     ? 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
-    : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-800';
-  const activeIcon   = isDark ? 'text-indigo-300' : 'text-indigo-600';
+    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900';
+  const activeIcon   = isDark ? 'text-primary-300' : 'text-primary-600';
   const inactiveIcon = isDark ? 'text-slate-500' : 'text-slate-400';
-  const activeBar    = isDark
-    ? 'bg-gradient-to-b from-indigo-400 to-primary-400'
-    : 'bg-gradient-to-b from-indigo-600 to-primary-600';
+  const activeBar    = isDark ? 'bg-primary-400' : 'bg-primary-600';
   const logoutStyle  = isDark
     ? 'border border-red-500/20 text-red-300 bg-red-500/10 hover:bg-red-500/20'
     : 'border border-red-100 text-red-600 bg-red-50 hover:bg-red-100';
   const sectionHeaderCls = isDark
     ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
-    : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50/60';
+    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50';
 
   const toggleSection = useCallback((title: string) => {
     setCollapsed(prev => {
@@ -155,23 +151,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
     <>
       {/* Overlay mobile */}
       <div
-        className={`fixed inset-0 bg-slate-900/60 z-[105] lg:hidden backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-slate-900/40 z-[105] lg:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
-      <aside className={`fixed top-0 left-0 z-[110] h-full w-[256px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-2xl lg:translate-x-0 lg:z-auto lg:shadow-lg ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed top-0 left-0 z-[110] h-full w-[240px] ${sidebarSurface} border-r flex flex-col transition-transform duration-300 shadow-lg lg:translate-x-0 lg:z-auto lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
 
         {/* Logo */}
-        <div className={`h-[72px] flex items-center px-5 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
-          <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-md flex-shrink-0 bg-white ring-1 ring-black/5 p-1">
+        <div className={`h-14 flex items-center px-3 border-b ${headerBorder} ${headerBg} flex-shrink-0`}>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="h-9 w-9 rounded-lg overflow-hidden flex-shrink-0 bg-primary-50 border border-primary-100 p-1">
               <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
             </div>
-            <div>
-              <h1 className={`font-display font-bold text-lg leading-none tracking-tight ${isDark ? 'text-slate-100' : 'text-[#1e295b]'}`}>
+            <div className={`min-w-0 border-l pl-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+              <h1 className={`font-display font-semibold text-[15px] leading-none tracking-tight ${isDark ? 'text-slate-100' : 'text-[#1e295b]'}`}>
                 Plaelo
               </h1>
-              <span className={`text-[10px] whitespace-nowrap font-medium ${isDark ? 'text-slate-400' : 'text-[#1e295b]'} tracking-tight opacity-60`}>
+              <span className={`text-[10px] whitespace-nowrap font-normal mt-1 block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 Conectando cuidado e gestão.
               </span>
             </div>
@@ -179,12 +175,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
         </div>
 
         {/* Nav */}
-        <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto py-2.5 px-2 custom-scrollbar">
           <nav className="space-y-0.5">
             {user?.role === 'super_admin' ? (
               <div className="px-2 py-1">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Master</span>
-                <Link to="/painel-master" className={`mt-1 flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-semibold ${activeItem}`}>
+                <span className="text-[11px] font-semibold text-slate-500 px-1">Master</span>
+                <Link to="/painel-master" className={`mt-1 flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium ${activeItem}`}>
                   <ShieldAlert size={16}/> Painel Master
                 </Link>
               </div>
@@ -196,11 +192,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                 );
 
                 return (
-                  <div key={section.title} className="mb-1">
+                  <div key={section.title} className="mb-1.5">
                     {/* Section header — clicável para colapsar */}
                     <button
                       onClick={() => toggleSection(section.title)}
-                      className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all duration-150 group ${sectionHeaderCls}`}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors duration-150 group ${sectionHeaderCls}`}
                     >
                       <div className="flex items-center gap-1.5">
                         {(section as any).icon && (
@@ -208,11 +204,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                             {(section as any).icon}
                           </span>
                         )}
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.12em]">
+                        <span className="text-[11px] font-semibold">
                           {t(section.title)}
                         </span>
                         {hasActiveItem && isCollapsed && (
-                          <span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-indigo-400' : 'bg-indigo-500'}`}/>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-primary-400' : 'bg-primary-500'}`}/>
                         )}
                       </div>
                       <ChevronDown
@@ -235,10 +231,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                               to={item.path}
                               onClick={() => window.innerWidth < 1024 && onClose()}
                               data-tour={tourMap[item.path]}
-                              className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive ? activeItem : inactiveItem}`}
+                              className={`relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors duration-150 ${isActive ? activeItem : inactiveItem}`}
                             >
                               {isActive && (
-                                <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 ${activeBar} rounded-r-full`}/>
+                                <div className={`absolute left-0 top-2 bottom-2 w-[3px] ${activeBar} rounded-r-full`}/>
                               )}
                               <span className={`flex-shrink-0 ${isActive ? activeIcon : inactiveIcon}`}>
                                 {item.icon}
@@ -257,23 +253,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
         </div>
 
         {/* Footer actions */}
-        <div className={`p-3 border-t ${headerBorder} ${isDark ? 'bg-slate-950/50' : 'bg-slate-50/50'} space-y-1.5`}>
+        <div className={`p-2.5 border-t ${headerBorder} ${isDark ? 'bg-slate-950' : 'bg-slate-50/70'} space-y-1.5`}>
           {/* Personalizar menu */}
           <button
             onClick={() => navigate('/personalizar-menu')}
-            className={`w-full flex items-center justify-center gap-2 p-2 rounded-xl text-xs font-bold transition-all duration-200 ${isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 border border-slate-800 hover:border-slate-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 border border-slate-200/60 hover:border-indigo-200'}`}
+            className={`w-full flex items-center justify-center gap-2 h-8 px-2 rounded-lg text-xs font-medium transition-colors duration-150 ${isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800 hover:border-slate-700' : 'text-slate-600 hover:text-primary-700 hover:bg-primary-50 border border-slate-200 hover:border-primary-300'}`}
           >
             <LayoutGrid size={13}/>
             <span>Personalizar menu</span>
             {activeLayout && (
-              <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-500'}`}>
+              <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${isDark ? 'bg-primary-500/20 text-primary-300' : 'bg-primary-50 text-primary-600'}`}>
                 {activeLayout.name}
               </span>
             )}
           </button>
 
-          <button onClick={onLogout} className={`w-full flex items-center justify-center gap-2 p-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${logoutStyle}`}>
-            <LogOut size={15}/> {t('nav.logout')}
+          <button onClick={onLogout} className={`w-full flex items-center justify-center gap-2 h-8 px-2 rounded-lg text-xs font-medium transition-colors duration-150 ${logoutStyle}`}>
+            <LogOut size={14}/> {t('nav.logout')}
           </button>
         </div>
       </aside>

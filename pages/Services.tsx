@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Modal } from '../components/UI/Modal';
+import { Modal, ModalFooter, ConfirmModal } from '../components/UI/Modal';
 import { Input, Select, Textarea } from '../components/UI/Input';
 import { Combobox } from '../components/UI/Combobox';
 import {
@@ -38,10 +38,33 @@ import { EmptyState } from '../components/UI/EmptyState';
 import { useToast } from '../contexts/ToastContext';
 import { GridTable } from '../components/UI/GridTable';
 import { StatCard } from '../components/UI/StatCard';
-import { StatGrid, PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
+import { StatGrid, PageWrapper, SectionTitle, ContentCard, FormRow } from '../components/UI/PageWrapper';
+import { PanelCard } from '../components/UI/PanelCard';
+import { Badge } from '../components/UI/Badge';
+import { Tabs } from '../components/UI/Tabs';
 import { Pagination } from '../components/UI/Pagination';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
+
+const SERVICES_TABS = [
+  { id: 'services', labelKey: 'services.services', icon: Briefcase },
+  { id: 'packages', labelKey: 'services.packages', icon: Package },
+] as const;
+type ServicesTab = typeof SERVICES_TABS[number]['id'];
+
+const SERVICE_MODAL_TABS = [
+  { id: 'dados', label: 'Dados', icon: Briefcase },
+  { id: 'valores', label: 'Valores', icon: DollarSign },
+  { id: 'descricao', label: 'Descrição', icon: FileText },
+] as const;
+type ServiceModalTab = typeof SERVICE_MODAL_TABS[number]['id'];
+
+const PACKAGE_MODAL_TABS = [
+  { id: 'dados', label: 'Dados', icon: Package },
+  { id: 'itens', label: 'Serviços incluídos', icon: Layers },
+  { id: 'desconto', label: 'Desconto e preço', icon: DollarSign },
+] as const;
+type PackageModalTab = typeof PACKAGE_MODAL_TABS[number]['id'];
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(' ');
@@ -92,7 +115,10 @@ export const Services: React.FC = () => {
   const { pushToast } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
 
-  const [activeTab, setActiveTab] = useState<'services' | 'packages'>(preferences.services.activeTab);
+  const [activeTab, setActiveTab] = useState<ServicesTab>(preferences.services.activeTab);
+  const [serviceTab, setServiceTab] = useState<ServiceModalTab>('dados');
+  const [packageTab, setPackageTab] = useState<PackageModalTab>('dados');
+  const [savingForm, setSavingForm] = useState(false);
   const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
   const [packages, setPackages] = useState<ServicePackage[]>(MOCK_PACKAGES);
   const [searchTerm, setSearchTerm] = useState('');
@@ -266,6 +292,7 @@ export const Services: React.FC = () => {
   );
 
   const handleOpenServiceModal = (service?: Service) => {
+    setServiceTab('dados');
     setEditingService(
       service || {
         duration: 50,
@@ -338,6 +365,7 @@ export const Services: React.FC = () => {
   };
 
   const handleOpenPackageModal = (pkg?: ServicePackage) => {
+    setPackageTab('dados');
     setEditingPackage(
       pkg || {
         items: [],
@@ -427,6 +455,29 @@ export const Services: React.FC = () => {
 
     handlePackageItemChange(nextItems);
     setPackageServiceToAdd('');
+  };
+
+  const submitService = async () => {
+    if (savingForm) return;
+    if (!editingService?.name) setServiceTab('dados');
+    setSavingForm(true);
+    try {
+      await handleSaveService();
+    } finally {
+      setSavingForm(false);
+    }
+  };
+
+  const submitPackage = async () => {
+    if (savingForm) return;
+    if (!editingPackage?.name) setPackageTab('dados');
+    else if (!editingPackage.items?.length) setPackageTab('itens');
+    setSavingForm(true);
+    try {
+      await handleSavePackage();
+    } finally {
+      setSavingForm(false);
+    }
   };
 
   const handleSavePackage = async () => {
@@ -611,7 +662,7 @@ export const Services: React.FC = () => {
         </tr>`;
       };
 
-      const headersHtml = headers.map(h => `<th style="padding:10px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#e2e8f0;text-align:left;">${h}</th>`).join('');
+      const headersHtml = headers.map(h => `<th style="padding:10px 10px;font-size:11px;font-weight:700;;letter-spacing:.05em;color:#e2e8f0;text-align:left;">${h}</th>`).join('');
       const totalItems = isServices ? filteredServices.length : filteredPackages.length;
 
       const ROWS_FIRST_PAGE = 14;
@@ -649,7 +700,7 @@ export const Services: React.FC = () => {
                 </div>
                 <div style="text-align:right;font-size:11px;color:#64748b;line-height:1.8;">${now}</div>
               </div>
-            ` : `
+            `:`
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e2e8f0;">
                 <span style="font-size:13px;font-weight:700;color:#1e293b;">${title}</span>
                 <span style="font-size:11px;color:#94a3b8;">Página ${pageIdx + 1} de ${chunks.length} · ${now}</span>
@@ -740,233 +791,162 @@ export const Services: React.FC = () => {
     }
   };
 
+  const modalityBadge = (modality?: string) => (
+    <Badge
+      size="sm"
+      color={modality === 'online' ? 'success' : modality === 'geral' ? 'purple' : 'primary'}
+    >
+      {modality === 'online' ? t('agenda.online') : modality === 'geral' ? 'Geral' : t('agenda.presential')}
+    </Badge>
+  );
+
   const renderServiceCard = (service: Service) => {
     return (
-      <div
+      <ContentCard
         key={service.id}
-        className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        padding="none"
+        className="group flex h-full flex-col overflow-hidden transition-all hover:border-primary-200"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div
-              className="h-11 w-1.5 rounded-full"
-              style={{ backgroundColor: service.color || '#6366f1' }}
-            />
-            <div className="min-w-0">
-              <h4 className="truncate text-[15px] font-semibold text-slate-800">
-                {service.name}
-              </h4>
-              <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                {service.category}
-              </p>
+        <div className="flex flex-1 flex-col p-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className="h-9 w-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: service.color || '#6366f1' }}
+              />
+              <div className="min-w-0">
+                <h4 className="truncate text-sm font-medium text-slate-900">
+                  {service.name}
+                </h4>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  {service.category}
+                </p>
+              </div>
             </div>
+            {modalityBadge(service.modality)}
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => openHistory('service', String(service.id), service.name)}
-              title="Histórico"
-            >
-              <History size={14} />
-            </Button>
+          {service.description && (
+            <p className="mb-3 line-clamp-2 text-xs text-slate-500">
+              {service.description}
+            </p>
+          )}
 
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => handleOpenServiceModal(service)}
-              title="Editar serviço"
-            >
-              <Edit3 size={14} />
-            </Button>
-
-            <Button
-              variant="danger"
-              size="xs"
-              onClick={() => setDeleteId({ id: String(service.id), type: 'service' })}
-              title="Excluir serviço"
-            >
-              <Trash2 size={14} />
-            </Button>
+          <div className="mt-auto grid grid-cols-3 gap-2">
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+              <p className="flex items-center gap-1 text-[11px] text-slate-500"><Clock size={11} className="text-primary-500" /> Duração</p>
+              <p className="text-xs font-semibold text-slate-700">{service.duration} min</p>
+            </div>
+            <div className="rounded-lg border border-primary-100 bg-primary-50/50 p-2">
+              <p className="text-[11px] text-slate-500">Preço</p>
+              <p className="text-xs font-semibold tabular-nums text-primary-700">{formatCurrency(service.price)}</p>
+            </div>
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+              <p className="text-[11px] text-slate-500">Custo</p>
+              <p className="text-xs font-semibold tabular-nums text-slate-700">{formatCurrency(service.cost || 0)}</p>
+            </div>
           </div>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-            <div className="mb-1 flex items-center gap-2">
-              <Clock size={13} className="text-primary-500" />
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                Duração
-              </span>
-            </div>
-            <p className="text-sm font-semibold text-slate-700">
-              {service.duration} min
-            </p>
-          </div>
-
-          <div
-            className={cx(
-              'rounded-2xl border p-3',
-              service.modality === 'online'
-                ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
-                : service.modality === 'geral'
-                ? 'border-violet-100 bg-violet-50 text-violet-700'
-                : 'border-blue-100 bg-blue-50 text-blue-700'
-            )}
-          >
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-70">
-              Modalidade
-            </div>
-            <p className="text-sm font-semibold">
-              {service.modality === 'online'
-                ? t('agenda.online')
-                : service.modality === 'geral'
-                ? 'Geral'
-                : t('agenda.presential')}
-            </p>
-          </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/50 p-3">
+          <IconButton variant="outline" size="xs" aria-label="Histórico" title="Histórico" onClick={() => openHistory('service', String(service.id), service.name)}>
+            <History size={14} />
+          </IconButton>
+          <IconButton variant="outline" size="xs" aria-label="Editar serviço" title="Editar serviço" onClick={() => handleOpenServiceModal(service)}>
+            <Edit3 size={14} />
+          </IconButton>
+          <IconButton variant="danger" size="xs" aria-label="Excluir serviço" title="Excluir serviço" onClick={() => setDeleteId({ id: String(service.id), type: 'service' })}>
+            <Trash2 size={14} />
+          </IconButton>
         </div>
-
-        {service.description ? (
-          <p className="mb-4 line-clamp-2 text-sm text-slate-500">
-            {service.description}
-          </p>
-        ) : (
-          <div className="mb-4 h-[42px]" />
-        )}
-
-        <div className="flex items-end justify-between border-t border-slate-100 pt-4">
-          <div>
-            <p className="text-[11px] text-slate-400">Preço</p>
-            <p className="text-lg font-bold text-primary-600">
-              {formatCurrency(service.price)}
-            </p>
-          </div>
-
-          <div className="text-right">
-            <p className="text-[11px] text-slate-400">Custo</p>
-            <p className="text-sm font-semibold text-slate-700">
-              {formatCurrency(service.cost || 0)}
-            </p>
-          </div>
-        </div>
-      </div>
+      </ContentCard>
     );
   };
 
   const renderPackageCard = (pkg: ServicePackage) => {
     return (
-      <div
+      <ContentCard
         key={pkg.id}
-        className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        padding="none"
+        className="group flex h-full flex-col overflow-hidden transition-all hover:border-primary-200"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-              <Package size={20} />
+        <div className="flex flex-1 flex-col p-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-emerald-100 bg-emerald-50 text-emerald-700">
+                <Package size={15} />
+              </div>
+              <div className="min-w-0">
+                <h4 className="truncate text-sm font-medium text-slate-900">{pkg.name}</h4>
+                <p className="mt-0.5 text-[11px] text-slate-500">{pkg.items?.length || 0} itens</p>
+              </div>
             </div>
+            <Badge color="success" size="sm">
+              {pkg.discountType === 'percentage'
+                ? `${pkg.discountValue || 0}% OFF`
+                : `-${formatCurrency(pkg.discountValue || 0)}`}
+            </Badge>
+          </div>
 
-            <div className="min-w-0">
-              <h4 className="truncate text-[15px] font-semibold text-slate-800">
-                {pkg.name}
-              </h4>
-              <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                {pkg.items?.length || 0} itens
-              </p>
+          <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-2">
+            <div className="space-y-1.5">
+              {(pkg.items || []).slice(0, 3).map((item, index) => {
+                const service = services.find((srv) => String(srv.id) === String(item.serviceId));
+
+                return (
+                  <div key={index} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="truncate text-slate-600">
+                      {item.quantity}x {service?.name || 'Serviço'}
+                    </span>
+                    <span className="shrink-0 text-slate-500">
+                      {service ? formatCurrency(service.price * item.quantity) : '-'}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {(pkg.items || []).length > 3 && (
+                <p className="text-center text-[11px] text-slate-500">
+                  + {(pkg.items || []).length - 3} outro(s) item(ns)
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => openHistory('package', String(pkg.id), pkg.name)}
-              title="Histórico"
-            >
-              <History size={14} />
-            </Button>
+          {pkg.description && (
+            <p className="mb-3 line-clamp-2 text-xs text-slate-500">{pkg.description}</p>
+          )}
 
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => handleOpenPackageModal(pkg)}
-              title="Editar pacote"
-            >
-              <Edit3 size={14} />
-            </Button>
-
-            <Button
-              variant="danger"
-              size="xs"
-              onClick={() => setDeleteId({ id: String(pkg.id), type: 'package' })}
-              title="Excluir pacote"
-            >
-              <Trash2 size={14} />
-            </Button>
+          <div className="mt-auto">
+            <p className="text-[11px] text-slate-500">Preço final</p>
+            <p className="text-base font-medium tabular-nums text-emerald-600">{formatCurrency(pkg.totalPrice || 0)}</p>
           </div>
         </div>
 
-        <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-          <div className="space-y-2">
-            {(pkg.items || []).slice(0, 3).map((item, index) => {
-              const service = services.find((srv) => String(srv.id) === String(item.serviceId));
-
-              return (
-                <div key={index} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="truncate text-slate-600">
-                    {item.quantity}x {service?.name || 'Serviço'}
-                  </span>
-                  <span className="shrink-0 font-medium text-slate-400">
-                    {service ? formatCurrency(service.price * item.quantity) : '-'}
-                  </span>
-                </div>
-              );
-            })}
-
-            {(pkg.items || []).length > 3 && (
-              <p className="pt-1 text-center text-[11px] font-medium text-slate-400">
-                + {(pkg.items || []).length - 3} outro(s) item(ns)
-              </p>
-            )}
-          </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/50 p-3">
+          <IconButton variant="outline" size="xs" aria-label="Histórico" title="Histórico" onClick={() => openHistory('package', String(pkg.id), pkg.name)}>
+            <History size={14} />
+          </IconButton>
+          <IconButton variant="outline" size="xs" aria-label="Editar pacote" title="Editar pacote" onClick={() => handleOpenPackageModal(pkg)}>
+            <Edit3 size={14} />
+          </IconButton>
+          <IconButton variant="danger" size="xs" aria-label="Excluir pacote" title="Excluir pacote" onClick={() => setDeleteId({ id: String(pkg.id), type: 'package' })}>
+            <Trash2 size={14} />
+          </IconButton>
         </div>
-
-        {pkg.description ? (
-          <p className="mb-4 line-clamp-2 text-sm text-slate-500">
-            {pkg.description}
-          </p>
-        ) : (
-          <div className="mb-4 h-[42px]" />
-        )}
-
-        <div className="flex items-end justify-between border-t border-slate-100 pt-4">
-          <div>
-            <p className="text-[11px] text-slate-400">Preço final</p>
-            <p className="text-lg font-bold text-emerald-600">
-              {formatCurrency(pkg.totalPrice || 0)}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
-            {pkg.discountType === 'percentage'
-              ? `${pkg.discountValue || 0}% OFF`
-              : `-${formatCurrency(pkg.discountValue || 0)}`}
-          </div>
-        </div>
-      </div>
+      </ContentCard>
     );
   };
 
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
-      <div>
+    <PageWrapper>
+      <div className="space-y-4">
         <SectionTitle
           icon={Briefcase}
           title={t('services.title')}
           description={t('services.management')}
           action={
-            <div className="flex flex-wrap items-center gap-2">
+            <>
               <Button
                 variant="outline"
                 size="sm"
@@ -988,16 +968,16 @@ export const Services: React.FC = () => {
                 </Button>
                 {exportMenuOpen && (
                   <div
-                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-sm"
                     onMouseLeave={() => setExportMenuOpen(false)}
                   >
-                    <button onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <button type="button" onClick={() => { setExportMenuOpen(false); handleExportCSV(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
                       <FileText size={14} className="text-emerald-500" /> Exportar CSV
                     </button>
-                    <button onClick={() => { setExportMenuOpen(false); handleExportData(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <button type="button" onClick={() => { setExportMenuOpen(false); handleExportData(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
                       <FileText size={14} className="text-green-600" /> Exportar Excel
                     </button>
-                    <button onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                    <button type="button" onClick={() => { setExportMenuOpen(false); handleExportPDF(); }} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
                       <FileText size={14} className="text-red-500" /> Exportar PDF
                     </button>
                   </div>
@@ -1019,14 +999,12 @@ export const Services: React.FC = () => {
               >
                 {activeTab === 'services' ? t('services.newService') : t('services.newPackage')}
               </Button>
-            </div>
+            </>
           }
         />
-      </div>
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        <StatGrid cols={3}>
           <StatCard
             title="Serviços"
             value={stats.totalServices}
@@ -1048,34 +1026,37 @@ export const Services: React.FC = () => {
             color="warning"
             delay={2}
           />
-        </div>
+        </StatGrid>
 
+        <Tabs<ServicesTab>
+          items={SERVICES_TABS.map((tab) => ({
+            ...tab,
+            label: t(tab.labelKey),
+            badge: tab.id === 'services' ? stats.totalServices : stats.totalPackages,
+          }))}
+          value={activeTab}
+          onChange={(tab) => {
+            setActiveTab(tab);
+            updatePreference('services', { activeTab: tab });
+          }}
+          label="Serviços e pacotes"
+        >
+        <div className="space-y-3">
         {/* Filters */}
         <FilterLine>
           <FilterLineSection grow>
-            <FilterLineItem grow minWidth={280}>
+            <FilterLineItem grow minWidth={200}>
               <FilterLineSearch
                 value={searchTerm}
                 onChange={setSearchTerm}
                 placeholder={t('services.search')}
+                aria-label={t('services.search')}
+                className="max-w-[280px]"
               />
             </FilterLineItem>
           </FilterLineSection>
 
           <FilterLineSection align="right">
-            {/* Tab toggle */}
-            <FilterLineSegmented
-              value={activeTab}
-              onChange={(val) => {
-                const tab = val as 'services' | 'packages';
-                setActiveTab(tab);
-                updatePreference('services', { activeTab: tab });
-              }}
-              options={[
-                { value: 'services', label: t('services.services') },
-                { value: 'packages', label: t('services.packages') },
-              ]}
-            />
             <FilterLineViewToggle
               value={viewMode}
               onChange={(val) => { setViewMode(val as 'cards' | 'list'); updatePreference('services', { viewMode: val as 'cards' | 'list' }); }}
@@ -1089,10 +1070,10 @@ export const Services: React.FC = () => {
         {viewMode === 'cards' ? (
           <>
             {activeTab === 'services' ? (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-[280px] animate-pulse rounded-[28px] bg-white border border-slate-200" />
+                    <div key={i} className="h-[200px] animate-pulse rounded-lg bg-white border border-slate-200" />
                   ))
                 ) : (
                   currentItems.map((s) => renderServiceCard(s as Service))
@@ -1104,10 +1085,10 @@ export const Services: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {isLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-[320px] animate-pulse rounded-[28px] bg-white border border-slate-200" />
+                    <div key={i} className="h-[240px] animate-pulse rounded-lg bg-white border border-slate-200" />
                   ))
                 ) : (
                   currentItems.map((p) => renderPackageCard(p as ServicePackage))
@@ -1124,8 +1105,8 @@ export const Services: React.FC = () => {
           <>
             {/* Bulk action bar */}
             {selectedIds.size > 0 && (
-              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 mb-4 gap-4">
-                <span className="text-sm font-semibold text-amber-800">{selectedIds.size} item(ns) selecionado(s)</span>
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 gap-3">
+                <span className="text-xs font-medium text-amber-800">{selectedIds.size} item(ns) selecionado(s)</span>
                 <div className="flex gap-2">
                   <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={() => setConfirmBulkDelete(true)}>Excluir selecionados</Button>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Cancelar</Button>
@@ -1150,17 +1131,17 @@ export const Services: React.FC = () => {
                       <div className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: s.color || '#6366f1' }} />
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-slate-800 truncate text-sm">{s.name}</div>
-                        <div className="text-[11px] text-slate-400 uppercase tracking-wide">{s.category}</div>
+                        <div className="text-[11px] text-slate-400">{s.category}</div>
                       </div>
                       <div className="text-right shrink-0 ml-auto">
-                        <div className="font-bold text-primary-600 text-sm">{formatCurrency(s.price)}</div>
+                        <div className="font-semibold text-primary-600 text-sm">{formatCurrency(s.price)}</div>
                         <div className="text-[11px] text-slate-400">custo: {formatCurrency(s.cost || 0)}</div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pl-3">
                       <div className="flex flex-wrap gap-1.5">
                         <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[11px]">{s.duration} min</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${s.modality === 'online' ? 'bg-emerald-50 text-emerald-700' : s.modality === 'geral' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${s.modality === 'online' ? 'bg-emerald-50 text-emerald-700' : s.modality === 'geral' ? 'bg-violet-50 text-violet-700' : 'bg-primary-50 text-primary-700'}`}>
                           {s.modality === 'online' ? 'Online' : s.modality === 'geral' ? 'Geral' : 'Presencial'}
                         </span>
                       </div>
@@ -1180,7 +1161,7 @@ export const Services: React.FC = () => {
                         <div className="w-2 h-8 rounded-full shrink-0" style={{ backgroundColor: s.color || '#6366f1' }} />
                         <div className="min-w-0">
                           <div className="font-semibold text-slate-800 truncate">{s.name}</div>
-                          <div className="text-[10px] text-slate-400 uppercase tracking-wide">{s.category}</div>
+                          <div className="text-[11px] text-slate-400">{s.category}</div>
                         </div>
                       </div>
                     )
@@ -1195,7 +1176,7 @@ export const Services: React.FC = () => {
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                         s.modality === 'online' ? 'bg-emerald-50 text-emerald-700' :
                         s.modality === 'geral'  ? 'bg-violet-50 text-violet-700' :
-                        'bg-blue-50 text-blue-700'
+                        'bg-primary-50 text-primary-700'
                       }`}>
                         {s.modality === 'online' ? 'Online' : s.modality === 'geral' ? 'Geral' : 'Presencial'}
                       </span>
@@ -1242,7 +1223,7 @@ export const Services: React.FC = () => {
                 renderMobileItem={(p: ServicePackage) => (
                   <div className="flex flex-col gap-2 w-full min-w-0">
                     <div className="flex items-start gap-2 w-full min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                         <Package size={15} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1250,7 +1231,7 @@ export const Services: React.FC = () => {
                         <div className="text-[11px] text-slate-400">{p.items?.length || 0} itens</div>
                       </div>
                       <div className="text-right shrink-0 ml-auto">
-                        <div className="font-bold text-emerald-600 text-sm">{formatCurrency(p.totalPrice || 0)}</div>
+                        <div className="font-semibold text-emerald-600 text-sm">{formatCurrency(p.totalPrice || 0)}</div>
                         <div className="text-[11px] text-emerald-500">{p.discountType === 'percentage' ? `${p.discountValue || 0}% OFF` : `-${formatCurrency(p.discountValue || 0)}`}</div>
                       </div>
                     </div>
@@ -1280,7 +1261,7 @@ export const Services: React.FC = () => {
                         </div>
                         <div className="min-w-0">
                           <div className="font-semibold text-slate-800 truncate">{p.name}</div>
-                          <div className="text-[10px] text-slate-400">{p.items?.length || 0} itens</div>
+                          <div className="text-[11px] text-slate-400">{p.items?.length || 0} itens</div>
                         </div>
                       </div>
                     )
@@ -1345,156 +1326,174 @@ export const Services: React.FC = () => {
           </>
         )}
       </div>
+        </Tabs>
+      </div>
 
       {/* Modal Serviço */}
       <Modal
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
         title={editingService?.id ? 'Editar Serviço' : 'Novo Serviço'}
-        size="lg"
+        size="2xl"
+        mobileStyle="fullscreen"
         footer={
-          <div className="flex w-full items-center justify-between">
+          <ModalFooter align="between">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => setIsServiceModalOpen(false)}
+              disabled={savingForm}
             >
               Fechar
             </Button>
 
             <Button
               variant="primary"
-              onClick={handleSaveService}
+              onClick={submitService}
+              loading={savingForm}
             >
               Salvar serviço
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         {editingService && (
-          <div className="space-y-5">
-            <Input
-              label="Nome do atendimento"
-              value={editingService.name || ''}
-              onChange={(e) =>
-                setEditingService({ ...editingService, name: e.target.value })
-              }
-              placeholder="Ex: Psicoterapia Individual"
-            />
+          <Tabs<ServiceModalTab> items={SERVICE_MODAL_TABS} value={serviceTab} onChange={setServiceTab} label="Seções do serviço">
+            {serviceTab === 'dados' && (
+              <div className="space-y-3">
+                <Input
+                  label="Nome do atendimento"
+                  value={editingService.name || ''}
+                  onChange={(e) =>
+                    setEditingService({ ...editingService, name: e.target.value })
+                  }
+                  placeholder="Ex: Psicoterapia Individual"
+                />
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input
-                label="Categoria"
-                value={editingService.category || ''}
-                onChange={(e) =>
-                  setEditingService({ ...editingService, category: e.target.value })
-                }
-                placeholder="Ex: Psicologia Clínica"
-              />
+                <FormRow cols={2}>
+                  <Input
+                    label="Categoria"
+                    value={editingService.category || ''}
+                    onChange={(e) =>
+                      setEditingService({ ...editingService, category: e.target.value })
+                    }
+                    placeholder="Ex: Psicologia Clínica"
+                  />
 
-              <Input
-                label="Duração (min)"
-                type="number"
-                value={editingService.duration || 0}
-                onChange={(e) =>
-                  setEditingService({
-                    ...editingService,
-                    duration: parseInt(e.target.value || '0', 10),
-                  })
-                }
-              />
-            </div>
+                  <Input
+                    label="Duração (min)"
+                    type="number"
+                    value={editingService.duration || 0}
+                    onChange={(e) =>
+                      setEditingService({
+                        ...editingService,
+                        duration: parseInt(e.target.value || '0', 10),
+                      })
+                    }
+                  />
+                </FormRow>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <CurrencyInput
-                label="Valor de venda"
-                value={editingService.price || 0}
-                onChange={(val) =>
-                  setEditingService({ ...editingService, price: val })
-                }
-              />
-
-              <CurrencyInput
-                label="Custo profissional"
-                value={editingService.cost || 0}
-                onChange={(val) =>
-                  setEditingService({ ...editingService, cost: val })
-                }
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Select
-                label="Modalidade"
-                value={editingService.modality || 'presencial'}
-                onChange={(e) =>
-                  setEditingService({
-                    ...editingService,
-                    modality: e.target.value as any,
-                  })
-                }
-              >
-                <option value="presencial">Presencial</option>
-                <option value="online">Online</option>
-                <option value="geral">Geral (ambos)</option>
-              </Select>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Cor de identificação</label>
-                <div className="relative" ref={colorPickerRef}>
-                  <button
-                    type="button"
-                    onClick={() => setColorPickerOpen((o) => !o)}
-                    className="flex items-center gap-3 w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white hover:border-indigo-300 transition-colors text-sm text-slate-700"
+                <FormRow cols={2}>
+                  <Select
+                    label="Modalidade"
+                    value={editingService.modality || 'presencial'}
+                    onChange={(e) =>
+                      setEditingService({
+                        ...editingService,
+                        modality: e.target.value as any,
+                      })
+                    }
                   >
-                    <span
-                      className="w-6 h-6 rounded-lg border border-slate-200 shrink-0 shadow-sm"
-                      style={{ backgroundColor: editingService.color || '#6366f1' }}
-                    />
-                    <span className="font-mono text-slate-500">{editingService.color || '#6366f1'}</span>
-                  </button>
-                  {colorPickerOpen && (
-                    <div className="absolute z-50 mt-1 left-0 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 w-[240px]">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Escolha uma cor</p>
-                      <div className="grid grid-cols-6 gap-2">
-                        {[
-                          '#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316','#eab308',
-                          '#22c55e','#10b981','#14b8a6','#06b6d4','#3b82f6','#0ea5e9',
-                          '#64748b','#94a3b8','#475569','#1e293b','#f8fafc','#e2e8f0',
-                        ].map((color) => (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => {
-                              setEditingService({ ...editingService, color });
-                              setColorPickerOpen(false);
-                            }}
-                            className={`w-8 h-8 rounded-lg border-2 transition-transform hover:scale-110 ${
-                              editingService.color === color ? 'border-slate-700 scale-110' : 'border-transparent'
-                            }`}
-                            style={{ backgroundColor: color }}
-                            title={color}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+                    <option value="presencial">Presencial</option>
+                    <option value="online">Online</option>
+                    <option value="geral">Geral (ambos)</option>
+                  </Select>
 
-            <Textarea
-              label="Descrição / observações"
-              value={editingService.description || ''}
-              onChange={(e) =>
-                setEditingService({
-                  ...editingService,
-                  description: e.target.value,
-                })
-              }
-              placeholder="Detalhes adicionais sobre o serviço..."
-              rows={5}
-            />
-          </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="ds-label">Cor de identificação</label>
+                    <div className="relative" ref={colorPickerRef}>
+                      <button
+                        type="button"
+                        onClick={() => setColorPickerOpen((o) => !o)}
+                        className="flex h-[34px] w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 transition-colors hover:border-primary-300"
+                      >
+                        <span
+                          className="h-5 w-5 shrink-0 rounded-md border border-slate-200"
+                          style={{ backgroundColor: editingService.color || '#6366f1' }}
+                        />
+                        <span className="font-mono text-slate-500">{editingService.color || '#6366f1'}</span>
+                      </button>
+                      {colorPickerOpen && (
+                        <div className="absolute left-0 z-50 mt-1 w-[240px] rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                          <p className="mb-2 text-[11px] font-medium text-slate-500">Escolha uma cor</p>
+                          <div className="grid grid-cols-6 gap-2">
+                            {[
+                              '#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316','#eab308',
+                              '#22c55e','#10b981','#14b8a6','#06b6d4','#3b82f6','#0ea5e9',
+                              '#64748b','#94a3b8','#475569','#1e293b','#f8fafc','#e2e8f0',
+                            ].map((color) => (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => {
+                                  setEditingService({ ...editingService, color });
+                                  setColorPickerOpen(false);
+                                }}
+                                className={`h-8 w-8 rounded-lg border-2 transition-transform hover:scale-110 ${
+                                  editingService.color === color ? 'scale-110 border-slate-700' : 'border-transparent'
+                                }`}
+                                style={{ backgroundColor: color }}
+                                title={color}
+                                aria-label={color}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </FormRow>
+              </div>
+            )}
+
+            {serviceTab === 'valores' && (
+              <PanelCard title="Valores" icon={DollarSign}>
+                <div className="p-3">
+                  <FormRow cols={2}>
+                    <CurrencyInput
+                      label="Valor de venda"
+                      value={editingService.price || 0}
+                      onChange={(val) =>
+                        setEditingService({ ...editingService, price: val })
+                      }
+                    />
+
+                    <CurrencyInput
+                      label="Custo profissional"
+                      value={editingService.cost || 0}
+                      onChange={(val) =>
+                        setEditingService({ ...editingService, cost: val })
+                      }
+                    />
+                  </FormRow>
+                </div>
+              </PanelCard>
+            )}
+
+            {serviceTab === 'descricao' && (
+              <Textarea
+                label="Descrição / observações"
+                value={editingService.description || ''}
+                onChange={(e) =>
+                  setEditingService({
+                    ...editingService,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Detalhes adicionais sobre o serviço..."
+                rows={6}
+              />
+            )}
+          </Tabs>
         )}
       </Modal>
 
@@ -1503,295 +1502,261 @@ export const Services: React.FC = () => {
         isOpen={isPackageModalOpen}
         onClose={() => setIsPackageModalOpen(false)}
         title={editingPackage?.id ? 'Editar Pacote' : 'Novo Pacote'}
-        size="xl"
+        size="full"
+        mobileStyle="fullscreen"
         footer={
-          <div className="flex w-full items-center justify-between">
+          <ModalFooter align="between">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => setIsPackageModalOpen(false)}
+              disabled={savingForm}
             >
               Fechar
             </Button>
 
             <Button
               variant="primary"
-              onClick={handleSavePackage}
+              onClick={submitPackage}
+              loading={savingForm}
             >
               Salvar pacote
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         {editingPackage && (
-          <div className="space-y-5">
-            <Input
-              label="Título do pacote"
-              value={editingPackage.name || ''}
-              onChange={(e) =>
-                setEditingPackage({ ...editingPackage, name: e.target.value })
-              }
-              placeholder="Ex: Terapia Mensal Intensiva"
-            />
-
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Layers size={16} className="text-primary-600" />
-                  <h4 className="text-sm font-semibold text-slate-700">
-                    Serviços incluídos
-                  </h4>
-                </div>
-              </div>
-
-              <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <Combobox
-                  options={serviceOptions}
-                  value={packageServiceToAdd}
-                  onChange={(value) => setPackageServiceToAdd(String(value))}
-                  placeholder="Selecione um serviço..."
-                  size="sm"
+          <Tabs<PackageModalTab> items={PACKAGE_MODAL_TABS} value={packageTab} onChange={setPackageTab} label="Seções do pacote">
+            {packageTab === 'dados' && (
+              <div className="space-y-3">
+                <Input
+                  label="Título do pacote"
+                  value={editingPackage.name || ''}
+                  onChange={(e) =>
+                    setEditingPackage({ ...editingPackage, name: e.target.value })
+                  }
+                  placeholder="Ex: Terapia Mensal Intensiva"
                 />
 
-                <div className="flex items-end">
-                  <Button
-                    variant="outline"
-                    iconLeft={<Plus size={14} />}
-                    onClick={handleAddServiceToPackage}
-                    disabled={!packageServiceToAdd}
-                    fullWidth
-                  >
-                    Adicionar
-                  </Button>
-                </div>
-              </div>
-
-              {(!editingPackage.items || editingPackage.items.length === 0) ? (
-                <StatusAlert
-                  variant="info"
-                  title="Nenhum serviço adicionado"
-                  message="Selecione um serviço acima para começar a montar o pacote."
-                  compact
+                <Textarea
+                  label="Observações do pacote"
+                  value={editingPackage.description || ''}
+                  onChange={(e) =>
+                    setEditingPackage({
+                      ...editingPackage,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Detalhes sobre o pacote promocional..."
+                  rows={5}
                 />
-              ) : (
-                <div className="space-y-3">
-                  {(editingPackage.items || []).map((item, index) => {
-                    const service = services.find(
-                      (srv) => String(srv.id) === String(item.serviceId)
-                    );
+              </div>
+            )}
 
-                    return (
-                      <div
-                        key={`${item.serviceId}-${index}`}
-                        className="rounded-2xl border border-slate-200 bg-white p-4"
-                      >
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_110px_150px_auto] md:items-end">
-                          <div className="flex flex-col gap-1">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-0.5">Serviço</label>
-                            <Combobox
-                              options={services.map(s => ({ value: String(s.id), label: s.name }))}
-                              value={String(item.serviceId)}
-                              onChange={(val) => {
-                                const nextItems = [...(editingPackage.items || [])];
-                                nextItems[index].serviceId = Array.isArray(val) ? val[0] : val;
-                                handlePackageItemChange(nextItems);
-                              }}
-                              placeholder="Selecione..."
-                              size="sm"
-                            />
-                          </div>
+            {packageTab === 'itens' && (
+              <PanelCard title="Serviços incluídos" icon={Layers}>
+                <div className="space-y-3 p-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                    <Combobox
+                      options={serviceOptions}
+                      value={packageServiceToAdd}
+                      onChange={(value) => setPackageServiceToAdd(String(value))}
+                      placeholder="Selecione um serviço..."
+                      size="sm"
+                    />
 
-                          <Input
-                            label="Quantidade"
-                            type="number"
-                            value={item.quantity}
-                            min={1}
-                            size="sm"
-                            onChange={(e) => {
-                              const nextItems = [...(editingPackage.items || [])];
-                              nextItems[index].quantity = parseInt(e.target.value || '1', 10) || 1;
-                              handlePackageItemChange(nextItems);
-                            }}
-                          />
+                    <Button
+                      variant="outline"
+                      iconLeft={<Plus size={14} />}
+                      onClick={handleAddServiceToPackage}
+                      disabled={!packageServiceToAdd}
+                    >
+                      Adicionar
+                    </Button>
+                  </div>
 
-                          <Input
-                            label="Subtotal"
-                            value={
-                              service
-                                ? formatCurrency(service.price * item.quantity)
-                                : formatCurrency(0)
-                            }
-                            readOnly
-                            size="sm"
-                          />
-
-                          <div className="flex items-end justify-end">
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => {
-                                const nextItems = (editingPackage.items || []).filter(
-                                  (_, i) => i !== index
-                                );
-                                handlePackageItemChange(nextItems);
-                              }}
-                              title="Remover item"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-              <div className="rounded-[24px] border border-slate-200 bg-white p-4">
-                <h4 className="mb-3 text-sm font-semibold text-slate-700">
-                  Configurar desconto
-                </h4>
-
-                <div className="space-y-4">
-                  <FilterLineSegmented
-                    value={editingPackage.discountType || 'percentage'}
-                    onChange={(type) =>
-                      handlePackageDiscountChange(
-                        type as 'percentage' | 'fixed',
-                        Number(editingPackage.discountValue || 0)
-                      )
-                    }
-                    options={[
-                      { value: 'percentage', label: '%' },
-                      { value: 'fixed', label: 'R$' },
-                    ]}
-                    size="sm"
-                  />
-
-                  {editingPackage.discountType === 'percentage' ? (
-                    <Input
-                      label="Desconto percentual"
-                      type="number"
-                      addonRight="%"
-                      value={editingPackage.discountValue || 0}
-                      onChange={(e) =>
-                        handlePackageDiscountChange(
-                          'percentage',
-                          parseFloat(e.target.value || '0') || 0
-                        )
-                      }
+                  {(!editingPackage.items || editingPackage.items.length === 0) ? (
+                    <StatusAlert
+                      variant="info"
+                      title="Nenhum serviço adicionado"
+                      message="Selecione um serviço acima para começar a montar o pacote."
+                      compact
                     />
                   ) : (
-                    <CurrencyInput
-                      label="Desconto fixo"
-                      value={Number(editingPackage.discountValue || 0)}
-                      onChange={(val) => handlePackageDiscountChange('fixed', val)}
-                    />
+                    <div className="space-y-2">
+                      {(editingPackage.items || []).map((item, index) => {
+                        const service = services.find(
+                          (srv) => String(srv.id) === String(item.serviceId)
+                        );
+
+                        return (
+                          <div
+                            key={`${item.serviceId}-${index}`}
+                            className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                          >
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_110px_150px_auto] md:items-end">
+                              <div className="flex flex-col gap-1">
+                                <label className="ds-label">Serviço</label>
+                                <Combobox
+                                  options={services.map(s => ({ value: String(s.id), label: s.name }))}
+                                  value={String(item.serviceId)}
+                                  onChange={(val) => {
+                                    const nextItems = [...(editingPackage.items || [])];
+                                    nextItems[index].serviceId = Array.isArray(val) ? val[0] : val;
+                                    handlePackageItemChange(nextItems);
+                                  }}
+                                  placeholder="Selecione..."
+                                  size="sm"
+                                />
+                              </div>
+
+                              <Input
+                                label="Quantidade"
+                                type="number"
+                                value={item.quantity}
+                                min={1}
+                                size="sm"
+                                onChange={(e) => {
+                                  const nextItems = [...(editingPackage.items || [])];
+                                  nextItems[index].quantity = parseInt(e.target.value || '1', 10) || 1;
+                                  handlePackageItemChange(nextItems);
+                                }}
+                              />
+
+                              <Input
+                                label="Subtotal"
+                                value={
+                                  service
+                                    ? formatCurrency(service.price * item.quantity)
+                                    : formatCurrency(0)
+                                }
+                                readOnly
+                                size="sm"
+                              />
+
+                              <div className="flex items-end justify-end">
+                                <IconButton
+                                  variant="danger"
+                                  size="sm"
+                                  aria-label="Remover item"
+                                  onClick={() => {
+                                    const nextItems = (editingPackage.items || []).filter(
+                                      (_, i) => i !== index
+                                    );
+                                    handlePackageItemChange(nextItems);
+                                  }}
+                                  title="Remover item"
+                                >
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
+              </PanelCard>
+            )}
+
+            {packageTab === 'desconto' && (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <PanelCard title="Configurar desconto" icon={TrendingDown}>
+                  <div className="space-y-3 p-3">
+                    <FilterLineSegmented
+                      value={editingPackage.discountType || 'percentage'}
+                      onChange={(type) =>
+                        handlePackageDiscountChange(
+                          type as 'percentage' | 'fixed',
+                          Number(editingPackage.discountValue || 0)
+                        )
+                      }
+                      options={[
+                        { value: 'percentage', label: '%' },
+                        { value: 'fixed', label: 'R$' },
+                      ]}
+                      size="sm"
+                    />
+
+                    {editingPackage.discountType === 'percentage' ? (
+                      <Input
+                        label="Desconto percentual"
+                        type="number"
+                        addonRight="%"
+                        value={editingPackage.discountValue || 0}
+                        onChange={(e) =>
+                          handlePackageDiscountChange(
+                            'percentage',
+                            parseFloat(e.target.value || '0') || 0
+                          )
+                        }
+                      />
+                    ) : (
+                      <CurrencyInput
+                        label="Desconto fixo"
+                        value={Number(editingPackage.discountValue || 0)}
+                        onChange={(val) => handlePackageDiscountChange('fixed', val)}
+                      />
+                    )}
+                  </div>
+                </PanelCard>
+
+                <PanelCard title="Resumo" icon={DollarSign}>
+                  <div className="space-y-2 p-3">
+                    <p className="text-[11px] text-slate-500">Preço final</p>
+                    <p className="text-base font-medium tabular-nums text-emerald-600">
+                      {formatCurrency(editingPackage.totalPrice || 0)}
+                    </p>
+
+                    <div className="border-t border-slate-100 pt-2 text-xs text-slate-600">
+                      <p>
+                        Itens: <strong className="font-medium text-slate-900">{editingPackage.items?.length || 0}</strong>
+                      </p>
+                      <p className="mt-1">
+                        Desconto:{' '}
+                        <strong className="font-medium text-slate-900">
+                          {editingPackage.discountType === 'percentage'
+                            ? `${editingPackage.discountValue || 0}%`
+                            : formatCurrency(editingPackage.discountValue || 0)}
+                        </strong>
+                      </p>
+                    </div>
+                  </div>
+                </PanelCard>
               </div>
-
-              <div className="rounded-[24px] bg-slate-900 p-5 text-white">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-200">
-                  Preço final
-                </p>
-                <p className="mt-2 text-base sm:text-xl font-black">
-                  {formatCurrency(editingPackage.totalPrice || 0)}
-                </p>
-
-                <div className="mt-4 border-t border-white/10 pt-4 text-sm text-slate-300">
-                  <p>
-                    Itens: <strong className="text-white">{editingPackage.items?.length || 0}</strong>
-                  </p>
-                  <p className="mt-1">
-                    Desconto:{' '}
-                    <strong className="text-white">
-                      {editingPackage.discountType === 'percentage'
-                        ? `${editingPackage.discountValue || 0}%`
-                        : formatCurrency(editingPackage.discountValue || 0)}
-                    </strong>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Textarea
-              label="Observações do pacote"
-              value={editingPackage.description || ''}
-              onChange={(e) =>
-                setEditingPackage({
-                  ...editingPackage,
-                  description: e.target.value,
-                })
-              }
-              placeholder="Detalhes sobre o pacote promocional..."
-              rows={5}
-            />
-          </div>
+            )}
+          </Tabs>
         )}
       </Modal>
 
       {/* Modal Exclusão */}
-      <Modal
+      <ConfirmModal
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
+        onConfirm={confirmDelete}
+        variant="danger"
         title="Excluir item"
-        size="md"
-        footer={
-          <div className="flex w-full items-center justify-between">
-            <Button
-              variant="ghost"
-              onClick={() => setDeleteId(null)}
-            >
-              Cancelar
-            </Button>
-
-            <Button
-              variant="danger"
-              onClick={confirmDelete}
-              loading={isProcessing}
-              disabled={isProcessing}
-            >
-              Confirmar exclusão
-            </Button>
-          </div>
-        }
-      >
-        <div className="py-2">
-          <StatusAlert
-            variant="warning"
-            title="Confirmação necessária"
-            message={`Você está prestes a excluir este ${
-              deleteId?.type === 'service' ? 'serviço' : 'pacote'
-            }. Agendamentos passados não serão alterados.`}
-          />
-        </div>
-      </Modal>
+        message={`Você está prestes a excluir este ${
+          deleteId?.type === 'service' ? 'serviço' : 'pacote'
+        }. Agendamentos passados não serão alterados.`}
+        confirmLabel="Confirmar exclusão"
+        cancelLabel="Cancelar"
+        loading={isProcessing}
+      />
 
       {/* Modal Exclusão em Massa */}
-      <Modal
+      <ConfirmModal
         isOpen={confirmBulkDelete}
         onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={handleBulkDelete}
+        variant="danger"
         title="Excluir Selecionados"
-        size="md"
-        footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setConfirmBulkDelete(false)} disabled={isProcessing}>Cancelar</Button>
-            <Button variant="danger" onClick={handleBulkDelete} loading={isProcessing} disabled={isProcessing}>
-              Confirmar exclusão de {selectedIds.size} item(ns)
-            </Button>
-          </div>
-        }
-      >
-        <div className="py-2">
-          <StatusAlert
-            variant="warning"
-            title="Atenção"
-            message={`Você está prestes a excluir ${selectedIds.size} ${activeTab === 'services' ? 'serviço(s)' : 'pacote(s)'}. Esta ação não pode ser desfeita.`}
-          />
-        </div>
-      </Modal>
+        message={`Você está prestes a excluir ${selectedIds.size} ${activeTab === 'services' ? 'serviço(s)' : 'pacote(s)'}. Esta ação não pode ser desfeita.`}
+        confirmLabel={`Confirmar exclusão de ${selectedIds.size} item(ns)`}
+        cancelLabel="Cancelar"
+        loading={isProcessing}
+      />
+
 
       {/* Histórico de Preços/Valores */}
       <ActionDrawer
@@ -1807,7 +1772,7 @@ export const Services: React.FC = () => {
           </div>
         ) : historyData.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
               <History size={24} />
             </div>
             <p className="text-sm text-slate-500">Nenhuma alteração registrada ainda.</p>
@@ -1847,12 +1812,12 @@ export const Services: React.FC = () => {
 
                   {/* Icon */}
                   <div className={cx(
-                    'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
+                    'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
                     isIncrease
                       ? 'bg-emerald-50 text-emerald-600'
                       : isDecrease
                       ? 'bg-red-50 text-red-500'
-                      : 'bg-blue-50 text-blue-500'
+                      : 'bg-primary-50 text-primary-600'
                   )}>
                     {isIncrease ? (
                       <TrendingUp size={16} />
@@ -1869,7 +1834,7 @@ export const Services: React.FC = () => {
                       <span className="text-sm font-semibold text-slate-700">{label}</span>
                       {changePct !== null && (
                         <span className={cx(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold',
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold',
                           isIncrease
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-red-100 text-red-600'

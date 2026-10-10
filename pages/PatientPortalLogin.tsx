@@ -7,6 +7,7 @@ import {
   Plus, Trash2, Users, Baby, UserPlus,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/api";
+import { Button, IconButton, Input, Alert } from "../components/UI";
 import logoUrl from "../images/logo-sistema/logo.png";
 
 const SESSION_KEY = "psi_portal_session";
@@ -85,21 +86,15 @@ function portalApiFetch(path: string, body?: object) {
 
 // ─── Background decorativo ───────────────────────────────────────────────────
 function BgDecor() {
-  return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
-      <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-indigo-500/15 blur-3xl" />
-      <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-emerald-500/10 blur-3xl" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-indigo-500/5 blur-3xl" />
-    </div>
-  );
+  return null;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ msg, type = "success" }: { msg: string; type?: "success" | "error" | "info" }) {
-  const cls = { success: "bg-emerald-600", error: "bg-red-600", info: "bg-indigo-600" }[type];
+  const cls = { success: "bg-emerald-600", error: "bg-red-600", info: "bg-primary-600" }[type];
   const icon = type === "error" ? <AlertCircle size={15} /> : <CheckCircle size={15} />;
   return (
-    <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] ${cls} text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-2.5 max-w-sm`}>
+    <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] ${cls} text-white px-4 py-2.5 rounded-lg shadow-md text-[13px] font-medium flex items-center gap-2.5 max-w-sm`}>
       {icon}{msg}
     </div>
   );
@@ -109,7 +104,7 @@ function Toast({ msg, type = "success" }: { msg: string; type?: "success" | "err
 function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const s = size === "lg" ? "w-16 h-16" : size === "sm" ? "w-8 h-8" : "w-12 h-12";
   return (
-    <div className={`${s} rounded-2xl overflow-hidden ring-1 ring-indigo-100 shadow-lg bg-white p-1.5 shrink-0`}>
+    <div className={`${s} rounded-lg overflow-hidden ring-1 ring-primary-100 bg-white p-1.5 shrink-0`}>
       <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
     </div>
   );
@@ -123,18 +118,12 @@ function Field({ label, icon, type = "text", placeholder, value, onChange, onKey
   right?: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</label>
-      <div className="relative">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">{icon}</span>
-        <input
-          type={type} placeholder={placeholder} value={value}
-          onChange={e => onChange(e.target.value)} onKeyDown={onKeyDown}
-          className="w-full pl-10 pr-10 py-3.5 text-sm text-slate-800 placeholder-slate-400 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-        />
-        {right && <span className="absolute right-3.5 top-1/2 -translate-y-1/2">{right}</span>}
-      </div>
-    </div>
+    <Input
+      size="lg" label={label} iconLeft={icon} iconRight={right} type={type}
+      placeholder={placeholder} value={value}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+    />
   );
 }
 
@@ -143,21 +132,16 @@ function PrimaryBtn({ onClick, disabled, loading, children }: {
   onClick: () => void; disabled?: boolean; loading?: boolean; children: React.ReactNode;
 }) {
   return (
-    <button onClick={onClick} disabled={disabled || loading}
-      className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-300/30 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
-      {loading ? <Loader2 size={16} className="animate-spin" /> : children}
-    </button>
+    <Button variant="primary" size="lg" fullWidth onClick={onClick} disabled={disabled} loading={loading}>
+      {children}
+    </Button>
   );
 }
 
 // ─── Card de erro ─────────────────────────────────────────────────────────────
 function ErrorBox({ msg }: { msg: string }) {
   if (!msg) return null;
-  return (
-    <div className="flex items-start gap-2.5 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3 border border-red-100">
-      <AlertCircle size={15} className="shrink-0 mt-0.5" /><span>{msg}</span>
-    </div>
-  );
+  return <Alert variant="error">{msg}</Alert>;
 }
 
 // ─── Hero lateral ─────────────────────────────────────────────────────────────
@@ -170,35 +154,21 @@ function HeroSide() {
   ];
   return (
     <div
-      className="hidden lg:flex lg:w-[420px] xl:w-[480px] shrink-0 relative flex-col justify-between p-12 overflow-hidden"
-      style={{ background: 'linear-gradient(160deg, #120C2E 0%, #2A1F6B 100%)' }}
+      className="hidden lg:flex lg:w-[420px] xl:w-[480px] shrink-0 relative flex-col justify-between p-10 overflow-hidden bg-primary-900"
     >
-      {/* Glow decorativo */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 70% 60% at 40% 35%, rgba(109,66,245,0.22) 0%, transparent 70%), ' +
-            'radial-gradient(ellipse 50% 50% at 75% 70%, rgba(18,183,106,0.12) 0%, transparent 65%)',
-        }}
-      />
-      <div className="absolute -top-20 -left-20 w-72 h-72 bg-white/5 rounded-full" />
-      <div className="absolute top-1/3 -right-16 w-56 h-56 bg-white/5 rounded-full" />
-      <div className="absolute -bottom-16 -left-8 w-64 h-64 bg-white/5 rounded-full" />
-
       {/* Topo */}
       <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-12">
-          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white p-1.5 flex items-center justify-center border border-white/20">
+        <div className="flex items-center gap-3 mb-10">
+          <div className="w-9 h-9 rounded-lg overflow-hidden bg-white p-1.5 flex items-center justify-center border border-white/20">
             <img src={logoUrl} alt="Plaelo" className="w-full h-full object-contain" />
           </div>
-          <span className="text-white/80 text-sm font-bold tracking-wide">Plaelo</span>
+          <span className="text-white/80 text-sm font-medium">Plaelo</span>
         </div>
 
-        <h1 className="text-4xl font-black text-white leading-tight mb-4">
+        <h1 className="text-2xl font-medium text-white leading-tight mb-3">
           Seu espaço<br/>de cuidado
         </h1>
-        <p className="text-white/60 text-base leading-relaxed">
+        <p className="text-white/70 text-[13px] leading-relaxed">
           Acesse consultas, acompanhe seu progresso e cuide da sua saúde mental em um só lugar.
         </p>
       </div>
@@ -206,13 +176,13 @@ function HeroSide() {
       {/* Features */}
       <div className="relative z-10 space-y-3">
         {features.map(f => (
-          <div key={f.label} className="flex items-center gap-3.5 bg-white/10 border border-white/10 rounded-2xl px-4 py-3.5 backdrop-blur-sm">
-            <div className="w-9 h-9 bg-white/15 rounded-xl flex items-center justify-center shrink-0 text-white">
+          <div key={f.label} className="flex items-center gap-3.5 bg-white/10 border border-white/10 rounded-lg px-3 py-3">
+            <div className="w-9 h-9 bg-white/15 rounded-lg flex items-center justify-center shrink-0 text-white">
               {f.icon}
             </div>
             <div>
-              <p className="text-white text-sm font-bold leading-none mb-0.5">{f.label}</p>
-              <p className="text-white/50 text-xs">{f.desc}</p>
+              <p className="text-white text-[13px] font-medium leading-none mb-1">{f.label}</p>
+              <p className="text-white/60 text-[11px]">{f.desc}</p>
             </div>
           </div>
         ))}
@@ -221,7 +191,7 @@ function HeroSide() {
       {/* Rodapé */}
       <div className="relative z-10 flex items-center gap-2 mt-8">
         <Shield size={12} className="text-white/40" />
-        <span className="text-white/40 text-xs">Dados protegidos com criptografia de ponta</span>
+        <span className="text-white/50 text-[11px]">Dados protegidos com criptografia de ponta</span>
       </div>
     </div>
   );
@@ -233,13 +203,13 @@ function PageLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-50 flex">
       <HeroSide />
       <div className="flex-1 flex flex-col items-center justify-center p-5 sm:p-8 relative z-10">
-        <div className="w-full max-w-[380px]">
+        <div className="w-full max-w-sm">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
+          <div className="lg:hidden flex items-center gap-3 mb-6">
             <Logo size="sm" />
             <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Portal do</p>
-              <p className="text-base font-black text-slate-800 leading-tight">Paciente</p>
+              <p className="text-[11px] text-slate-500">Portal do</p>
+              <p className="text-base font-medium text-slate-800 leading-tight">Paciente</p>
             </div>
           </div>
           {children}
@@ -263,7 +233,7 @@ function StrengthBar({ password }: { password: string }) {
           <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${i <= strength ? colors[strength] : "bg-slate-200"}`} />
         ))}
       </div>
-      <p className="text-xs text-slate-400">{labels[strength]}</p>
+      <p className="text-[11px] text-slate-500">{labels[strength]}</p>
     </div>
   );
 }
@@ -500,10 +470,10 @@ export const PatientPortalLogin: React.FC = () => {
       <BgDecor />
       <Toast msg={successMsg} type="success" />
       <div className="text-center relative z-10">
-        <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-200">
+        <div className="w-14 h-14 bg-emerald-500 rounded-lg flex items-center justify-center mx-auto mb-4">
           <CheckCircle size={32} className="text-white" />
         </div>
-        <p className="text-slate-600 font-bold text-lg">{successMsg}</p>
+        <p className="text-slate-700 font-medium text-base">{successMsg}</p>
         <Loader2 size={18} className="animate-spin text-slate-400 mx-auto mt-3" />
       </div>
     </div>
@@ -514,10 +484,10 @@ export const PatientPortalLogin: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
       <BgDecor />
       <div className="text-center relative z-10">
-        <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-indigo-300/40 animate-pulse">
+        <div className="w-14 h-14 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-4 animate-pulse">
           <Heart size={32} className="text-white" fill="currentColor" />
         </div>
-        <p className="text-slate-500 text-sm font-medium">Carregando portal...</p>
+        <p className="text-slate-500 text-xs font-medium">Carregando portal...</p>
       </div>
     </div>
   );
@@ -526,15 +496,14 @@ export const PatientPortalLogin: React.FC = () => {
   if (phase === "error") return (
     <PageLayout>
       <div className="text-center">
-        <div className="w-16 h-16 bg-red-100 rounded-3xl flex items-center justify-center mx-auto mb-5">
+        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-4">
           <AlertCircle size={28} className="text-red-500" />
         </div>
-        <h2 className="text-xl font-black text-slate-800 mb-2">Link inválido</h2>
-        <p className="text-slate-500 text-sm mb-6">{errorMsg}</p>
-        <button onClick={() => { setPhase("landing"); setErrorMsg(""); }}
-          className="text-sm text-indigo-600 font-semibold hover:underline flex items-center gap-1 mx-auto">
-          <ArrowLeft size={14} /> Ir para o login
-        </button>
+        <h2 className="text-xl font-semibold text-slate-800 mb-2">Link inválido</h2>
+        <p className="text-slate-500 text-[13px] mb-5">{errorMsg}</p>
+        <Button variant="outline" size="md" iconLeft={<ArrowLeft size={14} />} onClick={() => { setPhase("landing"); setErrorMsg(""); }}>
+          Ir para o login
+        </Button>
       </div>
     </PageLayout>
   );
@@ -542,12 +511,12 @@ export const PatientPortalLogin: React.FC = () => {
   // ── Login principal ──────────────────────────────────────────────────────────
   if (phase === "landing") return (
     <PageLayout>
-      <div className="mb-7">
-        <h2 className="text-2xl font-black text-slate-800">Bem-vindo(a) de volta 👋</h2>
-        <p className="text-slate-400 text-sm mt-1.5">Entre com suas credenciais para acessar o portal.</p>
+      <div className="mb-5">
+        <h2 className="text-lg sm:text-xl font-medium text-slate-900">Bem-vindo(a) de volta</h2>
+        <p className="text-slate-500 text-[13px] mt-1">Entre com suas credenciais para acessar o portal.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 space-y-3">
         <Field label="Email" icon={<Mail size={15} />} type="email" placeholder="seu@email.com"
           value={loginForm.email} onChange={v => setLoginForm(f => ({ ...f, email: v }))}
           onKeyDown={e => e.key === "Enter" && doEmailLogin()} />
@@ -557,9 +526,9 @@ export const PatientPortalLogin: React.FC = () => {
           onChange={v => setLoginForm(f => ({ ...f, password: v }))}
           onKeyDown={e => e.key === "Enter" && doEmailLogin()}
           right={
-            <button onClick={() => setShowLoginPass(v => !v)} type="button" className="text-slate-400 hover:text-slate-600 transition-colors">
-              {showLoginPass ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
+            <IconButton variant="ghost" size="xs" type="button" onClick={() => setShowLoginPass(v => !v)} aria-label={showLoginPass ? "Ocultar senha" : "Mostrar senha"}>
+              {showLoginPass ? <EyeOff size={14} /> : <Eye size={14} />}
+            </IconButton>
           } />
 
         <ErrorBox msg={errorMsg} />
@@ -569,21 +538,20 @@ export const PatientPortalLogin: React.FC = () => {
         </PrimaryBtn>
 
         <div className="text-center pt-1">
-          <button onClick={() => { setPhase("forgot_password"); setErrorMsg(""); setForgotEmail(loginForm.email); }}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold transition-colors">
+          <Button variant="ghost" size="sm" onClick={() => { setPhase("forgot_password"); setErrorMsg(""); setForgotEmail(loginForm.email); }}>
             Esqueci minha senha
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="mt-4 flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl p-3.5">
+      <div className="mt-3 flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-lg p-3">
         <Star size={13} className="text-amber-500 shrink-0 mt-0.5" fill="currentColor" />
         <p className="text-xs text-amber-700 leading-relaxed">
-          <span className="font-bold">Primeiro acesso?</span> Use o link enviado pelo seu profissional para criar seu acesso.
+          <span className="font-medium">Primeiro acesso?</span> Use o link enviado pelo seu profissional para criar seu acesso.
         </p>
       </div>
 
-      <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1.5">
+      <p className="text-center text-[11px] text-slate-500 mt-4 flex items-center justify-center gap-1.5">
         <Shield size={10} /> Dados protegidos com criptografia
       </p>
     </PageLayout>
@@ -592,20 +560,19 @@ export const PatientPortalLogin: React.FC = () => {
   // ── Esqueci a senha ──────────────────────────────────────────────────────────
   if (phase === "forgot_password") return (
     <PageLayout>
-      <button onClick={() => { setPhase("landing"); setErrorMsg(""); }}
-        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6 transition-colors">
-        <ArrowLeft size={15} /> Voltar ao login
-      </button>
+      <Button variant="ghost" size="sm" className="mb-4" iconLeft={<ArrowLeft size={14} />} onClick={() => { setPhase("landing"); setErrorMsg(""); }}>
+        Voltar ao login
+      </Button>
 
-      <div className="mb-7">
-        <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-4">
-          <KeyRound size={22} className="text-indigo-600" />
+      <div className="mb-5">
+        <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center mb-3">
+          <KeyRound size={22} className="text-primary-600" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800">Esqueceu a senha?</h2>
-        <p className="text-slate-400 text-sm mt-1.5">Sem problema! Digite seu email e enviaremos um link para redefinir.</p>
+        <h2 className="text-lg sm:text-xl font-medium text-slate-900">Esqueceu a senha?</h2>
+        <p className="text-slate-500 text-[13px] mt-1">Sem problema! Digite seu email e enviaremos um link para redefinir.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 space-y-3">
         <Field label="Seu email" icon={<Mail size={15} />} type="email" placeholder="seu@email.com"
           value={forgotEmail} onChange={setForgotEmail}
           onKeyDown={e => e.key === "Enter" && doForgotPassword()} />
@@ -617,7 +584,7 @@ export const PatientPortalLogin: React.FC = () => {
         </PrimaryBtn>
       </div>
 
-      <p className="text-center text-xs text-slate-400 mt-5">
+      <p className="text-center text-[11px] text-slate-500 mt-4">
         O link expira em 2 horas após o envio.
       </p>
     </PageLayout>
@@ -627,21 +594,20 @@ export const PatientPortalLogin: React.FC = () => {
   if (phase === "forgot_sent") return (
     <PageLayout>
       <div className="text-center py-4">
-        <div className="w-20 h-20 bg-emerald-100 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-sm">
+        <div className="w-14 h-14 bg-emerald-100 rounded-lg flex items-center justify-center mx-auto mb-4">
           <Mail size={32} className="text-emerald-600" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800 mb-2">Email enviado!</h2>
-        <p className="text-slate-500 text-sm leading-relaxed mb-2">
+        <h2 className="text-lg sm:text-xl font-medium text-slate-900 mb-2">Email enviado!</h2>
+        <p className="text-slate-500 text-[13px] leading-relaxed mb-2">
           Enviamos um link de redefinição para:
         </p>
-        <p className="font-bold text-indigo-600 text-sm mb-6">{forgotEmail}</p>
-        <p className="text-slate-400 text-xs leading-relaxed mb-8">
+        <p className="font-medium text-primary-700 text-[13px] mb-5">{forgotEmail}</p>
+        <p className="text-slate-500 text-xs leading-relaxed mb-6">
           Verifique sua caixa de entrada e também a pasta de spam. O link expira em 2 horas.
         </p>
-        <button onClick={() => { setPhase("landing"); setErrorMsg(""); }}
-          className="flex items-center gap-1.5 text-sm text-indigo-600 font-semibold hover:underline mx-auto">
-          <ArrowLeft size={14} /> Voltar ao login
-        </button>
+        <Button variant="outline" size="md" iconLeft={<ArrowLeft size={14} />} onClick={() => { setPhase("landing"); setErrorMsg(""); }}>
+          Voltar ao login
+        </Button>
       </div>
     </PageLayout>
   );
@@ -649,22 +615,22 @@ export const PatientPortalLogin: React.FC = () => {
   // ── Redefinir senha (via token do email) ─────────────────────────────────────
   if (phase === "reset_password") return (
     <PageLayout>
-      <div className="mb-7">
-        <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-4">
-          <Lock size={22} className="text-indigo-600" />
+      <div className="mb-5">
+        <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center mb-3">
+          <Lock size={22} className="text-primary-600" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800">Nova senha</h2>
-        <p className="text-slate-400 text-sm mt-1.5">Escolha uma senha segura para sua conta.</p>
+        <h2 className="text-lg sm:text-xl font-medium text-slate-900">Nova senha</h2>
+        <p className="text-slate-500 text-[13px] mt-1">Escolha uma senha segura para sua conta.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 space-y-3">
         <Field label="Nova senha" icon={<Lock size={15} />} type={showResetPass ? "text" : "password"}
           placeholder="Mínimo 6 caracteres" value={resetForm.password}
           onChange={v => setResetForm(f => ({ ...f, password: v }))}
           right={
-            <button onClick={() => setShowResetPass(v => !v)} type="button" className="text-slate-400 hover:text-slate-600">
-              {showResetPass ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
+            <IconButton variant="ghost" size="xs" type="button" onClick={() => setShowResetPass(x => !x)} aria-label={showResetPass ? "Ocultar senha" : "Mostrar senha"}>
+              {showResetPass ? <EyeOff size={14} /> : <Eye size={14} />}
+            </IconButton>
           } />
 
         <StrengthBar password={resetForm.password} />
@@ -675,7 +641,7 @@ export const PatientPortalLogin: React.FC = () => {
           onKeyDown={e => e.key === "Enter" && doResetPassword()} />
 
         {resetForm.confirm && resetForm.password !== resetForm.confirm && (
-          <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} /> As senhas não conferem</p>
+          <p className="text-[11px] text-red-600 flex items-center gap-1"><AlertCircle size={12} /> As senhas não conferem</p>
         )}
 
         <ErrorBox msg={errorMsg} />
@@ -692,27 +658,27 @@ export const PatientPortalLogin: React.FC = () => {
   if (phase === "invite_setpass") return (
     <PageLayout>
       {inviteInfo?.professional_name && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5 flex items-center gap-3">
-          <div className="w-11 h-11 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-xl flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
+        <div className="bg-white rounded-lg border border-slate-200 p-3 mb-4 flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-700 font-medium text-base shrink-0">
             {inviteInfo.professional_name.charAt(0)}
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-slate-800 truncate text-sm">{inviteInfo.professional_name}</p>
+            <p className="font-medium text-slate-800 truncate text-[13px]">{inviteInfo.professional_name}</p>
             {inviteInfo.specialty && <p className="text-xs text-slate-500 truncate">{inviteInfo.specialty}{inviteInfo.crp ? ` · CRP ${inviteInfo.crp}` : ""}</p>}
           </div>
           <Sparkles size={16} className="text-amber-400 shrink-0 ml-auto" />
         </div>
       )}
 
-      <div className="mb-6">
-        <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-4">
-          <Lock size={22} className="text-indigo-600" />
+      <div className="mb-5">
+        <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center mb-3">
+          <Lock size={22} className="text-primary-600" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800">Criar sua senha</h2>
-        <p className="text-slate-400 text-sm mt-1.5">Defina uma senha para acessar o portal nos próximos acessos.</p>
+        <h2 className="text-lg sm:text-xl font-medium text-slate-900">Criar sua senha</h2>
+        <p className="text-slate-500 text-[13px] mt-1">Defina uma senha para acessar o portal nos próximos acessos.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 space-y-3">
         <Field label="Email de acesso" icon={<Mail size={15} />} type="email" placeholder="seu@email.com"
           value={passForm.email} onChange={v => setPassForm(f => ({ ...f, email: v }))} />
 
@@ -720,9 +686,9 @@ export const PatientPortalLogin: React.FC = () => {
           placeholder="Mínimo 6 caracteres" value={passForm.password}
           onChange={v => setPassForm(f => ({ ...f, password: v }))}
           right={
-            <button onClick={() => setShowPass(v => !v)} type="button" className="text-slate-400 hover:text-slate-600">
-              {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
+            <IconButton variant="ghost" size="xs" type="button" onClick={() => setShowPass(x => !x)} aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}>
+              {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+            </IconButton>
           } />
 
         <StrengthBar password={passForm.password} />
@@ -739,7 +705,7 @@ export const PatientPortalLogin: React.FC = () => {
         </PrimaryBtn>
       </div>
 
-      <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1.5">
+      <p className="text-center text-[11px] text-slate-500 mt-4 flex items-center justify-center gap-1.5">
         <Shield size={10} /> Seus dados são protegidos e seguros
       </p>
     </PageLayout>
@@ -749,51 +715,35 @@ export const PatientPortalLogin: React.FC = () => {
   if (phase === "invite_register" && inviteInfo) return (
     <PageLayout>
       {inviteInfo.professional_name && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5 flex items-center gap-3">
-          <div className="w-11 h-11 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-xl flex items-center justify-center text-indigo-700 font-black text-lg shrink-0">
+        <div className="bg-white rounded-lg border border-slate-200 p-3 mb-4 flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-700 font-medium text-base shrink-0">
             {inviteInfo.professional_name.charAt(0)}
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-slate-800 truncate text-sm">{inviteInfo.professional_name}</p>
+            <p className="font-medium text-slate-800 truncate text-[13px]">{inviteInfo.professional_name}</p>
             {inviteInfo.specialty && <p className="text-xs text-slate-500 truncate">{inviteInfo.specialty}{inviteInfo.crp ? ` · CRP ${inviteInfo.crp}` : ""}</p>}
-            {inviteInfo.company_name && <p className="text-xs text-slate-400 truncate">{inviteInfo.company_name}</p>}
+            {inviteInfo.company_name && <p className="text-[11px] text-slate-500 truncate">{inviteInfo.company_name}</p>}
           </div>
         </div>
       )}
 
       <div className="mb-6">
-        <h2 className="text-2xl font-black text-slate-800">Criar sua conta</h2>
-        <p className="text-slate-400 text-sm mt-1.5">Preencha seus dados para acessar o portal.</p>
+        <h2 className="text-lg sm:text-xl font-medium text-slate-900">Criar sua conta</h2>
+        <p className="text-slate-500 text-[13px] mt-1">Preencha seus dados para acessar o portal.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nome completo *</label>
-          <input type="text" placeholder="Seu nome completo" value={regForm.full_name}
-            onChange={e => setRegForm(f => ({ ...f, full_name: e.target.value }))}
-            className="w-full px-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
-        </div>
+      <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 space-y-3">
+        <Input size="lg" label="Nome completo *" type="text" placeholder="Seu nome completo" value={regForm.full_name}
+          onChange={e => setRegForm(f => ({ ...f, full_name: e.target.value }))} />
         <Field label="Email *" icon={<Mail size={15} />} type="email" placeholder="seu@email.com"
           value={regForm.email} onChange={v => setRegForm(f => ({ ...f, email: v }))} />
-        <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp</label>
-          <input type="tel" placeholder="(11) 99999-9999" value={regForm.whatsapp}
-            onChange={e => setRegForm(f => ({ ...f, whatsapp: e.target.value }))}
-            className="w-full px-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Nascimento</label>
-            <input type="date" value={regForm.birth_date}
-              onChange={e => setRegForm(f => ({ ...f, birth_date: e.target.value }))}
-              className="w-full px-4 py-3.5 text-sm text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">CPF</label>
-            <input type="text" placeholder="000.000.000-00" value={regForm.cpf}
-              onChange={e => setRegForm(f => ({ ...f, cpf: e.target.value }))}
-              className="w-full px-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
-          </div>
+        <Input size="lg" label="WhatsApp" type="tel" placeholder="(11) 99999-9999" value={regForm.whatsapp}
+          onChange={e => setRegForm(f => ({ ...f, whatsapp: e.target.value }))} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input size="lg" label="Nascimento" type="date" value={regForm.birth_date}
+            onChange={e => setRegForm(f => ({ ...f, birth_date: e.target.value }))} />
+          <Input size="lg" label="CPF" type="text" placeholder="000.000.000-00" value={regForm.cpf}
+            onChange={e => setRegForm(f => ({ ...f, cpf: e.target.value }))} />
         </div>
 
         <ErrorBox msg={errorMsg} />
@@ -804,7 +754,7 @@ export const PatientPortalLogin: React.FC = () => {
         </PrimaryBtn>
       </div>
 
-      <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1.5">
+      <p className="text-center text-[11px] text-slate-500 mt-4 flex items-center justify-center gap-1.5">
         <Shield size={10} /> Seus dados são protegidos e seguros
       </p>
     </PageLayout>
@@ -815,28 +765,28 @@ export const PatientPortalLogin: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center relative py-10 px-4">
       <BgDecor />
       <div className="w-full max-w-2xl relative z-10">
-        <div className="text-center mb-7">
-          <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-300/40">
+        <div className="text-center mb-5">
+          <div className="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-3">
             <Users size={24} className="text-white" />
           </div>
-          <h2 className="text-2xl font-black text-slate-800">Complete seu cadastro</h2>
-          <p className="text-slate-400 text-sm mt-1.5 max-w-md mx-auto">
+          <h2 className="text-lg sm:text-xl font-medium text-slate-900">Complete seu cadastro</h2>
+          <p className="text-slate-500 text-[13px] mt-1 max-w-md mx-auto">
             Antes de continuar, precisamos de mais algumas informações importantes para o seu atendimento.
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-7">
+        <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 space-y-4">
           {/* Filhos */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Baby size={16} className="text-indigo-500" />
-                <h3 className="font-bold text-slate-800 text-sm">Filhos</h3>
+                <Baby size={16} className="text-primary-600" />
+                <h3 className="font-medium text-slate-900 text-sm">Filhos</h3>
               </div>
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-500 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer">
                 <input type="checkbox" checked={hasChildren}
                   onChange={e => { setHasChildren(e.target.checked); if (e.target.checked && children.length === 0) setChildren([{ name: "", birth_date: "" }]); }}
-                  className="w-4 h-4 rounded accent-indigo-600" />
+                  className="w-4 h-4 rounded accent-primary-600" />
                 Tenho filhos
               </label>
             </div>
@@ -844,103 +794,89 @@ export const PatientPortalLogin: React.FC = () => {
               <div className="space-y-2">
                 {children.map((child, i) => (
                   <div key={i} className="flex gap-2 items-start">
-                    <input type="text" placeholder="Nome do filho(a)" value={child.name}
-                      onChange={e => setChildren(cs => cs.map((c, ci) => ci === i ? { ...c, name: e.target.value } : c))}
-                      className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-                    <input type="date" value={child.birth_date}
-                      onChange={e => setChildren(cs => cs.map((c, ci) => ci === i ? { ...c, birth_date: e.target.value } : c))}
-                      className="w-36 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-                    <button type="button" onClick={() => setChildren(cs => cs.filter((_, ci) => ci !== i))}
-                      className="shrink-0 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
-                      <Trash2 size={15} />
-                    </button>
+                    <Input type="text" aria-label="Nome do filho(a)" placeholder="Nome do filho(a)" value={child.name} wrapperClassName="flex-1 w-0 shrink-0"
+                    onChange={e => setChildren(cs => cs.map((c, ci) => ci === i ? { ...c, name: e.target.value } : c))} />
+                    <Input type="date" aria-label="Data de nascimento" value={child.birth_date} wrapperClassName="w-36 shrink-0"
+                      onChange={e => setChildren(cs => cs.map((c, ci) => ci === i ? { ...c, birth_date: e.target.value } : c))} />
+                    <IconButton variant="ghost" size="md" type="button" aria-label="Remover" onClick={() => setChildren(cs => cs.filter((_, ci) => ci !== i))}>
+                      <Trash2 size={14} />
+                    </IconButton>
                   </div>
                 ))}
-                <button type="button" onClick={() => setChildren(cs => [...cs, { name: "", birth_date: "" }])}
-                  className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800">
-                  <Plus size={14} /> Adicionar filho(a)
-                </button>
+                <Button type="button" variant="ghost" size="sm" iconLeft={<Plus size={14} />} onClick={() => setChildren(cs => [...cs, { name: "", birth_date: "" }])}>
+                  Adicionar filho(a)
+                </Button>
               </div>
             )}
           </section>
 
           {/* Cônjuge */}
-          <section className="space-y-3 pt-2 border-t border-slate-100">
+          <section className="space-y-3 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2">
-              <Heart size={16} className="text-indigo-500" />
-              <h3 className="font-bold text-slate-800 text-sm">Cônjuge / Companheiro(a)</h3>
-              <span className="text-[10px] text-slate-400 font-semibold">(se houver)</span>
+              <Heart size={16} className="text-primary-600" />
+              <h3 className="font-medium text-slate-900 text-sm">Cônjuge / Companheiro(a)</h3>
+              <span className="text-[11px] text-slate-500">(se houver)</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input type="text" placeholder="Nome" value={spouseName} onChange={e => setSpouseName(e.target.value)}
-                className="px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-              <input type="tel" placeholder="Telefone" value={spousePhone} onChange={e => setSpousePhone(e.target.value)}
-                className="px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+              <Input type="text" aria-label="Nome" placeholder="Nome" value={spouseName}
+                    onChange={e => setSpouseName(e.target.value)} />
+              <Input type="tel" aria-label="Telefone" placeholder="Telefone" value={spousePhone}
+                    onChange={e => setSpousePhone(e.target.value)} />
             </div>
           </section>
 
           {/* Quem mora junto */}
-          <section className="space-y-3 pt-2 border-t border-slate-100">
+          <section className="space-y-3 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2">
-              <Users size={16} className="text-indigo-500" />
-              <h3 className="font-bold text-slate-800 text-sm">Quem mora com você</h3>
+              <Users size={16} className="text-primary-600" />
+              <h3 className="font-medium text-slate-900 text-sm">Quem mora com você</h3>
             </div>
             <div className="space-y-2">
               {household.map((member, i) => (
                 <div key={i} className="flex gap-2 items-start">
-                  <input type="text" placeholder="Nome" value={member.name}
-                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, name: e.target.value } : h))}
-                    className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-                  <input type="number" placeholder="Idade" value={member.age}
-                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, age: e.target.value } : h))}
-                    className="w-20 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-                  <input type="text" placeholder="Parentesco" value={member.relationship}
-                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, relationship: e.target.value } : h))}
-                    className="w-28 sm:w-32 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-                  <button type="button" onClick={() => setHousehold(hs => hs.filter((_, hi) => hi !== i))}
-                    className="shrink-0 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
-                    <Trash2 size={15} />
-                  </button>
+                  <Input type="text" aria-label="Nome" placeholder="Nome" value={member.name} wrapperClassName="flex-1 w-0 shrink-0"
+                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, name: e.target.value } : h))} />
+                  <Input type="number" aria-label="Idade" placeholder="Idade" value={member.age} wrapperClassName="w-20 shrink-0"
+                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, age: e.target.value } : h))} />
+                  <Input type="text" aria-label="Parentesco" placeholder="Parentesco" value={member.relationship} wrapperClassName="w-28 shrink-0 sm:w-32 shrink-0"
+                    onChange={e => setHousehold(hs => hs.map((h, hi) => hi === i ? { ...h, relationship: e.target.value } : h))} />
+                  <IconButton variant="ghost" size="md" type="button" aria-label="Remover" onClick={() => setHousehold(hs => hs.filter((_, hi) => hi !== i))}>
+                      <Trash2 size={14} />
+                    </IconButton>
                 </div>
               ))}
-              <button type="button" onClick={() => setHousehold(hs => [...hs, { name: "", age: "", relationship: "" }])}
-                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800">
-                <UserPlus size={14} /> Adicionar morador(a)
-              </button>
+              <Button type="button" variant="ghost" size="sm" iconLeft={<UserPlus size={14} />} onClick={() => setHousehold(hs => [...hs, { name: "", age: "", relationship: "" }])}>
+                  Adicionar morador(a)
+                </Button>
             </div>
           </section>
 
           {/* Contatos de emergência */}
-          <section className="space-y-3 pt-2 border-t border-slate-100">
+          <section className="space-y-3 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2">
-              <Shield size={16} className="text-indigo-500" />
-              <h3 className="font-bold text-slate-800 text-sm">Contatos de emergência</h3>
-              <span className="text-[10px] text-red-400 font-bold">* mínimo 2</span>
+              <Shield size={16} className="text-primary-600" />
+              <h3 className="font-medium text-slate-900 text-sm">Contatos de emergência</h3>
+              <span className="text-[11px] text-red-600">* mínimo 2</span>
             </div>
             <div className="space-y-2">
               {emergencyContacts.map((contact, i) => (
                 <div key={i} className="flex gap-2 items-start">
-                  <input type="text" placeholder="Nome" value={contact.name}
-                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, name: e.target.value } : c))}
-                    className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-                  <input type="tel" placeholder="Telefone" value={contact.phone}
-                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, phone: e.target.value } : c))}
-                    className="w-32 sm:w-36 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
-                  <input type="text" placeholder="Parentesco" value={contact.relationship}
-                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, relationship: e.target.value } : c))}
-                    className="w-28 sm:w-32 shrink-0 px-2 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                  <Input type="text" aria-label="Nome" placeholder="Nome" value={contact.name} wrapperClassName="flex-1 w-0 shrink-0"
+                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, name: e.target.value } : c))} />
+                  <Input type="tel" aria-label="Telefone" placeholder="Telefone" value={contact.phone} wrapperClassName="w-32 shrink-0 sm:w-36 shrink-0"
+                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, phone: e.target.value } : c))} />
+                  <Input type="text" aria-label="Parentesco" placeholder="Parentesco" value={contact.relationship} wrapperClassName="w-28 shrink-0 sm:w-32 shrink-0"
+                    onChange={e => setEmergencyContacts(cs => cs.map((c, ci) => ci === i ? { ...c, relationship: e.target.value } : c))} />
                   {emergencyContacts.length > 2 && (
-                    <button type="button" onClick={() => setEmergencyContacts(cs => cs.filter((_, ci) => ci !== i))}
-                      className="shrink-0 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
-                      <Trash2 size={15} />
-                    </button>
+                    <IconButton variant="ghost" size="md" type="button" aria-label="Remover" onClick={() => setEmergencyContacts(cs => cs.filter((_, ci) => ci !== i))}>
+                      <Trash2 size={14} />
+                    </IconButton>
                   )}
                 </div>
               ))}
-              <button type="button" onClick={() => setEmergencyContacts(cs => [...cs, { name: "", phone: "", relationship: "" }])}
-                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800">
-                <Plus size={14} /> Adicionar contato
-              </button>
+              <Button type="button" variant="ghost" size="sm" iconLeft={<Plus size={14} />} onClick={() => setEmergencyContacts(cs => [...cs, { name: "", phone: "", relationship: "" }])}>
+                  Adicionar contato
+                </Button>
             </div>
           </section>
 
@@ -951,7 +887,7 @@ export const PatientPortalLogin: React.FC = () => {
           </PrimaryBtn>
         </div>
 
-        <p className="text-center text-[11px] text-slate-400 mt-5 flex items-center justify-center gap-1.5">
+        <p className="text-center text-[11px] text-slate-500 mt-4 flex items-center justify-center gap-1.5">
           <Shield size={10} /> Seus dados são protegidos e confidenciais
         </p>
       </div>
@@ -961,31 +897,31 @@ export const PatientPortalLogin: React.FC = () => {
   // ── Escolha da modalidade de atendimento (gera o primeiro contrato) ──────────
   if (phase === "choose_contract_type") return (
     <PageLayout>
-      <div className="mb-6">
-        <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-4">
-          <FileText size={22} className="text-indigo-600" />
+      <div className="mb-5">
+        <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center mb-3">
+          <FileText size={22} className="text-primary-600" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800">Como será seu atendimento?</h2>
-        <p className="text-slate-400 text-sm mt-1.5">Isso define o modelo do contrato que você vai assinar a seguir.</p>
+        <h2 className="text-lg sm:text-xl font-medium text-slate-900">Como será seu atendimento?</h2>
+        <p className="text-slate-500 text-[13px] mt-1">Isso define o modelo do contrato que você vai assinar a seguir.</p>
       </div>
 
       <div className="space-y-3">
         <button onClick={() => doChooseContractType("online")} disabled={submitting}
-          className="w-full bg-white border-2 border-slate-200 hover:border-indigo-300 rounded-2xl p-5 text-left transition-all disabled:opacity-60">
-          <p className="font-bold text-slate-800">Atendimento Online</p>
-          <p className="text-slate-400 text-xs mt-1">Sessões por videochamada (Google Meet)</p>
+          className="w-full bg-white border border-slate-200 hover:border-primary-300 hover:bg-primary-50/40 rounded-lg p-4 text-left transition-colors disabled:opacity-60 min-h-[56px]">
+          <p className="text-sm font-medium text-slate-900">Atendimento Online</p>
+          <p className="text-slate-500 text-xs mt-1">Sessões por videochamada (Google Meet)</p>
         </button>
         <button onClick={() => doChooseContractType("presencial")} disabled={submitting}
-          className="w-full bg-white border-2 border-slate-200 hover:border-indigo-300 rounded-2xl p-5 text-left transition-all disabled:opacity-60">
-          <p className="font-bold text-slate-800">Atendimento Presencial</p>
-          <p className="text-slate-400 text-xs mt-1">Sessões no consultório</p>
+          className="w-full bg-white border border-slate-200 hover:border-primary-300 hover:bg-primary-50/40 rounded-lg p-4 text-left transition-colors disabled:opacity-60 min-h-[56px]">
+          <p className="text-sm font-medium text-slate-900">Atendimento Presencial</p>
+          <p className="text-slate-500 text-xs mt-1">Sessões no consultório</p>
         </button>
       </div>
 
       <ErrorBox msg={errorMsg} />
 
       {submitting && (
-        <div className="flex items-center justify-center gap-2 mt-4 text-slate-400 text-sm">
+        <div className="flex items-center justify-center gap-2 mt-4 text-slate-500 text-xs">
           <Loader2 size={16} className="animate-spin" /> Gerando contrato...
         </div>
       )}
@@ -997,10 +933,10 @@ export const PatientPortalLogin: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
       <BgDecor />
       <div className="text-center relative z-10">
-        <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-indigo-300/40">
+        <div className="w-14 h-14 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-4">
           <CheckCircle size={32} className="text-white" />
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Entrando no portal...</h2>
+        <h2 className="text-base font-medium text-slate-900 mb-2">Entrando no portal...</h2>
         <Loader2 size={18} className="animate-spin text-slate-400 mx-auto" />
       </div>
     </div>

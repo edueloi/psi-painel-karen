@@ -2,12 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
 import { api, getStaticUrl } from '../services/api';
-import { PageHeader } from '../components/UI/PageHeader';
-import { PageWrapper } from '../components/UI/PageWrapper';
-import { Modal } from '../components/UI/Modal';
-import { Button } from '../components/UI/Button';
-import { Input, Textarea } from '../components/UI/Input';
-import { Combobox } from '../components/UI/Combobox';
+import {
+  PageWrapper, SectionTitle, ContentCard, PanelCard, FormRow, StatGrid, StatCard,
+  Tabs, Alert, Badge, EmptyState, Switch, Modal, Button, IconButton, Input, Textarea, Select, Combobox,
+} from '../components/UI';
 import {
   Mail,
   Phone,
@@ -32,6 +30,8 @@ import {
   X,
   Copy,
   Sparkles,
+  ArrowLeft,
+  Check,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -152,6 +152,22 @@ const buildHolidayPresets = (year: number): ClosedDatePreset[] => [
   { date: year + '-12-25', label: 'Natal', buttonLabel: 'Natal ' + year },
 ];
 
+type ProfileTab = 'info' | 'schedule' | 'closed' | 'clinic' | 'external' | 'content' | 'blocks' | 'faq' | 'theme';
+
+const PROFILE_TABS = [
+  { id: 'info', label: 'Dados pessoais', icon: User },
+  { id: 'schedule', label: 'Minha agenda', icon: CalendarIcon },
+  { id: 'closed', label: 'Bloqueios', icon: Lock },
+  { id: 'clinic', label: 'Clínica', icon: Building2 },
+  { id: 'external', label: 'Página externa', icon: Globe },
+  { id: 'content', label: 'Textos do site', icon: Layout },
+  { id: 'blocks', label: 'Proposta e passos', icon: Award },
+  { id: 'faq', label: 'Especialidades e FAQ', icon: Info },
+  { id: 'theme', label: 'Tema', icon: ImageIcon },
+] as const;
+
+const SITE_TAB_IDS: readonly string[] = ['external', 'content', 'blocks', 'faq', 'theme'];
+
 export const Profile: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -225,7 +241,7 @@ export const Profile: React.FC = () => {
   // de load/save do perfil (compartilhada por todas as abas) num arquivo novo.
   const isMySiteRoute = window.location.pathname === '/meu-site';
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [activeTab, setActiveTab] = useState<'info' | 'schedule' | 'clinic' | 'external'>(() => {
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() => {
     if (isMySiteRoute) return 'external';
     const tab = new URLSearchParams(window.location.search).get('tab');
     return tab === 'schedule' ? 'schedule' : tab === 'external' ? 'external' : 'info';
@@ -657,1126 +673,912 @@ Gere o seguinte JSON:
     }
   };
 
-  return (
-    <PageWrapper className="animate-fadeIn font-sans space-y-5">
-      <PageHeader
-        icon={<User />}
-        title="Meu Perfil"
-        subtitle="Gerencie suas informações pessoais, profissionais e configurações de conta."
-        showBackButton
-        onBackClick={() => navigate('/')}
-        containerClassName="mb-6"
-      />
+  const tabItems = PROFILE_TABS
+    .filter(tab => !isMySiteRoute || SITE_TAB_IDS.includes(tab.id))
+    .map(tab => (tab.id === 'closed' && sortedClosedDates.length > 0 ? { ...tab, badge: sortedClosedDates.length } : tab));
 
-      {/* Header Section */}
-      <div className="relative">
-        {/* Cover Photo */}
-        <div className="h-48 sm:h-64 w-full relative overflow-hidden">
-          {user.coverUrl ? (
-            <img src={getStaticUrl(user.coverUrl)} alt="Cover" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-indigo-600 via-indigo-800 to-indigo-950">
-               <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+  const updateTheme = (patch: Record<string, any>) => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, ...patch } }));
+  const themeText = (key: string) => ((user.profile_theme as any)[key] as string) || '';
+
+  const pickTrajectory = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = e => onTrajectoryPick((e.target as HTMLInputElement).files?.[0]);
+    input.click();
+  };
+
+  const addBlockedDate = () => {
+    if (!customDateInput) return;
+    addClosedDatePreset({ date: customDateInput, label: customLabelInput || 'Folga' });
+    setCustomDateInput('');
+    setCustomLabelInput('');
+  };
+
+  const dropzone = 'relative flex flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center transition-colors hover:border-primary-300 hover:bg-primary-50/40';
+
+  return (
+    <PageWrapper className="animate-fadeIn font-sans">
+      <div className="space-y-4">
+        <div>
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/')}>Voltar</Button>
+        </div>
+
+        <SectionTitle
+          icon={User}
+          title="Meu Perfil"
+          description="Gerencie suas informações pessoais, profissionais e configurações de conta."
+        />
+
+        {/* Cabeçalho do perfil */}
+        <ContentCard padding="none" className="overflow-hidden">
+          <div className="relative h-24 sm:h-32 w-full bg-primary-600">
+            {user.coverUrl && <img src={getStaticUrl(user.coverUrl)} alt="Cover" className="h-full w-full object-cover" />}
+            <div className="absolute right-3 top-3">
+              <Button variant="outline" size="xs" iconLeft={<Camera size={14} />} onClick={() => coverInputRef.current?.click()}>
+                Alterar capa
+              </Button>
+              <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => onCoverPick(e.target.files?.[0])} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+            <div className="relative -mt-10 h-14 w-14 shrink-0 sm:-mt-12 sm:h-16 sm:w-16">
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-primary-50">
+                {user.avatarUrl ? (
+                  <img src={getStaticUrl(user.avatarUrl)} alt="Avatar" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-base font-medium text-primary-700">{initials}</span>
+                )}
+              </div>
+              <IconButton
+                variant="primary"
+                size="xs"
+                aria-label="Alterar foto de perfil"
+                className="absolute -bottom-1 -right-1"
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                <Camera size={14} />
+              </IconButton>
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={e => onAvatarPick(e.target.files?.[0])} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-base font-medium text-slate-900 sm:text-lg">{user.name || 'Seu Nome'}</h2>
+                <Badge color="success" dot size="sm">Ativo</Badge>
+                <Badge color="primary" size="sm">PREMIUM</Badge>
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                <span className="flex items-center gap-1.5"><Stethoscope size={14} className="text-primary-600" /> {user.specialty || 'Especialidade'}</span>
+                <span className="flex items-center gap-1.5"><Shield size={14} className="text-primary-600" /> CRP {user.crp || '-'}</span>
+              </div>
+            </div>
+          </div>
+        </ContentCard>
+
+        {/* Seções (na rota "Meu Site" só as abas da página externa fazem sentido) */}
+        <Tabs<ProfileTab> items={tabItems} value={activeTab} onChange={setActiveTab} label="Seções do perfil">
+          {activeTab === 'info' && (
+            <div className="space-y-3">
+              <PanelCard icon={Info} title="Sobre você" description="Dados usados em documentos, agenda e página pública.">
+                <div className="space-y-3">
+                  <FormRow>
+                    <ProfileInput label="Nome Completo" icon={<User size={14} />} value={user.name} onChange={v => setUser(p => ({ ...p, name: v }))} />
+                    <ProfileInput label="E-mail Profissional" icon={<Mail size={14} />} value={user.email} onChange={v => setUser(p => ({ ...p, email: v }))} />
+                    <ProfileInput
+                      label="Telefone / WhatsApp"
+                      icon={<Phone size={14} />}
+                      value={user.phone}
+                      onChange={v => setUser(p => ({ ...p, phone: maskPhoneBR(v) }))}
+                    />
+                    <Combobox
+                      label="Área de Atuação"
+                      icon={<Stethoscope size={14} />}
+                      options={areas.map(a => ({ value: String(a.id), label: a.name, group: a.category }))}
+                      value={user.professionalAreaId ? String(user.professionalAreaId) : ''}
+                      onChange={v => {
+                        const idStr = Array.isArray(v) ? v[0] : v;
+                        const area = areas.find(a => String(a.id) === idStr);
+                        setUser(p => ({
+                          ...p,
+                          professionalAreaId: idStr || '',
+                          specialty: area?.name || p.specialty,
+                          areaName: area?.name || '',
+                          registryLabel: area?.registry_label || 'CRP',
+                          registryMask: area?.registry_mask || '',
+                        }));
+                      }}
+                      placeholder={areasLoading ? 'Carregando áreas…' : 'Selecione sua área'}
+                      disabled={areasLoading}
+                    />
+                    <ProfileInput
+                      label="CPF"
+                      icon={<Shield size={14} />}
+                      value={user.cpf}
+                      onChange={v => setUser(p => ({ ...p, cpf: maskCpf(v) }))}
+                    />
+                    <ProfileInput
+                      label="CNPJ"
+                      icon={<Building2 size={14} />}
+                      value={user.cnpj}
+                      onChange={v => setUser(p => ({ ...p, cnpj: maskCpfCnpj(v) }))}
+                    />
+                  </FormRow>
+                  <Textarea
+                    label="Breve Biografia / Perfil"
+                    value={user.bio}
+                    onChange={e => setUser(p => ({ ...p, bio: e.target.value }))}
+                    rows={4}
+                    maxLength={500}
+                    placeholder="Conte um pouco sobre sua formação e experiência..."
+                  />
+                </div>
+              </PanelCard>
+
+              <PanelCard icon={Lock} title="Segurança e ajuda">
+                <div className="space-y-3">
+                  <Alert variant="info">Sua conta está protegida com criptografia de ponta a ponta.</Alert>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" iconLeft={<Lock size={14} />} onClick={() => navigate('/privacidade')}>Alterar senha</Button>
+                    <Button variant="outline" size="sm" iconRight={<ExternalLink size={14} />} onClick={() => navigate('/ajuda')}>Abrir Central de Ajuda</Button>
+                  </div>
+                </div>
+              </PanelCard>
+
+              <PanelCard icon={Check} title="Dicas de perfil" description="Complete estes itens para um perfil mais confiável.">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <CheckItem label="Foto de perfil de alta qualidade" checked={!!user.avatarUrl} />
+                  <CheckItem label="Biografia detalhada" checked={user.bio.length > 50} />
+                  <CheckItem label="Agenda de horários configurada" checked={schedule.some(d => d.active)} />
+                  <CheckItem label="Folgas e datas especiais definidas" checked={sortedClosedDates.length > 0} />
+                  <CheckItem label="Endereço da clínica preenchido" checked={!!user.address} />
+                </div>
+              </PanelCard>
             </div>
           )}
-          <div className="absolute inset-0 bg-black/20"></div>
-          
-          {/* Edit Cover Action */}
-          <div className="absolute top-6 right-6 flex gap-2">
-            <button
-               onClick={() => coverInputRef.current?.click()}
-               className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white rounded-xl text-xs font-bold transition-all"
-            >
-              <Camera size={14} /> Alterar Capa
-            </button>
-            <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => onCoverPick(e.target.files?.[0])} />
-          </div>
-        </div>
 
+          {activeTab === 'schedule' && (
+            <div className="space-y-3">
+              <StatGrid cols={3}>
+                <StatCard icon={CalendarIcon} title="Dias ativos" value={activeDaysCount + '/7'} description="Dias com atendimento" />
+                <StatCard icon={Clock} title="Janela base" value={scheduleRangeLabel} description="Abertura — encerramento" color="success" />
+                <StatCard
+                  icon={Lock}
+                  title="Bloqueios"
+                  value={String(sortedClosedDates.length)}
+                  description={nextClosedDate ? 'Próx: ' + nextClosedDate.date.slice(5).split('-').reverse().join('/') : 'Nenhum ainda'}
+                  color="warning"
+                />
+              </StatGrid>
 
-
-        {/* Profile Info Overlay Card */}
-        <div className="mx-auto -mt-20 relative z-10 px-4 sm:px-6">
-          <div className="bg-white rounded-[2rem] p-5 sm:p-6 shadow-[0_16px_40px_rgba(0,0,0,0.07)] border border-white/50">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-4 sm:gap-6">
-              {/* Avatar */}
-              <div className="relative -mt-16 md:-mt-20 group">
-                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[1.5rem] bg-white p-1.5 shadow-xl border border-slate-100 overflow-hidden">
-                  <div className="w-full h-full rounded-[1.3rem] overflow-hidden bg-slate-100 flex items-center justify-center">
-                    {user.avatarUrl ? (
-                      <img src={getStaticUrl(user.avatarUrl)} alt="Avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                    ) : (
-                      <span className="text-base sm:text-xl font-black text-indigo-400">{initials}</span>
-                    )}
+              <PanelCard
+                icon={CalendarIcon}
+                title="Rotina semanal"
+                description="Defina horários e intervalos por dia da semana. Templates rápidos aplicam um padrão de uma vez."
+                action={
+                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <Button onClick={() => applySchedulePreset(DEFAULT_SCHEDULE)} variant="outline" size="xs">Seg – Sex</Button>
+                    <Button onClick={() => applySchedulePreset(SATURDAY_SCHEDULE)} variant="outline" size="xs">Seg – Sáb</Button>
+                    <Button onClick={clearBreaks} variant="softDanger" size="xs">Sem intervalos</Button>
                   </div>
-                </div>
-                <button
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="absolute bottom-1 right-1 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg border-2 border-white transition-all transform hover:scale-110"
-                >
-                  <Camera size={14} />
-                </button>
-                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={e => onAvatarPick(e.target.files?.[0])} />
-              </div>
-
-              {/* Name and Tags */}
-              <div className="flex-1 text-center md:text-left pt-1 pb-2">
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-1.5">
-                  <h1 className="text-xl sm:text-2xl font-black text-slate-800">{user.name || "Seu Nome"}</h1>
-                  <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-100 flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> Ativo
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-slate-500 font-semibold text-xs">
-                  <span className="flex items-center gap-1.5"><Stethoscope size={14} className="text-indigo-500" /> {user.specialty || "Especialidade"}</span>
-                  <span className="flex items-center gap-1.5"><Shield size={14} className="text-violet-500" /> CRP {user.crp || "-"}</span>
-                  <span className="flex items-center gap-1 font-black text-indigo-600 px-2.5 py-0.5 bg-indigo-50 rounded-lg text-[10px]">PREMIUM</span>
-                </div>
-              </div>
-
-              {/* Actions Header */}
-              <div className="flex flex-col items-center md:items-end gap-3 pt-4">
-                <Button
-                  onClick={handleSave}
-                  disabled={saveStatus === 'saving'}
-                  variant={saveStatus === 'saved' ? 'success' : 'primary'}
-                  size="md"
-                  loading={saveStatus === 'saving'}
-                  loadingText="Salvando..."
-                  iconLeft={saveStatus === 'saved' ? <Award size={14} /> : <Save size={14} />}
-                  elevation="md"
-                >
-                  {saveStatus === 'saved' ? 'Salvo!' : 'Salvar Perfil'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Tabs — na rota "Meu Site" só a aba de página externa faz sentido */}
-            {!isMySiteRoute && (
-            <div className="flex items-center gap-1.5 mt-5 border-t border-slate-100 pt-4 overflow-x-auto no-scrollbar">
-              {[
-                { id: 'info', label: 'Dados Pessoais', icon: <User size={13} /> },
-                { id: 'schedule', label: 'Minha Agenda', icon: <CalendarIcon size={13} /> },
-                { id: 'clinic', label: 'Dados da Clínica', icon: <Building2 size={13} /> },
-                { id: 'external', label: 'Página Externa', icon: <Globe size={13} /> },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-black transition-all whitespace-nowrap ${
-                    activeTab === tab.id
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 border border-slate-100'
-                  }`}
-                >
-                  {tab.icon} {tab.label}
-                </button>
-              ))}
-            </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Content Section */}
-      <div className="mx-auto mt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
-          {/* Main Content Area */}
-          <div className="lg:col-span-8 space-y-5">
-            {activeTab === 'info' && (
-              <div className="space-y-4">
-                <Card title="Sobre você" icon={<Info className="text-indigo-500" />}>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <ProfileInput label="Nome Completo" icon={<User size={16} />} value={user.name} onChange={v => setUser(p => ({ ...p, name: v }))} />
-                      <ProfileInput label="E-mail Profissional" icon={<Mail size={16} />} value={user.email} onChange={v => setUser(p => ({ ...p, email: v }))} />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <ProfileInput
-                        label="Telefone / WhatsApp"
-                        icon={<Phone size={16} />} 
-                        value={user.phone}
-                        onChange={v => setUser(p => ({ ...p, phone: maskPhoneBR(v) }))}
-                      />
-                      <Combobox
-                        label="Área de Atuação"
-                        icon={<Stethoscope size={16} />}
-                        options={areas.map(a => ({ value: String(a.id), label: a.name, group: a.category }))}
-                        value={user.professionalAreaId ? String(user.professionalAreaId) : ''}
-                        onChange={v => {
-                          const idStr = Array.isArray(v) ? v[0] : v;
-                          const area = areas.find(a => String(a.id) === idStr);
-                          setUser(p => ({
-                            ...p,
-                            professionalAreaId: idStr || '',
-                            specialty: area?.name || p.specialty,
-                            areaName: area?.name || '',
-                            registryLabel: area?.registry_label || 'CRP',
-                            registryMask: area?.registry_mask || '',
-                          }));
-                        }}
-                        placeholder={areasLoading ? 'Carregando áreas…' : 'Selecione sua área'}
-                        disabled={areasLoading}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <ProfileInput
-                        label="CPF"
-                        icon={<Shield size={16} />}
-                        value={user.cpf}
-                        onChange={v => setUser(p => ({ ...p, cpf: maskCpf(v) }))}
-                      />
-                      <ProfileInput
-                        label="CNPJ"
-                        icon={<Building2 size={16} />}
-                        value={user.cnpj}
-                        onChange={v => setUser(p => ({ ...p, cnpj: maskCpfCnpj(v) }))}
-                      />
-                    </div>
-                    <Textarea
-                      label="Breve Biografia / Perfil"
-                      value={user.bio}
-                      onChange={e => setUser(p => ({ ...p, bio: e.target.value }))}
-                      rows={4}
-                      maxLength={500}
-                      placeholder="Conte um pouco sobre sua formação e experiência..."
-                      className="text-sm"
+                }
+              >
+                <div className="space-y-2">
+                  {schedule.map((day, idx) => (
+                    <ScheduleRow
+                      key={day.dayKey}
+                      day={day}
+                      t={t}
+                      onToggle={() => toggleDay(idx)}
+                      onUpdate={p => updateDay(idx, p)}
+                      onCopyToAll={() => copyDayToAll(idx)}
                     />
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {activeTab === 'schedule' && (
-              <div className="space-y-4">
-                {/* Stats Strip */}
-                <div className="grid grid-cols-3 gap-3">
-                  <ScheduleInsightCard
-                    icon={<CalendarIcon size={18} />}
-                    label="Dias ativos"
-                    value={activeDaysCount + '/7'}
-                    hint="Dias com atendimento"
-                    tone="indigo"
-                  />
-                  <ScheduleInsightCard
-                    icon={<Clock size={18} />}
-                    label="Janela base"
-                    value={scheduleRangeLabel}
-                    hint="Abertura — encerramento"
-                    tone="emerald"
-                  />
-                  <ScheduleInsightCard
-                    icon={<Lock size={18} />}
-                    label="Bloqueios"
-                    value={String(sortedClosedDates.length)}
-                    hint={nextClosedDate ? 'Prox: ' + nextClosedDate.date.slice(5).split('-').reverse().join('/') : 'Nenhum ainda'}
-                    tone="amber"
-                  />
+                  ))}
                 </div>
+              </PanelCard>
+            </div>
+          )}
 
-                {/* Preset Banner */}
-                <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-600">Templates rápidos</p>
-                    <p className="mt-0.5 text-sm font-black text-slate-700">Aplique um padrão de horário de uma vez</p>
+          {activeTab === 'closed' && (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <PanelCard
+                icon={Lock}
+                title="Dias bloqueados"
+                description="Clique em um dia para bloquear ou liberar. Reflete na agenda."
+                action={
+                  <div className="flex lg:justify-end">
+                    <Button onClick={clearClosedDates} disabled={sortedClosedDates.length === 0} variant="softDanger" size="xs">Limpar tudo</Button>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => applySchedulePreset(DEFAULT_SCHEDULE)} variant="outline" size="sm">Seg – Sex</Button>
-                    <Button onClick={() => applySchedulePreset(SATURDAY_SCHEDULE)} variant="soft" size="sm">Seg – Sáb</Button>
-                    <Button onClick={clearBreaks} variant="softDanger" size="sm">Sem intervalos</Button>
-                  </div>
-                </div>
+                }
+              >
+                <div className="space-y-3">
+                  <AvailabilityCalendar
+                    blockedDates={sortedClosedDates.map((item) => item.date)}
+                    onDateToggle={toggleClosedDate}
+                  />
 
-                {/* Weekly Schedule */}
-                <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm">
-                  <div className="mb-5 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-black text-slate-800">Rotina semanal</h4>
-                      <p className="text-xs font-bold text-slate-400">Defina horários e intervalos por dia da semana</p>
+                  {/* Holiday presets */}
+                  <div className="border-t border-slate-100 pt-3">
+                    <p className="mb-2 text-xs font-medium text-slate-600">Feriados rápidos</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {holidayPresets.map((preset) => {
+                        const active = sortedClosedDates.some((item) => item.date === preset.date);
+                        return (
+                          <Button
+                            key={preset.date}
+                            size="xs"
+                            variant={active ? 'primary' : 'outline'}
+                            onClick={() => addClosedDatePreset({ date: preset.date, label: preset.label })}
+                          >
+                            {preset.buttonLabel}
+                          </Button>
+                        );
+                      })}
                     </div>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 border border-emerald-100">
-                      {activeDaysCount} dia{activeDaysCount !== 1 ? 's' : ''} ativo{activeDaysCount !== 1 ? 's' : ''}
-                    </span>
                   </div>
-                  <div className="space-y-2.5">
-                    {schedule.map((day, idx) => (
-                      <ScheduleRow
-                        key={day.dayKey}
-                        day={day}
-                        t={t}
-                        onToggle={() => toggleDay(idx)}
-                        onUpdate={p => updateDay(idx, p)}
-                        onCopyToAll={() => copyDayToAll(idx)}
-                      />
-                    ))}
-                  </div>
-                </div>
 
-                {/* Blocked Dates Section */}
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  {/* Calendar Picker */}
-                  <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm">
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800">Dias bloqueados</h4>
-                        <p className="text-xs font-bold leading-relaxed text-slate-400">
-                          Clique em um dia para bloquear ou liberar. Reflete na agenda.
-                        </p>
-                      </div>
-                      <Button
-                        onClick={clearClosedDates}
-                        disabled={sortedClosedDates.length === 0}
-                        variant="softDanger"
+                  {/* Adicionar data específica manualmente */}
+                  <div className="border-t border-slate-100 pt-3">
+                    <p className="mb-2 text-xs font-medium text-slate-600">Adicionar data específica</p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                      <Input
+                        type="date"
                         size="sm"
-                      >
-                        Limpar tudo
+                        value={customDateInput}
+                        min={new Date().toISOString().slice(0, 10)}
+                        onChange={e => setCustomDateInput(e.target.value)}
+                        wrapperClassName="sm:w-40 shrink-0"
+                      />
+                      <Input
+                        size="sm"
+                        value={customLabelInput}
+                        onChange={e => setCustomLabelInput(e.target.value)}
+                        placeholder="Motivo (Férias, Congresso...)"
+                        wrapperClassName="flex-1"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && customDateInput) addBlockedDate();
+                        }}
+                      />
+                      <Button type="button" disabled={!customDateInput} onClick={addBlockedDate} variant="primary" size="sm" iconLeft={<Plus size={14} />}>
+                        Bloquear
                       </Button>
                     </div>
-                    <AvailabilityCalendar
-                      blockedDates={sortedClosedDates.map((item) => item.date)}
-                      onDateToggle={toggleClosedDate}
-                    />
-
-                    {/* Holiday presets */}
-                    <div className="mt-4 border-t border-slate-100 pt-4">
-                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Feriados rápidos</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {holidayPresets.map((preset) => {
-                          const active = sortedClosedDates.some((item) => item.date === preset.date);
-                          return (
-                            <button
-                              key={preset.date}
-                              onClick={() => addClosedDatePreset({ date: preset.date, label: preset.label })}
-                              className={active
-                                ? 'rounded-full border border-indigo-300 bg-indigo-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm transition-all'
-                                : 'rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600'}>
-                              {preset.buttonLabel}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Adicionar data específica manualmente */}
-                    <div className="mt-4 border-t border-slate-100 pt-4">
-                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Adicionar data específica</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="date"
-                          value={customDateInput}
-                          min={new Date().toISOString().slice(0, 10)}
-                          onChange={e => setCustomDateInput(e.target.value)}
-                          className="flex-shrink-0 w-36 h-8 rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 text-xs font-bold text-zinc-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 focus:bg-white transition-all"
-                        />
-                        <input
-                          type="text"
-                          value={customLabelInput}
-                          onChange={e => setCustomLabelInput(e.target.value)}
-                          placeholder="Motivo (Férias, Congresso...)"
-                          className="flex-1 min-w-0 h-8 rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 text-xs font-bold text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 focus:bg-white transition-all"
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && customDateInput) {
-                              addClosedDatePreset({ date: customDateInput, label: customLabelInput || 'Folga' });
-                              setCustomDateInput('');
-                              setCustomLabelInput('');
-                            }
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          disabled={!customDateInput}
-                          onClick={() => {
-                            if (!customDateInput) return;
-                            addClosedDatePreset({ date: customDateInput, label: customLabelInput || 'Folga' });
-                            setCustomDateInput('');
-                            setCustomLabelInput('');
-                          }}
-                          variant="primary"
-                          size="sm"
-                          iconLeft={<Plus size={12} strokeWidth={3} />}
-                        >
-                          Bloquear
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Blocked dates list */}
-                  <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-sm flex flex-col">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800">Lista de bloqueios</h4>
-                        <p className="text-xs font-bold text-slate-400">Nomeie cada bloqueio para identificação</p>
-                      </div>
-                      {sortedClosedDates.length > 0 && (
-                        <span className="shrink-0 rounded-full bg-amber-50 border border-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-600">
-                          {sortedClosedDates.length} bloq.
-                        </span>
-                      )}
-                    </div>
-
-                    {sortedClosedDates.length === 0 ? (
-                      <div className="flex flex-1 flex-col items-center justify-center rounded-[1.6rem] border-2 border-dashed border-slate-100 bg-slate-50/60 px-6 py-10 text-center">
-                        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
-                          <CalendarIcon size={24} />
-                        </div>
-                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Nenhum bloqueio</p>
-                        <p className="mt-1.5 text-xs font-bold text-slate-400">Use o calendário ao lado para bloquear dias</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 overflow-y-auto max-h-[480px] pr-1">
-                        {sortedClosedDates.map((item) => {
-                          const isPast = item.date < todayIso;
-                          return (
-                            <div key={item.date}
-                              className={`group flex items-center gap-3 rounded-2xl border p-3 transition-all ${isPast ? 'border-slate-100 bg-slate-50/70 opacity-60' : 'border-rose-100 bg-rose-50/40 hover:border-rose-200'}`}>
-                              {/* Date badge */}
-                              <div className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl font-black leading-none ${isPast ? 'bg-slate-200 text-slate-500' : 'bg-rose-500 text-white shadow-md shadow-rose-100'}`}>
-                                <span className="text-[11px] uppercase tracking-wide">{['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][parseInt(item.date.split('-')[1]) - 1]}</span>
-                                <span className="text-lg leading-tight">{item.date.split('-')[2]}</span>
-                              </div>
-                              {/* Input */}
-                              <div className="min-w-0 flex-1">
-                                <input
-                                  type="text"
-                                  value={item.label}
-                                  onChange={e => updateClosedDate(item.date, { label: e.target.value })}
-                                  className="w-full bg-transparent text-sm font-black text-slate-800 outline-none placeholder:text-slate-300 focus:placeholder:opacity-0"
-                                  placeholder="Motivo (Natal, Férias...)"
-                                />
-                                <p className="text-[10px] font-bold text-slate-400">{formatClosedDate(item.date)}{isPast ? ' · passado' : ''}</p>
-                              </div>
-                              {/* Remove */}
-                              <button onClick={() => toggleClosedDate(item.date)}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-rose-100 hover:text-rose-600">
-                                <X size={14} strokeWidth={3} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
-            )}
+              </PanelCard>
 
-            {activeTab === 'external' && (
-              <div className="space-y-4">
-                <Card 
-                  title="Sua Vitrine Digital" 
-                  icon={<Globe className="text-pink-500" />}
-                  subtitle="Crie uma página profissional pública para usar na sua bio do Instagram ou anúncios."
-                >
-                  <div className="space-y-8">
-                    {/* Ativação */}
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-[1.25rem] border border-slate-100">
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800">Status da Página</h4>
-                        <p className="text-[10px] font-medium text-slate-400">Ative para que seu perfil seja visível publicamente.</p>
-                      </div>
-                      <button
-                        onClick={() => setUser(p => ({ ...p, public_profile_enabled: !p.public_profile_enabled }))}
-                        className={`w-12 h-7 rounded-full relative transition-all duration-300 shrink-0 ${user.public_profile_enabled ? 'bg-emerald-500 shadow-md shadow-emerald-100' : 'bg-slate-200'}`}
-                      >
-                        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${user.public_profile_enabled ? 'left-6' : 'left-1'}`} />
-                      </button>
-                    </div>
-
-                    {/* Slug / Link */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Seu Link Personalizado</label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          addonLeft={<span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{getPublicBaseUrl().replace('https://', '')}/p/</span>}
-                          value={user.public_slug}
-                          onChange={e => {
-                            const val = e.target.value
-                              .toLowerCase()
-                              .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                              .replace(/[^a-z0-9]/g, '-')
-                              .replace(/-+/g, '-');
-                            setUser(p => ({ ...p, public_slug: val }));
-                          }}
-                          placeholder="ex-meu-nome"
-                          size="sm"
-                          wrapperClassName="flex-1"
-                          className="text-indigo-600 font-black"
-                        />
-                        {user.public_slug && (
-                          <Button
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${getPublicBaseUrl()}/p/${user.public_slug}`);
-                              pushToast('success', 'Link copiado!');
-                            }}
-                            variant="soft"
-                            size="sm"
-                            iconOnly
-                            title="Copiar link"
-                          >
-                            <Copy size={15} />
-                          </Button>
-                        )}
-                        <a
-                          href={`/p/${user.public_slug}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Visualizar"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] bg-slate-800 text-white hover:bg-slate-700 transition-colors shrink-0"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      </div>
-                    </div>
-
-                    {/* Social Links */}
-                    <div className="space-y-4 pt-4 border-t border-slate-50">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Links de Redes Sociais</label>
-                        <Button
-                          onClick={() => setUser(p => ({ ...p, social_links: [...p.social_links, { platform: 'Instagram', url: '' }] }))}
-                          variant="ghost"
-                          size="xs"
-                          iconLeft={<Plus size={12} />}
-                        >
-                          Adicionar Link
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                        {user.social_links.map((link, idx) => (
-                          <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-100 rounded-xl group hover:border-indigo-200 transition-all shadow-sm">
-                            <select
-                              value={link.platform}
-                              onChange={e => {
-                                const newLinks = [...user.social_links];
-                                newLinks[idx].platform = e.target.value;
-                                setUser(p => ({ ...p, social_links: newLinks }));
-                              }}
-                              className="h-7 bg-zinc-50 border border-zinc-200 rounded-lg text-[10px] font-black text-zinc-700 focus:ring-0 focus:border-amber-400 outline-none pr-1 shrink-0"
-                            >
-                              {['Instagram', 'WhatsApp', 'LinkedIn', 'Facebook', 'TikTok', 'YouTube', 'Site', 'Threads'].map(p => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
-                            <input
-                              type="text"
-                              value={link.url}
-                              onChange={e => {
-                                const newLinks = [...user.social_links];
-                                newLinks[idx].url = e.target.value;
-                                setUser(p => ({ ...p, social_links: newLinks }));
-                              }}
-                              className="flex-1 h-7 bg-transparent border-none outline-none text-xs font-bold text-zinc-800 placeholder:text-zinc-400"
-                              placeholder="URL ou @usuário"
+              <PanelCard
+                icon={CalendarIcon}
+                title="Lista de bloqueios"
+                description="Nomeie cada bloqueio para identificação"
+                action={sortedClosedDates.length > 0 ? <div className="flex lg:justify-end"><Badge color="warning" size="sm">{sortedClosedDates.length} bloq.</Badge></div> : undefined}
+              >
+                {sortedClosedDates.length === 0 ? (
+                  <EmptyState icon={CalendarIcon} title="Nenhum bloqueio" description="Use o calendário ao lado para bloquear dias." />
+                ) : (
+                  <div className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
+                    {sortedClosedDates.map((item) => {
+                      const isPast = item.date < todayIso;
+                      return (
+                        <div key={item.date}
+                          className={`flex items-center gap-3 rounded-lg border p-2.5 transition-all ${isPast ? 'border-slate-100 bg-slate-50 opacity-60' : 'border-red-100 bg-red-50/40'}`}>
+                          <div className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg font-medium leading-none ${isPast ? 'bg-slate-200 text-slate-500' : 'bg-red-500 text-white'}`}>
+                            <span className="text-[11px]">{['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][parseInt(item.date.split('-')[1]) - 1]}</span>
+                            <span className="text-sm leading-tight">{item.date.split('-')[2]}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <Input
+                              size="sm"
+                              value={item.label}
+                              onChange={e => updateClosedDate(item.date, { label: e.target.value })}
+                              placeholder="Motivo (Natal, Férias...)"
+                              aria-label="Motivo do bloqueio"
                             />
-                            <button
-                              onClick={() => setUser(p => ({ ...p, social_links: p.social_links.filter((_, i) => i !== idx) }))}
-                              className="p-1 text-slate-300 hover:text-red-500 transition-all shrink-0"
-                            >
-                              <X size={14} />
-                            </button>
+                            <p className="mt-0.5 text-[11px] text-slate-500">{formatClosedDate(item.date)}{isPast ? ' · passado' : ''}</p>
                           </div>
-                        ))}
-                      </div>
-                      {user.social_links.length === 0 && (
-                        <div className="text-center py-6 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100">
-                          <p className="text-[10px] font-black text-slate-400">NENHUM LINK ADICIONADO</p>
+                          <IconButton variant="ghost" size="sm" aria-label="Remover bloqueio" onClick={() => toggleClosedDate(item.date)}>
+                            <X size={14} />
+                          </IconButton>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </PanelCard>
+            </div>
+          )}
+
+          {activeTab === 'clinic' && (
+            <div className="space-y-3">
+              <PanelCard icon={ImageIcon} title="Identidade visual" description="Logomarca e imagem de capa usadas em documentos e na página pública.">
+                <FormRow>
+                  <div className="space-y-1">
+                    <span className="ds-label">Logomarca oficial</span>
+                    <button type="button" className={`${dropzone} h-36 w-full p-3`} onClick={() => logoInputRef.current?.click()}>
+                      {user.clinicLogoUrl ? (
+                        <img src={getStaticUrl(user.clinicLogoUrl)} alt="Logo" className="h-full w-full object-contain" />
+                      ) : (
+                        <span className="flex flex-col items-center gap-2 text-slate-400">
+                          <ImageIcon size={24} />
+                          <span className="text-xs">Anexar logo</span>
+                        </span>
                       )}
-                    </div>
-
-                    {/* Aurora Builder */}
-                    {hasPermission('access_ai_features') && (
-                      <div className="pt-8 border-t border-slate-100">
-                        <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
-                            <Sparkles size={18} className="text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-black text-slate-800 text-sm">Bia monta sua página por você</p>
-                            <p className="text-xs text-slate-500 mt-0.5">Responda perguntas rápidas e a IA preenche o conteúdo automaticamente.</p>
-                          </div>
-                          <Button
-                            onClick={() => { setAuroraOpen(true); setAuroraStep(0); setAuroraAnswers({}); }}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<Sparkles size={13} />}
-                            elevation="sm"
-                          >
-                            Gerar com IA
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Site Content Management */}
-                    <div className="pt-8 border-t border-slate-100">
-                      <div className="flex items-center gap-2 mb-6">
-                        <div className="w-1.5 h-6 rounded-full bg-indigo-500"></div>
-                        <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Conteúdo Estratégico do Site</h4>
-                      </div>
-
-                      <div className="mb-5">
-                        <Input
-                          label="Seu Nome na Página Pública"
-                          value={user.profile_theme.public_name || ''}
-                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, public_name: e.target.value } }))}
-                          placeholder="Ex: Dr. Eduardo Eloi"
-                          size="sm"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <Input
-                          label="Título de Impacto (Hero)"
-                          value={user.profile_theme.hero_title || ''}
-                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, hero_title: e.target.value } }))}
-                          placeholder="Ex: Apoio Psicológico de Confiança"
-                          size="sm"
-                        />
-                        <Input
-                          label="Resumo das Especialidades"
-                          value={user.profile_theme.specialties_summary || ''}
-                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_summary: e.target.value } }))}
-                          placeholder="Ex: Especialidades focadas no seu desenvolvimento..."
-                          size="sm"
-                        />
-                      </div>
-
-                      {/* Foto da Trajetória */}
-                      <div className="pt-8 border-t border-slate-100 mb-8">
-                        <div className="flex items-center gap-2 mb-6">
-                            <div className="w-1.5 h-6 rounded-full bg-indigo-500"></div>
-                            <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Foto da Trajetória / Bio</h4>
-                        </div>
-                        <div className="flex flex-col md:flex-row gap-6 items-start">
-                          <div
-                            className="relative w-full md:w-48 h-48 bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
-                            onClick={() => {
-                              const input = document.createElement('input');
-                              input.type = 'file';
-                              input.accept = 'image/*';
-                              input.onchange = e => onTrajectoryPick((e.target as HTMLInputElement).files?.[0]);
-                              input.click();
-                            }}
-                          >
-                             {user.profile_theme.trajectory_url ? (
-                               <img src={getStaticUrl(user.profile_theme.trajectory_url)} alt="Trajetória" className="w-full h-full object-cover" />
-                             ) : (
-                               <div className="text-center p-6">
-                                 <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 text-slate-300 group-hover:text-indigo-500 transition-all">
-                                   <Camera size={24} />
-                                 </div>
-                                 <p className="text-[10px] font-black text-slate-400">ANEXAR FOTO DA TRAJETÓRIA</p>
-                               </div>
-                             )}
-                             <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-all flex items-center justify-center">
-                                <div className="p-3 bg-white rounded-2xl shadow-xl scale-0 group-hover:scale-100 transition-all">
-                                  <Camera size={20} className="text-indigo-600" />
-                                </div>
-                             </div>
-                          </div>
-                          <div className="flex-1 space-y-4">
-                            <p className="text-xs font-bold text-slate-500 leading-relaxed">
-                              Esta foto aparecerá na seção "Trajetória Profissional" da sua página pública. 
-                              Recomendamos uma foto do seu consultório ou uma foto sua em ambiente profissional.
-                            </p>
-                            <div className="flex gap-2">
-                              {user.profile_theme.trajectory_url && (
-                                <Button
-                                  onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, trajectory_url: '' } }))}
-                                  variant="softDanger"
-                                  size="sm"
-                                >
-                                  Remover Foto
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <Input
-                          label="Anos de Experiência"
-                          value={user.profile_theme.experience_years || ''}
-                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, experience_years: e.target.value } }))}
-                          placeholder="Ex: 8+"
-                          size="sm"
-                        />
-                        <Input
-                          label="Clientes/Vidas Atendidas"
-                          value={user.profile_theme.patients_count || ''}
-                          onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, patients_count: e.target.value } }))}
-                          placeholder="Ex: +100"
-                          size="sm"
-                        />
-                      </div>
-
-                      {/* Cartões de Proposta de Valor */}
-                      <div className="pt-8 border-t border-slate-100 mb-8">
-                        <div className="flex items-center gap-2 mb-6">
-                            <div className="w-1.5 h-6 rounded-full bg-rose-500"></div>
-                            <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Cartões de Proposta de Valor (3 Cards)</h4>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {[1, 2, 3].map(num => (
-                            <div key={num} className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                              <Input
-                                label={`Título Card ${num}`}
-                                value={(user.profile_theme as any)[`prop_${num}_title`] || ''}
-                                onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_title`]: e.target.value } }))}
-                                placeholder={`Título do Card ${num}`}
-                                size="sm"
-                              />
-                              <Textarea
-                                label={`Descrição Card ${num}`}
-                                value={(user.profile_theme as any)[`prop_${num}_desc`] || ''}
-                                onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`prop_${num}_desc`]: e.target.value } }))}
-                                rows={2}
-                                placeholder={`Descrição breve do Card ${num}`}
-                                className="text-xs"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Seção de Passos / Como Funciona */}
-                      <div className="pt-8 border-t border-slate-100 mb-8">
-                        <div className="flex items-center gap-2 mb-6">
-                            <div className="w-1.5 h-6 rounded-full bg-amber-500"></div>
-                            <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Seção: Como Funciona (Título + 3 Passos)</h4>
-                        </div>
-                        <div className="space-y-4">
-                          <Input
-                            label="Título da Seção de Passos"
-                            value={user.profile_theme.steps_title || ''}
-                            onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, steps_title: e.target.value } }))}
-                            placeholder="Ex: Dê o primeiro passo hoje."
-                            size="sm"
-                          />
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {[1, 2, 3].map(num => (
-                              <div key={num} className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <Input
-                                  label={`Passo ${num} — Título`}
-                                  value={(user.profile_theme as any)[`step_${num}_title`] || ''}
-                                  onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_title`]: e.target.value } }))}
-                                  placeholder={`Título do Passo ${num}`}
-                                  size="sm"
-                                />
-                                <Textarea
-                                  label={`Passo ${num} — Descrição`}
-                                  value={(user.profile_theme as any)[`step_${num}_desc`] || ''}
-                                  onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [`step_${num}_desc`]: e.target.value } }))}
-                                  rows={2}
-                                  placeholder={`Descrição do Passo ${num}`}
-                                  className="text-xs"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Section Visibility Toggles */}
-                      <div className="pt-8 border-t border-slate-100 mb-8">
-                        <div className="flex items-center gap-2 mb-6">
-                          <div className="w-1.5 h-6 rounded-full bg-emerald-500"></div>
-                          <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Configuração de Seções do Site</h4>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-                          {[
-                            { id: 'show_trajectory', label: 'Trajetória/Bio' },
-                            { id: 'show_specialties', label: 'Especialidades' },
-                            { id: 'show_faq', label: 'Perguntas (FAQ)' },
-                            { id: 'show_schedule', label: 'Agenda Semanal' },
-                            { id: 'show_map', label: 'Mapa/Localização' },
-                          ].map(s => (
-                            <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                              <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight">{s.label}</span>
-                              <button
-                                onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, [s.id]: !p.profile_theme[s.id as keyof typeof p.profile_theme] } }))}
-                                className={`w-9 h-5 rounded-full transition-all relative shrink-0 ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                              >
-                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${user.profile_theme[s.id as keyof typeof user.profile_theme] ? 'left-4' : 'left-0.5'}`} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Specialties Tags Editor */}
-                      <div className="space-y-4 mb-8">
-                        <div className="flex items-center justify-between px-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Especialidades em Cartão</label>
-                          <Button
-                            onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_list: [...(p.profile_theme.specialties_list || []), ''] } }))}
-                            variant="ghost"
-                            size="xs"
-                            iconLeft={<Plus size={12} />}
-                          >
-                            Adicionar Item
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {(user.profile_theme.specialties_list || []).map((s, idx) => (
-                            <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-100">
-                              <input 
-                                type="text"
-                                value={s}
-                                onChange={e => {
-                                  const newList = [...user.profile_theme.specialties_list];
-                                  newList[idx] = e.target.value;
-                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_list: newList } }));
-                                }}
-                                className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold text-slate-700 placeholder:text-slate-300"
-                                placeholder={`Especialidade ${idx + 1}...`}
-                              />
-                              <button onClick={() => {
-                                const newList = [...user.profile_theme.specialties_list];
-                                newList.splice(idx, 1);
-                                setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, specialties_list: newList } }));
-                              }} className="text-slate-300 hover:text-red-500 transition-all">
-                                <X size={14} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* FAQ Manager */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between px-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perguntas Frequentes (FAQ)</label>
-                          <Button
-                            onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: [...(p.profile_theme.faq || []), { question: '', answer: '' }] } }))}
-                            variant="ghost"
-                            size="xs"
-                            iconLeft={<Plus size={12} />}
-                          >
-                            Adicionar Pergunta
-                          </Button>
-                        </div>
-
-                        <div className="space-y-2.5">
-                          {(user.profile_theme.faq || []).map((f, idx) => (
-                            <div key={idx} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col gap-2.5 relative group">
-                              <button
-                                onClick={() => {
-                                  const newFaq = [...user.profile_theme.faq];
-                                  newFaq.splice(idx, 1);
-                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
-                                }}
-                                className="absolute top-3 right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                              >
-                                <X size={15} />
-                              </button>
-                              <input
-                                type="text"
-                                value={f.question}
-                                onChange={e => {
-                                  const newFaq = [...user.profile_theme.faq];
-                                  newFaq[idx].question = e.target.value;
-                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
-                                }}
-                                className="bg-transparent border-none outline-none text-xs font-black text-slate-800 placeholder:text-slate-400 pr-6"
-                                placeholder="Pergunta (Ex: Qual o valor da sessão?)"
-                              />
-                              <textarea
-                                value={f.answer}
-                                onChange={e => {
-                                  const newFaq = [...user.profile_theme.faq];
-                                  newFaq[idx].answer = e.target.value;
-                                  setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, faq: newFaq } }));
-                                }}
-                                className="bg-transparent border-none outline-none text-[11px] font-medium text-slate-500 placeholder:text-zinc-400 min-h-[50px] resize-none"
-                                placeholder="Resposta detalhada..."
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Gênero e Título */}
-                    <div className="pt-6 border-t border-slate-100">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1 mb-4">Gênero Profissional</label>
-                      <p className="text-[10px] text-slate-400 font-bold mb-4 px-1">Isso ajustará seu título automaticamente para "Psicólogo" ou "Psicóloga" na página pública.</p>
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          { id: 'female', label: 'Feminino (Psicóloga)' },
-                          { id: 'male', label: 'Masculino (Psicólogo)' },
-                          { id: 'other', label: 'Outro (Psicólogo(a))' }
-                        ].map(g => (
-                          <Button
-                            key={g.id}
-                            onClick={() => setUser(p => ({ ...p, gender: g.id as any }))}
-                            variant={user.gender === g.id ? 'primary' : 'soft'}
-                            size="sm"
-                          >
-                            {g.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Tema */}
-                    <div className="pt-6 border-t border-slate-100">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1 mb-6">Personalização do Tema</label>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                           <div className="flex items-center gap-2">
-                             <div className="w-1.5 h-4 rounded-full bg-indigo-500"></div>
-                             <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Cor Principal</p>
-                           </div>
-                           <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                             <input
-                              type="color"
-                              value={user.profile_theme.primaryColor}
-                              onChange={e => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, primaryColor: e.target.value } }))}
-                              className="w-9 h-9 rounded-lg cursor-pointer border-none bg-transparent"
-                             />
-                             <div className="flex flex-col">
-                               <span className="text-xs font-black text-slate-700 uppercase tracking-tighter">{user.profile_theme.primaryColor}</span>
-                               <span className="text-[9px] font-medium text-slate-400">Clique para alterar</span>
-                             </div>
-                           </div>
-                        </div>
-
-                        <div className="space-y-4">
-                           <div className="flex items-center gap-2">
-                             <div className="w-1.5 h-4 rounded-full bg-indigo-500"></div>
-                             <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Layout da Página</p>
-                           </div>
-                           <div className="grid grid-cols-3 gap-3">
-                             {[
-                               {
-                                 id: 'modern',
-                                 label: 'Moderno',
-                                 desc: 'Limpo e profissional',
-                                 preview: (
-                                   <div className="w-full h-16 rounded-xl bg-white border border-slate-100 overflow-hidden shadow-sm flex flex-col">
-                                     <div className="h-4 bg-indigo-600 w-full" />
-                                     <div className="flex-1 flex gap-1 p-1.5">
-                                       <div className="w-1/2 bg-slate-100 rounded" />
-                                       <div className="w-1/3 bg-indigo-100 rounded" />
-                                     </div>
-                                   </div>
-                                 ),
-                               },
-                               {
-                                 id: 'dark',
-                                 label: 'Escuro',
-                                 desc: 'Elegante e sofisticado',
-                                 preview: (
-                                   <div className="w-full h-16 rounded-xl bg-slate-900 overflow-hidden flex flex-col shadow-sm">
-                                     <div className="h-4 bg-slate-700 w-full flex items-center px-2 gap-1">
-                                       <div className="w-8 h-1.5 bg-indigo-400 rounded-full" />
-                                     </div>
-                                     <div className="flex-1 flex gap-1 p-1.5">
-                                       <div className="w-1/2 bg-slate-700 rounded" />
-                                       <div className="w-1/3 bg-indigo-800 rounded" />
-                                     </div>
-                                   </div>
-                                 ),
-                               },
-                               {
-                                 id: 'marble',
-                                 label: 'Natural',
-                                 desc: 'Acolhedor e humano',
-                                 preview: (
-                                   <div className="w-full h-16 rounded-xl overflow-hidden shadow-sm flex flex-col" style={{ background: 'linear-gradient(135deg, #FDFBF7 60%, #E6F4F1)' }}>
-                                     <div className="h-4 w-full" style={{ background: 'linear-gradient(90deg, #5EAAA8, #4F7CAC)' }} />
-                                     <div className="flex-1 flex gap-1 p-1.5">
-                                       <div className="w-1/2 rounded" style={{ background: '#E6F0EE' }} />
-                                       <div className="w-1/3 rounded" style={{ background: '#C9E4DE' }} />
-                                     </div>
-                                   </div>
-                                 ),
-                               },
-                             ].map(l => (
-                               <button
-                                 key={l.id}
-                                 onClick={() => setUser(p => ({ ...p, profile_theme: { ...p.profile_theme, layout: l.id } }))}
-                                 className={`group relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
-                                   user.profile_theme.layout === l.id
-                                   ? 'border-indigo-600 bg-indigo-50/50'
-                                   : 'border-slate-100 bg-white hover:border-slate-200'
-                                 }`}
-                               >
-                                 {l.preview}
-                                 <span className={`text-[10px] font-black uppercase tracking-tight ${user.profile_theme.layout === l.id ? 'text-indigo-600' : 'text-slate-400'}`}>
-                                   {l.label}
-                                 </span>
-                                 <span className="text-[9px] text-slate-400 font-bold">{l.desc}</span>
-                                 {user.profile_theme.layout === l.id && (
-                                   <div className="absolute -top-2 -right-2 w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center border-2 border-white">
-                                     <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                                   </div>
-                                 )}
-                               </button>
-                             ))}
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            )}
-            
-            {activeTab === 'clinic' && (
-              <Card title="Identidade da Clínica" icon={<Building2 className="text-violet-500" />}>
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     {/* Logo Upload Area */}
-                     <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Logomarca Oficial</label>
-                        <div
-                          className="relative h-36 bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden p-4"
-                          onClick={() => logoInputRef.current?.click()}
-                        >
-                           {user.clinicLogoUrl ? (
-                             <img src={getStaticUrl(user.clinicLogoUrl)} alt="Logo" className="w-full h-full object-contain" />
-                           ) : (
-                             <div className="text-center">
-                               <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 text-slate-300 group-hover:text-indigo-500 group-hover:scale-110 transition-all">
-                                 <ImageIcon size={32} />
-                               </div>
-                               <p className="text-[11px] font-black text-slate-400 group-hover:text-indigo-600">ANEXAR LOGO</p>
-                             </div>
-                           )}
-                           <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-all flex items-center justify-center">
-                              <div className="p-3 bg-white rounded-2xl shadow-xl scale-0 group-hover:scale-100 transition-all">
-                                <Camera size={20} className="text-indigo-600" />
-                              </div>
-                           </div>
-                        </div>
-                        <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => onLogoPick(e.target.files?.[0])} />
-                     </div>
-
-                     {/* Cover Upload Area */}
-                     <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">Imagem de Capa / Banner</label>
-                        <div
-                          className="relative h-36 bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center group hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer overflow-hidden"
-                          onClick={() => coverInputRef.current?.click()}
-                        >
-                           {user.coverUrl ? (
-                             <img src={getStaticUrl(user.coverUrl)} alt="Cover" className="w-full h-full object-cover" />
-                           ) : (
-                             <div className="text-center">
-                               <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-3 text-slate-300 group-hover:text-indigo-500 group-hover:scale-110 transition-all">
-                                 <ImageIcon size={32} />
-                               </div>
-                               <p className="text-[11px] font-black text-slate-400 group-hover:text-indigo-600">ANEXAR CAPA</p>
-                             </div>
-                           )}
-                           <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-all flex items-center justify-center">
-                              <div className="p-3 bg-white rounded-2xl shadow-xl scale-0 group-hover:scale-100 transition-all">
-                                <Camera size={20} className="text-indigo-600" />
-                              </div>
-                           </div>
-                        </div>
-                     </div>
+                    </button>
+                    <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => onLogoPick(e.target.files?.[0])} />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-slate-50">
-                    <ProfileInput label="Razão Social / Nome Fantasia" icon={<Building2 size={16} />} value={user.companyName} onChange={v => setUser(p => ({ ...p, companyName: v }))} />
+                  <div className="space-y-1">
+                    <span className="ds-label">Imagem de capa / banner</span>
+                    <button type="button" className={`${dropzone} h-36 w-full`} onClick={() => coverInputRef.current?.click()}>
+                      {user.coverUrl ? (
+                        <img src={getStaticUrl(user.coverUrl)} alt="Cover" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="flex flex-col items-center gap-2 text-slate-400">
+                          <ImageIcon size={24} />
+                          <span className="text-xs">Anexar capa</span>
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </FormRow>
+              </PanelCard>
+
+              <PanelCard icon={Building2} title="Dados da clínica">
+                <div className="space-y-3">
+                  <FormRow>
+                    <ProfileInput label="Razão Social / Nome Fantasia" icon={<Building2 size={14} />} value={user.companyName} onChange={v => setUser(p => ({ ...p, companyName: v }))} />
                     <ProfileInput
                       label={`Registro Profissional (${user.registryLabel || 'CRP'})`}
-                      icon={<Shield size={16} />}
+                      icon={<Shield size={14} />}
                       value={user.registryNumber}
                       onChange={v => {
                         const masked = applyRegistryMask(v, user.registryMask);
                         setUser(p => ({ ...p, registryNumber: masked, crp: masked }));
                       }}
                     />
-                    <div className="md:col-span-2">
+                  </FormRow>
+                  <ProfileInput label="Endereço Físico Completo" icon={<MapPin size={14} />} value={user.address} onChange={v => setUser(p => ({ ...p, address: v }))} />
+                  <Textarea
+                    label="Mensagem da sala de espera (opcional)"
+                    value={user.waitingRoomMessage}
+                    onChange={e => setUser(p => ({ ...p, waitingRoomMessage: e.target.value }))}
+                    rows={2}
+                    maxLength={500}
+                    placeholder="Exibida ao paciente enquanto ele aguarda você admitir na videochamada..."
+                  />
+                </div>
+              </PanelCard>
+            </div>
+          )}
+
+          {activeTab === 'external' && (
+            <div className="space-y-3">
+              <PanelCard
+                icon={Globe}
+                title="Sua vitrine digital"
+                description="Crie uma página profissional pública para usar na sua bio do Instagram ou anúncios."
+                action={
+                  <div className="flex items-center gap-2 lg:justify-end">
+                    <span className="text-xs text-slate-500">{user.public_profile_enabled ? 'Página visível' : 'Página oculta'}</span>
+                    <Switch
+                      checked={!!user.public_profile_enabled}
+                      aria-label="Ativar página pública"
+                      onCheckedChange={() => setUser(p => ({ ...p, public_profile_enabled: !p.public_profile_enabled }))}
+                    />
+                  </div>
+                }
+              >
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-600">Seu link personalizado</p>
+                  <div className="flex items-start gap-2">
+                    <Input
+                      addonLeft={<span className="whitespace-nowrap text-[11px]">{getPublicBaseUrl().replace('https://', '')}/p/</span>}
+                      value={user.public_slug}
+                      onChange={e => {
+                        const val = e.target.value
+                          .toLowerCase()
+                          .normalize("NFD").replace(/[̀-ͯ]/g, "")
+                          .replace(/[^a-z0-9]/g, '-')
+                          .replace(/-+/g, '-');
+                        setUser(p => ({ ...p, public_slug: val }));
+                      }}
+                      placeholder="ex-meu-nome"
+                      wrapperClassName="flex-1"
+                      className="font-medium text-primary-700"
+                    />
+                    {user.public_slug && (
+                      <IconButton
+                        variant="outline"
+                        size="md"
+                        aria-label="Copiar link"
+                        title="Copiar link"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${getPublicBaseUrl()}/p/${user.public_slug}`);
+                          pushToast('success', 'Link copiado!');
+                        }}
+                      >
+                        <Copy size={14} />
+                      </IconButton>
+                    )}
+                    <a
+                      href={`/p/${user.public_slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Visualizar"
+                      aria-label="Visualizar página pública"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+              </PanelCard>
+
+              <PanelCard
+                icon={Globe}
+                title="Links de redes sociais"
+                action={
+                  <div className="flex lg:justify-end">
+                    <Button
+                      onClick={() => setUser(p => ({ ...p, social_links: [...p.social_links, { platform: 'Instagram', url: '' }] }))}
+                      variant="outline"
+                      size="xs"
+                      iconLeft={<Plus size={14} />}
+                    >
+                      Adicionar link
+                    </Button>
+                  </div>
+                }
+              >
+                {user.social_links.length === 0 ? (
+                  <EmptyState icon={Globe} title="Nenhum link adicionado" description="Adicione Instagram, WhatsApp, LinkedIn e outros." />
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {user.social_links.map((link, idx) => (
+                      <div key={idx} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2">
+                        <Select
+                          size="sm"
+                          aria-label="Plataforma"
+                          wrapperClassName="w-32 shrink-0"
+                          value={link.platform}
+                          onChange={e => {
+                            const newLinks = [...user.social_links];
+                            newLinks[idx].platform = e.target.value;
+                            setUser(p => ({ ...p, social_links: newLinks }));
+                          }}
+                        >
+                          {['Instagram', 'WhatsApp', 'LinkedIn', 'Facebook', 'TikTok', 'YouTube', 'Site', 'Threads'].map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </Select>
+                        <Input
+                          size="sm"
+                          aria-label="URL ou usuário"
+                          wrapperClassName="flex-1"
+                          value={link.url}
+                          onChange={e => {
+                            const newLinks = [...user.social_links];
+                            newLinks[idx].url = e.target.value;
+                            setUser(p => ({ ...p, social_links: newLinks }));
+                          }}
+                          placeholder="URL ou @usuário"
+                        />
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Remover link"
+                          onClick={() => setUser(p => ({ ...p, social_links: p.social_links.filter((_, i) => i !== idx) }))}
+                        >
+                          <X size={14} />
+                        </IconButton>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </PanelCard>
+
+              {/* Aurora Builder */}
+              {hasPermission('access_ai_features') && (
+                <PanelCard icon={Sparkles} title="Bia monta sua página por você" description="Responda perguntas rápidas e a IA preenche o conteúdo automaticamente."
+                  action={
+                    <div className="flex lg:justify-end">
+                      <Button
+                        onClick={() => { setAuroraOpen(true); setAuroraStep(0); setAuroraAnswers({}); }}
+                        variant="primary"
+                        size="sm"
+                        iconLeft={<Sparkles size={14} />}
+                      >
+                        Gerar com IA
+                      </Button>
+                    </div>
+                  }
+                >
+                  <p className="text-xs text-slate-500">O conteúdo gerado pode ser revisado e editado nas abas de textos, blocos e FAQ antes de salvar.</p>
+                </PanelCard>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'content' && (
+            <div className="space-y-3">
+              <PanelCard icon={Layout} title="Textos principais" description="Conteúdo estratégico exibido no topo da página pública.">
+                <FormRow>
+                  <Input
+                    label="Seu nome na página pública"
+                    value={themeText('public_name')}
+                    onChange={e => updateTheme({ public_name: e.target.value })}
+                    placeholder="Ex: Dr. Eduardo Eloi"
+                  />
+                  <Input
+                    label="Título de impacto (Hero)"
+                    value={themeText('hero_title')}
+                    onChange={e => updateTheme({ hero_title: e.target.value })}
+                    placeholder="Ex: Apoio Psicológico de Confiança"
+                  />
+                  <Input
+                    label="Resumo das especialidades"
+                    wrapperClassName="md:col-span-2"
+                    value={themeText('specialties_summary')}
+                    onChange={e => updateTheme({ specialties_summary: e.target.value })}
+                    placeholder="Ex: Especialidades focadas no seu desenvolvimento..."
+                  />
+                  <Input
+                    label="Anos de experiência"
+                    value={themeText('experience_years')}
+                    onChange={e => updateTheme({ experience_years: e.target.value })}
+                    placeholder="Ex: 8+"
+                  />
+                  <Input
+                    label="Clientes/vidas atendidas"
+                    value={themeText('patients_count')}
+                    onChange={e => updateTheme({ patients_count: e.target.value })}
+                    placeholder="Ex: +100"
+                  />
+                </FormRow>
+              </PanelCard>
+
+              <PanelCard icon={Camera} title="Foto da trajetória / bio" description='Aparece na seção "Trajetória Profissional". Use uma foto do consultório ou sua em ambiente profissional.'>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <button type="button" className={`${dropzone} h-40 w-full shrink-0 sm:w-48`} onClick={pickTrajectory}>
+                    {user.profile_theme.trajectory_url ? (
+                      <img src={getStaticUrl(user.profile_theme.trajectory_url)} alt="Trajetória" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex flex-col items-center gap-2 text-slate-400">
+                        <Camera size={24} />
+                        <span className="text-xs">Anexar foto da trajetória</span>
+                      </span>
+                    )}
+                  </button>
+                  {user.profile_theme.trajectory_url && (
+                    <Button onClick={() => updateTheme({ trajectory_url: '' })} variant="softDanger" size="sm">Remover foto</Button>
+                  )}
+                </div>
+              </PanelCard>
+
+              <PanelCard icon={User} title="Gênero profissional" description='Ajusta seu título automaticamente para "Psicólogo" ou "Psicóloga" na página pública.'>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'female', label: 'Feminino (Psicóloga)' },
+                    { id: 'male', label: 'Masculino (Psicólogo)' },
+                    { id: 'other', label: 'Outro (Psicólogo(a))' }
+                  ].map(g => (
+                    <Button
+                      key={g.id}
+                      onClick={() => setUser(p => ({ ...p, gender: g.id as any }))}
+                      variant={user.gender === g.id ? 'primary' : 'outline'}
+                      size="sm"
+                    >
+                      {g.label}
+                    </Button>
+                  ))}
+                </div>
+              </PanelCard>
+            </div>
+          )}
+
+          {activeTab === 'blocks' && (
+            <div className="space-y-3">
+              <PanelCard icon={Award} title="Cartões de proposta de valor" description="Três cartões de destaque na página pública.">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {[1, 2, 3].map(num => (
+                    <div key={num} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <Input
+                        label={`Título Card ${num}`}
+                        value={themeText(`prop_${num}_title`)}
+                        onChange={e => updateTheme({ [`prop_${num}_title`]: e.target.value })}
+                        placeholder={`Título do Card ${num}`}
+                      />
                       <Textarea
-                        label="Mensagem da sala de espera (opcional)"
-                        value={user.waitingRoomMessage}
-                        onChange={e => setUser(p => ({ ...p, waitingRoomMessage: e.target.value }))}
+                        label={`Descrição Card ${num}`}
+                        value={themeText(`prop_${num}_desc`)}
+                        onChange={e => updateTheme({ [`prop_${num}_desc`]: e.target.value })}
                         rows={2}
-                        maxLength={500}
-                        placeholder="Exibida ao paciente enquanto ele aguarda você admitir na videochamada..."
-                        className="text-sm"
+                        placeholder={`Descrição breve do Card ${num}`}
                       />
                     </div>
+                  ))}
+                </div>
+              </PanelCard>
+
+              <PanelCard icon={ChevronRight} title="Como funciona" description="Título da seção e três passos.">
+                <div className="space-y-3">
+                  <Input
+                    label="Título da seção de passos"
+                    value={themeText('steps_title')}
+                    onChange={e => updateTheme({ steps_title: e.target.value })}
+                    placeholder="Ex: Dê o primeiro passo hoje."
+                  />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    {[1, 2, 3].map(num => (
+                      <div key={num} className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <Input
+                          label={`Passo ${num} — Título`}
+                          value={themeText(`step_${num}_title`)}
+                          onChange={e => updateTheme({ [`step_${num}_title`]: e.target.value })}
+                          placeholder={`Título do Passo ${num}`}
+                        />
+                        <Textarea
+                          label={`Passo ${num} — Descrição`}
+                          value={themeText(`step_${num}_desc`)}
+                          onChange={e => updateTheme({ [`step_${num}_desc`]: e.target.value })}
+                          rows={2}
+                          placeholder={`Descrição do Passo ${num}`}
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <ProfileInput label="Endereço Físico Completo" icon={<MapPin size={16} />} value={user.address} onChange={v => setUser(p => ({ ...p, address: v }))} />
                 </div>
-              </Card>
-            )}
-          </div>
+              </PanelCard>
+            </div>
+          )}
 
-          {/* Sidebar Area */}
-          <div className="lg:col-span-4 space-y-4">
-            {/* Security Card */}
-            <div className="bg-indigo-600 rounded-[1.5rem] p-5 text-white overflow-hidden relative shadow-lg shadow-indigo-100/60">
-              <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="p-2 bg-white/20 rounded-lg border border-white/20">
-                    <Lock size={15} />
+          {activeTab === 'faq' && (
+            <div className="space-y-3">
+              <PanelCard
+                icon={Stethoscope}
+                title="Especialidades em cartão"
+                action={
+                  <div className="flex lg:justify-end">
+                    <Button
+                      onClick={() => updateTheme({ specialties_list: [...(user.profile_theme.specialties_list || []), ''] })}
+                      variant="outline"
+                      size="xs"
+                      iconLeft={<Plus size={14} />}
+                    >
+                      Adicionar item
+                    </Button>
                   </div>
-                  <h4 className="font-black text-xs uppercase tracking-wider text-indigo-100">Segurança</h4>
-                </div>
-                <p className="text-xs font-medium leading-relaxed mb-4 text-indigo-100">Sua conta está protegida com criptografia de ponta a ponta.</p>
-                <Button
-                  onClick={() => navigate('/privacidade')}
-                  variant="outline"
-                  size="sm"
-                  fullWidth
-                  className="!bg-white !border-white/80 !text-indigo-600 hover:!bg-slate-50"
-                >
-                  Alterar Senha
-                </Button>
-              </div>
-            </div>
-
-            {/* Profile Tips */}
-            <div className="bg-white rounded-[1.5rem] p-5 border border-slate-100 shadow-sm">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Dicas de Perfil</h4>
-              <div className="space-y-3">
-                <CheckItem label="Foto de perfil de alta qualidade" checked={!!user.avatarUrl} />
-                <CheckItem label="Biografia detalhada" checked={user.bio.length > 50} />
-                <CheckItem label="Agenda de horários configurada" checked={schedule.some(d => d.active)} />
-                <CheckItem label="Folgas e datas especiais definidas" checked={sortedClosedDates.length > 0} />
-                <CheckItem label="Endereço da clínica preenchido" checked={!!user.address} />
-              </div>
-            </div>
-
-            {/* Support */}
-            <div className="p-5 bg-slate-800 rounded-[1.5rem] text-white space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
-                  <Layout size={16} className="text-indigo-400" />
-                </div>
-                <div>
-                  <h5 className="text-xs font-black">Suporte Plaelo</h5>
-                  <p className="text-[10px] text-slate-400 font-medium">Precisa de ajuda?</p>
-                </div>
-              </div>
-              <Button
-                onClick={() => navigate('/ajuda')}
-                variant="primary"
-                size="sm"
-                fullWidth
-                iconRight={<ExternalLink size={13} />}
+                }
               >
-                Abrir Central de Ajuda
-              </Button>
+                {(user.profile_theme.specialties_list || []).length === 0 ? (
+                  <EmptyState icon={Stethoscope} title="Nenhuma especialidade" description="Adicione itens para exibir como cartões." />
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {(user.profile_theme.specialties_list || []).map((s, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <Input
+                          size="sm"
+                          wrapperClassName="flex-1"
+                          aria-label={`Especialidade ${idx + 1}`}
+                          value={s}
+                          onChange={e => {
+                            const newList = [...user.profile_theme.specialties_list];
+                            newList[idx] = e.target.value;
+                            updateTheme({ specialties_list: newList });
+                          }}
+                          placeholder={`Especialidade ${idx + 1}...`}
+                        />
+                        <IconButton variant="ghost" size="sm" aria-label="Remover especialidade" onClick={() => {
+                          const newList = [...user.profile_theme.specialties_list];
+                          newList.splice(idx, 1);
+                          updateTheme({ specialties_list: newList });
+                        }}>
+                          <X size={14} />
+                        </IconButton>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </PanelCard>
+
+              <PanelCard
+                icon={Info}
+                title="Perguntas frequentes (FAQ)"
+                action={
+                  <div className="flex lg:justify-end">
+                    <Button
+                      onClick={() => updateTheme({ faq: [...(user.profile_theme.faq || []), { question: '', answer: '' }] })}
+                      variant="outline"
+                      size="xs"
+                      iconLeft={<Plus size={14} />}
+                    >
+                      Adicionar pergunta
+                    </Button>
+                  </div>
+                }
+              >
+                {(user.profile_theme.faq || []).length === 0 ? (
+                  <EmptyState icon={Info} title="Nenhuma pergunta" description="Responda as dúvidas mais comuns dos seus pacientes." />
+                ) : (
+                  <div className="space-y-2">
+                    {(user.profile_theme.faq || []).map((f, idx) => (
+                      <div key={idx} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex-1 space-y-2">
+                          <Input
+                            size="sm"
+                            aria-label="Pergunta"
+                            value={f.question}
+                            onChange={e => {
+                              const newFaq = [...user.profile_theme.faq];
+                              newFaq[idx].question = e.target.value;
+                              updateTheme({ faq: newFaq });
+                            }}
+                            placeholder="Pergunta (Ex: Qual o valor da sessão?)"
+                          />
+                          <Textarea
+                            aria-label="Resposta"
+                            rows={2}
+                            value={f.answer}
+                            onChange={e => {
+                              const newFaq = [...user.profile_theme.faq];
+                              newFaq[idx].answer = e.target.value;
+                              updateTheme({ faq: newFaq });
+                            }}
+                            placeholder="Resposta detalhada..."
+                          />
+                        </div>
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Remover pergunta"
+                          onClick={() => {
+                            const newFaq = [...user.profile_theme.faq];
+                            newFaq.splice(idx, 1);
+                            updateTheme({ faq: newFaq });
+                          }}
+                        >
+                          <X size={14} />
+                        </IconButton>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </PanelCard>
             </div>
-          </div>
+          )}
+
+          {activeTab === 'theme' && (
+            <div className="space-y-3">
+              <PanelCard icon={Layout} title="Tema da página" description="Cor principal e layout da página pública.">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-slate-600">Cor principal</p>
+                    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-2.5">
+                      <input
+                        type="color"
+                        aria-label="Cor principal da página"
+                        value={user.profile_theme.primaryColor}
+                        onChange={e => updateTheme({ primaryColor: e.target.value })}
+                        className="h-9 w-9 cursor-pointer rounded-lg border-none bg-transparent"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium text-slate-700">{user.profile_theme.primaryColor}</span>
+                        <span className="text-[11px] text-slate-500">Clique para alterar</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-slate-600">Layout da página</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      {[
+                        {
+                          id: 'modern',
+                          label: 'Moderno',
+                          desc: 'Limpo e profissional',
+                          preview: (
+                            <div className="flex h-16 w-full flex-col overflow-hidden rounded-lg border border-slate-100 bg-white">
+                              <div className="h-4 w-full bg-indigo-600" />
+                              <div className="flex flex-1 gap-1 p-1.5">
+                                <div className="w-1/2 rounded bg-slate-100" />
+                                <div className="w-1/3 rounded bg-indigo-100" />
+                              </div>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 'dark',
+                          label: 'Escuro',
+                          desc: 'Elegante e sofisticado',
+                          preview: (
+                            <div className="flex h-16 w-full flex-col overflow-hidden rounded-lg bg-slate-900">
+                              <div className="flex h-4 w-full items-center gap-1 bg-slate-700 px-2">
+                                <div className="h-1.5 w-8 rounded-full bg-indigo-400" />
+                              </div>
+                              <div className="flex flex-1 gap-1 p-1.5">
+                                <div className="w-1/2 rounded bg-slate-700" />
+                                <div className="w-1/3 rounded bg-indigo-800" />
+                              </div>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 'marble',
+                          label: 'Natural',
+                          desc: 'Acolhedor e humano',
+                          preview: (
+                            <div className="flex h-16 w-full flex-col overflow-hidden rounded-lg" style={{ background: 'linear-gradient(135deg, #FDFBF7 60%, #E6F4F1)' }}>
+                              <div className="h-4 w-full" style={{ background: 'linear-gradient(90deg, #5EAAA8, #4F7CAC)' }} />
+                              <div className="flex flex-1 gap-1 p-1.5">
+                                <div className="w-1/2 rounded" style={{ background: '#E6F0EE' }} />
+                                <div className="w-1/3 rounded" style={{ background: '#C9E4DE' }} />
+                              </div>
+                            </div>
+                          ),
+                        },
+                      ].map(l => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => updateTheme({ layout: l.id })}
+                          className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-all ${
+                            user.profile_theme.layout === l.id
+                              ? 'border-primary-500 bg-primary-50'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          {l.preview}
+                          <span className={`text-xs font-medium ${user.profile_theme.layout === l.id ? 'text-primary-700' : 'text-slate-600'}`}>
+                            {l.label}
+                          </span>
+                          <span className="text-[11px] text-slate-500">{l.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </PanelCard>
+
+              <PanelCard icon={Layout} title="Seções visíveis" description="Escolha o que aparece na página pública.">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {[
+                    { id: 'show_trajectory', label: 'Trajetória/Bio' },
+                    { id: 'show_specialties', label: 'Especialidades' },
+                    { id: 'show_faq', label: 'Perguntas (FAQ)' },
+                    { id: 'show_schedule', label: 'Agenda Semanal' },
+                    { id: 'show_map', label: 'Mapa/Localização' },
+                  ].map(s => (
+                    <div key={s.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <span className="text-xs font-medium text-slate-700">{s.label}</span>
+                      <Switch
+                        aria-label={s.label}
+                        checked={!!user.profile_theme[s.id as keyof typeof user.profile_theme]}
+                        onCheckedChange={() => updateTheme({ [s.id]: !user.profile_theme[s.id as keyof typeof user.profile_theme] })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </PanelCard>
+            </div>
+          )}
+        </Tabs>
+
+        {/* Barra de salvar fixa (única) */}
+        <div className="sticky bottom-0 z-10 -mx-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5 xl:-mx-6 xl:px-6">
+          <Button
+            onClick={handleSave}
+            disabled={saveStatus === 'saving'}
+            variant={saveStatus === 'saved' ? 'success' : 'primary'}
+            size="sm"
+            loading={saveStatus === 'saving'}
+            loadingText="Salvando..."
+            iconLeft={saveStatus === 'saved' ? <Award size={14} /> : <Save size={14} />}
+          >
+            {saveStatus === 'saved' ? 'Salvo!' : 'Salvar perfil'}
+          </Button>
         </div>
       </div>
-
 
       {/* Aurora Modal */}
       <Modal
@@ -1786,33 +1588,30 @@ Gere o seguinte JSON:
         subtitle={`Passo ${auroraStep + 1} de ${AURORA_QUESTIONS.length}`}
         size="lg"
         footer={
-          <div className="flex w-full items-center justify-between gap-3 p-1">
+          <div className="flex w-full items-center justify-between gap-3">
             <Button
               onClick={() => auroraStep > 0 ? setAuroraStep(s => s - 1) : setAuroraOpen(false)}
-              variant="soft"
+              variant="outline"
               size="sm"
             >
               {auroraStep > 0 ? '← Voltar' : 'Cancelar'}
             </Button>
 
             <div className="flex items-center gap-2">
-              <div className="hidden sm:flex gap-1 mr-2">
+              <div className="mr-2 hidden gap-1 sm:flex">
                 {AURORA_QUESTIONS.map((_, i) => (
                   <button
                     key={i}
+                    type="button"
+                    aria-label={`Ir para o passo ${i + 1}`}
                     onClick={() => setAuroraStep(i)}
-                    className={`h-1.5 rounded-full transition-all ${i === auroraStep ? 'bg-indigo-600 w-4' : i < auroraStep ? 'bg-indigo-300 w-1.5' : 'bg-slate-200 w-1.5'}`}
+                    className={`h-1.5 rounded-full transition-all ${i === auroraStep ? 'w-4 bg-primary-600' : i < auroraStep ? 'w-1.5 bg-primary-300' : 'w-1.5 bg-slate-200'}`}
                   />
                 ))}
               </div>
 
               {auroraStep < AURORA_QUESTIONS.length - 1 ? (
-                <Button
-                  onClick={() => setAuroraStep(s => s + 1)}
-                  variant="primary"
-                  size="sm"
-                  elevation="sm"
-                >
+                <Button onClick={() => setAuroraStep(s => s + 1)} variant="primary" size="sm">
                   Próximo →
                 </Button>
               ) : (
@@ -1823,35 +1622,30 @@ Gere o seguinte JSON:
                   loadingText="Gerando..."
                   variant="primary"
                   size="sm"
-                  iconLeft={<Sparkles size={13} />}
-                  elevation="sm"
+                  iconLeft={<Sparkles size={14} />}
                 >
-                  Gerar Perfil
+                  Gerar perfil
                 </Button>
               )}
             </div>
           </div>
         }
       >
-        {/* Progress bar overlaying just under header */}
-        <div className="h-1 bg-indigo-50 w-full mb-4">
+        {/* Progress bar */}
+        <div className="mb-4 h-1 w-full bg-primary-50">
           <div
-            className="h-full bg-indigo-600 transition-all duration-500 rounded-r-full"
+            className="h-full rounded-r-full bg-primary-600 transition-all duration-500"
             style={{ width: `${((auroraStep + 1) / AURORA_QUESTIONS.length) * 100}%` }}
           />
         </div>
 
         {/* Question Content */}
-        <div className="px-6 pb-6">
-          <label className="block text-sm font-black text-slate-800 mb-1 leading-snug">
-            {AURORA_QUESTIONS[auroraStep].label}
-          </label>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-5">
-            Opcional — pule se preferir
-          </p>
-          <textarea
+        <div className="space-y-2">
+          <Textarea
             key={auroraStep}
             autoFocus
+            label={AURORA_QUESTIONS[auroraStep].label}
+            hint="Opcional — pule se preferir"
             value={auroraAnswers[AURORA_QUESTIONS[auroraStep].key] || ''}
             onChange={e => setAuroraAnswers(prev => ({ ...prev, [AURORA_QUESTIONS[auroraStep].key]: e.target.value }))}
             onKeyDown={e => {
@@ -1860,19 +1654,18 @@ Gere o seguinte JSON:
                 else handleAuroraGenerate();
               }
             }}
-            className="w-full bg-zinc-50 border border-zinc-200 rounded-[10px] px-3 py-2.5 text-sm font-bold text-zinc-800 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 focus:bg-white transition-all resize-none"
             rows={4}
             placeholder={AURORA_QUESTIONS[auroraStep].placeholder}
           />
-          <p className="text-[9px] text-slate-300 font-bold mt-2 text-right">Ctrl+Enter para avançar</p>
+          <p className="text-right text-[11px] text-slate-400">Ctrl+Enter para avançar</p>
         </div>
       </Modal>
 
       {/* TOASTS */}
-      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
+      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-2">
         {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-2xl border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-            <span className="text-xs font-black uppercase tracking-widest">{t.message}</span>
+          <div key={t.id} className={`flex items-center gap-3 rounded-lg border px-4 py-3 animate-slideIn ${t.type === 'success' ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-red-100 bg-red-50 text-red-700'}`}>
+            <span className="text-xs font-medium">{t.message}</span>
           </div>
         ))}
       </div>
@@ -1881,30 +1674,6 @@ Gere o seguinte JSON:
 };
 
 /* --- UI COMPONENTS --- */
-
-interface CardProps {
-  title: string;
-  subtitle?: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}
-
-const Card: React.FC<CardProps> = ({ title, subtitle, icon, children }) => {
-  return (
-    <div className="bg-white rounded-[1.75rem] p-5 sm:p-6 border border-slate-100 shadow-sm">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-          {icon}
-        </div>
-        <div>
-          <h3 className="text-base font-black text-slate-800 tracking-tight">{title}</h3>
-          {subtitle && <p className="text-xs font-medium text-slate-400 mt-0.5 leading-relaxed">{subtitle}</p>}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-};
 
 interface ProfileInputProps {
   label: string;
@@ -1923,7 +1692,6 @@ const ProfileInput: React.FC<ProfileInputProps> = ({ label, icon, value, onChang
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={`Digite ${label.toLowerCase()}...`}
-      size="sm"
     />
   );
 };
@@ -1960,85 +1728,68 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({ day, t, onToggle, onUpdate, o
     : 'Dia fechado para atendimento';
 
   return (
-    <div className={day.active ? 'overflow-hidden rounded-[1.25rem] border border-emerald-100 bg-gradient-to-r from-white via-white to-emerald-50/70 p-3.5 shadow-sm transition-all' : 'overflow-hidden rounded-[1.25rem] border border-slate-200 bg-slate-50/90 p-3.5 transition-all'}>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-          <div className="flex min-w-0 items-start gap-3">
-            <button
-              onClick={onToggle}
-              className={day.active ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-100 transition-all hover:bg-emerald-600' : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm transition-all hover:bg-slate-100'}
-            >
-              <ChevronRight size={14} className={day.active ? 'rotate-90 transition-transform' : 'transition-transform'} />
-            </button>
+    <div className={day.active ? 'rounded-lg border border-emerald-100 bg-emerald-50/30 p-3' : 'rounded-lg border border-slate-200 bg-slate-50 p-3'}>
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <IconButton
+            variant={day.active ? 'success' : 'outline'}
+            size="sm"
+            aria-label={day.active ? 'Fechar dia' : 'Liberar dia'}
+            onClick={onToggle}
+          >
+            <ChevronRight size={14} className={day.active ? 'rotate-90 transition-transform' : 'transition-transform'} />
+          </IconButton>
 
-            <div className="min-w-0 space-y-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs font-black uppercase tracking-tight text-slate-800">{t('days.' + day.dayKey)}</p>
-                <span className={day.active ? 'inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-700' : 'inline-flex items-center rounded-full bg-slate-200 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-500'}>
-                  {day.active ? 'Disponível' : 'Fechado'}
-                </span>
-              </div>
-              <p className="text-[10px] font-medium text-slate-400">{summary}</p>
+          <div className="min-w-0 space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[13px] font-medium text-slate-800">{t('days.' + day.dayKey)}</p>
+              <Badge size="sm" color={day.active ? 'success' : 'default'}>{day.active ? 'Disponível' : 'Fechado'}</Badge>
             </div>
-          </div>
-
-          <div className="hidden xl:block xl:flex-1" />
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            {day.active && (
-              <Button onClick={addBreak} variant="soft" size="xs" iconLeft={<Plus size={11} strokeWidth={3} />} title="Adicionar intervalo">
-                Intervalo
-              </Button>
-            )}
-            <Button onClick={onCopyToAll} variant="outline" size="xs" iconLeft={<Copy size={11} strokeWidth={3} />} title="Repetir este horário">
-              Repetir
-            </Button>
-            <Button onClick={onToggle} variant={day.active ? 'secondary' : 'soft'} size="xs">
-              {day.active ? 'Fechar' : 'Liberar'}
-            </Button>
+            <p className="text-[11px] text-slate-500">{summary}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div className="rounded-xl border border-white bg-white/90 p-3 shadow-sm">
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">Horário base</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 sm:flex-nowrap">
-              <TimeInput value={day.start} onChange={v => onUpdate({ start: v })} disabled={!day.active} />
-              <span className="px-1 text-[10px] font-black text-slate-300">às</span>
-              <TimeInput value={day.end} onChange={v => onUpdate({ end: v })} disabled={!day.active} />
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <TimeInput value={day.start} onChange={v => onUpdate({ start: v })} disabled={!day.active} label="Início" />
+          <span className="text-[11px] text-slate-400">às</span>
+          <TimeInput value={day.end} onChange={v => onUpdate({ end: v })} disabled={!day.active} label="Fim" />
+        </div>
 
-          <div className="rounded-xl border border-white bg-white/90 p-3 shadow-sm">
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">Intervalos</p>
-            <p className="mt-2 text-xs font-medium text-slate-500">{day.active ? breakSummary : 'Ative o dia para configurar pausas.'}</p>
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {day.active && (
+            <Button onClick={addBreak} variant="outline" size="xs" iconLeft={<Plus size={14} />} title="Adicionar intervalo">
+              Intervalo
+            </Button>
+          )}
+          <Button onClick={onCopyToAll} variant="outline" size="xs" iconLeft={<Copy size={14} />} title="Repetir este horário">
+            Repetir
+          </Button>
+          <Button onClick={onToggle} variant={day.active ? 'secondary' : 'outline'} size="xs">
+            {day.active ? 'Fechar' : 'Liberar'}
+          </Button>
         </div>
       </div>
 
       {day.active && day.breaks.length > 0 && (
-        <div className="mt-3 space-y-2 border-t border-emerald-100/80 pt-3">
+        <div className="mt-3 space-y-2 border-t border-emerald-100 pt-3">
           {day.breaks.map((b, i) => (
-            <div key={i} className="flex flex-col gap-2 rounded-xl border border-white bg-white/90 p-2.5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div key={i} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                  <Clock size={12} />
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+                  <Clock size={14} />
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-xs font-medium text-slate-600">
                   {day.breaks.length > 1 ? `Intervalo ${i + 1}` : 'Intervalo'}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
-                <TimeInput value={b.start} onChange={v => updateBreak(i, 'start', v)} disabled={!day.active} />
-                <span className="px-1 text-[10px] font-black text-slate-300">às</span>
-                <TimeInput value={b.end} onChange={v => updateBreak(i, 'end', v)} disabled={!day.active} />
-                <button
-                  onClick={() => removeBreak(i)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-500 transition-all hover:bg-rose-600 hover:text-white"
-                >
-                  <X size={13} strokeWidth={3} />
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <TimeInput value={b.start} onChange={v => updateBreak(i, 'start', v)} disabled={!day.active} label="Início do intervalo" />
+                <span className="text-[11px] text-slate-400">às</span>
+                <TimeInput value={b.end} onChange={v => updateBreak(i, 'end', v)} disabled={!day.active} label="Fim do intervalo" />
+                <IconButton variant="ghost" size="sm" aria-label="Remover intervalo" onClick={() => removeBreak(i)}>
+                  <X size={14} />
+                </IconButton>
               </div>
             </div>
           ))}
@@ -2048,64 +1799,29 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({ day, t, onToggle, onUpdate, o
   );
 };
 
-function ScheduleInsightCard({
-  icon,
-  label,
-  value,
-  hint,
-  tone = 'indigo',
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint: string;
-  tone?: 'indigo' | 'emerald' | 'amber';
-}) {
-  const toneMap = {
-    indigo: { wrap: 'bg-indigo-100 text-indigo-600', value: 'text-indigo-700' },
-    emerald: { wrap: 'bg-emerald-100 text-emerald-600', value: 'text-emerald-700' },
-    amber: { wrap: 'bg-amber-100 text-amber-600', value: 'text-amber-700' },
-  } as const;
-
-  const styles = toneMap[tone];
-
+function TimeInput({ value, onChange, disabled, label }: { value: string; onChange: (v: string) => void; disabled?: boolean; label: string }) {
   return (
-    <div className="rounded-[1.25rem] border border-slate-100 bg-white p-3.5 shadow-sm">
-      <div className="flex items-start gap-2.5">
-        <div className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ' + styles.wrap}>{icon}</div>
-        <div className="min-w-0 space-y-0.5">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
-          <p className={'truncate text-base font-black tracking-tight ' + styles.value}>{value}</p>
-          <p className="text-[10px] font-medium leading-relaxed text-slate-400">{hint}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TimeInput({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
-  return (
-    <input
+    <Input
       type="time"
+      size="sm"
+      aria-label={label}
       value={value}
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
-      className={`h-7 bg-white border border-zinc-200 rounded-lg px-2 text-[11px] font-black text-zinc-800 focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 transition-all ${
-        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-zinc-300'
-      }`}
+      wrapperClassName="w-28"
     />
   );
 }
 
 function CheckItem({ label, checked }: { label: string; checked: boolean }) {
   return (
-    <div className="flex items-center gap-3 group">
-      <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${
-        checked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200'
+    <div className="flex items-center gap-2.5">
+      <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+        checked ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300'
       }`}>
-        {checked && <ChevronRight size={12} className="rotate-[-45deg]" />}
+        {checked && <Check size={12} />}
       </div>
-      <span className={`text-xs font-bold transition-colors ${checked ? 'text-slate-700' : 'text-slate-400 group-hover:text-slate-500'}`}>
+      <span className={`text-xs ${checked ? 'text-slate-700' : 'text-slate-500'}`}>
         {label}
       </span>
     </div>

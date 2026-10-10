@@ -13,7 +13,6 @@ import {
   MessageCircle,
   LayoutGrid,
   Rows,
-  Search,
   Info,
   Sparkles,
   Smartphone,
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { PageWrapper, SectionTitle, StatGrid, StatCard, Tabs, PanelCard, ContentCard, Badge, Alert, Button, FilterLine, FilterLineSection, FilterLineSearch, EmptyState } from '../components/UI';
 
 type AccessLevel = 'total' | 'edit' | 'own' | 'view' | 'limited' | 'none';
 
@@ -65,7 +65,6 @@ const ROLES = [
     id: 'admin',
     title: 'Administrador',
     description: 'Acesso total à clínica, gestão e financeiro.',
-    accent: 'from-indigo-600 to-violet-600',
     permissions: {
       view_dashboard:           'total',
       view_patients:            'total',
@@ -92,7 +91,6 @@ const ROLES = [
     id: 'professional',
     title: 'Profissional',
     description: 'Acesso clínico aos seus pacientes e produção.',
-    accent: 'from-emerald-500 to-teal-500',
     permissions: {
       view_dashboard:           'view',
       view_patients:            'own',
@@ -119,7 +117,6 @@ const ROLES = [
     id: 'secretary',
     title: 'Secretário(a)',
     description: 'Agenda, cadastro e apoio à recepção.',
-    accent: 'from-sky-500 to-blue-500',
     permissions: {
       view_dashboard:           'view',
       view_patients:            'edit',
@@ -153,21 +150,28 @@ const accessLabel: Record<AccessLevel, string> = {
   none:    'Sem acesso'
 };
 
-const accessStyles: Record<AccessLevel, string> = {
-  total:   'bg-emerald-50 text-emerald-700 border-emerald-200',
-  edit:    'bg-sky-50 text-sky-700 border-sky-200',
-  own:     'bg-indigo-50 text-indigo-700 border-indigo-200',
-  view:    'bg-slate-50 text-slate-600 border-slate-200',
-  limited: 'bg-amber-50 text-amber-700 border-amber-200',
-  none:    'bg-rose-50 text-rose-600 border-rose-200'
+const accessColor: Record<AccessLevel, 'success' | 'info' | 'primary' | 'default' | 'warning' | 'danger'> = {
+  total:   'success',
+  edit:    'info',
+  own:     'primary',
+  view:    'default',
+  limited: 'warning',
+  none:    'danger'
 };
 
 const GROUP_ORDER = ['Geral', 'Clínico', 'Intervenção', 'Avaliação', 'Documentos', 'Gestão', 'Financeiro', 'Comunicação', 'Sistema'];
 
+type PermissionsView = 'cards' | 'matrix';
+
+const VIEW_TABS = [
+  { id: 'cards', label: 'Cartões', icon: LayoutGrid },
+  { id: 'matrix', label: 'Matriz', icon: Rows },
+] as const;
+
 export const Permissions: React.FC = () => {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const [view, setView] = useState<'cards' | 'matrix'>('cards');
+  const [view, setView] = useState<PermissionsView>('cards');
   const [query, setQuery] = useState('');
   const [activeRole, setActiveRole] = useState('admin');
 
@@ -205,163 +209,133 @@ export const Permissions: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-8 animate-fadeIn font-sans pb-20">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-900"></div>
-        <div className="absolute -top-24 -right-20 w-80 h-80 rounded-full bg-indigo-500/20 blur-3xl"></div>
-        <div className="relative z-10 p-8 text-white">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-widest">
-            <Shield size={14} /> Permissões
-          </div>
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-black mt-4">Gestão de Permissões</h1>
-          <p className="text-indigo-100 mt-3 max-w-2xl">Controle visual das permissões por cargo. Compare acessos e entenda rapidamente o que cada perfil pode fazer em cada módulo do sistema.</p>
-        </div>
-      </div>
+    <PageWrapper className="animate-fadeIn font-sans">
+      <div className="space-y-4">
+        <SectionTitle
+          icon={Shield}
+          title="Gestão de Permissões"
+          description="Controle visual das permissões por cargo. Compare acessos e entenda o que cada perfil pode fazer em cada módulo."
+        />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Cargos</div>
-          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{ROLES.length}</div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Módulos</div>
-          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{filteredModules.length}</div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Acesso total</div>
-          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{summary.find(s => s.id === activeRole)?.total ?? 0}</div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Sem acesso</div>
-          <div className="text-base sm:text-xl font-black text-slate-800 mt-2">{summary.find(s => s.id === activeRole)?.none ?? 0}</div>
-        </div>
-      </div>
+        <StatGrid cols={4}>
+          <StatCard title="Cargos" value={ROLES.length} icon={Users} />
+          <StatCard title="Módulos" value={filteredModules.length} icon={Boxes} color="info" />
+          <StatCard title="Acesso total" value={summary.find(s => s.id === activeRole)?.total ?? 0} icon={Shield} color="success" />
+          <StatCard title="Sem acesso" value={summary.find(s => s.id === activeRole)?.none ?? 0} icon={Info} color="danger" />
+        </StatGrid>
 
-      {/* Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center gap-4 justify-between">
-        <div className="relative w-full md:w-80">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar módulo ou grupo..."
-            className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none text-sm font-medium"
-          />
-        </div>
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-          <button onClick={() => setView('cards')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${view === 'cards' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>
-            <LayoutGrid size={16} /> Cartões
-          </button>
-          <button onClick={() => setView('matrix')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${view === 'matrix' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>
-            <Rows size={16} /> Matriz
-          </button>
-        </div>
-      </div>
+        <Tabs<PermissionsView> items={VIEW_TABS} value={view} onChange={setView} label="Visão de permissões">
+          <div className="space-y-3">
+            <FilterLine>
+              <FilterLineSection grow>
+                <FilterLineSearch
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Buscar módulo ou grupo..."
+                  aria-label="Buscar módulo ou grupo"
+                  className="max-w-[280px]"
+                />
+              </FilterLineSection>
+            </FilterLine>
 
-      {view === 'cards' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {ROLES.map((role) => (
-            <div key={role.id} className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col ${activeRole === role.id ? 'ring-2 ring-indigo-500' : ''}`}>
-              <div className={`p-6 bg-gradient-to-r ${role.accent} text-white`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold">{role.title}</h3>
-                    <p className="text-xs text-white/80 mt-1">{role.description}</p>
-                  </div>
-                  <button onClick={() => setActiveRole(role.id)} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-white/15 border border-white/30 rounded-full">Foco</button>
-                </div>
-              </div>
-              <div className="p-6 space-y-5">
-                {groupedModules.map(({ group, items }) => (
-                  <div key={group}>
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">{group}</div>
-                    <div className="space-y-2.5">
-                      {items.map((mod) => {
-                        const access = (role.permissions[mod.key] || 'none') as AccessLevel;
-                        return (
-                          <div key={mod.key} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                              <span className="text-slate-400"><mod.Icon size={16} /></span>
-                              {mod.label}
-                            </div>
-                            <span className={`text-[10px] font-bold uppercase tracking-wide px-3 py-1 rounded-full border ${accessStyles[access]}`}>
-                              {accessLabel[access]}
-                            </span>
+            {groupedModules.length === 0 ? (
+              <ContentCard>
+                <EmptyState icon={Shield} title="Nenhum módulo encontrado" description="Ajuste a busca para ver as permissões." />
+              </ContentCard>
+            ) : view === 'cards' ? (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+                {ROLES.map((role) => (
+                  <PanelCard
+                    key={role.id}
+                    title={role.title}
+                    description={role.description}
+                    className={activeRole === role.id ? 'ring-2 ring-primary-500' : ''}
+                    action={
+                      <div className="flex lg:justify-end">
+                        <Button size="xs" variant={activeRole === role.id ? 'primary' : 'outline'} onClick={() => setActiveRole(role.id)}>Foco</Button>
+                      </div>
+                    }
+                  >
+                    <div className="space-y-4">
+                      {groupedModules.map(({ group, items }) => (
+                        <div key={group}>
+                          <div className="mb-2 text-xs font-medium text-slate-600">{group}</div>
+                          <div className="space-y-2">
+                            {items.map((mod) => {
+                              const access = (role.permissions[mod.key] || 'none') as AccessLevel;
+                              return (
+                                <div key={mod.key} className="flex items-center justify-between gap-2">
+                                  <div className="flex min-w-0 items-center gap-2 text-[13px] text-slate-700">
+                                    <span className="shrink-0 text-slate-400"><mod.Icon size={14} /></span>
+                                    <span className="min-w-0">{mod.label}</span>
+                                  </div>
+                                  <Badge size="sm" color={accessColor[access]} className="shrink-0">{accessLabel[access]}</Badge>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  </PanelCard>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b border-slate-100 text-xs uppercase text-slate-400 font-bold tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Módulo</th>
-                  {ROLES.map(role => (
-                    <th key={role.id} className="px-6 py-4 text-center">{role.title}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {groupedModules.map(({ group, items }) => (
-                  <React.Fragment key={group}>
-                    <tr className="bg-slate-50/80">
-                      <td colSpan={ROLES.length + 1} className="px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        {group}
-                      </td>
-                    </tr>
-                    {items.map((mod) => (
-                      <tr key={mod.key} className="hover:bg-slate-50/80">
-                        <td className="px-6 py-4 text-sm text-slate-700">
-                          <div className="flex items-center gap-2">
-                            <span className="text-slate-400"><mod.Icon size={16} /></span>
-                            {mod.label}
-                          </div>
-                        </td>
-                        {ROLES.map(role => {
-                          const access = (role.permissions[mod.key] || 'none') as AccessLevel;
-                          return (
-                            <td key={role.id} className="px-6 py-4 text-center">
-                              <span className={`text-[10px] font-bold uppercase tracking-wide px-3 py-1 rounded-full border ${accessStyles[access]}`}>
-                                {accessLabel[access]}
-                              </span>
-                            </td>
-                          );
-                        })}
+            ) : (
+              <ContentCard padding="none" className="overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="border-b border-slate-100 bg-slate-50 text-xs font-medium text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2.5">Módulo</th>
+                        {ROLES.map(role => (
+                          <th key={role.id} className="px-3 py-2.5 text-center">{role.title}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {groupedModules.map(({ group, items }) => (
+                        <React.Fragment key={group}>
+                          <tr className="bg-slate-50/80">
+                            <td colSpan={ROLES.length + 1} className="px-3 py-1.5 text-[11px] font-medium text-slate-500">
+                              {group}
+                            </td>
+                          </tr>
+                          {items.map((mod) => (
+                            <tr key={mod.key} className="hover:bg-slate-50/80">
+                              <td className="px-3 py-2.5 text-[13px] text-slate-700">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-400"><mod.Icon size={14} /></span>
+                                  {mod.label}
+                                </div>
+                              </td>
+                              {ROLES.map(role => {
+                                const access = (role.permissions[mod.key] || 'none') as AccessLevel;
+                                return (
+                                  <td key={role.id} className="px-3 py-2.5 text-center">
+                                    <Badge size="sm" color={accessColor[access]}>{accessLabel[access]}</Badge>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </ContentCard>
+            )}
           </div>
-        </div>
-      )}
+        </Tabs>
 
-      {/* Footer */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
-            <Info size={18} />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-slate-800">Permissões padrão do sistema</div>
-            <div className="text-xs text-slate-500 max-w-xl">As permissões exibidas refletem exatamente as rotas e módulos ativos no menu. Para ajustes finos por usuário, utilize as configurações de acesso da equipe.</div>
-          </div>
-        </div>
-        <button className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:border-indigo-200 hover:text-indigo-700">
-          Gerenciar por usuário
-        </button>
+        <Alert
+          variant="info"
+          title="Permissões padrão do sistema"
+          action={<Button variant="outline" size="sm">Gerenciar por usuário</Button>}
+        >
+          As permissões exibidas refletem exatamente as rotas e módulos ativos no menu. Para ajustes finos por usuário, utilize as configurações de acesso da equipe.
+        </Alert>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

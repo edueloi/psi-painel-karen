@@ -5,8 +5,12 @@ import {
   Edit3, TrendingUp, TrendingDown, Wallet, Calculator, Star,
   AlertCircle, CheckCircle2, Info, X, RefreshCw, Landmark,
   Heart, GraduationCap, Stethoscope, BookOpen, HelpCircle,
-  Users, Baby, Receipt
+  Users, Baby, Receipt, Calendar, ClipboardList
 } from 'lucide-react';
+import {
+  Button, Modal, ModalFooter, Switch, Badge, Alert, Tabs, PanelCard, ContentCard,
+  EmptyState, StatGrid, StatCard,
+} from '../UI';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,16 +38,24 @@ interface Props {
   selectedYear: number;
 }
 
+const HEALTH_TABS = [
+  { id: 'reservas', label: 'Reservas', icon: Wallet },
+  { id: 'anual', label: 'Visão anual', icon: Calendar },
+  { id: 'impostos', label: 'Impostos', icon: Calculator },
+  { id: 'obrigacoes', label: 'Obrigações', icon: ClipboardList },
+] as const;
+type HealthTab = typeof HEALTH_TABS[number]['id'];
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = 'psiflux_financial_profile';
 
 const PROFESSION_OPTIONS = [
-  { id: 'psicologo',     label: 'Psicólogo(a)',        council: 'CRP',     icon: '🧠',  councilFee: 40  },
-  { id: 'psiquiatra',    label: 'Psiquiatra',           council: 'CRM',     icon: '⚕️',  councilFee: 75  },
-  { id: 'psicopedagogo', label: 'Psicopedagogo(a)',     council: 'ABPp/CRP',icon: '📚',  councilFee: 40  },
-  { id: 'terapeuta',     label: 'Terapeuta Ocup.',      council: 'CREFITO', icon: '💆',  councilFee: 45  },
-  { id: 'outro',         label: 'Outra profissão',      council: '—',       icon: '👤',  councilFee: 30  },
+  { id: 'psicologo',     label: 'Psicólogo(a)',        council: 'CRP',     icon: '',  councilFee: 40  },
+  { id: 'psiquiatra',    label: 'Psiquiatra',           council: 'CRM',     icon: '',  councilFee: 75  },
+  { id: 'psicopedagogo', label: 'Psicopedagogo(a)',     council: 'ABPp/CRP',icon: '',  councilFee: 40  },
+  { id: 'terapeuta',     label: 'Terapeuta Ocup.',      council: 'CREFITO', icon: '',  councilFee: 45  },
+  { id: 'outro',         label: 'Outra profissão',      council: '—',       icon: '',  councilFee: 30  },
 ];
 
 const WORK_OPTIONS = [
@@ -125,6 +137,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
   const [profile, setProfile] = useState<FinancialProfile | null>(null);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [step, setStep] = useState(1);
+  const [healthTab, setHealthTab] = useState<HealthTab>('reservas');
   const [darfPaid, setDarfPaid] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem(`psiflux_darf_${selectedYear}`);
@@ -209,6 +222,15 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
   const latestMonth = sortedMonths[0];
   const currentIncome = latestMonth ? Number(latestMonth.income) : avgIncome;
 
+  // A sugestão de preço não pode usar o mês em andamento nem projeções.
+  // Ela é sempre calculada com o último mês calendário já encerrado.
+  const now = new Date();
+  const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const referenceMonth = monthSummaries.find(m =>
+    m.year === previousMonthDate.getFullYear() && m.month === previousMonthDate.getMonth() + 1
+  );
+  const referenceIncome = Number(referenceMonth?.income) || 0;
+
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -219,20 +241,13 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
 
   if (!profile) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-200 flex items-center justify-center mb-5 shadow-sm">
-          <ShieldCheck size={36} className="text-emerald-500" />
-        </div>
-        <h2 className="text-sm sm:text-base font-bold text-slate-800 mb-2">Planejamento Financeiro</h2>
-        <p className="text-sm text-slate-500 font-bold max-w-md mb-8">
-          Configure seu perfil profissional para receber um painel personalizado com quanto guardar para impostos, férias, 13º e muito mais.
-        </p>
-        <button
-          onClick={() => openSetup()}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 transition-all active:scale-95"
-        >
-          <User size={15} /> Configurar meu perfil
-        </button>
+      <ContentCard>
+        <EmptyState
+          icon={ShieldCheck}
+          title="Planejamento Financeiro"
+          description="Configure seu perfil profissional para receber um painel personalizado com quanto guardar para impostos, férias, 13º e muito mais."
+          action={<Button variant="primary" size="sm" iconLeft={<User size={14} />} onClick={() => openSetup()}>Configurar meu perfil</Button>}
+        />
         {isSetupOpen && (
           <SetupModal
             step={step} setStep={setStep}
@@ -247,7 +262,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
             onClose={() => setIsSetupOpen(false)}
           />
         )}
-      </div>
+      </ContentCard>
     );
   }
 
@@ -295,7 +310,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
         desc: '20% sobre receita (máx. R$1.557/mês)',
         value: inss,
         icon: <ShieldCheck size={16} />,
-        color: 'blue',
+        color: 'primary',
         formula: `20% × ${formatCurrency(Math.min(base, INSS_TETO_2025))}`,
       },
       {
@@ -313,7 +328,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
         desc: 'Unifica IR, INSS, PIS/Cofins e ISS',
         value: das,
         icon: <Landmark size={16} />,
-        color: 'blue',
+        color: 'primary',
         formula: `Alíquota estimada: ${((das / base) * 100).toFixed(1)}%`,
       },
     ] : []),
@@ -323,7 +338,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
         desc: 'Imposto sobre Serviços (município)',
         value: iss,
         icon: <Landmark size={16} />,
-        color: 'purple',
+        color: 'primary',
         formula: `${profile.issRate}% × ${formatCurrency(base)}`,
       },
     ] : []),
@@ -354,7 +369,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
   ];
 
   const colorMap: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-    blue:    { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-100',   icon: 'text-blue-500' },
+    primary: { bg: 'bg-primary-50', text: 'text-primary-700', border: 'border-primary-100', icon: 'text-primary-500' },
     amber:   { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-100',  icon: 'text-amber-500' },
     emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100',icon: 'text-emerald-500' },
     purple:  { bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-100', icon: 'text-purple-500' },
@@ -364,421 +379,385 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
 
   // Session fee suggestion
   const workingMonths = 11; // accounting for 1 month vacation
-  const annualNeeded = (base + council) * 12 + (inss + ir + das + iss) * 12;
-  const sessionSuggestion = profile.monthlySessionCount > 0
-    ? Math.ceil(annualNeeded / (profile.monthlySessionCount * workingMonths) / 5) * 5
+  const referenceInss = calcInss(referenceIncome, profile.workType);
+  const referenceIr = calcIr(referenceIncome, referenceInss, profile.dependentCount, profile.workType);
+  const referenceDas = calcDas(referenceIncome, profile.workType);
+  const referenceIss = calcIss(referenceIncome, profile.issApplies, profile.issRate);
+  const referenceAnnualNeeded = (referenceIncome + council) * 12
+    + (referenceInss + referenceIr + referenceDas + referenceIss) * 12;
+  const sessionSuggestion = profile.monthlySessionCount > 0 && referenceIncome > 0
+    ? Math.ceil(referenceAnnualNeeded / (profile.monthlySessionCount * workingMonths) / 5) * 5
     : null;
 
+  const annualRows = [
+    ...(profile.workType === 'autonomo' ? [
+      { label: 'INSS Autônomo (acumulado)', value: annualInss },
+      { label: 'IR / Carnê-Leão (acumulado)', value: annualIr },
+    ] : []),
+    ...(profile.workType === 'pj_simples' ? [
+      { label: 'DAS – Simples Nacional (acumulado)', value: annualDas },
+    ] : []),
+    ...(profile.issApplies && profile.workType !== 'pj_simples' ? [
+      { label: `ISS ${profile.issRate}% (acumulado)`, value: annualIss },
+    ] : []),
+    { label: 'Reserva de Férias (acumulada)', value: annualFerias },
+    { label: '13º Salário (acumulado)', value: annualDecimo },
+  ];
+
+  const obligations = getObligations(profile);
+  const healthTabs = HEALTH_TABS.map(tab =>
+    tab.id === 'obrigacoes' ? { ...tab, badge: obligations.length } : tab
+  );
+
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Profile Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-200 flex items-center justify-center text-xl">
-            {profOption.icon}
+    <div className="space-y-3">
+      {/* Cabeçalho do perfil */}
+      <ContentCard padding="md" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-700 shrink-0">
+            <ShieldCheck size={20} />
           </div>
-          <div>
-            <p className="font-black text-slate-800 text-sm">{profOption.label}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
-                {WORK_OPTIONS.find(w => w.id === profile.workType)?.label}
-              </span>
+          <div className="min-w-0">
+            <p className="font-medium text-slate-800 text-sm">{profOption.label}</p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <Badge size="sm">{WORK_OPTIONS.find(w => w.id === profile.workType)?.label}</Badge>
               {profile.dependentCount > 0 && (
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                  <Baby size={9} /> {profile.dependentCount} dependente(s)
-                </span>
+                <Badge size="sm" icon={<Baby size={10} />}>{profile.dependentCount} dependente(s)</Badge>
               )}
               {profile.employeeCount > 0 && (
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                  <Users size={9} /> {profile.employeeCount} func.
-                </span>
+                <Badge size="sm" icon={<Users size={10} />}>{profile.employeeCount} func.</Badge>
               )}
             </div>
           </div>
         </div>
-        <button
-          onClick={() => openSetup(profile)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-black text-slate-500 hover:text-slate-800 hover:bg-slate-50 uppercase tracking-widest transition-all"
-        >
-          <Edit3 size={12} /> Editar Perfil
-        </button>
-      </div>
+        <Button variant="outline" size="sm" iconLeft={<Edit3 size={14} />} onClick={() => openSetup(profile)}>
+          Editar Perfil
+        </Button>
+      </ContentCard>
 
-      {/* Base income info */}
       {lastSixMonths.length === 0 ? (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4">
-          <AlertCircle size={16} className="text-amber-500 shrink-0" />
-          <p className="text-sm font-bold text-amber-700">
-            Sem lançamentos registrados ainda. Adicione receitas para ativar o planejamento.
-          </p>
-        </div>
+        <Alert variant="warning">
+          Sem lançamentos registrados ainda. Adicione receitas para ativar o planejamento.
+        </Alert>
       ) : (
-        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Base de cálculo</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Receita média/mês</p>
-              <p className="text-lg font-black text-slate-800">{formatCurrency(avgIncome)}</p>
-              <p className="text-[9px] text-slate-400 font-bold">últimos {lastSixMonths.length} meses</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Despesa média/mês</p>
-              <p className="text-lg font-black text-rose-600">{formatCurrency(avgExpense)}</p>
-              <p className="text-[9px] text-slate-400 font-bold">média operacional</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Último mês</p>
-              <p className="text-lg font-black text-slate-800">
-                {latestMonth ? `${MONTH_NAMES[latestMonth.month - 1]}/${latestMonth.year}` : '—'}
-              </p>
-              <p className="text-[9px] text-slate-400 font-bold">
-                {latestMonth ? formatCurrency(latestMonth.income) : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total a reservar</p>
-              <p className="text-lg font-black text-amber-600">{formatCurrency(totalReserve)}</p>
-              <p className="text-[9px] text-slate-400 font-bold">{pct(totalReserve, base)} da receita</p>
-            </div>
-          </div>
-        </div>
+        <StatGrid cols={4}>
+          <StatCard title="Receita média/mês" value={formatCurrency(avgIncome)} description={`últimos ${lastSixMonths.length} meses`} icon={TrendingUp} color="success" />
+          <StatCard title="Despesa média/mês" value={formatCurrency(avgExpense)} description="média operacional" icon={TrendingDown} color="danger" />
+          <StatCard
+            title="Último mês"
+            value={latestMonth ? `${MONTH_NAMES[latestMonth.month - 1]}/${latestMonth.year}` : '—'}
+            description={latestMonth ? formatCurrency(latestMonth.income) : '—'}
+            icon={Wallet}
+            color="info"
+          />
+          <StatCard title="Total a reservar" value={formatCurrency(totalReserve)} description={`${pct(totalReserve, base)} da receita`} icon={Landmark} color="warning" />
+        </StatGrid>
       )}
 
-      {/* Reserve cards */}
-      <div>
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3 px-1">
-          📌 Separe por mês — baseado na sua receita média de {formatCurrency(avgIncome)}
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {reserveItems.map((item) => {
-            const c = colorMap[item.color];
-            return (
-              <div
-                key={item.label}
-                className={`${c.bg} border ${c.border} rounded-2xl p-4`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${c.bg} border ${c.border}`}>
-                    <span className={c.icon}>{item.icon}</span>
+      <Tabs<HealthTab> items={healthTabs} value={healthTab} onChange={setHealthTab} label="Planejamento financeiro">
+        {healthTab === 'reservas' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-slate-500">
+              Separe por mês — baseado na sua receita média de {formatCurrency(avgIncome)}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {reserveItems.map((item) => {
+                const c = colorMap[item.color];
+                return (
+                  <div key={item.label} className={`${c.bg} border ${c.border} rounded-lg p-3`}>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className={`w-8 h-8 rounded-md flex items-center justify-center bg-white/70 border ${c.border}`}>
+                        <span className={c.icon}>{item.icon}</span>
+                      </div>
+                      <span className={`text-[11px] font-medium ${c.text} bg-white/60 px-2 py-0.5 rounded-md`}>
+                        {pct(item.value, base)}
+                      </span>
+                    </div>
+                    <p className={`font-medium text-base tabular-nums ${c.text}`}>{formatCurrency(item.value)}</p>
+                    <p className="font-medium text-xs text-slate-700 mt-0.5">{item.label}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                    <p className={`text-[11px] mt-2 ${c.icon}`}>{item.formula}</p>
                   </div>
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${c.text} bg-white/60 px-2 py-0.5 rounded-lg`}>
-                    {pct(item.value, base)}
-                  </span>
+                );
+              })}
+            </div>
+
+            <PanelCard title="Resumo mensal" icon={Wallet}>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Receita bruta</p>
+                  <p className="text-base font-medium text-emerald-700 tabular-nums">{formatCurrency(base)}</p>
                 </div>
-                <p className={`font-black text-lg ${c.text}`}>{formatCurrency(item.value)}</p>
-                <p className="font-black text-[11px] text-slate-700 mt-0.5">{item.label}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{item.desc}</p>
-                <p className={`text-[9px] font-bold mt-2 ${c.icon} opacity-70`}>{item.formula}</p>
+                <div>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Reservas totais</p>
+                  <p className="text-base font-medium text-amber-700 tabular-nums">{formatCurrency(totalReserve)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Despesas oper.</p>
+                  <p className="text-base font-medium text-red-600 tabular-nums">{formatCurrency(avgExpense)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Disponível real</p>
+                  <p className={`text-base font-medium tabular-nums ${disponivel >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {formatCurrency(disponivel)}
+                  </p>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Summary bar */}
-      <div className="bg-slate-900 rounded-3xl p-5 text-white">
-        <p className="text-[9px] font-black uppercase tracking-widest text-white/50 mb-4">Resumo mensal</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">Receita bruta</p>
-            <p className="text-xl font-black">{formatCurrency(base)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-0.5">Reservas totais</p>
-            <p className="text-xl font-black text-amber-400">{formatCurrency(totalReserve)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-rose-400 mb-0.5">Despesas oper.</p>
-            <p className="text-xl font-black text-rose-400">{formatCurrency(avgExpense)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-300 mb-0.5">Disponível real</p>
-            <p className={`text-xl font-black ${disponivel >= 0 ? 'text-emerald-300' : 'text-rose-400'}`}>
-              {formatCurrency(disponivel)}
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 bg-white/10 rounded-2xl overflow-hidden h-2.5 flex">
-          {[
-            { value: totalReserve, color: 'bg-amber-400' },
-            { value: avgExpense, color: 'bg-rose-400' },
-            { value: Math.max(0, disponivel), color: 'bg-emerald-400' },
-          ].map((seg, i) => (
-            <div
-              key={i}
-              className={`${seg.color} transition-all`}
-              style={{ width: base > 0 ? `${Math.min(100, (seg.value / base) * 100)}%` : '0%' }}
-            />
-          ))}
-        </div>
-        <div className="flex gap-4 mt-2">
-          {[
-            { color: 'bg-amber-400', label: 'Reservas' },
-            { color: 'bg-rose-400', label: 'Despesas' },
-            { color: 'bg-emerald-400', label: 'Disponível' },
-          ].map(l => (
-            <div key={l.label} className="flex items-center gap-1.5">
-              <div className={`w-2 h-2 rounded-full ${l.color}`} />
-              <span className="text-[9px] font-black uppercase tracking-widest text-white/50">{l.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Annual view */}
-      {monthsWithData > 0 && (
-        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-              📅 Visão anual — {selectedYear}
-            </p>
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
-              {monthsWithData} {monthsWithData === 1 ? 'mês' : 'meses'} com dados
-            </span>
-          </div>
-
-          {/* Income / expense / projection */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-5">
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-1">Faturamento acumulado</p>
-              <p className="text-xl font-black text-slate-800">{formatCurrency(annualIncome)}</p>
-              <p className="text-[9px] text-slate-400 font-bold mt-1">Total recebido em {selectedYear}</p>
-            </div>
-            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-rose-600 mb-1">Despesas acumuladas</p>
-              <p className="text-xl font-black text-slate-800">{formatCurrency(annualExpense)}</p>
-              <p className="text-[9px] text-slate-400 font-bold mt-1">Total de custos no ano</p>
-            </div>
-            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 col-span-2 sm:col-span-1">
-              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mb-1">Projeção para 12 meses</p>
-              <p className="text-xl font-black text-slate-800">{formatCurrency(projectedIncome)}</p>
-              <p className="text-[9px] text-slate-400 font-bold mt-1">Baseado na média dos {monthsWithData} meses</p>
-            </div>
-          </div>
-
-          {/* Annual tax/obligation breakdown */}
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Obrigações acumuladas no ano</p>
-          <div className="space-y-2">
-            {[
-              ...(profile.workType === 'autonomo' ? [
-                { label: 'INSS Autônomo (acumulado)', value: annualInss, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100' },
-                { label: 'IR / Carnê-Leão (acumulado)', value: annualIr, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-100' },
-              ] : []),
-              ...(profile.workType === 'pj_simples' ? [
-                { label: 'DAS – Simples Nacional (acumulado)', value: annualDas, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-100' },
-              ] : []),
-              ...(profile.issApplies && profile.workType !== 'pj_simples' ? [
-                { label: `ISS ${profile.issRate}% (acumulado)`, value: annualIss, color: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-100' },
-              ] : []),
-              { label: 'Reserva de Férias (acumulada)', value: annualFerias, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-              { label: '13º Salário (acumulado)', value: annualDecimo, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-            ].map((row) => (
-              <div key={row.label} className={`flex items-center justify-between px-4 py-2.5 ${row.bg} border ${row.border} rounded-xl`}>
-                <span className={`text-[11px] font-bold ${row.color}`}>{row.label}</span>
-                <span className={`text-[13px] font-black ${row.color}`}>{formatCurrency(row.value)}</span>
+              <div className="mt-3 bg-slate-100 rounded-full overflow-hidden h-2 flex">
+                {[
+                  { value: totalReserve, color: 'bg-amber-400' },
+                  { value: avgExpense, color: 'bg-rose-400' },
+                  { value: Math.max(0, disponivel), color: 'bg-emerald-500' },
+                ].map((seg, i) => (
+                  <div
+                    key={i}
+                    className={`${seg.color} transition-all`}
+                    style={{ width: base > 0 ? `${Math.min(100, (seg.value / base) * 100)}%` : '0%' }}
+                  />
+                ))}
               </div>
-            ))}
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-900 rounded-xl mt-1">
-              <span className="text-[11px] font-black text-white/70 uppercase tracking-widest">Total de obrigações no ano</span>
-              <span className="text-[15px] font-black text-amber-400">{formatCurrency(annualTotalObligation)}</span>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="flex flex-wrap gap-4 mt-2">
+                {[
+                  { color: 'bg-amber-400', label: 'Reservas' },
+                  { color: 'bg-rose-400', label: 'Despesas' },
+                  { color: 'bg-emerald-500', label: 'Disponível' },
+                ].map(l => (
+                  <div key={l.label} className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full ${l.color}`} />
+                    <span className="text-[11px] text-slate-500">{l.label}</span>
+                  </div>
+                ))}
+              </div>
+            </PanelCard>
 
-      {/* IR Progressive Table */}
-      {profile.workType !== 'pj_simples' && profile.workType !== 'clt' && (
-        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-4">
-            📊 Tabela Carnê-Leão 2025 — sua faixa
-          </p>
-          <div className="space-y-2">
-            {IR_BRACKETS.map((faixa) => {
-              const baseCalc = Math.max(0, base - inss - 189.59 * profile.dependentCount);
-              const isActive = baseCalc >= faixa.min && baseCalc <= faixa.max;
-              return (
-                <div
-                  key={faixa.label}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
-                    isActive
-                      ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-300'
-                      : 'bg-slate-50 border-slate-100'
-                  }`}
-                >
-                  <div className={`w-12 text-center shrink-0 text-[12px] font-black ${isActive ? 'text-amber-700' : 'text-slate-400'}`}>
-                    {faixa.aliquota}
+            {sessionSuggestion && referenceMonth && profile.monthlySessionCount > 0 && (
+              <PanelCard title="Quanto cobrar por sessão?" icon={Calculator}>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <p className="flex-1 text-xs text-slate-600">
+                    Com <span className="font-semibold text-slate-900">{profile.monthlySessionCount} sessões/mês</span> e
+                    usando a receita do último mês fechado, o valor mínimo sugerido por sessão é:
+                  </p>
+                  <div className="text-center bg-primary-50 border border-primary-100 text-primary-700 px-6 py-3 rounded-lg shrink-0">
+                    <p className="text-[11px] mb-0.5">Valor mínimo/sessão</p>
+                    <p className="text-base font-medium tabular-nums">{formatCurrency(sessionSuggestion)}</p>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-3 flex items-center gap-1">
+                  <Info size={11} />
+                  Baseado em {MONTH_NAMES[referenceMonth.month - 1]}/{referenceMonth.year}: {formatCurrency(referenceIncome)} de receita, {profile.monthlySessionCount} sessões × {workingMonths} meses trabalhados/ano. O mês atual e meses futuros não entram no cálculo.
+                </p>
+              </PanelCard>
+            )}
+            {!sessionSuggestion && profile.monthlySessionCount > 0 && (
+              <Alert variant="info" title="Aguardando o último mês fechado">
+                A sugestão por sessão será calculada quando houver receita registrada em {MONTH_NAMES[previousMonthDate.getMonth()]}/{previousMonthDate.getFullYear()}. O mês atual e meses futuros são ignorados.
+              </Alert>
+            )}
+          </div>
+        )}
+
+        {healthTab === 'anual' && (
+          <div className="space-y-3">
+            {monthsWithData > 0 ? (
+              <PanelCard
+                title={`Visão anual — ${selectedYear}`}
+                icon={Calendar}
+                action={<Badge size="sm">{monthsWithData} {monthsWithData === 1 ? 'mês' : 'meses'} com dados</Badge>}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                    <p className="text-[11px] font-medium text-emerald-700 mb-1">Faturamento acumulado</p>
+                    <p className="text-base font-medium text-slate-800 tabular-nums">{formatCurrency(annualIncome)}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Total recebido em {selectedYear}</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                    <p className="text-[11px] font-medium text-red-700 mb-1">Despesas acumuladas</p>
+                    <p className="text-base font-medium text-slate-800 tabular-nums">{formatCurrency(annualExpense)}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Total de custos no ano</p>
+                  </div>
+                  <div className="bg-primary-50 border border-primary-100 rounded-lg p-3">
+                    <p className="text-[11px] font-medium text-primary-700 mb-1">Projeção para 12 meses</p>
+                    <p className="text-base font-medium text-slate-800 tabular-nums">{formatCurrency(projectedIncome)}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Baseado na média dos {monthsWithData} meses</p>
+                  </div>
+                </div>
+
+                <h4 className="text-xs font-semibold text-slate-700 mb-2">Obrigações acumuladas no ano</h4>
+                <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                  {annualRows.map((row) => (
+                    <div key={row.label} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <span className="text-xs text-slate-600">{row.label}</span>
+                      <span className="text-xs font-semibold text-slate-800 tabular-nums">{formatCurrency(row.value)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between gap-3 px-3 py-2 bg-slate-50 rounded-b-lg">
+                    <span className="text-xs font-medium text-slate-700">Total de obrigações no ano</span>
+                    <span className="text-sm font-medium text-amber-700 tabular-nums">{formatCurrency(annualTotalObligation)}</span>
+                  </div>
+                </div>
+              </PanelCard>
+            ) : (
+              <ContentCard>
+                <EmptyState icon={Calendar} title="Sem dados no ano" description="Registre receitas para ver a visão anual." />
+              </ContentCard>
+            )}
+
+            {profile.workType !== 'clt' && (
+              <PanelCard
+                title={profile.workType === 'pj_simples' ? 'Rastreador de DAS mensais' : 'Rastreador de DARFs mensais'}
+                icon={Receipt}
+                action={<Badge size="sm">{darfPaid.size}/{monthSummaries.filter(m => m.income > 0).length} pagos</Badge>}
+              >
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {MONTH_NAMES.map((name, idx) => {
+                    const month = idx + 1;
+                    const key = `${selectedYear}-${month}`;
+                    const paid = darfPaid.has(key);
+                    const hasIncome = monthSummaries.some(m => m.month === month && m.income > 0);
+                    return (
+                      <button
+                        key={month}
+                        type="button"
+                        onClick={() => hasIncome && toggleDarf(month)}
+                        disabled={!hasIncome}
+                        title={hasIncome ? (paid ? 'Marcar como pendente' : 'Marcar como pago') : 'Sem receita neste mês'}
+                        className={`flex flex-col items-center gap-1 py-2.5 px-1 min-h-[44px] rounded-lg border text-center transition-colors ${
+                          !hasIncome
+                            ? 'opacity-40 bg-slate-50 border-slate-100'
+                            : paid
+                            ? 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100'
+                            : 'bg-red-50 border-red-200 hover:bg-red-100'
+                        }`}
+                      >
+                        <span className={`text-[11px] font-medium ${paid ? 'text-emerald-700' : hasIncome ? 'text-red-600' : 'text-slate-400'}`}>
+                          {name}
+                        </span>
+                        {hasIncome && (
+                          paid
+                            ? <CheckCircle2 size={14} className="text-emerald-500" />
+                            : <AlertCircle size={14} className="text-red-400" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-3 flex items-center gap-1">
+                  <Info size={11} />
+                  Clique em um mês com receita para marcar o {profile.workType === 'pj_simples' ? 'DAS' : 'DARF'} como pago. Salvo localmente.
+                </p>
+              </PanelCard>
+            )}
+          </div>
+        )}
+
+        {healthTab === 'impostos' && (
+          <div className="space-y-3">
+            {profile.workType !== 'pj_simples' && profile.workType !== 'clt' ? (
+              <PanelCard title="Tabela Carnê-Leão 2025 — sua faixa" icon={Calculator}>
+                <div className="space-y-2">
+                  {IR_BRACKETS.map((faixa) => {
+                    const baseCalc = Math.max(0, base - inss - 189.59 * profile.dependentCount);
+                    const isActive = baseCalc >= faixa.min && baseCalc <= faixa.max;
+                    return (
+                      <div
+                        key={faixa.label}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+                          isActive ? 'bg-primary-50 border-primary-300' : 'bg-slate-50 border-slate-100'
+                        }`}
+                      >
+                        <div className={`w-12 text-center shrink-0 text-xs font-semibold ${isActive ? 'text-primary-700' : 'text-slate-500'}`}>
+                          {faixa.aliquota}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium ${isActive ? 'text-primary-800' : 'text-slate-600'}`}>{faixa.range}</p>
+                          {faixa.deducao !== '—' && (
+                            <p className="text-[11px] text-slate-500">Parcela a deduzir: {faixa.deducao}</p>
+                          )}
+                        </div>
+                        {isActive && <Badge color="primary" size="sm">Você está aqui</Badge>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-3 flex items-center gap-1">
+                  <Info size={11} />
+                  Base de cálculo atual: {formatCurrency(Math.max(0, base - inss - 189.59 * profile.dependentCount))} (receita − INSS − dependentes)
+                </p>
+              </PanelCard>
+            ) : (
+              <ContentCard>
+                <EmptyState icon={Calculator} title="Tabela do Carnê-Leão não se aplica" description="Para o seu regime de atuação o imposto é recolhido de outra forma (DAS ou folha)." />
+              </ContentCard>
+            )}
+
+            {profile.workType === 'autonomo' && (
+              <PanelCard title="Deduções que reduzem seu IR" icon={Receipt}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-primary-50 border border-primary-100 rounded-lg">
+                    <div>
+                      <p className="text-xs font-medium text-primary-700">INSS Autônomo pago</p>
+                      <p className="text-[11px] text-slate-500">Deduzido da base do Carnê-Leão todo mês</p>
+                    </div>
+                    <span className="text-xs font-semibold text-primary-700 tabular-nums">−{formatCurrency(inss)}</span>
+                  </div>
+                  {profile.dependentCount > 0 && (
+                    <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+                      <div>
+                        <p className="text-xs font-medium text-emerald-700">{profile.dependentCount} dependente(s)</p>
+                        <p className="text-[11px] text-slate-500">R$189,59 por dependente/mês</p>
+                      </div>
+                      <span className="text-xs font-semibold text-emerald-700 tabular-nums">−{formatCurrency(189.59 * profile.dependentCount)}</span>
+                    </div>
+                  )}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                    <p className="text-xs font-medium text-slate-600 mb-2">
+                      Também dedutíveis no IRPF anual (Livro Caixa)
+                    </p>
+                    {[
+                      'Aluguel / sublocação do consultório',
+                      'Material de escritório e higiene',
+                      'Cursos, livros e formação profissional',
+                      'Telefone e internet de uso profissional',
+                      `Anuidade ${profOption.council}`,
+                    ].map(item => (
+                      <div key={item} className="flex items-center gap-2 py-1">
+                        <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                        <span className="text-[11px] text-slate-600">{item}</span>
+                      </div>
+                    ))}
+                    <p className="text-[11px] text-amber-700 mt-2 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      Registre no Livro Caixa com comprovante — reduzem o IR no ajuste anual.
+                    </p>
+                  </div>
+                </div>
+              </PanelCard>
+            )}
+          </div>
+        )}
+
+        {healthTab === 'obrigacoes' && (
+          <PanelCard title={`Obrigações mensais para ${profOption.label}`} icon={ClipboardList}>
+            <div className="divide-y divide-slate-100">
+              {obligations.map((ob) => (
+                <div key={ob.label} className="flex items-start gap-3 py-2.5">
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${ob.required ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
+                    {ob.required ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[11px] font-bold ${isActive ? 'text-amber-800' : 'text-slate-500'}`}>{faixa.range}</p>
-                    {faixa.deducao !== '—' && (
-                      <p className="text-[9px] text-slate-400 font-bold">Parcela a deduzir: {faixa.deducao}</p>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[13px] font-medium text-slate-700">{ob.label}</p>
+                      {ob.deadline && <Badge size="sm">{ob.deadline}</Badge>}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{ob.desc}</p>
                   </div>
-                  {isActive && (
-                    <span className="text-[9px] font-black uppercase text-amber-700 bg-amber-100 px-2 py-0.5 rounded-lg shrink-0">
-                      Você está aqui
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <p className="text-[9px] text-slate-400 font-bold mt-3 flex items-center gap-1">
-            <Info size={11} />
-            Base de cálculo atual: {formatCurrency(Math.max(0, base - inss - 189.59 * profile.dependentCount))} (receita − INSS − dependentes)
-          </p>
-        </div>
-      )}
-
-      {/* Deductions */}
-      {profile.workType === 'autonomo' && (
-        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-4">
-            ✂️ Deduções que reduzem seu IR
-          </p>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl">
-              <div>
-                <p className="text-[11px] font-black text-blue-700">INSS Autônomo pago</p>
-                <p className="text-[10px] text-slate-400">Deduzido da base do Carnê-Leão todo mês</p>
-              </div>
-              <span className="text-[13px] font-black text-blue-700">−{formatCurrency(inss)}</span>
-            </div>
-            {profile.dependentCount > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                <div>
-                  <p className="text-[11px] font-black text-emerald-700">{profile.dependentCount} dependente(s)</p>
-                  <p className="text-[10px] text-slate-400">R$189,59 por dependente/mês</p>
-                </div>
-                <span className="text-[13px] font-black text-emerald-700">−{formatCurrency(189.59 * profile.dependentCount)}</span>
-              </div>
-            )}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mt-1">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                Também dedutíveis no IRPF anual (Livro Caixa)
-              </p>
-              {[
-                'Aluguel / sublocação do consultório',
-                'Material de escritório e higiene',
-                'Cursos, livros e formação profissional',
-                'Telefone e internet de uso profissional',
-                `Anuidade ${profOption.council}`,
-              ].map(item => (
-                <div key={item} className="flex items-center gap-2 py-1">
-                  <CheckCircle2 size={10} className="text-emerald-400 shrink-0" />
-                  <span className="text-[10px] font-bold text-slate-500">{item}</span>
                 </div>
               ))}
-              <p className="text-[9px] text-amber-600 font-bold mt-2 flex items-center gap-1">
-                <AlertCircle size={10} />
-                Registre no Livro Caixa com comprovante — reduzem o IR no ajuste anual.
-              </p>
             </div>
-          </div>
-        </div>
-      )}
+          </PanelCard>
+        )}
+      </Tabs>
 
-      {/* DARF / DAS monthly tracker */}
-      {profile.workType !== 'clt' && (
-        <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-              {profile.workType === 'pj_simples' ? '🗓️ Rastreador de DAS mensais' : '🗓️ Rastreador de DARFs mensais'}
-            </p>
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
-              {darfPaid.size}/{monthSummaries.filter(m => m.income > 0).length} pagos
-            </span>
-          </div>
-          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-            {MONTH_NAMES.map((name, idx) => {
-              const month = idx + 1;
-              const key = `${selectedYear}-${month}`;
-              const paid = darfPaid.has(key);
-              const hasIncome = monthSummaries.some(m => m.month === month && m.income > 0);
-              return (
-                <button
-                  key={month}
-                  onClick={() => hasIncome && toggleDarf(month)}
-                  disabled={!hasIncome}
-                  title={hasIncome ? (paid ? 'Marcar como pendente' : 'Marcar como pago') : 'Sem receita neste mês'}
-                  className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border text-center transition-all ${
-                    !hasIncome
-                      ? 'opacity-30 cursor-default bg-slate-50 border-slate-100'
-                      : paid
-                      ? 'bg-emerald-50 border-emerald-300 ring-1 ring-emerald-200 hover:bg-emerald-100'
-                      : 'bg-rose-50 border-rose-200 hover:bg-rose-100'
-                  }`}
-                >
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${paid ? 'text-emerald-700' : hasIncome ? 'text-rose-600' : 'text-slate-400'}`}>
-                    {name}
-                  </span>
-                  {hasIncome && (
-                    paid
-                      ? <CheckCircle2 size={14} className="text-emerald-500" />
-                      : <AlertCircle size={14} className="text-rose-400" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-[9px] text-slate-400 font-bold mt-3 flex items-center gap-1">
-            <Info size={11} />
-            Clique em um mês com receita para marcar o {profile.workType === 'pj_simples' ? 'DAS' : 'DARF'} como pago. Salvo localmente.
-          </p>
-        </div>
-      )}
-
-      {/* Session fee suggestion */}
-      {sessionSuggestion && profile.monthlySessionCount > 0 && (
-        <div className="bg-gradient-to-r from-slate-50 to-white border border-slate-200 rounded-3xl p-5">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">
-            💡 Quanto cobrar por sessão?
-          </p>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-1">
-              <p className="text-sm font-bold text-slate-600">
-                Com <span className="text-slate-900 font-black">{profile.monthlySessionCount} sessões/mês</span> e
-                cobrindo todos os impostos e reservas, o valor mínimo sugerido por sessão é:
-              </p>
-            </div>
-            <div className="text-center bg-emerald-600 text-white px-8 py-4 rounded-2xl shadow-lg shadow-emerald-100 shrink-0">
-              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-200 mb-0.5">Valor mínimo/sessão</p>
-              <p className="text-base sm:text-xl font-black">{formatCurrency(sessionSuggestion)}</p>
-            </div>
-          </div>
-          <p className="text-[10px] text-slate-400 font-bold mt-3 flex items-center gap-1">
-            <Info size={11} />
-            Baseado em {profile.monthlySessionCount} sessões × {workingMonths} meses trabalhados/ano. Ajuste conforme sua realidade.
-          </p>
-        </div>
-      )}
-
-      {/* Obligations checklist */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-4">
-          📋 Obrigações mensais para {profOption.label}
-        </p>
-        <div className="space-y-2">
-          {getObligations(profile).map((ob) => (
-            <div key={ob.label} className="flex items-start gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-colors">
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${ob.required ? 'bg-amber-100 text-amber-500' : 'bg-slate-100 text-slate-400'}`}>
-                {ob.required ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-black text-slate-700">{ob.label}</p>
-                  {ob.deadline && (
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">{ob.deadline}</span>
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">{ob.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Setup Modal */}
       {isSetupOpen && (
         <SetupModal
           step={step} setStep={setStep}
@@ -844,6 +823,31 @@ interface SetupProps {
   onClose: () => void;
 }
 
+const Stepper: React.FC<{ label: string; hint?: string; value: number; onChange: (n: number) => void; min?: number; steps?: number[] }> = ({ label, hint, value, onChange, min = 0, steps = [1] }) => (
+  <div>
+    <span className="block text-xs font-medium text-slate-600 mb-1.5">{label}</span>
+    <div className="flex items-center gap-2">
+      {[...steps].reverse().map(s => (
+        <Button key={`-${s}`} variant="outline" size="sm" aria-label={`Diminuir ${s}`} onClick={() => onChange(Math.max(min, value - s))}>
+          {s === 1 ? '−' : `−${s}`}
+        </Button>
+      ))}
+      <span className="text-sm font-medium text-slate-800 w-10 text-center tabular-nums">{value}</span>
+      {steps.map(s => (
+        <Button key={`+${s}`} variant="outline" size="sm" aria-label={`Aumentar ${s}`} onClick={() => onChange(value + s)}>
+          {s === 1 ? '+' : `+${s}`}
+        </Button>
+      ))}
+    </div>
+    {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
+  </div>
+);
+
+const optionTile = (selected: boolean) =>
+  `w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
+    selected ? 'border-primary-500 bg-primary-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+  }`;
+
 const SetupModal: React.FC<SetupProps> = ({
   step, setStep,
   fWorkType, setFWorkType,
@@ -858,200 +862,138 @@ const SetupModal: React.FC<SetupProps> = ({
   const TOTAL_STEPS = 3;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg bg-white rounded-[2rem] shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="bg-slate-900 px-6 py-5 flex items-center justify-between">
-          <div>
-            <p className="text-white font-black text-sm">Configurar Perfil Profissional</p>
-            <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-0.5">
-              Passo {step} de {TOTAL_STEPS}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 text-white/40 hover:text-white rounded-xl hover:bg-white/10 transition-all">
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Progress bar */}
-        <div className="h-1 bg-slate-100">
-          <div
-            className="h-full bg-emerald-500 transition-all duration-500"
-            style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
-          />
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-
-          {/* Step 1: Work type */}
-          {step === 1 && (
-            <div className="space-y-3">
-              <p className="font-black text-slate-800">Como você atua profissionalmente?</p>
-              {WORK_OPTIONS.map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setFWorkType(opt.id as any)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
-                    fWorkType === opt.id
-                      ? 'border-emerald-500 bg-emerald-50'
-                      : 'border-slate-100 hover:border-slate-300 bg-white'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${fWorkType === opt.id ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                    {opt.icon}
-                  </div>
-                  <div>
-                    <p className="font-black text-sm text-slate-800">{opt.label}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{opt.desc}</p>
-                  </div>
-                  {fWorkType === opt.id && <CheckCircle2 size={18} className="text-emerald-500 ml-auto shrink-0" />}
-                </button>
-              ))}
-            </div>
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Configurar Perfil Profissional"
+      subtitle={`Passo ${step} de ${TOTAL_STEPS}`}
+      footer={
+        <ModalFooter align="between">
+          <Button
+            variant="ghost"
+            size="sm"
+            iconLeft={<ChevronLeft size={14} />}
+            onClick={() => step > 1 ? setStep(step - 1) : onClose()}
+          >
+            {step > 1 ? 'Voltar' : 'Cancelar'}
+          </Button>
+          {step < TOTAL_STEPS ? (
+            <Button variant="primary" size="sm" iconRight={<ChevronRight size={14} />} onClick={() => setStep(step + 1)}>
+              Próximo
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" iconLeft={<CheckCircle2 size={14} />} onClick={onSave}>
+              Salvar Perfil
+            </Button>
           )}
+        </ModalFooter>
+      }
+    >
+      <div className="space-y-4">
+        <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-full bg-primary-500 transition-all duration-300" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
+        </div>
 
-          {/* Step 2: Profession + dependents */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div>
-                <p className="font-black text-slate-800 mb-3">Qual é sua profissão?</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {PROFESSION_OPTIONS.map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setFProfession(opt.id as any)}
-                      className={`flex items-center gap-2.5 p-3 rounded-2xl border-2 text-left transition-all ${
-                        fProfession === opt.id
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-slate-100 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <span className="text-lg">{opt.icon}</span>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-black text-slate-700 truncate">{opt.label}</p>
-                        <p className="text-[9px] text-slate-400 font-bold">{opt.council}</p>
-                      </div>
-                    </button>
-                  ))}
+        {/* Passo 1: tipo de atuação */}
+        {step === 1 && (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-slate-800">Como você atua profissionalmente?</p>
+            {WORK_OPTIONS.map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setFWorkType(opt.id as any)}
+                className={optionTile(fWorkType === opt.id)}
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${fWorkType === opt.id ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {opt.icon}
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                    Dependentes (IR)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setFDependents(Math.max(0, fDependents - 1))} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">−</button>
-                    <span className="font-black text-slate-800 w-6 text-center">{fDependents}</span>
-                    <button onClick={() => setFDependents(fDependents + 1)} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">+</button>
-                  </div>
-                  <p className="text-[9px] text-slate-400 font-bold mt-1">Reduz base do IR</p>
+                <div className="min-w-0">
+                  <p className="font-medium text-[13px] text-slate-800">{opt.label}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{opt.desc}</p>
                 </div>
+                {fWorkType === opt.id && <CheckCircle2 size={16} className="text-primary-600 ml-auto shrink-0" />}
+              </button>
+            ))}
+          </div>
+        )}
 
-                {fWorkType === 'pj_simples' && (
-                  <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                      Funcionários
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setFEmployees(Math.max(0, fEmployees - 1))} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">−</button>
-                      <span className="font-black text-slate-800 w-6 text-center">{fEmployees}</span>
-                      <button onClick={() => setFEmployees(fEmployees + 1)} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">+</button>
+        {/* Passo 2: profissão + dependentes */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-slate-800 mb-3">Qual é sua profissão?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {PROFESSION_OPTIONS.map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setFProfession(opt.id as any)}
+                    className={optionTile(fProfession === opt.id)}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-slate-700 truncate">{opt.label}</p>
+                      <p className="text-[11px] text-slate-500">{opt.council}</p>
                     </div>
-                    <p className="text-[9px] text-slate-400 font-bold mt-1">Afeta alíquota</p>
+                    {fProfession === opt.id && <CheckCircle2 size={14} className="text-primary-600 ml-auto shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Stepper label="Dependentes (IR)" hint="Reduz base do IR" value={fDependents} onChange={setFDependents} />
+              {fWorkType === 'pj_simples' && (
+                <Stepper label="Funcionários" hint="Afeta alíquota" value={fEmployees} onChange={setFEmployees} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Passo 3: sessões + ISS */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <Stepper
+              label="Quantas sessões você realiza por mês (em média)?"
+              hint="Usado para calcular o valor sugerido por sessão"
+              value={fSessions}
+              onChange={setFSessions}
+              min={1}
+              steps={[1, 5]}
+            />
+
+            {fWorkType !== 'pj_simples' && (
+              <div className="border border-slate-200 rounded-lg p-3 space-y-3">
+                <Switch
+                  checked={fIssApplies}
+                  onCheckedChange={setFIssApplies}
+                  label="ISS no seu município?"
+                  description="Imposto sobre Serviços – cobrado pela prefeitura"
+                />
+                {fIssApplies && (
+                  <div>
+                    <span className="block text-xs font-medium text-slate-600 mb-2">Alíquota ISS (%)</span>
+                    <div className="flex gap-2">
+                      {[2, 2.5, 3, 4, 5].map(r => (
+                        <Button
+                          key={r}
+                          size="sm"
+                          variant={fIssRate === r ? 'primary' : 'outline'}
+                          className="flex-1"
+                          onClick={() => setFIssRate(r)}
+                        >
+                          {r}%
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* Step 3: Sessions + ISS */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                  Quantas sessões você realiza por mês (em média)?
-                </label>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setFSessions(Math.max(1, fSessions - 5))} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">−5</button>
-                  <button onClick={() => setFSessions(Math.max(1, fSessions - 1))} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">−</button>
-                  <span className="font-black text-base sm:text-xl text-slate-800 w-12 text-center">{fSessions}</span>
-                  <button onClick={() => setFSessions(fSessions + 1)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">+</button>
-                  <button onClick={() => setFSessions(fSessions + 5)} className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black flex items-center justify-center transition-all">+5</button>
-                </div>
-                <p className="text-[10px] text-slate-400 font-bold mt-1">Usado para calcular o valor sugerido por sessão</p>
-              </div>
-
-              {fWorkType !== 'pj_simples' && (
-                <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-black text-slate-700 text-sm">ISS no seu município?</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Imposto sobre Serviços – cobrado pela prefeitura</p>
-                    </div>
-                    <button
-                      onClick={() => setFIssApplies(!fIssApplies)}
-                      className={`w-12 h-6 rounded-full transition-all relative ${fIssApplies ? 'bg-emerald-500' : 'bg-slate-200'}`}
-                    >
-                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${fIssApplies ? 'left-6' : 'left-0.5'}`} />
-                    </button>
-                  </div>
-                  {fIssApplies && (
-                    <div>
-                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                        Alíquota ISS (%)
-                      </label>
-                      <div className="flex gap-2">
-                        {[2, 2.5, 3, 4, 5].map(r => (
-                          <button
-                            key={r}
-                            onClick={() => setFIssRate(r)}
-                            className={`flex-1 py-2 rounded-xl text-[11px] font-black transition-all border ${
-                              fIssRate === r
-                                ? 'bg-slate-900 text-white border-slate-900'
-                                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
-                            }`}
-                          >
-                            {r}%
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-          <button
-            onClick={() => step > 1 ? setStep(step - 1) : onClose()}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-700 uppercase tracking-widest transition-colors"
-          >
-            <ChevronLeft size={14} /> {step > 1 ? 'Voltar' : 'Cancelar'}
-          </button>
-          {step < TOTAL_STEPS ? (
-            <button
-              onClick={() => setStep(step + 1)}
-              className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-            >
-              Próximo <ChevronRight size={14} />
-            </button>
-          ) : (
-            <button
-              onClick={onSave}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-100"
-            >
-              <CheckCircle2 size={14} /> Salvar Perfil
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -523,33 +523,33 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
     <>
     <div className={cx('space-y-6', className)}>
       {!hideHeader && (
-        <div className="rounded-2xl sm:rounded-[30px] border border-slate-200 bg-gradient-to-r from-white to-slate-50/70 p-4 shadow-sm">
+        <div className="rounded-lg sm:rounded-[30px] border border-slate-200 bg-gradient-to-r from-white to-slate-50/70 p-4 shadow-sm">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex items-center rounded-[20px] border border-slate-200 bg-slate-100/80 p-1.5 shadow-inner">
                 <button
                   onClick={() => handleNavigate(-1)}
-                  className="rounded-xl p-2.5 text-slate-400 transition hover:bg-white hover:text-primary-600"
+                  className="rounded-lg p-2.5 text-slate-400 transition hover:bg-white hover:text-primary-600"
                 >
                   <ChevronLeft size={18} />
                 </button>
 
                 <button
                   onClick={handleToday}
-                  className="px-4 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700"
+                  className="px-4 text-[11px] font-semibold text-slate-700"
                 >
                   Hoje
                 </button>
 
                 <button
                   onClick={() => handleNavigate(1)}
-                  className="rounded-xl p-2.5 text-slate-400 transition hover:bg-white hover:text-primary-600"
+                  className="rounded-lg p-2.5 text-slate-400 transition hover:bg-white hover:text-primary-600"
                 >
                   <ChevronRight size={18} />
                 </button>
               </div>
 
-              <h2 className="px-1 text-sm sm:text-base font-bold tracking-tight text-slate-800">
+              <h2 className="px-1 text-sm sm:text-base font-semibold text-slate-800">
                 {rangeLabel}
               </h2>
 
@@ -561,7 +561,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                     if (!e.target.value) return;
                     onCurrentDateChange(new Date(`${e.target.value}T12:00:00`));
                   }}
-                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-primary-500"
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-primary-500"
                 />
                 <CalendarClock
                   size={16}
@@ -575,7 +575,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 <button
                   onClick={() => onViewChange('day')}
                   className={cx(
-                    'rounded-xl px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition',
+                    'rounded-lg px-4 py-2 text-[11px] font-semibold transition',
                     view === 'day'
                       ? 'bg-white text-primary-600 shadow-sm'
                       : 'text-slate-500'
@@ -587,7 +587,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 <button
                   onClick={() => onViewChange('week')}
                   className={cx(
-                    'rounded-xl px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition',
+                    'rounded-lg px-4 py-2 text-[11px] font-semibold transition',
                     view === 'week'
                       ? 'bg-white text-primary-600 shadow-sm'
                       : 'text-slate-500'
@@ -600,7 +600,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
               {onCreateEvent && (
                 <button
                   onClick={onCreateEvent}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-primary-200 transition hover:brightness-110"
+                  className="inline-flex h-11 items-center gap-2 rounded-lg bg-gradient-to-r from-primary-600 to-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-primary-200 transition hover:brightness-110"
                 >
                   <Plus size={16} />
                   Novo agendamento
@@ -613,40 +613,40 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 
       {!hideStats && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+          <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-sm">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-600 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-50 text-primary-600 shadow-sm">
                 <CalendarDays size={20} />
               </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-semibold text-slate-500">
                 Sessões hoje
               </p>
             </div>
-            <p className="text-base sm:text-xl font-black text-slate-800">{stats.appointmentsToday}</p>
+            <p className="text-base sm:text-xl font-semibold text-slate-800">{stats.appointmentsToday}</p>
           </div>
 
-          <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+          <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-sm">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shadow-sm">
                 <CheckCircle2 size={20} />
               </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-semibold text-slate-500">
                 Confirmados
               </p>
             </div>
-            <p className="text-base sm:text-xl font-black text-slate-800">{stats.confirmed}</p>
+            <p className="text-base sm:text-xl font-semibold text-slate-800">{stats.confirmed}</p>
           </div>
 
-          <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+          <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-sm">
             <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-50 text-primary-600 shadow-sm">
                 <CheckSquare size={20} />
               </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[11px] font-semibold text-slate-500">
                 Tarefas abertas
               </p>
             </div>
-            <p className="text-base sm:text-xl font-black text-slate-800">{stats.tasksOpen}</p>
+            <p className="text-base sm:text-xl font-semibold text-slate-800">{stats.tasksOpen}</p>
           </div>
         </div>
       )}
@@ -657,7 +657,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
           showTasksPanel ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px]' : 'grid-cols-1'
         )}
       >
-        <div className="rounded-xl sm:rounded-[24px] border border-slate-200 bg-white shadow-sm" style={{ isolation: 'isolate' }}>
+        <div className="rounded-lg sm:rounded-[24px] border border-slate-200 bg-white shadow-sm" style={{ isolation: 'isolate' }}>
           {/* Cabeçalho dos dias — sticky fora do scroll horizontal */}
           <div
             className="sticky z-20 flex border-b border-slate-100 bg-white/95 backdrop-blur-sm"
@@ -692,18 +692,18 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       )}
                     >
                       <span className={cx(
-                        'text-[9px] font-extrabold uppercase tracking-[0.2em]',
+                        'text-[10px] font-semibold',
                         closedEntry ? 'text-rose-400' : isWeekend ? 'text-slate-400' : 'text-slate-400'
                       )}>
                         {day.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '')}
                       </span>
                       {isToday ? (
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-[13px] font-black text-white shadow-md shadow-indigo-300/60">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-[13px] font-semibold text-white shadow-sm shadow-indigo-300/60">
                           {day.getDate()}
                         </span>
                       ) : (
                         <span className={cx(
-                          'flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-bold',
+                          'flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-semibold',
                           closedEntry
                             ? 'text-rose-500 bg-rose-100'
                             : isWeekend ? 'text-slate-400' : 'text-slate-700'
@@ -712,7 +712,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         </span>
                       )}
                       {closedEntry && (
-                        <span className="rounded-full bg-rose-100 px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-rose-500 leading-tight max-w-full truncate">
+                        <span className="rounded-full bg-rose-100 px-1.5 py-px text-[10px] font-semibold text-rose-500 leading-tight max-w-full truncate">
                           {closedEntry.label || 'Fechado'}
                         </span>
                       )}
@@ -754,7 +754,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         className="relative flex justify-center border-b border-slate-200/60"
                         style={{ height: hourHeight }}
                       >
-                        <span className="absolute top-1.5 text-[10px] font-bold tabular-nums tracking-wide text-slate-400">
+                        <span className="absolute top-1.5 text-[11px] font-semibold tabular-nums text-slate-400">
                           {formatHourLabel(hour)}
                         </span>
                       </div>
@@ -863,7 +863,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           <div className="pointer-events-none absolute inset-0 z-[4] flex flex-col items-center justify-center gap-2"
                             style={{ background: 'rgba(254,226,226,0.55)', backdropFilter: 'blur(1px)' }}>
                             <Ban size={22} className="text-rose-300" strokeWidth={1.5} />
-                            <span className="rounded-full bg-rose-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-rose-500 text-center max-w-[90%] truncate">
+                            <span className="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-500 text-center max-w-[90%] truncate">
                               {closedLabel}
                             </span>
                           </div>
@@ -884,7 +884,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                           <>
                             {/* Caixa afundada com borda dashed + "+" centralizado na cor do tema */}
                             <div
-                              className="pointer-events-none absolute z-[6] flex items-center justify-center rounded-xl"
+                              className="pointer-events-none absolute z-[6] flex items-center justify-center rounded-lg"
                               style={{
                                 top: hoveredSlot.top + 2,
                                 left: 3,
@@ -895,7 +895,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                               }}
                             >
                               <div
-                                className="w-7 h-7 rounded-full flex items-center justify-center shadow-md"
+                                className="w-7 h-7 rounded-full flex items-center justify-center shadow-sm"
                                 style={{ background: 'var(--c-500)' }}
                               >
                                 <Plus size={14} className="text-white" strokeWidth={3} />
@@ -910,7 +910,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                 transform: 'translateX(-50%)',
                               }}
                             >
-                              <div className="relative flex items-center gap-2 bg-zinc-900 text-white text-[11px] font-black rounded-xl px-3 py-2 shadow-2xl whitespace-nowrap">
+                              <div className="relative flex items-center gap-2 bg-zinc-900 text-white text-[11px] font-semibold rounded-lg px-3 py-2 shadow-sm whitespace-nowrap">
                                 <div
                                   className="w-5 h-5 shrink-0 rounded-full flex items-center justify-center"
                                   style={{ background: 'var(--c-500)' }}
@@ -939,7 +939,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                               style={{ top: currentTimeTop }}
                             >
                               <div className="relative flex items-center">
-                                <div className="ml-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 shadow-lg shadow-rose-200" />
+                                <div className="ml-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-200" />
                                 <div className="ml-1.5 h-[2px] flex-1 bg-rose-400/80" />
                               </div>
                             </div>
@@ -1001,7 +1001,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 
                               {/* ── Card do agendamento (overflow-hidden separado) ── */}
                               <button
-                                className="absolute inset-0 overflow-hidden rounded-xl border text-left shadow-sm transition-all duration-150 hover:z-[14] hover:shadow-lg active:scale-[0.995] w-full"
+                                className="absolute inset-0 overflow-hidden rounded-lg border text-left shadow-sm transition-all duration-150 hover:z-[14] hover:shadow-sm active:scale-[0.995] w-full"
                                 style={{
                                   background:
                                     event.type === 'bloqueio'
@@ -1031,14 +1031,14 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                   {/* Row 1: Time + Session + Status dot */}
                                   <div className="flex items-center justify-between gap-1 leading-none">
                                     <div className="flex items-center gap-1 min-w-0">
-                                      <span className="text-[9px] font-black tabular-nums text-slate-500/80">
+                                      <span className="text-[10px] font-semibold tabular-nums text-slate-500/80">
                                         {event.startDate.toLocaleTimeString([], {
                                           hour: '2-digit',
                                           minute: '2-digit',
                                         })}
                                       </span>
                                       {(event.recurrenceIndex !== undefined && event.recurrenceCount !== undefined) && (
-                                        <span className="rounded-sm bg-indigo-50 px-1 py-px text-[7px] font-black text-indigo-600 border border-indigo-100/50 leading-none">
+                                        <span className="rounded-sm bg-indigo-50 px-1 py-px text-[7px] font-semibold text-indigo-600 border border-indigo-100/50 leading-none">
                                           {event.recurrenceIndex}/{event.recurrenceCount}
                                         </span>
                                       )}
@@ -1048,12 +1048,12 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                         {event.modality === 'online' ? (
                                           <>
                                             <Video size={8} style={{ color: '#0891b2' }} />
-                                            <span className="text-[7px] font-black text-cyan-600 uppercase">On</span>
+                                            <span className="text-[7px] font-semibold text-cyan-600">On</span>
                                           </>
                                         ) : event.modality === 'presencial' ? (
                                           <>
                                             <MapPin size={8} className="text-slate-400" />
-                                            <span className="text-[7px] font-black text-slate-400 uppercase">Pre</span>
+                                            <span className="text-[7px] font-semibold text-slate-400">Pre</span>
                                           </>
                                         ) : null}
                                       </div>
@@ -1062,13 +1062,13 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                   </div>
 
                                   {/* Row 2: Patient Name */}
-                                  <p className="truncate text-[10px] font-black leading-tight text-slate-900 tracking-tight">
+                                  <p className="truncate text-[11px] font-semibold leading-tight text-slate-900">
                                     {event.title}
                                   </p>
 
                                   {/* Row 3: Service */}
                                   {event.serviceName && (
-                                    <p className="truncate text-[8px] font-semibold text-slate-500/80 leading-none">
+                                    <p className="truncate text-[10px] font-semibold text-slate-500/80 leading-none">
                                       {event.serviceName}
                                     </p>
                                   )}
@@ -1084,13 +1084,13 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                                     <div className="mt-auto flex items-center justify-between gap-1 pt-px">
                                       <div className="flex items-center gap-1">
                                         <span className={cx('h-1 w-1 rounded-full', status.dot)} />
-                                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wide">{status.label}</span>
+                                        <span className="text-[7px] font-semibold text-slate-400">{status.label}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                         {event.comandaId && (
-                                          <span className="text-[7px] font-black bg-emerald-50/60 px-1 py-px rounded text-emerald-500 border border-emerald-100/30">$</span>
+                                          <span className="text-[7px] font-semibold bg-emerald-50/60 px-1 py-px rounded text-emerald-500 border border-emerald-100/30">$</span>
                                         )}
-                                        <span className="inline-flex items-center text-[8px] text-slate-400/50">
+                                        <span className="inline-flex items-center text-[10px] text-slate-400/50">
                                           {meta.icon}
                                         </span>
                                       </div>
@@ -1116,7 +1116,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
             <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold tracking-tight text-slate-800">
+                  <h3 className="text-base font-semibold text-slate-800">
                     Minhas tarefas
                   </h3>
                   <p className="text-sm text-slate-400">
@@ -1127,7 +1127,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 {onCreateTask && (
                   <button
                     onClick={onCreateTask}
-                    className="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     <Plus size={14} />
                     Nova
@@ -1150,7 +1150,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                   <button
                     key={task.id}
                     onClick={() => onTaskClick?.(task)}
-                    className="w-full rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="w-full rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-sm"
                   >
                     <div className="mb-2 flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
@@ -1184,7 +1184,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       </div>
 
                       {task.tag && (
-                        <span className="rounded-full bg-primary-50 px-2 py-1 text-[10px] font-bold text-primary-600">
+                        <span className="rounded-full bg-primary-50 px-2 py-1 text-[11px] font-semibold text-primary-600">
                           {task.tag}
                         </span>
                       )}
@@ -1294,7 +1294,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
               <div style={arrowStyle} />
 
               {/* Dia */}
-              <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 900, color: 'rgba(148,163,184,1)', margin: 0 }}>
+              <p style={{ fontSize: 9, textTransform: '', letterSpacing: '0.18em', fontWeight: 900, color: 'rgba(148,163,184,1)', margin: 0 }}>
                 {ev.startDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}
               </p>
 
@@ -1319,7 +1319,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 
               {/* Sessão */}
               {ev.recurrenceIndex !== undefined && ev.recurrenceCount !== undefined && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 9, fontWeight: 900, textTransform: 'uppercase', backgroundColor: `${tooltipAccent}25`, color: tooltipAccent }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 9, fontWeight: 900, textTransform: '', backgroundColor: `${tooltipAccent}25`, color: tooltipAccent }}>
                   Sessão {ev.recurrenceIndex}/{ev.recurrenceCount}
                 </div>
               )}
@@ -1330,7 +1330,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 <span style={{ fontSize: 9, color: 'rgba(203,213,225,1)', fontWeight: 700 }}>{tooltipStatusMeta.label}</span>
                 {(isOnline || isPresencial) && (
                   <span style={{
-                    fontSize: 8, fontWeight: 900, textTransform: 'uppercase', marginLeft: 'auto',
+                    fontSize: 8, fontWeight: 900, textTransform: '', marginLeft: 'auto',
                     padding: '2px 6px', borderRadius: 999,
                     color: isOnline ? 'rgba(103,232,249,1)' : 'rgba(148,163,184,1)',
                     background: isOnline ? 'rgba(6,182,212,0.15)' : 'rgba(100,116,139,0.15)',

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, X, Copy } from 'lucide-react';
-import { Button } from '../UI/Button';
+import { Button, IconButton, Switch, Input } from '../UI';
 
 export type DayKey =
   | 'monday'
@@ -73,75 +73,70 @@ export const WeeklyScheduleEditor: React.FC<WeeklyScheduleEditorProps> = ({ sche
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {schedule.map((day, idx) => (
-        <div key={day.dayKey} className="rounded-2xl border border-slate-100 bg-white p-3 sm:p-4">
+        <div key={day.dayKey} className="rounded-lg border border-slate-200 bg-white p-3">
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => toggleDay(idx)}
-              className={`relative h-5 w-9 flex-shrink-0 rounded-full transition-colors ${day.active ? 'bg-[#6355D8]' : 'bg-slate-200'}`}
-            >
-              <span
-                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${day.active ? 'translate-x-4' : 'translate-x-0.5'}`}
-              />
-            </button>
-            <span className="w-28 flex-shrink-0 text-sm font-bold text-slate-700">{DAY_LABELS[day.dayKey]}</span>
+            <Switch checked={day.active} onCheckedChange={() => toggleDay(idx)} aria-label={`Atender ${DAY_LABELS[day.dayKey]}`} />
+            <span className="w-28 flex-shrink-0 text-[13px] font-medium text-slate-800">{DAY_LABELS[day.dayKey]}</span>
 
             {day.active && (
               <>
-                <input
+                <Input
                   type="time"
+                  aria-label={`${DAY_LABELS[day.dayKey]}: início`}
                   value={day.start}
                   onChange={e => updateDay(idx, { start: e.target.value })}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700"
+                  wrapperClassName="w-28"
                 />
-                <span className="text-slate-400">até</span>
-                <input
+                <span className="text-xs text-slate-500">até</span>
+                <Input
                   type="time"
+                  aria-label={`${DAY_LABELS[day.dayKey]}: fim`}
                   value={day.end}
                   onChange={e => updateDay(idx, { end: e.target.value })}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700"
+                  wrapperClassName="w-28"
                 />
 
                 {day.breaks.map((b, bi) => (
                   <div key={bi} className="flex items-center gap-1.5">
-                    <span className="text-xs text-slate-400">Pausa</span>
-                    <input
+                    <span className="text-[11px] text-slate-500">Pausa</span>
+                    <Input
                       type="time"
+                      aria-label="Início da pausa"
                       value={b.start}
                       onChange={e => updateBreak(idx, bi, { start: e.target.value })}
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700"
+                      wrapperClassName="w-28"
                     />
                     <span className="text-slate-400">-</span>
-                    <input
+                    <Input
                       type="time"
+                      aria-label="Fim da pausa"
                       value={b.end}
                       onChange={e => updateBreak(idx, bi, { end: e.target.value })}
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700"
+                      wrapperClassName="w-28"
                     />
-                    <button type="button" onClick={() => removeBreak(idx, bi)} className="text-slate-400 hover:text-red-500">
+                    <IconButton variant="ghost" size="sm" aria-label="Remover pausa" onClick={() => removeBreak(idx, bi)}>
                       <X size={14} />
-                    </button>
+                    </IconButton>
                   </div>
                 ))}
 
-                <button
-                  type="button"
-                  onClick={() => addBreak(idx)}
-                  className="flex items-center gap-1 text-xs font-semibold text-[#6355D8] hover:text-[#5447C4]"
-                >
-                  <Plus size={13} /> Pausa
-                </button>
+                <Button type="button" variant="ghost" size="xs" iconLeft={<Plus size={14} />} onClick={() => addBreak(idx)}>
+                  Pausa
+                </Button>
 
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="ml-auto"
+                  iconLeft={<Copy size={14} />}
                   onClick={() => copyDayToAll(idx)}
-                  className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-600"
                   title="Copiar horário para todos os dias"
                 >
-                  <Copy size={13} /> Copiar para todos
-                </button>
+                  Copiar para todos
+                </Button>
               </>
             )}
           </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { Button } from '../UI';
 
 interface SubStatus {
   subscription_type: 'free' | 'trial' | 'paid' | 'exempt';
@@ -32,24 +33,24 @@ export const TrialBanner: React.FC = () => {
 
   return (
     <div
-      className="flex items-center justify-center gap-3 px-4 py-2 text-sm shrink-0"
-      style={{
-        background: urgent
-          ? 'linear-gradient(90deg, #DC2626 0%, #991B1B 100%)'
-          : 'linear-gradient(90deg, #6D42F5 0%, #4F2FD1 100%)',
-        color: '#fff',
-      }}
+      className={`flex shrink-0 flex-wrap items-center justify-center gap-3 border-b px-4 py-2 text-xs ${
+        urgent
+          ? 'border-red-200 bg-red-50 text-red-800'
+          : 'border-primary-100 bg-primary-50 text-primary-800'
+      }`}
     >
-      <Sparkles size={15} className="shrink-0" />
-      <span className="font-semibold text-center">
+      <Sparkles size={14} className="shrink-0" />
+      <span className="text-center font-medium">
         Período de teste gratuito: faltam {status.days_left} dia{status.days_left === 1 ? '' : 's'}.
       </span>
-      <button
+      <Button
+        size="xs"
+        variant={urgent ? 'danger' : 'primary'}
         onClick={() => navigate('/assinatura')}
-        className="shrink-0 rounded-lg px-3 py-1 text-xs font-bold bg-white/15 hover:bg-white/25 transition-colors"
+        className="shrink-0"
       >
         Assinar agora
-      </button>
+      </Button>
     </div>
   );
 };

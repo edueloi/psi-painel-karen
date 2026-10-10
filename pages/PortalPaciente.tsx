@@ -8,8 +8,8 @@ import { useToast } from '../contexts/ToastContext';
 import { api } from '../services/api';
 import { ContractTemplateEditor } from '../components/Contract/ContractTemplateEditor';
 import {
-  PageWrapper, SectionTitle, StatGrid, StatCard, FilterLineSegmented,
-  Button, IconButton, EmptyState,
+  PageWrapper, SectionTitle, StatGrid, StatCard, Tabs, ContentCard, PanelCard, Badge,
+  Button, IconButton, EmptyState, ConfirmModal,
 } from '../components/UI';
 import { Switch } from '../components/UI/Switch';
 import { Select, Input, Textarea } from '../components/UI/Input';
@@ -60,7 +60,11 @@ interface TokenPackageConfig {
   configured: boolean;
 }
 
-type Tab = 'pacientes' | 'configuracoes';
+const PORTAL_TABS = [
+  { id: 'pacientes', label: 'Pacientes', icon: Users },
+  { id: 'configuracoes', label: 'Configurações', icon: Settings },
+] as const;
+type Tab = typeof PORTAL_TABS[number]['id'];
 
 const PIX_KEY_TYPES = [
   { value: 'cpf', label: 'CPF' },
@@ -76,6 +80,7 @@ export const PortalPaciente: React.FC = () => {
   const [tokens, setTokens] = useState<PortalToken[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revokeId, setRevokeId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -161,12 +166,12 @@ export const PortalPaciente: React.FC = () => {
   };
 
   const revokeToken = async (id: number) => {
-    if (!confirm('Revogar este link? O paciente não poderá mais acessar.')) return;
     try {
       await api.delete(`/patient-portal/tokens/${id}`);
       pushToast('success', 'Link revogado.');
       fetchTokens();
     } catch { pushToast('error', 'Erro ao revogar.'); }
+    finally { setRevokeId(null); }
   };
 
   const copyLink = (token: string, id: number) => {
@@ -253,7 +258,8 @@ export const PortalPaciente: React.FC = () => {
   const pendingCount = tokens.filter(t => !t.is_used).length;
 
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
+    <PageWrapper>
+      <div className="space-y-4">
       <SectionTitle
         icon={Globe}
         title="Portal do Paciente"
@@ -273,22 +279,14 @@ export const PortalPaciente: React.FC = () => {
         <StatCard title="Pendentes" value={pendingCount} icon={Package} color="warning" />
       </StatGrid>
 
-      <FilterLineSegmented<Tab>
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: 'pacientes', label: 'Pacientes', icon: <Users size={13} /> },
-          { value: 'configuracoes', label: 'Configurações', icon: <Settings size={13} /> },
-        ]}
-      />
-
+      <Tabs<Tab> items={PORTAL_TABS} value={tab} onChange={setTab} label="Seções do portal do paciente">
       {/* ── TAB: PACIENTES ── */}
       {tab === 'pacientes' && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <ContentCard padding="none" className="overflow-hidden">
           {/* Inline create form */}
           {showForm && (
             <div className="px-4 py-3 bg-primary-50/60 border-b border-primary-100">
-              <p className="text-xs font-black text-primary-700 mb-2">Novo link de acesso</p>
+              <p className="text-xs font-medium text-primary-700 mb-2">Novo link de acesso</p>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
                 <div className="col-span-2 md:col-span-1">
                   <Combobox
@@ -342,9 +340,9 @@ export const PortalPaciente: React.FC = () => {
 
           {/* Table header */}
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-4 py-2 bg-slate-50 border-b border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Paciente</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide hidden md:block">Criado</span>
+            <span className="text-[11px] font-semibold text-slate-400">Paciente</span>
+            <span className="text-[11px] font-semibold text-slate-400">Status</span>
+            <span className="text-[11px] font-semibold text-slate-400 hidden md:block">Criado</span>
             <div className="flex items-center justify-end gap-1">
               <IconButton variant="ghost" size="xs" onClick={fetchTokens} title="Atualizar">
                 <RefreshCw size={12} />
@@ -366,7 +364,8 @@ export const PortalPaciente: React.FC = () => {
                 const patient = patients.find(p => String(p.id) === String(t.patient_id));
                 const name = t.patient_name || patient?.full_name || patient?.name || `Paciente #${t.patient_id}`;
                 const isExpired = t.expires_at && new Date(t.expires_at) < new Date();
-                const statusLabel = t.is_used ? 'ATIVO' : isExpired ? 'EXPIRADO' : 'PENDENTE';
+                const statusLabel = t.is_used ? 'Ativo' : isExpired ? 'Expirado' : 'Pendente';
+                const statusBadge = t.is_used ? 'success' : isExpired ? 'danger' : 'warning';
                 const statusColor = t.is_used
                   ? 'bg-emerald-100 text-emerald-600'
                   : isExpired
@@ -378,29 +377,27 @@ export const PortalPaciente: React.FC = () => {
                   <div key={t.id} className="border-b border-slate-50 last:border-0">
                   <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-4 py-2.5 hover:bg-slate-50/60 transition-colors">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${statusColor}`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-semibold shrink-0 ${statusColor}`}>
                         {name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-700 truncate">{name}</p>
+                        <p className="text-xs font-medium text-slate-800 truncate">{name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           {t.allow_self_schedule ? (
-                            <span className="text-[10px] text-primary-400 font-medium">Auto-agend.</span>
+                            <span className="text-[11px] text-primary-600">Auto-agend.</span>
                           ) : (
-                            <span className="text-[10px] text-slate-300 font-medium">Só consulta</span>
+                            <span className="text-[11px] text-slate-400">Só consulta</span>
                           )}
                           {t.require_approval ? (
-                            <span className="text-[10px] text-orange-400 font-medium">Aprovação</span>
+                            <span className="text-[11px] text-amber-600">Aprovação</span>
                           ) : null}
                         </div>
                       </div>
                     </div>
 
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${statusColor}`}>
-                      {statusLabel}
-                    </span>
+                    <Badge color={statusBadge} size="sm">{statusLabel}</Badge>
 
-                    <span className="text-[10px] text-slate-400 hidden md:block whitespace-nowrap">{createdAt}</span>
+                    <span className="text-[11px] text-slate-400 hidden md:block whitespace-nowrap">{createdAt}</span>
 
                     <div className="flex items-center gap-0.5">
                       <IconButton variant="ghost" size="xs" onClick={() => copyLink(t.token, t.id)}
@@ -415,7 +412,7 @@ export const PortalPaciente: React.FC = () => {
                       </IconButton>
                       <IconButton variant="ghost" size="xs"
                         onClick={() => window.open(`${baseUrl}/portal/entrar/${t.token}`, '_blank')}
-                        className="hover:bg-blue-50 hover:text-blue-500"
+                        className="hover:bg-primary-50 hover:text-primary-600"
                         title="Abrir link">
                         <ExternalLink size={13} />
                       </IconButton>
@@ -427,7 +424,7 @@ export const PortalPaciente: React.FC = () => {
                           ? <Loader2 size={13} className="animate-spin" />
                           : <Package size={13} />}
                       </IconButton>
-                      <IconButton variant="ghost" size="xs" onClick={() => revokeToken(t.id)}
+                      <IconButton variant="ghost" size="xs" onClick={() => setRevokeId(t.id)}
                         className="hover:bg-red-50 hover:text-red-500"
                         title="Revogar">
                         <Trash2 size={13} />
@@ -438,33 +435,34 @@ export const PortalPaciente: React.FC = () => {
                   {/* Painel de configuração de pacotes */}
                   {expandedTokenId === t.id && tokenPackages[t.id] && (
                     <div className="border-t border-primary-100 bg-primary-50/40 px-4 py-3">
-                      <p className="text-[10px] font-black text-primary-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <p className="text-[11px] font-semibold text-primary-600 mb-1 flex items-center gap-1">
                         <Package size={11} /> Pacotes disponíveis para {name}
                       </p>
-                      <p className="text-[10px] text-slate-400 mb-2">Marque os pacotes que {name} pode ver e contratar pelo portal. Por padrão, nenhum aparece.</p>
+                      <p className="text-[11px] text-slate-400 mb-2">Marque os pacotes que {name} pode ver e contratar pelo portal. Por padrão, nenhum aparece.</p>
                       {tokenPackages[t.id].length === 0 ? (
                         <p className="text-xs text-slate-400">Nenhum pacote cadastrado ainda.</p>
                       ) : (
                         <div className="space-y-2">
                           {tokenPackages[t.id].map(pkg => (
-                            <div key={pkg.package_id} className="bg-white rounded-xl border border-slate-200 px-3 py-2 flex items-center gap-3">
+                            <div key={pkg.package_id} className="bg-white rounded-lg border border-slate-200 px-3 py-2 flex items-center gap-3">
                               <Switch
                                 size="sm"
                                 checked={pkg.active}
                                 onCheckedChange={(next) => updateTokenPackage(t.id, pkg.package_id, 'active', next)}
                               />
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold truncate ${pkg.active ? 'text-slate-700' : 'text-slate-300'}`}>{pkg.name}</p>
-                                <p className="text-[10px] text-slate-400">{pkg.sessions_count} sessões · padrão: R$ {Number(pkg.default_price).toFixed(2)}</p>
+                                <p className={`text-xs font-medium truncate ${pkg.active ? 'text-slate-800' : 'text-slate-400'}`}>{pkg.name}</p>
+                                <p className="text-[11px] text-slate-400">{pkg.sessions_count} sessões · padrão: R$ {Number(pkg.default_price).toFixed(2)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[10px] text-slate-400">Preço:</span>
-                                <input
+                                <span className="text-[11px] text-slate-400">Preço:</span>
+                                <Input
                                   type="number"
+                                  aria-label={`Preço de ${pkg.name}`}
+                                  wrapperClassName="w-24"
                                   value={pkg.custom_price !== null && pkg.custom_price !== undefined ? String(pkg.custom_price) : ''}
                                   onChange={e => updateTokenPackage(t.id, pkg.package_id, 'custom_price', e.target.value === '' ? null : parseFloat(e.target.value))}
                                   placeholder={String(Number(pkg.default_price).toFixed(2))}
-                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-300"
                                 />
                               </div>
                             </div>
@@ -489,23 +487,19 @@ export const PortalPaciente: React.FC = () => {
               })}
             </div>
           )}
-        </div>
+        </ContentCard>
       )}
 
       {/* ── TAB: CONFIGURAÇÕES ── */}
       {tab === 'configuracoes' && (
         <div className="space-y-3">
           {loadingSettings ? (
-            <div className="bg-white border border-slate-100 rounded-2xl p-6 text-center text-xs text-slate-400">Carregando...</div>
+            <div role="status" className="flex items-center justify-center gap-2 py-12 text-xs text-slate-500"><Loader2 size={16} className="animate-spin" />Carregando...</div>
           ) : (
             <>
               {/* PIX */}
-              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <QrCode size={14} className="text-primary-500" />
-                  <span className="text-xs font-black text-slate-700">Configurações de PIX</span>
-                </div>
-                <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <PanelCard title="Configurações de PIX" icon={QrCode}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   <Combobox
                     label="Tipo de chave"
                     value={settings.pix_key_type || 'cpf'}
@@ -536,15 +530,11 @@ export const PortalPaciente: React.FC = () => {
                     />
                   </div>
                 </div>
-              </div>
+              </PanelCard>
 
               {/* Formas de pagamento */}
-              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <CreditCard size={14} className="text-primary-500" />
-                  <span className="text-xs font-black text-slate-700">Formas de pagamento aceitas</span>
-                </div>
-                <div className="px-4 py-3 space-y-2">
+              <PanelCard title="Formas de pagamento aceitas" icon={CreditCard}>
+                <div className="space-y-2">
                   {[
                     { key: 'payment_pix_enabled' as const, label: 'PIX', desc: 'Pagamento via chave PIX' },
                     { key: 'payment_credit_enabled' as const, label: 'Cartão de crédito', desc: 'Máquina ou link de pagamento' },
@@ -553,7 +543,7 @@ export const PortalPaciente: React.FC = () => {
                   ].map(item => (
                     <div key={item.key} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
                       <div>
-                        <p className="text-xs font-bold text-slate-700">{item.label}</p>
+                        <p className="text-xs font-medium text-slate-800">{item.label}</p>
                         <p className="text-[11px] text-slate-400">{item.desc}</p>
                       </div>
                       <Switch
@@ -563,18 +553,14 @@ export const PortalPaciente: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </div>
+              </PanelCard>
 
               {/* Opções adicionais */}
-              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <Shield size={14} className="text-primary-500" />
-                  <span className="text-xs font-black text-slate-700">Opções do portal</span>
-                </div>
-                <div className="px-4 py-3">
+              <PanelCard title="Opções do portal" icon={Shield}>
+                <div className="">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-slate-700">Exigir pagamento antes da sessão</p>
+                      <p className="text-xs font-medium text-slate-800">Exigir pagamento antes da sessão</p>
                       <p className="text-[11px] text-slate-400">Paciente precisa confirmar pagamento para o agendamento ser aceito</p>
                     </div>
                     <Switch
@@ -583,15 +569,11 @@ export const PortalPaciente: React.FC = () => {
                     />
                   </div>
                 </div>
-              </div>
+              </PanelCard>
 
               {/* Editor de Contrato */}
-              <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100">
-                  <FileSignature size={14} className="text-primary-500" />
-                  <span className="text-xs font-black text-slate-700">Contrato de Prestação de Serviços</span>
-                </div>
-                <div className="px-4 py-3 flex items-center justify-between gap-3">
+              <PanelCard title="Contrato de Prestação de Serviços" icon={FileSignature}>
+                <div className="flex items-center justify-between gap-3">
                   <p className="text-[11px] text-slate-400">
                     Edite o texto do contrato que o paciente lê e assina no portal (modelos separados para atendimento online e presencial).
                   </p>
@@ -605,12 +587,13 @@ export const PortalPaciente: React.FC = () => {
                     Editar contrato
                   </Button>
                 </div>
-              </div>
+              </PanelCard>
 
               {/* Save button */}
               <div className="flex justify-end">
                 <Button
                   variant="primary"
+                  size="sm"
                   onClick={saveSettings}
                   loading={savingSettings}
                   loadingText="Salvando..."
@@ -623,6 +606,18 @@ export const PortalPaciente: React.FC = () => {
           <ContractTemplateEditor isOpen={isContractModalOpen} onClose={() => setIsContractModalOpen(false)} />
         </div>
       )}
+      </Tabs>
+      </div>
+
+      <ConfirmModal
+        isOpen={revokeId !== null}
+        onClose={() => setRevokeId(null)}
+        onConfirm={() => revokeId !== null && revokeToken(revokeId)}
+        title="Revogar este link?"
+        message="Revogar este link? O paciente não poderá mais acessar."
+        confirmLabel="Revogar"
+        variant="danger"
+      />
     </PageWrapper>
   );
 };

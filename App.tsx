@@ -21,6 +21,7 @@ import { Login } from './components/Auth/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Patients } from './pages/Patients';
 import { PatientDetail } from './pages/PatientDetail';
+import { PatientFormPage } from './pages/PatientFormPage';
 import { Agenda } from './pages/Agenda';
 import { AgendaSettings } from './pages/AgendaSettings';
 import { VirtualRooms } from './pages/VirtualRooms';
@@ -105,6 +106,7 @@ import { TermsAcceptance } from './pages/TermsAcceptance';
 import logoUrl from './images/logo-sistema/logo.png';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 import { api } from './services/api';
+import { PageWrapper } from './components/UI';
 
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 120 minutos
 const WARNING_BEFORE_MS = 5 * 60 * 1000;       // aviso 5 min antes
@@ -148,11 +150,20 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <div className="flex h-screen w-full bg-slate-50/80 text-slate-800 font-sans overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={logout} />
-      <div className="flex-1 flex min-w-0 flex-col h-full transition-all duration-300 lg:ml-[256px]">
+      {/* A largura precisa acompanhar exatamente a sidebar. Os 16px extras aqui
+          deixavam uma faixa vazia entre o menu e o conteúdo em telas grandes. */}
+      <div className="flex-1 flex min-w-0 min-h-0 flex-col h-full transition-all duration-300 lg:ml-[240px]">
         <TrialBanner />
         <Topbar onMenuClick={() => setSidebarOpen(!isSidebarOpen)} user={user as any} onLogout={logout} />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="w-full max-w-[1600px] lg:mx-auto">{children}</div>
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+          {/* Cada página controla o respiro com PageWrapper. Sem max-width global,
+              o espaço útil do painel é aproveitado por completo. */}
+          {/* O shell também é um PageWrapper: páginas legadas, incluindo todas
+              as ferramentas clínicas, recebem o mesmo respiro. Páginas já
+              migradas detectam o contexto e não duplicam o padding. */}
+          <PageWrapper className={location.pathname.startsWith('/caixa-ferramentas') ? 'clinical-tool-shell' : undefined}>
+            {children}
+          </PageWrapper>
         </main>
       </div>
 
@@ -452,6 +463,8 @@ const AppRoutes: React.FC = () => {
       {/* Rotas comuns da clinica */}
       <Route path="/dashboard" element={<ProtectedRoute requiredPermission="view_dashboard"><Dashboard /></ProtectedRoute>} />
       <Route path="/pacientes" element={<ProtectedRoute requiredPermission="view_patients"><Patients /></ProtectedRoute>} />
+      <Route path="/pacientes/novo" element={<ProtectedRoute requiredPermission="create_patient"><PatientFormPage /></ProtectedRoute>} />
+      <Route path="/pacientes/:id/editar" element={<ProtectedRoute requiredPermission="edit_patient"><PatientFormPage /></ProtectedRoute>} />
       <Route path="/pacientes/:id" element={<ProtectedRoute requiredPermission="view_patients"><PatientDetail /></ProtectedRoute>} />
       <Route path="/agenda" element={<ProtectedRoute requiredPermission="view_agenda"><Agenda /></ProtectedRoute>} />
       <Route path="/agenda/configuracoes" element={<ProtectedRoute requiredPermission="view_agenda"><AgendaSettings /></ProtectedRoute>} />

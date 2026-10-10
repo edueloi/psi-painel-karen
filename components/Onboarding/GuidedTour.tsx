@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { X, ChevronRight, ChevronLeft, CheckCircle } from 'lucide-react';
+import { Button, IconButton } from '../UI';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface TourStep {
@@ -250,13 +251,13 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
           The element itself is NOT covered — the shadow spreads outward only. */}
       {highlight && (
         <div
-          className="fixed z-[10000] rounded-2xl border-2 border-indigo-400 pointer-events-none transition-all duration-300"
+          className="fixed z-[10000] rounded-lg border-2 border-primary-400 pointer-events-none transition-all duration-300"
           style={{
             top: highlight.top - 6,
             left: highlight.left - 6,
             width: highlight.width + 12,
             height: highlight.height + 12,
-            boxShadow: '0 0 0 9999px rgba(2,6,23,0.75), 0 0 0 4px rgba(99,102,241,0.3)',
+            boxShadow: '0 0 0 9999px rgba(2,6,23,0.75)',
           }}
         />
       )}
@@ -264,7 +265,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
       {/* Tooltip card */}
       <div
         ref={tooltipRef}
-        className="bg-white rounded-[24px] shadow-2xl p-6 w-[340px] animate-[slideDownFade_0.25s_ease-out]"
+        className="bg-white rounded-lg border border-slate-200 p-4 w-[340px] max-w-[calc(100vw-24px)] animate-[slideDownFade_0.25s_ease-out]"
         style={getTooltipStyle()}
       >
         {/* Header */}
@@ -272,71 +273,66 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ onFinish }) => {
           <div className="flex items-center gap-2">
             <span className="text-xl">{current.emoji}</span>
             <div>
-              <p className="font-bold text-slate-800 text-sm">{current.title}</p>
-              <p className="text-[10px] text-slate-400 font-medium">
+              <p className="font-medium text-slate-900 text-sm">{current.title}</p>
+              <p className="text-[11px] text-slate-500">
                 Passo {step + 1} de {STEPS.length}
               </p>
             </div>
           </div>
-          <button
+          <IconButton
+            variant="ghost"
+            size="sm"
             onClick={() => { clearHighlightEl(); onFinish(); }}
-            className="p-1.5 rounded-full text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-all"
+            aria-label="Fechar tour"
             title="Fechar tour"
           >
-            <X size={15} />
-          </button>
+            <X size={14} />
+          </IconButton>
         </div>
 
         {/* Progress bar */}
         <div className="h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500"
+            className="h-full bg-primary-600 rounded-full transition-all duration-500"
             style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
           />
         </div>
 
         {/* Description */}
-        <p className="text-sm text-slate-600 leading-relaxed mb-5">
+        <p className="text-[13px] text-slate-600 leading-relaxed mb-4">
           {current.description}
         </p>
 
         {/* Navigation */}
         <div className="flex items-center justify-between gap-3">
-          <button
-            onClick={goPrev}
-            disabled={isFirst}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-          >
-            <ChevronLeft size={13} /> Anterior
-          </button>
+          <Button variant="outline" size="sm" onClick={goPrev} disabled={isFirst} iconLeft={<ChevronLeft size={14} />}>
+            Anterior
+          </Button>
 
           {/* Dots */}
           <div className="flex gap-1">
             {STEPS.map((_, i) => (
               <button
                 key={i}
+                type="button"
                 onClick={() => setStep(i)}
+                aria-label={`Ir para o passo ${i + 1}`}
                 className={`rounded-full transition-all ${
-                  i === step ? 'w-4 h-2 bg-indigo-500' : 'w-2 h-2 bg-slate-200 hover:bg-slate-300'
+                  i === step ? 'w-4 h-2 bg-primary-600' : 'w-2 h-2 bg-slate-200 hover:bg-slate-300'
                 }`}
               />
             ))}
           </div>
 
-          <button
+          <Button
+            variant={isLast ? 'success' : 'primary'}
+            size="sm"
             onClick={goNext}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-              isLast
-                ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-100'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100'
-            }`}
+            iconLeft={isLast ? <CheckCircle size={14} /> : undefined}
+            iconRight={isLast ? undefined : <ChevronRight size={14} />}
           >
-            {isLast ? (
-              <><CheckCircle size={13} /> Concluir</>
-            ) : (
-              <>Próximo <ChevronRight size={13} /></>
-            )}
-          </button>
+            {isLast ? 'Concluir' : 'Próximo'}
+          </Button>
         </div>
       </div>
     </>

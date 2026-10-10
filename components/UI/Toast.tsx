@@ -30,7 +30,7 @@ interface ToastProps extends ToastItem {
 
 const toastConfig = {
   success: {
-    icon: <Check className="w-4 h-4" strokeWidth={3} />,
+    icon: <Check className="w-3.5 h-3.5" strokeWidth={3} />,
     accent: 'bg-emerald-500',
     iconBg:   'bg-emerald-50 border-emerald-200 text-emerald-600',
     title:    'Sucesso',
@@ -38,7 +38,7 @@ const toastConfig = {
     bar: 'bg-emerald-500',
   },
   error: {
-    icon: <X className="w-4 h-4" strokeWidth={3} />,
+    icon: <X className="w-3.5 h-3.5" strokeWidth={3} />,
     accent: 'bg-rose-500',
     iconBg:   'bg-rose-50 border-rose-200 text-rose-600',
     title:    'Erro',
@@ -46,7 +46,7 @@ const toastConfig = {
     bar: 'bg-rose-500',
   },
   warning: {
-    icon: <AlertTriangle className="w-4 h-4" strokeWidth={2.5} />,
+    icon: <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.5} />,
     accent: 'bg-amber-500',
     iconBg:   'bg-amber-50 border-amber-200 text-amber-600',
     title:    'Atenção',
@@ -54,7 +54,7 @@ const toastConfig = {
     bar: 'bg-amber-500',
   },
   info: {
-    icon: <Info className="w-4 h-4" strokeWidth={2.5} />,
+    icon: <Info className="w-3.5 h-3.5" strokeWidth={2.5} />,
     accent: 'bg-blue-500',
     iconBg:   'bg-blue-50 border-blue-200 text-blue-600',
     title:    'Informativo',
@@ -91,30 +91,30 @@ export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
       transition={{ type: "spring", damping: 26, stiffness: 280 }}
       className={cn(
         "group pointer-events-auto relative flex overflow-hidden",
-        "bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-zinc-100",
+        "bg-white shadow-md border border-zinc-200",
         // Mobile: full width, arredondado
-        "w-full rounded-2xl",
+        "w-full rounded-lg",
         // Desktop: largura fixa — um pouco mais larga para acomodar mensagens
         // explicativas mais longas sem quebrar em muitas linhas
-        "sm:w-[420px] sm:rounded-2xl"
+        "sm:w-[380px] sm:rounded-lg"
       )}
     >
       {/* Acento lateral */}
-      <div className={cn("w-1.5 shrink-0 transition-all group-hover:w-2", cfg.accent)} />
+      <div className={cn("w-1 shrink-0", cfg.accent)} />
 
       {/* Conteúdo */}
-      <div className="flex flex-1 items-center p-3.5 sm:p-4 gap-3 sm:gap-4">
+      <div className="flex flex-1 items-center px-3 py-2.5 gap-2.5">
         {/* Ícone */}
-        <div className={cn("flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border", cfg.iconBg)}>
+        <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border", cfg.iconBg)}>
           {cfg.icon}
         </div>
 
         {/* Texto */}
         <div className="flex flex-1 flex-col min-w-0 pr-1">
-          <p className={cn("text-[10px] sm:text-[11px] font-black uppercase tracking-widest", cfg.titleColor)}>
+          <p className={cn("text-[11px] font-medium", cfg.titleColor)}>
             {cfg.title}
           </p>
-          <p className="text-xs sm:text-sm font-semibold text-zinc-700 leading-snug mt-0.5 break-words">
+          <p className="text-xs font-medium text-slate-700 leading-snug mt-0.5 break-words">
             {message}
           </p>
         </div>
@@ -122,7 +122,7 @@ export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
         {/* Fechar */}
         <button
           onClick={() => onClose(id)}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-300 hover:bg-zinc-50 hover:text-zinc-500 transition-all"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-300 hover:bg-zinc-50 hover:text-zinc-500 transition-all"
           aria-label="Fechar"
         >
           <X size={15} />
@@ -130,7 +130,7 @@ export function Toast({ id, type, message, onClose, isMobile }: ToastProps) {
       </div>
 
       {/* Barra de progresso */}
-      <div className="absolute bottom-0 left-0 w-full h-[3px] bg-zinc-50/80">
+      <div className="absolute bottom-0 left-0 w-full h-[2px] bg-zinc-50/80">
         <motion.div
           initial={{ width: "100%" }}
           animate={{ width: "0%" }}
@@ -195,7 +195,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           // Mobile: bottom, full width com padding e safe-area
           "bottom-0 left-0 right-0 px-3 flex-col",
           // Desktop: canto inferior direito
-          "sm:bottom-6 sm:right-6 sm:left-auto sm:px-0 sm:w-auto sm:items-end",
+          "sm:bottom-4 sm:right-4 sm:left-auto sm:px-0 sm:w-auto sm:items-end",
         )}
         style={{
           // Safe area para dispositivos com home bar (iPhone, etc.)

@@ -25,6 +25,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { PageHeader } from '../../components/UI/PageHeader';
+import { ContentCard, EmptyState, IconButton, PanelCard } from '../../components/UI';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { Button } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
@@ -92,7 +93,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     const headingMatch = line.match(/^\*\*([^*]+)\*\*\s*$/);
     if (headingMatch) {
       result.push(
-        <p key={i} className="text-xs font-black uppercase tracking-widest text-amber-300 mt-4 mb-1 first:mt-0">
+        <p key={i} className="text-xs font-semibold text-amber-300 mt-4 mb-1 first:mt-0">
           {headingMatch[1]}
         </p>
       );
@@ -102,7 +103,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (numMatch) {
       result.push(
         <div key={i} className="flex gap-2 mt-2">
-          <span className="shrink-0 font-black text-amber-300">{numMatch[1]}.</span>
+          <span className="shrink-0 font-semibold text-amber-300">{numMatch[1]}.</span>
           <span>{inlineMarkdown(numMatch[2])}</span>
         </div>
       );
@@ -128,7 +129,7 @@ function inlineMarkdown(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     const m = part.match(/^\*\*([^*]+)\*\*$/);
-    if (m) return <strong key={i} className="font-black text-white">{m[1]}</strong>;
+    if (m) return <strong key={i} className="font-semibold text-white">{m[1]}</strong>;
     return part;
   });
 }
@@ -359,8 +360,8 @@ export const DISCProfessionalPage: React.FC = () => {
       return `
         <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:18px 22px;margin-bottom:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#334155">${BLOCK_COLORS[k].label}</span>
-            <span style="background:${bg};color:${c};border:1px solid ${c}30;padding:3px 12px;border-radius:99px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">${level}</span>
+            <span style="font-size:11px;font-weight:800;letter-spacing:.12em;;color:#334155">${BLOCK_COLORS[k].label}</span>
+            <span style="background:${bg};color:${c};border:1px solid ${c}30;padding:3px 12px;border-radius:99px;font-size:10px;font-weight:800;;letter-spacing:.08em">${level}</span>
           </div>
           <div style="display:flex;align-items:center;gap:14px">
             <span style="font-size:32px;font-weight:900;color:#0f172a;line-height:1;min-width:56px">${score.toFixed(2)}</span>
@@ -416,13 +417,13 @@ export const DISCProfessionalPage: React.FC = () => {
 <div style="background:linear-gradient(135deg,#6d28d9 0%,#4f46e5 100%);padding:28px 40px 24px;color:white">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
     <div>
-      <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;opacity:.75">Relatório de Mapeamento Comportamental</p>
+      <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.2em;;opacity:.75">Relatório de Mapeamento Comportamental</p>
       <h1 style="margin:0 0 6px;font-size:26px;font-weight:900;letter-spacing:-.5px">${patientName}</h1>
       <p style="margin:0;font-size:12px;opacity:.8;font-weight:500">${dateStr}</p>
     </div>
     <div style="text-align:right">
       <div style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 16px;display:inline-block">
-        <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;opacity:.8;margin-bottom:2px">Instrumento</p>
+        <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;;opacity:.8;margin-bottom:2px">Instrumento</p>
         <p style="margin:0;font-size:18px;font-weight:900;letter-spacing:-.3px">DISC</p>
         <p style="margin:0;font-size:9px;opacity:.7;margin-top:2px">Protocolo Marston</p>
       </div>
@@ -433,14 +434,14 @@ export const DISCProfessionalPage: React.FC = () => {
 <div style="padding:32px 40px">
 
   <div class="no-break" style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#7c3aed;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#7c3aed;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#7c3aed;border-radius:1px"></span> Resultados por Fator
     </h2>
     ${scoresHtml}
   </div>
 
   <div class="no-break" style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#7c3aed;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#7c3aed;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#7c3aed;border-radius:1px"></span> Análise Comportamental
     </h2>
     <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:20px 22px">
@@ -453,16 +454,16 @@ export const DISCProfessionalPage: React.FC = () => {
 
   ${answersHtml ? `
   <div style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#7c3aed;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#7c3aed;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#7c3aed;border-radius:1px"></span> Respostas Registradas
     </h2>
     <table style="width:100%;border-collapse:collapse;border:1px solid #f1f5f9;border-radius:12px;overflow:hidden">
       <thead>
         <tr style="background:#f8fafc">
-          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right;width:36px">#</th>
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:right;width:36px">#</th>
           <th style="padding:8px 6px;width:26px"></th>
-          <th style="padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:left">Observação</th>
-          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right">Pontuação</th>
+          <th style="padding:8px 10px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:left">Observação</th>
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:right">Pontuação</th>
         </tr>
       </thead>
       <tbody>${answersHtml}</tbody>
@@ -472,7 +473,7 @@ export const DISCProfessionalPage: React.FC = () => {
 </div>
 
 <div style="border-top:1px solid #f1f5f9;padding:16px 40px;display:flex;justify-content:space-between;align-items:center">
-  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;text-transform:uppercase;letter-spacing:.1em">Plaelo · Tecnologia para Prática Clínica</p>
+  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;;letter-spacing:.1em">Plaelo · Tecnologia para Prática Clínica</p>
   <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600">Gerado em ${new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' })}</p>
 </div>
 
@@ -512,7 +513,7 @@ export const DISCProfessionalPage: React.FC = () => {
     doc.text(patientName, MARGIN, 26);
 
     doc.setFontSize(9); doc.setTextColor(220, 218, 255);
-    doc.text(`Avaliação: DISC Avaliativo (Protocolo Marston)  |  ${dateStr}`, MARGIN, 33);
+    doc.text(`Avaliação: DISC Avaliativo (Protocolo Marston) | ${dateStr}`, MARGIN, 33);
 
     let y = 58;
 
@@ -694,7 +695,7 @@ export const DISCProfessionalPage: React.FC = () => {
           return (
             <text key={i} x={center + r * Math.cos(angle)} y={center + r * Math.sin(angle)}
               fill="white" fontSize="10" fontWeight="900" textAnchor="middle" alignmentBaseline="middle"
-              className="uppercase tracking-widest opacity-40 font-black">
+              className="opacity-40 font-semibold">
               {f}
             </text>
           );
@@ -735,7 +736,7 @@ export const DISCProfessionalPage: React.FC = () => {
                 radius="xl"
                 leftIcon={<Plus size={16} />}
                 onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para realizar o mapeamento.')}
-                className="bg-violet-600 text-white shadow-xl shadow-violet-200"
+                className="bg-violet-600 text-white shadow-sm shadow-violet-200"
              >
                 Novo Mapeamento
              </Button>
@@ -743,8 +744,8 @@ export const DISCProfessionalPage: React.FC = () => {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+        <div className="space-y-4">
           <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
@@ -755,45 +756,33 @@ export const DISCProfessionalPage: React.FC = () => {
             t={t}
           />
 
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                 <BookOpen size={14} className="text-violet-400" /> Referência Técnica
-              </h4>
+          <PanelCard title="Referência técnica" icon={BookOpen} contentClassName="space-y-3">
               <div className="space-y-3">
                  {Object.entries(BLOCK_COLORS).map(([k, v]) => (
                    <div key={k} className="space-y-1">
-                      <p className={`text-[10px] font-black uppercase ${v.color}`}>{k} — {v.label}</p>
-                      <p className="text-[9px] text-slate-400 font-medium italic leading-tight">Reage a {k === 'D' ? 'Desafios e Resultados' : k === 'I' ? 'Pessoas e Networking' : k === 'S' ? 'Ritmo e Estabilidade' : 'Regras e Detalhes'}.</p>
+                      <p className={`text-[11px] font-semibold ${v.color}`}>{k} — {v.label}</p>
+                      <p className="text-[11px] text-slate-400 font-medium italic leading-tight">Reage a {k === 'D' ? 'Desafios e Resultados' : k === 'I' ? 'Pessoas e Networking' : k === 'S' ? 'Ritmo e Estabilidade' : 'Regras e Detalhes'}.</p>
                    </div>
                  ))}
               </div>
-          </div>
+          </PanelCard>
         </div>
 
         {!selectedPatientId ? (
-          <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-20 text-center space-y-4">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
-              <Gauge size={32} />
-            </div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-loose">Selecione um prontuário para realizar o DISC Avaliativo.</p>
-          </div>
+          <ContentCard><EmptyState icon={Gauge} title="Selecione um paciente" description="Escolha um paciente para realizar o DISC Avaliativo." /></ContentCard>
         ) : (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden h-full">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <PanelCard title="Tendência comportamental" icon={Target} className="relative overflow-hidden h-full" contentClassName="space-y-4">
                 <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
                    <Brain size={240} />
                 </div>
 
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2 text-violet-400 mb-10">
-                   <Target size={18} /> Cockpit de Tendência Comportamental
-                </h3>
-
-                <div className="flex flex-col items-center gap-12">
-                   <div className="shrink-0 bg-white/5 p-10 rounded-[3rem] border border-white/10 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-4">
+                   <div className="shrink-0 bg-slate-50 p-4 rounded-lg border border-slate-200">
                       <RadarGraphic scores={history.length > 0 ? history[history.length - 1].scores : currentScores} />
                    </div>
-                   <div className="flex-1 space-y-6 w-full">
+                   <div className="flex-1 space-y-4 w-full">
                       {(['D', 'I', 'S', 'C'] as const).map(k => {
                          const lastRes = history.length > 0 ? history[history.length - 1] : null;
                          const score = lastRes ? lastRes.scores[k] : currentScores[k];
@@ -801,31 +790,28 @@ export const DISCProfessionalPage: React.FC = () => {
                          return (
                            <div key={k} className="space-y-2">
                               <div className="flex items-center justify-between">
-                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{v.label}</span>
-                                 <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg bg-white/10 ${v.color}`}>{getLevel(score)}</span>
+                                 <span className="text-[11px] font-semibold text-slate-400">{v.label}</span>
+                                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/10 ${v.color}`}>{getLevel(score)}</span>
                               </div>
-                              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                 <div className={`h-full transition-all duration-1000 ${v.color.replace('text', 'bg')}`} style={{ width: `${(score / 5) * 100}%` }} />
+                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                 <div className={`h-full transition-all duration-1000 ${v.color.replace('text', 'bg')}`} style={{ width:`${(score / 5) * 100}%` }} />
                               </div>
                            </div>
                          );
                       })}
-                      <div className="pt-4 border-t border-white/10 text-slate-500">
-                         <p className="text-[9px] font-black uppercase tracking-widest italic leading-relaxed">Perfil Técnico da Última Observação</p>
+                      <div className="pt-3 border-t border-slate-100 text-slate-500">
+                         <p className="text-[11px] font-semibold italic leading-relaxed">Perfil Técnico da Última Observação</p>
                       </div>
                    </div>
                 </div>
-              </div>
+              </PanelCard>
 
-              <div className="space-y-8">
-                 <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8">
-                    <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                       <TrendingUp size={16} className="text-violet-500" /> Evolução de Adaptabilidade
-                    </h4>
-                    <div className="h-56 w-full bg-slate-50 rounded-3xl border border-slate-100 p-5 flex items-end gap-2 relative">
+              <div className="space-y-4">
+                 <PanelCard title="Evolução de adaptabilidade" icon={TrendingUp} contentClassName="space-y-3">
+                    <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-5 flex items-end gap-2 relative">
                        {history.length < 2 && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-3xl">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ponto único de observação</p>
+                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-lg">
+                            <p className="text-[11px] font-semibold text-slate-400">Ponto único de observação</p>
                          </div>
                        )}
                        {history.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
@@ -837,13 +823,9 @@ export const DISCProfessionalPage: React.FC = () => {
                          </div>
                        ))}
                     </div>
-                 </div>
+                 </PanelCard>
 
-                 <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-                    <div className="px-8 py-4 border-b border-slate-50 flex items-center justify-between">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Histórico de Mapeamento</p>
-                       <History size={16} className="text-slate-300" />
-                    </div>
+                 <PanelCard title="Histórico de mapeamento" icon={History} contentClassName="p-0">
                     <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
                        {history.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => (
                          <div key={res.id} className="px-6 py-4 hover:bg-slate-50 transition-all group flex items-center justify-between gap-4">
@@ -851,14 +833,14 @@ export const DISCProfessionalPage: React.FC = () => {
                                <div className="space-y-1">
                                   <div className="flex items-center gap-2">
                                      <Clock size={11} className="text-violet-400 shrink-0" />
-                                     <span className="text-xs font-black text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
+                                     <span className="text-xs font-semibold text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
                                      {res.analysis && <Sparkles size={11} className="text-amber-400" />}
                                   </div>
                                   <div className="grid grid-cols-4 gap-2">
                                      {Object.entries(res.scores).map(([k, v]: any) => (
                                         <div key={k} className="flex flex-col">
-                                           <span className="text-[8px] font-black text-slate-400 uppercase">{k}</span>
-                                           <span className={`text-[12px] font-black ${BLOCK_COLORS[k as keyof typeof BLOCK_COLORS].color}`}>{v}</span>
+                                           <span className="text-[11px] font-semibold text-slate-400">{k}</span>
+                                           <span className={`text-[12px] font-semibold ${BLOCK_COLORS[k as keyof typeof BLOCK_COLORS].color}`}>{v}</span>
                                         </div>
                                      ))}
                                   </div>
@@ -874,7 +856,7 @@ export const DISCProfessionalPage: React.FC = () => {
                                </button>
                                <button
                                  onClick={() => { setDetailResult(res); setShowAnswers(false); }}
-                                 className="flex items-center gap-1.5 px-3 h-8 bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white rounded-lg text-[11px] font-black uppercase tracking-wide transition-all"
+                                 className="flex items-center gap-1.5 px-3 h-8 bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white rounded-lg text-[11px] font-semibold transition-all"
                                >
                                  Ver <ChevronRight size={12} />
                                </button>
@@ -884,11 +866,11 @@ export const DISCProfessionalPage: React.FC = () => {
                        {history.length === 0 && (
                          <div className="p-20 text-center space-y-3 opacity-30">
                             <FileText size={40} className="mx-auto" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">Sem lançamentos</p>
+                            <p className="text-[11px] font-semibold">Sem lançamentos</p>
                          </div>
                        )}
                     </div>
-                 </div>
+                 </PanelCard>
               </div>
             </div>
           </div>
@@ -924,28 +906,28 @@ export const DISCProfessionalPage: React.FC = () => {
 
            {(['D', 'I', 'S', 'C'] as const).map(block => (
               <div key={block} className="space-y-8">
-                 <div className={`p-4 rounded-2xl border ${BLOCK_COLORS[block].bg} ${BLOCK_COLORS[block].border} flex items-center gap-3`}>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white bg-current ${BLOCK_COLORS[block].color}`}>
-                       <span className="font-black text-lg">{block}</span>
+                 <div className={`p-4 rounded-lg border ${BLOCK_COLORS[block].bg} ${BLOCK_COLORS[block].border} flex items-center gap-3`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white bg-current ${BLOCK_COLORS[block].color}`}>
+                       <span className="font-semibold text-lg">{block}</span>
                     </div>
                     <div>
-                       <p className={`text-xs font-black uppercase ${BLOCK_COLORS[block].color}`}>{BLOCK_COLORS[block].label}</p>
-                       <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Dimensionamento de Fator</p>
+                       <p className={`text-xs font-semibold ${BLOCK_COLORS[block].color}`}>{BLOCK_COLORS[block].label}</p>
+                       <p className="text-[11px] text-slate-500 font-semibold">Dimensionamento de Fator</p>
                     </div>
                  </div>
 
                  <div className="grid grid-cols-1 gap-3">
                     {DISC_ENTRIES.filter(e => e.block === block).map(entry => (
-                       <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 bg-white border border-slate-100 rounded-2xl hover:border-violet-200 transition-all shadow-sm">
-                          <span className="text-xs font-black text-slate-700 flex-1 leading-tight">{entry.text}</span>
+                       <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 bg-white border border-slate-100 rounded-lg hover:border-violet-200 transition-all shadow-sm">
+                          <span className="text-xs font-semibold text-slate-700 flex-1 leading-tight">{entry.text}</span>
                           <div className="flex gap-1.5 self-end">
                              {[1, 2, 3, 4, 5].map(v => (
                                <button
                                  key={v}
                                  onClick={() => setCurrentAnswers({ ...currentAnswers, [entry.id]: v })}
-                                 className={`w-11 h-11 rounded-xl text-xs font-black border transition-all ${
+                                 className={`w-11 h-11 rounded-lg text-xs font-semibold border transition-all ${
                                    currentAnswers[entry.id] === v
-                                   ? `bg-slate-950 text-white border-slate-950 shadow-xl scale-[1.1]`
+                                   ? `bg-slate-950 text-white border-slate-950 shadow-sm scale-[1.1]`
                                    : 'bg-white text-slate-300 border-slate-100 hover:border-violet-200 hover:text-violet-500'
                                  }`}
                                >
@@ -969,17 +951,17 @@ export const DISCProfessionalPage: React.FC = () => {
         maxWidth="max-w-md"
       >
         <div className="space-y-6">
-           <div className="p-6 bg-violet-50 rounded-3xl border border-violet-100 space-y-3">
-              <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest leading-none">Link de Resposta Segura</p>
+           <div className="p-6 bg-violet-50 rounded-lg border border-violet-100 space-y-3">
+              <p className="text-[11px] font-semibold text-violet-600 leading-none">Link de Resposta Segura</p>
               <div className="flex gap-2">
                  <input
                    readOnly
                    value={getShareLink()}
-                   className="flex-1 bg-white border border-violet-200 rounded-xl px-4 py-3 text-[10px] font-medium text-slate-500 outline-none"
+                   className="flex-1 bg-white border border-violet-200 rounded-lg px-4 py-3 text-[11px] font-medium text-slate-500 outline-none"
                  />
                  <button
                    onClick={handleCopyLink}
-                   className="w-12 h-12 bg-white border border-violet-200 rounded-xl flex items-center justify-center text-violet-600 hover:bg-violet-600 hover:text-white transition-all shadow-sm"
+                   className="w-12 h-12 bg-white border border-violet-200 rounded-lg flex items-center justify-center text-violet-600 hover:bg-violet-600 hover:text-white transition-all shadow-sm"
                  >
                     {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
                  </button>
@@ -998,7 +980,7 @@ export const DISCProfessionalPage: React.FC = () => {
               <Button
                 variant="outline"
                 radius="xl"
-                className="w-full py-8 text-slate-400 font-black uppercase tracking-widest text-[10px]"
+                className="w-full py-8 text-slate-400 font-semibold text-[11px]"
                 onClick={() => setIsSharing(false)}
               >
                  Cancelar
@@ -1010,14 +992,14 @@ export const DISCProfessionalPage: React.FC = () => {
       {/* Detail Modal */}
       {detailResult && (
         <div className="fixed inset-0 mt-0 bg-slate-950/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{maxHeight:'90vh'}}>
+          <div className="bg-white rounded-lg shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{maxHeight:'90vh'}}>
 
             <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
                <div>
-                  <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-1">Perfil Comportamental Consolidado</p>
+                  <p className="text-[11px] font-semibold text-violet-500 mb-1">Perfil Comportamental Consolidado</p>
                   {(() => {
                     const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                    return <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{patientName}</h2>;
+                    return <h2 className="text-xl font-semibold text-slate-900 leading-tight">{patientName}</h2>;
                   })()}
                   <p className="text-xs font-medium text-slate-400 mt-0.5">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                </div>
@@ -1026,10 +1008,10 @@ export const DISCProfessionalPage: React.FC = () => {
                     const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
                     return (<>
                       <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                      <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14}/>} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-lg shadow-slate-200">PDF</Button>
+                      <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14}/>} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-sm shadow-slate-200">PDF</Button>
                     </>);
                   })()}
-                  <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
+                  <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
                      <Plus size={20} className="rotate-45" />
                   </button>
                </div>
@@ -1041,7 +1023,7 @@ export const DISCProfessionalPage: React.FC = () => {
                 return (<>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                   <div className="bg-slate-950 rounded-2xl p-6 flex items-center justify-center shadow-xl" style={{minHeight:'200px'}}>
+                   <div className="bg-slate-950 rounded-lg p-6 flex items-center justify-center shadow-sm" style={{minHeight:'200px'}}>
                       <RadarGraphic scores={detailResult.scores} />
                    </div>
                    <div className="space-y-3">
@@ -1050,15 +1032,15 @@ export const DISCProfessionalPage: React.FC = () => {
                          const level = getLevel(score);
                          const v = BLOCK_COLORS[k];
                          return (
-                           <div key={k} className={`px-4 py-3 rounded-xl border ${v.border} ${v.bg}`}>
+                           <div key={k} className={`px-4 py-3 rounded-lg border ${v.border} ${v.bg}`}>
                               <div className="flex items-center justify-between mb-2">
-                                 <h4 className={`text-[11px] font-black uppercase tracking-widest ${v.color}`}>{k} — {v.label}</h4>
-                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-white/80 ${v.color}`}>{level}</span>
+                                 <h4 className={`text-[11px] font-semibold ${v.color}`}>{k} — {v.label}</h4>
+                                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/80 ${v.color}`}>{level}</span>
                               </div>
                               <div className="flex items-center gap-4">
-                                 <div className={`text-2xl font-black w-12 ${v.color}`}>{score.toFixed(2)}</div>
+                                 <div className={`text-2xl font-semibold w-12 ${v.color}`}>{score.toFixed(2)}</div>
                                  <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div className={`h-full ${v.color.replace('text', 'bg')}`} style={{ width: `${(score / 5) * 100}%` }} />
+                                    <div className={`h-full ${v.color.replace('text', 'bg')}`} style={{ width:`${(score / 5) * 100}%` }} />
                                  </div>
                               </div>
                            </div>
@@ -1070,7 +1052,7 @@ export const DISCProfessionalPage: React.FC = () => {
                 <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
                    <div className="bg-slate-50 px-8 py-5 flex items-center gap-3 border-b border-slate-100">
                       <Brain size={18} className="text-violet-500" />
-                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Análise Comportamental — DISC (Protocolo Marston)</h3>
+                      <h3 className="text-xs font-semibold text-slate-700">Análise Comportamental — DISC (Protocolo Marston)</h3>
                    </div>
                    <div className="p-8 space-y-4">
                       {parts.map((part, i) => {
@@ -1078,19 +1060,19 @@ export const DISCProfessionalPage: React.FC = () => {
                         return (
                           <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
                              <span className="w-1.5 h-1.5 rounded-full bg-violet-300 mt-2 shrink-0" />
-                             <p><span className="font-black text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
+                             <p><span className="font-semibold text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
                           </div>
                         );
                       })}
-                      <div className="mt-4 p-4 bg-violet-50 border border-violet-100 rounded-2xl text-sm text-slate-700 leading-relaxed">
-                         <span className="font-black text-violet-700">Fator Dominante — {dominantLabel}: </span>{conclusion}
+                      <div className="mt-4 p-4 bg-violet-50 border border-violet-100 rounded-lg text-sm text-slate-700 leading-relaxed">
+                         <span className="font-semibold text-violet-700">Fator Dominante — {dominantLabel}: </span>{conclusion}
                       </div>
                    </div>
                 </div>
 
                 {detailResult.analysis && (
-                  <div className="bg-violet-600 rounded-xl p-5 text-white shadow-lg shadow-violet-100">
-                     <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-3">
+                  <div className="bg-violet-600 rounded-lg p-5 text-white shadow-sm shadow-violet-100">
+                     <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
                         <Sparkles size={14} className="text-amber-400" /> Análise Bia (IA)
                      </h3>
                      <div className="text-sm text-violet-100 space-y-0">
@@ -1103,10 +1085,10 @@ export const DISCProfessionalPage: React.FC = () => {
                   <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
                      <Sparkles size={32} className="text-slate-300 shrink-0" />
                      <div className="flex-1">
-                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Bia — IA Clínica</p>
+                        <p className="text-xs font-semibold text-slate-500 mb-1">Bia — IA Clínica</p>
                         <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este perfil.</p>
                      </div>
-                     <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-violet-600 text-white rounded-2xl px-6 py-3 shrink-0">Analisar</Button>
+                     <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-violet-600 text-white rounded-lg px-6 py-3 shrink-0">Analisar</Button>
                   </div>
                 )}
 
@@ -1118,7 +1100,7 @@ export const DISCProfessionalPage: React.FC = () => {
                      >
                         <div className="flex items-center gap-3">
                            <FileText size={18} className="text-slate-400" />
-                           <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Respostas Registradas (30 itens)</h3>
+                           <h3 className="text-xs font-semibold text-slate-700">Respostas Registradas (30 itens)</h3>
                         </div>
                         <ChevronRight size={18} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
                      </button>
@@ -1129,11 +1111,11 @@ export const DISCProfessionalPage: React.FC = () => {
                             const v = BLOCK_COLORS[item.block as keyof typeof BLOCK_COLORS];
                             return (
                               <div key={item.id} className="px-8 py-4 flex items-start gap-4 hover:bg-slate-50/60">
-                                 <span className="text-[10px] font-black text-slate-300 w-6 shrink-0 mt-0.5">{String(DISC_ENTRIES.indexOf(item)+1).padStart(2,'0')}</span>
-                                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${v.bg} ${v.color}`}>{item.block}</span>
+                                 <span className="text-[11px] font-semibold text-slate-300 w-6 shrink-0 mt-0.5">{String(DISC_ENTRIES.indexOf(item)+1).padStart(2,'0')}</span>
+                                 <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${v.bg} ${v.color}`}>{item.block}</span>
                                  <p className="flex-1 text-sm text-slate-600 leading-relaxed">{item.text}</p>
                                  <div className="shrink-0 text-right">
-                                    <span className={`text-lg font-black ${v.color}`}>{val ?? '—'}</span>
+                                    <span className={`text-lg font-semibold ${v.color}`}>{val ?? '—'}</span>
                                  </div>
                               </div>
                             );

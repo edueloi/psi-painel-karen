@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Button, IconButton } from '../UI';
 import { Download, X, Smartphone, Share, PlusSquare, Bell } from 'lucide-react';
 import { API_BASE_URL } from '../../services/api';
 import logoUrl from '../../images/logo-sistema/logo.png';
@@ -142,11 +143,11 @@ export const PortalInstallPrompt: React.FC = () => {
   if (installVisible) {
     return (
       <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-[9998] animate-in slide-in-from-bottom-4 duration-500">
-        <div className="flex items-start gap-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4">
-          <img src={logoUrl} alt="Plaelo" className="w-11 h-11 rounded-xl object-contain shrink-0 border border-slate-100" />
+        <div className="flex items-start gap-3.5 bg-white border border-slate-200 rounded-lg shadow-md p-3">
+          <img src={logoUrl} alt="Plaelo" className="w-11 h-11 rounded-lg object-contain shrink-0 border border-slate-100" />
           <div className="min-w-0 flex-1">
-            <p className="font-black text-sm text-slate-800 flex items-center gap-1.5">
-              <Smartphone size={14} className="text-indigo-500" /> Instale o Portal
+            <p className="font-medium text-sm text-slate-800 flex items-center gap-1.5">
+              <Smartphone size={14} className="text-primary-600" /> Instale o Portal
             </p>
             {showIosHint ? (
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
@@ -160,24 +161,18 @@ export const PortalInstallPrompt: React.FC = () => {
             )}
             <div className="flex items-center gap-2 mt-3">
               {!showIosHint && (
-                <button
-                  onClick={handleInstall}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition-colors"
-                >
-                  <Download size={13} /> Instalar
-                </button>
+                <Button size="sm" variant="primary" onClick={handleInstall} iconLeft={<Download size={14} />}>
+                  Instalar
+                </Button>
               )}
-              <button
-                onClick={dismissInstall}
-                className="px-3.5 py-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-xs font-bold transition-colors"
-              >
+              <Button size="sm" variant="ghost" onClick={dismissInstall}>
                 {showIosHint ? 'Entendi' : 'Agora não'}
-              </button>
+              </Button>
             </div>
           </div>
-          <button onClick={dismissInstall} aria-label="Fechar" className="text-slate-300 hover:text-slate-500 transition-colors shrink-0">
-            <X size={16} />
-          </button>
+          <IconButton variant="ghost" size="sm" onClick={dismissInstall} aria-label="Fechar" className="shrink-0">
+            <X size={14} />
+          </IconButton>
         </div>
       </div>
     );
@@ -186,34 +181,27 @@ export const PortalInstallPrompt: React.FC = () => {
   if (notifyVisible) {
     return (
       <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-[9998] animate-in slide-in-from-bottom-4 duration-500">
-        <div className="flex items-start gap-3.5 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4">
-          <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-            <Bell size={18} className="text-indigo-600" />
+        <div className="flex items-start gap-3.5 bg-white border border-slate-200 rounded-lg shadow-md p-3">
+          <div className="w-11 h-11 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0">
+            <Bell size={18} className="text-primary-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-black text-sm text-slate-800">Ativar notificações</p>
+            <p className="font-medium text-sm text-slate-800">Ativar notificações</p>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
               Receba avisos de lembrete de sessão e confirmações direto no seu celular.
             </p>
             <div className="flex items-center gap-2 mt-3">
-              <button
-                onClick={handleEnableNotifications}
-                disabled={subscribing}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-xs font-black transition-colors"
-              >
-                <Bell size={13} /> {subscribing ? 'Ativando...' : 'Ativar'}
-              </button>
-              <button
-                onClick={dismissNotify}
-                className="px-3.5 py-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-xs font-bold transition-colors"
-              >
+              <Button size="sm" variant="primary" onClick={handleEnableNotifications} loading={subscribing} iconLeft={<Bell size={14} />}>
+                {subscribing ? 'Ativando...' : 'Ativar'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={dismissNotify}>
                 Agora não
-              </button>
+              </Button>
             </div>
           </div>
-          <button onClick={dismissNotify} aria-label="Fechar" className="text-slate-300 hover:text-slate-500 transition-colors shrink-0">
-            <X size={16} />
-          </button>
+          <IconButton variant="ghost" size="sm" onClick={dismissNotify} aria-label="Fechar" className="shrink-0">
+            <X size={14} />
+          </IconButton>
         </div>
       </div>
     );

@@ -49,9 +49,9 @@ interface Props {
 }
 
 const typeConfig: Record<string, any> = {
-  appointment: { label: 'Consulta', icon: <Calendar size={16} />, bg: 'bg-indigo-100', text: 'text-indigo-600' },
+  appointment: { label: 'Consulta', icon: <Calendar size={16} />, bg: 'bg-primary-100', text: 'text-primary-600' },
   finance: { label: 'Financeiro', icon: <DollarSign size={16} />, bg: 'bg-emerald-100', text: 'text-emerald-600' },
-  record: { label: 'Prontuário', icon: <FileText size={16} />, bg: 'bg-blue-100', text: 'text-blue-600' },
+  record: { label: 'Prontuário', icon: <FileText size={16} />, bg: 'bg-primary-100', text: 'text-primary-600' },
   document: { label: 'Documento', icon: <FolderOpen size={16} />, bg: 'bg-amber-100', text: 'text-amber-600' },
   note: { label: 'Anotação', icon: <StickyNote size={16} />, bg: 'bg-violet-100', text: 'text-violet-600' },
   comanda: { label: 'Comanda', icon: <Boxes size={16} />, bg: 'bg-orange-100', text: 'text-orange-600' },
@@ -62,8 +62,8 @@ const typeConfig: Record<string, any> = {
 };
 
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  scheduled: { label: 'Agendado', icon: <Clock size={12} />, color: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
-  confirmed: { label: 'Confirmado', icon: <CheckCircle size={12} />, color: 'text-blue-700 bg-blue-50 border-blue-200' },
+  scheduled: { label: 'Agendado', icon: <Clock size={12} />, color: 'text-primary-700 bg-primary-50 border-primary-200' },
+  confirmed: { label: 'Confirmado', icon: <CheckCircle size={12} />, color: 'text-primary-700 bg-primary-50 border-primary-200' },
   completed: { label: 'Realizado', icon: <CheckCircle size={12} />, color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
   cancelled: { label: 'Cancelado', icon: <XCircle size={12} />, color: 'text-red-700 bg-red-50 border-red-200' },
   'no-show': { label: 'Faltou', icon: <AlertCircle size={12} />, color: 'text-amber-700 bg-amber-50 border-amber-200' },
@@ -149,8 +149,8 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
     >
       <div className="space-y-4">
         {patient && (
-          <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-100 text-lg font-bold text-indigo-600">
+          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary-200 bg-primary-100 text-lg font-semibold text-primary-600">
               {patient.photo_url ? (
                 <img src={getStaticUrl(patient.photo_url)} alt={patient.full_name} className="h-full w-full object-cover" />
               ) : (
@@ -158,10 +158,10 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black text-slate-800">{patient.full_name}</p>
+              <p className="truncate text-sm font-semibold text-slate-800">{patient.full_name}</p>
               <button
                 onClick={() => { navigate(`/pacientes/${patient.id}`); onClose(); }}
-                className="mt-0.5 block text-[10px] font-bold text-indigo-500 hover:text-indigo-700 hover:underline"
+                className="mt-0.5 block text-[11px] font-semibold text-primary-500 hover:text-primary-700 hover:underline"
               >
                 Ver perfil completo →
               </button>
@@ -171,26 +171,26 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
 
         {/* Estatísticas (Stats Grid) */}
         {data && (
-          <div className="grid grid-cols-2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm sm:grid-cols-5">
+          <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm sm:grid-cols-5">
             {[
-              { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-indigo-600', icon: <Calendar size={14}/> },
-              { label: t('nav.records'), value: data.counts.records, color: 'text-blue-600', icon: <FileText size={14}/> },
+              { label: t('nav.agenda'), value: data.counts.appointments, color: 'text-primary-600', icon: <Calendar size={14}/> },
+              { label: t('nav.records'), value: data.counts.records, color: 'text-primary-600', icon: <FileText size={14}/> },
               { label: 'Documentos', value: data.counts.documents || 0, color: 'text-amber-600', icon: <FolderOpen size={14}/> },
               { label: t('nav.comandas'), value: data.counts.comandas, color: 'text-orange-600', icon: <Boxes size={14}/> },
               { label: 'Formulários', value: data.counts.forms || 0, color: 'text-rose-600', icon: <ClipboardList size={14}/> },
             ].map((s, idx) => (
               <div key={idx} className="flex flex-col items-center justify-center border-b border-r border-slate-100 px-3 py-4 text-center transition-colors last:border-r-0 hover:bg-slate-50 sm:border-b-0">
-                <div className={`flex items-center justify-center gap-2 text-base font-black ${s.color}`}>
+                <div className={`flex items-center justify-center gap-2 text-base font-semibold ${s.color}`}>
                   {s.icon} <span>{s.value}</span>
                 </div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-60">{s.label}</div>
+                <div className="text-[11px] font-semibold text-slate-400 mt-1 opacity-60">{s.label}</div>
               </div>
             ))}
           </div>
         )}
 
         {/* Filtros (Scroll Horizontal) */}
-        <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-3 shadow-sm custom-scrollbar">
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-3 shadow-sm custom-scrollbar">
           <FilterLineSegmented<string>
             value={filter}
             onChange={setFilter}
@@ -201,10 +201,10 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
         </div>
 
         {/* Conteúdo da Linha do Tempo (Timeline) */}
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
-              <Loader2 size={32} className="animate-spin text-indigo-500" />
+              <Loader2 size={32} className="animate-spin text-primary-500" />
               <p className="text-sm font-medium">A carregar histórico...</p>
             </div>
           ) : filtered.length === 0 ? (
@@ -238,13 +238,13 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                       return (
                         <div key={item.id} className="relative pl-10 sm:pl-12 group">
                           {/* Ícone Redondo */}
-                          <div className={`absolute left-0 top-3 w-8 h-8 rounded-xl ${cfg.bg} ${cfg.text} flex items-center justify-center border-2 border-white shadow-sm z-10 transition-transform group-hover:scale-110`}>
+                          <div className={`absolute left-0 top-3 w-8 h-8 rounded-lg ${cfg.bg} ${cfg.text} flex items-center justify-center border-2 border-white shadow-sm z-10 transition-transform group-hover:scale-110`}>
                             {cfg.icon}
                           </div>
 
                           {/* Cartão de Conteúdo */}
                           <div
-                            className={`bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-xl hover:shadow-indigo-50/50 transition-all group/card ${isClickable ? 'cursor-pointer hover:border-rose-300' : ''}`}
+                            className={`bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-sm hover:shadow-sm hover: transition-all group/card ${isClickable ? 'cursor-pointer hover:border-rose-300' : ''}`}
                             onClick={isClickable ? () => {
                               onClose();
                               if (item.type === 'disc') {
@@ -260,10 +260,10 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    <h5 className="text-sm font-extrabold text-slate-900 group-hover/card:text-indigo-600 transition-colors">{item.title}</h5>
+                                    <h5 className="text-sm font-semibold text-slate-900 group-hover/card:text-primary-600 transition-colors">{item.title}</h5>
                                     <div className="flex items-center gap-1.5">
                                       {st && (
-                                        <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg border ${st.color}`}>
+                                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${st.color}`}>
                                           {st.icon} {st.label}
                                         </span>
                                       )}
@@ -272,26 +272,26 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                                   </div>
                                   
                                   {item.subtitle && (
-                                    <p className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-widest">{item.subtitle}</p>
+                                    <p className="text-[11px] font-semibold text-primary-500">{item.subtitle}</p>
                                   )}
                                 </div>
 
                                 <div className="shrink-0 text-right">
-                                    <div className="text-xs font-black text-slate-800 uppercase tracking-tighter">{formatTime(item.date)}</div>
-                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{formatDate(item.date)}</div>
+                                    <div className="text-xs font-semibold text-slate-800">{formatTime(item.date)}</div>
+                                    <div className="text-[11px] font-semibold text-slate-400">{formatDate(item.date)}</div>
                                 </div>
                               </div>
 
                               {item.preview && (
-                                <div className="text-[13px] text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100/50 leading-relaxed font-medium">
+                                <div className="text-[13px] text-slate-600 bg-slate-50/50 p-4 rounded-lg border border-slate-100/50 leading-relaxed font-medium">
                                   {item.preview.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
                                 </div>
                               )}
 
                               {item.amount != null && (
-                                <div className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-xl shadow-sm">
-                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor da Operação</span>
-                                  <div className={`text-sm font-black ${item.financeType === 'income' ? 'text-emerald-600' : 'text-rose-600'} flex items-center gap-1.5`}>
+                                <div className="flex items-center justify-between bg-white border border-slate-100 p-3 rounded-lg shadow-sm">
+                                  <span className="text-[11px] font-semibold text-slate-400">Valor da Operação</span>
+                                  <div className={`text-sm font-semibold ${item.financeType === 'income' ? 'text-emerald-600' : 'text-rose-600'} flex items-center gap-1.5`}>
                                     {item.financeType === 'income' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                                     {formatMoney(item.amount)}
                                   </div>
@@ -299,16 +299,16 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                               )}
                               
                               {item.notes && (
-                                <p className="text-[10px] font-bold text-slate-400 italic flex items-start gap-2 bg-slate-50/30 p-2 rounded-lg">
-                                    <Info size={12} className="shrink-0 mt-0.5 text-indigo-400"/> 
+                                <p className="text-[11px] font-semibold text-slate-400 italic flex items-start gap-2 bg-slate-50/30 p-2 rounded-lg">
+                                    <Info size={12} className="shrink-0 mt-0.5 text-primary-400"/> 
                                     <span>{item.notes}</span>
                                 </p>
                               )}
 
                               {item.reschedule_reason && (
-                                <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-100 border-dashed">
-                                  <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Motivo do Reagendamento</p>
-                                  <p className="text-xs font-bold text-amber-700 leading-relaxed italic opacity-80">{item.reschedule_reason}</p>
+                                <div className="p-3 bg-amber-50/50 rounded-lg border border-amber-100 border-dashed">
+                                  <p className="text-[11px] font-semibold text-amber-600 mb-1.5">Motivo do Reagendamento</p>
+                                  <p className="text-xs font-semibold text-amber-700 leading-relaxed italic opacity-80">{item.reschedule_reason}</p>
                                 </div>
                               )}
 

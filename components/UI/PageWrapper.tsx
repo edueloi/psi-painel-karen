@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "@/src/lib/utils";
+import { uiTheme } from './theme';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PageWrapper — Design System
@@ -17,6 +18,9 @@ interface PageWrapperProps extends React.HTMLAttributes<HTMLDivElement> {
   bleed?: boolean;
 }
 
+// Dentro de outro PageWrapper (ex.: o do shell do admin) o espaçamento não duplica.
+const PageWrapperContext = React.createContext(false);
+
 export function PageWrapper({
   children,
   className,
@@ -24,22 +28,31 @@ export function PageWrapper({
   bleed: _bleed,
   ...props
 }: PageWrapperProps) {
+  const nested = React.useContext(PageWrapperContext);
+  if (nested) {
+    return <div className={cn("w-full max-w-none min-w-0", className)} {...props}>{children}</div>;
+  }
   return (
+    <PageWrapperContext.Provider value={true}>
     <div
       className={cn(
+        // Ocupa toda a largura útil do painel
         "w-full max-w-none min-w-0",
-        "px-3 sm:px-5 lg:px-6 xl:px-8",
-        "pt-3 sm:pt-4 lg:pt-5",
-        // pb generoso em todos os breakpoints: o assistente Bia é fixed
-        // bottom-right e não pode sobrepor/bloquear cliques em controles
-        // no rodapé da página (ex: seletor "por página" da paginação).
-        mobileBottomPad ? "pb-24 sm:pb-24 lg:pb-24" : "pb-0",
+        // Padding horizontal mais equilibrado para admin
+        // Sem padding horizontal no mobile para "cara de app", recupera respiro no desktop
+        "px-3 sm:px-4 lg:px-5 xl:px-6",
+        // Padding vertical menor para reduzir o "vazio" no topo
+        "pt-3 sm:pt-4",
+        // Bottom spacing
+        // pb generoso: o assistente flutuante (fixed bottom-right) não pode cobrir controles do rodapé.
+        mobileBottomPad ? "pb-24" : "pb-0",
         className
       )}
       {...props}
     >
       {children}
     </div>
+    </PageWrapperContext.Provider>
   );
 }
 
@@ -75,18 +88,18 @@ export function SectionTitle({
     >
       <div className="flex min-w-0 items-center gap-3">
         {Icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-100 bg-amber-50">
-            <Icon size={18} className="text-amber-600" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50">
+            <Icon size={15} className="text-primary-600" />
           </div>
         )}
 
         <div className="min-w-0">
-          <h1 className="truncate font-display text-lg font-black tracking-tight text-zinc-900 sm:text-xl lg:text-2xl">
+          <h1 className="truncate font-display text-base font-medium text-slate-900 sm:text-lg">
             {title}
           </h1>
 
           {description && (
-            <p className="mt-0.5 text-xs leading-relaxed text-zinc-400 sm:text-sm">
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
               {description}
             </p>
           )}
@@ -94,7 +107,7 @@ export function SectionTitle({
       </div>
 
       {action && (
-        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           {action}
         </div>
       )}
@@ -118,13 +131,13 @@ export function StatGrid({
   ...props
 }: StatGridProps) {
   const colsMap: Record<number, string> = {
-    2: "grid-cols-1 sm:grid-cols-2",
-    3: "grid-cols-1 sm:grid-cols-3",
-    4: "grid-cols-2 lg:grid-cols-4",
+    2: "grid-cols-2",
+    3: "grid-cols-2 sm:grid-cols-3",
+    4: "grid-cols-2 sm:grid-cols-4",
   };
 
   return (
-    <div className={cn("grid min-w-0 gap-3 [&>*]:min-w-0 sm:gap-4", colsMap[cols], className)} {...props}>
+    <div className={cn("grid gap-2 sm:gap-3", colsMap[cols], className)} {...props}>
       {children}
     </div>
   );
@@ -141,26 +154,28 @@ interface ContentCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function ContentCard({
   children,
+  title,
   padding = "md",
   className,
   ...props
 }: ContentCardProps) {
   const paddingMap = {
     none: "",
-    sm: "p-3 sm:p-4",
-    md: "p-4 sm:p-5",
-    lg: "p-5 sm:p-6 lg:p-7",
+    sm: "p-3",
+    md: "p-3",
+    lg: "p-4",
   };
 
   return (
     <div
       className={cn(
-        "rounded-2xl border border-zinc-200 bg-white shadow-sm sm:rounded-3xl",
+        uiTheme.surface,
         paddingMap[padding],
         className
       )}
       {...props}
     >
+      {title && <h3 className="mb-3 text-[13px] font-medium text-slate-800">{title}</h3>}
       {children}
     </div>
   );
@@ -183,7 +198,7 @@ export function FormRow({ children, cols = 2, className }: FormRowProps) {
     3: "grid-cols-1 md:grid-cols-2 xl:grid-cols-3",
   };
 
-  return <div className={cn("grid gap-4", colsMap[cols], className)}>{children}</div>;
+  return <div className={cn("grid gap-3", colsMap[cols], className)}>{children}</div>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

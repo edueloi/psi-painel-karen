@@ -14,10 +14,14 @@ import {
   Lock as LockIcon, Unlock as UnlockIcon,
   Receipt, CircleDashed,
   CalendarCheck, CalendarClock, UserCheck,
-  ExternalLink, XCircle,
+  ExternalLink, XCircle, ClipboardList, StickyNote,
 } from 'lucide-react';
-import { PageWrapper, SectionTitle, StatGrid } from '../components/UI/PageWrapper';
-import { Modal } from '../components/UI/Modal';
+import { PageWrapper, SectionTitle, StatGrid, ContentCard, FormRow } from '../components/UI/PageWrapper';
+import { Modal, ModalFooter } from '../components/UI/Modal';
+import { Tabs } from '../components/UI/Tabs';
+import { Badge } from '../components/UI/Badge';
+import { Alert } from '../components/UI/Alert';
+import { Switch } from '../components/UI/Switch';
 import { ActionDrawer } from '../components/UI/ActionDrawer';
 import { Input, Select, Textarea } from '../components/UI/Input';
 import { Button, IconButton } from '../components/UI/Button';
@@ -25,7 +29,6 @@ import { DatePicker } from '../components/UI/DatePicker';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { AppCard } from '../components/UI/AppCard';
 import { StatCard } from '../components/UI/StatCard';
-import { Pagination } from '../components/UI/Pagination';
 import { EmptyState } from '../components/UI/EmptyState';
 import {
   FilterLine, FilterLineSection, FilterLineItem,
@@ -140,10 +143,34 @@ const METHOD_LABEL: Record<string, string> = {
   courtesy: 'CORTESIA',
 };
 
+const FLOW_TABS = [
+  { id: 'all', label: 'Todos', icon: List },
+  { id: 'income', label: 'Entradas', icon: TrendingUp },
+  { id: 'expense', label: 'Saídas', icon: TrendingDown },
+] as const;
+type FlowTab = typeof FLOW_TABS[number]['id'];
+
+const TX_TABS = [
+  { id: 'dados', label: 'Lançamento', icon: DollarSign },
+  { id: 'paciente', label: 'Paciente e comanda', icon: User },
+  { id: 'obs', label: 'Observações', icon: StickyNote },
+] as const;
+type TxTab = typeof TX_TABS[number]['id'];
+
+const IMPORT_TABS = [
+  { id: 'csv', label: 'Arquivo CSV', icon: FileText },
+  { id: 'paste', label: 'Colar Dados (Excel)', icon: ClipboardList },
+] as const;
+
+const CARNE_TABS = [
+  { id: 'month', label: 'Mês específico', icon: Calendar },
+  { id: 'year', label: 'Ano completo', icon: CalendarCheck },
+] as const;
+
 const STATUS_INFO: Record<string, { label: string; color: string; icon: any }> = {
   paid:      { label: 'PAGO',      color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle2 },
   pending:   { label: 'PENDENTE',  color: 'bg-amber-50 text-amber-700 border-amber-100',    icon: Clock },
-  waiting:   { label: 'AGUARDANDO',color: 'bg-indigo-50 text-indigo-700 border-indigo-100', icon: Clock },
+  waiting:   { label: 'AGUARDANDO',color: 'bg-primary-50 text-primary-700 border-primary-100', icon: Clock },
   confirmed: { label: 'CONFIRMADO',color: 'bg-blue-50 text-blue-700 border-blue-100',      icon: CheckCircle2 },
   cancelled: { label: 'CANCELADO', color: 'bg-rose-50 text-rose-700 border-rose-100',      icon: X },
   overdue:   { label: 'ATRASADO',  color: 'bg-rose-100 text-rose-800 border-rose-200 animate-pulse', icon: AlertCircle },
@@ -485,7 +512,7 @@ const exportXLS = async (data: Transaction[], monthLabel: string, summary: { inc
   const detRow = dataSh.addRow({ date: '', due: '', desc: '', cat: '', type: '', payer: '', cpf: '', method: '', status: '', amount: null });
   dataSh.mergeCells(`A${detRow.number}:J${detRow.number}`);
   const detCell = detRow.getCell('A');
-  detCell.value     = `Entradas: ${fmtBRL(totalIncome)}    |    Saidas: ${fmtBRL(totalExpense)}`;
+  detCell.value     = `Entradas: ${fmtBRL(totalIncome)} | Saidas: ${fmtBRL(totalExpense)}`;
   detCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
   detCell.font      = { name: 'Calibri', size: 9, color: { argb: 'FF94A3B8' } };
   detCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -519,7 +546,7 @@ const exportPDF = async (data: Transaction[], summary: { income: number; expense
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(148, 163, 184);
   doc.text(
-    'Gerado em: ' + new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    'Gerado em:' + new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     PAGE_W - MARGIN, 15, { align: 'right' }
   );
   doc.text('Plaelo', PAGE_W - MARGIN, 20, { align: 'right' });
@@ -630,12 +657,12 @@ const exportPDF = async (data: Transaction[], summary: { income: number; expense
   doc.text(data.length + ' lancamento(s)', MARGIN + 2, y + 1);
   const balC: [number,number,number] = summary.balance >= 0 ? [52, 211, 153] : [252, 129, 129];
   doc.setTextColor(...balC);
-  doc.text('Saldo: ' + fmtBRL(summary.balance), MARGIN + COL_W - 1, y + 1, { align: 'right' });
+  doc.text('Saldo:' + fmtBRL(summary.balance), MARGIN + COL_W - 1, y + 1, { align: 'right' });
   doc.setTextColor(148, 163, 184);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.text(
-    'Entradas: ' + fmtBRL(summary.income) + '   |   Saidas: ' + fmtBRL(summary.expense),
+    'Entradas:' + fmtBRL(summary.income) + '| Saidas:' + fmtBRL(summary.expense),
     MARGIN + COL_W / 2, y + 1, { align: 'center' }
   );
 
@@ -728,6 +755,8 @@ export const LivroCaixa: React.FC = () => {
   const [isAuraContabilOpen, setIsAuraContabilOpen] = useState(false);
   const [isImportOpen, setIsImportOpen]   = useState(false);
   const [isNewTxOpen, setIsNewTxOpen]     = useState(false);
+  const [txTab, setTxTab]                 = useState<TxTab>('dados');
+  useEffect(() => { if (isNewTxOpen) setTxTab('dados'); }, [isNewTxOpen]);
   const [isExtraMode, setIsExtraMode]     = useState(false);
   const [editingTx, setEditingTx]         = useState<Transaction | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -1546,8 +1575,8 @@ export const LivroCaixa: React.FC = () => {
 
   const handleSaveTx = async () => {
     const parsedAmount = parseDisplayAmount(txAmount);
-    if (!txAmount || parsedAmount <= 0) { pushToast('error', 'Informe um valor válido'); return; }
-    if (!txDate) { pushToast('error', 'Informe a data'); return; }
+    if (!txAmount || parsedAmount <= 0) { setTxTab('dados'); pushToast('error', 'Informe um valor válido'); return; }
+    if (!txDate) { setTxTab('dados'); pushToast('error', 'Informe a data'); return; }
 
     const [y, m] = txDate.split('-');
     if (lockedMonths.includes(`${Number(y)}-${Number(m)}`)) {
@@ -1683,11 +1712,11 @@ export const LivroCaixa: React.FC = () => {
       render: (tx) => {
         const d = safeDate(tx.date);
         return (
-          <div className="flex flex-col items-center justify-center w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl shadow-sm shrink-0">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none">
+          <div className="flex flex-col items-center justify-center w-12 h-12 bg-slate-50 border border-slate-100 rounded-lg shadow-sm shrink-0">
+            <span className="text-[11px] font-semibold text-slate-400 leading-none">
               {d ? d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') : '—'}
             </span>
-            <span className="text-base font-black text-slate-800 leading-none">
+            <span className="text-base font-semibold text-slate-800 leading-none">
               {d ? d.getDate().toString().padStart(2, '0') : '—'}
             </span>
           </div>
@@ -1704,14 +1733,14 @@ export const LivroCaixa: React.FC = () => {
         
         return (
           <div className="flex flex-col min-w-[70px]">
-            <span className={`text-[10px] font-black uppercase tracking-tight ${isActuallyDifferent ? 'text-amber-600' : 'text-slate-400'}`}>
+            <span className={`text-[11px] font-semibold   ${isActuallyDifferent ? 'text-amber-600' : 'text-slate-400'}`}>
               {formatDate(tx.due_date || tx.date)}
             </span>
             {status === 'overdue' && (
-              <span className="text-[8px] font-black text-rose-500 uppercase animate-pulse">Atrasado</span>
+              <span className="text-[11px] font-semibold text-rose-500 ">Atrasado</span>
             )}
             {isActuallyDifferent && status !== 'overdue' && (
-              <span className="text-[8px] font-black text-slate-300 uppercase">Programado</span>
+              <span className="text-[11px] font-semibold text-slate-300">Programado</span>
             )}
           </div>
         );
@@ -1723,23 +1752,17 @@ export const LivroCaixa: React.FC = () => {
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className={`h-2 w-2 rounded-full shrink-0 ${tx.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            <p className="font-black text-slate-700 text-sm truncate max-w-[240px]">{tx.description || tx.category}</p>
+            <p className="font-semibold text-slate-700 text-sm truncate max-w-[240px]">{tx.description || tx.category}</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {tx.category && (
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50">
-                {tx.category}
-              </span>
+              <Badge size="sm">{tx.category}</Badge>
             )}
             {tx.payment_method && (
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/50 flex items-center gap-1">
-                <CreditCard size={9} /> {METHOD_LABEL[tx.payment_method] ?? tx.payment_method}
-              </span>
+              <Badge size="sm" icon={<CreditCard size={10} />}>{METHOD_LABEL[tx.payment_method] ?? tx.payment_method}</Badge>
             )}
             {tx.comanda_id && (
-              <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 flex items-center gap-1">
-                <ShoppingBag size={9} /> Comanda #{tx.comanda_id}
-              </span>
+              <Badge size="sm" color="primary" icon={<ShoppingBag size={10} />}>Comanda #{tx.comanda_id}</Badge>
             )}
           </div>
         </div>
@@ -1761,10 +1784,10 @@ export const LivroCaixa: React.FC = () => {
                 <User size={9} className="text-slate-400" />
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight leading-none">
+                <p className="text-[11px] font-semibold text-slate-400 leading-none">
                   Pagador{payerCpf ? ` · ${payerCpf.replace(/\D/g,'').slice(0,11)}` : ''}
                 </p>
-                <p className="text-xs font-bold text-slate-700 truncate">{payerName}</p>
+                <p className="text-xs font-semibold text-slate-700 truncate">{payerName}</p>
               </div>
             </div>
             {hasExternalPayer && (
@@ -1773,10 +1796,10 @@ export const LivroCaixa: React.FC = () => {
                   <User size={9} className="text-slate-400" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight leading-none">
+                  <p className="text-[11px] font-semibold text-slate-400 leading-none">
                     Paciente{patientCpf ? ` · ${patientCpf.replace(/\D/g,'').slice(0,11)}` : ''}
                   </p>
-                  <p className="text-xs font-bold text-slate-700 truncate">{patientName}</p>
+                  <p className="text-xs font-semibold text-slate-700 truncate">{patientName}</p>
                 </div>
               </div>
             )}
@@ -1789,7 +1812,7 @@ export const LivroCaixa: React.FC = () => {
       sortKey: 'amount',
       render: (tx) => (
         <div className="text-right flex flex-col items-end">
-          <p className={`text-base font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+          <p className={`text-base font-semibold ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
             {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
           </p>
           
@@ -1801,8 +1824,8 @@ export const LivroCaixa: React.FC = () => {
                 const info = STATUS_INFO[status] || STATUS_INFO.pending;
                 const Icon = info.icon;
                 return (
-                  <div title={info.label} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-widest ${info.color}`}>
-                    <Icon size={9} />
+                  <div title={info.label} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-medium ${info.color}`}>
+                    <Icon size={10} />
                     {info.label}
                   </div>
                 );
@@ -1810,7 +1833,7 @@ export const LivroCaixa: React.FC = () => {
             </div>
 
             {tx.comanda_id && tx.comanda_total !== undefined && (
-              <span className="text-[10px] font-bold text-slate-400 mt-1 leading-none italic">
+              <span className="text-[11px] font-semibold text-slate-400 mt-1 leading-none italic">
                 (Comanda total: {formatCurrency(tx.comanda_total)})
               </span>
             )}
@@ -1843,17 +1866,15 @@ export const LivroCaixa: React.FC = () => {
             {isLoading ? (
               <Loader2 size={18} className="animate-spin text-slate-300" />
             ) : (
-              <button
+              <IconButton
+                variant={issued ? 'success' : 'outline'}
+                size="sm"
+                aria-label={issued ? 'Recibo emitido' : 'Recibo não emitido'}
                 title={tooltip}
-                onClick={(e) => { e.stopPropagation(); setRsConfirm({ tx, newValue: !issued }); }}
-                className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all ${
-                  issued
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100'
-                    : 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100'
-                }`}
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setRsConfirm({ tx, newValue: !issued }); }}
               >
                 {issued ? <Receipt size={14} /> : <CircleDashed size={14} />}
-              </button>
+              </IconButton>
             )}
           </div>
         );
@@ -1875,12 +1896,12 @@ export const LivroCaixa: React.FC = () => {
         }
 
         const status = tx.nfse_status;
-        const styleByStatus: Record<string, { cls: string; icon: React.ReactNode; title: string }> = {
-          authorized: { cls: 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100', icon: <CheckCircle2 size={14} />, title: 'NFS-e autorizada — clique para ver' },
-          processing: { cls: 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100', icon: <Loader2 size={14} className="animate-spin" />, title: 'NFS-e em processamento' },
-          pending: { cls: 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100', icon: <Clock size={14} />, title: 'NFS-e pendente' },
-          rejected: { cls: 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100', icon: <XCircle size={14} />, title: tx.nfse_rejection_reason || 'NFS-e rejeitada — clique para tentar novamente' },
-          error: { cls: 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100', icon: <XCircle size={14} />, title: tx.nfse_rejection_reason || 'Erro ao emitir NFS-e — clique para tentar novamente' },
+        const styleByStatus: Record<string, { variant: 'success' | 'outline' | 'danger'; icon: React.ReactNode; title: string }> = {
+          authorized: { variant: 'success', icon: <CheckCircle2 size={14} />, title: 'NFS-e autorizada — clique para ver' },
+          processing: { variant: 'outline', icon: <Loader2 size={14} className="animate-spin" />, title: 'NFS-e em processamento' },
+          pending: { variant: 'outline', icon: <Clock size={14} />, title: 'NFS-e pendente' },
+          rejected: { variant: 'danger', icon: <XCircle size={14} />, title: tx.nfse_rejection_reason || 'NFS-e rejeitada — clique para tentar novamente' },
+          error: { variant: 'danger', icon: <XCircle size={14} />, title: tx.nfse_rejection_reason || 'Erro ao emitir NFS-e — clique para tentar novamente' },
         };
         const s = status ? styleByStatus[status] : null;
 
@@ -1889,13 +1910,15 @@ export const LivroCaixa: React.FC = () => {
             {isLoading ? (
               <Loader2 size={18} className="animate-spin text-slate-300" />
             ) : (
-              <button
+              <IconButton
+                variant={s?.variant || 'outline'}
+                size="sm"
+                aria-label="NFS-e"
                 title={s?.title || 'Emitir Nota Fiscal de Serviço (NFS-e)'}
-                onClick={(e) => { e.stopPropagation(); openNfseModal(tx); }}
-                className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all ${s?.cls || 'bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100'}`}
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); openNfseModal(tx); }}
               >
                 {s?.icon || <FileText size={14} />}
-              </button>
+              </IconButton>
             )}
           </div>
         );
@@ -1905,60 +1928,51 @@ export const LivroCaixa: React.FC = () => {
       header: '',
       headerClassName: 'w-[180px] text-right',
       render: (tx) => (
-        <div className="flex items-center justify-end gap-1.5 min-w-[150px]">
+        <div className="flex items-center justify-end gap-1 min-w-[150px]">
           {tx.comanda_id && (
             <>
-              <button
+              <IconButton
+                variant="ghost" size="xs" aria-label="Histórico rápido da comanda" title="Histórico Rápido da Comanda"
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); openHistory(tx.comanda_id!); }}
-                title="Histórico Rápido da Comanda"
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-500 hover:bg-white hover:border-indigo-300 hover:shadow-sm transition-all"
               >
                 <ShoppingBag size={14} />
-              </button>
-              <button
-                onClick={(e: React.MouseEvent) => { 
-                  e.stopPropagation(); 
-                  navigate('/comandas', { state: { openComandaId: tx.comanda_id } });
-                }}
-                title="Abrir no Módulo de Comandas"
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all"
+              </IconButton>
+              <IconButton
+                variant="ghost" size="xs" aria-label="Abrir no módulo de comandas" title="Abrir no Módulo de Comandas"
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('/comandas', { state: { openComandaId: tx.comanda_id } }); }}
               >
                 <ExternalLink size={14} />
-              </button>
+              </IconButton>
             </>
           )}
           {hasPermission('manage_payments') && tx.status !== 'paid' && tx.status !== 'confirmed' && (
-            <button
+            <IconButton
+              variant="success" size="xs" aria-label="Efetivar pagamento" title="Efetivar Pagamento Agora"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQuickPay(tx); }}
-              title="Efetivar Pagamento Agora"
-              className="w-8 h-8 flex items-center justify-center rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:shadow-lg shadow-emerald-200 transition-all"
             >
               <Check size={14} />
-            </button>
+            </IconButton>
           )}
           {hasPermission('manage_payments') && (
             <>
-              <button
+              <IconButton
+                variant="ghost" size="xs" aria-label="Editar lançamento" title="Editar Lançamento"
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); openEditTx(tx); }}
-                title="Editar Lançamento"
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-amber-500 hover:border-amber-200 hover:shadow-sm transition-all"
               >
                 <Edit3 size={14} />
-              </button>
-              <button
+              </IconButton>
+              <IconButton
+                variant="ghost" size="xs" aria-label="Repetir no próximo mês" title="Repetir no Próximo Mês"
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleRepeat(tx.id); }}
-                title="Repetir no Próximo Mês"
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:shadow-sm transition-all"
               >
                 <RefreshCw size={14} />
-              </button>
-              <button
+              </IconButton>
+              <IconButton
+                variant="ghost" size="xs" aria-label="Excluir lançamento" title="Excluir Lançamento"
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteConfirmId(tx.id); }}
-                title="Excluir Lançamento"
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 hover:shadow-sm transition-all"
               >
                 <Trash2 size={14} />
-              </button>
+              </IconButton>
             </>
           )}
         </div>
@@ -1968,203 +1982,224 @@ export const LivroCaixa: React.FC = () => {
 
   // ─── Render Archive ───────────────────────────────────────────────────────────
 
-  const renderArchive = () => (
-    <PageWrapper className="space-y-4 sm:space-y-5">
-      <SectionTitle
-        icon={BookOpen}
-        title="Arquivo Financeiro"
-        description="Gestão de períodos consolidados"
-        action={
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-            <div className="flex items-center justify-between gap-2 sm:contents">
+  const renderArchive = () => {
+    const yearTotals = monthSummaries.reduce(
+      (acc, ms) => ({
+        income: acc.income + Number(ms.income || 0),
+        expense: acc.expense + Number(ms.expense || 0),
+        pending: acc.pending + Number(ms.pending || 0),
+        balance: acc.balance + Number(ms.balance || 0),
+      }),
+      { income: 0, expense: 0, pending: 0, balance: 0 }
+    );
+
+    return (
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={BookOpen}
+          title="Arquivo Financeiro"
+          description="Gestão de períodos consolidados"
+          action={
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {/* Year selector */}
-              <div className="flex items-center gap-1 bg-slate-900 text-white rounded-2xl px-3 py-2 font-black text-[10px] uppercase tracking-widest h-9 shrink-0">
-                <button onClick={() => setSelectedYear(y => y - 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
+              <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1 h-8 shrink-0">
+                <IconButton variant="ghost" size="xs" aria-label="Ano anterior" onClick={() => setSelectedYear(y => y - 1)}>
                   <ChevronLeft size={14} />
-                </button>
-                <span className="mx-2">{selectedYear}</span>
-                <button onClick={() => setSelectedYear(y => y + 1)} className="p-1 hover:bg-white/10 rounded-lg transition-all">
+                </IconButton>
+                <span className="mx-1 text-xs font-medium text-slate-700 tabular-nums">{selectedYear}</span>
+                <IconButton variant="ghost" size="xs" aria-label="Próximo ano" onClick={() => setSelectedYear(y => y + 1)}>
                   <ChevronRight size={14} />
-                </button>
+                </IconButton>
               </div>
               <FilterLineViewToggle value={archiveLayout} onChange={v => { setArchiveLayout(v as 'grid' | 'list'); localStorage.setItem('livrocaixa_layout', v as string); }} gridValue="grid" listValue="list" />
-            </div>
-            <div className="contents">
-              <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} className="w-full sm:w-auto"
+              <Button variant="outline" size="sm" iconLeft={<Upload size={14} />}
                 onClick={() => { setImportStep('input'); setPreviewRows([]); setPasteText(''); setCsvFile(null); setIsImportOpen(true); }}>
                 Importar
               </Button>
-              <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()} className="w-full sm:w-auto">
+              <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()}>
                 Novo Lançamento
               </Button>
             </div>
-          </div>
-        }
-      />
-
-      <div className="space-y-4 sm:space-y-5">
-
-      {/* Month Cards */}
-      {isLoadingArchive ? (
-        <div className="flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-slate-500 sm:p-16">
-          <Loader2 className="animate-spin" size={32} />
-          <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-40">Carregando Períodos...</span>
-        </div>
-      ) : monthSummaries.length === 0 ? (
-        <EmptyState
-          icon={BookOpen}
-          title={`Nenhum lançamento em ${selectedYear}`}
-          description='Clique em "Novo Lançamento" para começar'
-          action={<Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()}>Novo Lançamento</Button>}
+          }
         />
-      ) : archiveLayout === 'grid' ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
-          {monthSummaries.map((ms) => (
-            <AppCard
-              key={`${ms.year}-${ms.month}`}
-              title={ms.label}
-              subtitle={
-                lockedMonths.includes(`${ms.year}-${ms.month}`) ? (
-                  <span className="text-rose-500 font-extrabold bg-rose-50 px-1.5 py-0.5 rounded text-[10px]">FECHADO</span>
-                ) : (
-                  <span className="text-emerald-500 font-extrabold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">ABERTO</span>
-                )
-              }
-              avatarIcon={<BookOpen size={20} />}
-              topActions={[
-                {
-                  label: 'Excluir mês',
-                  icon: <Trash2 size={13} />,
-                  variant: 'danger',
-                  onClick: () => {
-                    if (lockedMonths.includes(`${ms.year}-${ms.month}`)) {
-                      pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período está fechado e não pode ser excluído.');
-                      return;
-                    }
-                    setDeleteMonthConfirm(ms);
-                  },
-                },
-              ]}
-              stats={[
-                { label: 'Receitas',    value: formatCurrency(ms.income),  tone: 'success' },
-                { label: 'Despesas',    value: formatCurrency(ms.expense), tone: 'danger'  },
-                { label: 'Pendente',    value: formatCurrency(ms.pending), tone: 'default' },
-                { label: 'Saldo',       value: formatCurrency(ms.balance), tone: ms.balance >= 0 ? 'default' : 'danger' },
-              ]}
-              bottomActions={[
-                { label: 'Abrir Livro Caixa', variant: 'outline', onClick: () => openDetail(ms.month, ms.year) },
-              ]}
+
+        <StatGrid cols={4}>
+          <StatCard title={`Entradas ${selectedYear}`} value={formatCurrency(yearTotals.income)} icon={TrendingUp} color="success" />
+          <StatCard title={`Saídas ${selectedYear}`} value={formatCurrency(yearTotals.expense)} icon={TrendingDown} color="danger" />
+          <StatCard title="Pendente" value={formatCurrency(yearTotals.pending)} icon={Clock} color="warning" />
+          <StatCard title="Saldo do ano" value={formatCurrency(yearTotals.balance)} icon={Wallet} color={yearTotals.balance >= 0 ? 'info' : 'danger'} />
+        </StatGrid>
+
+        {/* Month Cards */}
+        {isLoadingArchive ? (
+          <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+            <Loader2 size={18} className="animate-spin" />Carregando períodos…
+          </div>
+        ) : monthSummaries.length === 0 ? (
+          <ContentCard>
+            <EmptyState
+              icon={BookOpen}
+              title={`Nenhum lançamento em ${selectedYear}`}
+              description='Clique em "Novo Lançamento" para começar'
+              action={<Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => openNewTx()}>Novo Lançamento</Button>}
             />
-          ))}
-        </div>
-      ) : (
-        <GridTable<MonthSummary>
-          data={monthSummaries}
-          keyExtractor={(ms) => `${ms.year}-${ms.month}`}
-          onRowClick={(ms) => openDetail(ms.month, ms.year)}
-          renderMobileItem={(ms) => (
-            <div className="w-full min-w-0 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-700">
-                  <BookOpen size={15} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-bold text-slate-800">{ms.label}</p>
-                    <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase ${lockedMonths.includes(`${ms.year}-${ms.month}`) ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                      {lockedMonths.includes(`${ms.year}-${ms.month}`) ? 'Fechado' : 'Aberto'}
-                    </span>
-                  </div>
-                  <p className={`mt-1 text-base font-black ${ms.balance >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>{formatCurrency(ms.balance)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-2 text-[10px]">
-                <div><span className="block text-slate-400">Entradas</span><b className="text-emerald-600">{formatCurrency(ms.income)}</b></div>
-                <div><span className="block text-slate-400">Saídas</span><b className="text-rose-600">{formatCurrency(ms.expense)}</b></div>
-                <div><span className="block text-slate-400">Pendente</span><b className="text-amber-600">{formatCurrency(ms.pending)}</b></div>
-              </div>
-            </div>
-          )}
-          columns={[
-            {
-              header: 'Período',
-              render: (ms) => (
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center shrink-0">
-                    <BookOpen size={15} />
-                  </div>
-                  <div>
-                    <p className="font-black text-slate-800 text-sm">{ms.label}</p>
-                    <div className="text-[10px] font-bold uppercase tracking-widest mt-1">
-                      {lockedMonths.includes(`${ms.year}-${ms.month}`) ? (
-                        <span className="text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">Fechado</span>
-                      ) : (
-                        <span className="text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded">Aberto</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ),
-            },
-            {
-              header: 'Receitas',
-              render: (ms) => (
-                <p className="font-black text-emerald-600">{formatCurrency(ms.income)}</p>
-              ),
-            },
-            {
-              header: 'Despesas',
-              render: (ms) => (
-                <p className="font-black text-rose-500">{formatCurrency(ms.expense)}</p>
-              ),
-            },
-            {
-              header: 'Pendente',
-              render: (ms) => (
-                <p className="font-black text-amber-600">{formatCurrency(ms.pending)}</p>
-              ),
-            },
-            {
-              header: 'Saldo',
-              render: (ms) => (
-                <p className={`font-black ${ms.balance >= 0 ? 'text-slate-800' : 'text-rose-500'}`}>
-                  {formatCurrency(ms.balance)}
-                </p>
-              ),
-            },
-            {
-              header: '',
-              render: (ms) => (
-                <div className="flex items-center justify-end gap-1.5">
-                  <button
-                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); openDetail(ms.month, ms.year); }}
-                    className="px-4 py-1.5 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all"
-                  >
-                    Abrir
-                  </button>
-                  <button
-                    onClick={(e: React.MouseEvent) => { 
-                      e.stopPropagation(); 
+          </ContentCard>
+        ) : archiveLayout === 'grid' ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {monthSummaries.map((ms) => (
+              <AppCard
+                key={`${ms.year}-${ms.month}`}
+                title={ms.label}
+                subtitle={
+                  lockedMonths.includes(`${ms.year}-${ms.month}`) ? (
+                    <Badge color="danger" size="sm">Fechado</Badge>
+                  ) : (
+                    <Badge color="success" size="sm">Aberto</Badge>
+                  )
+                }
+                avatarIcon={<BookOpen size={20} />}
+                topActions={[
+                  {
+                    label: 'Excluir mês',
+                    icon: <Trash2 size={13} />,
+                    variant: 'danger',
+                    onClick: () => {
                       if (lockedMonths.includes(`${ms.year}-${ms.month}`)) {
                         pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período está fechado e não pode ser excluído.');
                         return;
                       }
-                      setDeleteMonthConfirm(ms); 
-                    }}
-                    className="p-1.5 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                      setDeleteMonthConfirm(ms);
+                    },
+                  },
+                ]}
+                stats={[
+                  { label: 'Receitas',    value: formatCurrency(ms.income),  tone: 'success' },
+                  { label: 'Despesas',    value: formatCurrency(ms.expense), tone: 'danger'  },
+                  { label: 'Pendente',    value: formatCurrency(ms.pending), tone: 'default' },
+                  { label: 'Saldo',       value: formatCurrency(ms.balance), tone: ms.balance >= 0 ? 'default' : 'danger' },
+                ]}
+                bottomActions={[
+                  { label: 'Abrir Livro Caixa', variant: 'outline', onClick: () => openDetail(ms.month, ms.year) },
+                ]}
+              />
+            ))}
+          </div>
+        ) : (
+          <ContentCard padding="none">
+            <GridTable<MonthSummary>
+              noDesktopCard
+              data={monthSummaries}
+              keyExtractor={(ms) => `${ms.year}-${ms.month}`}
+              onRowClick={(ms) => openDetail(ms.month, ms.year)}
+              renderMobileItem={(ms) => (
+                <div className="w-full min-w-0 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
+                      <BookOpen size={15} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-[13px] font-medium text-slate-800">{ms.label}</p>
+                        <Badge size="sm" color={lockedMonths.includes(`${ms.year}-${ms.month}`) ? 'danger' : 'success'}>
+                          {lockedMonths.includes(`${ms.year}-${ms.month}`) ? 'Fechado' : 'Aberto'}
+                        </Badge>
+                      </div>
+                      <p className={`mt-1 text-sm font-medium tabular-nums ${ms.balance >= 0 ? 'text-slate-800' : 'text-red-600'}`}>{formatCurrency(ms.balance)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-2 text-[11px]">
+                    <div><span className="block text-slate-500">Entradas</span><b className="font-medium text-emerald-700">{formatCurrency(ms.income)}</b></div>
+                    <div><span className="block text-slate-500">Saídas</span><b className="font-medium text-red-600">{formatCurrency(ms.expense)}</b></div>
+                    <div><span className="block text-slate-500">Pendente</span><b className="font-medium text-amber-700">{formatCurrency(ms.pending)}</b></div>
+                  </div>
                 </div>
-              ),
-            },
-          ]}
-        />
-      )}
-
-      </div>{/* end padding wrapper */}
+              )}
+              columns={[
+                {
+                  header: 'Período',
+                  render: (ms) => (
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                        <BookOpen size={15} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800 text-[13px]">{ms.label}</p>
+                        <div className="mt-1">
+                          {lockedMonths.includes(`${ms.year}-${ms.month}`) ? (
+                            <Badge color="danger" size="sm">Fechado</Badge>
+                          ) : (
+                            <Badge color="success" size="sm">Aberto</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  header: 'Receitas',
+                  render: (ms) => (
+                    <p className="text-xs font-semibold tabular-nums text-emerald-700">{formatCurrency(ms.income)}</p>
+                  ),
+                },
+                {
+                  header: 'Despesas',
+                  render: (ms) => (
+                    <p className="text-xs font-semibold tabular-nums text-red-600">{formatCurrency(ms.expense)}</p>
+                  ),
+                },
+                {
+                  header: 'Pendente',
+                  render: (ms) => (
+                    <p className="text-xs font-semibold tabular-nums text-amber-700">{formatCurrency(ms.pending)}</p>
+                  ),
+                },
+                {
+                  header: 'Saldo',
+                  render: (ms) => (
+                    <p className={`text-xs font-semibold tabular-nums ${ms.balance >= 0 ? 'text-slate-800' : 'text-red-600'}`}>
+                      {formatCurrency(ms.balance)}
+                    </p>
+                  ),
+                },
+                {
+                  header: '',
+                  render: (ms) => (
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); openDetail(ms.month, ms.year); }}
+                      >
+                        Abrir
+                      </Button>
+                      <IconButton
+                        variant="ghost"
+                        size="xs"
+                        aria-label="Excluir mês"
+                        title="Excluir mês"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          if (lockedMonths.includes(`${ms.year}-${ms.month}`)) {
+                            pushToast('error', 'LIVRO CAIXA FECHADO', 'Este período está fechado e não pode ser excluído.');
+                            return;
+                          }
+                          setDeleteMonthConfirm(ms);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </IconButton>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </ContentCard>
+        )}
+      </div>
     </PageWrapper>
-  );
+    );
+  };
 
   // ─── Render Detail ────────────────────────────────────────────────────────────
 
@@ -2173,152 +2208,153 @@ export const LivroCaixa: React.FC = () => {
       ? `${MONTH_NAMES[selectedMonth.month - 1]} ${selectedMonth.year}`
       : '';
 
+    const flowTabs = FLOW_TABS.map(tab => ({
+      ...tab,
+      badge: tab.id === 'all'
+        ? transactions.length
+        : transactions.filter(tx => tx.type === tab.id).length,
+    }));
+
     return (
-      <PageWrapper className="space-y-4 sm:space-y-5">
+      <PageWrapper>
+        <div className="space-y-4">
         <SectionTitle
           icon={BookOpen}
           title="Livro Caixa"
           description={displayMonth}
           action={
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()} className="col-span-2 justify-self-start sm:col-auto sm:justify-self-auto">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => goToArchive()}>
                 Voltar
               </Button>
 
-              <div className="contents">
-                {/* Export dropdown */}
-                <div className="relative" ref={exportRef}>
-                  <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => setShowExportMenu(v => !v)} className="w-full sm:w-auto">
-                    Exportar
-                  </Button>
-                  {showExportMenu && (
-                    <div className="absolute left-0 right-0 sm:left-auto sm:right-0 sm:w-44 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden" onMouseLeave={() => setShowExportMenu(false)}>
-                      {[
-                        { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
-                        { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
-                        { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
-                      ].map(item => (
-                        <button key={item.label} onClick={item.action}
-                          className="w-full text-left px-4 py-3 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-colors">
-                          {item.label}
-                        </button>
-                      ))}
-                      <div className="border-t border-slate-100" />
-                      <button
-                        onClick={() => {
-                          if (selectedMonth) {
-                            setCarneleaoMode('month');
-                            setCarneleaoMonth(selectedMonth.month);
-                            setCarneleaoYear(selectedMonth.year);
-                          } else {
-                            setCarneleaoMode('year');
-                            setCarneleaoYear(selectedYear);
-                          }
-                          setShowExportMenu(false);
-                          setShowCarneleaoModal(true);
-                        }}
-                        className="w-full text-left px-4 py-3 text-[11px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-colors flex items-center gap-2 text-emerald-700"
-                      >
-                        <Receipt size={13} /> Carnê-Leão (gov.br)
+              {/* Export dropdown */}
+              <div className="relative" ref={exportRef}>
+                <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={() => setShowExportMenu(v => !v)}>
+                  Exportar
+                </Button>
+                {showExportMenu && (
+                  <div className="absolute right-0 sm:w-48 top-full mt-1 bg-white border border-slate-200 rounded-lg z-50 overflow-hidden min-w-[176px]" onMouseLeave={() => setShowExportMenu(false)}>
+                    {[
+                      { label: 'CSV', action: () => { exportCSV(filtered, displayMonth); setShowExportMenu(false); } },
+                      { label: 'Excel (XLSX)', action: () => { exportXLS(filtered, displayMonth, summary); setShowExportMenu(false); } },
+                      { label: 'PDF', action: () => { exportPDF(filtered, summary, displayMonth); setShowExportMenu(false); } },
+                    ].map(item => (
+                      <button key={item.label} type="button" onClick={item.action}
+                        className="w-full text-left px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                        {item.label}
                       </button>
-                    </div>
-                  )}
-                </div>
-
-                {isAdmin && (
-                  <Button
-                    variant={isMonthLocked ? 'danger' : 'success'}
-                    size="sm"
-                    iconLeft={isMonthLocked ? <LockIcon size={14} /> : <UnlockIcon size={14} />}
-                    onClick={() => handleToggleLock(currentMonthKey)}
-                    className="w-full sm:w-auto"
-                  >
-                    {isMonthLocked ? 'Fechado' : 'Aberto'}
-                  </Button>
-                )}
-
-                {hasPermission('view_financial_reports') && (
-                  <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto">
-                    Importar
-                  </Button>
-                )}
-
-                {hasPermission('manage_payments') && (
-                  <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenNewTxFromArchive()} className="w-full sm:w-auto">
-                    Novo
-                  </Button>
+                    ))}
+                    <div className="border-t border-slate-100" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedMonth) {
+                          setCarneleaoMode('month');
+                          setCarneleaoMonth(selectedMonth.month);
+                          setCarneleaoYear(selectedMonth.year);
+                        } else {
+                          setCarneleaoMode('year');
+                          setCarneleaoYear(selectedYear);
+                        }
+                        setShowExportMenu(false);
+                        setShowCarneleaoModal(true);
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-primary-50 transition-colors flex items-center gap-2 text-primary-700"
+                    >
+                      <Receipt size={14} /> Carnê-Leão (gov.br)
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {isAdmin && (
+                <Button
+                  variant={isMonthLocked ? 'danger' : 'success'}
+                  size="sm"
+                  iconLeft={isMonthLocked ? <LockIcon size={14} /> : <UnlockIcon size={14} />}
+                  onClick={() => handleToggleLock(currentMonthKey)}
+                >
+                  {isMonthLocked ? 'Fechado' : 'Aberto'}
+                </Button>
+              )}
+
+              {hasPermission('view_financial_reports') && (
+                <Button variant="outline" size="sm" iconLeft={<Upload size={14} />} onClick={() => setIsImportOpen(true)}>
+                  Importar
+                </Button>
+              )}
+
+              {hasPermission('manage_payments') && (
+                <Button variant="success" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenNewTxFromArchive()}>
+                  Novo
+                </Button>
+              )}
             </div>
           }
         />
 
-        <div className="space-y-4 sm:space-y-5">
+        {/* KPI + Tabs + Filtros — wrapper opcionalmente fixo ao rolar */}
+        <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-4 bg-slate-50/95 backdrop-blur-md py-3 -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-3 sm:px-5 lg:px-6 xl:px-8 border-b border-slate-200' : 'space-y-4'}>
 
-        {/* KPI + Search — sticky wrapper */}
-        <div className={stickyStats ? 'sticky top-[88px] z-30 space-y-4 bg-slate-50/95 backdrop-blur-md pt-3 pb-3 -mx-3 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-3 sm:px-5 lg:px-6 xl:px-8 shadow-md shadow-slate-200/60 rounded-b-3xl' : 'space-y-4'}>
+          <StatGrid cols={4}>
+            <StatCard title="Entradas" value={formatCurrency(summary.income)} icon={TrendingUp} color="success" delay={0} />
+            <StatCard title="Saídas" value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" delay={1} />
+            <StatCard title="Pendente" value={formatCurrency(summary.pending)} icon={Clock} color="warning" delay={2} />
+            <StatCard title="Saldo Líquido" value={formatCurrency(summary.balance)} icon={Wallet} color={summary.balance >= 0 ? 'info' : 'danger'} delay={3} />
+          </StatGrid>
 
-        {/* KPI Cards */}
-        <StatGrid cols={4}>
-          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Entradas" value={formatCurrency(summary.income)} icon={TrendingUp} color="success" delay={0} />
-          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Saídas" value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" delay={1} />
-          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Pendente" value={formatCurrency(summary.pending)} icon={Clock} color="warning" delay={2} />
-          <StatCard className="[&_h3]:text-sm sm:[&_h3]:text-lg" title="Saldo Líquido" value={formatCurrency(summary.balance)} icon={Wallet} color={summary.balance >= 0 ? 'info' : 'danger'} delay={3} />
-        </StatGrid>
+          <Tabs<FlowTab>
+            items={flowTabs}
+            value={flowFilter}
+            onChange={setFlowFilter}
+            label="Tipo de movimentação"
+          />
 
-        {/* Filtros */}
-        <FilterLine>
-          <FilterLineSection grow>
-            <FilterLineItem grow minWidth={240}>
-              <FilterLineSearch value={searchQuery} onChange={setSearchQuery} placeholder="Buscar nos lançamentos..." />
-            </FilterLineItem>
-          </FilterLineSection>
-          <FilterLineSection align="right">
-            <FilterLineSegmented
-              value={flowFilter}
-              onChange={v => setFlowFilter(v as 'all' | 'income' | 'expense')}
-              options={[
-                { value: 'all',     label: 'Todos' },
-                { value: 'income',  label: 'Entradas' },
-                { value: 'expense', label: 'Saídas' },
-              ]}
-            />
-            {user?.rsReceiptEnabled && (
-              <FilterLineSegmented
-                value={rsFilter}
-                onChange={v => setRsFilter(v as 'all' | 'issued' | 'pending' | 'na')}
-                options={[
-                  { value: 'all',     label: 'RS: Todos' },
-                  { value: 'pending', label: 'Pendente' },
-                  { value: 'issued',  label: 'Emitido' },
-                  { value: 'na',      label: 'N/A' },
-                ]}
+          <FilterLine>
+            <FilterLineSection grow>
+              <FilterLineItem grow minWidth={240}>
+                <FilterLineSearch value={searchQuery} onChange={setSearchQuery} placeholder="Buscar nos lançamentos..." />
+              </FilterLineItem>
+            </FilterLineSection>
+            <FilterLineSection align="right">
+              {user?.rsReceiptEnabled && (
+                <FilterLineSegmented
+                  value={rsFilter}
+                  onChange={v => setRsFilter(v as 'all' | 'issued' | 'pending' | 'na')}
+                  options={[
+                    { value: 'all',     label: 'RS: Todos' },
+                    { value: 'pending', label: 'Pendente' },
+                    { value: 'issued',  label: 'Emitido' },
+                    { value: 'na',      label: 'N/A' },
+                  ]}
+                  size="sm"
+                />
+              )}
+              <IconButton
+                variant={stickyStats ? 'primary' : 'outline'}
                 size="sm"
-              />
-            )}
-            <IconButton
-              variant={stickyStats ? 'success' : 'outline'}
-              size="sm"
-              title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
-              onClick={() => updatePreference('livroCaixa', { stickyStats: !stickyStats })}
-            >
-              {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
-            </IconButton>
-          </FilterLineSection>
-        </FilterLine>
-        </div>{/* end sticky wrapper */}
+                aria-label={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
+                title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
+                onClick={() => updatePreference('livroCaixa', { stickyStats: !stickyStats })}
+              >
+                {stickyStats ? <Pin size={14} /> : <PinOff size={14} />}
+              </IconButton>
+            </FilterLineSection>
+          </FilterLine>
+        </div>
 
         {/* Bulk action bar */}
         {selectedTxIds.size > 0 && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <span className="text-sm font-semibold text-amber-800">{selectedTxIds.size} selecionado(s)</span>
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <div className="flex flex-col gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs font-medium text-primary-800">{selectedTxIds.size} selecionado(s)</span>
+            <div className="flex flex-wrap gap-2">
               {hasPermission('manage_payments') && (
                 <>
-                  <Button variant="outline" size="sm" iconLeft={<RefreshCw size={13} />} onClick={handleBulkRepeat} loading={isBulkProcessing}>
+                  <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={handleBulkRepeat} loading={isBulkProcessing}>
                     Reprocessar
                   </Button>
-                  <Button variant="danger" size="sm" iconLeft={<Trash2 size={13} />} onClick={handleBulkDelete} loading={isBulkProcessing}>
+                  <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleBulkDelete} loading={isBulkProcessing}>
                     Excluir selecionados
                   </Button>
                 </>
@@ -2330,17 +2366,17 @@ export const LivroCaixa: React.FC = () => {
 
         {/* Transactions Table */}
         {isLoadingDetail ? (
-          <div className="flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-slate-500 sm:p-16">
-            <Loader2 className="animate-spin" size={32} />
-            <span className="font-black text-[10px] uppercase tracking-[0.4em] opacity-30">Processando Fluxo...</span>
+          <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+            <Loader2 size={18} className="animate-spin" />Processando fluxo…
           </div>
         ) : (() => {
           const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
           const safePage   = Math.min(currentPage, totalPages);
           const paginated  = filtered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
           return (
-            <>
+            <ContentCard padding="none">
               <GridTable<Transaction>
+                noDesktopCard
                 data={paginated}
                 columns={columns}
                 keyExtractor={(tx) => tx.id}
@@ -2350,8 +2386,15 @@ export const LivroCaixa: React.FC = () => {
                 emptyMessage="Nenhum lançamento encontrado para este período."
                 sortKey={sortKey}
                 sortOrder={sortOrder}
-                 onSort={handleSort}
+                onSort={handleSort}
                 onRowClick={(tx) => { setSelectedTxForDetails(tx); fetchPkgSessions(tx.id); }}
+                pagination={filtered.length > 0 ? {
+                  total: filtered.length,
+                  page: safePage,
+                  pageSize: itemsPerPage,
+                  onPageChange: setCurrentPage,
+                  onPageSizeChange: (size) => { updatePreference('livroCaixa', { itemsPerPage: size }); setCurrentPage(1); },
+                } : undefined}
                 renderMobileItem={(tx) => {
                   const status = getStatus(tx);
                   const info = STATUS_INFO[status] || STATUS_INFO.pending;
@@ -2362,31 +2405,31 @@ export const LivroCaixa: React.FC = () => {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className={`h-2 w-2 shrink-0 rounded-full ${tx.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                            <p className="truncate text-sm font-bold text-slate-800">{tx.description || tx.category}</p>
+                            <p className="truncate text-[13px] font-medium text-slate-800">{tx.description || tx.category}</p>
                           </div>
                           <p className="mt-1 truncate text-[11px] text-slate-500">
                             {formatDate(tx.date)} · {tx.patient_name || tx.beneficiary_name || tx.payer_name || tx.category}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className={`text-sm font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          <p className={`text-[13px] font-semibold tabular-nums ${tx.type === 'income' ? 'text-emerald-700' : 'text-red-600'}`}>
                             {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                           </p>
-                          <span className={`mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase ${info.color}`}>
-                            <StatusIcon size={8} /> {info.label}
+                          <span className={`mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium ${info.color}`}>
+                            <StatusIcon size={10} /> {info.label}
                           </span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="min-w-0 truncate text-[10px] text-slate-400">{METHOD_LABEL[tx.payment_method] || tx.payment_method || 'Sem método'}</div>
+                        <div className="min-w-0 truncate text-[11px] text-slate-500">{METHOD_LABEL[tx.payment_method] || tx.payment_method || 'Sem método'}</div>
                         <div className="flex shrink-0 gap-1">
                           {hasPermission('manage_payments') && tx.status !== 'paid' && tx.status !== 'confirmed' && (
-                            <IconButton variant="success" size="xs" title="Efetivar pagamento" onClick={() => handleQuickPay(tx)}><Check size={12} /></IconButton>
+                            <IconButton variant="success" size="sm" aria-label="Efetivar pagamento" title="Efetivar pagamento" onClick={() => handleQuickPay(tx)}><Check size={14} /></IconButton>
                           )}
                           {hasPermission('manage_payments') && (
                             <>
-                              <IconButton variant="outline" size="xs" title="Editar" onClick={() => openEditTx(tx)}><Edit3 size={12} /></IconButton>
-                              <IconButton variant="danger" size="xs" title="Excluir" onClick={() => setDeleteConfirmId(tx.id)}><Trash2 size={12} /></IconButton>
+                              <IconButton variant="outline" size="sm" aria-label="Editar" title="Editar" onClick={() => openEditTx(tx)}><Edit3 size={14} /></IconButton>
+                              <IconButton variant="danger" size="sm" aria-label="Excluir" title="Excluir" onClick={() => setDeleteConfirmId(tx.id)}><Trash2 size={14} /></IconButton>
                             </>
                           )}
                         </div>
@@ -2395,21 +2438,10 @@ export const LivroCaixa: React.FC = () => {
                   );
                 }}
               />
-              {filtered.length > 0 && (
-                <Pagination
-                  total={filtered.length}
-                  page={safePage}
-                  pageSize={itemsPerPage}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={(size) => { updatePreference('livroCaixa', { itemsPerPage: size }); setCurrentPage(1); }}
-                  showPageSizeSelector
-                />
-              )}
-            </>
+            </ContentCard>
           );
         })()}
-
-        </div>{/* end padding wrapper */}
+        </div>
       </PageWrapper>
     );
   };
@@ -2431,60 +2463,48 @@ export const LivroCaixa: React.FC = () => {
         title={importStep === 'preview' ? 'Pré-análise da Importação' : 'Importar Lançamentos'}
         size="lg"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => {
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => {
               if (importStep === 'preview') { setImportStep('input'); setPreviewRows([]); }
               else { setIsImportOpen(false); setPasteText(''); setCsvFile(null); setPreviewRows([]); }
             }}>
-              {importStep === 'preview' ? '← Voltar' : 'Cancelar'}
+              {importStep === 'preview' ? 'Voltar' : 'Cancelar'}
             </Button>
             {importStep === 'input' ? (
-              <Button variant="secondary" iconLeft={<Search size={14} />} onClick={handlePreview}>
+              <Button variant="primary" size="sm" iconLeft={<Search size={14} />} onClick={handlePreview}>
                 Pré-visualizar
               </Button>
             ) : (
-              <Button variant="success" iconLeft={<CheckCircle2 size={14} />} onClick={handleImport} loading={isImporting}>
+              <Button variant="success" size="sm" iconLeft={<CheckCircle2 size={14} />} onClick={handleImport} loading={isImporting}>
                 Confirmar Importação
               </Button>
             )}
-          </div>
+          </ModalFooter>
         }
       >
         {importStep === 'input' ? (
           <>
-            {/* Tab Selector */}
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-5">
-              {[
-                { id: 'csv',   label: 'Arquivo CSV' },
-                { id: 'paste', label: 'Colar Dados (Excel)' },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => { setImportTab(tab.id as any); }}
-                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    importTab === tab.id
-                      ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <Tabs<'csv' | 'paste'>
+              items={IMPORT_TABS}
+              value={importTab}
+              onChange={setImportTab}
+              label="Origem dos dados"
+              className="mb-4"
+            />
 
             {importTab === 'csv' ? (
               <div>
                 <div
                   onClick={() => document.getElementById('csv-upload-lc')?.click()}
-                  className="border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition-all"
+                  className="border-2 border-dashed border-slate-200 rounded-lg p-8 sm:p-12 flex flex-col items-center justify-center cursor-pointer hover:border-primary-300 hover:bg-primary-50/40 transition-colors"
                 >
                   <FileText size={40} className="text-slate-300 mb-3" />
                   {csvFile ? (
-                    <p className="font-black text-slate-700 text-sm">{csvFile.name}</p>
+                    <p className="font-semibold text-slate-700 text-sm">{csvFile.name}</p>
                   ) : (
                     <>
-                      <p className="font-black text-slate-600">Clique para selecionar seu CSV</p>
-                      <p className="text-[10px] font-black text-slate-400 mt-1.5 uppercase tracking-widest">DATA, DESCRIÇÃO, VALOR, TIPO</p>
+                      <p className="font-semibold text-slate-600">Clique para selecionar seu CSV</p>
+                      <p className="text-[11px] text-slate-500 mt-1.5">Data, descrição, valor, tipo</p>
                     </>
                   )}
                 </div>
@@ -2492,15 +2512,15 @@ export const LivroCaixa: React.FC = () => {
               </div>
             ) : (
               <div>
-                <p className="text-sm font-bold text-slate-500 mb-3">
+                <p className="text-sm font-semibold text-slate-500 mb-3">
                   Selecione as linhas na sua planilha e cole abaixo (Ctrl+V). Colunas: <span className="text-slate-700">Data · Formato · Pagador · CPF · Valor · Descrição · Categoria · Paciente</span>
                 </p>
-                <textarea
+                <Textarea
                   value={pasteText}
                   onChange={(e) => setPasteText(e.target.value)}
                   rows={8}
                   placeholder={'07/01/26\tPix recebido\tCamila Souza\t123.456.789-00\tR$ 100,00\tPsicoterapia Individual\tSessão Avulsa\tCamila'}
-                  className="w-full border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 bg-slate-50 outline-none focus:border-slate-400 focus:bg-white resize-none placeholder:text-slate-300 font-mono transition-all"
+                  className="font-mono"
                 />
               </div>
             )}
@@ -2509,44 +2529,44 @@ export const LivroCaixa: React.FC = () => {
           /* ── Preview Step ── */
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:gap-3">
-              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
-                <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Receitas</p>
-                <p className="text-base font-black text-emerald-700">{previewRows.filter(r => r.type === 'income').length}</p>
+              <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-center">
+                <p className="text-[11px] font-semibold text-emerald-500">Receitas</p>
+                <p className="text-base font-semibold text-emerald-700">{previewRows.filter(r => r.type === 'income').length}</p>
               </div>
-              <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center">
-                <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest">Despesas</p>
-                <p className="text-base font-black text-rose-700">{previewRows.filter(r => r.type === 'expense').length}</p>
+              <div className="bg-rose-50 border border-rose-100 rounded-lg p-3 text-center">
+                <p className="text-[11px] font-semibold text-rose-500">Despesas</p>
+                <p className="text-base font-semibold text-rose-700">{previewRows.filter(r => r.type === 'expense').length}</p>
               </div>
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 text-center">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total</p>
-                <p className="text-base font-black text-slate-700">{formatCurrency(previewRows.reduce((s, r) => s + (r.type === 'income' ? r.amount : -r.amount), 0))}</p>
+              <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-center">
+                <p className="text-[11px] font-semibold text-slate-500">Total</p>
+                <p className="text-base font-semibold text-slate-700">{formatCurrency(previewRows.reduce((s, r) => s + (r.type === 'income' ? r.amount : -r.amount), 0))}</p>
               </div>
             </div>
 
-            <div className="border border-slate-100 rounded-2xl overflow-hidden">
-              <div className="bg-slate-50 px-4 py-2.5 grid grid-cols-[80px_1fr_100px_90px] gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            <div className="border border-slate-100 rounded-lg overflow-hidden">
+              <div className="bg-slate-50 px-4 py-2.5 grid grid-cols-[80px_1fr_100px_90px] gap-2 text-[11px] font-semibold text-slate-400">
                 <span>Data</span><span>Descrição / Pagador</span><span className="text-right">Valor</span><span className="text-right">Método</span>
               </div>
               <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
                 {previewRows.map((r, i) => (
                   <div key={i} className="px-4 py-2.5 grid grid-cols-[80px_1fr_100px_90px] gap-2 items-center hover:bg-slate-50 transition-colors">
-                    <span className="text-[10px] font-bold text-slate-400">{formatDate(r.date)}</span>
+                    <span className="text-[11px] font-semibold text-slate-400">{formatDate(r.date)}</span>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-700 truncate">{r.description || r.payer_name || '—'}</p>
-                      {r.payer_name && <p className="text-[9px] text-slate-400 truncate">{r.payer_name}</p>}
+                      <p className="text-xs font-semibold text-slate-700 truncate">{r.description || r.payer_name || '—'}</p>
+                      {r.payer_name && <p className="text-[11px] text-slate-400 truncate">{r.payer_name}</p>}
                     </div>
-                    <span className={`text-xs font-black text-right ${r.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    <span className={`text-xs font-semibold text-right ${r.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
                       {r.type === 'income' ? '+' : '-'}{formatCurrency(r.amount)}
                     </span>
-                    <span className="text-[9px] font-black text-slate-400 uppercase text-right">{METHOD_LABEL[r.payment_method] ?? r.payment_method}</span>
+                    <span className="text-[11px] font-semibold text-slate-400 text-right">{METHOD_LABEL[r.payment_method] ?? r.payment_method}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
               <AlertCircle size={14} className="text-amber-500 shrink-0" />
-              <p className="text-[10px] font-bold text-amber-700">Revise os dados acima antes de confirmar. Esta ação não pode ser desfeita automaticamente.</p>
+              <p className="text-[11px] font-semibold text-amber-700">Revise os dados acima antes de confirmar. Esta ação não pode ser desfeita automaticamente.</p>
             </div>
           </div>
         )}
@@ -2557,12 +2577,14 @@ export const LivroCaixa: React.FC = () => {
         isOpen={isNewTxOpen}
         onClose={() => { setIsNewTxOpen(false); resetForm(); }}
         title={editingTx ? 'Revisar Lançamento' : 'Novo Lançamento'}
-        size="2xl"
+        subtitle={txType === 'income' ? 'Receita' : 'Despesa'}
+        size="full"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => { setIsNewTxOpen(false); resetForm(); }}>Cancelar</Button>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => { setIsNewTxOpen(false); resetForm(); }}>Cancelar</Button>
             <Button
               variant={txType === 'income' ? 'success' : 'danger'}
+              size="sm"
               iconLeft={<CheckCircle2 size={14} />}
               onClick={handleSaveTx}
               loading={isSaving}
@@ -2570,385 +2592,384 @@ export const LivroCaixa: React.FC = () => {
             >
               {editingTx ? 'Salvar Alterações' : 'Confirmar'}
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
-        <div className="space-y-5">
-          {/* Type + Date */}
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Tipo de Movimentação</label>
-              <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-                <button onClick={() => { setTxType('income'); setTxCategory('Geral'); setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
-                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txType === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-emerald-600'}`}>
-                  Receita
-                </button>
-                <button onClick={() => { setTxType('expense'); setTxCategory(CATEGORIES_EXPENSE[0]); setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
-                  className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${txType === 'expense' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 hover:text-rose-500'}`}>
-                  Despesa
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data da Operação</label>
-              <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Data de Vencimento</label>
-              <DatePicker value={txDueDate} onChange={setTxDueDate} placeholder="Quando vence?" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Status do Lançamento</label>
-            <div className={`grid grid-cols-${STATUS_OPTIONS.length} gap-2 bg-slate-100 p-1.5 rounded-2xl`}>
-              {STATUS_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setTxStatus(opt.id as any)}
-                  className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    txStatus === opt.id
-                      ? (opt.id === 'cancelled' ? 'bg-rose-500 text-white shadow-sm' : opt.id === 'paid' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-900 text-white shadow-sm')
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Patient Identification — MOVED UP */}
-          {!isExtraMode && (
-            <div className="border-2 border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-3">
-              <div className="flex items-center justify-between">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Identificação do Atendimento</label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={txPayerIsPatient} onChange={(e) => setTxPayerIsPatient(e.target.checked)} className="accent-slate-900 w-4 h-4" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pagador é o Paciente</span>
-              </label>
-            </div>
-            <div ref={patientRef} className="relative">
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                {txPayerIsPatient ? 'Paciente / Pagador' : 'Paciente'}
-              </label>
-              <div className="relative">
-                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input type="text" value={patientQuery}
-                  onChange={(e) => { setPatientQuery(e.target.value); setPatientDropdownOpen(true); if (!e.target.value) { setTxPatientName(''); setTxPatientCpf(''); } }}
-                  onFocus={() => setPatientDropdownOpen(true)}
-                  placeholder="Buscar paciente..."
-                  className="w-full p-3 pl-9 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
-                />
-                {patientQuery && (
-                  <button type="button" onClick={() => { setPatientQuery(''); setTxPatientName(''); setTxPatientCpf(''); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"><X size={14} /></button>
-                )}
-              </div>
-              {patientDropdownOpen && patientQuery.length >= 1 && (
-                <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                  {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).slice(0, 8).map(p => (
-                    <button key={p.id} type="button" onClick={() => {
-                        setTxPatientName(p.name);
-                        setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g,'')));
-                        
-                        // Auto-fill payer info if patient is not the payer
-                        if (!p.is_payer && p.payer_name) {
-                          setTxPayerIsPatient(false);
-                          setTxPayerName(p.payer_name);
-                          if (p.payer_cpf) setTxPayerCpf(maskCpf(p.payer_cpf.replace(/\D/g,'')));
-                        } else {
-                          setTxPayerIsPatient(true);
-                          setTxPayerName('');
-                          setTxPayerCpf('');
-                        }
-
-                        setPatientQuery(p.name);
-                        setPatientDropdownOpen(false);
-                        setTxSelectedComandaId('');
-                        setTxPatientComandas([]);
-                        api.get<any[]>('/finance/comandas').then((all: any[]) => {
-                          // Mostra comandas em aberto com saldo pendente, E comandas já
-                          // fechadas/pagas que ainda não têm nenhum registro no Livro Caixa
-                          // (pra trazer o registro pra cá). Uma comanda que já tem lançamento
-                          // vinculado nunca aparece de novo — vincular duas vezes conta o
-                          // mesmo pagamento em dobro.
-                          const eligible = (Array.isArray(all) ? all : [])
-                            .filter((c: any) => {
-                              const isPatient = String(c.patient_id || c.patientId || '') === String(p.id);
-                              if (!isPatient || c.has_livrocaixa_entry) return false;
-                              if (c.status === 'closed') return true;
-                              const totalVal = Number(c.totalValue || c.total || 0);
-                              const paidVal = Number(c.paidValue || c.paid_value || 0);
-                              return c.status === 'open' && totalVal > paidVal;
-                            })
-                            .map((c: any) => {
-                              const items: any[] = c.items || [];
-                              const serviceLabel = items.length > 0
-                                ? items.map((i: any) => i.serviceName || i.name || '').filter(Boolean).join(', ')
-                                : '';
-                              const descLabel = serviceLabel || c.description || `Comanda #${c.id}`;
-                              return {
-                                id: String(c.id),
-                                description: descLabel,
-                                totalValue: Number(c.totalValue || c.total || 0),
-                                paidValue: Number(c.paidValue || c.paid_value || 0),
-                                status: c.status,
-                              };
-                            });
-                          setTxPatientComandas(eligible);
-                        }).catch(() => {});
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
-                      <p className="text-sm font-bold text-slate-700">{p.name}</p>
-                      {p.cpf && <p className="text-[10px] text-slate-400 font-bold">{maskCpf(p.cpf.replace(/\D/g,''))}</p>}
-                    </button>
-                  ))}
-                  {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).length === 0 && (
-                    <p className="px-4 py-3 text-sm text-slate-400 font-bold">Nenhum paciente encontrado</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                CPF {txPayerIsPatient ? 'do Paciente / Pagador' : 'do Paciente'}
-              </label>
-              <input type="text" value={txPatientCpf} onChange={(e) => setTxPatientCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14}
-                className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
-            </div>
-            {!txPayerIsPatient && (
-              <div className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-2 sm:grid-cols-2">
+        <Tabs<TxTab> items={TX_TABS} value={txTab} onChange={setTxTab} label="Seções do lançamento">
+          {txTab === 'dados' && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {/* Coluna esquerda: tipo, datas, status, serviço/categoria */}
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nome do Pagador</label>
-                  <input type="text" value={txPayerName} onChange={(e) => setTxPayerName(e.target.value)} placeholder="Nome completo do pagador"
-                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
+                  <span className="ds-label block mb-1">Tipo de Movimentação</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant={txType === 'income' ? 'success' : 'outline'}
+                      size="sm"
+                      onClick={() => { setTxType('income'); setTxCategory('Geral'); setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
+                    >
+                      Receita
+                    </Button>
+                    <Button
+                      variant={txType === 'expense' ? 'danger' : 'outline'}
+                      size="sm"
+                      onClick={() => { setTxType('expense'); setTxCategory(CATEGORIES_EXPENSE[0]); setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
+                    >
+                      Despesa
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">CPF do Pagador</label>
-                  <input type="text" value={txPayerCpf} onChange={(e) => setTxPayerCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14}
-                    className="w-full p-3 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
-                </div>
-              </div>
-            )}
-          </div>
-          )}
 
-          {/* Comanda linking — aparece quando há comandas abertas para o paciente ou se for edição com comanda já vinculada */}
-          {(editingTx && editingTx.comanda_id) || (isExtraMode && txSelectedComandaId) ? (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
-              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><CheckCircle2 size={12}/> Pagamento Vinculado</p>
-              <p className="text-xs font-bold text-indigo-900 leading-tight">
-                {isExtraMode 
-                  ? `Novo pagamento sendo lançado para abater o saldo da Comanda #${txSelectedComandaId}. O paciente já está preenchido automaticamente.` 
-                  : `Você está editando o recibo da Comanda #${editingTx?.comanda_id}. Para corrigir este lançamento, basta alterar o valor abaixo. A alteração será repassada automaticamente à Comanda.`}
-              </p>
-            </div>
-          ) : !isExtraMode && txPatientComandas.length > 0 ? (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-2">
-              <label className="block text-[9px] font-black text-indigo-600 uppercase tracking-widest">
-                Vincular Comanda
-              </label>
-              <select
-                value={txSelectedComandaId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setTxSelectedComandaId(id);
-                  if (id) {
-                    const c = txPatientComandas.find(x => x.id === id);
-                    if (c) {
-                      // Comanda fechada (já paga) sem registro ainda: traz o valor total
-                      // pago pra lançar retroativamente. Comanda aberta: traz o saldo pendente.
-                      const pending = Math.max(0, c.totalValue - c.paidValue);
-                      const valueToFill = c.status === 'closed' ? c.paidValue : pending;
-                      if (valueToFill > 0) {
-                        const valueStr = valueToFill.toFixed(2).replace('.', ',');
-                        setTxBaseAmount(valueStr);
-                        setTxAmount(valueStr);
-                        setTxDiscount('');
-                      }
-                      if (!txDescription) setTxDescription(c.description);
-                    }
-                  }
-                }}
-                className="w-full p-3 rounded-xl border border-indigo-200 bg-white outline-none focus:border-indigo-400 text-sm font-bold text-slate-700 appearance-none"
-              >
-                <option value="">— Selecionar comanda —</option>
-                {txPatientComandas.map(c => {
-                  const pending = Math.max(0, c.totalValue - c.paidValue);
-                  const valueLabel = c.status === 'closed'
-                    ? `Fechada · Pago: R$ ${c.paidValue.toFixed(2).replace('.', ',')}`
-                    : `Pendente: R$ ${pending.toFixed(2).replace('.', ',')}`;
-                  return (
-                    <option key={c.id} value={c.id}>
-                      #{c.id} · {c.description} · {valueLabel}
-                    </option>
-                  );
-                })}
-              </select>
-              {txSelectedComandaId && (
-                <p className="text-[10px] font-black text-indigo-500">
-                  Lançamento será vinculado a esta comanda para rastreio contábil.
-                </p>
-              )}
-            </div>
-          ) : null}
+                <FormRow>
+                  <div>
+                    <label className="ds-label block mb-1">Data da Operação</label>
+                    <DatePicker value={txDate} onChange={setTxDate} placeholder="Selecionar data" />
+                  </div>
+                  <div>
+                    <label className="ds-label block mb-1">Data de Vencimento</label>
+                    <DatePicker value={txDueDate} onChange={setTxDueDate} placeholder="Quando vence?" />
+                  </div>
+                </FormRow>
 
-          {/* Service / Package combobox (income) OR Category tags (expense) */}
-          {!isExtraMode && (
-            <>
-              {txType === 'income' ? (
-                <div ref={serviceRef} className="relative">
-                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Serviço / Pacote</label>
-              <div className="relative">
-                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input type="text" value={txServiceQuery}
-                  onChange={(e) => { setTxServiceQuery(e.target.value); setTxServiceDropdownOpen(true); if (!e.target.value) { setTxSelectedService(null); setTxBaseAmount(''); setTxDiscount(''); } }}
-                  onFocus={() => setTxServiceDropdownOpen(true)}
-                  placeholder="Buscar serviço ou pacote..."
-                  className="w-full p-3 pl-9 rounded-2xl border-2 border-slate-100 bg-white outline-none focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400"
+                <Select
+                  label="Status do Lançamento"
+                  value={txStatus}
+                  onChange={(e) => setTxStatus(e.target.value as any)}
+                  options={STATUS_OPTIONS.map(opt => ({ value: opt.id, label: opt.label }))}
                 />
-                {txSelectedService && (
-                  <button type="button" onClick={() => { setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600"><X size={14} /></button>
-                )}
-              </div>
-              {txServiceDropdownOpen && (
-                <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden max-h-52 overflow-y-auto">
-                  {txServices.filter(s => !txServiceQuery || s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).slice(0, 15).map(s => (
-                    <button key={s.id} type="button" onClick={() => {
-                        setTxSelectedService(s);
-                        setTxServiceQuery(s.name);
-                        setTxServiceDropdownOpen(false);
-                        setTxCategory(s.type === 'package' ? 'Pacote de Sessões' : 'Sessão Individual');
-                        setTxDescription(s.name);
-                        const priceStr = s.price.toFixed(2).replace('.', ',');
-                        setTxBaseAmount(priceStr);
-                        setTxAmount(priceStr);
-                        setTxDiscount('');
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-slate-700">{s.name}</p>
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${s.type === 'package' ? 'bg-indigo-50 text-indigo-500' : 'bg-emerald-50 text-emerald-600'}`}>
-                          {s.type === 'package' ? 'Pacote' : 'Serviço'}
-                        </span>
+
+                {/* Service / Package combobox (income) OR Category chips (expense) */}
+                {!isExtraMode && (
+                  txType === 'income' ? (
+                    <div ref={serviceRef} className="relative">
+                      <Input
+                        label="Serviço / Pacote"
+                        type="text"
+                        value={txServiceQuery}
+                        onChange={(e) => { setTxServiceQuery(e.target.value); setTxServiceDropdownOpen(true); if (!e.target.value) { setTxSelectedService(null); setTxBaseAmount(''); setTxDiscount(''); } }}
+                        onFocus={() => setTxServiceDropdownOpen(true)}
+                        placeholder="Buscar serviço ou pacote..."
+                        iconLeft={<Search size={14} />}
+                        iconRight={txSelectedService ? (
+                          <button type="button" aria-label="Limpar serviço" onClick={() => { setTxSelectedService(null); setTxServiceQuery(''); setTxBaseAmount(''); setTxDiscount(''); }}
+                            className="text-slate-400 hover:text-slate-700"><X size={14} /></button>
+                        ) : undefined}
+                      />
+                      {txServiceDropdownOpen && (
+                        <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg overflow-hidden max-h-52 overflow-y-auto">
+                          {txServices.filter(s => !txServiceQuery || s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).slice(0, 15).map(s => (
+                            <button key={s.id} type="button" onClick={() => {
+                                setTxSelectedService(s);
+                                setTxServiceQuery(s.name);
+                                setTxServiceDropdownOpen(false);
+                                setTxCategory(s.type === 'package' ? 'Pacote de Sessões' : 'Sessão Individual');
+                                setTxDescription(s.name);
+                                const priceStr = s.price.toFixed(2).replace('.', ',');
+                                setTxBaseAmount(priceStr);
+                                setTxAmount(priceStr);
+                                setTxDiscount('');
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-[13px] font-medium text-slate-800 truncate">{s.name}</p>
+                                <Badge size="sm" color={s.type === 'package' ? 'primary' : 'success'}>
+                                  {s.type === 'package' ? 'Pacote' : 'Serviço'}
+                                </Badge>
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700 tabular-nums whitespace-nowrap">R$ {s.price.toFixed(2).replace('.', ',')}</span>
+                            </button>
+                          ))}
+                          {txServices.filter(s => s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).length === 0 && (
+                            <p className="px-3 py-3 text-xs text-slate-500">Nenhum resultado encontrado</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="ds-label block mb-1.5">Categoria</span>
+                      <div className="flex flex-wrap gap-2">
+                        {CATEGORIES_EXPENSE.map((cat) => (
+                          <button key={cat} type="button" onClick={() => setTxCategory(cat)}
+                            className={`px-3 py-1.5 min-h-[32px] rounded-md text-[11px] font-medium transition-colors border ${txCategory === cat ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300 hover:text-primary-700'}`}>
+                            {cat}
+                          </button>
+                        ))}
                       </div>
-                      <span className="text-sm font-black text-slate-700">R$ {s.price.toFixed(2).replace('.', ',')}</span>
-                    </button>
-                  ))}
-                  {txServices.filter(s => s.name.toLowerCase().includes(txServiceQuery.toLowerCase())).length === 0 && (
-                    <p className="px-4 py-3 text-sm text-slate-400 font-bold">Nenhum resultado encontrado</p>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Categoria</label>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES_EXPENSE.map((cat) => (
-                  <button key={cat} type="button" onClick={() => setTxCategory(cat)}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${txCategory === cat ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'}`}>
-                    {cat}
-                  </button>
-                ))}
+                    </div>
+                  )
+                )}
               </div>
-            </div>
-          )}
-            </>
-          )}
 
-          {/* Description */}
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Descrição Detalhada</label>
-            <input type="text" value={txDescription} onChange={(e) => setTxDescription(e.target.value)}
-              placeholder="Ex: Pacote Mensal – Paciente João Silva"
-              className="w-full p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400" />
-          </div>
+              {/* Coluna direita: descrição, valor, desconto, meio */}
+              <div className="space-y-3">
+                <Input
+                  label="Descrição Detalhada"
+                  type="text"
+                  value={txDescription}
+                  onChange={(e) => setTxDescription(e.target.value)}
+                  placeholder="Ex: Pacote Mensal – Paciente João Silva"
+                />
 
-          {/* Amount + Discount + Method */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1 flex items-center justify-between">
-                  <span>VALOR {txSelectedComandaId && txBaseAmount ? '(Da Parcela)' : '(R$)'}</span>
-                  {txType === 'income' && txSelectedComandaId && txBaseAmount && (
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md leading-none ${parseDisplayAmount(txAmount) < parseDisplayAmount(txBaseAmount) ? 'bg-amber-100 text-amber-700' : parseDisplayAmount(txAmount) === parseDisplayAmount(txBaseAmount) ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700 shadow-sm border border-rose-200'}`}>
-                      {parseDisplayAmount(txAmount) < parseDisplayAmount(txBaseAmount) ? `NOVO SALDO RESTANTE: R$ ${(parseDisplayAmount(txBaseAmount) - parseDisplayAmount(txAmount)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : parseDisplayAmount(txAmount) === parseDisplayAmount(txBaseAmount) ? 'QUITARÁ A COMANDA' : `CRÉDITO EXCEDIDO: R$ ${(parseDisplayAmount(txAmount) - parseDisplayAmount(txBaseAmount)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
-                    </span>
-                  )}
-                </label>
-                <div className="relative">
-                  <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black ${txType === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>R$</span>
-                  <input type="text" inputMode="numeric" value={txAmount} onChange={(e) => setTxAmount(maskCurrency(e.target.value))} placeholder="0,00"
-                    className={`w-full text-lg font-black p-3.5 pl-11 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white transition-all ${txType === 'income' ? (txSelectedComandaId && txBaseAmount ? (parseDisplayAmount(txAmount) < parseDisplayAmount(txBaseAmount) ? 'focus:border-amber-400 text-amber-700' : parseDisplayAmount(txAmount) === parseDisplayAmount(txBaseAmount) ? 'focus:border-emerald-400 text-emerald-700' : 'focus:border-rose-400 text-rose-700') : 'focus:border-emerald-400 text-emerald-700') : 'focus:border-rose-400 text-rose-700'}`} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Meio de Recebimento</label>
-                <select value={txMethod} onChange={(e) => setTxMethod(e.target.value)}
-                  className="w-full p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all text-sm font-bold text-slate-700 appearance-none">
-                  {PAYMENT_METHODS.map((m) => (<option key={m.id} value={m.id}>{m.label}</option>))}
-                </select>
-              </div>
-            </div>
-
-            {/* Discount row — only for income with service selected */}
-            {txType === 'income' && txBaseAmount && (
-              <div className="flex items-end gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-3">
-                <div className="flex-1">
-                  <label className="block text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1.5 px-1">Desconto</label>
-                  <input type="text" inputMode="numeric" value={txDiscount}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9,]/g, '');
-                      setTxDiscount(v);
-                      const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
-                      const disc = parseFloat(v.replace(',', '.')) || 0;
-                      const final = txDiscountType === 'percentage'
-                        ? Math.max(0, base - (base * disc / 100))
-                        : Math.max(0, base - disc);
-                      setTxAmount(final.toFixed(2).replace('.', ','));
-                    }}
-                    placeholder="0,00"
-                    className="w-full p-2.5 rounded-xl border border-amber-200 bg-white outline-none focus:border-amber-400 text-sm font-bold text-amber-700 placeholder:font-normal placeholder:text-amber-300"
+                <FormRow>
+                  <div className="space-y-1.5">
+                    <Input
+                      label={`Valor ${txSelectedComandaId && txBaseAmount ? '(da parcela)' : '(R$)'}`}
+                      type="text"
+                      inputMode="numeric"
+                      value={txAmount}
+                      onChange={(e) => setTxAmount(maskCurrency(e.target.value))}
+                      placeholder="0,00"
+                      addonLeft="R$"
+                      className={`font-semibold ${txType === 'income' ? (txSelectedComandaId && txBaseAmount ? (parseDisplayAmount(txAmount) < parseDisplayAmount(txBaseAmount) ? 'text-amber-700' : parseDisplayAmount(txAmount) === parseDisplayAmount(txBaseAmount) ? 'text-emerald-700' : 'text-red-700') : 'text-emerald-700') : 'text-red-700'}`}
+                    />
+                    {txType === 'income' && txSelectedComandaId && txBaseAmount && (
+                      <Badge size="sm" color={parseDisplayAmount(txAmount) < parseDisplayAmount(txBaseAmount) ? 'warning' : parseDisplayAmount(txAmount) === parseDisplayAmount(txBaseAmount) ? 'success' : 'danger'}>
+                        {parseDisplayAmount(txAmount) < parseDisplayAmount(txBaseAmount) ? `Novo saldo restante: R$ ${(parseDisplayAmount(txBaseAmount) - parseDisplayAmount(txAmount)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : parseDisplayAmount(txAmount) === parseDisplayAmount(txBaseAmount) ? 'Quitará a comanda' : `Crédito excedido: R$ ${(parseDisplayAmount(txAmount) - parseDisplayAmount(txBaseAmount)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+                      </Badge>
+                    )}
+                  </div>
+                  <Select
+                    label="Meio de Recebimento"
+                    value={txMethod}
+                    onChange={(e) => setTxMethod(e.target.value)}
+                    options={PAYMENT_METHODS.map((m) => ({ value: m.id, label: m.label }))}
                   />
-                </div>
-                <div className="flex bg-white border border-amber-200 rounded-xl overflow-hidden shrink-0">
-                  <button type="button" onClick={() => {
-                      setTxDiscountType('fixed');
-                      const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
-                      const disc = parseFloat(txDiscount.replace(',', '.')) || 0;
-                      setTxAmount(Math.max(0, base - disc).toFixed(2).replace('.', ','));
-                    }}
-                    className={`px-3 py-2.5 text-[10px] font-black transition-all ${txDiscountType === 'fixed' ? 'bg-amber-500 text-white' : 'text-amber-500 hover:bg-amber-50'}`}>R$</button>
-                  <button type="button" onClick={() => {
-                      setTxDiscountType('percentage');
-                      const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
-                      const disc = parseFloat(txDiscount.replace(',', '.')) || 0;
-                      setTxAmount(Math.max(0, base - (base * disc / 100)).toFixed(2).replace('.', ','));
-                    }}
-                    className={`px-3 py-2.5 text-[10px] font-black transition-all ${txDiscountType === 'percentage' ? 'bg-amber-500 text-white' : 'text-amber-500 hover:bg-amber-50'}`}>%</button>
-                </div>
-              </div>
-            )}
-          </div>
+                </FormRow>
 
-          {/* Observation */}
-          <div>
-            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-              Observações Internas
-            </label>
-            <textarea
+                {/* Discount row — only for income with service selected */}
+                {txType === 'income' && txBaseAmount && (
+                  <div className="flex items-end gap-3 bg-amber-50 border border-amber-100 rounded-lg p-3">
+                    <Input
+                      wrapperClassName="flex-1"
+                      label="Desconto"
+                      type="text"
+                      inputMode="numeric"
+                      value={txDiscount}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9,]/g, '');
+                        setTxDiscount(v);
+                        const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
+                        const disc = parseFloat(v.replace(',', '.')) || 0;
+                        const final = txDiscountType === 'percentage'
+                          ? Math.max(0, base - (base * disc / 100))
+                          : Math.max(0, base - disc);
+                        setTxAmount(final.toFixed(2).replace('.', ','));
+                      }}
+                      placeholder="0,00"
+                    />
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={txDiscountType === 'fixed' ? 'warning' : 'outline'}
+                        onClick={() => {
+                          setTxDiscountType('fixed');
+                          const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
+                          const disc = parseFloat(txDiscount.replace(',', '.')) || 0;
+                          setTxAmount(Math.max(0, base - disc).toFixed(2).replace('.', ','));
+                        }}
+                      >R$</Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={txDiscountType === 'percentage' ? 'warning' : 'outline'}
+                        onClick={() => {
+                          setTxDiscountType('percentage');
+                          const base = parseFloat(txBaseAmount.replace(',', '.')) || 0;
+                          const disc = parseFloat(txDiscount.replace(',', '.')) || 0;
+                          setTxAmount(Math.max(0, base - (base * disc / 100)).toFixed(2).replace('.', ','));
+                        }}
+                      >%</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {txTab === 'paciente' && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {/* Identificação do atendimento */}
+              {!isExtraMode ? (
+                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-medium text-slate-700">Identificação do Atendimento</span>
+                    <Switch
+                      checked={txPayerIsPatient}
+                      onCheckedChange={setTxPayerIsPatient}
+                      label="Pagador é o Paciente"
+                    />
+                  </div>
+                  <div ref={patientRef} className="relative">
+                    <Input
+                      label={txPayerIsPatient ? 'Paciente / Pagador' : 'Paciente'}
+                      type="text"
+                      value={patientQuery}
+                      onChange={(e) => { setPatientQuery(e.target.value); setPatientDropdownOpen(true); if (!e.target.value) { setTxPatientName(''); setTxPatientCpf(''); } }}
+                      onFocus={() => setPatientDropdownOpen(true)}
+                      placeholder="Buscar paciente..."
+                      iconLeft={<Search size={14} />}
+                      iconRight={patientQuery ? (
+                        <button type="button" aria-label="Limpar paciente" onClick={() => { setPatientQuery(''); setTxPatientName(''); setTxPatientCpf(''); }}
+                          className="text-slate-400 hover:text-slate-700"><X size={14} /></button>
+                      ) : undefined}
+                    />
+                    {patientDropdownOpen && patientQuery.length >= 1 && (
+                      <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                        {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).slice(0, 8).map(p => (
+                          <button key={p.id} type="button" onClick={() => {
+                              setTxPatientName(p.name);
+                              setTxPatientCpf(maskCpf(p.cpf.replace(/\D/g,'')));
+
+                              // Auto-fill payer info if patient is not the payer
+                              if (!p.is_payer && p.payer_name) {
+                                setTxPayerIsPatient(false);
+                                setTxPayerName(p.payer_name);
+                                if (p.payer_cpf) setTxPayerCpf(maskCpf(p.payer_cpf.replace(/\D/g,'')));
+                              } else {
+                                setTxPayerIsPatient(true);
+                                setTxPayerName('');
+                                setTxPayerCpf('');
+                              }
+
+                              setPatientQuery(p.name);
+                              setPatientDropdownOpen(false);
+                              setTxSelectedComandaId('');
+                              setTxPatientComandas([]);
+                              api.get<any[]>('/finance/comandas').then((all: any[]) => {
+                                // Mostra comandas em aberto com saldo pendente, E comandas já
+                                // fechadas/pagas que ainda não têm nenhum registro no Livro Caixa
+                                // (pra trazer o registro pra cá). Uma comanda que já tem lançamento
+                                // vinculado nunca aparece de novo — vincular duas vezes conta o
+                                // mesmo pagamento em dobro.
+                                const eligible = (Array.isArray(all) ? all : [])
+                                  .filter((c: any) => {
+                                    const isPatient = String(c.patient_id || c.patientId || '') === String(p.id);
+                                    if (!isPatient || c.has_livrocaixa_entry) return false;
+                                    if (c.status === 'closed') return true;
+                                    const totalVal = Number(c.totalValue || c.total || 0);
+                                    const paidVal = Number(c.paidValue || c.paid_value || 0);
+                                    return c.status === 'open' && totalVal > paidVal;
+                                  })
+                                  .map((c: any) => {
+                                    const items: any[] = c.items || [];
+                                    const serviceLabel = items.length > 0
+                                      ? items.map((i: any) => i.serviceName || i.name || '').filter(Boolean).join(', ')
+                                      : '';
+                                    const descLabel = serviceLabel || c.description || `Comanda #${c.id}`;
+                                    return {
+                                      id: String(c.id),
+                                      description: descLabel,
+                                      totalValue: Number(c.totalValue || c.total || 0),
+                                      paidValue: Number(c.paidValue || c.paid_value || 0),
+                                      status: c.status,
+                                    };
+                                  });
+                                setTxPatientComandas(eligible);
+                              }).catch(() => {});
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                            <p className="text-[13px] font-medium text-slate-800">{p.name}</p>
+                            {p.cpf && <p className="text-[11px] text-slate-500">{maskCpf(p.cpf.replace(/\D/g,''))}</p>}
+                          </button>
+                        ))}
+                        {patients.filter(p => p.name.toLowerCase().includes(patientQuery.toLowerCase()) || p.cpf.includes(patientQuery)).length === 0 && (
+                          <p className="px-3 py-3 text-xs text-slate-500">Nenhum paciente encontrado</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Input
+                    label={`CPF ${txPayerIsPatient ? 'do Paciente / Pagador' : 'do Paciente'}`}
+                    type="text"
+                    value={txPatientCpf}
+                    onChange={(e) => setTxPatientCpf(maskCpf(e.target.value))}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                  />
+                  {!txPayerIsPatient && (
+                    <FormRow className="border-t border-slate-200 pt-3">
+                      <Input label="Nome do Pagador" type="text" value={txPayerName} onChange={(e) => setTxPayerName(e.target.value)} placeholder="Nome completo do pagador" />
+                      <Input label="CPF do Pagador" type="text" value={txPayerCpf} onChange={(e) => setTxPayerCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14} />
+                    </FormRow>
+                  )}
+                </div>
+              ) : (
+                <Alert variant="info">Este pagamento será lançado para o paciente já vinculado à comanda.</Alert>
+              )}
+
+              {/* Comanda linking — aparece quando há comandas abertas para o paciente ou se for edição com comanda já vinculada */}
+              <div className="space-y-3">
+                {(editingTx && editingTx.comanda_id) || (isExtraMode && txSelectedComandaId) ? (
+                  <Alert variant="info" title="Pagamento Vinculado">
+                    {isExtraMode
+                      ? `Novo pagamento sendo lançado para abater o saldo da Comanda #${txSelectedComandaId}. O paciente já está preenchido automaticamente.`
+                      : `Você está editando o recibo da Comanda #${editingTx?.comanda_id}. Para corrigir este lançamento, basta alterar o valor abaixo. A alteração será repassada automaticamente à Comanda.`}
+                  </Alert>
+                ) : !isExtraMode && txPatientComandas.length > 0 ? (
+                  <div className="bg-primary-50 border border-primary-100 rounded-lg p-3 space-y-2">
+                    <Select
+                      label="Vincular Comanda"
+                      value={txSelectedComandaId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setTxSelectedComandaId(id);
+                        if (id) {
+                          const c = txPatientComandas.find(x => x.id === id);
+                          if (c) {
+                            // Comanda fechada (já paga) sem registro ainda: traz o valor total
+                            // pago pra lançar retroativamente. Comanda aberta: traz o saldo pendente.
+                            const pending = Math.max(0, c.totalValue - c.paidValue);
+                            const valueToFill = c.status === 'closed' ? c.paidValue : pending;
+                            if (valueToFill > 0) {
+                              const valueStr = valueToFill.toFixed(2).replace('.', ',');
+                              setTxBaseAmount(valueStr);
+                              setTxAmount(valueStr);
+                              setTxDiscount('');
+                            }
+                            if (!txDescription) setTxDescription(c.description);
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">— Selecionar comanda —</option>
+                      {txPatientComandas.map(c => {
+                        const pending = Math.max(0, c.totalValue - c.paidValue);
+                        const valueLabel = c.status === 'closed'
+                          ? `Fechada · Pago: R$ ${c.paidValue.toFixed(2).replace('.', ',')}`
+                          : `Pendente: R$ ${pending.toFixed(2).replace('.', ',')}`;
+                        return (
+                          <option key={c.id} value={c.id}>
+                            #{c.id} · {c.description} · {valueLabel}
+                          </option>
+                        );
+                      })}
+                    </Select>
+                    {txSelectedComandaId && (
+                      <p className="text-[11px] text-primary-700">
+                        Lançamento será vinculado a esta comanda para rastreio contábil.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">Nenhuma comanda em aberto para vincular.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {txTab === 'obs' && (
+            <Textarea
+              label="Observações Internas"
               value={txObservation}
               onChange={(e) => setTxObservation(e.target.value)}
               placeholder="Anotações internas sobre este lançamento..."
-              rows={3}
-              className="w-full p-3.5 rounded-2xl border-2 border-slate-100 bg-slate-50 outline-none focus:bg-white focus:border-slate-400 transition-all text-sm text-slate-700 resize-none placeholder:text-slate-400"
+              rows={6}
             />
-          </div>
-        </div>
-    </Modal>
+          )}
+        </Tabs>
+      </Modal>
 
       {/* ── Exceed Value Confirm Modal ─────────────────────────────────────────── */}
       <Modal
@@ -2957,12 +2978,12 @@ export const LivroCaixa: React.FC = () => {
         title="Lançamento Excedente"
         size="lg"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setExceedConfirmData(null)}>Cancelar</Button>
-            <Button variant="secondary" iconLeft={<CheckCircle2 size={14} />} onClick={executeSaveTx} loading={isSaving} disabled={isSaving}>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => setExceedConfirmData(null)}>Cancelar</Button>
+            <Button variant="primary" size="sm" iconLeft={<CheckCircle2 size={14} />} onClick={executeSaveTx} loading={isSaving} disabled={isSaving}>
               Confirmar Lançamento
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="flex flex-col gap-4 py-3">
@@ -2971,8 +2992,8 @@ export const LivroCaixa: React.FC = () => {
               <AlertCircle size={20} />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-700 leading-tight mb-2">
-                O valor informado ({exceedConfirmData && <strong className="font-black text-amber-600">R$ {exceedConfirmData.amount.toFixed(2).replace('.', ',')}</strong>}) ultrapassa o saldo devedor apontado nesta Comanda em {exceedConfirmData && <strong className="font-black text-amber-600">R$ {(exceedConfirmData.amount - exceedConfirmData.base).toFixed(2).replace('.', ',')}</strong>}.
+              <p className="text-sm font-semibold text-slate-700 leading-tight mb-2">
+                O valor informado ({exceedConfirmData && <strong className="font-semibold text-amber-600">R$ {exceedConfirmData.amount.toFixed(2).replace('.', ',')}</strong>}) ultrapassa o saldo devedor apontado nesta Comanda em {exceedConfirmData && <strong className="font-semibold text-amber-600">R$ {(exceedConfirmData.amount - exceedConfirmData.base).toFixed(2).replace('.', ',')}</strong>}.
               </p>
               <p className="text-sm font-medium text-slate-500 leading-tight">
                 Deseja lançar esse montante maior e abater a diferença como um <strong className="text-slate-700">crédito extra na comanda</strong>?
@@ -2989,12 +3010,12 @@ export const LivroCaixa: React.FC = () => {
         title="Lançamento Duplicado?"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setDuplicateConfirmData(null)}>Cancelar</Button>
-            <Button variant="secondary" iconLeft={<CheckCircle2 size={14} />} onClick={() => { setDuplicateConfirmData(null); executeSaveTx(); }} loading={isSaving} disabled={isSaving}>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => setDuplicateConfirmData(null)}>Cancelar</Button>
+            <Button variant="primary" size="sm" iconLeft={<CheckCircle2 size={14} />} onClick={() => { setDuplicateConfirmData(null); executeSaveTx(); }} loading={isSaving} disabled={isSaving}>
               Sim, Lançar Mesmo Assim
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="flex flex-col gap-4 py-3">
@@ -3003,7 +3024,7 @@ export const LivroCaixa: React.FC = () => {
               <AlertCircle size={20} />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-700 leading-tight mb-2">
+              <p className="text-sm font-semibold text-slate-700 leading-tight mb-2">
                 Já existe um lançamento de{' '}
                 <strong className="text-amber-600">
                   {duplicateConfirmData && formatCurrency(duplicateConfirmData.amount)}
@@ -3025,61 +3046,48 @@ export const LivroCaixa: React.FC = () => {
         title="Lançar Novo Pagamento"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setQuickPayTx(null)}>Cancelar</Button>
-            <Button variant="success" onClick={handleSaveQuickPay} loading={isSaving} disabled={isSaving}>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => setQuickPayTx(null)}>Cancelar</Button>
+            <Button variant="success" size="sm" onClick={handleSaveQuickPay} loading={isSaving} disabled={isSaving}>
               Efetivar pagamento
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
-        <div className="space-y-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Valor do pagamento</label>
-            <input
-              value={quickPayValue}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/[^\d,]/g, '');
-                setQuickPayValue(raw);
-              }}
-              placeholder="0,00"
-              className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
-            />
-          </div>
+        <div className="space-y-3">
+          <Input
+            label="Valor do pagamento"
+            value={quickPayValue}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/[^\d,]/g, '');
+              setQuickPayValue(raw);
+            }}
+            placeholder="0,00"
+            addonLeft="R$"
+          />
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Data</label>
+          <FormRow>
+            <div>
+              <label className="ds-label block mb-1">Data</label>
               <DatePicker
                 value={quickPayDate}
                 onChange={(val) => setQuickPayDate(val || '')}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Método</label>
-              <select
-                value={quickPayMethod}
-                onChange={(e) => setQuickPayMethod(e.target.value)}
-                className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 focus:border-indigo-500 outline-none"
-              >
-                <option value="Pix">Pix</option>
-                <option value="Cartão de Crédito">Cartão de Crédito</option>
-                <option value="Débito">Débito</option>
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Boleto">Boleto</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest ml-1">Código de transação / comprovante</label>
-            <input
-              value={quickPayReceipt}
-              onChange={(e) => setQuickPayReceipt(e.target.value)}
-              placeholder="Ex: 123ABC..."
-              className="w-full h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
+            <Select
+              label="Método"
+              value={quickPayMethod}
+              onChange={(e) => setQuickPayMethod(e.target.value)}
+              options={['Pix', 'Cartão de Crédito', 'Débito', 'Dinheiro', 'Boleto'].map(m => ({ value: m, label: m }))}
             />
-          </div>
+          </FormRow>
+
+          <Input
+            label="Código de transação / comprovante"
+            value={quickPayReceipt}
+            onChange={(e) => setQuickPayReceipt(e.target.value)}
+            placeholder="Ex: 123ABC..."
+          />
         </div>
       </Modal>
 
@@ -3090,35 +3098,35 @@ export const LivroCaixa: React.FC = () => {
         title="Confirmar Exclusão"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>Cancelar</Button>
-            <Button variant="danger" iconLeft={<Trash2 size={14} />} onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => setDeleteConfirmId(null)}>Cancelar</Button>
+            <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>
               Excluir permanentemente
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="flex flex-col gap-4 py-2">
-          <div className="flex items-start gap-4 p-4 rounded-2xl bg-rose-50 border border-rose-100">
+          <div className="flex items-start gap-4 p-4 rounded-lg bg-rose-50 border border-rose-100">
             <AlertCircle size={24} className="text-rose-500 shrink-0" />
             <div>
-              <p className="text-sm font-black text-rose-700 uppercase tracking-wider mb-1">Atenção!</p>
-              <p className="text-sm font-bold text-rose-600 leading-snug">
+              <p className="text-sm font-semibold text-rose-700 mb-1">Atenção!</p>
+              <p className="text-sm font-semibold text-rose-600 leading-snug">
                 Você está prestes a excluir um lançamento do sistema. Esta ação não poderá ser desfeita.
               </p>
             </div>
           </div>
 
           {deleteConfirmId && transactions.find(t => t.id === deleteConfirmId) && (
-            <div className="px-4 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Item sendo removido:</p>
+            <div className="px-4 py-3 rounded-lg border-2 border-slate-100 bg-slate-50/50">
+               <p className="text-[11px] font-semibold text-slate-400 mb-2">Item sendo removido:</p>
                <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-700 truncate">{transactions.find(t => t.id === deleteConfirmId)?.description}</p>
-                    <p className="text-[10px] font-bold text-slate-400">{transactions.find(t => t.id === deleteConfirmId)?.category}</p>
+                    <p className="text-sm font-semibold text-slate-700 truncate">{transactions.find(t => t.id === deleteConfirmId)?.description}</p>
+                    <p className="text-[11px] font-semibold text-slate-400">{transactions.find(t => t.id === deleteConfirmId)?.category}</p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-black ${transactions.find(t => t.id === deleteConfirmId)?.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    <p className={`text-sm font-semibold ${transactions.find(t => t.id === deleteConfirmId)?.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
                       {transactions.find(t => t.id === deleteConfirmId)?.type === 'income' ? '+' : '-'}{formatCurrency(transactions.find(t => t.id === deleteConfirmId)?.amount || 0)}
                     </p>
                   </div>
@@ -3135,26 +3143,27 @@ export const LivroCaixa: React.FC = () => {
         title={rsConfirm?.newValue ? 'Marcar recibo como emitido' : 'Desmarcar recibo'}
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => { setRsConfirm(null); setRsNote(''); setRsFile(null); }}>Cancelar</Button>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => { setRsConfirm(null); setRsNote(''); setRsFile(null); }}>Cancelar</Button>
             <Button
-              variant={rsConfirm?.newValue ? 'success' : 'secondary'}
+              variant={rsConfirm?.newValue ? 'success' : 'primary'}
+              size="sm"
               iconLeft={<Receipt size={14} />}
               onClick={() => rsConfirm && handleToggleRsReceipt(rsConfirm.tx, rsConfirm.newValue)}
             >
               Confirmar
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="flex flex-col gap-4 py-2">
-          <div className={`flex items-start gap-4 p-4 rounded-2xl border ${rsConfirm?.newValue ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+          <div className={`flex items-start gap-4 p-4 rounded-lg border ${rsConfirm?.newValue ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
             <Receipt size={22} className={rsConfirm?.newValue ? 'text-emerald-500 shrink-0' : 'text-amber-500 shrink-0'} />
             <div>
-              <p className={`text-sm font-black uppercase tracking-wider mb-1 ${rsConfirm?.newValue ? 'text-emerald-700' : 'text-amber-700'}`}>
+              <p className={`text-sm font-semibold   mb-1 ${rsConfirm?.newValue ? 'text-emerald-700' : 'text-amber-700'}`}>
                 {rsConfirm?.newValue ? 'Confirmar emissão do recibo' : 'Desmarcar recibo emitido'}
               </p>
-              <p className="text-sm font-bold text-slate-600 leading-snug">
+              <p className="text-sm font-semibold text-slate-600 leading-snug">
                 {rsConfirm?.newValue
                   ? 'Confirme que o recibo do Receita Saúde deste lançamento já foi emitido no portal.'
                   : 'Deseja marcar este lançamento como recibo ainda não emitido?'}
@@ -3163,19 +3172,19 @@ export const LivroCaixa: React.FC = () => {
           </div>
 
           {rsConfirm?.tx && (
-            <div className="px-4 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lançamento:</p>
-              <p className="text-sm font-black text-slate-700">{rsConfirm.tx.description}</p>
-              <p className="text-[10px] font-bold text-slate-400">{rsConfirm.tx.patient_name || rsConfirm.tx.payer_name} · {formatCurrency(rsConfirm.tx.amount)}</p>
+            <div className="px-4 py-3 rounded-lg border-2 border-slate-100 bg-slate-50/50">
+              <p className="text-[11px] font-semibold text-slate-400 mb-1">Lançamento:</p>
+              <p className="text-sm font-semibold text-slate-700">{rsConfirm.tx.description}</p>
+              <p className="text-[11px] font-semibold text-slate-400">{rsConfirm.tx.patient_name || rsConfirm.tx.payer_name} · {formatCurrency(rsConfirm.tx.amount)}</p>
             </div>
           )}
 
           {/* Show existing receipt info when already issued */}
           {rsConfirm?.tx?.rs_receipt_issued && (
-            <div className="px-4 py-3 rounded-2xl border-2 border-emerald-100 bg-emerald-50/40">
-              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Recibo emitido</p>
+            <div className="px-4 py-3 rounded-lg border-2 border-emerald-100 bg-emerald-50/40">
+              <p className="text-[11px] font-semibold text-emerald-600 mb-2">Recibo emitido</p>
               {rsConfirm.tx.rs_receipt_issued_at && (
-                <p className="text-xs font-bold text-slate-500 mb-1">
+                <p className="text-xs font-semibold text-slate-500 mb-1">
                   Data: {new Date(rsConfirm.tx.rs_receipt_issued_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </p>
               )}
@@ -3191,18 +3200,21 @@ export const LivroCaixa: React.FC = () => {
                     href={`${API_BASE_URL}/uploads-static/${rsConfirm.tx.rs_receipt_file}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs font-bold text-emerald-600 hover:underline truncate max-w-[180px]"
+                    className="text-xs font-semibold text-emerald-600 hover:underline truncate max-w-[180px]"
                   >
                     {rsConfirm.tx.rs_receipt_file.split('/').pop()}
                   </a>
-                  <button
+                  <IconButton
+                    variant="danger"
+                    size="xs"
+                    className="ml-auto shrink-0"
+                    aria-label="Remover arquivo"
+                    title="Remover arquivo"
                     onClick={() => rsConfirm && handleDeleteRsFile(rsConfirm.tx)}
                     disabled={rsFileDeleting}
-                    title="Remover arquivo"
-                    className="ml-auto w-7 h-7 flex items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-100 transition-all shrink-0"
                   >
-                    {rsFileDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                  </button>
+                    {rsFileDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  </IconButton>
                 </div>
               )}
             </div>
@@ -3211,19 +3223,16 @@ export const LivroCaixa: React.FC = () => {
           {/* Fields shown only when marking as issued */}
           {rsConfirm?.newValue && (
             <>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Observação (opcional)</label>
-                <textarea
-                  value={rsNote}
-                  onChange={e => setRsNote(e.target.value)}
-                  placeholder="Ex: Recibo nº 00123 emitido no portal Receita Saúde"
-                  rows={2}
-                  className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-emerald-400 resize-none"
-                />
-              </div>
+              <Textarea
+                label="Observação (opcional)"
+                value={rsNote}
+                onChange={e => setRsNote(e.target.value)}
+                placeholder="Ex: Recibo nº 00123 emitido no portal Receita Saúde"
+                rows={2}
+              />
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Anexar recibo (opcional)</label>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Anexar recibo (opcional)</label>
                 <input
                   ref={rsFileInputRef}
                   type="file"
@@ -3232,23 +3241,23 @@ export const LivroCaixa: React.FC = () => {
                   onChange={e => setRsFile(e.target.files?.[0] || null)}
                 />
                 {rsFile ? (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-emerald-200 bg-emerald-50">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-emerald-200 bg-emerald-50">
                     <FileText size={14} className="text-emerald-500 shrink-0" />
-                    <span className="text-xs font-bold text-emerald-700 truncate flex-1">{rsFile.name}</span>
-                    <button
+                    <span className="text-xs font-semibold text-emerald-700 truncate flex-1">{rsFile.name}</span>
+                    <IconButton
+                      variant="ghost"
+                      size="xs"
+                      className="shrink-0"
+                      aria-label="Remover arquivo selecionado"
                       onClick={() => { setRsFile(null); if (rsFileInputRef.current) rsFileInputRef.current.value = ''; }}
-                      className="text-rose-400 hover:text-rose-600 transition-colors shrink-0"
                     >
                       <X size={14} />
-                    </button>
+                    </IconButton>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => rsFileInputRef.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 border-dashed border-slate-200 text-xs font-bold text-slate-400 hover:border-emerald-300 hover:text-emerald-500 hover:bg-emerald-50 transition-all"
-                  >
-                    <Upload size={14} /> Selecionar arquivo (PDF, JPG, PNG)
-                  </button>
+                  <Button variant="outline" size="sm" className="w-full" iconLeft={<Upload size={14} />} onClick={() => rsFileInputRef.current?.click()}>
+                    Selecionar arquivo (PDF, JPG, PNG)
+                  </Button>
                 )}
               </div>
             </>
@@ -3268,19 +3277,21 @@ export const LivroCaixa: React.FC = () => {
         title="Nota Fiscal de Serviço (NFS-e)"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={closeNfseModal}>Fechar</Button>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={closeNfseModal}>Fechar</Button>
             {(!nfseInvoice || ['rejected', 'error'].includes(nfseInvoice.status)) && (
               <Button
                 variant="primary"
+                size="sm"
                 iconLeft={<FileText size={14} />}
+                loading={nfseSubmitting}
                 disabled={nfseSubmitting || nfseModalLoading}
                 onClick={nfseInvoice ? handleRetryNfse : handleEmitNfse}
               >
-                {nfseSubmitting ? <Loader2 size={14} className="animate-spin" /> : (nfseInvoice ? 'Tentar novamente' : 'Emitir NFS-e')}
+                {nfseInvoice ? 'Tentar novamente' : 'Emitir NFS-e'}
               </Button>
             )}
-          </div>
+          </ModalFooter>
         }
       >
         <div className="flex flex-col gap-4 py-2">
@@ -3291,20 +3302,20 @@ export const LivroCaixa: React.FC = () => {
           ) : (
             <>
               {nfseModalTx && (
-                <div className="px-4 py-3 rounded-2xl border-2 border-slate-100 bg-slate-50/50">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lançamento:</p>
-                  <p className="text-sm font-black text-slate-700">{nfseModalTx.description}</p>
-                  <p className="text-[10px] font-bold text-slate-400">{nfseModalTx.patient_name || nfseModalTx.payer_name} · {formatCurrency(nfseModalTx.amount)}</p>
+                <div className="px-4 py-3 rounded-lg border-2 border-slate-100 bg-slate-50/50">
+                  <p className="text-[11px] font-semibold text-slate-400 mb-1">Lançamento:</p>
+                  <p className="text-sm font-semibold text-slate-700">{nfseModalTx.description}</p>
+                  <p className="text-[11px] font-semibold text-slate-400">{nfseModalTx.patient_name || nfseModalTx.payer_name} · {formatCurrency(nfseModalTx.amount)}</p>
                 </div>
               )}
 
               {nfseInvoice ? (
-                <div className={`px-4 py-3 rounded-2xl border-2 ${
+                <div className={`px-4 py-3 rounded-lg border-2 ${
                   nfseInvoice.status === 'authorized' ? 'bg-emerald-50/40 border-emerald-100'
                   : ['rejected', 'error'].includes(nfseInvoice.status) ? 'bg-rose-50/40 border-rose-100'
                   : 'bg-amber-50/40 border-amber-100'
                 }`}>
-                  <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${
+                  <p className={`text-[11px] font-semibold   mb-2 ${
                     nfseInvoice.status === 'authorized' ? 'text-emerald-600'
                     : ['rejected', 'error'].includes(nfseInvoice.status) ? 'text-rose-600'
                     : 'text-amber-600'
@@ -3321,25 +3332,25 @@ export const LivroCaixa: React.FC = () => {
 
                   {nfseInvoice.status === 'authorized' && (
                     <>
-                      <p className="text-xs font-bold text-slate-500 mb-1">NFS-e nº {nfseInvoice.numero} · Série {nfseInvoice.serie}</p>
+                      <p className="text-xs font-semibold text-slate-500 mb-1">NFS-e nº {nfseInvoice.numero} · Série {nfseInvoice.serie}</p>
                       {nfseInvoice.authorized_at && (
-                        <p className="text-xs font-bold text-slate-500 mb-2">
+                        <p className="text-xs font-semibold text-slate-500 mb-2">
                           Autorizada em: {new Date(nfseInvoice.authorized_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                       <div className="flex items-center gap-2">
-                        <button
+                        <Button
+                          variant="outline" size="xs" iconLeft={<Download size={14} />}
                           onClick={() => nfseModalTx && downloadNfseFile(`/nfse/${nfseModalTx.id}/xml`, `nfse-${nfseInvoice.chave_acesso || nfseModalTx.id}.xml`)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-all"
                         >
-                          <Download size={12} /> XML
-                        </button>
-                        <button
+                          XML
+                        </Button>
+                        <Button
+                          variant="outline" size="xs" iconLeft={<Download size={14} />}
                           onClick={() => nfseModalTx && downloadNfseFile(`/nfse/${nfseModalTx.id}/pdf`, `nfse-${nfseInvoice.chave_acesso || nfseModalTx.id}.pdf`)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-all"
                         >
-                          <Download size={12} /> PDF
-                        </button>
+                          PDF
+                        </Button>
                       </div>
                     </>
                   )}
@@ -3353,47 +3364,44 @@ export const LivroCaixa: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Código de tributação nacional (LC 116/03)</label>
-                    <input
-                      type="text"
-                      value={nfseCodigoTributacao}
-                      onChange={e => setNfseCodigoTributacao(e.target.value)}
-                      placeholder="Ex: 1401 (psicologia)"
-                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-violet-400"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrição do serviço</label>
-                      <button
+                  <Input
+                    label="Código de tributação nacional (LC 116/03)"
+                    type="text"
+                    value={nfseCodigoTributacao}
+                    onChange={e => setNfseCodigoTributacao(e.target.value)}
+                    placeholder="Ex: 1401 (psicologia)"
+                  />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="ds-label">Descrição do serviço</label>
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="xs"
+                        loading={nfseSuggesting}
+                        iconLeft={<Sparkles size={14} />}
                         onClick={() => nfseModalTx && applySuggestedDescription(nfseModalTx)}
                         disabled={nfseSuggesting}
-                        className="flex items-center gap-1 text-[10px] font-bold text-violet-600 hover:text-violet-700 disabled:opacity-50"
                         title="Preenche com o serviço/pacote, datas das sessões e seu registro profissional"
                       >
-                        {nfseSuggesting ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
                         Sugestão automática
-                      </button>
+                      </Button>
                     </div>
-                    <textarea
+                    <Textarea
+                      aria-label="Descrição do serviço"
                       value={nfseDescricao}
                       onChange={e => setNfseDescricao(e.target.value)}
                       rows={6}
-                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-violet-400 resize-none"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Valor do serviço</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={nfseValor}
-                      onChange={e => setNfseValor(e.target.value.replace(/[^0-9.,]/g, ''))}
-                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-violet-400"
-                    />
-                  </div>
+                  <Input
+                    label="Valor do serviço"
+                    type="text"
+                    inputMode="decimal"
+                    value={nfseValor}
+                    onChange={e => setNfseValor(e.target.value.replace(/[^0-9.,]/g, ''))}
+                    addonLeft="R$"
+                  />
                 </>
               )}
             </>
@@ -3413,52 +3421,46 @@ export const LivroCaixa: React.FC = () => {
         title="Excluir Mês Inteiro"
         size="sm"
         footer={
-          <>
-            <button
-              onClick={() => setDeleteMonthConfirm(null)}
-              className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
-            >
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => setDeleteMonthConfirm(null)}>
               Cancelar
-            </button>
-            <button
-              onClick={handleDeleteMonth}
-              className="px-8 py-3 rounded-2xl text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 shadow-xl shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest flex items-center gap-2"
-            >
-              <Trash2 size={14} /> Sim, excluir tudo
-            </button>
-          </>
+            </Button>
+            <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleDeleteMonth}>
+              Sim, excluir tudo
+            </Button>
+          </ModalFooter>
         }
       >
         <div className="flex flex-col gap-5 py-3">
-          <div className="p-4 rounded-3xl bg-rose-50 border border-rose-100 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white text-rose-500 flex items-center justify-center shadow-sm shrink-0">
+          <div className="p-4 rounded-lg bg-rose-50 border border-rose-100 flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg bg-white text-rose-500 flex items-center justify-center shadow-sm shrink-0">
                <AlertCircle size={24} />
             </div>
             <div>
-               <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 px-0.5">Operação Crítica</p>
-               <p className="text-sm font-bold text-rose-700 leading-snug">
-                  Você está prestes a apagar <span className="font-black underline">todos os registros</span> de {deleteMonthConfirm?.label}.
+               <p className="text-[11px] font-semibold text-rose-500 mb-1.5 px-0.5">Operação Crítica</p>
+               <p className="text-sm font-semibold text-rose-700 leading-snug">
+                  Você está prestes a apagar <span className="font-semibold underline">todos os registros</span> de {deleteMonthConfirm?.label}.
                </p>
             </div>
           </div>
 
           {deleteMonthConfirm && (
              <div className="grid grid-cols-2 gap-3 px-1">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Total de Registros</p>
-                   <p className="text-lg font-black text-slate-700 leading-none">{deleteMonthConfirm.count} linhas</p>
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                   <p className="text-[11px] font-semibold text-slate-400 mb-1 leading-none">Total de Registros</p>
+                   <p className="text-lg font-semibold text-slate-700 leading-none">{deleteMonthConfirm.count} linhas</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Saldo Movimentado</p>
-                   <p className="text-lg font-black text-slate-700 leading-none">{formatCurrency(deleteMonthConfirm.balance)}</p>
+                <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                   <p className="text-[11px] font-semibold text-slate-400 mb-1 leading-none">Saldo Movimentado</p>
+                   <p className="text-lg font-semibold text-slate-700 leading-none">{formatCurrency(deleteMonthConfirm.balance)}</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 col-span-1">
-                   <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 leading-none">Entradas</p>
-                   <p className="text-base font-black text-emerald-600 leading-none">+{formatCurrency(deleteMonthConfirm.income)}</p>
+                <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-100 col-span-1">
+                   <p className="text-[11px] font-semibold text-emerald-500 mb-1 leading-none">Entradas</p>
+                   <p className="text-base font-semibold text-emerald-600 leading-none">+{formatCurrency(deleteMonthConfirm.income)}</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100 col-span-1">
-                   <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1 leading-none">Saídas</p>
-                   <p className="text-base font-black text-rose-600 leading-none">-{formatCurrency(deleteMonthConfirm.expense)}</p>
+                <div className="p-4 rounded-lg bg-rose-50/50 border border-rose-100 col-span-1">
+                   <p className="text-[11px] font-semibold text-rose-500 mb-1 leading-none">Saídas</p>
+                   <p className="text-base font-semibold text-rose-600 leading-none">-{formatCurrency(deleteMonthConfirm.expense)}</p>
                 </div>
              </div>
           )}
@@ -3474,40 +3476,40 @@ export const LivroCaixa: React.FC = () => {
         isOpen={historyDrawerOpen}
         onClose={() => setHistoryDrawerOpen(false)}
         title="Histórico de Pagamentos"
-        subtitle="DETALHES E VINCULAÇÕES DA COMANDA"
+        subtitle="Detalhes e vinculações da comanda"
         size="md"
         bodyClassName="px-4 py-4 md:px-4 md:py-4"
       >
         <div>
           {historyLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <Loader2 size={32} className="animate-spin mb-4 text-indigo-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Buscando histórico...</span>
+              <Loader2 size={32} className="animate-spin mb-4 text-primary-400" />
+              <span className="text-[11px] font-semibold">Buscando histórico...</span>
             </div>
           ) : historyData?.comanda ? (
             <div className="space-y-4 animate-fadeIn">
               {/* Comanda Summary Box */}
-              <div className="bg-indigo-50/70 border border-indigo-100 p-4 rounded-2xl">
-                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wider mb-1">Status Atual</p>
-                <h3 className="text-base font-black text-indigo-800 mb-3 leading-tight line-clamp-2">{historyData.comanda.description || "Comanda #" + historyData.comanda.id}</h3>
+              <div className="bg-primary-50/70 border border-primary-100 p-4 rounded-lg">
+                <p className="text-[11px] font-semibold text-primary-400 mb-1">Status Atual</p>
+                <h3 className="text-base font-semibold text-primary-800 mb-3 leading-tight line-clamp-2">{historyData.comanda.description || "Comanda #" + historyData.comanda.id}</h3>
                 
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="bg-white p-3 rounded-xl border border-indigo-100/50">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Valor Total</p>
-                    <p className="text-sm font-black text-slate-700">{formatCurrency(Number(historyData.comanda.total || 0))}</p>
+                  <div className="bg-white p-3 rounded-lg border border-primary-100/50">
+                    <p className="text-[11px] font-semibold text-slate-400">Valor Total</p>
+                    <p className="text-sm font-semibold text-slate-700">{formatCurrency(Number(historyData.comanda.total || 0))}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-indigo-100/50">
-                    <p className="text-[8px] font-black text-emerald-500 uppercase tracking-wider">Recebido</p>
-                    <p className="text-sm font-black text-emerald-600">{formatCurrency(Number(historyData.comanda.paid_value || 0))}</p>
+                  <div className="bg-white p-3 rounded-lg border border-primary-100/50">
+                    <p className="text-[11px] font-semibold text-emerald-500">Recebido</p>
+                    <p className="text-sm font-semibold text-emerald-600">{formatCurrency(Number(historyData.comanda.paid_value || 0))}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-indigo-100/50 col-span-2 shadow-sm shadow-amber-100">
+                  <div className="bg-white p-3 rounded-lg border border-primary-100/50 col-span-2 ">
                     <div className="flex items-center justify-between">
-                      <p className="text-[8px] font-black text-amber-500 uppercase tracking-wider">Saldo pendente</p>
-                      <p className={`text-[8px] font-black px-2 py-0.5 rounded-full ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'QUITADO' : 'EM ABERTO'}
+                      <p className="text-[11px] font-semibold text-amber-500">Saldo pendente</p>
+                      <p className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'Quitado' : 'Em aberto'}
                       </p>
                     </div>
-                    <p className={`text-lg font-black mt-1 ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    <p className={`text-lg font-semibold mt-1 ${Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0) <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
                       {formatCurrency(Math.max(0, Number(historyData.comanda.total || 0) - Number(historyData.comanda.paid_value || 0)))}
                     </p>
                   </div>
@@ -3516,7 +3518,7 @@ export const LivroCaixa: React.FC = () => {
 
               {/* Payments List */}
               <div>
-                <h4 className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider mb-2.5">
+                <h4 className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-2.5">
                   <Clock size={12} />
                   Transações Pixadas / Pagas
                 </h4>
@@ -3524,17 +3526,17 @@ export const LivroCaixa: React.FC = () => {
                 {historyData.payments && historyData.payments.length > 0 ? (
                   <div className="space-y-2">
                     {historyData.payments.map((p: any, i: number) => (
-                      <div key={p.id || i} className="bg-white border border-slate-100 p-3 rounded-xl flex items-center justify-between hover:shadow-sm transition-all">
+                      <div key={p.id || i} className="bg-white border border-slate-100 p-3 rounded-lg flex items-center justify-between hover:shadow-sm transition-all">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
                             <CheckCircle2 size={14} />
                           </div>
                           <div>
-                            <p className="text-sm font-black text-slate-700">{formatCurrency(Number(p.amount))}</p>
+                            <p className="text-sm font-semibold text-slate-700">{formatCurrency(Number(p.amount))}</p>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-tight">{formatDate(p.payment_date || p.date)}</span>
+                              <span className="text-[11px] font-semibold text-slate-400">{formatDate(p.payment_date || p.date)}</span>
                               <span className="w-1 h-1 rounded-full bg-slate-200" />
-                              <span className="text-[8px] font-black text-slate-500 uppercase tracking-tight">{METHOD_LABEL[p.payment_method] || p.payment_method}</span>
+                              <span className="text-[11px] font-semibold text-slate-500">{METHOD_LABEL[p.payment_method] || p.payment_method}</span>
                             </div>
                           </div>
                         </div>
@@ -3542,8 +3544,8 @@ export const LivroCaixa: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-4 border border-dashed border-slate-200 rounded-xl">
-                    <p className="text-xs font-bold text-slate-400">Nenhum pagamento registrado</p>
+                  <div className="text-center py-4 border border-dashed border-slate-200 rounded-lg">
+                    <p className="text-xs font-semibold text-slate-400">Nenhum pagamento registrado</p>
                   </div>
                 )}
               </div>
@@ -3551,7 +3553,7 @@ export const LivroCaixa: React.FC = () => {
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
               <AlertCircle size={32} className="mb-4 opacity-50 text-rose-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-center px-4">Comanda não encontrada ou dados indisponíveis.</span>
+              <span className="text-[11px] font-semibold text-center px-4">Comanda não encontrada ou dados indisponíveis.</span>
             </div>
           )}
         </div>
@@ -3564,43 +3566,43 @@ export const LivroCaixa: React.FC = () => {
         title="Excluir Selecionados"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancelar</Button>
-            <Button variant="danger" iconLeft={<Trash2 size={14} />} onClick={executeBulkDelete} loading={isBulkProcessing} disabled={isBulkProcessing}>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancelar</Button>
+            <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={executeBulkDelete} loading={isBulkProcessing} disabled={isBulkProcessing}>
               Sim, excluir selecionados
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="flex flex-col gap-5 py-3">
-          <div className="p-4 rounded-3xl bg-rose-50 border border-rose-100 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white text-rose-500 flex items-center justify-center shadow-sm shrink-0">
+          <div className="p-4 rounded-lg bg-rose-50 border border-rose-100 flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg bg-white text-rose-500 flex items-center justify-center shadow-sm shrink-0">
                <AlertCircle size={24} />
             </div>
             <div>
-               <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 px-0.5">Ação Irreversível</p>
-               <p className="text-sm font-bold text-rose-700 leading-snug">
-                  Você está prestes a excluir <span className="font-black">{bulkDeleteStats.count} lançamentos</span> selecionados no Livro Caixa.
+               <p className="text-[11px] font-semibold text-rose-500 mb-1.5 px-0.5">Ação Irreversível</p>
+               <p className="text-sm font-semibold text-rose-700 leading-snug">
+                  Você está prestes a excluir <span className="font-semibold">{bulkDeleteStats.count} lançamentos</span> selecionados no Livro Caixa.
                </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 px-1">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Registros</p>
-                  <p className="text-lg font-black text-slate-700 leading-none">{bulkDeleteStats.count}</p>
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                  <p className="text-[11px] font-semibold text-slate-400 mb-1 leading-none">Registros</p>
+                  <p className="text-lg font-semibold text-slate-700 leading-none">{bulkDeleteStats.count}</p>
               </div>
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Saldo em Risco</p>
-                  <p className="text-lg font-black text-slate-700 leading-none">{formatCurrency(bulkDeleteStats.balance)}</p>
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                  <p className="text-[11px] font-semibold text-slate-400 mb-1 leading-none">Saldo em Risco</p>
+                  <p className="text-lg font-semibold text-slate-700 leading-none">{formatCurrency(bulkDeleteStats.balance)}</p>
               </div>
-              <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
-                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 leading-none">Entradas</p>
-                  <p className="text-base font-black text-emerald-600 leading-none">+{formatCurrency(bulkDeleteStats.income)}</p>
+              <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-100">
+                  <p className="text-[11px] font-semibold text-emerald-500 mb-1 leading-none">Entradas</p>
+                  <p className="text-base font-semibold text-emerald-600 leading-none">+{formatCurrency(bulkDeleteStats.income)}</p>
               </div>
-              <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100">
-                  <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1 leading-none">Saídas</p>
-                  <p className="text-base font-black text-rose-600 leading-none">-{formatCurrency(bulkDeleteStats.expense)}</p>
+              <div className="p-4 rounded-lg bg-rose-50/50 border border-rose-100">
+                  <p className="text-[11px] font-semibold text-rose-500 mb-1 leading-none">Saídas</p>
+                  <p className="text-base font-semibold text-rose-600 leading-none">-{formatCurrency(bulkDeleteStats.expense)}</p>
               </div>
           </div>
 
@@ -3615,32 +3617,38 @@ export const LivroCaixa: React.FC = () => {
         isOpen={selectedTxForDetails !== null}
         onClose={() => { setSelectedTxForDetails(null); setPkgSessions(null); }}
         title="Detalhes do Lançamento"
-        subtitle={selectedTxForDetails?.description?.toUpperCase() || 'RESUMO DA TRANSAÇÃO'}
+        subtitle={selectedTxForDetails?.description || 'Resumo da transação'}
         size="md"
         bodyClassName="px-4 py-4 md:px-4 md:py-4"
         footer={selectedTxForDetails && (
           <div className="grid grid-cols-2 gap-2">
-            <button
+            <Button
+              variant="outline"
+              size="md"
+              iconLeft={<Edit2 size={14} />}
               onClick={() => { setSelectedTxForDetails(null); openEditTx(selectedTxForDetails); }}
-              className="flex items-center justify-center gap-2 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-black text-[9px] uppercase tracking-wider transition-all"
             >
-              <Edit2 size={14} /> Editar
-            </button>
+              Editar
+            </Button>
             {selectedTxForDetails.comanda_id && (
-              <button
+              <Button
+                variant="outline"
+                size="md"
+                iconLeft={<ShoppingBag size={14} />}
                 onClick={() => { setSelectedTxForDetails(null); navigate('/comandas', { state: { openComandaId: String(selectedTxForDetails.comanda_id) } }); }}
-                className="flex items-center justify-center gap-2 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100 font-black text-[9px] uppercase tracking-wider transition-all"
               >
-                <ShoppingBag size={14} /> Abrir comanda
-              </button>
+                Abrir comanda
+              </Button>
             )}
             {selectedTxForDetails.status !== 'paid' && selectedTxForDetails.status !== 'confirmed' && (
-              <button
+              <Button
+                variant="success"
+                size="md"
+                iconLeft={<Check size={14} />}
                 onClick={() => handleQuickPay(selectedTxForDetails)}
-                className="flex items-center justify-center gap-2 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-wider shadow-sm transition-all"
               >
-                <Check size={15} /> Efetivar pagamento
-              </button>
+                Efetivar pagamento
+              </Button>
             )}
           </div>
         )}
@@ -3650,14 +3658,14 @@ export const LivroCaixa: React.FC = () => {
             {/* Header / Info Badge */}
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Referência Financeira</p>
+                <p className="text-[11px] font-semibold text-slate-400 mb-1 px-1">Referência Financeira</p>
                 <div className="flex items-center gap-2.5">
-                  <div className={`p-2 rounded-xl ${selectedTxForDetails.type === 'income' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-500 border border-rose-100'}`}>
+                  <div className={`p-2 rounded-lg ${selectedTxForDetails.type === 'income' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-500 border border-rose-100'}`}>
                     {selectedTxForDetails.type === 'income' ? <TrendingUp size={17} /> : <TrendingDown size={17} />}
                   </div>
                   <div className="min-w-0">
-                     <h3 className="text-base font-black text-slate-800 leading-tight line-clamp-2">{selectedTxForDetails.description || selectedTxForDetails.category}</h3>
-                     <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{selectedTxForDetails.category}</p>
+                     <h3 className="text-base font-semibold text-slate-800 leading-tight line-clamp-2">{selectedTxForDetails.description || selectedTxForDetails.category}</h3>
+                     <p className="text-[11px] font-semibold text-slate-400 mt-1">{selectedTxForDetails.category}</p>
                   </div>
                 </div>
               </div>
@@ -3667,7 +3675,7 @@ export const LivroCaixa: React.FC = () => {
                   const info = STATUS_INFO[status] || STATUS_INFO.pending;
                   const Icon = info.icon;
                   return (
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wider whitespace-nowrap ${info.color}`}>
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold whitespace-nowrap ${info.color}`}>
                       <Icon size={10} />
                       {info.label}
                     </div>
@@ -3682,16 +3690,16 @@ export const LivroCaixa: React.FC = () => {
             <div className="grid grid-cols-1 gap-3 items-start">
               <div className="space-y-3">
                 {/* Price Box */}
-                <div className="p-4 rounded-2xl bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
+                <div className="p-4 rounded-lg bg-slate-100/50 border border-slate-200/60 text-center relative overflow-hidden group">
                    <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
                       <Wallet size={86} />
                    </div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.24em] mb-1.5 leading-none">VALOR REGISTRADO</p>
-                   <h2 className={`text-base sm:text-xl font-black ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                   <p className="text-[11px] font-semibold text-slate-400 mb-1.5 leading-none">Valor registrado</p>
+                   <h2 className={`text-base sm:text-xl font-semibold ${selectedTxForDetails.type === 'income' ? 'text-emerald-600' : 'text-rose-500'}`}>
                      {selectedTxForDetails.type === 'income' ? '+' : '-'}{formatCurrency(selectedTxForDetails.amount)}
                    </h2>
                    {selectedTxForDetails.comanda_id && (
-                      <div className="mt-2 text-[10px] font-bold text-primary-600 italic">
+                      <div className="mt-2 text-[11px] font-semibold text-primary-600 italic">
                          Vinculado à Comanda #{selectedTxForDetails.comanda_id}
                       </div>
                    )}
@@ -3699,47 +3707,47 @@ export const LivroCaixa: React.FC = () => {
 
                 {/* Grid Infos */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                    <p className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1.5"><Calendar size={11} /> Data do Fluxo</p>
-                    <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.date)}</p>
+                  <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><Calendar size={11} /> Data do Fluxo</p>
+                    <p className="text-sm font-semibold text-slate-700">{formatDate(selectedTxForDetails.date)}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                    <p className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1.5"><CreditCard size={11} /> Forma de Pagto</p>
-                    <p className="text-sm font-black text-slate-700">{METHOD_LABEL[selectedTxForDetails.payment_method] || selectedTxForDetails.payment_method || '—'}</p>
+                  <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 mb-1.5"><CreditCard size={11} /> Forma de Pagto</p>
+                    <p className="text-sm font-semibold text-slate-700">{METHOD_LABEL[selectedTxForDetails.payment_method] || selectedTxForDetails.payment_method || '—'}</p>
                   </div>
                   {selectedTxForDetails.due_date && selectedTxForDetails.due_date.slice(0, 10) !== selectedTxForDetails.date.slice(0, 10) && (
-                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm col-span-2">
-                      <p className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2"><Calendar size={12} /> Vencimento</p>
-                      <p className="text-sm font-black text-slate-700">{formatDate(selectedTxForDetails.due_date)}</p>
+                    <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm col-span-2">
+                      <p className="flex items-center gap-2 text-[11px] font-semibold text-slate-400 mb-2"><Calendar size={12} /> Vencimento</p>
+                      <p className="text-sm font-semibold text-slate-700">{formatDate(selectedTxForDetails.due_date)}</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Patient/Payer Section */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-2">Envolvidos na Transação</p>
+              <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm space-y-3">
+                <p className="text-[11px] font-semibold text-slate-400 border-b border-slate-50 pb-2">Envolvidos na Transação</p>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100 shrink-0 font-black text-sm">
+                  <div className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center border border-primary-100 shrink-0 font-semibold text-sm">
                     {(selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Pagador Original</p>
-                     <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || 'Não identificado'}</p>
-                     {selectedTxForDetails.payer_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.payer_cpf)}</p>}
+                     <p className="text-[11px] font-semibold text-slate-400 leading-none mb-1.5">Pagador Original</p>
+                     <p className="text-base font-semibold text-slate-800 leading-tight">{selectedTxForDetails.payer_name || selectedTxForDetails.patient_name || 'Não identificado'}</p>
+                     {selectedTxForDetails.payer_cpf && <p className="text-xs font-semibold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.payer_cpf)}</p>}
                   </div>
                 </div>
 
                 {selectedTxForDetails.beneficiary_name && selectedTxForDetails.beneficiary_name !== selectedTxForDetails.payer_name && (
                   <div className="flex items-start gap-4 pt-4 border-t border-slate-50">
-                    <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-500 flex items-center justify-center border border-sky-100 shrink-0 font-black text-sm">
+                    <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-500 flex items-center justify-center border border-primary-100 shrink-0 font-semibold text-sm">
                       {(selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name || '?').charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-[9px] font-black text-sky-500 uppercase tracking-widest leading-none mb-1.5">Paciente Beneficiário</p>
-                      <p className="text-base font-black text-slate-800 leading-tight">{selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name}</p>
-                      {selectedTxForDetails.beneficiary_cpf && <p className="text-xs font-bold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.beneficiary_cpf)}</p>}
+                      <p className="text-[11px] font-semibold text-primary-500 leading-none mb-1.5">Paciente Beneficiário</p>
+                      <p className="text-base font-semibold text-slate-800 leading-tight">{selectedTxForDetails.beneficiary_name || selectedTxForDetails.patient_name}</p>
+                      {selectedTxForDetails.beneficiary_cpf && <p className="text-xs font-semibold text-slate-400 mt-1">CPF: {maskCpf(selectedTxForDetails.beneficiary_cpf)}</p>}
                     </div>
                   </div>
                 )}
@@ -3748,17 +3756,17 @@ export const LivroCaixa: React.FC = () => {
 
             {/* Observations */}
             {selectedTxForDetails.observation && (
-              <div className="bg-amber-50/50 p-6 rounded-3xl border border-amber-100/50">
-                 <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2"><FileText size={12}/> Observações</p>
+              <div className="bg-amber-50/50 p-6 rounded-lg border border-amber-100/50">
+                 <p className="text-[11px] font-semibold text-amber-500 mb-2 flex items-center gap-2"><FileText size={12}/> Observações</p>
                  <p className="text-sm font-medium text-amber-700/80 leading-relaxed italic">{selectedTxForDetails.observation}</p>
               </div>
             )}
 
             {/* ── Sessões do Pacote ───────────────────────────────────────────── */}
             {pkgSessionsLoading && (
-              <div className="flex items-center gap-3 py-4 px-5 rounded-3xl bg-slate-50 border border-slate-100">
+              <div className="flex items-center gap-3 py-4 px-5 rounded-lg bg-slate-50 border border-slate-100">
                 <Loader2 size={16} className="animate-spin text-slate-400 shrink-0" />
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Carregando sessões do pacote...</span>
+                <span className="text-[11px] font-semibold text-slate-400">Carregando sessões do pacote...</span>
               </div>
             )}
 
@@ -3773,17 +3781,17 @@ export const LivroCaixa: React.FC = () => {
                 : '—';
 
               return (
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
                   {/* Header da seção */}
                   <div className="px-4 pt-3.5 pb-3 border-b border-slate-50">
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <p className="flex items-center gap-1.5 text-[9px] font-black text-slate-500 uppercase tracking-wider">
-                        <CalendarCheck size={12} className="text-indigo-500" />
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                        <CalendarCheck size={12} className="text-primary-500" />
                         Sessões realizadas neste pacote
                       </p>
                       {total && (
-                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border ${
-                          done >= total ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                        <span className={`text-[11px] font-semibold  px-2.5 py-1 rounded-lg border ${
+                          done >= total ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-primary-50 text-primary-600 border-primary-100'
                         }`}>
                           {done}/{total} sessões
                         </span>
@@ -3793,13 +3801,13 @@ export const LivroCaixa: React.FC = () => {
                     {total && (
                       <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-700 ${done >= total ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                          className={`h-full rounded-full transition-all duration-700 ${done >= total ? 'bg-emerald-500' : 'bg-primary-500'}`}
                           style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
                         />
                       </div>
                     )}
                     {comanda?.description && (
-                      <p className="text-[9px] font-bold text-slate-400 mt-1.5 truncate">{comanda.description}</p>
+                      <p className="text-[11px] font-semibold text-slate-400 mt-1.5 truncate">{comanda.description}</p>
                     )}
                   </div>
 
@@ -3808,25 +3816,25 @@ export const LivroCaixa: React.FC = () => {
                     {completed.length === 0 ? (
                       <div className="px-4 py-4 text-center">
                         <CalendarClock size={22} className="text-slate-200 mx-auto mb-1.5" />
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                        <p className="text-[11px] font-semibold text-slate-400">
                           Nenhum atendimento realizado ainda para este pacote.
                         </p>
                       </div>
                     ) : (
                       completed.map((s) => (
                         <div key={s.id} className="flex items-center gap-3 px-5 py-3">
-                          <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                             <UserCheck size={13} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-slate-700">
+                            <p className="text-xs font-semibold text-slate-700">
                               {fmtDate(s.date)}{s.time ? ` às ${s.time}` : ''}
                             </p>
                             {s.professional_name && (
-                              <p className="text-[9px] font-bold text-slate-400 truncate">{s.professional_name}</p>
+                              <p className="text-[11px] font-semibold text-slate-400 truncate">{s.professional_name}</p>
                             )}
                           </div>
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
                             Realizado
                           </span>
                         </div>
@@ -3837,18 +3845,18 @@ export const LivroCaixa: React.FC = () => {
                   {/* Faltas */}
                   {no_show.length > 0 && (
                     <div className="border-t border-slate-50">
-                      <p className="px-4 pt-2.5 pb-1 text-[8px] font-black text-slate-400 uppercase tracking-wider">Faltas ({no_show.length})</p>
+                      <p className="px-4 pt-2.5 pb-1 text-[11px] font-semibold text-slate-400">Faltas ({no_show.length})</p>
                       {no_show.map((s) => (
                         <div key={s.id} className="flex items-center gap-3 px-5 py-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 text-rose-400 flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 text-rose-400 flex items-center justify-center shrink-0">
                             <X size={12} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-slate-600">
+                            <p className="text-xs font-semibold text-slate-600">
                               {fmtDate(s.date)}{s.time ? ` às ${s.time}` : ''}
                             </p>
                           </div>
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
                             Faltou
                           </span>
                         </div>
@@ -3859,23 +3867,23 @@ export const LivroCaixa: React.FC = () => {
                   {/* Próximas sessões */}
                   {upcoming.length > 0 && (
                     <div className="border-t border-slate-50">
-                      <p className="px-4 pt-2.5 pb-1 text-[8px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <p className="px-4 pt-2.5 pb-1 text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
                         <CalendarClock size={10} /> Próximas agendadas ({upcoming.length})
                       </p>
                       {upcoming.map((s) => (
                         <div key={s.id} className="flex items-center gap-3 px-4 py-2">
-                          <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-400 flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 text-primary-400 flex items-center justify-center shrink-0">
                             <CalendarClock size={13} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-slate-600">
+                            <p className="text-xs font-semibold text-slate-600">
                               {fmtDate(s.date)}{s.time ? ` às ${s.time}` : ''}
                             </p>
                             {s.professional_name && (
-                              <p className="text-[9px] font-bold text-slate-400 truncate">{s.professional_name}</p>
+                              <p className="text-[11px] font-semibold text-slate-400 truncate">{s.professional_name}</p>
                             )}
                           </div>
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-primary-50 text-primary-600 border border-primary-100 shrink-0">
                             {s.status === 'confirmed' ? 'Confirmado' : 'Agendado'}
                           </span>
                         </div>
@@ -3898,82 +3906,61 @@ export const LivroCaixa: React.FC = () => {
         subtitle="Gera o CSV no formato da Receita Federal para importar no Carnê-Leão Web (gov.br)"
         size="sm"
         footer={
-          <div className="flex gap-2 justify-end">
-            <Button variant="ghost" onClick={() => setShowCarneleaoModal(false)}>Cancelar</Button>
+          <ModalFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowCarneleaoModal(false)}>Cancelar</Button>
             <Button
               variant="success"
+              size="sm"
               iconLeft={isExportingCarneleao ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               loading={isExportingCarneleao}
               onClick={handleExportCarneleao}
             >
               Baixar CSV
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         <div className="space-y-5">
           {/* Info */}
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex gap-3">
-            <Receipt size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+          <div className="rounded-lg border border-primary-200 bg-primary-50 p-3 flex gap-3">
+            <Receipt size={16} className="text-primary-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-bold text-emerald-800 mb-1">O que é isso?</p>
-              <p className="text-xs text-emerald-700 leading-relaxed">
+              <p className="text-[13px] font-medium text-primary-800 mb-1">O que é isso?</p>
+              <p className="text-xs text-primary-700 leading-relaxed">
                 Profissionais autônomos (pessoa física) precisam declarar mensalmente os recebimentos de pacientes no <strong>Carnê-Leão Web</strong> do gov.br. Este arquivo CSV já vem no formato exato que o sistema da Receita Federal aceita — é só importar.
               </p>
             </div>
           </div>
 
           {/* Período */}
-          <div>
-            <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Período</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setCarneleaoMode('month')}
-                className={`rounded-2xl border py-2.5 text-sm font-bold transition-all ${carneleaoMode === 'month' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
-              >
-                Mês específico
-              </button>
-              <button
-                onClick={() => setCarneleaoMode('year')}
-                className={`rounded-2xl border py-2.5 text-sm font-bold transition-all ${carneleaoMode === 'year' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
-              >
-                Ano completo
-              </button>
-            </div>
-          </div>
-
-          <div className={`grid gap-3 ${carneleaoMode === 'month' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            {carneleaoMode === 'month' && (
-              <div>
-                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Mês</label>
-                <select
-                  value={carneleaoMonth}
+          <div className="space-y-3">
+            <Tabs<'month' | 'year'>
+              items={CARNE_TABS}
+              value={carneleaoMode}
+              onChange={setCarneleaoMode}
+              label="Período da exportação"
+            />
+            <FormRow cols={1} className={carneleaoMode === 'month' ? 'sm:grid-cols-2' : ''}>
+              {carneleaoMode === 'month' && (
+                <Select
+                  label="Mês"
+                  value={String(carneleaoMonth)}
                   onChange={e => setCarneleaoMonth(Number(e.target.value))}
-                  className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
-                >
-                  {MONTH_NAMES.map((name, i) => (
-                    <option key={i} value={i + 1}>{name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div>
-              <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Ano</label>
-              <select
-                value={carneleaoYear}
+                  options={MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }))}
+                />
+              )}
+              <Select
+                label="Ano"
+                value={String(carneleaoYear)}
                 onChange={e => setCarneleaoYear(Number(e.target.value))}
-                className="h-10 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20"
-              >
-                {[new Date().getFullYear() - 1, new Date().getFullYear()].map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
+                options={[new Date().getFullYear() - 1, new Date().getFullYear()].map(y => ({ value: String(y), label: String(y) }))}
+              />
+            </FormRow>
           </div>
 
           {/* Formato */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1.5">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Formato do arquivo</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-1.5">
+            <p className="text-[11px] font-semibold text-slate-400">Formato do arquivo</p>
             <p className="font-mono text-[11px] text-slate-600 leading-relaxed break-all">
               CPF/CNPJ do Pagador ; Nome ; Valor ; Data ; Descrição ; Natureza (0561)
             </p>

@@ -113,16 +113,16 @@ export const ComportamentalPage: React.FC = () => {
         showBackButton
         onBackClick={() => navigate('/caixa-ferramentas')}
         actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
               <button 
                 onClick={() => setActiveSub('abc')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'abc' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'abc' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-2"><ClipboardList size={14}/> Análise ABC</div>
               </button>
               <button 
                 onClick={() => setActiveSub('contingency')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'contingency' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'contingency' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                 <div className="flex items-center gap-2"><Target size={14}/> Contingência</div>
               </button>
@@ -147,7 +147,7 @@ export const ComportamentalPage: React.FC = () => {
                 <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-6">
                     <Settings2 size={40} />
                 </div>
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Behavioral Workspace</h2>
+                <h2 className="text-2xl font-semibold text-slate-800">Behavioral Workspace</h2>
                 <p className="text-slate-400 text-sm max-w-md mx-auto">Módulo de Análise do Comportamento, focado em antecedentes, comportamentos e consequências.</p>
             </div>
           ) : (
@@ -155,52 +155,52 @@ export const ComportamentalPage: React.FC = () => {
               {activeSub === 'abc' && (
                 <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
                     <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                        <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Nova Análise ABC</h3>
+                        <h3 className="font-semibold text-slate-800 text-lg">Nova Análise ABC</h3>
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">A - Antecedente</label>
-                                <textarea className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:bg-white h-20 resize-none" value={newAbc.antecedent} onChange={e => setNewAbc({...newAbc, antecedent: e.target.value})} placeholder="O que aconteceu antes?" />
+                                <label className="text-[11px] font-semibold text-slate-400">A - Antecedente</label>
+                                <textarea className="w-full p-4 rounded-lg bg-slate-50 border border-slate-100 text-sm focus:bg-white h-20 resize-none" value={newAbc.antecedent} onChange={e => setNewAbc({...newAbc, antecedent: e.target.value})} placeholder="O que aconteceu antes?" />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">B - Comportamento</label>
-                                <textarea className="w-full p-4 rounded-xl bg-white border border-slate-100 text-sm font-bold shadow-sm h-20 resize-none outline-none focus:ring-4 focus:ring-indigo-50" value={newAbc.behavior} onChange={e => setNewAbc({...newAbc, behavior: e.target.value})} placeholder="Qual foi a ação?" />
+                                <label className="text-[11px] font-semibold text-slate-400">B - Comportamento</label>
+                                <textarea className="w-full p-4 rounded-lg bg-white border border-slate-100 text-sm font-semibold shadow-sm h-20 resize-none outline-none focus:ring-4 focus:ring-indigo-50" value={newAbc.behavior} onChange={e => setNewAbc({...newAbc, behavior: e.target.value})} placeholder="Qual foi a ação?" />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">C - Consequência</label>
-                                <textarea className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:bg-white h-20 resize-none" value={newAbc.consequence} onChange={e => setNewAbc({...newAbc, consequence: e.target.value})} placeholder="O que aconteceu depois?" />
+                                <label className="text-[11px] font-semibold text-slate-400">C - Consequência</label>
+                                <textarea className="w-full p-4 rounded-lg bg-slate-50 border border-slate-100 text-sm focus:bg-white h-20 resize-none" value={newAbc.consequence} onChange={e => setNewAbc({...newAbc, consequence: e.target.value})} placeholder="O que aconteceu depois?" />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Função Hipotética</label>
-                                <select className="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={newAbc.function} onChange={e => setNewAbc({...newAbc, function: e.target.value})}>
+                                <label className="text-[11px] font-semibold text-slate-400">Função Hipotética</label>
+                                <select className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" value={newAbc.function} onChange={e => setNewAbc({...newAbc, function: e.target.value})}>
                                     <option value="Reforço Positivo">Reforço Positivo (Atenção/Ganho)</option>
                                     <option value="Reforço Negativo">Reforço Negativo (Fuga/Esquiva)</option>
                                     <option value="Punição">Punição</option>
                                     <option value="Extinção">Extinção</option>
                                 </select>
                             </div>
-                            <button onClick={handleSaveAbc} className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition-all">Registrar Análise</button>
+                            <button onClick={handleSaveAbc} className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-indigo-700 transition-all">Registrar Análise</button>
                         </div>
                     </div>
                     <div className="space-y-4 overflow-y-auto max-h-[70vh] custom-scrollbar px-1">
                         {abcData.map(a => (
                             <div key={a.id} className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm group hover:border-indigo-100 transition-all">
                                 <div className="grid grid-cols-3 gap-6 mb-6">
-                                    <div className="p-4 bg-slate-50 rounded-2xl">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 underline decoration-slate-300 decoration-2 underline-offset-4">Antecedente</span>
+                                    <div className="p-4 bg-slate-50 rounded-lg">
+                                        <span className="text-[11px] font-semibold text-slate-400 block mb-2 underline decoration-slate-300 decoration-2 underline-offset-4">Antecedente</span>
                                         <p className="text-xs font-medium text-slate-600 leading-relaxed">{a.antecedent}</p>
                                     </div>
-                                    <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                                        <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest block mb-2 underline decoration-indigo-200 decoration-2 underline-offset-4">Comportamento</span>
-                                        <p className="text-xs font-black text-indigo-900 leading-relaxed uppercase tracking-tight">{a.behavior}</p>
+                                    <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                                        <span className="text-[11px] font-semibold text-indigo-400 block mb-2 underline decoration-indigo-200 decoration-2 underline-offset-4">Comportamento</span>
+                                        <p className="text-xs font-semibold text-indigo-900 leading-relaxed">{a.behavior}</p>
                                     </div>
-                                    <div className="p-4 bg-slate-50 rounded-2xl">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 underline decoration-slate-300 decoration-2 underline-offset-4">Consequência</span>
+                                    <div className="p-4 bg-slate-50 rounded-lg">
+                                        <span className="text-[11px] font-semibold text-slate-400 block mb-2 underline decoration-slate-300 decoration-2 underline-offset-4">Consequência</span>
                                         <p className="text-xs font-medium text-slate-600 leading-relaxed">{a.consequence}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between border-t border-slate-50 pt-4">
-                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-tight bg-indigo-50 px-3 py-1 rounded-full">{a.function}</span>
-                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{new Date(a.createdAt || "").toLocaleDateString()}</span>
+                                    <span className="text-[11px] font-semibold text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full">{a.function}</span>
+                                    <span className="text-[11px] font-semibold text-slate-300">{new Date(a.createdAt || "").toLocaleDateString()}</span>
                                 </div>
                             </div>
                         ))}
@@ -212,30 +212,30 @@ export const ComportamentalPage: React.FC = () => {
                 <div className="space-y-6 animate-slideUpFade">
                     <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm space-y-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                                 <Target size={24} />
                             </div>
-                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Acordo de Contingência</h3>
+                            <h3 className="text-xl font-semibold text-slate-800">Acordo de Contingência</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comportamento Alvo</label>
-                                    <input className="w-full h-12 px-4 rounded-xl bg-white border border-slate-100 text-sm font-bold shadow-sm outline-none" value={newContingency.behavior} onChange={e => setNewContingency({...newContingency, behavior: e.target.value})} placeholder="Qual comportamento queremos aumentar/diminuir?" />
+                                    <label className="text-[11px] font-semibold text-slate-400">Comportamento Alvo</label>
+                                    <input className="w-full h-12 px-4 rounded-lg bg-white border border-slate-100 text-sm font-semibold shadow-sm outline-none" value={newContingency.behavior} onChange={e => setNewContingency({...newContingency, behavior: e.target.value})} placeholder="Qual comportamento queremos aumentar/diminuir?" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reforçador / Recompensa</label>
-                                    <input className="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={newContingency.reward} onChange={e => setNewContingency({...newContingency, reward: e.target.value})} placeholder="O que o paciente ganha ao cumprir?" />
+                                    <label className="text-[11px] font-semibold text-slate-400">Reforçador / Recompensa</label>
+                                    <input className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" value={newContingency.reward} onChange={e => setNewContingency({...newContingency, reward: e.target.value})} placeholder="O que o paciente ganha ao cumprir?" />
                                 </div>
-                                <button onClick={handleSaveContingency} className="w-full h-12 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition-all">Firmar Compromisso</button>
+                                <button onClick={handleSaveContingency} className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-indigo-700 transition-all">Firmar Compromisso</button>
                             </div>
                             <div className="bg-indigo-50 rounded-[32px] p-8 border border-indigo-100 space-y-4 shadow-inner">
-                                <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center underline decoration-indigo-200 decoration-2 underline-offset-4 mb-4">Mural de Contingências</h4>
+                                <h4 className="text-[11px] font-semibold text-indigo-400 text-center underline decoration-indigo-200 decoration-2 underline-offset-4 mb-4">Mural de Contingências</h4>
                                 {contingencies.map(c => (
-                                    <div key={c.id} className="bg-white p-4 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
+                                    <div key={c.id} className="bg-white p-4 rounded-lg border border-indigo-100 flex items-center justify-between shadow-sm">
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{c.behavior}</p>
-                                            <p className="text-[9px] text-emerald-600 font-black uppercase flex items-center gap-1 mt-1"><Sparkles size={10}/> Reward: {c.reward}</p>
+                                            <p className="text-[11px] font-semibold text-slate-800">{c.behavior}</p>
+                                            <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 mt-1"><Sparkles size={10}/> Reward: {c.reward}</p>
                                         </div>
                                         <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white"><CheckCircle2 size={20}/></div>
                                     </div>

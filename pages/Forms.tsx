@@ -16,11 +16,10 @@ import {
   ArrowRight,
   TrendingUp,
   Users,
-  Sparkles,
   ExternalLink,
-  ArrowLeft,
 } from 'lucide-react';
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, StatGrid, StatCard, ContentCard, PanelCard, Button, IconButton, Badge, EmptyState } from '../components/UI';
+import { FormsTabs } from '../components/Forms/FormsTabs';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 
 export const Forms: React.FC = () => {
@@ -117,223 +116,119 @@ export const Forms: React.FC = () => {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 space-y-6">
-      <PageHeader
-        icon={<FilePlus2 />}
-        title="Formulários Clínicos"
-        subtitle="Central de formulários e questionários"
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        containerClassName="mb-0"
-        actions={
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => navigate('/formularios/lista')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors uppercase tracking-tighter"
-            >
-              <ListChecks size={14} /> Ver lista
-            </button>
-            <button
-              onClick={() => navigate('/formularios/metricas')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors uppercase tracking-tighter"
-            >
-              <BarChart3 size={14} /> Métricas
-            </button>
-            <button
-              onClick={() => navigate('/formularios/novo')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors uppercase tracking-tighter"
-            >
-              <PlusCircle size={14} /> Criar formulário
-            </button>
-          </div>
-        }
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={FilePlus2}
+          title="Formulários Clínicos"
+          description="Central de formulários e questionários"
+          action={
+            <>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/caixa-ferramentas')}>Voltar</Button>
+              <Button variant="primary" size="sm" iconLeft={<PlusCircle size={14} />} onClick={() => navigate('/formularios/novo')}>
+                Criar formulário
+              </Button>
+            </>
+          }
+        />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          {
-            label: 'Formulários', value: stats.totalForms,
-            icon: <FilePlus2 size={18} />, color: 'text-indigo-600', bg: 'bg-indigo-50',
-          },
-          {
-            label: 'Respostas totais', value: stats.totalResponses,
-            icon: <Inbox size={18} />, color: 'text-emerald-600', bg: 'bg-emerald-50',
-          },
-          {
-            label: 'Pacientes alcançados', value: recentResponses.length,
-            icon: <Users size={18} />, color: 'text-blue-600', bg: 'bg-blue-50',
-          },
-          {
-            label: 'Formulários ativos', value: forms.length,
-            icon: <TrendingUp size={18} />, color: 'text-amber-600', bg: 'bg-amber-50',
-          },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-            <div className={`w-8 h-8 rounded-lg ${s.bg} ${s.color} flex items-center justify-center mb-2`}>
-              {s.icon}
-            </div>
-            <div className="text-base sm:text-xl font-black text-slate-800">{s.value}</div>
-            <div className="text-xs text-slate-500 font-medium mt-0.5">{s.label}</div>
-          </div>
-        ))}
-      </div>
+        <StatGrid cols={4}>
+          <StatCard title="Formulários" value={stats.totalForms} icon={FilePlus2} />
+          <StatCard title="Respostas totais" value={stats.totalResponses} icon={Inbox} color="success" />
+          <StatCard title="Pacientes alcançados" value={recentResponses.length} icon={Users} color="info" />
+          <StatCard title="Formulários ativos" value={forms.length} icon={TrendingUp} color="warning" />
+        </StatGrid>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
-        {/* Respostas recentes */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Inbox size={16} className="text-emerald-600" />
-              <h2 className="font-bold text-slate-800">Respostas Recentes</h2>
-            </div>
-            <button
-              onClick={() => navigate('/formularios/respostas')}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-            >
-              Ver todas <ArrowRight size={12} />
-            </button>
-          </div>
+        <FormsTabs />
 
-          {isLoading ? (
-            <div className="p-8 text-center text-sm text-slate-400">Carregando...</div>
-          ) : recentResponses.length === 0 ? (
-            <div className="p-10 flex flex-col items-center gap-3 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
-                <Inbox size={22} className="text-slate-300" />
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-3">
+          {/* Respostas recentes */}
+          <ContentCard padding="none" className="overflow-hidden">
+            <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Inbox size={14} className="text-slate-500 shrink-0" />
+                <h2 className="text-sm font-medium text-slate-900">Respostas recentes</h2>
               </div>
-              <p className="text-sm font-semibold text-slate-500">Nenhuma resposta ainda</p>
-              <p className="text-xs text-slate-400">Compartilhe um formulário com seus pacientes para começar.</p>
+              <Button variant="ghost" size="xs" iconRight={<ArrowRight size={12} />} onClick={() => navigate('/formularios/respostas')}>
+                Ver todas
+              </Button>
             </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {recentResponses.map((res) => (
-                <div
-                  key={res.id}
-                  className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/formularios/${res.formId}/respostas?responseId=${res.id}`)}
-                >
-                  <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">
-                    {(res.patient || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-700 truncate">{res.patient}</p>
-                    <p className="text-xs text-slate-400 truncate flex items-center gap-1"><FileText size={10} /> {res.form}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="flex items-center gap-1.5">
-                      {res.isNew && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-bold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Novo
-                        </span>
-                      )}
-                      <span className="text-[11px] text-slate-400 flex items-center gap-1"><Clock size={11} /> {res.date}</span>
+
+            {isLoading ? (
+              <div role="status" className="p-8 text-center text-xs text-slate-500">Carregando...</div>
+            ) : recentResponses.length === 0 ? (
+              <div className="p-3">
+                <EmptyState
+                  icon={Inbox}
+                  title="Nenhuma resposta ainda"
+                  description="Compartilhe um formulário com seus pacientes para começar."
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {recentResponses.map((res) => (
+                  <button
+                    type="button"
+                    key={res.id}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                    onClick={() => navigate(`/formularios/${res.formId}/respostas?responseId=${res.id}`)}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center font-medium text-xs shrink-0">
+                      {(res.patient || '?').charAt(0).toUpperCase()}
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-slate-800 truncate">{res.patient}</p>
+                      <p className="text-[11px] text-slate-500 truncate flex items-center gap-1"><FileText size={11} /> {res.form}</p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      {res.isNew && <Badge color="success" size="sm" dot>Novo</Badge>}
+                      <span className="text-[11px] text-slate-500 flex items-center gap-1 whitespace-nowrap"><Clock size={11} /> {res.date}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ContentCard>
 
-        {/* Formulários recentes + ações rápidas */}
-        <div className="space-y-4">
-          {/* Ações rápidas */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <h2 className="font-bold text-slate-800 flex items-center gap-2"><Sparkles size={15} className="text-indigo-500" /> Ações rápidas</h2>
-            </div>
-            <div className="p-3 space-y-2">
-              <Link
-                to="/formularios/novo"
-                className="flex items-center gap-3 p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                  <PlusCircle size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold">Criar novo formulário</p>
-                  <p className="text-[11px] text-indigo-200">Do zero ou a partir de modelo</p>
-                </div>
-                <ArrowRight size={14} className="opacity-60 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <Link
-                to="/formularios/lista"
-                className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-indigo-200 transition-colors group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-slate-100 text-indigo-600 flex items-center justify-center shrink-0">
-                  <ListChecks size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold">Gerenciar formulários</p>
-                  <p className="text-[11px] text-slate-400">Editar, arquivar e compartilhar</p>
-                </div>
-                <ArrowRight size={14} className="text-slate-300 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <Link
-                to="/formularios/metricas"
-                className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-indigo-200 transition-colors group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-slate-100 text-purple-600 flex items-center justify-center shrink-0">
-                  <BarChart3 size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold">Métricas e resultados</p>
-                  <p className="text-[11px] text-slate-400">Análise de respostas</p>
-                </div>
-                <ArrowRight size={14} className="text-slate-300 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Formulários recentes */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="font-bold text-slate-800 flex items-center gap-2">
-                <FileText size={15} className="text-slate-500" /> Formulários
-              </h2>
-              <Link to="/formularios/lista" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                Ver todos <ArrowRight size={11} />
-              </Link>
-            </div>
+          {/* Formulários */}
+          <PanelCard
+            title="Formulários"
+            action={
+              <Button variant="ghost" size="xs" iconRight={<ArrowRight size={12} />} onClick={() => navigate('/formularios/lista')}>
+                Ver todos
+              </Button>
+            }
+          >
             <div className="divide-y divide-slate-100">
               {isLoading ? (
-                <div className="p-6 text-center text-xs text-slate-400">Carregando...</div>
+                <div role="status" className="py-4 text-center text-xs text-slate-500">Carregando...</div>
               ) : forms.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400">Nenhum formulário criado ainda.</div>
+                <EmptyState icon={FileText} title="Nenhum formulário criado ainda." />
               ) : (
                 forms.slice(0, 5).map((form) => (
-                  <div key={form.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
+                  <div key={form.id} className="flex items-center gap-3 py-2">
+                    <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 text-primary-700 flex items-center justify-center font-medium text-xs shrink-0">
                       {form.title.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-700 truncate">{form.title}</p>
-                      <p className="text-[10px] text-slate-400">{form.responseCount || 0} respostas</p>
+                      <p className="text-xs font-medium text-slate-800 truncate">{form.title}</p>
+                      <p className="text-[11px] text-slate-500">{form.responseCount || 0} respostas</p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => navigate(`/formularios/${form.id}`)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        title="Editar"
-                      >
-                        <ExternalLink size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleCopyPublicLink(form)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                        title="Copiar link público"
-                      >
-                        {copiedFormId === form.id ? <CheckCircle size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                      </button>
+                      <IconButton variant="ghost" size="sm" aria-label="Editar" title="Editar" onClick={() => navigate(`/formularios/${form.id}`)}>
+                        <ExternalLink size={14} />
+                      </IconButton>
+                      <IconButton variant="ghost" size="sm" aria-label="Copiar link público" title="Copiar link público" onClick={() => handleCopyPublicLink(form)}>
+                        {copiedFormId === form.id ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                      </IconButton>
                     </div>
                   </div>
                 ))
               )}
             </div>
-          </div>
+          </PanelCard>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

@@ -7,16 +7,41 @@ import {
   ChevronRight, CalendarDays
 } from 'lucide-react';
 import { api } from '../services/api';
-import { PageHeader } from '../components/UI/PageHeader';
+import {
+  Button,
+  EmptyState,
+  FilterLineSegmented,
+  PageWrapper,
+  PanelCard,
+  SectionTitle,
+  StatCard,
+  StatGrid,
+  Tabs,
+} from '../components/UI';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
+const PERIOD_OPTIONS = [
+  { value: 'week', label: 'Semana' },
+  { value: 'month', label: 'Mês' },
+  { value: 'year', label: 'Ano' },
+];
+
+const PERFORMANCE_TABS = [
+  { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
+  { id: 'agenda', label: 'Agenda', icon: CalendarDays },
+  { id: 'clientes', label: 'Clientes', icon: Trophy },
+] as const;
+
+type PerformanceTab = (typeof PERFORMANCE_TABS)[number]['id'];
+
 const dayNamesShort = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
 
 export const Performance: React.FC = () => {
   const [period, setPeriod] = useState('month'); // week, month, year
+  const [activeTab, setActiveTab] = useState<PerformanceTab>('financeiro');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
@@ -65,350 +90,257 @@ export const Performance: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-96 flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-indigo-500" size={48} />
-        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Analisando métricas de performance...</p>
-      </div>
+      <PageWrapper>
+        <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+          <Loader2 size={18} className="animate-spin" />
+          Analisando métricas de performance...
+        </div>
+      </PageWrapper>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="h-96 flex flex-col items-center justify-center gap-4">
-        <AlertCircle className="text-rose-500" size={48} />
-        <p className="text-slate-500 font-bold">{error || 'Nenhum dado encontrado'}</p>
-        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest">Tentar Novamente</button>
-      </div>
+      <PageWrapper>
+        <PanelCard>
+          <EmptyState
+            icon={AlertCircle}
+            title={error || 'Nenhum dado encontrado'}
+            description="Confira a conexão e tente novamente."
+            action={
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Tentar novamente
+              </Button>
+            }
+          />
+        </PanelCard>
+      </PageWrapper>
     );
   }
 
   const { totals, series, hoursSeries, peakDays, peakHours } = data;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-[1600px] mx-auto px-6 pt-6">
-        <PageHeader
-          icon={<BarChart2 />}
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={BarChart2}
           title="Performance e Analytics"
-          subtitle="Indicadores estratégicos para gestão da sua clínica"
-          containerClassName="mb-0"
-          actions={
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
-                {[
-                    { id: 'week', label: 'Semana' },
-                    { id: 'month', label: 'Mês' },
-                    { id: 'year', label: 'Ano' }
-                ].map(p => (
-                    <button 
-                        key={p.id}
-                        onClick={() => setPeriod(p.id)}
-                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${period === p.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
-                    >
-                        {p.label}
-                    </button>
-                ))}
-            </div>
+          description="Indicadores estratégicos para gestão da sua clínica"
+          action={
+            <FilterLineSegmented
+              size="sm"
+              value={period}
+              onChange={setPeriod}
+              options={PERIOD_OPTIONS}
+            />
           }
         />
-      </div>
 
-      <div className="max-w-[1600px] mx-auto p-6 space-y-8">
+        <StatGrid cols={4}>
+          <StatCard title="Faturamento Bruto" value={formatCurrency(totals.income)} icon={DollarSign} color="success" />
+          <StatCard title="Horas em Atendimento" value={`${totals.total_hours.toFixed(1)}h`} description="Horas reais" icon={Clock} />
+          <StatCard title="Lucro Líquido" value={formatCurrency(totals.profit)} icon={TrendingUp} color="info" />
+          <StatCard
+            title="Aproveitamento"
+            value={`${(totals.income > 0 ? (totals.profit / totals.income) * 100 : 0).toFixed(1)}%`}
+            icon={PieChart}
+            color="warning"
+          />
+        </StatGrid>
 
-      {/* KPI CARDS */}
-      <div className="grid grid-cols-4 gap-3 sm:gap-4">
-          <KPICard 
-             title="Faturamento Bruto" 
-             value={totals.income} 
-             icon={<DollarSign size={20} />} 
-             color="emerald" 
-          />
-          <KPICard 
-             title="Horas em Atendimento" 
-             value={totals.total_hours} 
-             subtitle="Horas reais"
-             icon={<Clock size={20} />} 
-             color="indigo" 
-             isDecimal
-          />
-          <KPICard 
-             title="Lucro Líquido" 
-             value={totals.profit} 
-             icon={<TrendingUp size={20} />} 
-             color="sky" 
-          />
-          <KPICard 
-             title="Aproveitamento" 
-             value={totals.income > 0 ? (totals.profit / totals.income) * 100 : 0} 
-             isPercent
-             icon={<PieChart size={20} />} 
-             color="amber" 
-          />
-      </div>
-
-      {/* CHARTS GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Main Financial Chart */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
-              <div className="flex justify-between items-start mb-10">
-                  <div>
-                      <h3 className="font-black text-slate-800 text-lg">Fluxo de Caixa</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Evolução de receitas e despesas</p>
+        <Tabs<PerformanceTab>
+          items={PERFORMANCE_TABS}
+          value={activeTab}
+          onChange={setActiveTab}
+          label="Seções de performance"
+        >
+          {activeTab === 'financeiro' && (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
+              <PanelCard
+                title="Fluxo de caixa"
+                description="Evolução de receitas e despesas"
+                icon={TrendingUp}
+                action={
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" />Receita</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-400" />Despesa</span>
                   </div>
-                  <div className="flex items-center gap-4 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
-                      <div className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span> RECEITA
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
-                          <span className="w-2 h-2 rounded-full bg-rose-400"></span> DESPESA
-                      </div>
-                  </div>
-              </div>
-
-              <div className="h-64 flex items-end gap-2 px-2 relative">
-                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-[0.03] px-2">
-                      {[1, 2, 3, 4, 5].map(i => <div key={i} className="w-full border-t border-slate-900 border-dashed"></div>)}
+                }
+              >
+                <div className="relative flex h-64 items-end gap-2 px-2 pb-8">
+                  <div className="pointer-events-none absolute inset-x-2 inset-y-0 flex flex-col justify-between pb-8">
+                    {[1, 2, 3, 4, 5].map((i) => <div key={i} className="w-full border-t border-slate-200" />)}
                   </div>
 
                   {series.map((d: any, i: number) => (
-                      <div key={i} className="flex-1 flex gap-0.5 justify-center items-end h-full group relative z-10">
-                          <div 
-                             className="w-full max-w-[12px] bg-emerald-500 rounded-t-lg transition-all duration-500 group-hover:bg-emerald-600 shadow-sm"
-                             style={{ height: `${(d.income / maxVal) * 100}%` }}
-                          />
-                          <div 
-                             className="w-full max-w-[12px] bg-rose-400 rounded-t-lg transition-all duration-500 group-hover:bg-rose-500 shadow-sm"
-                             style={{ height: `${(d.expense / maxVal) * 100}%` }}
-                          />
-                          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[8px] font-black text-slate-300 uppercase tracking-tighter whitespace-nowrap rotate-45 origin-left">
-                              {d.label.split('-').pop()}
-                          </div>
+                    <div key={i} className="group relative z-10 flex h-full flex-1 items-end justify-center gap-0.5">
+                      <div
+                        className="w-full max-w-[12px] rounded-t bg-emerald-500 transition-all duration-500 group-hover:bg-emerald-600"
+                        style={{ height: `${(d.income / maxVal) * 100}%` }}
+                      />
+                      <div
+                        className="w-full max-w-[12px] rounded-t bg-rose-400 transition-all duration-500 group-hover:bg-rose-500"
+                        style={{ height: `${(d.expense / maxVal) * 100}%` }}
+                      />
+                      <div className="absolute -bottom-6 left-1/2 origin-left -translate-x-1/2 text-[10px] text-slate-400 whitespace-nowrap">
+                        {d.label.split('-').pop()}
                       </div>
+                    </div>
                   ))}
-              </div>
-          </div>
+                </div>
+              </PanelCard>
 
-          {/* Hours Chart */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
-              <div className="flex justify-between items-start mb-10">
-                  <div>
-                      <h3 className="font-black text-slate-800 text-lg">Carga Horária</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Horas de atendimento realizadas</p>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-xl text-indigo-600">
-                     <Clock size={14}/>
-                     <span className="text-[9px] font-black uppercase tracking-widest">{totals.total_hours.toFixed(1)}h Totais</span>
-                  </div>
-              </div>
-
-              <div className="h-64 flex items-end gap-3 px-2 relative">
-                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-[0.03] px-2">
-                      {[1, 2, 3, 4, 5].map(i => <div key={i} className="w-full border-t border-slate-900 border-dashed"></div>)}
+              <PanelCard
+                title="Carga horária"
+                description="Horas de atendimento realizadas"
+                icon={Clock}
+                action={<span className="text-[11px] font-medium text-primary-700">{totals.total_hours.toFixed(1)}h totais</span>}
+              >
+                <div className="relative flex h-64 items-end gap-3 px-2 pb-8">
+                  <div className="pointer-events-none absolute inset-x-2 inset-y-0 flex flex-col justify-between pb-8">
+                    {[1, 2, 3, 4, 5].map((i) => <div key={i} className="w-full border-t border-slate-200" />)}
                   </div>
 
                   {hoursSeries && hoursSeries.map((d: any, i: number) => (
-                      <div key={i} className="flex-1 flex justify-center items-end h-full group relative z-10">
-                          <div 
-                             className="w-full max-w-[16px] bg-indigo-400 rounded-t-xl transition-all duration-500 group-hover:bg-indigo-600 shadow-lg shadow-indigo-100"
-                             style={{ height: `${(d.hours / maxHours) * 100}%` }}
-                          />
-                          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[8px] font-black text-slate-300 uppercase tracking-tighter whitespace-nowrap rotate-45 origin-left">
-                              {d.label.split('-').pop()}
-                          </div>
+                    <div key={i} className="group relative z-10 flex h-full flex-1 items-end justify-center">
+                      <div
+                        className="w-full max-w-[16px] rounded-t bg-primary-400 transition-all duration-500 group-hover:bg-primary-600"
+                        style={{ height: `${(d.hours / maxHours) * 100}%` }}
+                      />
+                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 whitespace-nowrap">
+                        {d.label.split('-').pop()}
                       </div>
+                    </div>
                   ))}
-              </div>
-          </div>
-      </div>
+                </div>
+              </PanelCard>
+            </div>
+          )}
 
-      {/* BOTTOM SECTION: Peak Days, Peak Hours, Best Clients & Metrics */}
-      <div className="grid grid-cols-2 gap-4 sm:gap-6">
-          
-          {/* Peak Days Chart */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-8">
-                  <div>
-                      <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
-                          <Zap size={18} className="text-amber-500 fill-amber-500"/>
-                          Dias de Pico
-                      </h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sazonalidade Semanal</p>
-                  </div>
-              </div>
-
-              <div className="h-56 flex items-end gap-3 px-1">
+          {activeTab === 'agenda' && (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
+              <PanelCard title="Dias de pico" description="Sazonalidade semanal" icon={Zap}>
+                <div className="flex h-56 items-end gap-3 px-1">
                   {dayNamesShort.map((name, i) => {
-                      const dayIdx = i + 1; // MySQL DAYOFWEEK is 1-7
-                      const dataDay = peakDays?.find((d: any) => d.day_index === dayIdx);
-                      const count = dataDay ? dataDay.count : 0;
-                      const pct = (count / (maxPeak || 1)) * 100;
+                    const dayIdx = i + 1; // MySQL DAYOFWEEK is 1-7
+                    const dataDay = peakDays?.find((d: any) => d.day_index === dayIdx);
+                    const count = dataDay ? dataDay.count : 0;
+                    const pct = (count / (maxPeak || 1)) * 100;
 
-                      return (
-                          <div key={name} className="flex-1 flex flex-col items-center gap-3 h-full group">
-                              <div className="w-full flex-1 flex items-end justify-center px-0.5">
-                                  <div 
-                                      className={`w-full rounded-xl transition-all duration-1000 group-hover:scale-105 shadow-xl ${count === maxPeak ? 'bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-indigo-200' : 'bg-slate-100 border border-slate-200 group-hover:bg-slate-200'}`}
-                                      style={{ height: count > 0 ? `${pct}%` : '8px' }}
-                                  >
-                                  </div>
-                              </div>
-                              <span className={`text-[8px] font-black uppercase tracking-widest ${count === maxPeak ? 'text-indigo-600' : 'text-slate-400'}`}>{name}</span>
-                          </div>
-                      );
-                  })}
-              </div>
-          </div>
-
-          {/* Peak Hours Chart */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-8">
-                  <div>
-                      <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
-                          <Clock size={18} className="text-indigo-500"/>
-                          Horários de Pico
-                      </h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Distribuição por Hora</p>
-                  </div>
-                  <div className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[8px] font-black rounded-lg">8h - 21h</div>
-              </div>
-
-              <div className="h-56 flex items-end gap-1 px-1">
-                  {Array.from({ length: 14 }, (_, i) => i + 8).map(hour => {
-                      const dataHour = peakHours?.find((d: any) => d.hour === hour);
-                      const count = dataHour ? dataHour.count : 0;
-                      const pct = (count / (maxPeakHours || 1)) * 100;
-
-                      return (
-                          <div key={hour} className="flex-1 flex flex-col items-center gap-2 h-full group">
-                              <div className="flex-1 w-full bg-slate-50/50 rounded-lg relative overflow-hidden flex items-end border border-slate-100/50 group-hover:border-indigo-100 transition-all">
-                                  <div 
-                                      className="w-full bg-gradient-to-t from-indigo-500 to-indigo-400 opacity-80 group-hover:opacity-100 transition-all rounded-t-md"
-                                      style={{ height: count > 0 ? `${pct}%` : '4px' }}
-                                  />
-                                  {count > 0 && (
-                                    <div className="absolute top-1 left-0 w-full text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                      <span className="text-[8px] font-black text-indigo-600 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-full shadow-sm border border-indigo-100">{count}</span>
-                                    </div>
-                                  )}
-                              </div>
-                              <span className="text-[7px] font-black text-slate-400 tracking-tighter">{hour}h</span>
-                          </div>
-                      );
-                  })}
-              </div>
-          </div>
-
-          {/* Best Clients */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm flex flex-col">
-              <div className="flex items-center gap-3 mb-8">
-                  <div className="p-2 bg-amber-50 rounded-xl text-amber-600"><Trophy size={18}/></div>
-                  <div>
-                      <h3 className="font-black text-slate-800 text-lg">Melhores Clientes</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Ranking por faturamento</p>
-                  </div>
-              </div>
-
-              <div className="space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-56">
-                  {bestClients.length === 0 ? (
-                      <div className="text-center py-10 text-slate-300 font-bold uppercase text-[10px] tracking-widest">Nenhum dado real</div>
-                  ) : (
-                      bestClients.slice(0, 10).map((client, idx) => (
-                        <div key={client.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:border-amber-100 transition-all group">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <span className="text-[10px] font-black text-slate-300 w-4">#{idx+1}</span>
-                                <div className="min-w-0">
-                                    <p className="text-[11px] font-black text-slate-800 truncate">{client.name}</p>
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{client.appointmentCount} sessões</p>
-                                </div>
-                            </div>
-                            <p className="text-[11px] font-black text-amber-600 shrink-0">{formatCurrency(client.totalRevenue)}</p>
+                    return (
+                      <div key={name} className="flex h-full flex-1 flex-col items-center gap-2">
+                        <div className="flex w-full flex-1 items-end justify-center px-0.5">
+                          <div
+                            className={`w-full rounded transition-all duration-700 ${count === maxPeak ? 'bg-primary-600' : 'border border-slate-200 bg-slate-100'}`}
+                            style={{ height: count > 0 ? `${pct}%` : '8px' }}
+                          />
                         </div>
-                      ))
+                        <span className={`text-[11px] ${count === maxPeak ? 'font-medium text-primary-700' : 'text-slate-500'}`}>{name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </PanelCard>
+
+              <PanelCard
+                title="Horários de pico"
+                description="Distribuição por hora"
+                icon={Clock}
+                action={<span className="text-[11px] font-medium text-primary-700">8h - 21h</span>}
+              >
+                <div className="flex h-56 items-end gap-1 px-1">
+                  {Array.from({ length: 14 }, (_, i) => i + 8).map((hour) => {
+                    const dataHour = peakHours?.find((d: any) => d.hour === hour);
+                    const count = dataHour ? dataHour.count : 0;
+                    const pct = (count / (maxPeakHours || 1)) * 100;
+
+                    return (
+                      <div key={hour} className="group flex h-full flex-1 flex-col items-center gap-2">
+                        <div className="relative flex w-full flex-1 items-end overflow-hidden rounded border border-slate-100 bg-slate-50">
+                          <div
+                            className="w-full rounded-t bg-primary-500 opacity-80 transition-all group-hover:opacity-100"
+                            style={{ height: count > 0 ? `${pct}%` : '4px' }}
+                          />
+                          {count > 0 && (
+                            <div className="pointer-events-none absolute left-0 top-1 w-full text-center opacity-0 transition-opacity group-hover:opacity-100">
+                              <span className="rounded-full border border-primary-100 bg-white px-1.5 py-0.5 text-[10px] font-medium text-primary-700">{count}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-500">{hour}h</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </PanelCard>
+            </div>
+          )}
+
+          {activeTab === 'clientes' && (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
+              <PanelCard title="Melhores clientes" description="Ranking por faturamento" icon={Trophy}>
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {bestClients.length === 0 ? (
+                    <EmptyState icon={Trophy} title="Nenhum dado real" description="O ranking aparece quando houver faturamento no período." />
+                  ) : (
+                    bestClients.slice(0, 10).map((client, idx) => (
+                      <div key={client.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3 transition-colors hover:bg-white">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="w-5 text-[11px] text-slate-400">#{idx + 1}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium text-slate-800">{client.name}</p>
+                            <p className="text-[11px] text-slate-500">{client.appointmentCount} sessões</p>
+                          </div>
+                        </div>
+                        <p className="shrink-0 text-xs font-semibold tabular-nums text-emerald-700">{formatCurrency(client.totalRevenue)}</p>
+                      </div>
+                    ))
                   )}
-              </div>
-          </div>
+                </div>
+              </PanelCard>
 
-          {/* Metrics List */}
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-3 mb-8">
-                  <div className="p-2 bg-rose-50 rounded-xl text-rose-600"><Activity size={18}/></div>
-                  <h3 className="font-black text-slate-800 text-lg">Métricas Extras</h3>
-              </div>
-
-              <div className="space-y-4">
-                  <EffortItem 
-                     label="Dias em Clínica" 
-                     value={`${totals.worked_days || 0} dias`} 
-                     icon={<Calendar size={18} />} 
+              <PanelCard title="Métricas extras" icon={Activity}>
+                <div className="space-y-2">
+                  <EffortItem label="Dias em clínica" value={`${totals.worked_days || 0} dias`} icon={<Calendar size={14} />} />
+                  <EffortItem
+                    label="Carga média por dia"
+                    value={`${totals.worked_days > 0 ? (totals.total_hours / totals.worked_days).toFixed(1) : 0}h`}
+                    icon={<Clock size={14} />}
                   />
-                  <EffortItem 
-                     label="Carga Média Dia" 
-                     value={`${totals.worked_days > 0 ? (totals.total_hours / totals.worked_days).toFixed(1) : 0}h`} 
-                     icon={<Clock size={18} />} 
-                  />
-                  <EffortItem 
-                     label="Ticket Médio" 
-                     value={formatCurrency(totals.sessions > 0 ? totals.income / totals.sessions : 0)} 
-                     icon={<Zap size={18} />} 
+                  <EffortItem
+                    label="Ticket médio"
+                    value={formatCurrency(totals.sessions > 0 ? totals.income / totals.sessions : 0)}
+                    icon={<Zap size={14} />}
                   />
 
-                  <div className="mt-6 pt-6 border-t border-slate-50/50">
-                      <div className="flex justify-between items-center mb-3">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saúde Operacional</span>
-                          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">ESTÁVEL</span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden ring-1 ring-slate-200/50">
-                          <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-2 rounded-full w-[82%] shadow-sm"></div>
-                      </div>
+                  <div className="border-t border-slate-100 pt-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500">Saúde operacional</span>
+                      <span className="text-[11px] font-medium text-emerald-700">Estável</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-2 w-[82%] rounded-full bg-emerald-500" />
+                    </div>
                   </div>
-              </div>
-          </div>
+                </div>
+              </PanelCard>
+            </div>
+          )}
+        </Tabs>
       </div>
-      </div>
-    </div>
+    </PageWrapper>
   );
 };
 
-const KPICard = ({ title, value, icon, color, isPercent = false, isDecimal = false, subtitle }: any) => {
-    const colors: any = {
-        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-        rose: 'bg-rose-50 text-rose-600 border-rose-100',
-        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-        amber: 'bg-amber-50 text-amber-600 border-amber-100',
-        sky: 'bg-sky-50 text-sky-600 border-sky-100',
-    };
-
-    return (
-        <div className="bg-white rounded-xl sm:rounded-2xl lg:rounded-[2.5rem] p-3 sm:p-4 lg:p-6 border border-slate-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5 group relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-               <div className={`w-full h-full rounded-full border-[10px] border-current ${colors[color].split(' ')[1]}`}></div>
-            </div>
-
-            <div className="flex justify-between items-start mb-3 sm:mb-4 lg:mb-6 relative z-10">
-                <div className={`p-2 sm:p-2.5 lg:p-3.5 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-sm border ${colors[color]} group-hover:scale-110 transition-transform [&>svg]:w-3 [&>svg]:h-3 sm:[&>svg]:w-4 sm:[&>svg]:h-4 lg:[&>svg]:w-5 lg:[&>svg]:h-5`}>
-                    {icon}
-                </div>
-                {subtitle && (
-                   <span className="hidden sm:inline text-[8px] lg:text-[9px] font-black px-1.5 py-0.5 bg-slate-50 text-slate-400 border border-slate-100 rounded-lg uppercase tracking-widest leading-tight text-right max-w-[80px]">{subtitle}</span>
-                )}
-            </div>
-
-            <p className="text-[7px] sm:text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 leading-tight">{title}</p>
-            <h3 className="text-base sm:text-xl font-black text-slate-800 leading-tight">
-                {isPercent ? `${value.toFixed(1)}%` : isDecimal ? `${value.toFixed(1)}h` : formatCurrency(value)}
-            </h3>
-        </div>
-    );
-};
-
 const EffortItem = ({ label, value, icon }: any) => (
-    <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:border-indigo-100 transition-all group">
-        <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-colors shadow-sm">
-                {icon}
-            </div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        </div>
-        <p className="text-sm font-black text-slate-800">{value}</p>
+  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+    <div className="flex items-center gap-3">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500">
+        {icon}
+      </div>
+      <p className="text-xs text-slate-600">{label}</p>
     </div>
+    <p className="text-[13px] font-medium text-slate-800">{value}</p>
+  </div>
 );

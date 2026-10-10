@@ -1,0 +1,141 @@
+/* Design system compacto (padrão MFC). CSS puro: o Tailwind roda via CDN e não processa @layer/@apply.
+   Cores de destaque usam as variáveis do tema primário (--c-*), definidas em index.html / ThemeContext. */
+.ui-editor-tool:focus-visible, .ui-calendar button:focus-visible, .ui-date-popover button:focus-visible, .ui-pagination button:focus-visible { outline: 2px solid var(--c-300); outline-offset: 2px; }
+.token-editor { overflow-wrap: anywhere; }
+.token-editor:empty::before { content: attr(data-placeholder); color: #a1a1aa; pointer-events: none; }
+.token-editor br { display: block; }
+.token-chip { display: inline-flex; align-items: center; padding: 1px 8px; margin: 0 2px; background: var(--c-50); border: 1px solid var(--c-200); color: var(--c-700); border-radius: 6px; font-size: 11px; font-weight: 500; font-family: ui-monospace, monospace; user-select: none; cursor: default; max-width: 100%; overflow-wrap: anywhere; }
+.ui-toast { display: flex; align-items: center; gap: 10px; max-width: min(350px, calc(100vw - 32px)); padding: 8px 10px; border-radius: 8px; background: #363636; color: #fff; font-weight: 600; line-height: 1.3; box-shadow: 0 3px 10px rgb(0 0 0 / 10%), 0 3px 3px rgb(0 0 0 / 5%); }
+
+/* ── Design System: classes base ──────────────────────────────────────────── */
+.ds-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.ds-input {
+  display: block;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  background-color: #fff;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 400;
+  color: #27272a;
+  outline: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+
+.ds-input:focus {
+  border-color: var(--c-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-600) 12%, transparent);
+  background-color: #fff;
+  outline: none;
+}
+
+.ds-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Superfícies e controles compactos do sistema. */
+.ui-modal-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgb(15 23 42 / 38%); }
+.ui-modal { display: flex; flex-direction: column; width: min(100%, var(--modal-width, 480px)); max-height: calc(100dvh - 32px); background: #fff; border: 1px solid #dbe2ea; border-radius: 8px !important; box-shadow: 0 16px 48px rgb(15 23 42 / 16%); overflow: hidden; outline: none; animation: modal-enter 150ms ease-out; }
+.ui-modal-overlay--right { justify-content: flex-end; padding: 0; }
+.ui-modal--right { height: 100dvh; max-height: 100dvh; }
+.ui-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; padding: 10px 16px; border-bottom: 1px solid #e8edf2; }
+.ui-modal .ui-modal-title { margin: 0; color: #0f172a; font-size: 14px; font-weight: 600; line-height: 1.4; min-width: 0; overflow-wrap: anywhere; }
+.ui-modal-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px; font-size: 13px; }
+.ui-modal-actions { flex: none; padding: 10px 16px; border-top: 1px solid #e8edf2; background: #fafbfc; }
+.ui-modal-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ui-modal .ui-modal-body :where(.text-2xl, .text-3xl, .text-4xl) { font-size: 18px; line-height: 1.4; }
+.ui-modal .ui-modal-body :where(.rounded-3xl, .rounded-2xl) { border-radius: 6px; }
+.ui-modal .ui-modal-body :where(.p-5, .p-6, .p-8, .p-10) { padding: 12px; }
+.ui-modal .ui-modal-body :where(.space-y-6, .space-y-8) > :not([hidden]) ~ :not([hidden]) { margin-top: 14px; }
+.ui-modal .ui-modal-body :where(.tracking-widest) { letter-spacing: .02em; }
+.ui-modal .ui-modal-body :where(.shadow-xl, .shadow-2xl) { box-shadow: none; }
+.ui-button svg { width: 14px; height: 14px; }
+.ui-icon-button svg { width: 15px; height: 15px; }
+
+/* Caixa de Ferramentas ---------------------------------------------------
+   Módulos clínicos antigos e novos coexistem. Esta camada fica restrita à
+   rota da Caixa de Ferramentas e remove os cartões gigantes, raios exagerados
+   e sombras que deixavam cada instrumento com uma linguagem visual diferente.
+   Os componentes UI continuam sendo a referência para qualquer tela nova. */
+.clinical-tool-shell {
+  --clinical-card-radius: 8px;
+}
+.clinical-tool-shell :is(
+  [class*="rounded-[2rem]"], [class*="rounded-[2.5rem]"], [class*="rounded-[3rem]"],
+  [class*="rounded-[28px]"], [class*="rounded-[32px]"], [class*="rounded-[40px]"],
+  [class~="rounded-2xl"], [class~="rounded-3xl"]
+) { border-radius: var(--clinical-card-radius) !important; }
+.clinical-tool-shell :is([class~="shadow-sm"], [class~="shadow-md"], [class~="shadow-lg"], [class~="shadow-xl"], [class~="shadow-2xl"]) {
+  box-shadow: none !important;
+}
+.clinical-tool-shell :is([class~="p-8"], [class~="p-10"], [class~="p-12"], [class~="p-20"], [class~="p-24"]) {
+  padding: 16px !important;
+}
+.clinical-tool-shell :is([class~="space-y-8"], [class~="space-y-10"], [class~="space-y-12"]) > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 16px !important;
+}
+.clinical-tool-shell button:not(.ui-button):not(.ui-icon-button)[class*="bg-"] {
+  min-height: 32px;
+  border-radius: 6px !important;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: none !important;
+}
+.clinical-tool-shell :is([class*="bg-slate-950"], [class*="from-slate-900"]) {
+  background: #fff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0;
+}
+.clinical-tool-shell :is([class*="bg-slate-950"], [class*="from-slate-900"]) :is([class*="text-white"], [class*="text-slate-400"], [class*="text-slate-500"], [class*="text-indigo-300"]) {
+  color: #475569 !important;
+}
+.clinical-tool-shell :is([class*="bg-slate-950"], [class*="from-slate-900"]) :is([class*="bg-white/"], [class*="border-white/"]) {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+@keyframes modal-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 639px) {
+  .ui-modal-overlay { padding: 8px; }
+  .ui-modal { max-height: calc(100dvh - 16px); }
+  .ui-modal-header, .ui-modal-actions { padding: 10px 12px; }
+  .ui-modal-body { padding: 12px; }
+  .ui-modal-overlay--right { padding: 0; }
+  .ui-modal--right, .ui-modal--fullscreen { width: 100%; height: 100dvh; max-height: 100dvh; }
+  .ui-modal-actions { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .ui-modal-footer > button { flex: 1 1 auto; min-height: 38px; }
+  .ui-button, .ui-icon-button { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal { animation: none; }
+}
+
+/* Todo controle clicável mostra a mãozinha; desabilitado mostra not-allowed. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not(:disabled),
+[role="switch"]:not(:disabled),
+[role="checkbox"],
+summary,
+select:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled),
+input[type="range"]:not(:disabled),
+label[for]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+button:disabled,
+[role="tab"]:disabled,
+[role="switch"]:disabled,
+select:disabled {
+  cursor: not-allowed;
+}

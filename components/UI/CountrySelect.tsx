@@ -87,7 +87,7 @@ export const CountrySelect: React.FC<{ value: string; onChange: (code: string) =
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+        <div className="absolute z-50 top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
           <div className="p-2 border-b border-slate-100">
             <input
               autoFocus
@@ -109,7 +109,7 @@ export const CountrySelect: React.FC<{ value: string; onChange: (code: string) =
                 <span className="text-xl leading-none">{c.flag}</span>
                 <span className="text-xs font-semibold text-slate-700">{c.code}</span>
                 <span className="text-xs text-slate-400 truncate">{c.name}</span>
-                {c.ddi && <span className="text-[10px] text-indigo-400 ml-auto shrink-0">+{c.ddi}</span>}
+                {c.ddi && <span className="text-[11px] text-indigo-400 ml-auto shrink-0">+{c.ddi}</span>}
               </button>
             ))}
           </div>

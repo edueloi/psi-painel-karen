@@ -89,7 +89,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     const headingMatch = line.match(/^\*\*([^*]+)\*\*\s*$/);
     if (headingMatch) {
       result.push(
-        <p key={i} className="text-xs font-black uppercase tracking-widest text-amber-300 mt-4 mb-1 first:mt-0">
+        <p key={i} className="text-xs font-semibold text-amber-300 mt-4 mb-1 first:mt-0">
           {headingMatch[1]}
         </p>
       );
@@ -99,7 +99,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (numMatch) {
       result.push(
         <div key={i} className="flex gap-2 mt-2">
-          <span className="shrink-0 font-black text-amber-300">{numMatch[1]}.</span>
+          <span className="shrink-0 font-semibold text-amber-300">{numMatch[1]}.</span>
           <span>{inlineMarkdown(numMatch[2])}</span>
         </div>
       );
@@ -125,7 +125,7 @@ function inlineMarkdown(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     const m = part.match(/^\*\*([^*]+)\*\*$/);
-    if (m) return <strong key={i} className="font-black text-white">{m[1]}</strong>;
+    if (m) return <strong key={i} className="font-semibold text-white">{m[1]}</strong>;
     return part;
   });
 }
@@ -265,8 +265,8 @@ export const BDIPage: React.FC = () => {
     const scoresHtml = `
       <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:18px 22px;margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <span style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#334155">BDI-II — Total</span>
-          <span style="background:${bg};color:${c};border:1px solid ${c}30;padding:3px 12px;border-radius:99px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">${interp.label}</span>
+          <span style="font-size:11px;font-weight:800;letter-spacing:.12em;;color:#334155">BDI-II — Total</span>
+          <span style="background:${bg};color:${c};border:1px solid ${c}30;padding:3px 12px;border-radius:99px;font-size:10px;font-weight:800;;letter-spacing:.08em">${interp.label}</span>
         </div>
         <div style="display:flex;align-items:center;gap:14px">
           <span style="font-size:32px;font-weight:900;color:#0f172a;line-height:1;min-width:44px">${result.scores.total}</span>
@@ -321,13 +321,13 @@ export const BDIPage: React.FC = () => {
 <div style="background:linear-gradient(135deg,#e11d48 0%,#1e293b 100%);padding:28px 40px 24px;color:white">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
     <div>
-      <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;opacity:.75">Relatório de Avaliação Psicológica</p>
+      <p style="margin:0 0 4px;font-size:10px;font-weight:800;letter-spacing:.2em;;opacity:.75">Relatório de Avaliação Psicológica</p>
       <h1 style="margin:0 0 6px;font-size:26px;font-weight:900;letter-spacing:-.5px">${patientName}</h1>
       <p style="margin:0;font-size:12px;opacity:.8;font-weight:500">${dateStr}</p>
     </div>
     <div style="text-align:right">
       <div style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 16px;display:inline-block">
-        <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;opacity:.8;margin-bottom:2px">Instrumento</p>
+        <p style="margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;;opacity:.8;margin-bottom:2px">Instrumento</p>
         <p style="margin:0;font-size:18px;font-weight:900;letter-spacing:-.3px">BDI-II</p>
         <p style="margin:0;font-size:9px;opacity:.7;margin-top:2px">Beck et al.</p>
       </div>
@@ -340,7 +340,7 @@ export const BDIPage: React.FC = () => {
 
   <!-- SCORES -->
   <div class="no-break" style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#e11d48;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#e11d48;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#e11d48;border-radius:1px"></span> Resultado Total
     </h2>
     ${scoresHtml}
@@ -348,7 +348,7 @@ export const BDIPage: React.FC = () => {
 
   <!-- ANALYSIS -->
   <div class="no-break" style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#e11d48;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#e11d48;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#e11d48;border-radius:1px"></span> Análise Clínica
     </h2>
     <div style="background:#fafafa;border:1px solid #f1f5f9;border-radius:16px;padding:20px 22px">
@@ -362,15 +362,15 @@ export const BDIPage: React.FC = () => {
   ${answersHtml ? `
   <!-- ANSWERS -->
   <div style="margin-bottom:28px">
-    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:#e11d48;display:flex;align-items:center;gap:8px">
+    <h2 style="margin:0 0 14px;font-size:11px;font-weight:800;letter-spacing:.15em;;color:#e11d48;display:flex;align-items:center;gap:8px">
       <span style="display:inline-block;width:20px;height:2px;background:#e11d48;border-radius:1px"></span> Respostas do Paciente
     </h2>
     <table style="width:100%;border-collapse:collapse;border:1px solid #f1f5f9;border-radius:12px;overflow:hidden">
       <thead>
         <tr style="background:#f8fafc">
-          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right;width:36px">#</th>
-          <th style="padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:left">Item</th>
-          <th style="padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;text-align:right">Resposta</th>
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:right;width:36px">#</th>
+          <th style="padding:8px 10px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:left">Item</th>
+          <th style="padding:8px 12px;font-size:9px;font-weight:800;;letter-spacing:.1em;color:#94a3b8;text-align:right">Resposta</th>
         </tr>
       </thead>
       <tbody>${answersHtml}</tbody>
@@ -390,7 +390,7 @@ export const BDIPage: React.FC = () => {
 
 <!-- FOOTER -->
 <div style="border-top:1px solid #f1f5f9;padding:16px 40px;display:flex;justify-content:space-between;align-items:center">
-  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;text-transform:uppercase;letter-spacing:.1em">Plaelo · Tecnologia para Prática Clínica</p>
+  <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600;;letter-spacing:.1em">Plaelo · Tecnologia para Prática Clínica</p>
   <p style="margin:0;font-size:9px;color:#cbd5e1;font-weight:600">Gerado em ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
 </div>
 
@@ -429,7 +429,7 @@ export const BDIPage: React.FC = () => {
     doc.text(patientName, MARGIN, 26);
 
     doc.setFontSize(9); doc.setTextColor(255, 220, 230);
-    doc.text(`Avaliação: BDI-II (Inventário de Depressão de Beck)  |  ${dateStr}`, MARGIN, 33);
+    doc.text(`Avaliação: BDI-II (Inventário de Depressão de Beck) | ${dateStr}`, MARGIN, 33);
 
     let y = 58;
 
@@ -490,7 +490,7 @@ export const BDIPage: React.FC = () => {
       const clean = p.replace(/\*\*/g, '');
       analysisLines.push(...doc.splitTextToSize(clean, CONTENT_W - 16));
     });
-    const conclusionLines = doc.splitTextToSize('Conclusão: ' + conclusion, CONTENT_W - 16);
+    const conclusionLines = doc.splitTextToSize('Conclusão:' + conclusion, CONTENT_W - 16);
     const boxH = (analysisLines.length + conclusionLines.length) * 5 + 15;
 
     if (y + boxH > 275) { doc.addPage(); y = 20; }
@@ -646,13 +646,13 @@ export const BDIPage: React.FC = () => {
     return (
       <div className="space-y-4 w-full">
         <div className="text-center">
-          <p className={`text-6xl font-black ${level.color}`}>{score}</p>
-          <p className={`text-sm font-black uppercase tracking-widest mt-2 ${level.color}`}>{level.label}</p>
+          <p className={`text-6xl font-semibold ${level.color}`}>{score}</p>
+          <p className={`text-sm font-semibold mt-2 ${level.color}`}>{level.label}</p>
         </div>
         <div className="h-4 bg-white/20 rounded-full overflow-hidden">
           <div className="h-full bg-rose-400 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
         </div>
-        <div className="flex justify-between text-[9px] text-slate-400 font-black uppercase">
+        <div className="flex justify-between text-[11px] text-slate-400 font-semibold">
           <span>0 — Mínimo</span>
           <span>63 — Grave</span>
         </div>
@@ -677,7 +677,7 @@ export const BDIPage: React.FC = () => {
               radius="xl"
               leftIcon={<Plus size={16} />}
               onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para aplicar a escala.')}
-              className="bg-rose-600 text-white shadow-lg shadow-rose-200"
+              className="bg-rose-600 text-white shadow-sm shadow-rose-200"
             >
                Aplicar Nova Escala
             </Button>
@@ -706,22 +706,22 @@ export const BDIPage: React.FC = () => {
             t={t}
           />
 
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+          <div className="bg-white rounded-lg border border-slate-100 p-6 shadow-sm space-y-4">
+              <h4 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
                  <Info size={14} className="text-rose-400" /> Instruções (Beck et al.)
               </h4>
-              <p className="text-[10px] text-slate-500 leading-relaxed font-black uppercase tracking-widest bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
+              <p className="text-[11px] text-slate-500 leading-relaxed font-semibold bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
                 "Selecione a alternativa que melhor descreve como você se sentiu nas últimas duas semanas."
               </p>
-              <div className="space-y-3 pt-2 text-[9px] font-bold text-slate-600 uppercase tracking-tight">
-                 <p><span className="text-rose-600 font-black">0</span> — Nada</p>
-                 <p><span className="text-rose-600 font-black">1</span> — Leve</p>
-                 <p><span className="text-rose-600 font-black">2</span> — Moderado</p>
-                 <p><span className="text-rose-600 font-black">3</span> — Grave</p>
+              <div className="space-y-3 pt-2 text-[11px] font-semibold text-slate-600">
+                 <p><span className="text-rose-600 font-semibold">0</span> — Nada</p>
+                 <p><span className="text-rose-600 font-semibold">1</span> — Leve</p>
+                 <p><span className="text-rose-600 font-semibold">2</span> — Moderado</p>
+                 <p><span className="text-rose-600 font-semibold">3</span> — Grave</p>
               </div>
               <div className="pt-2 border-t border-slate-50">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Escore Total</p>
-                <div className="space-y-1 mt-2 text-[8px] font-bold text-slate-500">
+                <p className="text-[11px] font-semibold text-slate-400">Escore Total</p>
+                <div className="space-y-1 mt-2 text-[11px] font-semibold text-slate-500">
                   <p><span className="text-emerald-500">0–13</span> Mínimo</p>
                   <p><span className="text-amber-500">14–19</span> Leve</p>
                   <p><span className="text-orange-500">20–28</span> Moderado</p>
@@ -736,19 +736,19 @@ export const BDIPage: React.FC = () => {
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
               <Activity size={32} />
             </div>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-loose">Selecione o paciente para visualizar dados e histórico BDI-II.</p>
+            <p className="text-xs font-semibold text-slate-400 leading-loose">Selecione o paciente para visualizar dados e histórico BDI-II.</p>
           </div>
         ) : (
           <div className="space-y-8">
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {/* Left Column: Graphics */}
               <div className="space-y-8">
-                 <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden h-full">
+                 <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-sm relative overflow-hidden h-full">
                     <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
                        <TrendingUp size={240} />
                     </div>
 
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-2 text-rose-400 mb-10">
+                    <h3 className="text-[11px] font-semibold flex items-center gap-2 text-rose-400 mb-10">
                        <Layout size={18} /> Escore Depressão (BDI-II)
                     </h3>
 
@@ -765,13 +765,13 @@ export const BDIPage: React.FC = () => {
                             return (
                               <div className="space-y-2">
                                  <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total BDI-II</span>
-                                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg bg-white/10 ${interpretation.color}`}>{interpretation.label}</span>
+                                    <span className="text-[11px] font-semibold text-slate-400">Total BDI-II</span>
+                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/10 ${interpretation.color}`}>{interpretation.label}</span>
                                  </div>
                                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                                     <div className="h-full bg-rose-400 transition-all duration-1000" style={{ width: `${(score / 63) * 100}%` }} />
                                  </div>
-                                 <div className="flex justify-between text-[8px] text-slate-500 font-bold">
+                                 <div className="flex justify-between text-[11px] text-slate-500 font-semibold">
                                     <span>0</span>
                                     <span>{score} pts</span>
                                     <span>63</span>
@@ -785,9 +785,9 @@ export const BDIPage: React.FC = () => {
                             const interpretation = getInterpretation(score);
                             if (['Moderado', 'Grave'].includes(interpretation.label)) {
                               return (
-                                <div className="mt-4 flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
+                                <div className="mt-4 flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-4 py-3">
                                   <Sparkles size={12} className="text-amber-400 shrink-0" />
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                                  <p className="text-[11px] font-semibold text-slate-400 leading-relaxed">
                                     Considere correlacionar com DASS-21 para análise triaxial.
                                   </p>
                                 </div>
@@ -796,7 +796,7 @@ export const BDIPage: React.FC = () => {
                             return null;
                           })()}
                           <div className="pt-4 border-t border-white/10 flex justify-between items-center text-slate-500">
-                             <p className="text-[9px] font-black uppercase tracking-widest italic leading-relaxed">Resultado da Última Avaliação Sincronizada</p>
+                             <p className="text-[11px] font-semibold italic leading-relaxed">Resultado da Última Avaliação Sincronizada</p>
                           </div>
                        </div>
                     </div>
@@ -808,28 +808,28 @@ export const BDIPage: React.FC = () => {
                  {/* Historical Graphic Evolution */}
                  <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8">
                     <div className="flex items-center justify-between">
-                       <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                       <h4 className="text-[11px] font-semibold text-slate-900 flex items-center gap-2">
                           <TrendingUp size={16} className="text-rose-500" /> Evolução do Paciente
                        </h4>
                        <div className="flex gap-2">
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"/><span className="text-[7px] font-black uppercase">Total</span></div>
+                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"/><span className="text-[7px] font-semibold">Total</span></div>
                        </div>
                     </div>
 
-                    <div className="h-56 w-full bg-slate-50 rounded-3xl border border-slate-100 p-5 flex items-end gap-2 relative">
+                    <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-5 flex items-end gap-2 relative">
                        {history.length < 2 && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-3xl">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aguardando mais dados históricos</p>
+                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-lg">
+                            <p className="text-[11px] font-semibold text-slate-400">Aguardando mais dados históricos</p>
                          </div>
                        )}
                        {[...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
                          <div key={res.id} className="flex-1 flex flex-col justify-end gap-1 h-full min-w-[30px] group cursor-pointer relative" onClick={() => setDetailResult(res)}>
                             <div className="bg-rose-500/60 w-full rounded-lg transition-all group-hover:bg-rose-500" style={{ height: `${(res.scores.total / 63) * 100}%` }} />
 
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-xl">
-                               <p className="text-[8px] font-black uppercase mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-sm">
+                               <p className="text-[11px] font-semibold mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
                                <div className="flex gap-2">
-                                  <span className="text-[10px] font-black text-rose-400">Total: {res.scores.total}</span>
+                                  <span className="text-[11px] font-semibold text-rose-400">Total: {res.scores.total}</span>
                                </div>
                             </div>
                          </div>
@@ -840,7 +840,7 @@ export const BDIPage: React.FC = () => {
                  {/* History List */}
                  <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
                     <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Registros Sincronizados</p>
+                       <p className="text-[11px] font-semibold text-slate-400 leading-none">Registros Sincronizados</p>
                        <History size={16} className="text-slate-300" />
                     </div>
                     <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
@@ -852,13 +852,13 @@ export const BDIPage: React.FC = () => {
                                  <div className="space-y-1">
                                     <div className="flex items-center gap-2">
                                        <Clock size={11} className="text-rose-400 shrink-0" />
-                                       <span className="text-xs font-black text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
+                                       <span className="text-xs font-semibold text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
                                        {res.analysis && <Sparkles size={11} className="text-amber-400" />}
-                                       {res.origin === 'external' && <span className="text-[8px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase">Externo</span>}
+                                       {res.origin === 'external' && <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Externo</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                       <span className={`text-xs font-black ${interp.color}`}>{res.scores.total} pts</span>
-                                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
+                                       <span className={`text-xs font-semibold ${interp.color}`}>{res.scores.total} pts</span>
+                                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
                                     </div>
                                  </div>
                               </div>
@@ -872,7 +872,7 @@ export const BDIPage: React.FC = () => {
                                  </button>
                                  <button
                                    onClick={() => setDetailResult(res)}
-                                   className="flex items-center gap-1.5 px-3 h-8 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg text-[11px] font-black uppercase tracking-wide transition-all"
+                                   className="flex items-center gap-1.5 px-3 h-8 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg text-[11px] font-semibold transition-all"
                                  >
                                    Ver <ChevronRight size={12} />
                                  </button>
@@ -883,7 +883,7 @@ export const BDIPage: React.FC = () => {
                        {history.length === 0 && (
                          <div className="p-20 text-center space-y-3 opacity-30">
                             <FileText size={40} className="mx-auto" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">Sem lançamentos</p>
+                            <p className="text-[11px] font-semibold">Sem lançamentos</p>
                          </div>
                        )}
                     </div>
@@ -898,15 +898,15 @@ export const BDIPage: React.FC = () => {
     {/* Result Detail Modal — fixed overlay (same pattern as DASS-21) */}
     {detailResult && (
         <div className="fixed inset-0 mt-0 bg-slate-950/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white rounded-3xl shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{ maxHeight: '90vh' }}>
+            <div className="bg-white rounded-lg shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{ maxHeight: '90vh' }}>
 
               {/* Header fixo */}
               <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
                  <div>
-                    <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1">Avaliação Consolidada — BDI-II</p>
+                    <p className="text-[11px] font-semibold text-rose-600 mb-1">Avaliação Consolidada — BDI-II</p>
                     {(() => {
                       const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                      return <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{patientName}</h2>;
+                      return <h2 className="text-xl font-semibold text-slate-900 leading-tight">{patientName}</h2>;
                     })()}
                     <p className="text-xs font-medium text-slate-400 mt-0.5">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                  </div>
@@ -915,10 +915,10 @@ export const BDIPage: React.FC = () => {
                       const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
                       return (<>
                         <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14} />} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                        <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14} />} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-lg shadow-slate-200">PDF</Button>
+                        <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14} />} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-sm shadow-slate-200">PDF</Button>
                       </>);
                     })()}
-                    <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
+                    <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
                        <Plus size={20} className="rotate-45" />
                     </button>
                  </div>
@@ -932,31 +932,31 @@ export const BDIPage: React.FC = () => {
                 return (<>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                   <div className="bg-slate-950 rounded-2xl p-8 flex items-center justify-center shadow-xl" style={{ minHeight: '200px' }}>
+                   <div className="bg-slate-950 rounded-lg p-8 flex items-center justify-center shadow-sm" style={{ minHeight: '200px' }}>
                       <ScoreGraphic score={detailResult.scores.total} />
                    </div>
                    <div className="space-y-3 flex flex-col justify-center">
-                      <div className="px-4 py-4 rounded-xl border border-slate-100 bg-slate-50/50">
+                      <div className="px-4 py-4 rounded-lg border border-slate-100 bg-slate-50/50">
                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">BDI-II Total</h4>
-                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
+                            <h4 className="text-[11px] font-semibold text-slate-700">BDI-II Total</h4>
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
                          </div>
                          <div className="flex items-center gap-4">
-                            <div className={`text-4xl font-black w-14 ${interp.color}`}>{detailResult.scores.total}</div>
+                            <div className={`text-4xl font-semibold w-14 ${interp.color}`}>{detailResult.scores.total}</div>
                             <div className="flex-1">
                                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                  <div className={`h-full ${interp.color.replace('text', 'bg')}`} style={{ width: `${(detailResult.scores.total / 63) * 100}%` }} />
+                                  <div className={`h-full ${interp.color.replace('text', 'bg')}`} style={{ width:`${(detailResult.scores.total / 63) * 100}%` }} />
                                </div>
-                               <div className="flex justify-between mt-1 text-[8px] text-slate-400 font-bold">
+                               <div className="flex justify-between mt-1 text-[11px] text-slate-400 font-semibold">
                                   <span>0</span><span>63</span>
                                </div>
                             </div>
                          </div>
                       </div>
                       {['Moderado', 'Grave'].includes(interp.label) && (
-                        <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+                        <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
                           <Sparkles size={12} className="text-amber-500 shrink-0" />
-                          <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest leading-relaxed">
+                          <p className="text-[11px] font-semibold text-amber-700 leading-relaxed">
                             Score elevado: considere correlacionar com DASS-21 para análise triaxial.
                           </p>
                         </div>
@@ -968,7 +968,7 @@ export const BDIPage: React.FC = () => {
                 <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
                    <div className="bg-slate-50 px-8 py-5 flex items-center gap-3 border-b border-slate-100">
                       <Brain size={18} className="text-rose-600" />
-                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Análise Clínica — BDI-II (Beck et al.)</h3>
+                      <h3 className="text-xs font-semibold text-slate-700">Análise Clínica — BDI-II (Beck et al.)</h3>
                    </div>
                    <div className="p-8 space-y-4">
                       {parts.map((part, i) => {
@@ -976,19 +976,19 @@ export const BDIPage: React.FC = () => {
                         return (
                           <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
                              <span className="w-1.5 h-1.5 rounded-full bg-rose-300 mt-2 shrink-0" />
-                             <p><span className="font-black text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
+                             <p><span className="font-semibold text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
                           </div>
                         );
                       })}
-                      <div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-sm text-slate-700 leading-relaxed">
-                         <span className="font-black text-rose-700">Conclusão: </span>{conclusion}
+                      <div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-lg text-sm text-slate-700 leading-relaxed">
+                         <span className="font-semibold text-rose-700">Conclusão: </span>{conclusion}
                       </div>
                    </div>
                 </div>
 
                 {detailResult.analysis && (
-                  <div className="bg-rose-600 rounded-xl p-5 text-white shadow-lg shadow-rose-100">
-                     <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-3">
+                  <div className="bg-rose-600 rounded-lg p-5 text-white shadow-sm shadow-rose-100">
+                     <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
                         <Sparkles size={14} className="text-amber-400" /> Análise Bia (IA)
                      </h3>
                      <div className="text-sm text-rose-100 space-y-0">
@@ -1001,10 +1001,10 @@ export const BDIPage: React.FC = () => {
                   <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
                      <Sparkles size={32} className="text-slate-300 shrink-0" />
                      <div className="flex-1">
-                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Bia — IA Clínica</p>
+                        <p className="text-xs font-semibold text-slate-500 mb-1">Bia — IA Clínica</p>
                         <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este resultado.</p>
                      </div>
-                     <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-rose-600 text-white rounded-2xl px-6 py-3 shrink-0">Analisar</Button>
+                     <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-rose-600 text-white rounded-lg px-6 py-3 shrink-0">Analisar</Button>
                   </div>
                 )}
 
@@ -1017,7 +1017,7 @@ export const BDIPage: React.FC = () => {
                      >
                         <div className="flex items-center gap-3">
                            <FileText size={18} className="text-slate-400" />
-                           <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Respostas do Paciente (21 itens)</h3>
+                           <h3 className="text-xs font-semibold text-slate-700">Respostas do Paciente (21 itens)</h3>
                         </div>
                         <ChevronRight size={18} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
                      </button>
@@ -1028,11 +1028,11 @@ export const BDIPage: React.FC = () => {
                             const labels = ['Nada', 'Leve', 'Moderado', 'Grave'];
                             return (
                               <div key={item.id} className="px-8 py-4 flex items-start gap-4 hover:bg-slate-50/60">
-                                 <span className="text-[10px] font-black text-slate-300 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2, '0')}</span>
+                                 <span className="text-[11px] font-semibold text-slate-300 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2, '0')}</span>
                                  <p className="flex-1 text-sm text-slate-600 leading-relaxed">{item.text}</p>
                                  <div className="shrink-0 text-right">
-                                    <span className="text-lg font-black text-rose-600">{val ?? '—'}</span>
-                                    {val !== undefined && <p className="text-[10px] text-slate-400 font-bold">{labels[val]}</p>}
+                                    <span className="text-lg font-semibold text-rose-600">{val ?? '—'}</span>
+                                    {val !== undefined && <p className="text-[11px] text-slate-400 font-semibold">{labels[val]}</p>}
                                  </div>
                               </div>
                             );
@@ -1065,12 +1065,12 @@ export const BDIPage: React.FC = () => {
         }
       >
         <div className="space-y-6">
-           <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-4">
-              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-rose-600 shadow-sm shrink-0">
+           <div className="p-4 bg-rose-50 border border-rose-100 rounded-lg flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-rose-600 shadow-sm shrink-0">
                  <Share2 size={24} />
               </div>
               <div>
-                 <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest leading-tight mb-1">Link de Avaliação Direta</p>
+                 <p className="text-[11px] font-semibold text-rose-500 leading-tight mb-1">Link de Avaliação Direta</p>
                  <p className="text-xs text-slate-600 font-medium leading-relaxed">Este link é exclusivo para o paciente selecionado. As respostas serão integradas automaticamente ao histórico dele.</p>
               </div>
            </div>
@@ -1080,14 +1080,14 @@ export const BDIPage: React.FC = () => {
                 <input
                   readOnly
                   value={getShareLink()}
-                  className="flex-1 px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-600 font-mono focus:ring-2 focus:ring-rose-100 outline-none"
+                  className="flex-1 px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono focus:ring-2 focus:ring-rose-100 outline-none"
                 />
                 <Button variant="outline" size="sm" radius="xl" onClick={handleCopy}
                   leftIcon={copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}>
                   {copied ? 'Copiado!' : 'Copiar'}
                 </Button>
               </div>
-              <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest pt-2 flex items-center justify-center gap-2">
+              <p className="text-[11px] text-slate-400 text-center font-semibold pt-2 flex items-center justify-center gap-2">
                  <ShieldCheck size={12} /> Criptografia de Ponta-a-Ponta
               </p>
            </div>
@@ -1118,7 +1118,7 @@ export const BDIPage: React.FC = () => {
       >
         <div className="space-y-10 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-              <p className="text-xs font-bold text-slate-500 leading-relaxed italic">
+              <p className="text-xs font-semibold text-slate-500 leading-relaxed italic">
                 "Selecione a alternativa que melhor descreve como o paciente se sentiu nas últimas duas semanas."
               </p>
            </div>
@@ -1127,17 +1127,17 @@ export const BDIPage: React.FC = () => {
               {BDI_ITEMS.map((item) => (
                 <div key={item.id} className="space-y-6">
                    <div className="flex gap-4">
-                      <span className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center font-black text-[10px] shrink-0 border border-slate-200">{item.id}</span>
-                      <p className="text-base font-black text-slate-800 leading-tight pt-1">{item.text}</p>
+                      <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center font-semibold text-[11px] shrink-0 border border-slate-200">{item.id}</span>
+                      <p className="text-base font-semibold text-slate-800 leading-tight pt-1">{item.text}</p>
                    </div>
                    <div className="grid grid-cols-4 gap-2">
                       {[0, 1, 2, 3].map(val => (
                         <button
                           key={val}
                           onClick={() => setCurrentAnswers({ ...currentAnswers, [item.id]: val })}
-                          className={`h-14 rounded-2xl text-xs font-black transition-all border ${
+                          className={`h-14 rounded-lg text-xs font-semibold transition-all border ${
                             currentAnswers[item.id] === val
-                            ? 'bg-slate-950 text-white border-slate-950 shadow-xl scale-[1.02]'
+                            ? 'bg-slate-950 text-white border-slate-950 shadow-sm scale-[1.02]'
                             : 'bg-white text-slate-300 border-slate-100 hover:border-slate-300'
                           }`}
                         >

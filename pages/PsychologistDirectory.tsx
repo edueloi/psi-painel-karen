@@ -779,7 +779,7 @@ export const PsychologistDirectory: React.FC = () => {
           font-size: 10.5px;
           font-weight: 800;
           letter-spacing: .08em;
-          text-transform: uppercase;
+          text-transform: ;
         }
 
         .directory-hero h1 {

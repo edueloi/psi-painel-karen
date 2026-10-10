@@ -6,8 +6,13 @@ import { api, getStaticUrl } from '../services/api';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Modal } from '../components/UI/Modal';
-import { Button } from '../components/UI/Button';
+import { Modal, ConfirmModal, ModalFooter } from '../components/UI/Modal';
+import { Button, IconButton } from '../components/UI/Button';
+import { Tabs } from '../components/UI/Tabs';
+import { Alert } from '../components/UI/Alert';
+import { Select, Input, Textarea } from '../components/UI/Input';
+import { ContentCard, StatGrid } from '../components/UI/PageWrapper';
+import { Switch } from '../components/UI/Switch';
 import { GridTable } from '../components/UI/GridTable';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { StatCard } from '../components/UI/StatCard';
@@ -47,10 +52,10 @@ interface Stats { total: number; thisMonth: number; approved: number; drafts: nu
 
 const STATUS_COLORS: Record<string, string> = {
   'Rascunho': 'bg-amber-100 text-amber-700 border-amber-200',
-  'Organizado': 'bg-blue-100 text-blue-700 border-blue-200',
+  'Organizado': 'bg-primary-100 text-primary-700 border-primary-200',
   'Revisado': 'bg-purple-100 text-purple-700 border-purple-200',
   'Aprovado': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  'Finalizado': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  'Finalizado': 'bg-primary-100 text-primary-700 border-primary-200',
 };
 const STATUS_BADGE_COLOR: Record<string, 'warning'|'info'|'purple'|'success'|'default'> = {
   'Rascunho': 'warning', 'Organizado': 'info', 'Revisado': 'purple',
@@ -66,7 +71,7 @@ const TYPE_LABELS: Record<string, string> = {
   Encaminhamento: 'Encaminhamento', Plano: 'Plano Terapêutico', Relatorio: 'Relatório',
   Atestado: 'Atestado',
 };
-const PIE_COLORS = ['#4f46e5', '#f59e0b', '#10b981', '#ec4899', '#06b6d4'];
+const PIE_COLORS = ['var(--c-600)', '#f59e0b', '#10b981', '#ec4899', '#06b6d4'];
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
 const fmtDateTime = (d: string) => d ? new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -154,6 +159,13 @@ const ANAMNESIS_FIELD_LABELS: Record<string, string> = {
 /* ═══════════════════════════════════════════════════════════════
    PASSWORD GATE MODAL
 ═══════════════════════════════════════════════════════════════ */
+const RECORDS_TABS = [
+  { id: 'history', label: 'Registros', icon: History },
+  { id: 'timeline', label: 'Timeline', icon: Clock },
+  { id: 'analysis', label: 'Análise', icon: BarChart2 },
+] as const;
+type RecordsTabId = typeof RECORDS_TABS[number]['id'];
+
 const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise<void>; onClose: () => void }> = ({ title, onConfirm, onClose }) => {
   const [pw, setPw] = useState('');
   const [loading, setLoading] = useState(false);
@@ -175,43 +187,30 @@ const PasswordModal: React.FC<{ title: string; onConfirm: (p: string) => Promise
       title={title}
       size="sm"
       footer={
-        <div className="flex gap-3 w-full">
-           <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">Cancelar</Button>
-           <Button onClick={submit} loading={loading} variant="primary" className="flex-1 uppercase text-xs font-black tracking-widest gap-2">
-             <Shield size={16}/> Confirmar
+        <ModalFooter>
+           <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+           <Button onClick={submit} loading={loading} variant="primary" size="sm" iconLeft={<Shield size={14}/>}>
+             Confirmar
            </Button>
-        </div>
+        </ModalFooter>
       }
     >
-      <div className="space-y-4">
-        <div className="flex flex-col gap-1.5 pt-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Senha do sistema</label>
-          <div className="relative">
-            <input
-              type={showPw ? 'text' : 'password'}
-              autoFocus
-              value={pw}
-              onChange={e => setPw(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && submit()}
-              className="w-full h-12 px-4 pr-12 rounded-xl border border-slate-100 bg-slate-50 font-bold outline-none focus:border-indigo-300 focus:bg-white transition-all text-sm placeholder:text-slate-300 shadow-inner"
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPw(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-              tabIndex={-1}
-            >
-              {showPw ? <EyeOff size={18}/> : <Eye size={18}/>}
+      <div className="space-y-3">
+        <Input
+          label="Senha do sistema"
+          type={showPw ? 'text' : 'password'}
+          autoFocus
+          value={pw}
+          onChange={e => setPw(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          placeholder="••••••••"
+          addonRight={
+            <button type="button" onClick={() => setShowPw(v => !v)} aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'} className="text-slate-400 hover:text-slate-600 transition-colors">
+              {showPw ? <EyeOff size={14}/> : <Eye size={14}/>}
             </button>
-          </div>
-        </div>
-        {err && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-100 animate-shake">
-            <AlertTriangle size={14} className="text-rose-500 shrink-0"/>
-            <p className="text-xs font-bold text-rose-600 leading-tight">{err}</p>
-          </div>
-        )}
+          }
+        />
+        {err && <Alert variant="error">{err}</Alert>}
       </div>
     </Modal>
   );
@@ -245,33 +244,32 @@ const ExportModal: React.FC<{
       title="Exportar Documentação"
       size="md"
       footer={
-        <div className="flex gap-3 w-full">
-           <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">Fechar</Button>
-           <Button onClick={() => onExport(mode, 'pdf')} variant="primary" className="flex-1 bg-slate-800 border-slate-800 uppercase text-xs font-black tracking-widest gap-2">
-             <FileText size={16}/> Gerar PDF
+        <ModalFooter>
+           <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+           <Button onClick={() => onExport(mode, 'pdf')} variant="outline" size="sm" iconLeft={<FileText size={14}/>}>
+             Gerar PDF
            </Button>
-           <Button onClick={() => onExport(mode, 'word')} variant="primary" className="flex-1 uppercase text-xs font-black tracking-widest gap-2">
-             <Download size={16}/> Gerar Word
+           <Button onClick={() => onExport(mode, 'word')} variant="primary" size="sm" iconLeft={<Download size={14}/>}>
+             Gerar Word
            </Button>
-        </div>
+        </ModalFooter>
       }
     >
-      <div className="space-y-3 pt-2">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Selecione o Conteúdo</p>
+      <div className="space-y-3">
+        <p className="text-xs font-medium text-slate-600">Selecione o conteúdo</p>
         <div className="grid grid-cols-1 gap-2">
           {OPTIONS.map(opt => (
-            <button 
-              key={opt.id} 
+            <button
+              key={opt.id}
               onClick={() => setMode(opt.id as ExportMode)}
-              className={`w-full p-4 rounded-2xl border text-left transition-all relative overflow-hidden group ${
-                mode === opt.id 
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                  : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-indigo-200 hover:bg-white'
+              className={`w-full p-3 rounded-lg border text-left transition-all ${
+                mode === opt.id
+                  ? 'bg-primary-50 border-primary-500 text-primary-800'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-primary-300'
               }`}
             >
-              {mode === opt.id && <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-white animate-pulse" />}
-              <div className="font-black text-sm mb-0.5 uppercase tracking-tight">{opt.title}</div>
-              <div className={`text-[11px] font-bold leading-tight ${mode === opt.id ? 'text-indigo-100' : 'text-slate-400 font-medium'}`}>{opt.desc}</div>
+              <div className="font-medium text-[13px]">{opt.title}</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">{opt.desc}</div>
             </button>
           ))}
         </div>
@@ -302,7 +300,7 @@ const TYPE_DEFINITIONS = [
     key: 'Evolucao', label: 'Evolução Clínica',
     description: 'Registro da sessão, intervenções realizadas e evolução do processo',
     icon: '📋', color: 'indigo',
-    bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', iconBg: 'bg-indigo-100',
+    bg: 'bg-primary-50', border: 'border-primary-200', text: 'text-primary-700', iconBg: 'bg-primary-100',
   },
   {
     key: 'Anamnese', label: 'Anamnese',
@@ -326,7 +324,7 @@ const TYPE_DEFINITIONS = [
     key: 'Relatorio', label: 'Relatório / Laudo',
     description: 'Relatório técnico, laudo psicológico ou declaração para terceiros',
     icon: '📄', color: 'blue',
-    bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', iconBg: 'bg-blue-100',
+    bg: 'bg-primary-50', border: 'border-primary-200', text: 'text-primary-700', iconBg: 'bg-primary-100',
   },
   {
     key: 'Encaminhamento', label: 'Encaminhamento',
@@ -342,30 +340,35 @@ const TYPE_DEFINITIONS = [
   },
 ];
 
+const TYPE_ICONS: Record<string, React.ElementType> = {
+  Evolucao: ClipboardCheck, Anamnese: BookOpen, Avaliacao: Brain, Plano: Layers, Relatorio: FileText, Encaminhamento: Share2, Atestado: CheckCheck,
+};
+
 const RecordTypeSelector: React.FC<{
   onSelect: (type: string) => void;
   onClose: () => void;
   patientName?: string;
 }> = ({ onSelect, onClose, patientName }) => (
-  <Modal isOpen onClose={onClose} title="Novo Registro Clínico"
-    size="2xl"
-  >
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
-      {TYPE_DEFINITIONS.map(t => (
+  <Modal isOpen onClose={onClose} title="Novo Registro Clínico" subtitle={patientName} size="2xl">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {TYPE_DEFINITIONS.map(t => {
+        const TypeIcon = TYPE_ICONS[t.key] || FileText;
+        return (
         <button
           key={t.key}
           onClick={() => onSelect(t.key)}
-          className={`group flex items-start gap-4 p-4 rounded-2xl border-2 ${t.border} ${t.bg} hover:shadow-md transition-all text-left hover:-translate-y-0.5 active:scale-[0.98]`}
+          className="group flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white hover:border-primary-300 hover:bg-primary-50/40 transition-colors text-left"
         >
-          <div className={`w-11 h-11 rounded-xl ${t.iconBg} flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform`}>
-            {t.icon}
+          <div className="w-8 h-8 rounded-md bg-primary-50 border border-primary-100 text-primary-700 flex items-center justify-center shrink-0">
+            <TypeIcon size={16} />
           </div>
           <div className="min-w-0">
-            <p className={`font-black text-sm uppercase tracking-tight ${t.text}`}>{t.label}</p>
-            <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5">{t.description}</p>
+            <p className="font-medium text-[13px] text-slate-800">{t.label}</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">{t.description}</p>
           </div>
         </button>
-      ))}
+        );
+      })}
     </div>
   </Modal>
 );
@@ -558,53 +561,49 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
       title={record.title}
       size="2xl"
       footer={
-        <div className="flex gap-3 w-full justify-between items-center">
-           <div className="flex gap-2">
-              <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-lg border ${STATUS_COLORS[record.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{record.status}</span>
-              {record.ai_status === 'organized' && <span className="text-[10px] font-black uppercase px-3 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1.5"><Sparkles size={12}/> Organizado IA</span>}
+        <ModalFooter align="between">
+           <div className="flex flex-wrap gap-2">
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${STATUS_COLORS[record.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{record.status}</span>
+              {record.ai_status === 'organized' && <Badge color="purple" icon={<Sparkles size={11}/>}>Organizado IA</Badge>}
            </div>
-           <div className="flex gap-2">
+           <div className="flex flex-wrap gap-2">
               {record.record_type === 'Atestado' && (
-                <Button variant="ghost" onClick={generateAtestadoPDF} className="uppercase text-xs font-black tracking-widest gap-2 text-blue-700 border border-blue-200 hover:bg-blue-50">
-                  <Download size={14}/> PDF
-                </Button>
+                <Button variant="outline" size="sm" onClick={generateAtestadoPDF} iconLeft={<Download size={14}/>}>PDF</Button>
               )}
-              <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Fechar</Button>
-              <Button onClick={onEdit} variant="primary" className="uppercase text-xs font-black tracking-widest gap-2 min-w-[120px]">
-                <Edit3 size={16}/> Editar
-              </Button>
+              <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+              <Button onClick={onEdit} variant="primary" size="sm" iconLeft={<Edit3 size={14}/>}>Editar</Button>
            </div>
-        </div>
+        </ModalFooter>
       }
     >
         <div className="space-y-6 pt-2">
           {/* Header Info Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6 border-b border-slate-100">
              <div className="space-y-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Profissional</span>
-                <span className="text-sm font-bold text-slate-700">{record.professional_name || '—'}</span>
+                <span className="text-[11px] font-semibold text-slate-400 block">Profissional</span>
+                <span className="text-sm font-semibold text-slate-700">{record.professional_name || '—'}</span>
              </div>
              <div className="space-y-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tipo</span>
-                <span className="text-sm font-bold text-slate-700">{TYPE_LABELS[record.record_type] || record.record_type}</span>
+                <span className="text-[11px] font-semibold text-slate-400 block">Tipo</span>
+                <span className="text-sm font-semibold text-slate-700">{TYPE_LABELS[record.record_type] || record.record_type}</span>
              </div>
              <div className="space-y-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Modalidade</span>
-                <span className="text-sm font-bold text-slate-700 capitalize">{record.appointment_type || '—'}</span>
+                <span className="text-[11px] font-semibold text-slate-400 block">Modalidade</span>
+                <span className="text-sm font-semibold text-slate-700 capitalize">{record.appointment_type || '—'}</span>
              </div>
              <div className="space-y-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Horário</span>
-                <span className="text-sm font-bold text-slate-700">{record.start_time ? `${record.start_time}${record.end_time ? ` – ${record.end_time}` : ''}` : '—'}</span>
+                <span className="text-[11px] font-semibold text-slate-400 block">Horário</span>
+                <span className="text-sm font-semibold text-slate-700">{record.start_time ? `${record.start_time}${record.end_time ? ` – ${record.end_time}` : ''}` : '—'}</span>
              </div>
           </div>
 
           {/* Review points */}
           {reviewPoints.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
               <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0"/>
               <div>
-                <p className="font-black text-amber-800 text-xs uppercase tracking-wide mb-1">Pontos para revisão humana</p>
-                <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-bold">• {p}</li>)}</ul>
+                <p className="font-semibold text-amber-800 text-xs mb-1">Pontos para revisão humana</p>
+                <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-semibold">• {p}</li>)}</ul>
               </div>
             </div>
           )}
@@ -615,18 +614,17 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
               {fields.map(f => (
                 <div key={f.key} className="group">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-base leading-none group-hover:scale-110 transition-transform">{f.icon}</span>
-                    <span className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">{f.label}</span>
+                                        <span className="text-[11px] font-semibold text-primary-600">{f.label}</span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-[20px] p-5">
+                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-5">
                     <p className="text-sm text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{organized[f.key]}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="bg-slate-50 border border-slate-100 rounded-[24px] p-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Conteúdo Original do Registro</p>
+            <div className="bg-slate-50 border border-slate-100 rounded-lg p-6">
+              <p className="text-[11px] font-semibold text-slate-400 mb-4">Conteúdo Original do Registro</p>
               <div className="text-sm text-slate-700 font-medium leading-relaxed text-editor-content" dangerouslySetInnerHTML={{ __html: record.content || record.draft_content || '<em>Sem conteúdo registrado</em>' }}/>
             </div>
           )}
@@ -635,13 +633,13 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
           {organized && record.draft_content && (
             <div className="pt-4 border-t border-slate-100">
               <details className="group">
-                <summary className="cursor-pointer text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition list-none flex items-center gap-2 outline-none">
-                  <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center group-open:bg-indigo-50 group-open:text-indigo-600 transition-colors">
+                <summary className="cursor-pointer text-[11px] font-semibold text-slate-400 hover:text-primary-600 transition list-none flex items-center gap-2 outline-none">
+                  <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center group-open:bg-primary-50 group-open:text-primary-600 transition-colors">
                     <ChevronRight size={14} className="group-open:rotate-90 transition-transform"/> 
                   </div>
                   Exibir Rascunho Bruto (Histórico)
                 </summary>
-                <div className="mt-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 p-5">
+                <div className="mt-4 bg-slate-50/50 rounded-lg border border-dashed border-slate-200 p-5">
                   <p className="text-xs text-slate-500 leading-relaxed font-medium">{strip(record.draft_content)}</p>
                 </div>
               </details>
@@ -651,27 +649,27 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
           {/* Anexos */}
           {record.attachments && record.attachments.length > 0 && (
             <div className="pt-4 border-t border-slate-100">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Layers size={14} className="text-indigo-500"/> Anexos
+              <h4 className="text-[11px] font-semibold text-slate-400 mb-3 flex items-center gap-2">
+                <Layers size={14} className="text-primary-500"/> Anexos
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {record.attachments.map((att: any, idx: number) => {
                   const isImage = att.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.file_name || '');
                   const url = getStaticUrl(att.file_url || att.url);
                   return (
-                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors group">
+                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:border-primary-300 transition-colors group">
                       {isImage ? (
-                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200 group-hover:border-indigo-300 transition-colors">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200 group-hover:border-primary-300 transition-colors">
                           <img src={url} alt={att.file_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
-                          <FileText size={18} className="text-indigo-500" />
+                        <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center shrink-0 group-hover:bg-primary-100 transition-colors">
+                          <FileText size={18} className="text-primary-500" />
                         </div>
                       )}
                       <div className="truncate">
-                        <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors">{att.file_name}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{att.file_size ? (att.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'Tamanho desconhecido'}</p>
+                        <p className="text-xs font-semibold text-slate-700 truncate group-hover:text-primary-600 transition-colors">{att.file_name}</p>
+                        <p className="text-[11px] text-slate-400 font-medium">{att.file_size ? (att.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'Tamanho desconhecido'}</p>
                       </div>
                     </a>
                   );
@@ -684,13 +682,13 @@ const RecordViewer: React.FC<{ record: MedicalRecord; patient?: Patient; onClose
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-6 border-t border-slate-100">
               <div className="flex items-center gap-1.5">
                 <Tag size={12} className="text-slate-400"/>
-                <span className="text-[10px] font-black text-slate-400 uppercase">Tags:</span>
+                <span className="text-[11px] font-semibold text-slate-400">Tags:</span>
                 <div className="flex gap-1">
-                  {record.tags && record.tags.length > 0 ? record.tags.map((t, i) => <span key={i} className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-bold">{t}</span>) : <span className="text-[9px] text-slate-300 font-bold italic">Nenhuma</span>}
+                  {record.tags && record.tags.length > 0 ? record.tags.map((t, i) => <span key={i} className="text-[11px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-semibold">{t}</span>) : <span className="text-[11px] text-slate-300 font-semibold italic">Nenhuma</span>}
                 </div>
               </div>
               <div className="flex-1" />
-              <div className="text-[10px] text-slate-300 font-black uppercase tracking-widest">ID: {String(record.id).split('-')[0]}...</div>
+              <div className="text-[11px] text-slate-300 font-semibold">ID: {String(record.id).split('-')[0]}...</div>
           </div>
         </div>
     </Modal>
@@ -747,32 +745,28 @@ const ShareModal: React.FC<{
       onClose={onClose}
       title="Compartilhar Acesso"
       size="md"
-      footer={<Button variant="ghost" onClick={onClose} className="w-full uppercase text-xs font-black tracking-widest">Concluir</Button>}
+      footer={<ModalFooter><Button variant="primary" size="sm" onClick={onClose}>Concluir</Button></ModalFooter>}
     >
       <div className="space-y-6 pt-2">
         {/* Com Acesso */}
         {sharedProfessionals.length > 0 && (
           <div className="space-y-3">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Profissionais com Acesso</h4>
+            <h4 className="text-[11px] font-semibold text-slate-400 px-1">Profissionais com Acesso</h4>
             <div className="grid gap-2">
               {sharedProfessionals.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl bg-indigo-50/50 border border-indigo-100 group transition-all hover:bg-indigo-50">
+                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-primary-50/50 border border-primary-100 group transition-all hover:bg-primary-50">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center font-black text-sm shadow-sm group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-primary-100 text-primary-600 flex items-center justify-center font-semibold text-sm shadow-sm group-hover:scale-105 transition-transform">
                       {(p.name || '?')[0].toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-bold text-slate-700 text-sm truncate">{p.name}</div>
-                      <div className="text-[10px] text-slate-400 font-medium truncate">{p.email || '—'}</div>
+                      <div className="font-semibold text-slate-700 text-sm truncate">{p.name}</div>
+                      <div className="text-[11px] text-slate-400 font-medium truncate">{p.email || '—'}</div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => revoke(String(p.id))}
-                    className="w-10 h-10 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100 hover:bg-rose-50 transition-all flex items-center justify-center shadow-sm"
-                    title="Remover acesso"
-                  >
-                    <Trash2 size={16}/>
-                  </button>
+                                    <IconButton size="sm" variant="ghost" onClick={() => revoke(String(p.id))} title="Remover acesso" aria-label="Remover acesso" className="text-red-600 hover:bg-red-50">
+                    <Trash2 size={14}/>
+                  </IconButton>
                 </div>
               ))}
             </div>
@@ -781,39 +775,27 @@ const ShareModal: React.FC<{
 
         {/* Adicionar */}
         <div className="space-y-3">
-          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Conceder Novo Acesso</h4>
+          <h4 className="text-[11px] font-semibold text-slate-400 px-1">Conceder Novo Acesso</h4>
           {availableProfessionals.length === 0 ? (
-            <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
+            <div className="p-4 rounded-lg bg-slate-50 border border-dashed border-slate-200 text-center">
               <p className="text-xs text-slate-400 font-medium">Todos os profissionais já possuem acesso a este registro.</p>
             </div>
           ) : (
             <div className="flex gap-2">
-              <select
-                className="flex-1 h-12 px-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300 focus:bg-white transition-all shadow-inner"
-                value={selectedId} onChange={e => setSelectedId(e.target.value)}
-              >
+              <Select wrapperClassName="flex-1" aria-label="Profissional" value={selectedId} onChange={e => setSelectedId(e.target.value)}>
                 <option value="">Selecione um profissional...</option>
                 {availableProfessionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
-              </select>
-              <Button 
-                onClick={share}
-                disabled={!selectedId || saving}
-                loading={saving}
-                variant="primary"
-                className="h-12 px-6 gap-2 shadow-lg shadow-indigo-100"
-              >
-                <Plus size={18}/> Conceder
+              </Select>
+              <Button onClick={share} disabled={!selectedId || saving} loading={saving} variant="primary" size="md" iconLeft={<Plus size={14}/>}>
+                Conceder
               </Button>
             </div>
           )}
         </div>
 
-        <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
-           <Shield size={16} className="text-amber-500 shrink-0 mt-0.5"/>
-           <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
-             O compartilhamento permite que outros profissionais visualizem e editem este registro. O proprietário original mantém o controle da auditoria.
-           </p>
-        </div>
+        <Alert variant="warning">
+          O compartilhamento permite que outros profissionais visualizem e editem este registro. O proprietário original mantém o controle da auditoria.
+        </Alert>
       </div>
     </Modal>
   );
@@ -1025,11 +1007,11 @@ const LinkedToolsSection: React.FC<{
               Object.entries(parsedResp).forEach(([key, value]: [string, any]) => {
                 const label = ANAMNESIS_FIELD_LABELS[key] || key;
                 if (value && String(value).trim()) {
-                  contextStr += `  ${label}: ${String(value)}\n`;
+                  contextStr += `${label}: ${String(value)}\n`;
                 }
               });
             } catch {
-              contextStr += `  Dados da anamnese: ${String(t.responses).substring(0, 3000)}\n`;
+              contextStr += `Dados da anamnese: ${String(t.responses).substring(0, 3000)}\n`;
             }
           } else {
             contextStr += `  (Dados da anamnese não disponíveis)\n`;
@@ -1038,28 +1020,28 @@ const LinkedToolsSection: React.FC<{
         } else if (t.type === 'form_response') {
           // Formulários respondidos (PHQ-9, GAD-7, Beck, etc.)
           contextStr += `Tipo: Formulário Clínico\n`;
-          if (t.score != null) contextStr += `  Pontuação Total: ${t.score}\n`;
+          if (t.score != null) contextStr += `Pontuação Total: ${t.score}\n`;
           if (t.data?.answers) {
             const answers = t.data.answers;
             Object.entries(answers).forEach(([qId, answer]: [string, any]) => {
               if (answer && String(answer).trim()) {
-                contextStr += `  ${qId}: ${String(answer)}\n`;
+                contextStr += `${qId}: ${String(answer)}\n`;
               }
             });
           } else if (t.data) {
-            contextStr += `  Dados: ${JSON.stringify(t.data).substring(0, 2000)}\n`;
+            contextStr += `Dados: ${JSON.stringify(t.data).substring(0, 2000)}\n`;
           }
 
         } else if (t.type === 'disc') {
           // Avaliação DISC
           contextStr += `Tipo: Avaliação de Perfil Comportamental DISC\n`;
           const s = t.data?.scores || {};
-          contextStr += `  Dominância (D): ${s.D || 0}\n`;
-          contextStr += `  Influência (I): ${s.I || 0}\n`;
-          contextStr += `  Estabilidade (S): ${s.S || 0}\n`;
-          contextStr += `  Conformidade (C): ${s.C || 0}\n`;
+          contextStr += `Dominância (D): ${s.D || 0}\n`;
+          contextStr += `Influência (I): ${s.I || 0}\n`;
+          contextStr += `Estabilidade (S): ${s.S || 0}\n`;
+          contextStr += `Conformidade (C): ${s.C || 0}\n`;
           if (t.auroraAnalysis) {
-            contextStr += `  Análise Bia IA anterior: ${String(t.auroraAnalysis).substring(0, 2000)}\n`;
+            contextStr += `Análise Bia IA anterior: ${String(t.auroraAnalysis).substring(0, 2000)}\n`;
           }
 
         } else {
@@ -1114,24 +1096,24 @@ const LinkedToolsSection: React.FC<{
   };
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-[28px] border-2 border-dashed border-slate-200 gap-3">
-      <Loader2 size={24} className="text-indigo-500 animate-spin" />
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sincronizando fonte histórico...</p>
+    <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200 gap-3">
+      <Loader2 size={24} className="text-primary-500 animate-spin" />
+      <p className="text-[11px] font-semibold text-slate-400">Sincronizando fonte histórico...</p>
     </div>
   );
 
   const isSidebar = variant === 'sidebar';
 
   return (
-    <div className={`bg-white rounded-[28px] border border-slate-100 shadow-sm overflow-hidden flex flex-col ${isSidebar ? 'h-full max-h-[1000px]' : 'space-y-6 p-8'}`}>
+    <div className={`bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col ${isSidebar ? 'h-full max-h-[1000px]' : 'space-y-6 p-8'}`}>
       <div className={`flex flex-col gap-4 ${isSidebar ? 'p-5 bg-slate-50/50 border-b border-slate-100' : ''}`}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100 shrink-0">
+          <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center border border-emerald-100 shrink-0">
             <ClipboardCheck size={20} className="text-emerald-600" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-black text-slate-800 text-sm tracking-tight truncate">Fontes Pin-Clínico</h3>
-            <p className="text-[10px] text-slate-500 font-medium truncate">Documentos vinculados ao caso.</p>
+            <h3 className="font-semibold text-slate-800 text-sm truncate">Fontes Pin-Clínico</h3>
+            <p className="text-[11px] text-slate-500 font-medium truncate">Documentos vinculados ao caso.</p>
           </div>
         </div>
         
@@ -1143,12 +1125,12 @@ const LinkedToolsSection: React.FC<{
               placeholder="Instrumento..." 
               value={filter}
               onChange={e => setFilter(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 rounded-xl bg-white border border-slate-200 text-xs font-bold outline-none focus:border-indigo-300 transition-all shadow-sm"
+              className="w-full h-9 pl-9 pr-4 rounded-lg bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-primary-300 transition-all shadow-sm"
             />
           </div>
           {!isSidebar && (
             <select 
-              className="h-9 px-3 rounded-xl bg-white border border-slate-200 text-xs font-bold outline-none focus:border-indigo-300 transition-all shadow-sm"
+              className="h-9 px-3 rounded-lg bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-primary-300 transition-all shadow-sm"
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
             >
@@ -1161,7 +1143,7 @@ const LinkedToolsSection: React.FC<{
 
       <div className={`${isSidebar ? 'flex-1 overflow-y-auto p-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}`}>
         {filtered.length === 0 ? (
-          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
+          <div className="p-8 text-center bg-slate-50 rounded-lg border border-slate-100 border-dashed">
             <Info size={20} className="text-slate-300 mx-auto mb-2" />
             <p className="text-[11px] text-slate-400 font-medium italic">Sem registros vinculados.</p>
           </div>
@@ -1171,28 +1153,28 @@ const LinkedToolsSection: React.FC<{
             const hasHistory = isTool && Array.isArray(item.data) && item.data.length > 1;
 
             return (
-              <div key={item.id} className={`group flex flex-col p-4 rounded-2xl border transition-all duration-300 relative ${isSidebar ? 'mb-3 bg-white hover:bg-slate-50 border-slate-100 hover:border-indigo-200' : 'border-slate-100 bg-white hover:border-emerald-200 hover:shadow-md'}`}>
+              <div key={item.id} className={`group flex flex-col p-4 rounded-lg border transition-all duration-300 relative ${isSidebar ? 'mb-3 bg-white hover:bg-slate-50 border-slate-100 hover:border-primary-200' : 'border-slate-100 bg-white hover:border-emerald-200 hover:shadow-sm'}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      item.category === 'Anamnese' ? 'bg-indigo-50 text-indigo-600' : 
+                      item.category === 'Anamnese' ? 'bg-primary-50 text-primary-600' : 
                       'bg-emerald-50 text-emerald-600'
                     }`}>
                       {item.category === 'Anamnese' ? <ClipboardCheck size={16}/> : <Activity size={16}/>}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5 truncate">{item.category}</p>
-                      <h4 className="font-black text-slate-700 leading-tight text-[11px] truncate">{item.name}</h4>
+                      <p className="text-[11px] font-semibold text-slate-400 mb-0.5 truncate">{item.category}</p>
+                      <h4 className="font-semibold text-slate-700 leading-tight text-[11px] truncate">{item.name}</h4>
                     </div>
                   </div>
                   {hasHistory && (
-                     <div className="bg-amber-100 text-amber-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 shadow-sm">
+                     <div className="bg-amber-100 text-amber-600 text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
                         <History size={10} /> +{item.data.length}
                      </div>
                   )}
                 </div>
 
-                <div className="space-y-1.5 mb-4 text-[10px] text-slate-500 font-medium">
+                <div className="space-y-1.5 mb-4 text-[11px] text-slate-500 font-medium">
                   <div className="flex items-center gap-2 truncate">
                     <Calendar size={11} className="text-slate-300 shrink-0"/>
                     {fmtDate(item.date)}
@@ -1209,8 +1191,8 @@ const LinkedToolsSection: React.FC<{
                       onClick={() => toggleSelect(item.id)}
                       className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors border shadow-sm ${
                         selectedIds.includes(item.id) 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
-                          : 'bg-white text-slate-300 border-slate-100 hover:border-indigo-200'
+                          ? 'bg-primary-600 text-white border-primary-600' 
+                          : 'bg-white text-slate-300 border-slate-100 hover:border-primary-200'
                       }`}
                       title={selectedIds.includes(item.id) ? 'Remover da seleção' : 'Selecionar para síntese IA'}
                     >
@@ -1219,14 +1201,14 @@ const LinkedToolsSection: React.FC<{
                   )}
                   <button 
                     onClick={() => handleSelectSource(item)}
-                    className="flex-1 h-8 rounded-lg bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-sm shadow-emerald-100"
+                    className="flex-1 h-8 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors "
                   >
                     Usar Fonte
                   </button>
                   {hasHistory && (
                     <button 
                       onClick={() => setComparing(item.id)}
-                      className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                      className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
                       title="Análise Longitudinal"
                     >
                       <BarChart2 size={14} />
@@ -1246,10 +1228,10 @@ const LinkedToolsSection: React.FC<{
         )}
       </div>
 
-      <div className={`p-4 bg-indigo-50/50 rounded-b-lg border-t border-indigo-100 flex flex-col gap-3 mt-auto ${isSidebar ? '' : 'rounded-2xl'}`}>
+      <div className={`p-4 bg-primary-50/50 rounded-b-lg border-t border-primary-100 flex flex-col gap-3 mt-auto ${isSidebar ? '' : 'rounded-lg'}`}>
         <div className="flex items-start gap-3">
-          <Sparkles size={16} className="text-indigo-500 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-indigo-700 font-medium leading-relaxed">
+          <Sparkles size={16} className="text-primary-500 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-primary-700 font-medium leading-relaxed">
             <strong>Assistente Bia:</strong> {selectedIds.length > 0 ? `Você selecionou ${selectedIds.length} fontes para análise.` : 'Selecione fontes para gerar uma síntese clínica.'}
           </p>
         </div>
@@ -1257,7 +1239,7 @@ const LinkedToolsSection: React.FC<{
         {isSidebar && (
           <Button 
              variant="primary" 
-             className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-widest text-[9px] gap-2 shadow-lg shadow-indigo-100 disabled:opacity-50"
+             className="w-full h-10 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-[11px] gap-2  disabled:opacity-50"
              disabled={selectedIds.length === 0}
              onClick={() => setShowSynthesisModal(true)}
           >
@@ -1270,18 +1252,18 @@ const LinkedToolsSection: React.FC<{
       {showSynthesisModal && (
         <Modal isOpen={true} onClose={() => setShowSynthesisModal(false)} title="Síntese Clínica com IA" size="lg">
            <div className="space-y-6">
-              <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex items-start gap-3">
-                 <Brain size={24} className="text-indigo-600 shrink-0" />
+              <div className="bg-primary-50 p-5 rounded-lg border border-primary-100 flex items-start gap-3">
+                 <Brain size={24} className="text-primary-600 shrink-0" />
                  <div>
-                    <h4 className="font-black text-indigo-900 text-xs uppercase tracking-widest mb-1">Análise Multidimensional</h4>
-                    <p className="text-[11px] text-indigo-700 font-medium">Bia irá cruzar os dados das {selectedIds.length} fontes selecionadas para criar uma síntese clínica estruturada.</p>
+                    <h4 className="font-semibold text-primary-900 text-xs mb-1">Análise Multidimensional</h4>
+                    <p className="text-[11px] text-primary-700 font-medium">Bia irá cruzar os dados das {selectedIds.length} fontes selecionadas para criar uma síntese clínica estruturada.</p>
                  </div>
               </div>
 
               <div className="space-y-2">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Selecione sua Abordagem Terapêutica</label>
+                 <label className="text-[11px] font-semibold text-slate-400 px-1">Selecione sua Abordagem Terapêutica</label>
                  <select 
-                   className="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold outline-none focus:border-indigo-300 transition-all shadow-sm"
+                   className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-200 text-sm font-semibold outline-none focus:border-primary-300 transition-all shadow-sm"
                    value={approach}
                    onChange={e => setApproach(e.target.value)}
                  >
@@ -1298,14 +1280,14 @@ const LinkedToolsSection: React.FC<{
                       'Logoterapia'
                     ].map(a => <option key={a} value={a}>{a}</option>)}
                  </select>
-                 <p className="text-[10px] text-slate-400 italic px-1">A IA utilizará terminologia e conceitos específicos desta abordagem.</p>
+                 <p className="text-[11px] text-slate-400 italic px-1">A IA utilizará terminologia e conceitos específicos desta abordagem.</p>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
                  <button 
                    type="button"
                    onClick={() => setShowSynthesisModal(false)} 
-                   className="h-11 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all"
+                   className="h-11 px-6 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all"
                  >
                     Cancelar
                  </button>
@@ -1313,7 +1295,7 @@ const LinkedToolsSection: React.FC<{
                    onClick={handleGenerateSynthesis}
                    loading={synthesisLoading}
                    variant="primary"
-                   className="h-11 w-72 bg-indigo-600 hover:bg-indigo-700 text-white uppercase text-[10px] font-black tracking-widest shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                   className="h-11 w-72 bg-primary-600 hover:bg-primary-700 text-white text-[11px] font-semibold  flex items-center justify-center gap-2"
                  >
                     <Brain size={14} /> Iniciar Processamento IA
                  </Button>
@@ -1326,25 +1308,25 @@ const LinkedToolsSection: React.FC<{
       {comparing && (
         <Modal isOpen={true} onClose={() => setComparing(null)} title="Análise Longitudinal" size="lg">
            <div className="space-y-6">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                  <p className="text-xs text-slate-500 font-medium">Comparando aplicações históricas do instrumento para análise de evolução clínica.</p>
               </div>
               <div className="grid gap-3">
                  {tools.find(t => t.id === comparing)?.data?.slice().reverse().map((entry: any, i: number) => (
-                   <div key={i} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100">
+                   <div key={i} className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-100">
                       <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{fmtDate(entry.date)}</p>
-                        <p className="text-xs font-bold text-slate-700">Resultado: {JSON.stringify(entry.scores || entry.score || entry.answers || {})}</p>
+                        <p className="text-[11px] font-semibold text-slate-400">{fmtDate(entry.date)}</p>
+                        <p className="text-xs font-semibold text-slate-700">Resultado: {JSON.stringify(entry.scores || entry.score || entry.answers || {})}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                         <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${i === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                         <span className={`px-2 py-1 rounded-lg text-[11px] font-semibold  ${i === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
                            {i === 0 ? 'Mais Recente' : 'Anterior'}
                          </span>
                       </div>
                    </div>
                  ))}
               </div>
-              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 border-dashed">
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 border-dashed">
                  <p className="text-[11px] text-amber-700 font-medium text-center">Visualização gráfica em desenvolvimento. Utilize a comparação de escores brutos para avaliação clínica.</p>
               </div>
            </div>
@@ -1355,20 +1337,20 @@ const LinkedToolsSection: React.FC<{
       {viewing && (
         <Modal isOpen={true} onClose={() => setViewing(null)} title="Detalhes da Fonte" size="lg">
            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+              <div className="bg-slate-50 p-5 rounded-lg border border-slate-100 space-y-3">
                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data da Coleta</span>
-                    <span className="text-xs font-bold text-slate-700">{fmtDate(viewing.date)}</span>
+                    <span className="text-[11px] font-semibold text-slate-400">Data da Coleta</span>
+                    <span className="text-xs font-semibold text-slate-700">{fmtDate(viewing.date)}</span>
                  </div>
                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Origem</span>
-                    <span className="text-xs font-bold text-emerald-600">{viewing.origin}</span>
+                    <span className="text-[11px] font-semibold text-slate-400">Origem</span>
+                    <span className="text-xs font-semibold text-emerald-600">{viewing.origin}</span>
                  </div>
               </div>
 
               <div className="space-y-4">
-                 <h4 className="font-black text-slate-800 text-xs uppercase tracking-widest flex items-center gap-2">
-                    <FileText size={14} className="text-indigo-500"/> Conteúdo do Registro
+                 <h4 className="font-semibold text-slate-800 text-xs flex items-center gap-2">
+                    <FileText size={14} className="text-primary-500"/> Conteúdo do Registro
                  </h4>
                  
                  {viewing.type === 'anamnese' ? (
@@ -1377,8 +1359,8 @@ const LinkedToolsSection: React.FC<{
                         try {
                            const res = JSON.parse(viewing.responses || '{}');
                            return Object.entries(res).map(([k, v]: [string, any]) => (
-                             <div key={k} className="p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
-                               <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">{ANAMNESIS_FIELD_LABELS[k] || k}</p>
+                             <div key={k} className="p-4 bg-white rounded-lg border border-slate-100 shadow-sm">
+                               <p className="text-[11px] font-semibold text-primary-500 mb-1">{ANAMNESIS_FIELD_LABELS[k] || k}</p>
                                <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap">{String(v)}</p>
                              </div>
                            ));
@@ -1388,7 +1370,7 @@ const LinkedToolsSection: React.FC<{
                      })()}
                    </div>
                  ) : (
-                   <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                   <div className="p-5 bg-white rounded-lg border border-slate-100 shadow-sm overflow-x-auto">
                       <pre className="text-xs text-slate-700 font-mono leading-relaxed">
                         {JSON.stringify(viewing.data, null, 2)}
                       </pre>
@@ -1397,7 +1379,7 @@ const LinkedToolsSection: React.FC<{
               </div>
            </div>
            <div className="mt-6 flex justify-end">
-              <Button onClick={() => setViewing(null)} variant="primary" className="h-10 px-6 uppercase text-[10px] font-black">Fechar</Button>
+              <Button onClick={() => setViewing(null)} variant="primary" className="h-10 px-6 text-[11px] font-semibold">Fechar</Button>
            </div>
         </Modal>
       )}
@@ -1405,6 +1387,15 @@ const LinkedToolsSection: React.FC<{
   );
 };
 
+type EditorSection = 'dados' | 'conteudo' | 'restrito' | 'anexos';
+type EditorTabId = 'dados' | 'rascunho' | 'revisao' | 'restrito' | 'anexos';
+const EDITOR_TABS = [
+  { id: 'dados', label: 'Dados', icon: User },
+  { id: 'rascunho', label: 'Rascunho', icon: FileText },
+  { id: 'revisao', label: 'Revisão IA', icon: Sparkles },
+  { id: 'restrito', label: 'Restrito', icon: Shield },
+  { id: 'anexos', label: 'Anexos', icon: Layers },
+] as const;
 const RecordEditor: React.FC<{
   record: Partial<MedicalRecord> | null; mode: 'new' | 'edit';
   patients: Patient[]; selectedPatientId: string | null;
@@ -1449,6 +1440,7 @@ const RecordEditor: React.FC<{
   }, []);
 
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [editorSection, setEditorSection] = useState<EditorSection>(mode === 'new' ? 'dados' : 'conteudo');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
@@ -1509,7 +1501,7 @@ const RecordEditor: React.FC<{
   };
 
   const save = async (newStatus?: string) => {
-    if (!patientId) { pushToast('error', 'Selecione o paciente.'); return; }
+    if (!patientId) { setEditorSection('dados'); pushToast('error', 'Selecione o paciente.'); return; }
     setSaving(true);
     try {
       const body = {
@@ -1589,297 +1581,265 @@ const RecordEditor: React.FC<{
     { key: 'observacao_complementar', label: 'Observação Complementar' },
   ];
 
+  const isPlano = recordType === 'Plano';
+  const isAnamnese = recordType === 'Anamnese';
+  const editorTabs = EDITOR_TABS
+    .filter(t => {
+      if (isPlano) return t.id === 'dados' || t.id === 'rascunho';
+      if (isAnamnese) return t.id === 'dados' || t.id === 'rascunho';
+      if (t.id === 'anexos') return recordType === 'Evolucao';
+      return true;
+    })
+    .map(t => ({
+      ...t,
+      label: t.id === 'rascunho' ? (isPlano ? 'Plano' : isAnamnese ? 'Coleta remota' : 'Rascunho') : t.label,
+      disabled: t.id === 'revisao' && !organized,
+    }));
+  const editorTab: EditorTabId = editorSection === 'conteudo' ? (step === 'ai_result' ? 'revisao' : 'rascunho') : editorSection === 'dados' ? 'dados' : editorSection;
+  const changeEditorTab = (v: EditorTabId) => {
+    if (v === 'rascunho') { setEditorSection('conteudo'); setStep('draft'); }
+    else if (v === 'revisao') { setEditorSection('conteudo'); setStep('ai_result'); }
+    else setEditorSection(v);
+  };
+  const patientName = patients.find(p => String(p.id) === String(patientId))?.full_name;
+
+  const editorTitle = isPlano
+    ? (mode === 'new' ? 'Plano Terapêutico' : 'Editar Plano')
+    : isAnamnese
+      ? (mode === 'new' ? 'Nova Anamnese' : 'Editar Anamnese')
+      : recordType === 'Avaliacao'
+        ? (mode === 'new' ? 'Nova Avaliação Clínica' : 'Editar Avaliação')
+        : (mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro');
+
   return (
-    <Modal
-      isOpen={true}
-      onClose={handleClose}
-      title={recordType === 'Plano' ? (mode === 'new' ? 'Plano Terapêutico' : 'Editar Plano') : (mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro')}
-      size={recordType === 'Plano' ? '2xl' : 'full'}
-      footer={recordType === 'Plano' ? (
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="ghost" onClick={handleClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
-          <Button onClick={() => save()} loading={saving} variant="primary" className="h-9 sm:h-10 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-emerald-200 bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
-            <Save size={14}/> Salvar Plano
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between w-full gap-3">
-           {/* Step indicator */}
-           <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[9px] sm:text-[10px] font-black text-indigo-500 uppercase tracking-widest px-2.5 py-1 bg-indigo-50 rounded-lg border border-indigo-100 whitespace-nowrap">
-                {step === 'draft' ? 'Rascunho' : 'Revisão IA'}
-              </span>
-              <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
-                {(['draft', 'ai_result'] as const).map((s, i) => (
-                  <button key={s} onClick={() => setStep(s)} disabled={s === 'ai_result' && !organized}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${step === s ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-600 disabled:opacity-30'}`}>
-                    {i + 1}. {s === 'draft' ? 'Rascunho' : 'Rev. IA'}
-                  </button>
-                ))}
-              </div>
-           </div>
-           {/* Actions */}
-           <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={handleClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
-              <Button onClick={() => save()} loading={saving} variant="primary" className="flex-1 sm:flex-none h-9 sm:h-10 px-4 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-indigo-200">
-                <Save size={14}/> <span className="hidden xs:inline">Salvar</span> Rascunho
-              </Button>
-              <Button onClick={() => setShowApproveModal(true)} variant="primary" className="flex-1 sm:flex-none h-9 sm:h-10 px-4 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 gap-1.5 uppercase text-[10px] font-black tracking-widest shadow-lg shadow-emerald-200 whitespace-nowrap">
-                <CheckCircle2 size={14}/> <span className="hidden sm:inline">Aprovar</span><span className="sm:hidden">OK</span>
-              </Button>
-           </div>
-        </div>
-      )}
-    >
-        <div className="space-y-6 max-w-[1440px] mx-auto py-2 pb-12">
-          {/* Metadados — compacto para Plano, completo para outros */}
-          {recordType === 'Plano' ? (
-            <div className="bg-white rounded-[20px] border border-slate-100 px-5 py-4 shadow-sm flex flex-wrap items-end gap-4">
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-lg">🗺️</div>
-                <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plano Terapêutico</p>
-                  <p className="text-xs font-black text-emerald-700">{patients.find(p => String(p.id) === String(patientId))?.full_name || '—'}</p>
-                </div>
-              </div>
-              <div className="space-y-1 flex-1 min-w-[160px]">
-                <label className="text-[9px] font-black text-slate-400 uppercase">Título</label>
-                <input className="w-full h-9 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-emerald-300" value={title} onChange={e => setTitle(e.target.value)}/>
-              </div>
-              <div className="space-y-1 w-36">
-                <label className="text-[9px] font-black text-slate-400 uppercase">Data</label>
-                <input type="date" className="w-full h-9 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={sessionDate} onChange={e => setSessionDate(e.target.value)}/>
-              </div>
-              {!typeLocked && (
-                <div className="space-y-1 w-44">
-                  <label className="text-[9px] font-black text-slate-400 uppercase">Paciente</label>
-                  <select className="w-full h-9 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none disabled:opacity-60" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
-                    <option value="">Selecione...</option>
-                    {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                  </select>
-                </div>
+    <PageWrapper>
+      <div className="space-y-4 pb-16 animate-fadeIn">
+        <SectionTitle
+          icon={ClipboardCheck}
+          title={editorTitle}
+          description={patientName ? `Paciente: ${patientName}` : 'Preencha os dados do registro clínico.'}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={handleClose}>Voltar</Button>
+              {isPlano ? (
+                <Button onClick={() => save()} loading={saving} variant="primary" size="sm" iconLeft={<Save size={14}/>}>Salvar plano</Button>
+              ) : (
+                <>
+                  <Button onClick={() => save()} loading={saving} variant="outline" size="sm" iconLeft={<Save size={14}/>}>Salvar rascunho</Button>
+                  {!isAnamnese && <Button onClick={() => setShowApproveModal(true)} variant="success" size="sm" iconLeft={<CheckCircle2 size={14}/>}>Aprovar</Button>}
+                </>
               )}
             </div>
-          ) : (
-            <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm">
-              <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
-                <User size={14} className="text-indigo-500" /> Identificação e Metadados
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Paciente</label>
-                  <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300 disabled:opacity-60" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
+          }
+        />
+
+        <Tabs<EditorTabId> items={editorTabs} value={editorTab} onChange={changeEditorTab} label="Seções do registro" />
+
+        {/* Dados / Identificação */}
+        {editorSection === 'dados' && (
+          <ContentCard padding="md" className="space-y-3">
+            <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+              <User size={14} className="text-primary-600" /> Identificação e Metadados
+            </h3>
+            {isPlano ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <Input label="Título" value={title} onChange={e => setTitle(e.target.value)} />
+                <Input label="Data" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} />
+                {!typeLocked && (
+                  <Select label="Paciente" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
                     <option value="">Selecione...</option>
                     {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Data</label>
-                  <input type="date" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none disabled:opacity-60" value={sessionDate} onChange={e => setSessionDate(e.target.value)} disabled={mode === 'edit'}/>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Título</label>
-                  <input className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none focus:border-indigo-300" value={title} onChange={e => setTitle(e.target.value)}/>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Tipo de Registro</label>
-                  {typeLocked ? (
-                    <div className="w-full h-11 px-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm font-black text-indigo-700 flex items-center gap-2">
-                      <span>{TYPE_DEFINITIONS.find(t => t.key === recordType)?.icon}</span>
+                  </Select>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <Select label="Paciente" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
+                  <option value="">Selecione...</option>
+                  {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                </Select>
+                <Input label="Data" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} disabled={mode === 'edit'} />
+                <Input label="Título" value={title} onChange={e => setTitle(e.target.value)} />
+                {typeLocked ? (
+                  <div className="flex flex-col gap-1">
+                    <span className="ds-label">Tipo de Registro</span>
+                    <div className="h-[34px] px-2.5 rounded-lg bg-primary-50 border border-primary-100 text-[13px] font-medium text-primary-700 flex items-center gap-2">
+                      {(() => { const TI = TYPE_ICONS[recordType] || FileText; return <TI size={14} />; })()}
                       {TYPE_LABELS[recordType] || recordType}
                     </div>
+                  </div>
+                ) : (
+                  <Select label="Tipo de Registro" value={recordType} onChange={e => setRecordType(e.target.value)} disabled={mode === 'edit'}>
+                    {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </Select>
+                )}
+                <Select label="Modalidade" value={appointmentType} onChange={e => setAppointmentType(e.target.value)}>
+                  {['individual','casal','familiar','grupo','online','presencial'].map(a => <option key={a}>{a}</option>)}
+                </Select>
+                <Input label="Início" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} disabled={mode === 'edit'} />
+                <Input label="Fim" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                <Input label="Tags (vírgula)" placeholder="ansiedade, fobia..." value={tags} onChange={e => setTags(e.target.value)} />
+              </div>
+            )}
+          </ContentCard>
+        )}
+
+        {/* Conteúdo — Plano / Anamnese / Rascunho / Revisão IA */}
+        {editorSection === 'conteudo' && (
+          <div className={recordType === 'Avaliacao' ? 'flex flex-col lg:flex-row gap-3' : 'w-full min-w-0'}>
+            {/* COLUNA ESQUERDA - FONTES (Apenas para Avaliação) */}
+            {recordType === 'Avaliacao' && patientId && (
+              <div className="lg:w-80 xl:w-96 shrink-0 animate-slideRightFade">
+                <LinkedToolsSection
+                  patientId={patientId}
+                  variant="sidebar"
+                  onSelectSource={(item: any) => {
+                    setDraft((prev) => prev + '<br><br>' + mdToHtml(item.summary));
+                    pushToast('info', `${item.name} integrado.`);
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0 space-y-3">
+              {/* STEP 1 — Rascunho */}
+              {step === 'draft' && isPlano && (
+                <TherapeuticPlanEditor
+                  plan={theraPlan}
+                  onChange={handleTheraPlanChange}
+                  patientId={patientId}
+                  recordId={record?.id ? String(record.id) : undefined}
+                />
+              )}
+              {step === 'draft' && !isPlano && (
+                <div className="space-y-3 animate-fadeIn">
+                  {isAnamnese ? (
+                    <ContentCard padding="lg" className="text-center">
+                      <EmptyState
+                        icon={ClipboardCheck}
+                        title="Coleta de Dados (Remota)"
+                        description="Para este tipo de registro, o histórico é coletado diretamente com o paciente através de um formulário seguro e sigiloso."
+                      />
+                      {record?.id && (
+                        <div className="pt-3 animate-slideUpFade">
+                          <p className="text-xs font-medium text-slate-600 mb-2">Status do Envio Atual</p>
+                          {(() => {
+                            const currentSend = anamnesisSends.find(s => String(s.medical_record_id) === String(record.id));
+                            if (!currentSend) return <p className="text-xs text-slate-500 italic">Nenhum formulário vinculado.</p>;
+                            return (
+                              <Badge color={currentSend.status === 'answered' ? 'success' : 'primary'} dot>{currentSend.status}</Badge>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </ContentCard>
                   ) : (
-                    <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none disabled:opacity-60" value={recordType} onChange={e => setRecordType(e.target.value)} disabled={mode === 'edit'}>
-                      {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
+                    <ContentCard padding="md" className="space-y-3">
+                      <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                        <FileText size={14} className="text-primary-600" /> Rascunho Bruto da Sessão
+                      </h3>
+                      <RichTextEditor
+                        value={draft}
+                        onChange={setDraft}
+                        placeholder="Escreva tudo o que aconteceu na sessão..."
+                        minHeight={recordType === 'Avaliacao' ? 550 : 400}
+                      />
+                      <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
+                        {aiLoading ? 'Organizando conteúdo...' : 'Organizar com Inteligência Artificial'}
+                      </Button>
+                    </ContentCard>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Modalidade</label>
-                  <select className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-bold outline-none" value={appointmentType} onChange={e => setAppointmentType(e.target.value)}>
-                    {['individual','casal','familiar','grupo','online','presencial'].map(a => <option key={a}>{a}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Início</label>
-                  <input type="time" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none disabled:opacity-60" value={startTime} onChange={e => setStartTime(e.target.value)} disabled={mode === 'edit'}/>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Fim</label>
-                  <input type="time" className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" value={endTime} onChange={e => setEndTime(e.target.value)}/>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase px-1">Tags (vírgula)</label>
-                  <input className="w-full h-11 px-3 rounded-xl bg-slate-50 border border-slate-100 text-sm outline-none" placeholder="ansiedade, fobia..." value={tags} onChange={e => setTags(e.target.value)}/>
-                </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          <div className={recordType === 'Avaliacao' ? 'flex flex-col lg:flex-row gap-6' : recordType === 'Plano' ? 'w-full min-w-0' : 'max-w-5xl mx-auto'}>
-             {/* COLUNA ESQUERDA - FONTES (Apenas para Avaliação) */}
-             {recordType === 'Avaliacao' && patientId && (
-               <div className="lg:w-80 xl:w-96 shrink-0 animate-slideRightFade">
-                 <LinkedToolsSection 
-                    patientId={patientId} 
-                    variant="sidebar"
-                    onSelectSource={(item: any) => {
-                      setDraft((prev) => prev + '<br><br>' + mdToHtml(item.summary));
-                      pushToast('info', `${item.name} integrado.`);
-                    }}
-                 />
-               </div>
-             )}
-
-             {/* COLUNA CENTRAL - EDITOR */}
-             <div className="flex-1 space-y-6">
-                {/* STEP 1 — Rascunho */}
-                {step === 'draft' && recordType === 'Plano' && (
-                  <TherapeuticPlanEditor
-                    plan={theraPlan}
-                    onChange={handleTheraPlanChange}
-                    patientId={patientId}
-                    recordId={record?.id ? String(record.id) : undefined}
-                  />
-                )}
-                {step === 'draft' && recordType !== 'Plano' && (
-                  <div className="space-y-4 animate-fadeIn">
-                    {recordType === 'Anamnese' ? (
-                      <div className="bg-white rounded-[24px] border border-slate-100 p-8 shadow-sm space-y-6 text-center">
-                        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto border border-indigo-100 mb-2">
-                          <ClipboardCheck size={32} className="text-indigo-600" />
-                        </div>
-                        <div className="max-w-md mx-auto space-y-2">
-                          <h3 className="font-black text-slate-800 text-lg uppercase tracking-widest">Coleta de Dados (Remota)</h3>
-                          <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                            Para este tipo de registro, o histórico é coletado diretamente com o paciente através de um formulário seguro e sigiloso.
-                          </p>
-                        </div>
-                        {record?.id && (
-                          <div className="pt-6 animate-slideUpFade">
-                             <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-3">Status do Envio Atual</p>
-                             {(() => {
-                               const currentSend = anamnesisSends.find(s => String(s.medical_record_id) === String(record.id));
-                               if (!currentSend) return <p className="text-xs text-slate-400 font-bold italic">Nenhum formulário vinculado.</p>;
-                               return (
-                                 <div className="inline-flex items-center gap-3 px-6 py-3 bg-indigo-50 rounded-2xl border border-indigo-100 text-[10px] font-black text-indigo-700 uppercase tracking-widest">
-                                   <span className={`w-2 h-2 rounded-full animate-pulse ${currentSend.status === 'answered' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
-                                   {currentSend.status}
-                                 </div>
-                               );
-                             })()}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-white rounded-[24px] border border-slate-100 p-6 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest flex items-center gap-2">
-                            <FileText size={14} className="text-indigo-500" /> Rascunho Bruto da Sessão
-                          </h3>
-                        </div>
-                        <RichTextEditor
-                          value={draft}
-                          onChange={setDraft}
-                          placeholder="Escreva tudo o que aconteceu na sessão..."
-                          minHeight={recordType === 'Avaliacao' ? 550 : 400}
+              {/* STEP 2 — Revisão IA */}
+              {step === 'ai_result' && organized && (
+                <div className="space-y-3 animate-slideUpFade">
+                  {reviewPoints.length > 0 && (
+                    <Alert variant="warning" title="Pontos para revisão humana">
+                      <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i}>• {p}</li>)}</ul>
+                    </Alert>
+                  )}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    {ORGANIZED_FIELDS.map(f => (
+                      <ContentCard key={f.key} padding="md">
+                        <Textarea
+                          label={f.label}
+                          rows={5}
+                          value={organized[f.key] || ''}
+                          onChange={e => setOrganized({ ...organized, [f.key]: e.target.value })}
                         />
-                        <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant="primary"
-                          className="w-full h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center gap-3">
-                          {aiLoading ? 'Organizando conteúdo...' : 'Organizar com Inteligência Artificial'}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Campo Restrito */}
-                    {recordType !== 'Anamnese' && (
-                      <div className="bg-rose-50/50 rounded-[24px] border border-rose-100 p-6 shadow-sm space-y-3">
-                        <div className="flex items-center gap-3">
-                          <Shield size={18} className="text-rose-500"/>
-                          <h3 className="font-black text-rose-700 text-xs uppercase tracking-widest">Observações Privadas (Campo Restrito)</h3>
-                        </div>
-                        <textarea className="w-full p-4 rounded-2xl bg-white border border-rose-100 text-sm leading-relaxed resize-none outline-none focus:border-rose-300 transition font-medium min-h-[120px]"
-                          placeholder="Hipóteses clínicas..."
-                          value={privateNotes} onChange={e => setPrivateNotes(e.target.value)} />
-                      </div>
-                    )}
+                      </ContentCard>
+                    ))}
                   </div>
-                )}
-
-                {/* STEP 2 — Revisão IA */}
-                {step === 'ai_result' && organized && (
-                  <div className="space-y-4 animate-slideUpFade">
-                    {reviewPoints.length > 0 && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-                        <AlertTriangle size={20} className="text-amber-500 mt-0.5 shrink-0"/>
-                        <div>
-                          <p className="font-black text-amber-800 text-xs uppercase tracking-wide mb-1">Pontos para revisão humana</p>
-                          <ul className="space-y-1">{reviewPoints.map((p, i) => <li key={i} className="text-xs text-amber-700 font-bold">• {p}</li>)}</ul>
-                        </div>
-                      </div>
-                    )}
-                    <div className="grid gap-4 pb-20">
-                      {ORGANIZED_FIELDS.map(f => (
-                        <div key={f.key} className="bg-white rounded-[20px] border border-slate-100 p-5 shadow-sm space-y-2">
-                          <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">{f.label}</label>
-                          <textarea
-                            className="w-full p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium resize-none outline-none focus:bg-white focus:border-indigo-300 transition min-h-[100px] leading-relaxed text-slate-700"
-                            value={organized[f.key] || ''}
-                            onChange={e => setOrganized({ ...organized, [f.key]: e.target.value })}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-             </div>
-          </div>
-
-          {/* Anexos (Evolução) */}
-          {recordType === 'Evolucao' && (
-            <div className="bg-slate-50/50 rounded-[24px] border border-slate-200 p-6 shadow-sm max-w-5xl mx-auto">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Layers size={18} className="text-indigo-500"/>
-                  <h3 className="font-black text-slate-700 text-xs uppercase tracking-widest">Anexos da Evolução</h3>
-                </div>
-                <Button variant="ghost" className="text-xs uppercase tracking-widest bg-white border border-slate-200 hover:border-indigo-300 shadow-sm" onClick={() => fileInputRef.current?.click()} loading={uploading}>
-                  <Plus size={14} /> Anexar Arquivo
-                </Button>
-                <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
-              </div>
-              
-              {attachments.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                  {attachments.map((att, idx) => {
-                    const isImage = att.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.file_name || '');
-                    const url = getStaticUrl(att.file_url || att.url);
-                    return (
-                      <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 overflow-hidden group flex-1 min-w-0">
-                          {isImage ? (
-                            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                              <img src={url} alt={att.file_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
-                            </div>
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                              <FileText size={18} className="text-indigo-500" />
-                            </div>
-                          )}
-                          <div className="truncate">
-                            <p className="text-xs font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors">{att.file_name}</p>
-                            {att.file_size ? <p className="text-[10px] text-slate-400">{(att.file_size / 1024 / 1024).toFixed(2)} MB</p> : null}
-                          </div>
-                        </a>
-                        <button onClick={() => removeAttachment(idx)} className="text-rose-500 hover:text-rose-700 ml-2 shrink-0"><Trash2 size={14} /></button>
-                      </div>
-                    );
-                  })}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Campo Restrito */}
+        {editorSection === 'restrito' && !isAnamnese && !isPlano && (
+          <ContentCard padding="md" className="space-y-3">
+            <h3 className="text-sm font-medium text-red-700 flex items-center gap-2">
+              <Shield size={14} /> Observações Privadas (Campo Restrito)
+            </h3>
+            <Textarea
+              aria-label="Observações privadas (campo restrito)"
+              rows={8}
+              placeholder="Hipóteses clínicas..."
+              value={privateNotes}
+              onChange={e => setPrivateNotes(e.target.value)}
+            />
+          </ContentCard>
+        )}
+
+        {/* Anexos (Evolução) */}
+        {editorSection === 'anexos' && recordType === 'Evolucao' && (
+          <ContentCard padding="md" className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                <Layers size={14} className="text-primary-600"/> Anexos da Evolução
+              </h3>
+              <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={() => fileInputRef.current?.click()} loading={uploading}>
+                Anexar Arquivo
+              </Button>
+              <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+            </div>
+
+            {attachments.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {attachments.map((att, idx) => {
+                  const isImage = att.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.file_name || '');
+                  const url = getStaticUrl(att.file_url || att.url);
+                  return (
+                    <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 overflow-hidden group flex-1 min-w-0">
+                        {isImage ? (
+                          <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                            <img src={url} alt={att.file_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none'; }} />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+                            <FileText size={18} className="text-primary-500" />
+                          </div>
+                        )}
+                        <div className="truncate">
+                          <p className="text-xs font-medium text-slate-700 truncate group-hover:text-primary-600 transition-colors">{att.file_name}</p>
+                          {att.file_size ? <p className="text-[11px] text-slate-500">{(att.file_size / 1024 / 1024).toFixed(2)} MB</p> : null}
+                        </div>
+                      </a>
+                      <IconButton size="sm" variant="ghost" onClick={() => removeAttachment(idx)} aria-label="Remover anexo" title="Remover anexo" className="ml-2 shrink-0 text-red-600 hover:bg-red-50"><Trash2 size={14} /></IconButton>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState icon={Layers} title="Nenhum anexo" description="Anexe documentos ou imagens relacionados a esta evolução." />
+            )}
+          </ContentCard>
+        )}
+      </div>
 
       {showApproveModal && (
         <PasswordModal
@@ -1888,7 +1848,7 @@ const RecordEditor: React.FC<{
           onClose={() => setShowApproveModal(false)}
         />
       )}
-    </Modal>
+    </PageWrapper>
   );
 };
 
@@ -1958,154 +1918,124 @@ const SendAnamnesisModal: React.FC<{
     : null;
 
   return (
-    <Modal
-      isOpen
-      onClose={onClose}
-      title="Enviar Anamnese ao Paciente"
-      size="lg"
-      footer={
-        <div className="flex gap-3 w-full">
-          <Button variant="ghost" onClick={onClose} className="flex-1 uppercase text-xs font-black tracking-widest">
-            {generatedLink ? 'Fechar' : 'Cancelar'}
-          </Button>
-          {!generatedLink && (
-            <Button
-              variant="primary"
-              onClick={handleSend}
-              disabled={loading || !title.trim()}
-              className="flex-1 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-indigo-100"
-            >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              {loading ? 'Gerando link...' : 'Gerar Link Seguro'}
-            </Button>
-          )}
-        </div>
-      }
-    >
+    <PageWrapper>
+      <div className="space-y-4 pb-16 animate-fadeIn">
+        <SectionTitle
+          icon={ClipboardCheck}
+          title="Enviar Anamnese"
+          description={`Paciente: ${patient.full_name}`}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14}/>} onClick={onClose}>Voltar</Button>
+              {!generatedLink && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSend}
+                  disabled={loading || !title.trim()}
+                  loading={loading}
+                  iconLeft={<Send size={14} />}
+                >
+                  {loading ? 'Gerando link...' : 'Gerar link seguro'}
+                </Button>
+              )}
+            </div>
+          }
+        />
+        <ContentCard padding="lg">
       {generatedLink ? (
         /* ── LINK GERADO ── */
-        <div className="space-y-5 pt-2 animate-in fade-in duration-500">
-          <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
-              <CheckCheck size={20} className="text-emerald-600" />
-            </div>
-            <div>
-              <p className="font-black text-emerald-800 text-sm">Link gerado com sucesso!</p>
-              <p className="text-emerald-600 text-xs font-medium">Compartilhe com o paciente pelo canal de sua preferência.</p>
-            </div>
-          </div>
+        <div className="space-y-3 animate-in fade-in duration-500">
+          <Alert variant="success" title="Link gerado com sucesso!">
+            Compartilhe com o paciente pelo canal de sua preferência.
+          </Alert>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Link seguro do paciente</p>
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-medium text-slate-600">Link seguro do paciente</p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs text-indigo-700 font-mono bg-white p-2 rounded-xl border border-indigo-100 truncate">{generatedLink}</code>
-              <button
-                onClick={copyLink}
-                className={`h-9 px-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-1.5 transition ${copied ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-              >
-                {copied ? <><CheckCheck size={14}/> Copiado!</> : <><Copy size={14}/> Copiar</>}
-              </button>
+              <code className="flex-1 text-xs text-primary-700 font-mono bg-white p-2 rounded-lg border border-primary-100 truncate">{generatedLink}</code>
+              <Button size="sm" variant={copied ? 'success' : 'primary'} onClick={copyLink} iconLeft={copied ? <CheckCheck size={14}/> : <Copy size={14}/>}>
+                {copied ? 'Copiado!' : 'Copiar'}
+              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={copyLink}
-              className="flex flex-col items-center gap-2 p-4 bg-white rounded-2xl border-2 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition text-center"
+              className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-lg border border-slate-200 hover:border-primary-300 hover:bg-primary-50/40 transition text-center"
             >
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                <ExternalLink size={18} className="text-slate-600" />
-              </div>
-              <p className="text-xs font-black text-slate-700 uppercase tracking-wider">Copiar Link</p>
-              <p className="text-[10px] text-slate-400 font-medium">Cole em qualquer canal</p>
+              <ExternalLink size={16} className="text-slate-600" />
+              <p className="text-xs font-medium text-slate-700">Copiar Link</p>
+              <p className="text-[11px] text-slate-500">Cole em qualquer canal</p>
             </button>
             {whatsappLink && (patient.phone || '').replace(/\D/g, '').length >= 10 && (
               <a
                 href={whatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center gap-2 p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-100 hover:border-emerald-400 hover:bg-emerald-100 transition text-center"
+                className="flex flex-col items-center gap-1.5 p-3 bg-emerald-50 rounded-lg border border-emerald-200 hover:border-emerald-400 hover:bg-emerald-100 transition text-center"
               >
-                <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
-                  <MessageSquare size={18} className="text-white" />
-                </div>
-                <p className="text-xs font-black text-emerald-700 uppercase tracking-wider">Enviar WhatsApp</p>
-                <p className="text-[10px] text-emerald-600 font-medium">{patient.phone}</p>
+                <MessageSquare size={16} className="text-emerald-600" />
+                <p className="text-xs font-medium text-emerald-700">Enviar WhatsApp</p>
+                <p className="text-[11px] text-emerald-600">{patient.phone}</p>
               </a>
             )}
           </div>
 
           {/* Confirmação do lembrete automático */}
           {reminderHours ? (
-            <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
-              <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                <Bell size={15} className="text-amber-600" />
-              </div>
-              <div>
-                <p className="font-black text-amber-800 text-xs uppercase tracking-widest">Lembrete automático agendado</p>
-                <p className="text-amber-700 text-xs font-medium mt-0.5">
-                  Se o paciente não responder, o bot enviará um lembrete via WhatsApp automaticamente em{' '}
-                  <strong>
-                    {reminderHours === 24 ? '24 horas' :
-                     reminderHours === 48 ? '2 dias' :
-                     reminderHours === 72 ? '3 dias' :
-                     reminderHours === 168 ? '7 dias' :
-                     `${reminderHours}h`}
-                  </strong>.
-                </p>
-                <p className="text-amber-500 text-[10px] font-medium mt-1">O lembrete é cancelado automaticamente quando o paciente responder ou se você cancelar o envio.</p>
-              </div>
-            </div>
+            <Alert variant="warning" title="Lembrete automático agendado">
+              Se o paciente não responder, o bot enviará um lembrete via WhatsApp automaticamente em{' '}
+              <strong>
+                {reminderHours === 24 ? '24 horas' :
+                 reminderHours === 48 ? '2 dias' :
+                 reminderHours === 72 ? '3 dias' :
+                 reminderHours === 168 ? '7 dias' :
+                 `${reminderHours}h`}
+              </strong>.
+              <span className="block text-[11px] mt-1">O lembrete é cancelado automaticamente quando o paciente responder ou se você cancelar o envio.</span>
+            </Alert>
           ) : (
-            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <Bell size={13} className="text-slate-300 shrink-0" />
-              <p className="text-[11px] text-slate-400 font-medium">Sem lembrete automático configurado. Você pode enviar um lembrete manual a qualquer momento.</p>
-            </div>
+            <Alert variant="info">Sem lembrete automático configurado. Você pode enviar um lembrete manual a qualquer momento.</Alert>
           )}
 
-          <p className="text-[10px] text-slate-400 font-medium text-center px-4">
-            🔒 Link criptografado e de uso único por sessão. O paciente não precisa de conta no sistema.
+          <p className="text-[11px] text-slate-500 text-center px-4">
+            Link criptografado e de uso único por sessão. O paciente não precisa de conta no sistema.
           </p>
         </div>
       ) : (
         /* ── CONFIGURAÇÕES ── */
-        <div className="space-y-5 pt-2">
-          {/* Título */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Título do formulário *</label>
-            <input
-              className="w-full h-11 px-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold outline-none focus:border-indigo-400 focus:bg-white transition"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Ex: Anamnese Inicial — Nome do Paciente"
-            />
-          </div>
+        <div className="space-y-3">
+          <Input
+            label="Título do formulário *"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Ex: Anamnese Inicial — Nome do Paciente"
+          />
 
-          {/* Mensagem personalizada */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mensagem de boas-vindas (opcional)</label>
-            <textarea
-              className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium outline-none focus:border-indigo-400 focus:bg-white transition resize-none min-h-[80px]"
-              value={customMessage}
-              onChange={e => setCustomMessage(e.target.value)}
-              placeholder="Ex: Olá! Antes da nossa primeira sessão, gostaria que você preenchesse este formulário..."
-            />
-          </div>
+          <Textarea
+            label="Mensagem de boas-vindas (opcional)"
+            rows={3}
+            value={customMessage}
+            onChange={e => setCustomMessage(e.target.value)}
+            placeholder="Ex: Olá! Antes da nossa primeira sessão, gostaria que você preenchesse este formulário..."
+          />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Tipo de formulário */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Versão</label>
+            <div className="space-y-1">
+              <span className="ds-label">Versão</span>
               <div className="flex flex-col gap-2">
                 {([['full', 'Completa', '~15 min'], ['short', 'Rápida', '~5 min']] as const).map(([val, lab, time]) => (
                   <button
                     key={val}
                     type="button"
                     onClick={() => setTemplateType(val as 'full' | 'short')}
-                    className={`p-3 rounded-xl border-2 text-left transition ${templateType === val ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-slate-50 border-slate-100 text-slate-500 hover:border-indigo-100'}`}
+                    className={`p-3 rounded-lg border text-left transition ${templateType === val ? 'bg-primary-50 border-primary-500 text-primary-700' : 'bg-white border-slate-200 text-slate-600 hover:border-primary-300'}`}
                   >
-                    <p className="font-black text-xs uppercase">{lab}</p>
-                    <p className="text-[10px] font-medium opacity-70">{time}</p>
+                    <p className="font-medium text-xs">{lab}</p>
+                    <p className="text-[11px] text-slate-500">{time}</p>
                   </button>
                 ))}
               </div>
@@ -2113,83 +2043,51 @@ const SendAnamnesisModal: React.FC<{
 
             {/* Opções */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Configurações</label>
-              {[
-                { label: 'Continuar em etapas', sub: 'Salva o progresso', val: allowResume, set: setAllowResume },
-                { label: 'Editar após envio', sub: 'Permite correções', val: allowEditAfterSubmit, set: setAllowEditAfterSubmit },
-              ].map(opt => (
-                <button
-                  key={opt.label}
-                  type="button"
-                  onClick={() => opt.set(!opt.val)}
-                  className={`w-full p-3 rounded-xl border-2 text-left flex items-center gap-3 transition ${opt.val ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-100'}`}
-                >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 ${opt.val ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
-                    {opt.val && <CheckCheck size={12} className="text-white" />}
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-700">{opt.label}</p>
-                    <p className="text-[10px] font-medium text-slate-400">{opt.sub}</p>
-                  </div>
-                </button>
-              ))}
+              <span className="ds-label">Configurações</span>
+              <Switch checked={allowResume} onCheckedChange={setAllowResume} label="Continuar em etapas" description="Salva o progresso" />
+              <Switch checked={allowEditAfterSubmit} onCheckedChange={setAllowEditAfterSubmit} label="Editar após envio" description="Permite correções" />
 
-              {/* Expiração */}
-              <select
-                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold outline-none focus:border-indigo-400"
-                value={expiresHours ?? ''}
-                onChange={e => setExpiresHours(e.target.value ? Number(e.target.value) : null)}
-              >
+              <Select aria-label="Expiração" value={expiresHours ?? ''} onChange={e => setExpiresHours(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">Sem expiração</option>
                 <option value="24">Expira em 24h</option>
                 <option value="48">Expira em 48h</option>
                 <option value="168">Expira em 7 dias</option>
                 <option value="720">Expira em 30 dias</option>
-              </select>
+              </Select>
 
-              {/* Lembrete */}
-              <select
-                className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold outline-none focus:border-indigo-400"
-                value={reminderHours ?? ''}
-                onChange={e => setReminderHours(e.target.value ? Number(e.target.value) : null)}
-              >
+              <Select aria-label="Lembrete" value={reminderHours ?? ''} onChange={e => setReminderHours(e.target.value ? Number(e.target.value) : null)}>
                 <option value="">Sem lembrete</option>
                 <option value="24">Lembrar em 24h</option>
                 <option value="48">Lembrar em 48h</option>
                 <option value="72">Lembrar em 3 dias</option>
                 <option value="168">Lembrar em 7 dias</option>
-              </select>
+              </Select>
             </div>
           </div>
 
-          {/* Abordagem */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Abordagem terapêutica (para guiar IA)</label>
-            <select
-              className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold outline-none focus:border-indigo-400"
-              value={approach}
-              onChange={e => setApproach(e.target.value)}
-            >
-              <option value="">Não especificar</option>
-              <option value="tcc">TCC — Terapia Cognitivo-Comportamental</option>
-              <option value="psicanalise">Psicanálise</option>
-              <option value="humanista">Humanista / Rogersiana</option>
-              <option value="act">ACT — Terapia de Aceitação e Compromisso</option>
-              <option value="sistemica">Sistêmica / Familiar</option>
-              <option value="integrativa">Integrativa</option>
-            </select>
-            <p className="text-[10px] text-slate-400 font-medium">A IA usará esta abordagem para organizar as respostas do paciente.</p>
-          </div>
+          <Select
+            label="Abordagem terapêutica (para guiar IA)"
+            hint="A IA usará esta abordagem para organizar as respostas do paciente."
+            value={approach}
+            onChange={e => setApproach(e.target.value)}
+          >
+            <option value="">Não especificar</option>
+            <option value="tcc">TCC — Terapia Cognitivo-Comportamental</option>
+            <option value="psicanalise">Psicanálise</option>
+            <option value="humanista">Humanista / Rogersiana</option>
+            <option value="act">ACT — Terapia de Aceitação e Compromisso</option>
+            <option value="sistemica">Sistêmica / Familiar</option>
+            <option value="integrativa">Integrativa</option>
+          </Select>
 
-          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3">
-            <Brain size={16} className="text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700 font-medium leading-relaxed">
-              As respostas do paciente <strong>não vão diretamente para o prontuário</strong>. Você receberá um aviso para revisar e aprovar antes de incorporá-las ao histórico clínico.
-            </p>
-          </div>
+          <Alert variant="warning">
+            As respostas do paciente <strong>não vão diretamente para o prontuário</strong>. Você receberá um aviso para revisar e aprovar antes de incorporá-las ao histórico clínico.
+          </Alert>
         </div>
       )}
-    </Modal>
+        </ContentCard>
+      </div>
+    </PageWrapper>
   );
 };
 
@@ -2197,6 +2095,13 @@ const SendAnamnesisModal: React.FC<{
    ANAMNESIS RESPONSE MODAL
    Profissional revisa respostas do paciente, usa IA e converte
 ═══════════════════════════════════════════════════════════════ */
+const RESPONSE_TABS = [
+  { id: 'resumo', label: 'Resumo', icon: Info },
+  { id: 'respostas', label: 'Respostas', icon: ClipboardCheck },
+  { id: 'revisao', label: 'Revisão', icon: CheckCheck },
+] as const;
+type ResponseTabId = typeof RESPONSE_TABS[number]['id'];
+
 const AnamnesisResponseModal: React.FC<{
   sendId: number;
   patientName: string;
@@ -2209,6 +2114,7 @@ const AnamnesisResponseModal: React.FC<{
   const [aiLoading, setAiLoading] = useState(false);
   const [convertLoading, setConvertLoading] = useState(false);
   const [notes, setNotes] = useState('');
+  const [respTab, setRespTab] = useState<ResponseTabId>('resumo');
   const { pushToast } = useToast();
   const { hasPermission } = useAuth();
 
@@ -2285,226 +2191,202 @@ const AnamnesisResponseModal: React.FC<{
       isOpen
       onClose={onClose}
       title="Respostas da Anamnese"
-      size="xl"
+      subtitle={patientName}
+      size="full"
+      className={BIG_MODAL}
       footer={
-        <div className="flex gap-3 w-full flex-wrap">
-          <Button variant="ghost" onClick={onClose} className="uppercase text-xs font-black tracking-widest">Fechar</Button>
-          {!hasAnswers && data?.status !== 'answered' && data?.status !== 'cancelled' && (
-            <Button variant="ghost" onClick={sendReminder}
-              className="gap-2 uppercase text-xs font-black tracking-widest border-amber-200 text-amber-700 hover:bg-amber-50">
-              <Bell size={14} /> Enviar Lembrete
-            </Button>
-          )}
-          {hasAnswers && reviewStatus !== 'approved' && (
-            <Button variant="primary" onClick={convertToRecord} disabled={convertLoading}
-              className="gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-emerald-100 bg-emerald-600 border-emerald-600 hover:bg-emerald-700">
-              {convertLoading ? <Loader2 size={16} className="animate-spin" /> : <ClipboardCheck size={16} />}
-              Criar Rascunho de Prontuário
-            </Button>
-          )}
-        </div>
+        <ModalFooter align="between">
+          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {!hasAnswers && data?.status !== 'answered' && data?.status !== 'cancelled' && (
+              <Button variant="outline" size="sm" onClick={sendReminder} iconLeft={<Bell size={14} />}>
+                Enviar Lembrete
+              </Button>
+            )}
+            {hasAnswers && reviewStatus !== 'approved' && (
+              <Button variant="primary" size="sm" onClick={convertToRecord} disabled={convertLoading} loading={convertLoading} iconLeft={<ClipboardCheck size={14} />}>
+                Criar Rascunho de Prontuário
+              </Button>
+            )}
+          </div>
+        </ModalFooter>
       }
     >
       {loading ? (
-        <div className="py-16 flex items-center justify-center">
-          <Loader2 size={32} className="text-indigo-600 animate-spin" />
+        <div role="status" className="py-16 flex items-center justify-center">
+          <Loader2 size={24} className="text-primary-600 animate-spin" />
         </div>
       ) : !hasAnswers ? (
-        <div className="py-12 text-center space-y-3">
-          <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-slate-100">
-            <ClipboardCheck size={28} className="text-slate-300" />
-          </div>
-          <p className="text-slate-500 font-bold text-sm">
-            {data?.status === 'sent' ? 'O paciente ainda não abriu o formulário.' :
-             data?.status === 'viewed' ? 'O paciente abriu o formulário mas ainda não respondeu.' :
-             data?.status === 'filling' ? 'O paciente está preenchendo o formulário agora.' :
-             'Nenhuma resposta registrada ainda.'}
-          </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{REVIEW_STATUS_LABELS[reviewStatus] || reviewStatus}</span>
-          </div>
+        <div className="py-8">
+          <EmptyState
+            icon={ClipboardCheck}
+            title={
+              data?.status === 'sent' ? 'O paciente ainda não abriu o formulário.' :
+              data?.status === 'viewed' ? 'O paciente abriu o formulário mas ainda não respondeu.' :
+              data?.status === 'filling' ? 'O paciente está preenchendo o formulário agora.' :
+              'Nenhuma resposta registrada ainda.'
+            }
+            description={REVIEW_STATUS_LABELS[reviewStatus] || reviewStatus}
+          />
         </div>
       ) : (
-        <div className="space-y-5 pt-2 max-h-[65vh] overflow-y-auto">
-          {/* Alerta crítico */}
-          {hasCritical && (
-            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
-              <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-black text-rose-700 text-sm">Conteúdo crítico detectado</p>
-                <p className="text-rose-600 text-xs font-medium mt-0.5">O paciente mencionou: {alerts.join(', ')}. Avalie com atenção prioritária.</p>
+        <div className="space-y-4">
+          <div className="sticky -top-4 z-10 -mx-4 -mt-4 bg-white px-4 pt-2">
+            <Tabs<ResponseTabId> items={RESPONSE_TABS} value={respTab} onChange={setRespTab} label="Seções das respostas" />
+          </div>
+
+          {respTab === 'resumo' && (
+            <div className="space-y-3">
+              {/* Alerta crítico */}
+              {hasCritical && (
+                <Alert variant="error" title="Conteúdo crítico detectado">
+                  O paciente mencionou: {alerts.join(', ')}. Avalie com atenção prioritária.
+                </Alert>
+              )}
+
+              {/* Metadados */}
+              <StatGrid cols={4}>
+                {[
+                  { label: 'Enviado', val: data?.sent_at ? new Date(data.sent_at).toLocaleString('pt-BR') : '—' },
+                  { label: 'Respondido', val: data?.response?.submitted_at ? new Date(data.response.submitted_at).toLocaleString('pt-BR') : '—' },
+                  { label: 'Status envio', val: data?.status },
+                  { label: 'Revisão', val: REVIEW_STATUS_LABELS[reviewStatus] || reviewStatus },
+                ].map(item => (
+                  <div key={item.label} className="bg-white rounded-lg p-3 border border-slate-200">
+                    <p className="text-[11px] text-slate-500">{item.label}</p>
+                    <p className="text-xs font-medium text-slate-800 mt-0.5">{item.val}</p>
+                  </div>
+                ))}
+              </StatGrid>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <PanelCard title="Configuração do Envio" icon={Settings}>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[11px] text-slate-500">Versão</span>
+                      <p className="text-[13px] font-medium text-slate-800">{data?.template_type === 'full' ? 'Completa (~15min)' : 'Rápida (~5min)'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500">Abordagem (IA)</span>
+                      <p className="text-[13px] text-slate-700">{data?.approach ? data.approach.toUpperCase() : 'Não especificada'}</p>
+                    </div>
+                    {data?.custom_message && (
+                      <div>
+                        <span className="text-[11px] text-slate-500">Mensagem enviada</span>
+                        <p className="text-xs text-slate-600 italic leading-snug line-clamp-2">"{data.custom_message}"</p>
+                      </div>
+                    )}
+                  </div>
+                </PanelCard>
+
+                <PanelCard title="Link do Formulário" icon={LinkIcon}>
+                  {data?.status === 'answered' ? (
+                    <Badge color="success" dot>Formulário concluído</Badge>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between gap-3">
+                        <span className="text-[11px] text-slate-500 truncate min-w-0">{data?.public_link}</span>
+                        <IconButton
+                          size="sm"
+                          variant="ghost"
+                          aria-label="Copiar link"
+                          title="Copiar link"
+                          onClick={() => { navigator.clipboard.writeText(data?.public_link); pushToast('success', 'Link copiado!'); }}
+                          className="shrink-0"
+                        >
+                          <Copy size={14}/>
+                        </IconButton>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button size="xs" variant="outline" onClick={async () => {
+                           try {
+                              const resp: any = await api.post(`/anamnesis-send/${sendId}/resend`, {});
+                              setData((prev: any) => ({ ...prev, public_link: resp.public_link, status: 'sent', secure_token: resp.secure_token }));
+                              pushToast('success', 'Novo link gerado!');
+                           } catch { pushToast('error', 'Erro ao gerar novo link.'); }
+                        }}>Gerar Novo Link</Button>
+                        <Button size="xs" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={async () => {
+                           if (!confirm('Deseja realmente cancelar este link? O paciente não poderá mais responder.')) return;
+                           try {
+                              await api.post(`/anamnesis-send/${sendId}/cancel`, {});
+                              setData((prev: any) => ({ ...prev, status: 'cancelled' }));
+                              pushToast('success', 'Link revogado.');
+                           } catch { pushToast('error', 'Erro ao revogar link.'); }
+                        }}>Revogar</Button>
+                      </div>
+                    </div>
+                  )}
+                </PanelCard>
+              </div>
+
+              {/* Resumo IA */}
+              {(aiSummary || tccDraft) ? (
+                <PanelCard title="Análise Clínica — Bia IA" icon={Brain}>
+                  <div className="space-y-2">
+                    {Object.entries((tccDraft || aiSummary) as Record<string, unknown>).filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k}>
+                        <p className="text-[11px] font-medium text-primary-600">{k.replace(/_/g, ' ')}</p>
+                        <p className="text-[13px] text-slate-700 leading-relaxed">{String(v)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </PanelCard>
+              ) : hasPermission('access_ai_features') ? (
+                <Button
+                  onClick={generateAI}
+                  disabled={aiLoading}
+                  loading={aiLoading}
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  iconLeft={<Brain size={14} />}
+                >
+                  {aiLoading ? 'Gerando análise IA...' : 'Gerar Análise com Bia IA'}
+                </Button>
+              ) : null}
+            </div>
+          )}
+
+          {respTab === 'respostas' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <p className="text-xs font-medium text-slate-600 flex items-center gap-2">
+                  <ClipboardCheck size={14} /> Respostas do Paciente
+                </p>
+                <span className="text-[11px] text-slate-500">Respostas fornecidas via link seguro</span>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                {Object.entries(answers).map(([key, val]) => (
+                  <div key={key} className="bg-white border border-slate-200 rounded-lg p-3 hover:border-primary-200 transition-colors">
+                    <div className="text-[11px] font-medium text-primary-600 mb-1">
+                      {ANAMNESIS_FIELD_LABELS[key] || key.replace(/_/g, ' ')}
+                    </div>
+                    <p className="text-[13px] text-slate-800 leading-relaxed">
+                      {Array.isArray(val) ? val.join(', ') : typeof val === 'number' ? `${val}/10` : String(val || '—')}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Metadados */}
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            {[
-              { label: 'Enviado', val: data?.sent_at ? new Date(data.sent_at).toLocaleString('pt-BR') : '—' },
-              { label: 'Respondido', val: data?.response?.submitted_at ? new Date(data.response.submitted_at).toLocaleString('pt-BR') : '—' },
-              { label: 'Status envio', val: data?.status },
-              { label: 'Revisão', val: REVIEW_STATUS_LABELS[reviewStatus] || reviewStatus },
-            ].map(item => (
-              <div key={item.label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                <p className="font-black text-slate-400 uppercase tracking-widest text-[9px]">{item.label}</p>
-                <p className="font-bold text-slate-700 mt-0.5">{item.val}</p>
+          {respTab === 'revisao' && (
+            <ContentCard padding="md" className="space-y-3">
+              <Textarea
+                label="Anotações clínicas (uso profissional)"
+                rows={8}
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Impressões clínicas, observações, pontos a aprofundar na sessão..."
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="warning" onClick={() => saveReview('reviewing')}>Salvar como Em Revisão</Button>
+                <Button size="sm" variant="success" onClick={() => saveReview('approved')}>Marcar como Aprovado</Button>
+                <Button size="sm" variant="softDanger" className="sm:ml-auto" onClick={() => saveReview('discarded')}>Descartar</Button>
               </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
-              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <Settings size={12}/> Configuração do Envio
-              </div>
-              <div className="space-y-2">
-                <div>
-                   <span className="text-[10px] font-bold text-slate-400 uppercase">Versão</span>
-                   <p className="text-sm font-black text-slate-700 uppercase">{data?.template_type === 'full' ? 'Completa (~15min)' : 'Rápida (~5min)'}</p>
-                </div>
-                <div>
-                   <span className="text-[10px] font-bold text-slate-400 uppercase">Abordagem (IA)</span>
-                   <p className="text-[11px] font-bold text-slate-600 uppercase">{data?.approach ? data.approach.toUpperCase() : 'Não especificada'}</p>
-                </div>
-                {data?.custom_message && (
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Mensagem enviada</span>
-                    <p className="text-xs text-slate-500 italic leading-snug line-clamp-2">"{data.custom_message}"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className={`rounded-2xl p-4 border space-y-3 ${data?.status === 'answered' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
-              <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <LinkIcon size={12}/> Link do Formulário
-              </div>
-              
-              {data?.status === 'answered' ? (
-                <div className="py-2">
-                   <p className="text-xs font-black text-emerald-700 bg-emerald-100/50 px-3 py-1.5 rounded-lg border border-emerald-200 inline-block">FORMULÁRIO CONCLUÍDO</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                   <div className="bg-white p-2 rounded-xl border border-indigo-100 flex items-center justify-between gap-3">
-                      <span className="text-[11px] font-medium text-slate-400 truncate max-w-[150px]">{data?.public_link}</span>
-                      <Button 
-                        size="xs" 
-                        variant="ghost" 
-                        onClick={() => { navigator.clipboard.writeText(data?.public_link); pushToast('success', 'Link copiado!'); }}
-                        className="h-7 w-7 p-0 shrink-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white"
-                      >
-                        <Copy size={12}/>
-                      </Button>
-                   </div>
-                   <div className="flex items-center gap-2">
-                      <Button size="xs" variant="ghost" className="h-8 text-[10px] uppercase font-black tracking-widest bg-white border border-slate-200" onClick={async () => {
-                         try {
-                            const resp: any = await api.post(`/anamnesis-send/${sendId}/resend`, {});
-                            setData((prev: any) => ({ ...prev, public_link: resp.public_link, status: 'sent', secure_token: resp.secure_token }));
-                            pushToast('success', 'Novo link gerado!');
-                         } catch { pushToast('error', 'Erro ao gerar novo link.'); }
-                      }}>Gerar Novo Link</Button>
-                      <Button size="xs" variant="ghost" className="h-8 text-[10px] uppercase font-black tracking-widest text-rose-600 hover:bg-rose-50" onClick={async () => {
-                         if (!confirm('Deseja realmente cancelar este link? O paciente não poderá mais responder.')) return;
-                         try {
-                            await api.post(`/anamnesis-send/${sendId}/cancel`, {});
-                            setData((prev: any) => ({ ...prev, status: 'cancelled' }));
-                            pushToast('success', 'Link revogado.');
-                         } catch { pushToast('error', 'Erro ao revogar link.'); }
-                      }}>Revogar</Button>
-                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Resumo IA */}
-          {(aiSummary || tccDraft) ? (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <Brain size={16} className="text-indigo-600" />
-                <p className="font-black text-indigo-700 text-xs uppercase tracking-widest">Análise Clínica — Bia IA</p>
-              </div>
-              {tccDraft && (
-                <div className="space-y-2">
-                  {Object.entries(tccDraft).filter(([, v]) => v).map(([k, v]) => (
-                    <div key={k}>
-                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</p>
-                      <p className="text-sm text-indigo-800 font-medium leading-relaxed">{String(v)}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {aiSummary && !tccDraft && (
-                <div className="space-y-2">
-                  {Object.entries(aiSummary).filter(([, v]) => v).map(([k, v]) => (
-                    <div key={k}>
-                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</p>
-                      <p className="text-sm text-indigo-800 font-medium leading-relaxed">{String(v)}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : hasPermission('access_ai_features') ? (
-            <button
-              onClick={generateAI}
-              disabled={aiLoading}
-              className="w-full h-12 rounded-2xl border-2 border-dashed border-indigo-200 text-indigo-600 text-xs font-black uppercase tracking-widest hover:bg-indigo-50 transition flex items-center justify-center gap-2"
-            >
-              {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
-              {aiLoading ? 'Gerando análise IA...' : 'Gerar Análise com Bia IA'}
-            </button>
-          ) : null}
-
-          {/* Respostas Detalhadas */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <ClipboardCheck size={12} /> Respostas do Paciente
-              </p>
-              <span className="text-[9px] font-bold text-slate-300 uppercase">Respostas fornecidas via link seguro</span>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-3">
-              {Object.entries(answers).map(([key, val]) => (
-                <div key={key} className="bg-white border border-slate-100 rounded-[20px] p-5 shadow-sm hover:border-indigo-100 transition-colors">
-                  <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <div className="w-1 h-3 bg-indigo-500 rounded-full" />
-                    {ANAMNESIS_FIELD_LABELS[key] || key.replace(/_/g, ' ')}
-                  </div>
-                  <p className="text-sm text-slate-700 font-semibold leading-relaxed">
-                    {Array.isArray(val) ? val.join(', ') : typeof val === 'number' ? `${val}/10` : String(val || '—')}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Notas profissional */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Anotações clínicas (uso profissional)</label>
-            <textarea
-              className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium outline-none focus:border-indigo-400 focus:bg-white min-h-[80px] resize-none"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Impressões clínicas, observações, pontos a aprofundar na sessão..."
-            />
-            <div className="flex gap-2">
-              <button onClick={() => saveReview('reviewing')} className="h-9 px-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black uppercase hover:bg-amber-100 transition">
-                Salvar como Em Revisão
-              </button>
-              <button onClick={() => saveReview('approved')} className="h-9 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black uppercase hover:bg-emerald-100 transition">
-                Marcar como Aprovado
-              </button>
-              <button onClick={() => saveReview('discarded')} className="h-9 px-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-black uppercase hover:bg-rose-100 transition ml-auto">
-                Descartar
-              </button>
-            </div>
-          </div>
+            </ContentCard>
+          )}
         </div>
       )}
     </Modal>
@@ -2520,7 +2402,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<'grid' | 'patient'>(searchParams.get('patient_id') ? 'patient' : 'grid');
-  const [activeTab, setActiveTab] = useState<'history' | 'analysis' | 'timeline'>(defaultTab === 'analysis' ? 'analysis' : 'history');
+  const [activeTab, setActiveTab] = useState<RecordsTabId>(defaultTab === 'analysis' ? 'analysis' : 'history');
   
   // Filtros
   const [search, setSearch] = useState('');
@@ -2755,23 +2637,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     };
     setTypeSelectorOpen(false);
 
-    if (type === 'Anamnese' && pat) {
-      try {
-        const newRecord = await api.post<MedicalRecord>('/medical-records', {
-          patient_id: selectedPatientId,
-          record_type: 'Anamnese',
-          title: titleMap['Anamnese'],
-          status: 'Rascunho',
-          created_at: new Date().toISOString().split('T')[0],
-        });
-        if (selectedPatientId) fetchRecords(selectedPatientId);
-        setSendAnamnesisModal({ record: newRecord, patient: pat });
-      } catch {
-        pushToast('error', 'Erro ao criar registro de anamnese');
-      }
-      return;
-    }
-
     if (type === 'Relatorio' && pat) { setRelatorioModal(pat); return; }
     if (type === 'Encaminhamento' && pat) { setEncaminhamentoModal(pat); return; }
     if (type === 'Atestado' && pat) { setAtestadoModal(pat); return; }
@@ -2834,12 +2699,12 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30, 27, 75);
             doc.text(patName, MARGIN + 5, y + 15);
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
-            doc.text(`CPF: ${patCPF}   |   Nascimento: ${patBirth}`, MARGIN + 5, y + 22);
+            doc.text(`CPF: ${patCPF} | Nascimento: ${patBirth}`, MARGIN + 5, y + 22);
 
             // ── Professional info ──────────────────────────────────
             y += 34;
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
-            doc.text(`Profissional Responsável: ${profName}   |   CRP: ${profCRP}`, MARGIN, y);
+            doc.text(`Profissional Responsável: ${profName} | CRP: ${profCRP}`, MARGIN, y);
             y += 5;
             doc.setDrawColor(226, 232, 240); doc.line(MARGIN, y, W - MARGIN, y);
             y += 8;
@@ -2874,7 +2739,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                 // Tags
                 if (r.tags && r.tags.length > 0) {
                     doc.setFontSize(7); doc.setTextColor(99, 91, 255);
-                    doc.text('Tags: ' + r.tags.join(', '), MARGIN + 3, y);
+                    doc.text('Tags:' + r.tags.join(', '), MARGIN + 3, y);
                     y += 5;
                 }
 
@@ -2957,14 +2822,14 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             const children: any[] = [
                 new Paragraph({ text: systemName, heading: HeadingLevel.HEADING_3 }),
                 new Paragraph({ text: `Prontuário Clínico — ${patName}`, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
-                new Paragraph({ children: [new TextRun({ text: `Paciente: ${patName}   CPF: ${patCPF}   Nascimento: ${patBirth}`, bold: false })], spacing: { after: 100 } }),
-                new Paragraph({ children: [new TextRun({ text: `Profissional: ${profName}   CRP: ${profCRP}`, bold: false })], spacing: { after: 100 } }),
+                new Paragraph({ children: [new TextRun({ text: `Paciente: ${patName} CPF: ${patCPF} Nascimento: ${patBirth}`, bold: false })], spacing: { after: 100 } }),
+                new Paragraph({ children: [new TextRun({ text: `Profissional: ${profName} CRP: ${profCRP}`, bold: false })], spacing: { after: 100 } }),
                 new Paragraph({ children: [new TextRun({ text: `Gerado em: ${exportDate}`, italics: true, color: '888888' })], spacing: { after: 400 } }),
             ];
 
             patientRecords.forEach((r, idx) => {
                 children.push(new Paragraph({ text: `${idx + 1}. ${r.title}`, heading: HeadingLevel.HEADING_2 }));
-                children.push(new Paragraph({ children: [new TextRun({ text: `Data: ${fmtDate(r.created_at)}  |  Tipo: ${TYPE_LABELS[r.record_type] || r.record_type}  |  Status: ${r.status}`, color: '666666', size: 18 })], spacing: { after: 100 } }));
+                children.push(new Paragraph({ children: [new TextRun({ text: `Data: ${fmtDate(r.created_at)} | Tipo: ${TYPE_LABELS[r.record_type] || r.record_type} | Status: ${r.status}`, color: '666666', size: 18 })], spacing: { after: 100 } }));
 
                 if (mode !== 'restricted_only') {
                     let organized: any = null;
@@ -3005,7 +2870,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         pushToast('success', 'Documento gerado e baixado!');
         setShowExportModal(false);
     } catch (err: any) {
-        pushToast('error', 'Erro na exportação: ' + err.message);
+        pushToast('error', 'Erro na exportação:' + err.message);
     } finally {
         setIsLoading(false);
     }
@@ -3044,58 +2909,70 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     );
   }
 
+  if (sendAnamnesisModal) {
+    return (
+      <SendAnamnesisModal
+        record={sendAnamnesisModal.record}
+        patient={sendAnamnesisModal.patient}
+        user={user as any}
+        onClose={() => setSendAnamnesisModal(null)}
+        onSent={(sendData) => {
+          setAnamnesisSends(prev => {
+            const exists = prev.find(s => s.id === sendData.id);
+            return exists ? prev.map(s => s.id === sendData.id ? sendData : s) : [...prev, sendData];
+          });
+          pushToast('success', 'Anamnese enviada ao paciente com sucesso!');
+        }}
+      />
+    );
+  }
+
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
+    <PageWrapper>
+     <div className="space-y-4">
       <SectionTitle
         icon={FileText}
         title="Prontuário Clínico"
         description={view === 'patient' && selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Evoluções, Relatórios e Diagnósticos"}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {view === 'patient' && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
+                  iconLeft={<ArrowLeft size={14}/>}
                   onClick={() => { setSearchParams({}); setView('grid'); setSelectedPatientId(null); setRecords([]); setAnamnesisSends([]); }}
-                  className="gap-2 uppercase text-xs font-black tracking-widest"
                 >
-                  <ArrowLeft size={14}/> <span className="hidden sm:inline">Voltar</span>
+                  <span className="hidden sm:inline">Voltar</span>
                 </Button>
 
-                <FilterLineSegmented
-                  value={activeTab}
-                  onChange={(v) => setActiveTab(v as typeof activeTab)}
-                  options={[
-                    { value: 'history', label: 'Registros', icon: <History size={13}/> },
-                    { value: 'timeline', label: 'Timeline', icon: <Clock size={13}/> },
-                    { value: 'analysis', label: 'Análise', icon: <BarChart2 size={13}/> },
-                  ]}
-                />
-
-                <Button variant="ghost" size="sm" onClick={exportPDF} className="gap-2 uppercase text-xs font-black tracking-widest">
-                  <Download size={14}/> <span className="hidden sm:inline">PDF</span>
+                <Button variant="outline" size="sm" iconLeft={<Download size={14}/>} onClick={exportPDF}>
+                  <span className="hidden sm:inline">PDF</span>
                 </Button>
 
-                <Button variant="primary" size="sm" onClick={openNew} className="gap-2 uppercase text-xs font-black tracking-widest shadow-lg shadow-indigo-100">
-                  <Plus size={16}/> <span className="hidden sm:inline">Novo Registro</span>
+                <Button variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={openNew}>
+                  <span className="hidden sm:inline">Novo Registro</span>
                 </Button>
               </>
             )}
             {view === 'grid' && (
               <Button
-                variant={showFilters ? 'primary' : 'ghost'}
+                variant={showFilters ? 'primary' : 'outline'}
                 size="sm"
+                iconLeft={<Filter size={14}/>}
                 onClick={() => setShowFilters(!showFilters)}
-                className="gap-2 uppercase text-xs font-black tracking-widest"
               >
-                <Filter size={14}/> <span className="hidden sm:inline">Filtros</span>
+                <span className="hidden sm:inline">Filtros</span>
               </Button>
             )}
           </div>
         }
       />
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
+
+      {view === 'patient' && (
+        <Tabs<RecordsTabId> items={RECORDS_TABS} value={activeTab} onChange={setActiveTab} label="Seções do prontuário" />
+      )}
 
       {/* Linha de Filtros de Tipo (Mobile Friendly) */}
       {view === 'patient' && activeTab === 'history' && (
@@ -3116,29 +2993,23 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         <FilterLine className="animate-slideDownFade">
           <FilterLineSection grow wrap>
             <FilterLineItem fullOnMobile minWidth={180}>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Status</label>
-                <select className="w-full h-10 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-bold outline-none focus:border-amber-400 transition" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                  <option value="">Todos</option>
-                  <option value="Rascunho">Rascunho</option>
-                  <option value="Revisado">Revisado</option>
-                  <option value="Aprovado">Aprovado</option>
-                  <option value="Finalizado">Finalizado</option>
-                </select>
-              </div>
+              <Select label="Status" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                <option value="">Todos</option>
+                <option value="Rascunho">Rascunho</option>
+                <option value="Revisado">Revisado</option>
+                <option value="Aprovado">Aprovado</option>
+                <option value="Finalizado">Finalizado</option>
+              </Select>
+            </FilterLineItem>
+            <FilterLineItem fullOnMobile minWidth={180}>
+              <Select label="Tipo" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                <option value="">Todos</option>
+                {Object.entries(TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+              </Select>
             </FilterLineItem>
             <FilterLineItem fullOnMobile minWidth={180}>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Tipo</label>
-                <select className="w-full h-10 px-3 rounded-xl bg-zinc-50 border border-zinc-200 text-sm font-bold outline-none focus:border-amber-400 transition" value={filterType} onChange={e => setFilterType(e.target.value)}>
-                  <option value="">Todos</option>
-                  {Object.entries(TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </div>
-            </FilterLineItem>
-            <FilterLineItem fullOnMobile minWidth={180}>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Período</label>
+                <label className="text-xs font-medium text-slate-600">Período</label>
                 <FilterLineDateRange
                   from={dateFrom}
                   to={dateTo}
@@ -3151,23 +3022,23 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             </FilterLineItem>
           </FilterLineSection>
           <FilterLineSection align="right">
-            <button onClick={() => { setFilterStatus(''); setFilterType(''); setDateFrom(null); setDateTo(null); }} className="text-[10px] font-black uppercase text-amber-600 hover:text-amber-700 whitespace-nowrap">
+            <Button variant="ghost" size="sm" onClick={() => { setFilterStatus(''); setFilterType(''); setDateFrom(null); setDateTo(null); }}>
               Limpar Tudo
-            </button>
+            </Button>
           </FilterLineSection>
         </FilterLine>
       )}
 
       {view === 'grid' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Stats Cards */}
           {stats && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatGrid cols={4}>
               <StatCard title="Total de Registros" value={stats.total} icon={FileText} color="info" delay={0} />
               <StatCard title="Este Mês" value={stats.thisMonth} icon={Calendar} color="purple" delay={0.05} />
               <StatCard title="Aprovados" value={stats.approved} icon={CheckCircle2} color="success" delay={0.1} />
               <StatCard title="Rascunhos" value={stats.drafts} icon={Edit3} color="warning" delay={0.15} />
-            </div>
+            </StatGrid>
           )}
 
           {/* Grid de pacientes ou Últimos Registros */}
@@ -3201,9 +3072,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           >
 
             {isLoading ? (
-              <div className="flex items-center justify-center py-12"><Loader2 size={28} className="text-indigo-400 animate-spin"/></div>
+              <div className="flex items-center justify-center py-12"><Loader2 size={24} className="text-primary-500 animate-spin"/></div>
             ) : showLatestRecords ? (
-                <div className="border border-slate-100 rounded-2xl overflow-hidden mt-4 shadow-sm">
+                <div className="border border-slate-200 rounded-lg overflow-hidden mt-3">
                     <GridTable
                         data={globalRecords.filter(r => strip(r.content || '').toLowerCase().includes(search.toLowerCase()) || r.title.toLowerCase().includes(search.toLowerCase()))}
                         keyExtractor={(r) => r.id}
@@ -3213,8 +3084,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 accessor: 'title',
                                 render: (r: MedicalRecord) => (
                                     <div className="flex flex-col gap-0.5 min-w-0">
-                                        <div className="font-black text-slate-800 text-sm truncate uppercase tracking-tighter">{r.title}</div>
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                        <div className="font-semibold text-slate-800 text-sm truncate">{r.title}</div>
+                                        <div className="text-[11px] text-slate-400 font-semibold flex items-center gap-1.5">
                                             <User size={10} className="text-slate-300"/> {r.patient_name || 'Paciente não identificado'}
                                         </div>
                                     </div>
@@ -3224,7 +3095,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 header: 'Data',
                                 accessor: 'created_at',
                                 render: (r: MedicalRecord) => (
-                                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                                    <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
                                         <Calendar size={12} className="text-slate-300"/>
                                         {fmtDate(r.created_at)}
                                     </div>
@@ -3245,15 +3116,15 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 className: 'text-right',
                                 render: (r: MedicalRecord) => (
                                     <div className="flex items-center justify-end gap-1.5">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
+                                        <IconButton
+                                            variant="ghost"
+                                            size="sm"
                                             onClick={() => { setSearchParams({ patient_id: String(r.patient_id) }); setSelectedPatientId(String(r.patient_id)); setView('patient'); }}
-                                            className="h-9 w-9 p-0 rounded-xl"
+                                            aria-label="Ver Paciente"
                                             title="Ver Paciente"
                                         >
                                             <ChevronRight size={16}/>
-                                        </Button>
+                                        </IconButton>
                                     </div>
                                 )
                             }
@@ -3261,7 +3132,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                     />
                 </div>
             ) : (
-                <div className="border border-slate-100 rounded-2xl overflow-hidden mt-4 shadow-sm">
+                <div className="border border-slate-200 rounded-lg overflow-hidden mt-3">
                     <GridTable
                         data={filteredPatients}
                         keyExtractor={(p) => p.id}
@@ -3272,12 +3143,12 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 accessor: 'full_name',
                                 render: (p: Patient) => (
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-100 shadow-sm">
+                                        <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center font-semibold text-sm shrink-0 border border-primary-100">
                                             {(p.full_name || '?')[0].toUpperCase()}
                                         </div>
                                         <div className="flex flex-col gap-0.5 min-w-0">
-                                            <div className="font-black text-slate-800 text-sm truncate uppercase tracking-tighter">{p.full_name}</div>
-                                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                            <div className="font-semibold text-slate-800 text-sm truncate">{p.full_name}</div>
+                                            <div className="text-[11px] text-slate-400 font-semibold flex items-center gap-1.5">
                                                 <User size={10} className="text-slate-300"/> {p.cpf || 'CPF não informado'}
                                             </div>
                                         </div>
@@ -3289,8 +3160,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 accessor: 'email',
                                 render: (p: Patient) => (
                                     <div className="flex flex-col gap-0.5">
-                                        <div className="text-[11px] font-bold text-slate-600 truncate">{p.email || 'Nenhum e-mail'}</div>
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.phone || 'Sem telefone'}</div>
+                                        <div className="text-[11px] font-semibold text-slate-600 truncate">{p.email || 'Nenhum e-mail'}</div>
+                                        <div className="text-[11px] font-semibold text-slate-400">{p.phone || 'Sem telefone'}</div>
                                     </div>
                                 )
                             },
@@ -3308,13 +3179,13 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                     <div className="flex flex-col gap-1.5">
                                       <Badge color={isActive ? 'success' : 'default'} dot>{statusPt}</Badge>
                                       {lastRec && (
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                        <span className="text-[11px] font-semibold text-slate-400">
                                           {TYPE_LABELS[lastRec.record_type] || lastRec.record_type}
                                           {pRecs.length > 1 && ` +${pRecs.length - 1}`}
                                         </span>
                                       )}
                                       {!lastRec && (
-                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Sem registros</span>
+                                        <span className="text-[11px] font-semibold text-slate-300">Sem registros</span>
                                       )}
                                     </div>
                                   );
@@ -3325,13 +3196,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                 className: 'text-right',
                                 render: (p: Patient) => (
                                     <div className="flex items-center justify-end">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="h-9 w-9 p-0 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
-                                        >
-                                            <ChevronRight size={18}/>
-                                        </Button>
+                                        <IconButton variant="ghost" size="sm" aria-label="Abrir prontuário" title="Abrir prontuário">
+                                            <ChevronRight size={16}/>
+                                        </IconButton>
                                     </div>
                                 )
                             }
@@ -3345,13 +3212,13 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
       {/* ─── DETALHE DO PACIENTE ─── */}
       {view === 'patient' && selectedPatient && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Stats do paciente */}
-          <div className="grid grid-cols-3 gap-3">
+          <StatGrid cols={3}>
             <StatCard title="Total" value={patientRecords.length} icon={Layers} color="info" delay={0} />
             <StatCard title="Aprovados" value={patientRecords.filter(r => r.status === 'Aprovado').length} icon={CheckCircle2} color="success" delay={0.05} />
             <StatCard title="Rascunhos" value={patientRecords.filter(r => r.status === 'Rascunho').length} icon={Edit3} color="warning" delay={0.1} />
-          </div>
+          </StatGrid>
 
           {/* Histórico */}
           {activeTab === 'history' && (
@@ -3362,8 +3229,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   title="Nenhuma evolução registrada"
                   description="Este paciente ainda não possui registros clínicos. Inicie a primeira evolução agora."
                   action={
-                    <Button onClick={openNew} variant="primary" className="h-11 px-8 gap-2 uppercase text-xs font-black tracking-widest shadow-xl shadow-indigo-100 transition-all hover:-translate-y-0.5">
-                      <Plus size={18}/> Iniciar Evolução
+                    <Button onClick={openNew} variant="primary" size="sm" iconLeft={<Plus size={14}/>}>
+                      Iniciar Evolução
                     </Button>
                   }
                 />
@@ -3375,16 +3242,16 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       const sendForThisRecord = anamnesisSends.find(s => String(s.medical_record_id) === String(r.id));
                       const pat = patients.find(p => String(p.id) === String(r.patient_id));
                       return (
-                        <div key={r.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                        <div key={r.id} className="bg-white border border-slate-200 rounded-lg p-3">
                           <div className="flex items-start gap-3 mb-3">
-                            <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100"><FileText size={16}/></div>
+                            <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100"><FileText size={16}/></div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-black text-slate-800 text-sm uppercase tracking-tighter leading-tight">{r.title}</p>
-                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{TYPE_LABELS[r.record_type] || r.record_type}{r.appointment_type ? ` · ${r.appointment_type}` : ''}</p>
+                              <p className="font-semibold text-slate-800 text-sm leading-tight">{r.title}</p>
+                              <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{TYPE_LABELS[r.record_type] || r.record_type}{r.appointment_type ? ` · ${r.appointment_type}` : ''}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-[10px] font-bold text-slate-500">{fmtDate(r.created_at)}</p>
-                              {r.start_time && <p className="text-[9px] text-slate-400">{r.start_time}</p>}
+                              <p className="text-[11px] font-semibold text-slate-500">{fmtDate(r.created_at)}</p>
+                              {r.start_time && <p className="text-[11px] text-slate-400">{r.start_time}</p>}
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -3395,29 +3262,28 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                           <div className="flex items-center gap-1.5">
                             {r.record_type === 'Anamnese' && pat && (
                               sendForThisRecord ? (
-                                <button onClick={() => setAnamnesisResponseModal({ sendId: sendForThisRecord.id, patientName: pat.full_name })}
-                                  className={`h-8 px-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 border transition ${sendForThisRecord.status === 'answered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : sendForThisRecord.status === 'filling' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 animate-pulse' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                                  <ClipboardCheck size={12}/>{sendForThisRecord.status === 'answered' ? 'Respostas' : 'Status'}
-                                </button>
+                                <Button size="xs" variant={sendForThisRecord.status === 'answered' ? 'success' : 'outline'}
+                                  onClick={() => setAnamnesisResponseModal({ sendId: sendForThisRecord.id, patientName: pat.full_name })}
+                                  iconLeft={<ClipboardCheck size={14}/>}>
+                                  {sendForThisRecord.status === 'answered' ? 'Respostas' : 'Status'}
+                                </Button>
                               ) : (
-                                <button onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}
-                                  className="h-8 px-3 rounded-xl bg-indigo-600 text-white text-[9px] font-black uppercase flex items-center gap-1.5 border border-indigo-600">
-                                  <Send size={12}/> Enviar
-                                </button>
+                                <Button size="xs" variant="primary" onClick={() => setSendAnamnesisModal({ record: r, patient: pat })} iconLeft={<Send size={14}/>}>
+                                  Enviar
+                                </Button>
                               )
                             )}
-                            <div className="flex items-center gap-1 bg-slate-100/30 p-1 rounded-xl border border-slate-200/50 ml-auto">
+                            <div className="flex items-center gap-1 ml-auto">
                               {[
-                                { icon: <Eye size={15}/>, title: "Visualizar", onClick: async () => { try { const full = await api.get<MedicalRecord>(`/api/medical-records/${r.id}`); setViewerRecord(full); } catch { setViewerRecord(r); } }, color: "indigo", skip: r.record_type === 'Anamnese' },
-                                { icon: <Edit3 size={15}/>, title: "Editar", onClick: () => openEdit(r.id), color: "amber" },
-                                { icon: <Lock size={15}/>, title: "Restrito", onClick: () => setShowPwModal({ type: 'restricted', recordId: r.id }), color: "rose", isRose: true },
-                                { icon: <Share2 size={15}/>, title: "Compartilhar", onClick: () => setShareModal({ record: r }), color: "purple" },
-                                { icon: <Trash2 size={15}/>, title: "Excluir", onClick: () => setDeleteId(r.id), color: "rose" },
+                                { icon: <Eye size={14}/>, title: "Visualizar", onClick: async () => { try { const full = await api.get<MedicalRecord>(`/api/medical-records/${r.id}`); setViewerRecord(full); } catch { setViewerRecord(r); } }, color: "indigo", skip: r.record_type === 'Anamnese' },
+                                { icon: <Edit3 size={14}/>, title: "Editar", onClick: () => openEdit(r.id), color: "amber" },
+                                { icon: <Lock size={14}/>, title: "Restrito", onClick: () => setShowPwModal({ type: 'restricted', recordId: r.id }), color: "rose", isRose: true },
+                                { icon: <Share2 size={14}/>, title: "Compartilhar", onClick: () => setShareModal({ record: r }), color: "purple" },
+                                { icon: <Trash2 size={14}/>, title: "Excluir", onClick: () => setDeleteId(r.id), color: "rose" },
                               ].filter(b => !b.skip).map((btn, idx) => (
-                                <button key={idx} onClick={btn.onClick} title={btn.title}
-                                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition border border-slate-100 ${btn.isRose ? 'bg-slate-50 text-rose-400 hover:bg-rose-500 hover:text-white border-rose-50' : `bg-white text-slate-400 hover:bg-${btn.color}-600 hover:text-white`}`}>
-                                  {btn.icon}
-                                </button>
+<IconButton key={idx} size="sm" variant="ghost" onClick={btn.onClick} title={btn.title} aria-label={btn.title} className={btn.title === 'Excluir' ? 'text-red-600 hover:bg-red-50' : undefined}>
+  {btn.icon}
+</IconButton>
                               ))}
                             </div>
                           </div>
@@ -3438,18 +3304,18 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       accessor: 'title',
                       render: (r: MedicalRecord) => (
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100 shadow-sm">
+                          <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100 shadow-sm">
                             <FileText size={18}/>
                           </div>
                           <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className="font-black text-slate-800 text-sm uppercase tracking-tighter truncate">{r.title}</span>
+                            <span className="font-semibold text-slate-800 text-sm truncate">{r.title}</span>
                             <div className="flex items-center gap-2">
-                               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{TYPE_LABELS[r.record_type] || r.record_type}</span>
+                               <span className="text-[11px] font-semibold text-slate-400">{TYPE_LABELS[r.record_type] || r.record_type}</span>
                                {r.appointment_type && (
                                   <span className="w-1 h-1 rounded-full bg-slate-200" />
                                )}
                                {r.appointment_type && (
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{r.appointment_type}</span>
+                                  <span className="text-[11px] font-semibold text-slate-400 leading-none">{r.appointment_type}</span>
                                )}
                             </div>
                           </div>
@@ -3461,11 +3327,11 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       accessor: 'created_at',
                       render: (r: MedicalRecord) => (
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
                              <Calendar size={13} className="text-slate-300"/> {fmtDate(r.created_at)}
                           </div>
                           {r.start_time && (
-                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
                                <Clock size={11} className="text-slate-200"/> {r.start_time}{r.end_time ? ` – ${r.end_time}` : ''}
                              </div>
                           )}
@@ -3504,74 +3370,55 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                                   const canCancel = !['answered', 'cancelled', 'expired'].includes(sendForThisRecord.status);
                                   return (
                                     <>
-                                      <button
+                                      <Button
+                                        size="xs"
+                                        variant={sendForThisRecord.status === 'answered' ? 'success' : 'outline'}
+                                        iconLeft={<ClipboardCheck size={14}/>}
                                         onClick={() => setAnamnesisResponseModal({ sendId: sendForThisRecord.id, patientName: pat.full_name })}
-                                        className={`h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm border transition ${
-                                          sendForThisRecord.status === 'answered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
-                                          sendForThisRecord.status === 'filling' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 animate-pulse' :
-                                          sendForThisRecord.status === 'cancelled' ? 'bg-slate-50 text-slate-400 border-slate-200 line-through opacity-60' :
-                                          'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                                        }`}
+                                        className={sendForThisRecord.status === 'cancelled' ? 'line-through opacity-60' : undefined}
                                       >
-                                        <ClipboardCheck size={13}/>
                                         <span className="hidden lg:inline">
                                           {sendForThisRecord.status === 'answered' ? 'Ver respostas' :
                                            sendForThisRecord.status === 'cancelled' ? 'Cancelado' :
                                            'Status Envio'}
                                         </span>
-                                      </button>
+                                      </Button>
                                       {canCancel && (
-                                        <button
-                                          title="Cancelar envio"
-                                          onClick={() => setCancelAnamnesisModal({ sendId: sendForThisRecord.id, patientName: pat.full_name })}
-                                          className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all"
-                                        >
+                                        <IconButton size="sm" variant="danger" title="Cancelar envio" aria-label="Cancelar envio"
+                                          onClick={() => setCancelAnamnesisModal({ sendId: sendForThisRecord.id, patientName: pat.full_name })}>
                                           <X size={14}/>
-                                        </button>
+                                        </IconButton>
                                       )}
-                                      <button
-                                        onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}
-                                        title="Enviar novamente"
-                                        className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-indigo-600 hover:bg-slate-50 transition-all"
-                                      >
+                                      <IconButton size="sm" variant="ghost" title="Enviar novamente" aria-label="Enviar novamente"
+                                        onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}>
                                         <Plus size={14}/>
-                                      </button>
+                                      </IconButton>
                                     </>
                                   );
                                 }
 
                                 return (
-                                  <button
-                                    onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}
-                                    className="h-9 px-3 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-md shadow-indigo-100 border border-indigo-600 hover:bg-indigo-700 transition"
-                                  >
-                                    <Send size={13}/> <span className="hidden lg:inline">Enviar ao Paciente</span>
-                                  </button>
+                                  <Button size="xs" variant="primary" iconLeft={<Send size={14}/>}
+                                    onClick={() => setSendAnamnesisModal({ record: r, patient: pat })}>
+                                    <span className="hidden lg:inline">Enviar ao Paciente</span>
+                                  </Button>
                                 );
                               })()}
                             </div>
                           )}
 
                           {/* Ações de Linha Padrão */}
-                          <div className="flex items-center gap-1 bg-slate-100/30 p-1 rounded-xl border border-slate-200/50">
+                          <div className="flex items-center gap-1">
                             {[
-                              { icon: <Eye size={16}/>, title: "Visualizar", onClick: async () => { try { const full = await api.get<MedicalRecord>(`/api/medical-records/${r.id}`); setViewerRecord(full); } catch { setViewerRecord(r); } }, color: "indigo", skip: r.record_type === 'Anamnese' },
-                              { icon: <Edit3 size={16}/>, title: "Editar", onClick: () => openEdit(r.id), color: "amber" },
-                              { icon: <Lock size={16}/>, title: "Restrito", onClick: () => setShowPwModal({ type: 'restricted', recordId: r.id }), color: "rose", isRose: true },
-                              { icon: <Share2 size={16}/>, title: "Compartilhar", onClick: () => setShareModal({ record: r }), color: "purple" },
-                              { icon: <Trash2 size={16}/>, title: "Excluir", onClick: () => setDeleteId(r.id), color: "rose" },
+                              { icon: <Eye size={14}/>, title: "Visualizar", onClick: async () => { try { const full = await api.get<MedicalRecord>(`/api/medical-records/${r.id}`); setViewerRecord(full); } catch { setViewerRecord(r); } }, color: "indigo", skip: r.record_type === 'Anamnese' },
+                              { icon: <Edit3 size={14}/>, title: "Editar", onClick: () => openEdit(r.id), color: "amber" },
+                              { icon: <Lock size={14}/>, title: "Restrito", onClick: () => setShowPwModal({ type: 'restricted', recordId: r.id }), color: "rose", isRose: true },
+                              { icon: <Share2 size={14}/>, title: "Compartilhar", onClick: () => setShareModal({ record: r }), color: "purple" },
+                              { icon: <Trash2 size={14}/>, title: "Excluir", onClick: () => setDeleteId(r.id), color: "rose" },
                             ].filter(b => !b.skip).map((btn, idx) => (
-                              <button 
-                                key={idx}
-                                onClick={btn.onClick} 
-                                title={btn.title}
-                                className={`w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition shadow-sm border border-slate-100 ${
-                                  btn.isRose ? 'bg-slate-50 text-rose-400 hover:bg-rose-500 hover:text-white border-rose-50' : 
-                                  `bg-white text-slate-400 hover:bg-${btn.color}-600 hover:text-white`
-                                }`}
-                              >
-                                {btn.icon}
-                              </button>
+<IconButton key={idx} size="sm" variant="ghost" onClick={btn.onClick} title={btn.title} aria-label={btn.title} className={btn.title === 'Excluir' ? 'text-red-600 hover:bg-red-50' : undefined}>
+  {btn.icon}
+</IconButton>
                             ))}
                           </div>
                         </div>
@@ -3597,9 +3444,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
           {/* Análise */}
           {activeTab === 'analysis' && analysisData && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               {/* KPI row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatGrid cols={4}>
                 <StatCard
                   title="Média / mês"
                   value={analysisData.stats.avgPerMonth}
@@ -3632,24 +3479,24 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   description={analysisData.stats.lastDate && analysisData.stats.firstDate !== analysisData.stats.lastDate ? `até ${fmtDate(analysisData.stats.lastDate)}` : 'único registro'}
                   delay={0.15}
                 />
-              </div>
+              </StatGrid>
 
               {/* Charts row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 {/* Evolução por mês — ocupa 2 colunas */}
                 <PanelCard className="lg:col-span-2" title="Registros por Mês" icon={BarChart2} description="Frequência de atendimentos ao longo do tempo">
                   <div>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={analysisData.byMonth} barSize={32}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false}/>
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} axisLine={false} tickLine={false}/>
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}/>
                       <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false}/>
                       <Tooltip
-                        contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', fontSize: 12, fontWeight: 700 }}
+                        contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: 'none', fontSize: 12, fontWeight: 500 }}
                         formatter={(v: any) => [v, 'Registros']}
                         cursor={{ fill: '#f1f5f9', radius: 8 }}
                       />
-                      <Bar dataKey="count" fill="#4f46e5" radius={[8, 8, 0, 0]}/>
+                      <Bar dataKey="count" fill="var(--c-600)" radius={[4, 4, 0, 0]}/>
                     </BarChart>
                   </ResponsiveContainer>
                   </div>
@@ -3662,7 +3509,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       <Pie data={analysisData.byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
                         {analysisData.byStatus.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>)}
                       </Pie>
-                      <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,0.10)', fontSize: 12, fontWeight: 700 }}/>
+                      <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: 'none', fontSize: 12, fontWeight: 500 }}/>
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="flex flex-col gap-2 mt-2">
@@ -3670,11 +3517,11 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                       <div key={s.name} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
-                          <span className="text-[11px] font-bold text-zinc-600">{s.name}</span>
+                          <span className="text-[11px] font-semibold text-zinc-600">{s.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-black text-zinc-800">{s.value}</span>
-                          <span className="text-[9px] font-bold text-zinc-300">{Math.round((s.value / analysisData.stats.total) * 100)}%</span>
+                          <span className="text-[11px] font-semibold text-zinc-800">{s.value}</span>
+                          <span className="text-[11px] font-semibold text-zinc-300">{Math.round((s.value / analysisData.stats.total) * 100)}%</span>
                         </div>
                       </div>
                     ))}
@@ -3692,11 +3539,11 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
-                            <span className="text-[11px] font-black text-zinc-700">{t.name}</span>
+                            <span className="text-[11px] font-semibold text-zinc-700">{t.name}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-black text-zinc-800">{t.value}</span>
-                            <span className="text-[9px] font-bold text-zinc-400 w-8 text-right">{pct}%</span>
+                            <span className="text-[11px] font-semibold text-zinc-800">{t.value}</span>
+                            <span className="text-[11px] font-semibold text-zinc-400 w-8 text-right">{pct}%</span>
                           </div>
                         </div>
                         <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
@@ -3715,29 +3562,15 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       </div>
 
       {/* Delete Modal */}
-      <Modal
+      <ConfirmModal
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
-        title="Excluir Registro?"
-        size="sm"
-        footer={
-          <div className="flex gap-3 w-full">
-            <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1 uppercase text-xs font-black tracking-widest">Cancelar</Button>
-            <Button variant="primary" onClick={deleteRecord} className="flex-1 bg-rose-600 border-rose-600 hover:bg-rose-700 uppercase text-xs font-black tracking-widest gap-2">
-              <Trash2 size={16}/> Confirmar Exclusão
-            </Button>
-          </div>
-        }
-      >
-        <div className="flex flex-col items-center gap-4 py-4 text-center">
-          <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 shadow-sm border border-rose-100">
-            <AlertTriangle size={32} className="animate-pulse" />
-          </div>
-          <p className="text-sm text-slate-500 font-medium leading-relaxed">
-            Você está prestes a excluir um registro clínico. Esta operação será registrada nos logs de auditoria do sistema para conformidade com o CFP.
-          </p>
-        </div>
-      </Modal>
+        onConfirm={deleteRecord}
+        title="Excluir registro?"
+        variant="danger"
+        confirmLabel="Confirmar exclusão"
+        message="Você está prestes a excluir um registro clínico. Esta operação será registrada nos logs de auditoria do sistema para conformidade com o CFP."
+      />
 
       {/* Restricted Content Password Modal */}
       {showPwModal && (
@@ -3754,17 +3587,17 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         onClose={() => setRestrictedModal(null)}
         title="Conteúdo Restrito"
         size="lg"
-        footer={<Button variant="ghost" onClick={() => setRestrictedModal(null)} className="w-full uppercase text-xs font-black tracking-widest">Fechar Visualização</Button>}
+        footer={<ModalFooter><Button variant="outline" size="sm" onClick={() => setRestrictedModal(null)}>Fechar Visualização</Button></ModalFooter>}
       >
         <div className="space-y-4 pt-2">
-          <div className="bg-rose-50 border border-rose-100/50 rounded-2xl p-6 shadow-inner">
+          <div className="bg-rose-50 border border-rose-100/50 rounded-lg p-6 ">
             <p className="text-sm font-medium text-rose-900 leading-relaxed whitespace-pre-wrap selection:bg-rose-200">
                {restrictedModal?.content}
             </p>
           </div>
           <div className="flex items-center gap-2 px-1">
              <Shield size={12} className="text-slate-400"/>
-             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Protegido por Criptografia de Ponta a Ponta</p>
+             <p className="text-[11px] text-slate-400 font-semibold">Protegido por Criptografia de Ponta a Ponta</p>
           </div>
         </div>
       </Modal>
@@ -3839,24 +3672,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         />
       )}
 
-      {/* ══ MODAL: ENVIAR ANAMNESE PARA PACIENTE ══ */}
-      {sendAnamnesisModal && (
-        <SendAnamnesisModal
-          record={sendAnamnesisModal.record}
-          patient={sendAnamnesisModal.patient}
-          user={user as any}
-          onClose={() => setSendAnamnesisModal(null)}
-          onSent={(sendData) => {
-            setAnamnesisSends(prev => {
-              const exists = prev.find(s => s.id === sendData.id);
-              if (exists) return prev.map(s => s.id === sendData.id ? sendData : s);
-              return [...prev, sendData];
-            });
-            pushToast('success', 'Anamnese enviada ao paciente com sucesso!');
-          }}
-        />
-      )}
-
       {/* ══ MODAL: VER RESPOSTAS DA ANAMNESE ══ */}
       {anamnesisResponseModal && (
         <AnamnesisResponseModal
@@ -3874,46 +3689,32 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
       {/* Modal de confirmação de cancelamento de anamnese */}
       {cancelAnamnesisModal && (
-        <Modal
+        <ConfirmModal
           isOpen
           onClose={() => setCancelAnamnesisModal(null)}
+          onConfirm={async () => {
+            try {
+              await api.post(`/anamnesis-send/${cancelAnamnesisModal.sendId}/cancel`, {});
+              setAnamnesisSends((prev: any[]) => prev.map((s: any) => s.id === cancelAnamnesisModal.sendId ? { ...s, status: 'cancelled' } : s));
+              pushToast('success', 'Envio cancelado. Lembretes interrompidos.');
+            } catch { pushToast('error', 'Erro ao cancelar envio.'); }
+            finally { setCancelAnamnesisModal(null); }
+          }}
           title="Cancelar envio de anamnese"
-          size="sm"
-          footer={
-            <div className="flex gap-3 w-full">
-              <Button variant="ghost" onClick={() => setCancelAnamnesisModal(null)} className="flex-1 uppercase text-xs font-black tracking-widest">
-                Manter ativo
-              </Button>
-              <Button
-                variant="primary"
-                className="flex-1 uppercase text-xs font-black tracking-widest bg-rose-600 border-rose-600 hover:bg-rose-700 shadow-rose-100"
-                onClick={async () => {
-                  try {
-                    await api.post(`/anamnesis-send/${cancelAnamnesisModal.sendId}/cancel`, {});
-                    setAnamnesisSends((prev: any[]) => prev.map((s: any) => s.id === cancelAnamnesisModal.sendId ? { ...s, status: 'cancelled' } : s));
-                    pushToast('success', 'Envio cancelado. Lembretes interrompidos.');
-                  } catch { pushToast('error', 'Erro ao cancelar envio.'); }
-                  finally { setCancelAnamnesisModal(null); }
-                }}
-              >
-                <X size={14} /> Sim, cancelar
-              </Button>
+          variant="danger"
+          cancelLabel="Manter ativo"
+          confirmLabel="Sim, cancelar"
+          message={
+            <div className="space-y-3">
+              <Alert variant="error" title={`Cancelar o formulário de ${cancelAnamnesisModal.patientName}?`}>
+                O paciente não poderá mais responder e todos os lembretes automáticos serão interrompidos imediatamente.
+              </Alert>
+              <p className="text-xs text-slate-500">
+                Se quiser enviar novamente no futuro, basta clicar em <strong>"+"</strong> para gerar um novo link.
+              </p>
             </div>
           }
-        >
-          <div className="space-y-4 pt-2">
-            <div className="flex items-start gap-3 p-4 bg-rose-50 rounded-2xl border border-rose-100">
-              <AlertTriangle size={18} className="text-rose-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-black text-rose-700 text-sm">Cancelar o formulário de {cancelAnamnesisModal.patientName}?</p>
-                <p className="text-rose-600 text-xs font-medium mt-1">O paciente não poderá mais responder e todos os lembretes automáticos serão interrompidos imediatamente.</p>
-              </div>
-            </div>
-            <p className="text-slate-500 text-xs font-medium leading-relaxed px-1">
-              Se quiser enviar novamente no futuro, basta clicar em <strong>"+"</strong> para gerar um novo link.
-            </p>
-          </div>
-        </Modal>
+        />
       )}
     </PageWrapper>
   );

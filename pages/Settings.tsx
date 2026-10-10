@@ -10,9 +10,7 @@ import {
   ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Button } from '../components/UI/Button';
-import { PageHeader } from '../components/UI/PageHeader';
-import { Select } from '../components/UI/Input';
-import { PageWrapper, SectionTitle, StatGrid, StatCard } from '../components/UI';
+import { PageWrapper, SectionTitle, StatGrid, StatCard, Tabs, PanelCard, FormRow, Alert, Badge, EmptyState, ContentCard, Input, Select } from '../components/UI';
 import { Switch } from '../components/UI/Switch';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -66,11 +64,11 @@ const ROLE_LABEL: Record<string, string> = {
   super_admin: 'Super Admin',
 };
 
-const ROLE_COLOR: Record<string, string> = {
-  admin: 'bg-primary-50 text-primary-700 border-primary-100',
-  profissional: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  secretaria: 'bg-amber-50 text-amber-700 border-amber-100',
-  super_admin: 'bg-red-50 text-red-700 border-red-100',
+const ROLE_COLOR: Record<string, 'primary' | 'success' | 'warning' | 'danger'> = {
+  admin: 'primary',
+  profissional: 'success',
+  secretaria: 'warning',
+  super_admin: 'danger',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -80,13 +78,17 @@ const ToggleSwitch = ({ checked, onChange }: { checked: boolean; onChange: () =>
   <Switch checked={checked} onCheckedChange={onChange} />
 );
 
-const SectionHeader = ({ icon, title, desc }: { icon: React.ReactNode; title: string; desc?: string }) => (
-  <SectionTitle
-    icon={() => <>{icon}</>}
-    title={title}
-    description={desc}
-    className="mb-8"
-  />
+const ToggleRow = ({ icon: Icon, title, desc, checked, onChange }: { icon: React.ElementType; title: string; desc: string; checked: boolean; onChange: () => void }) => (
+  <div className="flex items-center justify-between gap-3 py-2.5">
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-500"><Icon size={14} /></div>
+      <div className="min-w-0">
+        <p className="text-[13px] font-medium text-slate-800">{title}</p>
+        <p className="text-[11px] text-slate-500">{desc}</p>
+      </div>
+    </div>
+    <ToggleSwitch checked={checked} onChange={onChange} />
+  </div>
 );
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -190,7 +192,7 @@ export const Settings: React.FC = () => {
   const [mpSavingRate, setMpSavingRate] = useState(false);
 
   useEffect(() => {
-    if (activeTab !== 'integracoes') return;
+    if (activeTab !== 'integracoes' && activeTab !== 'pagamentos') return;
     api.get<any>('/mercadopago/config').then((d: any) => {
       setMpConfig(d);
       setMpInterestRate(d.interest_rate ? String(d.interest_rate) : '');
@@ -255,7 +257,7 @@ export const Settings: React.FC = () => {
   const [googleDisconnecting, setGoogleDisconnecting] = useState(false);
 
   useEffect(() => {
-    if (activeTab !== 'integracoes') return;
+    if (activeTab !== 'integracoes' && activeTab !== 'pagamentos') return;
     api.get<any>('/google/status').then((d: any) => setGoogleStatus(d)).catch(() => {});
   }, [activeTab]);
 
@@ -315,7 +317,7 @@ export const Settings: React.FC = () => {
   const ASAAS_LOGIN_URL = 'https://www.asaas.com/login';
 
   useEffect(() => {
-    if (activeTab !== 'integracoes') return;
+    if (activeTab !== 'integracoes' && activeTab !== 'pagamentos') return;
     api.get<any>('/asaas/status').then((d: any) => setAsaasStatus(d)).catch(() => {});
   }, [activeTab]);
 
@@ -493,82 +495,77 @@ export const Settings: React.FC = () => {
     { name: 'Violet',   label: 'Criativo', gradient: 'from-violet-400 to-fuchsia-600' },
   ];
 
-  // ── Menu ─────────────────────────────────────────────────────────────────
-  const MENU_ITEMS = [
-    { id: 'aparencia',    label: 'Aparência',      icon: <Palette size={18} />,      desc: 'Cores e modo visual' },
-    { id: 'geral',        label: 'Geral',           icon: <SettingsIcon size={18} />, desc: 'Idioma e preferências' },
-    { id: 'sessoes',      label: 'Sessões',         icon: <Video size={18} />,        desc: 'Gravação e transcrição' },
-    { id: 'conformidade', label: 'Conformidade',    icon: <ShieldCheck size={18} />,  desc: 'Termos aceitos e histórico' },
-    ...(hasPermission('manage_clinic_settings') ? [{ id: 'notificacoes', label: 'Notificações', icon: <Bell size={18} />, desc: 'Emails automáticos' }] : []),
-    ...(hasPermission('manage_payments') ? [{ id: 'dados-fiscais', label: 'Dados Fiscais', icon: <FileText size={18} />, desc: 'NFS-e e certificado digital' }] : []),
-    ...(hasPermission('manage_professionals') && (user?.plan_features?.includes('profissionais')) ? [{ id: 'equipe', label: 'Equipe', icon: <Users size={18} />, desc: 'Profissionais da clínica' }] : []),
-    ...(hasPermission('manage_bot_integration') || hasPermission('manage_clinical_tools') || hasPermission('manage_clinic_settings') ? [{ id: 'integracoes', label: 'Integrações', icon: <Plug size={18} />, desc: 'Módulos e conexões' }] : []),
+  // ── Menu (abas de topo) ───────────────────────────────────────────────────
+  const canIntegrations = hasPermission('manage_bot_integration') || hasPermission('manage_clinical_tools') || hasPermission('manage_clinic_settings');
+  const MENU_ITEMS: Array<{ id: string; label: string; icon: React.ElementType }> = [
+    { id: 'aparencia',    label: 'Aparência',      icon: Palette },
+    { id: 'geral',        label: 'Geral',           icon: SettingsIcon },
+    { id: 'sessoes',      label: 'Sessões',         icon: Video },
+    { id: 'conformidade', label: 'Conformidade',    icon: ShieldCheck },
+    ...(hasPermission('manage_clinic_settings') ? [{ id: 'notificacoes', label: 'Notificações', icon: Bell }] : []),
+    ...(hasPermission('manage_payments') ? [{ id: 'dados-fiscais', label: 'Dados fiscais', icon: FileText }] : []),
+    ...(hasPermission('manage_professionals') && (user?.plan_features?.includes('profissionais')) ? [{ id: 'equipe', label: 'Equipe', icon: Users }] : []),
+    ...(canIntegrations ? [{ id: 'integracoes', label: 'Integrações', icon: Plug }, { id: 'pagamentos', label: 'Pagamentos', icon: CreditCard }] : []),
   ];
 
+  const loadingBlock = (text: string) => (
+    <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+      <Loader2 size={18} className="animate-spin" />{text}
+    </div>
+  );
+
+  // Barra de salvar fixa (única por aba)
+  const saveBar = (children: React.ReactNode) => (
+    <div className="sticky bottom-0 z-10 -mx-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5 xl:-mx-6 xl:px-6">
+      {children}
+    </div>
+  );
+
+  const prefToggle = (key: keyof EmailPrefs) => () => setEmailPrefs(p => ({ ...p, [key]: !p[key] }));
+
+  const integrationModules = [
+    { icon: Video, title: 'Salas Virtuais', desc: 'Atendimentos por videochamada integrado ao sistema', onClick: () => navigate('/salas-virtuais') },
+    { icon: MessageSquare, title: 'Bot / Automação', desc: 'Automação de mensagens e fluxos de atendimento', onClick: () => navigate('/bot') },
+    { icon: FileCode, title: 'Formulários externos', desc: 'Links públicos de formulários para seus pacientes', onClick: () => navigate('/formularios') },
+    { icon: Briefcase, title: 'Gerador de documentos', desc: 'Modelos de laudos, declarações e relatórios clínicos', onClick: () => navigate('/gerador-documentos') },
+  ];
+
+  const comingSoon = [
+    { icon: Phone, title: 'WhatsApp Business API', desc: 'Disparo de mensagens via API oficial do WhatsApp' },
+    { icon: Zap, title: 'Zapier / Webhooks', desc: 'Conecte o Plaelo a outros sistemas via webhooks' },
+  ];
+
+  const mpTokenField = (placeholder: string) => (
+    <Input
+      type={mpShowToken ? 'text' : 'password'}
+      value={mpToken}
+      onChange={e => setMpToken(e.target.value)}
+      placeholder={placeholder}
+      className="font-mono"
+      iconRight={
+        <button type="button" onClick={() => setMpShowToken(v => !v)} aria-label={mpShowToken ? 'Ocultar token' : 'Mostrar token'} className="text-slate-400 hover:text-slate-600">
+          {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+        </button>
+      }
+    />
+  );
+
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6 font-sans">
+    <PageWrapper className="font-sans">
+      <div className="space-y-4">
+        <SectionTitle
+          icon={SettingsIcon}
+          title={t('settings.title')}
+          description={t('settings.subtitle')}
+          action={<Badge color="success" icon={<ShieldCheck size={12} />}>{t('settings.secure')}</Badge>}
+        />
 
-      <PageHeader
-        icon={<SettingsIcon />}
-        title={t('settings.title')}
-        subtitle={t('settings.subtitle')}
-        actions={
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 text-emerald-700 font-semibold rounded-xl text-sm w-fit">
-            <ShieldCheck size={16} />
-            {t('settings.secure')}
-          </div>
-        }
-      />
-
-      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-
-        {/* Sidebar */}
-        <div className="w-full lg:w-64 flex-shrink-0">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-row overflow-x-auto lg:flex-col lg:overflow-visible">
-            {MENU_ITEMS.map((item, idx) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={cx(
-                  'flex shrink-0 items-center gap-3 px-4 py-3.5 text-left transition-all relative lg:w-full',
-                  idx < MENU_ITEMS.length - 1 && 'border-b-0 lg:border-b border-slate-100 border-r lg:border-r-0',
-                  activeTab === item.id
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-slate-600 hover:bg-slate-50'
-                )}
-              >
-                {activeTab === item.id && (
-                  <div className="absolute left-0 right-0 lg:right-auto bottom-0 lg:top-0 h-0.5 lg:h-auto lg:w-0.5 bg-primary-600 rounded-t lg:rounded-t-none lg:rounded-r" />
-                )}
-                <div className={cx(
-                  'p-1.5 rounded-lg shrink-0 transition-colors',
-                  activeTab === item.id ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-400'
-                )}>
-                  {item.icon}
-                </div>
-                <div className="min-w-0">
-                  <p className={cx('text-sm font-semibold whitespace-nowrap lg:whitespace-normal', activeTab === item.id ? 'text-primary-800' : 'text-slate-700')}>
-                    {item.label}
-                  </p>
-                  <p className="text-[10px] text-slate-400 truncate hidden lg:block">{item.desc}</p>
-                </div>
-                {activeTab === item.id && <ChevronRight size={14} className="ml-auto text-primary-400 shrink-0 hidden lg:block" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8">
+        <Tabs<string> items={MENU_ITEMS} value={activeTab} onChange={setActiveTab} label="Seções de configurações">
 
           {/* ── APARÊNCIA ────────────────────────────────────────────────── */}
           {activeTab === 'aparencia' && (
-            <div className="space-y-8 max-w-2xl">
-              <SectionHeader icon={<Palette size={20} />} title={t('settings.appearance.title')} desc={t('settings.appearance.subtitle')} />
-
-              {/* Cor do tema */}
-              <section>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4">{t('settings.appearance.color')}</p>
+            <div className="space-y-3">
+              <PanelCard icon={Palette} title={t('settings.appearance.color')} description={t('settings.appearance.subtitle')}>
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                   {THEME_COLORS.map(color => (
                     <button
@@ -577,91 +574,74 @@ export const Settings: React.FC = () => {
                       className="flex flex-col items-center gap-2 group"
                     >
                       <div className={cx(
-                        `w-12 h-12 rounded-2xl bg-gradient-to-br ${color.gradient} shadow-md flex items-center justify-center transition-all duration-200 group-hover:scale-110`,
-                        selectedColor === color.name ? 'ring-4 ring-offset-2 ring-primary-400 scale-110' : ''
+                        `w-10 h-10 rounded-lg bg-gradient-to-br ${color.gradient} flex items-center justify-center transition-all duration-200 group-hover:scale-105`,
+                        selectedColor === color.name ? 'ring-2 ring-offset-2 ring-primary-400' : ''
                       )}>
-                        {selectedColor === color.name && <Check size={20} className="text-white" strokeWidth={3} />}
+                        {selectedColor === color.name && <Check size={16} className="text-white" strokeWidth={3} />}
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-500">{color.name}</span>
+                      <span className="text-[11px] font-medium text-slate-500">{color.name}</span>
                     </button>
                   ))}
                 </div>
-              </section>
+              </PanelCard>
 
-              {/* Modo */}
-              <section>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4">{t('settings.appearance.mode')}</p>
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <PanelCard icon={Monitor} title={t('settings.appearance.mode')}>
+                <div className="grid grid-cols-3 gap-3">
                   {[
-                    { id: 'light', label: t('settings.appearance.light'), icon: <Monitor size={22} /> },
-                    { id: 'dark',  label: t('settings.appearance.dark'),  icon: <Moon size={22} /> },
-                    { id: 'auto',  label: t('settings.appearance.auto'),  icon: <Smartphone size={22} /> },
+                    { id: 'light', label: t('settings.appearance.light'), icon: Monitor },
+                    { id: 'dark',  label: t('settings.appearance.dark'),  icon: Moon },
+                    { id: 'auto',  label: t('settings.appearance.auto'),  icon: Smartphone },
                   ].map(mode => (
                     <button
                       key={mode.id}
                       onClick={() => setMode(mode.id as any)}
                       className={cx(
-                        'flex flex-col items-center gap-2 sm:gap-3 p-3 sm:p-5 rounded-2xl border-2 transition-all duration-200',
+                        'flex flex-col items-center gap-2 p-3 rounded-lg border transition-all',
                         selectedMode === mode.id
-                          ? 'border-primary-500 bg-primary-50 shadow-md shadow-primary-100'
+                          ? 'border-primary-500 bg-primary-50'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       )}
                     >
-                      <div className={cx(
-                        'p-2 sm:p-3 rounded-xl',
-                        selectedMode === mode.id ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-500'
-                      )}>
-                        {mode.icon}
-                      </div>
-                      <span className={cx('text-xs font-bold', selectedMode === mode.id ? 'text-primary-700' : 'text-slate-600')}>
+                      <mode.icon size={18} className={selectedMode === mode.id ? 'text-primary-600' : 'text-slate-500'} />
+                      <span className={cx('text-xs font-medium', selectedMode === mode.id ? 'text-primary-700' : 'text-slate-600')}>
                         {mode.label}
                       </span>
-                      {selectedMode === mode.id && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
-                      )}
                     </button>
                   ))}
                 </div>
-              </section>
+              </PanelCard>
             </div>
           )}
 
           {/* ── SESSÕES ──────────────────────────────────────────────────── */}
           {activeTab === 'sessoes' && (
-            <div className="space-y-8 max-w-2xl">
-              <SectionHeader icon={<Video size={20} />} title="Sessões Virtuais" desc="Configure gravação e transcrição automática das consultas." />
-
-              {/* Gravação de áudio */}
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-                  <p className="text-sm font-semibold text-slate-700">Gravação de Áudio</p>
-                  <p className="text-xs text-slate-500 mt-0.5">O áudio da sessão é gravado no seu navegador e enviado ao servidor ao encerrar.</p>
-                </div>
+            <div className="space-y-3">
+              <PanelCard icon={Video} title="Gravação de áudio" description="O áudio da sessão é gravado no seu navegador e enviado ao servidor ao encerrar." contentClassName="px-3 py-1">
                 <div className="divide-y divide-slate-100">
-                  <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+                  <div className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">Iniciar gravação automaticamente</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Inicia a gravação assim que você entrar na sala virtual</p>
+                      <p className="text-[13px] font-medium text-slate-800">Iniciar gravação automaticamente</p>
+                      <p className="text-[11px] text-slate-500">Inicia a gravação assim que você entrar na sala virtual</p>
                     </div>
                     <Switch
                       checked={!!preferences.sessions?.autoRecord}
                       onCheckedChange={(next) => updatePreference('sessions', { autoRecord: next })}
                     />
                   </div>
-                  <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+                  <div className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">Transcrever a gravação</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Quando ligada, envia trechos de áudio ao Whisper enquanto a gravação estiver ativa</p>
+                      <p className="text-[13px] font-medium text-slate-800">Transcrever a gravação</p>
+                      <p className="text-[11px] text-slate-500">Quando ligada, envia trechos de áudio ao Whisper enquanto a gravação estiver ativa</p>
                     </div>
                     <Switch
                       checked={!!preferences.sessions?.autoTranscribe}
                       onCheckedChange={(next) => updatePreference('sessions', { autoTranscribe: next })}
                     />
                   </div>
-                  <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+                  <div className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-800">Guardar cópia do áudio</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Desligado: o áudio é usado temporariamente para transcrever e não fica salvo no servidor</p>
+                      <p className="text-[13px] font-medium text-slate-800">Guardar cópia do áudio</p>
+                      <p className="text-[11px] text-slate-500">Desligado: o áudio é usado temporariamente para transcrever e não fica salvo no servidor</p>
                     </div>
                     <Switch
                       checked={!!preferences.sessions?.saveAudioRecording}
@@ -669,234 +649,189 @@ export const Settings: React.FC = () => {
                     />
                   </div>
                 </div>
-              </div>
+              </PanelCard>
 
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-                  <p className="text-sm font-semibold text-slate-700">Revisão com Gemini</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Opcional: revisa o português ao encerrar a sessão, sem alterar o sentido clínico.</p>
-                </div>
-                <div className="p-4 sm:p-6 space-y-4">
-                  <label className="block">
-                    <span className="block text-sm font-medium text-slate-800 mb-1.5">Nome da integração</span>
-                    <input
+              <PanelCard icon={Zap} title="Revisão com Gemini" description="Opcional: revisa o português ao encerrar a sessão, sem alterar o sentido clínico.">
+                <div className="space-y-3">
+                  <FormRow>
+                    <Input
+                      label="Nome da integração"
                       value={preferences.gemini?.integrationName || ''}
                       onChange={e => updatePreference('gemini', { integrationName: e.target.value.slice(0, 80) })}
                       placeholder="Ex.: Gemini da Dra. Karen"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
                     />
-                  </label>
-                  <label className="block">
-                    <span className="block text-sm font-medium text-slate-800 mb-1.5">Chave da API Gemini</span>
-                    <input
+                    <Input
+                      label="Chave da API Gemini"
                       type="password"
                       autoComplete="off"
                       value={preferences.gemini?.apiKey || ''}
                       onChange={e => updatePreference('gemini', { apiKey: e.target.value.trim(), apiKeys: e.target.value.trim() ? [e.target.value.trim()] : [] })}
                       placeholder="Cole aqui a chave criada no Google AI Studio"
-                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
                     />
-                  </label>
-                  <p className="text-xs text-slate-500 leading-relaxed">A chave é individual do profissional. Ela só é enviada para o Gemini no momento da revisão; sem chave, nenhuma chamada ao Gemini é feita.</p>
+                  </FormRow>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">A chave é individual do profissional. Ela só é enviada para o Gemini no momento da revisão; sem chave, nenhuma chamada ao Gemini é feita.</p>
                 </div>
-              </div>
+              </PanelCard>
 
               {/* Aviso LGPD */}
-              <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                <div className="text-xs text-amber-800 leading-relaxed">
-                  <strong>Atenção LGPD:</strong> a gravação e transcrição de sessões é considerada dado sensível de saúde. Certifique-se de obter o consentimento do paciente antes de gravar. Os arquivos ficam armazenados com segurança no servidor da clínica.
-                </div>
-              </div>
+              <Alert variant="warning">
+                <strong>Atenção LGPD:</strong> a gravação e transcrição de sessões é considerada dado sensível de saúde. Certifique-se de obter o consentimento do paciente antes de gravar. Os arquivos ficam armazenados com segurança no servidor da clínica.
+              </Alert>
             </div>
           )}
 
           {/* ── GERAL ────────────────────────────────────────────────────── */}
           {activeTab === 'geral' && (
-            <div className="space-y-8 max-w-2xl">
-              <SectionHeader icon={<SettingsIcon size={20} />} title={t('settings.general.title')} desc={t('settings.general.subtitle')} />
+            <div className="space-y-3">
+              <PanelCard icon={Globe} title={t('settings.general.title')} description={t('settings.general.subtitle')}>
+                <div className="space-y-3">
+                  <FormRow cols={3}>
+                    <Select
+                      label={t('settings.general.language')}
+                      leftIcon={<Globe size={14} />}
+                      value={language}
+                      onChange={e => setLanguage(e.target.value as Language)}
+                    >
+                      <option value="pt">Português (Brasil)</option>
+                      <option value="en">English (US)</option>
+                      <option value="es">Español</option>
+                    </Select>
 
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <Select
-                    label={t('settings.general.language')}
-                    leftIcon={<Globe size={16} />}
-                    value={language}
-                    onChange={e => setLanguage(e.target.value as Language)}
-                    size="lg"
-                  >
-                    <option value="pt">Português (Brasil)</option>
-                    <option value="en">English (US)</option>
-                    <option value="es">Español</option>
-                  </Select>
+                    <Select
+                      label={t('settings.general.timezone')}
+                      leftIcon={<Clock size={14} />}
+                      value={preferences.general?.timezone || 'America/Sao_Paulo'}
+                      onChange={e => updatePreference('general', { timezone: e.target.value })}
+                    >
+                      <optgroup label="Brasil">
+                        <option value="America/Sao_Paulo">(GMT-03:00) Brasília — São Paulo, Rio, Belo Horizonte</option>
+                        <option value="America/Manaus">(GMT-04:00) Manaus, Cuiabá, Campo Grande</option>
+                        <option value="America/Belem">(GMT-03:00) Belém, Fortaleza, Recife, Salvador</option>
+                        <option value="America/Noronha">(GMT-02:00) Fernando de Noronha</option>
+                        <option value="America/Rio_Branco">(GMT-05:00) Rio Branco, Acre</option>
+                        <option value="America/Porto_Velho">(GMT-04:00) Porto Velho, Rondônia</option>
+                      </optgroup>
+                      <optgroup label="Américas">
+                        <option value="America/Argentina/Buenos_Aires">(GMT-03:00) Buenos Aires</option>
+                        <option value="America/Santiago">(GMT-03:00) Santiago</option>
+                        <option value="America/Bogota">(GMT-05:00) Bogotá, Lima, Quito</option>
+                        <option value="America/New_York">(GMT-05:00) New York, Miami, Toronto</option>
+                        <option value="America/Chicago">(GMT-06:00) Chicago, Mexico City</option>
+                        <option value="America/Denver">(GMT-07:00) Denver, Phoenix</option>
+                        <option value="America/Los_Angeles">(GMT-08:00) Los Angeles, San Francisco</option>
+                        <option value="America/Anchorage">(GMT-09:00) Anchorage</option>
+                      </optgroup>
+                      <optgroup label="Europa / África">
+                        <option value="UTC">(GMT+00:00) UTC — Tempo Universal</option>
+                        <option value="Europe/London">(GMT+00:00) Lisboa, Londres</option>
+                        <option value="Europe/Paris">(GMT+01:00) Paris, Madrid, Roma, Berlin</option>
+                        <option value="Europe/Helsinki">(GMT+02:00) Helsinki, Atenas, Cairo</option>
+                        <option value="Europe/Moscow">(GMT+03:00) Moscou</option>
+                        <option value="Africa/Johannesburg">(GMT+02:00) Joanesburgo</option>
+                      </optgroup>
+                      <optgroup label="Ásia / Pacífico">
+                        <option value="Asia/Dubai">(GMT+04:00) Dubai, Abu Dhabi</option>
+                        <option value="Asia/Karachi">(GMT+05:00) Karachi, Islamabad</option>
+                        <option value="Asia/Kolkata">(GMT+05:30) Mumbai, Nova Délhi</option>
+                        <option value="Asia/Bangkok">(GMT+07:00) Bangkok, Jakarta</option>
+                        <option value="Asia/Shanghai">(GMT+08:00) Pequim, Xangai, Singapura</option>
+                        <option value="Asia/Tokyo">(GMT+09:00) Tóquio, Seul</option>
+                        <option value="Australia/Sydney">(GMT+10:00) Sydney</option>
+                      </optgroup>
+                    </Select>
 
-                  <Select
-                    label={t('settings.general.timezone')}
-                    leftIcon={<Clock size={16} />}
-                    size="lg"
-                    value={preferences.general?.timezone || 'America/Sao_Paulo'}
-                    onChange={e => updatePreference('general', { timezone: e.target.value })}
-                  >
-                    <optgroup label="🇧🇷 Brasil">
-                      <option value="America/Sao_Paulo">(GMT-03:00) Brasília — São Paulo, Rio, Belo Horizonte</option>
-                      <option value="America/Manaus">(GMT-04:00) Manaus, Cuiabá, Campo Grande</option>
-                      <option value="America/Belem">(GMT-03:00) Belém, Fortaleza, Recife, Salvador</option>
-                      <option value="America/Noronha">(GMT-02:00) Fernando de Noronha</option>
-                      <option value="America/Rio_Branco">(GMT-05:00) Rio Branco, Acre</option>
-                      <option value="America/Porto_Velho">(GMT-04:00) Porto Velho, Rondônia</option>
-                    </optgroup>
-                    <optgroup label="🌎 Americas">
-                      <option value="America/Argentina/Buenos_Aires">(GMT-03:00) Buenos Aires</option>
-                      <option value="America/Santiago">(GMT-03:00) Santiago</option>
-                      <option value="America/Bogota">(GMT-05:00) Bogotá, Lima, Quito</option>
-                      <option value="America/New_York">(GMT-05:00) New York, Miami, Toronto</option>
-                      <option value="America/Chicago">(GMT-06:00) Chicago, Mexico City</option>
-                      <option value="America/Denver">(GMT-07:00) Denver, Phoenix</option>
-                      <option value="America/Los_Angeles">(GMT-08:00) Los Angeles, San Francisco</option>
-                      <option value="America/Anchorage">(GMT-09:00) Anchorage</option>
-                    </optgroup>
-                    <optgroup label="🌍 Europa / África">
-                      <option value="UTC">(GMT+00:00) UTC — Tempo Universal</option>
-                      <option value="Europe/London">(GMT+00:00) Lisboa, Londres</option>
-                      <option value="Europe/Paris">(GMT+01:00) Paris, Madrid, Roma, Berlin</option>
-                      <option value="Europe/Helsinki">(GMT+02:00) Helsinki, Atenas, Cairo</option>
-                      <option value="Europe/Moscow">(GMT+03:00) Moscou</option>
-                      <option value="Africa/Johannesburg">(GMT+02:00) Joanesburgo</option>
-                    </optgroup>
-                    <optgroup label="🌏 Ásia / Pacífico">
-                      <option value="Asia/Dubai">(GMT+04:00) Dubai, Abu Dhabi</option>
-                      <option value="Asia/Karachi">(GMT+05:00) Karachi, Islamabad</option>
-                      <option value="Asia/Kolkata">(GMT+05:30) Mumbai, Nova Délhi</option>
-                      <option value="Asia/Bangkok">(GMT+07:00) Bangkok, Jakarta</option>
-                      <option value="Asia/Shanghai">(GMT+08:00) Pequim, Xangai, Singapura</option>
-                      <option value="Asia/Tokyo">(GMT+09:00) Tóquio, Seul</option>
-                      <option value="Australia/Sydney">(GMT+10:00) Sydney</option>
-                    </optgroup>
-                  </Select>
+                    <Select label={t('settings.general.currency')} leftIcon={<span className="text-xs font-semibold">R$</span>}>
+                      <option>BRL (R$) — Real Brasileiro</option>
+                      <option>USD ($) — Dólar Americano</option>
+                      <option>EUR (€) — Euro</option>
+                    </Select>
+                  </FormRow>
+
+                  <Alert variant="info" title="Fuso horário ativo">
+                    Todas as datas e horários do sistema — incluindo respostas de formulários, agendamentos e registros — serão exibidos no fuso selecionado: <strong>{preferences.general?.timezone || 'America/Sao_Paulo'}</strong>
+                  </Alert>
                 </div>
-
-                <div className="p-4 bg-primary-50 border border-primary-100 rounded-2xl flex items-start gap-3">
-                  <Clock size={16} className="text-primary-500 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-primary-800">Fuso horário ativo</p>
-                    <p className="text-xs text-primary-600 mt-0.5">
-                      Todas as datas e horários do sistema — incluindo respostas de formulários, agendamentos e registros — serão exibidos no fuso selecionado: <strong>{preferences.general?.timezone || 'America/Sao_Paulo'}</strong>
-                    </p>
-                  </div>
-                </div>
-
-                <Select label={t('settings.general.currency')} leftIcon={<span className="text-xs font-bold">R$</span>} size="lg">
-                  <option>BRL (R$) — Real Brasileiro</option>
-                  <option>USD ($) — Dólar Americano</option>
-                  <option>EUR (€) — Euro</option>
-                </Select>
-              </div>
-
-              <div className="flex justify-end">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  radius="xl"
-                  leftIcon={<Save size={16} />}
-                  onClick={() => pushToast('success', 'Configurações salvas!')}
-                >
-                  {t('common.save')}
-                </Button>
-              </div>
+              </PanelCard>
 
               {/* Danger zone */}
-              <div className="pt-6 border-t border-slate-100">
-                <p className="text-xs font-bold text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <AlertTriangle size={14} /> {t('settings.danger.zone')}
-                </p>
-                <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <PanelCard icon={AlertTriangle} title={t('settings.danger.zone')} iconWrapClassName="border-red-100 bg-red-50" iconClassName="text-red-600">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <p className="font-bold text-red-900 text-sm">{t('settings.danger.delete')}</p>
-                    <p className="text-xs text-red-700/70 mt-1">{t('settings.danger.desc')}</p>
+                    <p className="text-[13px] font-medium text-red-900">{t('settings.danger.delete')}</p>
+                    <p className="text-[11px] text-red-700/80 mt-0.5">{t('settings.danger.desc')}</p>
                   </div>
-                  <Button variant="softDanger" size="sm" radius="xl">
+                  <Button variant="softDanger" size="sm">
                     {t('settings.danger.endSub')}
                   </Button>
                 </div>
-              </div>
+              </PanelCard>
+
+              {saveBar(
+                <Button variant="primary" size="sm" iconLeft={<Save size={14} />} onClick={() => pushToast('success', 'Configurações salvas!')}>
+                  {t('common.save')}
+                </Button>
+              )}
             </div>
           )}
 
           {/* ── CONFORMIDADE ÉTICA E LEGAL ───────────────────────────────── */}
           {activeTab === 'conformidade' && (
-            <div className="space-y-6 max-w-2xl">
-              <SectionHeader icon={<ShieldCheck size={20} />} title="Conformidade ética e legal" desc="Trilha dos aceites que você registrou na plataforma, com data e hora." />
+            <div className="space-y-3">
+              <Alert variant="info" title="Conformidade ética e legal">
+                A Plaelo lida com dados de pacientes, então a LGPD exige que esses aceites fiquem registrados com data e hora — é o que protege você e quem você atende. Abaixo está a trilha dos aceites que você registrou na plataforma.
+              </Alert>
 
-              <div className="flex items-start gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                <ShieldCheck size={18} className="text-indigo-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-indigo-800 leading-relaxed">
-                  A Plaelo lida com dados de pacientes, então a LGPD exige que esses aceites fiquem registrados com data e hora — é o que protege você e quem você atende.
-                </p>
-              </div>
-
-              {termsLoading ? (
-                <div className="flex items-center justify-center py-10 text-slate-400 text-sm font-bold gap-2">
-                  <Loader2 size={16} className="animate-spin" /> Carregando...
-                </div>
+              {termsLoading ? loadingBlock('Carregando...') : termsHistory.length === 0 ? (
+                <EmptyState icon={ShieldCheck} title="Nenhum termo encontrado" description="Quando houver termos para aceitar, eles aparecerão aqui." />
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {termsHistory.map(term => {
                     const expanded = expandedTermId === term.id;
                     const isPending = !term.accepted_at;
                     return (
-                      <div key={term.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="p-5">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-black text-slate-900 text-sm">{term.title}</h3>
-                                <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">v{term.version}</span>
-                              </div>
-                              {term.summary && <p className="text-xs text-slate-500 mt-1">{term.summary}</p>}
-                              <div className="mt-2">
-                                {isPending ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
-                                    <Clock size={12} /> Pendente
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">
-                                    <CheckCircle2 size={12} /> Aceito em {new Date(term.accepted_at!).toLocaleString('pt-BR')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setExpandedTermId(expanded ? null : term.id)}
-                              className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700 shrink-0"
-                            >
-                              {expanded ? 'Ocultar' : 'Ver conteúdo'} {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            </button>
+                      <PanelCard
+                        key={term.id}
+                        title={term.title}
+                        action={
+                          <Button variant="ghost" size="xs" iconRight={expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />} onClick={() => setExpandedTermId(expanded ? null : term.id)}>
+                            {expanded ? 'Ocultar' : 'Ver conteúdo'}
+                          </Button>
+                        }
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge size="sm">v{term.version}</Badge>
+                            {isPending ? (
+                              <Badge color="warning" size="sm" icon={<Clock size={12} />}>Pendente</Badge>
+                            ) : (
+                              <Badge color="success" size="sm" icon={<CheckCircle2 size={12} />}>Aceito em {new Date(term.accepted_at!).toLocaleString('pt-BR')}</Badge>
+                            )}
                           </div>
+                          {term.summary && <p className="text-xs text-slate-500">{term.summary}</p>}
 
                           {expanded && (
-                            <div className="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-4 max-h-72 overflow-y-auto text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                            <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 max-h-72 overflow-y-auto text-xs text-slate-600 leading-relaxed whitespace-pre-line">
                               {term.content}
                             </div>
                           )}
 
                           {isPending && (
-                            <div className="mt-4 pt-4 border-t border-slate-100">
+                            <div className="pt-3 border-t border-slate-100 space-y-3">
                               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                                 <input
                                   type="checkbox"
                                   checked={!!termChecks[term.id]}
                                   onChange={e => setTermChecks(prev => ({ ...prev, [term.id]: e.target.checked }))}
-                                  className="w-4 h-4 mt-0.5 accent-indigo-600"
+                                  className="w-4 h-4 mt-0.5 accent-primary-600"
                                 />
-                                <span className="text-sm text-slate-600">Li integralmente e concordo com {term.title}.</span>
+                                <span className="text-xs text-slate-600">Li integralmente e concordo com {term.title}.</span>
                               </label>
                               <Button
                                 variant="primary"
                                 size="sm"
-                                radius="xl"
-                                className="mt-3"
                                 disabled={!termChecks[term.id] || acceptingTermId === term.id}
-                                leftIcon={acceptingTermId === term.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                                loading={acceptingTermId === term.id}
+                                iconLeft={<CheckCircle2 size={14} />}
                                 onClick={() => handleAcceptTerm(term.id)}
                               >
                                 Aceitar e salvar
@@ -904,7 +839,7 @@ export const Settings: React.FC = () => {
                             </div>
                           )}
                         </div>
-                      </div>
+                      </PanelCard>
                     );
                   })}
                 </div>
@@ -914,1014 +849,565 @@ export const Settings: React.FC = () => {
 
           {/* ── NOTIFICAÇÕES ─────────────────────────────────────────────── */}
           {activeTab === 'notificacoes' && hasPermission('manage_clinic_settings') && (
-            <div className="space-y-6 max-w-2xl">
-              <SectionHeader icon={<Bell size={20} />} title="Notificações por Email" desc="Configure os emails automáticos do sistema Plaelo." />
-
-              {prefsLoading ? (
-                <div className="flex items-center justify-center py-20 text-slate-400 gap-3">
-                  <Loader2 size={26} className="animate-spin" />
-                  <span className="text-sm">Carregando preferências...</span>
-                </div>
-              ) : (
-                <div className="space-y-5">
-
-                  {/* Master */}
-                  <div className={cx(
-                    'flex items-center justify-between gap-3 p-4 rounded-2xl border-2 transition-all duration-300',
-                    emailPrefs.enabled ? 'border-primary-200 bg-primary-50/60' : 'border-slate-200 bg-slate-50'
-                  )}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={cx('p-2.5 rounded-xl transition-colors shrink-0', emailPrefs.enabled ? 'bg-primary-600 text-white' : 'bg-slate-200 text-slate-400')}>
-                        <Mail size={18} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-slate-800 text-sm">Emails habilitados</p>
-                        <p className="text-xs text-slate-500">{emailPrefs.enabled ? 'Recebendo notificações por email' : 'Todos os emails estão desativados'}</p>
-                      </div>
-                    </div>
-                    <ToggleSwitch checked={emailPrefs.enabled} onChange={() => setEmailPrefs(p => ({ ...p, enabled: !p.enabled }))} />
-                  </div>
-
-                  <div className={cx('space-y-4 transition-all duration-300', emailPrefs.enabled ? 'opacity-100' : 'opacity-30 pointer-events-none')}>
-
-                    {/* Agendamentos */}
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Agendamentos</p>
-                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg"><Calendar size={16} /></div>
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">Novo agendamento</p>
-                              <p className="text-xs text-slate-400">Aviso quando um atendimento for criado</p>
-                            </div>
+            prefsLoading ? loadingBlock('Carregando preferências...') : (
+              <div className="space-y-3">
+                <PanelCard icon={Mail} title="Notificações por e-mail" description="Configure os e-mails automáticos do sistema Plaelo."
+                  action={<div className="flex items-center gap-2 lg:justify-end"><span className="text-xs text-slate-500">{emailPrefs.enabled ? 'Recebendo notificações' : 'Desativado'}</span><ToggleSwitch checked={emailPrefs.enabled} onChange={() => setEmailPrefs(p => ({ ...p, enabled: !p.enabled }))} /></div>}>
+                  <div className={cx('transition-opacity', emailPrefs.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none')}>
+                    <p className="text-xs font-medium text-slate-600">Agendamentos</p>
+                    <div className="divide-y divide-slate-100">
+                      <ToggleRow icon={Calendar} title="Novo agendamento" desc="Aviso quando um atendimento for criado" checked={emailPrefs.new_appointment} onChange={prefToggle('new_appointment')} />
+                      <div>
+                        <ToggleRow icon={Clock} title="Lembrete para mim (profissional)" desc="E-mail antes da consulta no seu endereço" checked={emailPrefs.appointment_reminder_professional} onChange={prefToggle('appointment_reminder_professional')} />
+                        {(emailPrefs.appointment_reminder_professional || emailPrefs.appointment_reminder_patient) && (
+                          <div className="pb-2.5 pl-10 flex items-center gap-2">
+                            <span className="text-[11px] text-slate-500">Antecedência:</span>
+                            {[30, 60].map(min => (
+                              <Button key={min} size="xs" variant={emailPrefs.appointment_reminder_minutes === min ? 'primary' : 'outline'}
+                                onClick={() => setEmailPrefs(p => ({ ...p, appointment_reminder_minutes: min }))}>
+                                {min === 30 ? '30 min' : '1 hora'}
+                              </Button>
+                            ))}
                           </div>
-                          <ToggleSwitch checked={emailPrefs.new_appointment} onChange={() => setEmailPrefs(p => ({ ...p, new_appointment: !p.new_appointment }))} />
-                        </div>
-
-                        <div className="px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Clock size={16} /></div>
-                              <div>
-                                <p className="font-semibold text-slate-800 text-sm">Lembrete para mim (profissional)</p>
-                                <p className="text-xs text-slate-400">Email antes da consulta no seu endereço</p>
-                              </div>
-                            </div>
-                            <ToggleSwitch checked={emailPrefs.appointment_reminder_professional} onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_professional: !p.appointment_reminder_professional }))} />
-                          </div>
-                          {(emailPrefs.appointment_reminder_professional || emailPrefs.appointment_reminder_patient) && (
-                            <div className="mt-2.5 ml-10 flex items-center gap-2">
-                              <span className="text-[10px] font-semibold text-slate-400">Antecedência:</span>
-                              {[30, 60].map(min => (
-                                <button key={min} onClick={() => setEmailPrefs(p => ({ ...p, appointment_reminder_minutes: min }))}
-                                  className={cx('px-3 py-1 rounded-lg text-xs font-bold border transition-all',
-                                    emailPrefs.appointment_reminder_minutes === min
-                                      ? 'bg-primary-600 text-white border-primary-600'
-                                      : 'bg-white text-slate-500 border-slate-200 hover:border-primary-300'
-                                  )}>
-                                  {min === 30 ? '30 min' : '1 hora'}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-violet-100 text-violet-600 rounded-lg"><Users2 size={16} /></div>
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">Lembrete para o paciente</p>
-                              <p className="text-xs text-slate-400">Envia ao email do paciente (se cadastrado)</p>
-                            </div>
-                          </div>
-                          <ToggleSwitch checked={emailPrefs.appointment_reminder_patient} onChange={() => setEmailPrefs(p => ({ ...p, appointment_reminder_patient: !p.appointment_reminder_patient }))} />
-                        </div>
+                        )}
                       </div>
+                      <ToggleRow icon={Users2} title="Lembrete para o paciente" desc="Envia ao e-mail do paciente (se cadastrado)" checked={emailPrefs.appointment_reminder_patient} onChange={prefToggle('appointment_reminder_patient')} />
                     </div>
 
-                    {/* Alertas */}
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Alertas</p>
-                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-pink-100 text-pink-600 rounded-lg"><UserCheck size={16} /></div>
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">Aniversariantes do dia</p>
-                              <p className="text-xs text-slate-400">Lista enviada toda manhã às 8h</p>
-                            </div>
-                          </div>
-                          <ToggleSwitch checked={emailPrefs.birthday_reminder} onChange={() => setEmailPrefs(p => ({ ...p, birthday_reminder: !p.birthday_reminder }))} />
-                        </div>
-                      </div>
+                    <p className="mt-3 text-xs font-medium text-slate-600">Alertas e formulários</p>
+                    <div className="divide-y divide-slate-100">
+                      <ToggleRow icon={UserCheck} title="Aniversariantes do dia" desc="Lista enviada toda manhã às 8h" checked={emailPrefs.birthday_reminder} onChange={prefToggle('birthday_reminder')} />
+                      <ToggleRow icon={ClipboardList} title="Formulário respondido" desc="Aviso quando um paciente responder um formulário" checked={emailPrefs.form_response} onChange={prefToggle('form_response')} />
                     </div>
 
-                    {/* Formulários */}
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Formulários</p>
-                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-rose-100 text-rose-600 rounded-lg"><ClipboardList size={16} /></div>
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">Formulário respondido</p>
-                              <p className="text-xs text-slate-400">Aviso quando um paciente responder um formulário</p>
-                            </div>
-                          </div>
-                          <ToggleSwitch checked={emailPrefs.form_response} onChange={() => setEmailPrefs(p => ({ ...p, form_response: !p.form_response }))} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Relatórios */}
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">Relatórios</p>
-                      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-violet-100 text-violet-600 rounded-lg"><BarChart2 size={16} /></div>
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">Relatório semanal</p>
-                              <p className="text-xs text-slate-400">Toda segunda às 7h</p>
-                            </div>
-                          </div>
-                          <ToggleSwitch checked={emailPrefs.weekly_report} onChange={() => setEmailPrefs(p => ({ ...p, weekly_report: !p.weekly_report }))} />
-                        </div>
-                        <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-amber-100 text-amber-600 rounded-lg"><FileText size={16} /></div>
-                            <div>
-                              <p className="font-semibold text-slate-800 text-sm">Relatório mensal</p>
-                              <p className="text-xs text-slate-400">Todo dia 1 às 7h</p>
-                            </div>
-                          </div>
-                          <ToggleSwitch checked={emailPrefs.monthly_report} onChange={() => setEmailPrefs(p => ({ ...p, monthly_report: !p.monthly_report }))} />
-                        </div>
-                      </div>
+                    <p className="mt-3 text-xs font-medium text-slate-600">Relatórios</p>
+                    <div className="divide-y divide-slate-100">
+                      <ToggleRow icon={BarChart2} title="Relatório semanal" desc="Toda segunda às 7h" checked={emailPrefs.weekly_report} onChange={prefToggle('weekly_report')} />
+                      <ToggleRow icon={FileText} title="Relatório mensal" desc="Todo dia 1 às 7h" checked={emailPrefs.monthly_report} onChange={prefToggle('monthly_report')} />
                     </div>
                   </div>
+                  <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+                    E-mails enviados por <strong className="text-slate-700">sistema@psiflux.com.br</strong> — não monitore nem responda este endereço.
+                  </p>
+                </PanelCard>
 
-                  {/* WhatsApp (Master Bot) — avisos ao próprio profissional. Independente do
-                      toggle de email acima: fica sempre visível, controlado só pelos toggles abaixo. */}
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 pl-1">WhatsApp (avisos para mim)</p>
-                    <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg"><Calendar size={16} /></div>
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">Novo agendamento</p>
-                            <p className="text-xs text-slate-400">Aviso quando uma consulta for criada (sistema ou Portal do Paciente)</p>
-                          </div>
-                        </div>
-                        <ToggleSwitch checked={emailPrefs.wpp_new_appointment} onChange={() => setEmailPrefs(p => ({ ...p, wpp_new_appointment: !p.wpp_new_appointment }))} />
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Clock size={16} /></div>
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">Lembrete 60 minutos antes</p>
-                            <p className="text-xs text-slate-400">Aviso da sua próxima consulta 1h antes</p>
-                          </div>
-                        </div>
-                        <ToggleSwitch checked={emailPrefs.wpp_reminder_60min} onChange={() => setEmailPrefs(p => ({ ...p, wpp_reminder_60min: !p.wpp_reminder_60min }))} />
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-sky-100 text-sky-600 rounded-lg"><Calendar size={16} /></div>
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">Lembrete 24 horas antes</p>
-                            <p className="text-xs text-slate-400">Aviso no dia anterior da consulta</p>
-                          </div>
-                        </div>
-                        <ToggleSwitch checked={emailPrefs.wpp_reminder_24h} onChange={() => setEmailPrefs(p => ({ ...p, wpp_reminder_24h: !p.wpp_reminder_24h }))} />
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-red-100 text-red-600 rounded-lg"><XCircle size={16} /></div>
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">Cancelamento</p>
-                            <p className="text-xs text-slate-400">Aviso quando uma consulta sua for cancelada</p>
-                          </div>
-                        </div>
-                        <ToggleSwitch checked={emailPrefs.wpp_cancelled_appointment} onChange={() => setEmailPrefs(p => ({ ...p, wpp_cancelled_appointment: !p.wpp_cancelled_appointment }))} />
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 bg-amber-100 text-amber-600 rounded-lg"><Clock size={16} /></div>
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">Remarcação</p>
-                            <p className="text-xs text-slate-400">Aviso quando o horário de uma consulta sua mudar</p>
-                          </div>
-                        </div>
-                        <ToggleSwitch checked={emailPrefs.wpp_rescheduled_appointment} onChange={() => setEmailPrefs(p => ({ ...p, wpp_rescheduled_appointment: !p.wpp_rescheduled_appointment }))} />
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-2 pl-1">Esses avisos usam o número de WhatsApp cadastrado no seu perfil. O Super Admin também pode desativar cada tipo globalmente.</p>
+                {/* WhatsApp (Master Bot) — avisos ao próprio profissional. Independente do
+                    toggle de email acima: fica sempre visível, controlado só pelos toggles abaixo. */}
+                <PanelCard icon={MessageSquare} title="WhatsApp (avisos para mim)" description="Esses avisos usam o número de WhatsApp cadastrado no seu perfil. O Super Admin também pode desativar cada tipo globalmente." contentClassName="px-3 py-1">
+                  <div className="divide-y divide-slate-100">
+                    <ToggleRow icon={Calendar} title="Novo agendamento" desc="Aviso quando uma consulta for criada (sistema ou Portal do Paciente)" checked={emailPrefs.wpp_new_appointment} onChange={prefToggle('wpp_new_appointment')} />
+                    <ToggleRow icon={Clock} title="Lembrete 60 minutos antes" desc="Aviso da sua próxima consulta 1h antes" checked={emailPrefs.wpp_reminder_60min} onChange={prefToggle('wpp_reminder_60min')} />
+                    <ToggleRow icon={Calendar} title="Lembrete 24 horas antes" desc="Aviso no dia anterior da consulta" checked={emailPrefs.wpp_reminder_24h} onChange={prefToggle('wpp_reminder_24h')} />
+                    <ToggleRow icon={XCircle} title="Cancelamento" desc="Aviso quando uma consulta sua for cancelada" checked={emailPrefs.wpp_cancelled_appointment} onChange={prefToggle('wpp_cancelled_appointment')} />
+                    <ToggleRow icon={Clock} title="Remarcação" desc="Aviso quando o horário de uma consulta sua mudar" checked={emailPrefs.wpp_rescheduled_appointment} onChange={prefToggle('wpp_rescheduled_appointment')} />
                   </div>
+                </PanelCard>
 
-                  {/* Ações */}
-                  <div className="flex flex-col sm:flex-row gap-3 pt-1">
-                    <Button variant="primary" size="lg" radius="xl" elevation="md" isLoading={prefsSaving} loadingText="Salvando..." leftIcon={<Save size={16} />} onClick={saveEmailPrefs}>
+                {saveBar(
+                  <>
+                    <Button variant="outline" size="sm" loading={testSending} iconLeft={<Send size={14} />} onClick={sendTestEmail}>
+                      Enviar e-mail de teste
+                    </Button>
+                    <Button variant="primary" size="sm" loading={prefsSaving} iconLeft={<Save size={14} />} onClick={saveEmailPrefs}>
                       Salvar preferências
                     </Button>
-                    <Button variant="outline" size="lg" radius="xl" isLoading={testSending} loadingText="Enviando..." leftIcon={<Send size={16} />} onClick={sendTestEmail}>
-                      Enviar email de teste
-                    </Button>
-                  </div>
-
-                  <div className="flex items-start gap-2.5 p-3.5 bg-slate-50 border border-slate-100 rounded-xl">
-                    <Mail size={13} className="mt-0.5 shrink-0 text-slate-400" />
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      Emails enviados por <strong className="text-slate-700">sistema@psiflux.com.br</strong> — não monitore nem responda este endereço.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            )
           )}
 
           {/* ── EQUIPE ────────────────────────────────────────────────────── */}
           {activeTab === 'equipe' && hasPermission('manage_professionals') && (
-            <div className="space-y-6 max-w-2xl">
-              <div className="flex items-start justify-between gap-4">
-                <SectionHeader icon={<Users size={20} />} title="Equipe da Clínica" desc="Profissionais e usuários com acesso ao sistema." />
-                <Button variant="primary" size="sm" radius="xl" leftIcon={<ExternalLink size={14} />} onClick={() => navigate('/profissionais')}>
-                  Gerenciar
-                </Button>
-              </div>
-
-              {teamLoading ? (
-                <div className="flex items-center justify-center py-16 text-slate-400 gap-3">
-                  <Loader2 size={24} className="animate-spin" />
-                  <span className="text-sm">Carregando equipe...</span>
-                </div>
-              ) : team.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
-                  <Users size={40} className="opacity-30" />
-                  <p className="text-sm">Nenhum profissional encontrado.</p>
-                  <Button variant="soft" size="sm" radius="xl" onClick={() => navigate('/profissionais')}>
-                    Adicionar profissional
-                  </Button>
-                </div>
+            <div className="space-y-3">
+              {teamLoading ? loadingBlock('Carregando equipe...') : team.length === 0 ? (
+                <ContentCard>
+                  <EmptyState icon={Users} title="Nenhum profissional encontrado."
+                    action={<Button variant="outline" size="sm" onClick={() => navigate('/profissionais')}>Adicionar profissional</Button>} />
+                </ContentCard>
               ) : (
-                <div className="space-y-4">
-                  {/* Stats */}
+                <>
                   <StatGrid cols={3}>
                     <StatCard title="Total" value={team.length} icon={Users} color="info" />
                     <StatCard title="Admins" value={team.filter(u => u.role === 'admin').length} icon={Shield} color="default" />
                     <StatCard title="Ativos" value={team.filter(u => u.is_active !== false).length} icon={UserCheck} color="success" />
                   </StatGrid>
 
-                  {/* List */}
-                  <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 overflow-hidden">
-                    {team.map((member: any) => {
-                      const initials = (member.name || '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
-                      const role = member.role || 'profissional';
-                      const isActive = member.is_active !== false;
-                      return (
-                        <div key={member.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                          {member.avatar_url ? (
-                            <img src={getStaticUrl(member.avatar_url)} alt={member.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                              {initials}
+                  <PanelCard icon={Users} title="Equipe da clínica" description="Profissionais e usuários com acesso ao sistema." contentClassName="p-0"
+                    action={<Button variant="primary" size="sm" iconLeft={<ExternalLink size={14} />} onClick={() => navigate('/profissionais')}>Gerenciar</Button>}>
+                    <div className="divide-y divide-slate-100">
+                      {team.map((member: any) => {
+                        const initials = (member.name || '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+                        const role = member.role || 'profissional';
+                        const isActive = member.is_active !== false;
+                        return (
+                          <div key={member.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors">
+                            {member.avatar_url ? (
+                              <img src={getStaticUrl(member.avatar_url)} alt={member.name} className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                            ) : (
+                              <div className="w-9 h-9 rounded-lg border border-primary-100 bg-primary-50 flex items-center justify-center text-primary-700 text-xs font-medium shrink-0">
+                                {initials}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-medium text-slate-800 truncate">{member.name}</p>
+                              {member.email && <p className="text-[11px] text-slate-500 truncate flex items-center gap-1 mt-0.5"><Mail size={10} />{member.email}</p>}
                             </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-slate-800 text-sm truncate">{member.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {member.email && <p className="text-xs text-slate-400 truncate flex items-center gap-1"><Mail size={10} />{member.email}</p>}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge size="sm" color={ROLE_COLOR[role] || 'default'}>{ROLE_LABEL[role] || role}</Badge>
+                              <span className={cx('w-1.5 h-1.5 rounded-full', isActive ? 'bg-emerald-400' : 'bg-slate-300')} title={isActive ? 'Ativo' : 'Inativo'} />
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={cx('px-2 py-0.5 rounded-full text-[10px] font-bold border', ROLE_COLOR[role] || ROLE_COLOR['profissional'])}>
-                              {ROLE_LABEL[role] || role}
-                            </span>
-                            <span className={cx('w-1.5 h-1.5 rounded-full', isActive ? 'bg-emerald-400' : 'bg-slate-300')} title={isActive ? 'Ativo' : 'Inativo'} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </PanelCard>
 
-                  <button
-                    onClick={() => navigate('/profissionais')}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 hover:border-primary-200 hover:text-primary-600 transition-all"
-                  >
-                    Ver todos no módulo de Profissionais <ArrowRight size={14} />
-                  </button>
-                </div>
+                  <Button variant="outline" size="sm" fullWidth iconRight={<ArrowRight size={14} />} onClick={() => navigate('/profissionais')}>
+                    Ver todos no módulo de Profissionais
+                  </Button>
+                </>
               )}
             </div>
           )}
 
           {/* ── DADOS FISCAIS (NFS-e) ────────────────────────────────────────── */}
           {activeTab === 'dados-fiscais' && hasPermission('manage_payments') && (
-            <div className="space-y-6 max-w-2xl">
-              <SectionHeader icon={<FileText size={20} />} title="Dados Fiscais" desc="Configure a emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) do seu consultório." />
-
-              <div>
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
-                    <div className="p-2.5 rounded-xl bg-primary-100 text-primary-600 shrink-0">
-                      <FileText size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-800 text-sm">NFS-e (Nota Fiscal de Serviço)</p>
-                        {nfseConfig.certificate_configured && (
-                          <span className={cx(
-                            'px-2 py-0.5 rounded-full text-[10px] font-bold border',
-                            nfseConfig.environment === 'producao'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                              : 'bg-amber-50 text-amber-700 border-amber-100'
-                          )}>
-                            {nfseConfig.environment === 'producao' ? 'Produção' : 'Homologação'}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">Emita a Nota Fiscal de Serviço Eletrônica municipal direto do Livro Caixa</p>
-                    </div>
+            <div className="space-y-3">
+              <PanelCard icon={FileText} title="NFS-e (Nota Fiscal de Serviço)" description="Emita a Nota Fiscal de Serviço Eletrônica municipal direto do Livro Caixa"
+                action={
+                  <div className="flex items-center gap-2 lg:justify-end">
+                    {nfseConfig.certificate_configured && (
+                      <Badge size="sm" color={nfseConfig.environment === 'producao' ? 'success' : 'warning'}>
+                        {nfseConfig.environment === 'producao' ? 'Produção' : 'Homologação'}
+                      </Badge>
+                    )}
                     <ToggleSwitch checked={!!nfseConfig.nfse_enabled} onChange={toggleNfseEnabled} />
                   </div>
-                  {nfseToggleSaving && <div className="px-4 pt-2 text-[11px] text-slate-400">Salvando...</div>}
+                }>
+                <div className="space-y-3">
+                  {nfseToggleSaving && <p className="text-[11px] text-slate-500">Salvando...</p>}
                   {!nfseConfig.nfse_enabled && (
-                    <div className="mx-4 mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
-                      <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-700">NFS-e desativada — o botão de emitir e a página "Nota Fiscal" ficam ocultos para todos os profissionais da clínica até você ativar aqui.</p>
-                    </div>
+                    <Alert variant="warning">NFS-e desativada — o botão de emitir e a página "Nota Fiscal" ficam ocultos para todos os profissionais da clínica até você ativar aqui.</Alert>
                   )}
+                  <FormRow cols={3}>
+                    <Input
+                      label="Razão social / Nome completo"
+                      wrapperClassName="md:col-span-2"
+                      value={nfseConfig.razao_social || ''}
+                      onChange={e => setNfseConfig((p: any) => ({ ...p, razao_social: e.target.value }))}
+                      placeholder="Ex: João da Silva Psicologia"
+                    />
+                    <Input
+                      label="CNPJ/CPF"
+                      value={nfseConfig.cnpj_cpf || ''}
+                      disabled
+                      title="Alterado em Perfil > Dados pessoais"
+                    />
+                    <Input
+                      label="Inscrição municipal"
+                      value={nfseConfig.inscricao_municipal || ''}
+                      onChange={e => setNfseConfig((p: any) => ({ ...p, inscricao_municipal: e.target.value }))}
+                      placeholder="Opcional"
+                    />
+                    <Input
+                      label="Código do município (IBGE)"
+                      value={nfseConfig.codigo_municipio || ''}
+                      onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_municipio: e.target.value.replace(/\D/g, '') }))}
+                      placeholder="Ex: 3554003 (Tatuí/SP)"
+                      maxLength={7}
+                    />
+                    <Input
+                      label="Código de tributação (LC 116/03)"
+                      value={nfseConfig.codigo_tributacao_nacional || ''}
+                      onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_tributacao_nacional: e.target.value }))}
+                      placeholder="Ex: 1401 (psicologia)"
+                    />
+                    <Select
+                      label="Regime tributário"
+                      value={nfseConfig.regime_tributario || 'simples_nacional'}
+                      onChange={e => setNfseConfig((p: any) => ({ ...p, regime_tributario: e.target.value }))}
+                    >
+                      <option value="simples_nacional">Simples Nacional</option>
+                      <option value="lucro_presumido">Lucro Presumido</option>
+                      <option value="lucro_real">Lucro Real</option>
+                    </Select>
+                    <Select
+                      label="Ambiente de emissão"
+                      value={nfseConfig.environment || 'homologacao'}
+                      onChange={e => setNfseConfig((p: any) => ({ ...p, environment: e.target.value }))}
+                    >
+                      <option value="homologacao">Homologação (testes, sem valor fiscal)</option>
+                      <option value="producao">Produção</option>
+                    </Select>
+                  </FormRow>
+                </div>
+              </PanelCard>
 
-                  <div className="p-4 space-y-4">
-                    {/* Dados fiscais */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="sm:col-span-2">
-                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Razão social / Nome completo</label>
-                        <input
-                          type="text"
-                          value={nfseConfig.razao_social || ''}
-                          onChange={e => setNfseConfig((p: any) => ({ ...p, razao_social: e.target.value }))}
-                          placeholder="Ex: João da Silva Psicologia"
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">CNPJ/CPF</label>
-                        <input
-                          type="text"
-                          value={nfseConfig.cnpj_cpf || ''}
-                          disabled
-                          title="Alterado em Perfil > Dados pessoais"
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Inscrição municipal</label>
-                        <input
-                          type="text"
-                          value={nfseConfig.inscricao_municipal || ''}
-                          onChange={e => setNfseConfig((p: any) => ({ ...p, inscricao_municipal: e.target.value }))}
-                          placeholder="Opcional"
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Código do município (IBGE)</label>
-                        <input
-                          type="text"
-                          value={nfseConfig.codigo_municipio || ''}
-                          onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_municipio: e.target.value.replace(/\D/g, '') }))}
-                          placeholder="Ex: 3554003 (Tatuí/SP)"
-                          maxLength={7}
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Código de tributação (LC 116/03)</label>
-                        <input
-                          type="text"
-                          value={nfseConfig.codigo_tributacao_nacional || ''}
-                          onChange={e => setNfseConfig((p: any) => ({ ...p, codigo_tributacao_nacional: e.target.value }))}
-                          placeholder="Ex: 1401 (psicologia)"
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Regime tributário</label>
-                        <select
-                          value={nfseConfig.regime_tributario || 'simples_nacional'}
-                          onChange={e => setNfseConfig((p: any) => ({ ...p, regime_tributario: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 bg-white"
-                        >
-                          <option value="simples_nacional">Simples Nacional</option>
-                          <option value="lucro_presumido">Lucro Presumido</option>
-                          <option value="lucro_real">Lucro Real</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-500 mb-1 block">Ambiente de emissão</label>
-                        <select
-                          value={nfseConfig.environment || 'homologacao'}
-                          onChange={e => setNfseConfig((p: any) => ({ ...p, environment: e.target.value }))}
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 bg-white"
-                        >
-                          <option value="homologacao">Homologação (testes, sem valor fiscal)</option>
-                          <option value="producao">Produção</option>
-                        </select>
-                      </div>
-                    </div>
-                    <button onClick={saveNfseConfig} disabled={nfseSaving}
-                      className="w-full py-2.5 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-40">
-                      {nfseSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Salvar dados fiscais'}
-                    </button>
-
-                    {/* Certificado digital */}
-                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                      <p className="text-xs font-bold text-slate-600">Certificado digital A1 (.pfx/.p12)</p>
-                      {nfseConfig.certificate_configured ? (
-                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                          <p className="text-xs text-emerald-700 font-medium">Certificado digital configurado.</p>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                          <AlertTriangle size={15} className="text-amber-600 shrink-0" />
-                          <p className="text-xs text-amber-700 font-medium">Nenhum certificado enviado ainda.</p>
-                        </div>
-                      )}
-                      <p className="text-[11px] text-slate-400">Para trocar o certificado, selecione o novo arquivo e informe a senha:</p>
-                      <input
-                        ref={nfseCertInputRef}
-                        type="file"
-                        accept=".pfx,.p12"
-                        className="hidden"
-                        onChange={e => setNfseCertFile(e.target.files?.[0] || null)}
-                      />
-                      <button
-                        onClick={() => nfseCertInputRef.current?.click()}
-                        className="w-full py-2 text-xs font-bold text-primary-700 bg-primary-50 border border-dashed border-primary-200 rounded-xl hover:bg-primary-100 transition-all"
-                      >
+              <PanelCard icon={ShieldCheck} title="Certificado digital A1 (.pfx/.p12)" description="Para trocar o certificado, selecione o novo arquivo e informe a senha.">
+                <div className="space-y-3">
+                  {nfseConfig.certificate_configured ? (
+                    <Alert variant="success">Certificado digital configurado.</Alert>
+                  ) : (
+                    <Alert variant="warning">Nenhum certificado enviado ainda.</Alert>
+                  )}
+                  <input
+                    ref={nfseCertInputRef}
+                    type="file"
+                    accept=".pfx,.p12"
+                    className="hidden"
+                    onChange={e => setNfseCertFile(e.target.files?.[0] || null)}
+                  />
+                  <FormRow>
+                    <div className="flex flex-col gap-1">
+                      <span className="ds-label">Arquivo do certificado</span>
+                      <Button variant="outline" onClick={() => nfseCertInputRef.current?.click()}>
                         {nfseCertFile ? nfseCertFile.name : 'Selecionar arquivo .pfx/.p12'}
-                      </button>
-                      <input
-                        type="password"
-                        value={nfseCertPassword}
-                        onChange={e => setNfseCertPassword(e.target.value)}
-                        placeholder="Senha do certificado"
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
-                      />
-                      <button onClick={uploadNfseCert} disabled={!nfseCertFile || !nfseCertPassword || nfseUploadingCert}
-                        className="w-full py-2.5 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-40">
-                        {nfseUploadingCert ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Enviando...</span> : 'Salvar certificado'}
-                      </button>
+                      </Button>
                     </div>
-
-                    {/* Testar emissão em homologação */}
-                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                      <p className="text-xs font-bold text-slate-600">Validar configuração</p>
-                      <p className="text-[11px] text-slate-400">Emite uma NFS-e de teste em ambiente de homologação (sem valor fiscal) para confirmar que o certificado, o município e a comunicação com o Sistema Nacional NFS-e estão corretos.</p>
-                      <button onClick={testNfseEmission} disabled={nfseTesting || !nfseConfig.certificate_configured}
-                        className="w-full py-2.5 text-xs font-bold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-all disabled:opacity-40">
-                        {nfseTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando emissão...</span> : 'Testar emissão em homologação'}
-                      </button>
-                    </div>
+                    <Input
+                      label="Senha do certificado"
+                      type="password"
+                      value={nfseCertPassword}
+                      onChange={e => setNfseCertPassword(e.target.value)}
+                      placeholder="Senha do certificado"
+                    />
+                  </FormRow>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="primary" size="sm" disabled={!nfseCertFile || !nfseCertPassword} loading={nfseUploadingCert} onClick={uploadNfseCert}>
+                      Salvar certificado
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={!nfseConfig.certificate_configured} loading={nfseTesting} onClick={testNfseEmission}>
+                      Testar emissão em homologação
+                    </Button>
                   </div>
+                  <p className="text-[11px] text-slate-500">O teste emite uma NFS-e em ambiente de homologação (sem valor fiscal) para confirmar que o certificado, o município e a comunicação com o Sistema Nacional NFS-e estão corretos.</p>
                 </div>
-              </div>
+              </PanelCard>
 
-              {/* ── Recibo Receita Saúde ────────────────────────────────────── */}
-              <div>
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="flex items-center gap-4 p-4">
-                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-600 shrink-0">
-                      <Receipt size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 text-sm">Recibo Receita Saúde</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Controle manual de recibo para dedução no Imposto de Renda (independente da NFS-e)</p>
-                    </div>
-                    <ToggleSwitch checked={!!nfseConfig.rs_receipt_enabled} onChange={toggleRsReceiptEnabled} />
-                  </div>
-                  {rsToggleSaving && <div className="px-4 pb-2 text-[11px] text-slate-400">Salvando...</div>}
-                  {!nfseConfig.rs_receipt_enabled && (
-                    <div className="mx-4 mb-4 p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
-                      <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-700">Recibo RS desativado — a coluna "Recibo RS" fica oculta no Livro Caixa até você ativar aqui.</p>
-                    </div>
+              <PanelCard icon={Receipt} title="Recibo Receita Saúde" description="Controle manual de recibo para dedução no Imposto de Renda (independente da NFS-e)"
+                action={<div className="flex lg:justify-end"><ToggleSwitch checked={!!nfseConfig.rs_receipt_enabled} onChange={toggleRsReceiptEnabled} /></div>}>
+                <div className="space-y-2">
+                  {rsToggleSaving && <p className="text-[11px] text-slate-500">Salvando...</p>}
+                  {!nfseConfig.rs_receipt_enabled ? (
+                    <Alert variant="warning">Recibo RS desativado — a coluna "Recibo RS" fica oculta no Livro Caixa até você ativar aqui.</Alert>
+                  ) : (
+                    <p className="text-xs text-slate-500">Recibo RS ativo no Livro Caixa.</p>
                   )}
                 </div>
-              </div>
+              </PanelCard>
+
+              {saveBar(
+                <Button variant="primary" size="sm" loading={nfseSaving} iconLeft={<Save size={14} />} onClick={saveNfseConfig}>
+                  Salvar dados fiscais
+                </Button>
+              )}
             </div>
           )}
 
           {/* ── INTEGRAÇÕES ───────────────────────────────────────────────── */}
-          {activeTab === 'integracoes' && (hasPermission('manage_bot_integration') || hasPermission('manage_clinical_tools') || hasPermission('manage_clinic_settings')) && (
-            <div className="space-y-6 max-w-2xl">
-              <SectionHeader icon={<Plug size={20} />} title={t('settings.menu.integrations')} desc="Módulos nativos e integrações do sistema." />
-
-              {/* Módulos nativos — funcionam */}
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Módulos ativos</p>
-                <div className="space-y-2">
-                  {[
-                    {
-                      icon: <Video size={20} />,
-                      color: 'bg-indigo-100 text-indigo-600',
-                      title: 'Salas Virtuais',
-                      desc: 'Atendimentos por videochamada integrado ao sistema',
-                      badge: 'Ativo',
-                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                      onClick: () => navigate('/salas-virtuais'),
-                    },
-                    {
-                      icon: <MessageSquare size={20} />,
-                      color: 'bg-emerald-100 text-emerald-600',
-                      title: 'Bot / Automação',
-                      desc: 'Automação de mensagens e fluxos de atendimento',
-                      badge: 'Ativo',
-                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                      onClick: () => navigate('/bot'),
-                    },
-                    {
-                      icon: <FileCode size={20} />,
-                      color: 'bg-violet-100 text-violet-600',
-                      title: 'Formulários externos',
-                      desc: 'Links públicos de formulários para seus pacientes',
-                      badge: 'Ativo',
-                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                      onClick: () => navigate('/formularios'),
-                    },
-                    {
-                      icon: <Briefcase size={20} />,
-                      color: 'bg-amber-100 text-amber-600',
-                      title: 'Gerador de documentos',
-                      desc: 'Modelos de laudos, declarações e relatórios clínicos',
-                      badge: 'Ativo',
-                      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                      onClick: () => navigate('/gerador-documentos'),
-                    },
-                  ].map(item => (
+          {activeTab === 'integracoes' && canIntegrations && (
+            <div className="space-y-3">
+              <PanelCard icon={Plug} title={t('settings.menu.integrations')} description="Módulos nativos e integrações do sistema." contentClassName="p-0">
+                <div className="divide-y divide-slate-100">
+                  {integrationModules.map(item => (
                     <button key={item.title} onClick={item.onClick}
-                      className="w-full flex items-center gap-3 sm:gap-4 p-4 rounded-2xl border border-slate-200 bg-white hover:border-primary-200 hover:shadow-sm transition-all text-left group">
-                      <div className={cx('p-2.5 rounded-xl shrink-0', item.color)}>{item.icon}</div>
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors text-left group">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600"><item.icon size={15} /></div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
+                        <p className="text-[13px] font-medium text-slate-800">{item.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={cx('px-2 py-0.5 rounded-full text-[10px] font-bold border hidden sm:inline-flex', item.badgeColor)}>
-                          {item.badge}
-                        </span>
-                        <ArrowRight size={14} className="text-slate-300 group-hover:text-primary-400 transition-colors" />
-                      </div>
+                      <Badge size="sm" color="success" className="hidden sm:inline-flex">Ativo</Badge>
+                      <ArrowRight size={14} className="text-slate-300 group-hover:text-primary-500 transition-colors shrink-0" />
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* ── Pagamentos (Mercado Pago OU Asaas — escolha um) ────────────── */}
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Pagamentos</p>
-                <p className="text-[11px] text-slate-400 -mt-2 mb-3 pl-1">
-                  Escolha <strong>um</strong> gateway pra cobrar seus pacientes online — usar os dois ao mesmo tempo confunde quem for pagar.
-                </p>
-              </div>
-
-              {/* ── Mercado Pago ─────────────────────────────────────────────── */}
-              <div>
-                <div className={cx('rounded-2xl border bg-white overflow-hidden', mpConfig.configured && mpConfig.enabled ? 'border-primary-200' : 'border-slate-200')}>
-                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
-                    <div className="p-2.5 rounded-xl bg-primary-100 text-primary-600 shrink-0">
-                      <CreditCard size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-800 text-sm">Mercado Pago</p>
-                        {mpConfig.configured && (
-                          <span className={cx(
-                            'px-2 py-0.5 rounded-full text-[10px] font-bold border',
-                            mpConfig.enabled
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                              : 'bg-slate-100 text-slate-500 border-slate-200'
-                          )}>
-                            {mpConfig.enabled ? 'Ativo' : 'Pausado'}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">Receba PIX, cartão e débito — lançamento automático no Livro Caixa</p>
-                    </div>
-                    {mpConfig.configured && (
-                      <ToggleSwitch checked={mpConfig.enabled} onChange={toggleMpEnabled} />
-                    )}
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    {mpConfig.configured ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                          <p className="text-xs text-emerald-700 font-medium">Access Token do Mercado Pago configurado e criptografado.</p>
-                        </div>
-                        <p className="text-[11px] text-slate-400">Para trocar o token, cole o novo abaixo:</p>
-                        <div className="relative">
-                          <input
-                            type={mpShowToken ? 'text' : 'password'}
-                            value={mpToken}
-                            onChange={e => setMpToken(e.target.value)}
-                            placeholder="Novo Access Token (opcional)"
-                            className="w-full pr-10 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 font-mono"
-                          />
-                          <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                            {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
-                        {mpToken && (
-                          <div className="flex gap-2">
-                            <button onClick={testMpToken} disabled={mpTesting || !mpToken.trim()}
-                              className="flex-1 py-2 text-xs font-bold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-all disabled:opacity-50">
-                              {mpTesting ? <Loader2 size={13} className="animate-spin inline" /> : 'Testar'}
-                            </button>
-                            <button onClick={saveMpToken} disabled={mpSaving || !mpToken.trim()}
-                              className="flex-1 py-2 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-50">
-                              {mpSaving ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
-                            </button>
-                          </div>
-                        )}
-                        <div className="pt-2 border-t border-slate-100 space-y-2">
-                          <p className="text-xs font-bold text-slate-600">Juros no parcelamento (cartão de crédito)</p>
-                          <p className="text-[11px] text-slate-400">Taxa ao mês aplicada sobre o valor parcelado. O paciente verá o valor com juros e um aviso no Portal. Pix e débito nunca têm juros.</p>
-                          <div className="flex gap-2">
-                            <div className="relative flex-1">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={mpInterestRate}
-                                onChange={e => setMpInterestRate(e.target.value.replace(/[^0-9.,]/g, ''))}
-                                placeholder="0"
-                                className="w-full pr-8 pl-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400"
-                              />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">% a.m.</span>
-                            </div>
-                            <button onClick={saveMpInterestRate} disabled={mpSavingRate}
-                              className="px-4 py-2 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-50">
-                              {mpSavingRate ? <Loader2 size={13} className="animate-spin inline" /> : 'Salvar'}
-                            </button>
-                          </div>
-                        </div>
-                        <button onClick={disconnectMp} disabled={mpSaving}
-                          className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors">
-                          <Unplug size={12} /> Desconectar Mercado Pago
-                        </button>
-                      </div>
-                    ) : asaasStatus.enabled ? (
-                      <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                        <ShieldCheck size={15} className="text-amber-600 shrink-0" />
-                        <p className="text-xs text-amber-700 font-medium">
-                          Você já usa a Asaas para receber. Desative-a abaixo antes de conectar o Mercado Pago.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Guia passo a passo */}
-                        <div className="p-3 bg-primary-50 rounded-xl border border-primary-100 space-y-1.5">
-                          <p className="text-xs font-bold text-primary-700">Como obter o Access Token:</p>
-                          <ol className="text-xs text-primary-800 space-y-1 pl-3 list-decimal">
-                            <li>Acesse <strong>mercadopago.com.br</strong> e faça login</li>
-                            <li>Clique em <strong>Seu negócio → Configurações</strong></li>
-                            <li>Vá em <strong>Credenciais de produção</strong></li>
-                            <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-primary-100 px-1 rounded">APP_USR-</code>)</li>
-                            <li>Cole abaixo e clique em <strong>Conectar</strong></li>
-                          </ol>
-                        </div>
-                        <div className="relative">
-                          <input
-                            type={mpShowToken ? 'text' : 'password'}
-                            value={mpToken}
-                            onChange={e => setMpToken(e.target.value)}
-                            placeholder="Access Token (APP_USR-...)"
-                            className="w-full pr-10 pl-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-primary-400 font-mono"
-                          />
-                          <button onClick={() => setMpShowToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                            {mpShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <button onClick={testMpToken} disabled={!mpToken.trim() || mpTesting}
-                            className="flex-1 py-2.5 text-xs font-bold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-all disabled:opacity-40">
-                            {mpTesting ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Testando...</span> : 'Testar conexão'}
-                          </button>
-                          <button onClick={saveMpToken} disabled={!mpToken.trim() || mpSaving}
-                            className="flex-1 py-2.5 text-xs font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 transition-all disabled:opacity-40">
-                            {mpSaving ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Salvando...</span> : 'Conectar Mercado Pago'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              </PanelCard>
 
               {/* ── Google Meet ──────────────────────────────────────────────── */}
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Vídeo</p>
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
-                    <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0">
-                      <Video size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-800 text-sm">Google Meet</p>
-                        {googleStatus.connected && (
-                          <span className={cx(
-                            'px-2 py-0.5 rounded-full text-[10px] font-bold border',
-                            googleStatus.enabled
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                              : 'bg-slate-100 text-slate-500 border-slate-200'
-                          )}>
-                            {googleStatus.enabled ? 'Ativo' : 'Pausado'}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">Gere links do Google Meet automaticamente para consultas online</p>
-                    </div>
-                    {googleStatus.connected && (
-                      <ToggleSwitch checked={googleStatus.enabled} onChange={toggleGoogleEnabled} />
-                    )}
+              <PanelCard icon={Video} title="Google Meet" description="Gere links do Google Meet automaticamente para consultas online"
+                action={
+                  <div className="flex items-center gap-2 lg:justify-end">
+                    {googleStatus.connected && <Badge size="sm" color={googleStatus.enabled ? 'success' : 'default'}>{googleStatus.enabled ? 'Ativo' : 'Pausado'}</Badge>}
+                    {googleStatus.connected && <ToggleSwitch checked={googleStatus.enabled} onChange={toggleGoogleEnabled} />}
                   </div>
-
-                  <div className="p-4 space-y-3">
-                    {googleStatus.connected ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                          <p className="text-xs text-emerald-700 font-medium">
-                            Conectado como <strong>{googleStatus.email}</strong>
-                          </p>
-                        </div>
-                        <p className="text-[11px] text-slate-400">
-                          Com isso ativado, você pode gerar um link do Google Meet direto ao criar uma consulta online na Agenda.
-                        </p>
-                        <button onClick={disconnectGoogle} disabled={googleDisconnecting}
-                          className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
-                          <Unplug size={12} /> {googleDisconnecting ? 'Desconectando...' : 'Desconectar Google'}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-1.5">
-                          <p className="text-xs font-bold text-blue-700">Como funciona:</p>
-                          <p className="text-xs text-blue-800">
-                            Conecte sua conta Google (pessoal ou Workspace) para que o sistema gere automaticamente um link
-                            do Google Meet e um evento na sua Agenda do Google ao criar uma consulta online.
-                          </p>
-                        </div>
-                        <button onClick={connectGoogle} disabled={googleConnecting}
-                          className="w-full py-2.5 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all disabled:opacity-40">
-                          {googleConnecting
-                            ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Conectando...</span>
-                            : 'Conectar com Google'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                }>
+                <div className="space-y-3">
+                  {googleStatus.connected ? (
+                    <>
+                      <Alert variant="success">Conectado como <strong>{googleStatus.email}</strong></Alert>
+                      <p className="text-[11px] text-slate-500">
+                        Com isso ativado, você pode gerar um link do Google Meet direto ao criar uma consulta online na Agenda.
+                      </p>
+                      <Button variant="softDanger" size="sm" iconLeft={<Unplug size={14} />} onClick={disconnectGoogle} disabled={googleDisconnecting}>
+                        {googleDisconnecting ? 'Desconectando...' : 'Desconectar Google'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Alert variant="info" title="Como funciona">
+                        Conecte sua conta Google (pessoal ou Workspace) para que o sistema gere automaticamente um link
+                        do Google Meet e um evento na sua Agenda do Google ao criar uma consulta online.
+                      </Alert>
+                      <Button variant="primary" size="sm" loading={googleConnecting} onClick={connectGoogle}>
+                        Conectar com Google
+                      </Button>
+                    </>
+                  )}
                 </div>
-              </div>
-
-              {/* ── Asaas (recebimentos de pacientes) ───────────────────────── */}
-              <div>
-                <div className={cx('rounded-2xl border bg-white overflow-hidden', asaasStatus.enabled ? 'border-teal-200' : 'border-slate-200')}>
-                  <div className="flex items-center gap-3 sm:gap-4 p-4 border-b border-slate-100">
-                    <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 shrink-0">
-                      <Wallet size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-slate-800 text-sm">Asaas</p>
-                        {asaasStatus.enabled && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-100">
-                            Ativo
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">Cobre seus pacientes por Pix, cartão ou boleto — o dinheiro cai direto na sua conta</p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    {asaasStatus.enabled ? (
-                      <div className="space-y-3">
-                        {asaasJustActivated && (
-                          <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
-                            <p className="text-xs font-bold text-blue-700 flex items-center gap-1.5"><CheckCircle2 size={14} /> Falta 1 passo pra você sacar</p>
-                            <p className="text-xs text-blue-800">
-                              Sua conta na Asaas já foi criada com o e-mail <strong>{asaasForm.email}</strong>. Acesse o site
-                              da Asaas com esse e-mail (você define uma senha lá na primeira vez), cadastre sua conta
-                              bancária e verifique seu documento — só depois disso dá pra transferir o saldo pra sua conta.
-                            </p>
-                            <a href={ASAAS_LOGIN_URL} target="_blank" rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 transition-colors">
-                              Acessar minha conta na Asaas <ExternalLink size={12} />
-                            </a>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                          <p className="text-xs text-emerald-700 font-medium">
-                            Recebimentos ativos{asaasStatus.balance != null ? ` · Saldo: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asaasStatus.balance)}` : ''}
-                          </p>
-                        </div>
-                        <p className="text-[11px] text-slate-400">
-                          Agora você pode gerar cobranças direto na ficha do paciente ou pela Comanda. Para sacar o saldo, acesse{' '}
-                          <a href={ASAAS_LOGIN_URL} target="_blank" rel="noopener noreferrer" className="font-bold text-teal-600 hover:text-teal-800">
-                            sua conta na Asaas
-                          </a>.
-                        </p>
-                        <button onClick={disableAsaas} disabled={asaasSaving}
-                          className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
-                          <Unplug size={12} /> {asaasSaving ? 'Desativando...' : 'Desativar recebimentos'}
-                        </button>
-                      </div>
-                    ) : mpConfig.configured && mpConfig.enabled ? (
-                      <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                        <ShieldCheck size={15} className="text-amber-600 shrink-0" />
-                        <p className="text-xs text-amber-700 font-medium">
-                          Você já usa o Mercado Pago para receber. Desconecte-o acima antes de ativar a Asaas.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {/* Indicador de etapas */}
-                        <div className="flex items-center gap-2">
-                          {[1, 2].map(step => (
-                            <div key={step} className="flex items-center gap-2 flex-1">
-                              <div className={cx(
-                                'w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0',
-                                asaasStep === step ? 'bg-teal-600 text-white' : asaasStep > step ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-400'
-                              )}>
-                                {asaasStep > step ? <Check size={13} /> : step}
-                              </div>
-                              <p className={cx('text-[11px] font-semibold', asaasStep === step ? 'text-teal-700' : 'text-slate-400')}>
-                                {step === 1 ? 'Seus dados' : 'Endereço'}
-                              </p>
-                              {step === 1 && <div className={cx('flex-1 h-0.5 rounded', asaasStep > 1 ? 'bg-teal-200' : 'bg-slate-100')} />}
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="p-3 bg-teal-50 rounded-xl border border-teal-100 space-y-1.5">
-                          <p className="text-xs font-bold text-teal-700">Como funciona:</p>
-                          <p className="text-xs text-teal-800">
-                            Ao concluir, criamos automaticamente uma conta Asaas em seu nome. Os pagamentos dos seus pacientes
-                            caem direto nela — a Plaelo nunca recebe ou repassa esse dinheiro.
-                          </p>
-                        </div>
-
-                        {asaasStep === 1 && (
-                          <>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                              <input
-                                value={asaasForm.name}
-                                onChange={e => setAsaasForm(p => ({ ...p, name: e.target.value }))}
-                                placeholder="Nome completo"
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                              />
-                              <input
-                                value={asaasForm.cpfCnpj}
-                                onChange={e => setAsaasForm(p => ({ ...p, cpfCnpj: maskCpfCnpj(e.target.value) }))}
-                                placeholder="CPF ou CNPJ"
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                              />
-                              <input
-                                value={asaasForm.email}
-                                onChange={e => setAsaasForm(p => ({ ...p, email: e.target.value }))}
-                                placeholder="E-mail"
-                                type="email"
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                              />
-                              <input
-                                value={asaasForm.mobilePhone}
-                                onChange={e => setAsaasForm(p => ({ ...p, mobilePhone: maskPhoneBR(e.target.value) }))}
-                                placeholder="Celular (com DDD)"
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                              />
-                              {asaasIsCnpj ? (
-                                <select
-                                  value={asaasForm.companyType}
-                                  onChange={e => setAsaasForm(p => ({ ...p, companyType: e.target.value }))}
-                                  className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 bg-white sm:col-span-2"
-                                >
-                                  <option value="">Tipo de empresa (exigido p/ CNPJ)</option>
-                                  <option value="MEI">MEI</option>
-                                  <option value="LIMITED">Limitada (LTDA)</option>
-                                  <option value="INDIVIDUAL">Empresário Individual</option>
-                                  <option value="ASSOCIATION">Associação</option>
-                                </select>
-                              ) : (
-                                <div className="sm:col-span-2">
-                                  <input
-                                    type="date"
-                                    value={asaasForm.birthDate}
-                                    onChange={e => setAsaasForm(p => ({ ...p, birthDate: e.target.value }))}
-                                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                                  />
-                                  <p className="text-[10px] text-slate-400 mt-1 pl-1">Data de nascimento (exigida p/ CPF)</p>
-                                </div>
-                              )}
-                            </div>
-                            <button onClick={goAsaasStep2} disabled={!asaasStep1Valid}
-                              className="w-full py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40 flex items-center justify-center gap-1.5">
-                              Continuar <ChevronRight size={14} />
-                            </button>
-                          </>
-                        )}
-
-                        {asaasStep === 2 && (
-                          <>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                              <input
-                                value={asaasForm.postalCode}
-                                onChange={e => handleAsaasCepChange(e.target.value)}
-                                placeholder={asaasCepLoading ? 'Buscando CEP...' : 'CEP'}
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                              />
-                              <input
-                                value={asaasForm.province}
-                                onChange={e => setAsaasForm(p => ({ ...p, province: e.target.value }))}
-                                placeholder="Bairro"
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                              />
-                              <input
-                                value={asaasForm.address}
-                                onChange={e => setAsaasForm(p => ({ ...p, address: e.target.value }))}
-                                placeholder="Rua / Logradouro"
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 sm:col-span-2"
-                              />
-                              <input
-                                value={asaasForm.addressNumber}
-                                onChange={e => setAsaasForm(p => ({ ...p, addressNumber: e.target.value }))}
-                                placeholder="Número"
-                                className="px-3 py-2.5 text-xs rounded-xl border border-slate-200 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <button onClick={() => setAsaasStep(1)} disabled={asaasSaving}
-                                className="py-2.5 px-4 text-xs font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all disabled:opacity-40">
-                                Voltar
-                              </button>
-                              <button onClick={activateAsaas} disabled={asaasSaving || !asaasStep2Valid}
-                                className="flex-1 py-2.5 text-xs font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all disabled:opacity-40">
-                                {asaasSaving
-                                  ? <span className="flex items-center justify-center gap-1"><Loader2 size={13} className="animate-spin" /> Ativando...</span>
-                                  : 'Ativar recebimentos'}
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              </PanelCard>
 
               {/* Em breve */}
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 pl-1">Em breve</p>
-                <div className="space-y-2">
-                  {[
-                    {
-                      icon: <Phone size={20} />,
-                      color: 'bg-green-50 text-green-600',
-                      title: 'WhatsApp Business API',
-                      desc: 'Disparo de mensagens via API oficial do WhatsApp',
-                    },
-                    {
-                      icon: <Zap size={20} />,
-                      color: 'bg-orange-50 text-orange-600',
-                      title: 'Zapier / Webhooks',
-                      desc: 'Conecte o Plaelo a outros sistemas via webhooks',
-                    },
-                  ].map(item => (
-                    <div key={item.title}
-                      className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/60 opacity-60">
-                      <div className={cx('p-2.5 rounded-xl shrink-0', item.color)}>{item.icon}</div>
+              <PanelCard title="Em breve" contentClassName="p-0">
+                <div className="divide-y divide-slate-100">
+                  {comingSoon.map(item => (
+                    <div key={item.title} className="flex items-center gap-3 px-3 py-2.5 opacity-70">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500"><item.icon size={15} /></div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-700 text-sm">{item.title}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
+                        <p className="text-[13px] font-medium text-slate-700">{item.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-500 border border-slate-200 shrink-0">
-                        Em breve
-                      </span>
+                      <Badge size="sm">Em breve</Badge>
                     </div>
                   ))}
                 </div>
-              </div>
+              </PanelCard>
             </div>
           )}
 
-        </div>
+          {/* ── PAGAMENTOS (Mercado Pago OU Asaas — escolha um) ─────────────── */}
+          {activeTab === 'pagamentos' && canIntegrations && (
+            <div className="space-y-3">
+              <Alert variant="info">
+                Escolha <strong>um</strong> gateway pra cobrar seus pacientes online — usar os dois ao mesmo tempo confunde quem for pagar.
+              </Alert>
+
+              {/* ── Mercado Pago ─────────────────────────────────────────────── */}
+              <PanelCard icon={CreditCard} title="Mercado Pago" description="Receba PIX, cartão e débito — lançamento automático no Livro Caixa"
+                action={
+                  <div className="flex items-center gap-2 lg:justify-end">
+                    {mpConfig.configured && <Badge size="sm" color={mpConfig.enabled ? 'success' : 'default'}>{mpConfig.enabled ? 'Ativo' : 'Pausado'}</Badge>}
+                    {mpConfig.configured && <ToggleSwitch checked={mpConfig.enabled} onChange={toggleMpEnabled} />}
+                  </div>
+                }>
+                <div className="space-y-3">
+                  {mpConfig.configured ? (
+                    <>
+                      <Alert variant="success">Access Token do Mercado Pago configurado e criptografado.</Alert>
+                      <div className="space-y-2">
+                        <p className="text-[11px] text-slate-500">Para trocar o token, cole o novo abaixo:</p>
+                        {mpTokenField('Novo Access Token (opcional)')}
+                        {mpToken && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" onClick={testMpToken} loading={mpTesting} disabled={!mpToken.trim()}>Testar</Button>
+                            <Button variant="primary" size="sm" onClick={saveMpToken} loading={mpSaving} disabled={!mpToken.trim()}>Salvar</Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="pt-3 border-t border-slate-100 space-y-2">
+                        <p className="text-xs font-medium text-slate-600">Juros no parcelamento (cartão de crédito)</p>
+                        <p className="text-[11px] text-slate-500">Taxa ao mês aplicada sobre o valor parcelado. O paciente verá o valor com juros e um aviso no Portal. Pix e débito nunca têm juros.</p>
+                        <div className="flex gap-2 items-start">
+                          <Input
+                            wrapperClassName="flex-1"
+                            inputMode="decimal"
+                            value={mpInterestRate}
+                            onChange={e => setMpInterestRate(e.target.value.replace(/[^0-9.,]/g, ''))}
+                            placeholder="0"
+                            addonRight="% a.m."
+                          />
+                          <Button variant="primary" size="md" onClick={saveMpInterestRate} loading={mpSavingRate}>Salvar</Button>
+                        </div>
+                      </div>
+                      <Button variant="softDanger" size="sm" iconLeft={<Unplug size={14} />} onClick={disconnectMp} disabled={mpSaving}>
+                        Desconectar Mercado Pago
+                      </Button>
+                    </>
+                  ) : asaasStatus.enabled ? (
+                    <Alert variant="warning">Você já usa a Asaas para receber. Desative-a abaixo antes de conectar o Mercado Pago.</Alert>
+                  ) : (
+                    <>
+                      <Alert variant="info" title="Como obter o Access Token">
+                        <ol className="space-y-1 pl-4 list-decimal">
+                          <li>Acesse <strong>mercadopago.com.br</strong> e faça login</li>
+                          <li>Clique em <strong>Seu negócio → Configurações</strong></li>
+                          <li>Vá em <strong>Credenciais de produção</strong></li>
+                          <li>Copie o <strong>Access Token</strong> (começa com <code className="bg-slate-100 px-1 rounded">APP_USR-</code>)</li>
+                          <li>Cole abaixo e clique em <strong>Conectar</strong></li>
+                        </ol>
+                      </Alert>
+                      {mpTokenField('Access Token (APP_USR-...)')}
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={testMpToken} loading={mpTesting} disabled={!mpToken.trim()}>Testar conexão</Button>
+                        <Button variant="primary" size="sm" onClick={saveMpToken} loading={mpSaving} disabled={!mpToken.trim()}>Conectar Mercado Pago</Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </PanelCard>
+
+              {/* ── Asaas (recebimentos de pacientes) ───────────────────────── */}
+              <PanelCard icon={Wallet} title="Asaas" description="Cobre seus pacientes por Pix, cartão ou boleto — o dinheiro cai direto na sua conta"
+                action={asaasStatus.enabled ? <div className="flex lg:justify-end"><Badge size="sm" color="success">Ativo</Badge></div> : undefined}>
+                <div className="space-y-3">
+                  {asaasStatus.enabled ? (
+                    <>
+                      {asaasJustActivated && (
+                        <Alert variant="info" title="Falta 1 passo pra você sacar"
+                          action={
+                            <a href={ASAAS_LOGIN_URL} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-700 hover:text-primary-900 transition-colors">
+                              Acessar minha conta na Asaas <ExternalLink size={12} />
+                            </a>
+                          }>
+                          Sua conta na Asaas já foi criada com o e-mail <strong>{asaasForm.email}</strong>. Acesse o site
+                          da Asaas com esse e-mail (você define uma senha lá na primeira vez), cadastre sua conta
+                          bancária e verifique seu documento — só depois disso dá pra transferir o saldo pra sua conta.
+                        </Alert>
+                      )}
+                      <Alert variant="success">
+                        Recebimentos ativos{asaasStatus.balance != null ? ` · Saldo: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asaasStatus.balance)}` : ''}
+                      </Alert>
+                      <p className="text-[11px] text-slate-500">
+                        Agora você pode gerar cobranças direto na ficha do paciente ou pela Comanda. Para sacar o saldo, acesse{' '}
+                        <a href={ASAAS_LOGIN_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-primary-600 hover:text-primary-800">
+                          sua conta na Asaas
+                        </a>.
+                      </p>
+                      <Button variant="softDanger" size="sm" iconLeft={<Unplug size={14} />} onClick={disableAsaas} disabled={asaasSaving}>
+                        {asaasSaving ? 'Desativando...' : 'Desativar recebimentos'}
+                      </Button>
+                    </>
+                  ) : mpConfig.configured && mpConfig.enabled ? (
+                    <Alert variant="warning">Você já usa o Mercado Pago para receber. Desconecte-o acima antes de ativar a Asaas.</Alert>
+                  ) : (
+                    <>
+                      {/* Indicador de etapas */}
+                      <div className="flex items-center gap-2">
+                        {[1, 2].map(step => (
+                          <div key={step} className="flex items-center gap-2 flex-1">
+                            <div className={cx(
+                              'w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium shrink-0',
+                              asaasStep === step ? 'bg-primary-600 text-white' : asaasStep > step ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-400'
+                            )}>
+                              {asaasStep > step ? <Check size={13} /> : step}
+                            </div>
+                            <p className={cx('text-[11px] font-medium', asaasStep === step ? 'text-primary-700' : 'text-slate-400')}>
+                              {step === 1 ? 'Seus dados' : 'Endereço'}
+                            </p>
+                            {step === 1 && <div className={cx('flex-1 h-0.5 rounded', asaasStep > 1 ? 'bg-primary-200' : 'bg-slate-100')} />}
+                          </div>
+                        ))}
+                      </div>
+
+                      <Alert variant="info" title="Como funciona">
+                        Ao concluir, criamos automaticamente uma conta Asaas em seu nome. Os pagamentos dos seus pacientes
+                        caem direto nela — a Plaelo nunca recebe ou repassa esse dinheiro.
+                      </Alert>
+
+                      {asaasStep === 1 && (
+                        <>
+                          <FormRow>
+                            <Input
+                              label="Nome completo"
+                              value={asaasForm.name}
+                              onChange={e => setAsaasForm(p => ({ ...p, name: e.target.value }))}
+                              placeholder="Nome completo"
+                            />
+                            <Input
+                              label="CPF ou CNPJ"
+                              value={asaasForm.cpfCnpj}
+                              onChange={e => setAsaasForm(p => ({ ...p, cpfCnpj: maskCpfCnpj(e.target.value) }))}
+                              placeholder="CPF ou CNPJ"
+                            />
+                            <Input
+                              label="E-mail"
+                              value={asaasForm.email}
+                              onChange={e => setAsaasForm(p => ({ ...p, email: e.target.value }))}
+                              placeholder="E-mail"
+                              type="email"
+                            />
+                            <Input
+                              label="Celular (com DDD)"
+                              value={asaasForm.mobilePhone}
+                              onChange={e => setAsaasForm(p => ({ ...p, mobilePhone: maskPhoneBR(e.target.value) }))}
+                              placeholder="Celular (com DDD)"
+                            />
+                            {asaasIsCnpj ? (
+                              <Select
+                                label="Tipo de empresa (exigido p/ CNPJ)"
+                                wrapperClassName="md:col-span-2"
+                                value={asaasForm.companyType}
+                                onChange={e => setAsaasForm(p => ({ ...p, companyType: e.target.value }))}
+                              >
+                                <option value="">Tipo de empresa (exigido p/ CNPJ)</option>
+                                <option value="MEI">MEI</option>
+                                <option value="LIMITED">Limitada (LTDA)</option>
+                                <option value="INDIVIDUAL">Empresário Individual</option>
+                                <option value="ASSOCIATION">Associação</option>
+                              </Select>
+                            ) : (
+                              <Input
+                                label="Data de nascimento (exigida p/ CPF)"
+                                wrapperClassName="md:col-span-2"
+                                type="date"
+                                value={asaasForm.birthDate}
+                                onChange={e => setAsaasForm(p => ({ ...p, birthDate: e.target.value }))}
+                              />
+                            )}
+                          </FormRow>
+                          <Button variant="primary" size="sm" onClick={goAsaasStep2} disabled={!asaasStep1Valid} iconRight={<ChevronRight size={14} />}>
+                            Continuar
+                          </Button>
+                        </>
+                      )}
+
+                      {asaasStep === 2 && (
+                        <>
+                          <FormRow>
+                            <Input
+                              label="CEP"
+                              value={asaasForm.postalCode}
+                              onChange={e => handleAsaasCepChange(e.target.value)}
+                              placeholder={asaasCepLoading ? 'Buscando CEP...' : 'CEP'}
+                            />
+                            <Input
+                              label="Bairro"
+                              value={asaasForm.province}
+                              onChange={e => setAsaasForm(p => ({ ...p, province: e.target.value }))}
+                              placeholder="Bairro"
+                            />
+                            <Input
+                              label="Rua / Logradouro"
+                              wrapperClassName="md:col-span-2"
+                              value={asaasForm.address}
+                              onChange={e => setAsaasForm(p => ({ ...p, address: e.target.value }))}
+                              placeholder="Rua / Logradouro"
+                            />
+                            <Input
+                              label="Número"
+                              value={asaasForm.addressNumber}
+                              onChange={e => setAsaasForm(p => ({ ...p, addressNumber: e.target.value }))}
+                              placeholder="Número"
+                            />
+                          </FormRow>
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setAsaasStep(1)} disabled={asaasSaving}>Voltar</Button>
+                            <Button variant="primary" size="sm" onClick={activateAsaas} loading={asaasSaving} disabled={!asaasStep2Valid}>
+                              Ativar recebimentos
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </PanelCard>
+            </div>
+          )}
+
+        </Tabs>
       </div>
     </PageWrapper>
   );

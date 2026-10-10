@@ -56,10 +56,12 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Badge,
   Button,
   EmptyState,
   FilterLineSegmented,
+  IconButton,
   Input,
   Modal,
   ModalFooter,
@@ -68,6 +70,7 @@ import {
   SectionTitle,
   StatCard,
   StatGrid,
+  Tabs,
 } from '../components/UI';
 import { COUNTRIES } from '../components/UI/CountrySelect';
 import { WorldMap } from '../components/Charts/WorldMap';
@@ -103,6 +106,15 @@ interface TodoItem {
   text: string;
   completed: boolean;
 }
+
+const DASHBOARD_TABS = [
+  { id: 'resumo', label: 'Resumo', icon: Layers },
+  { id: 'rotina', label: 'Rotina', icon: CheckCircle2 },
+  { id: 'pacientes', label: 'Pacientes', icon: Users },
+  { id: 'datas', label: 'Datas', icon: PartyPopper },
+] as const;
+
+type DashboardTab = (typeof DASHBOARD_TABS)[number]['id'];
 
 type UpcomingFilter = 'hoje' | 'semana' | 'mes' | 'todos';
 
@@ -302,6 +314,7 @@ export const Dashboard: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('resumo');
   const [upcomingFilter, setUpcomingFilter] = useState<UpcomingFilter>('todos');
   const [showFinance, setShowFinance] = useState(false);
   const [financeData, setFinanceData] = useState({ current: 0, percentage: 0 });
@@ -1039,1044 +1052,841 @@ export const Dashboard: React.FC = () => {
     return diffDays;
   })();
 
+  const tooltipStyle = {
+    fontSize: 11,
+    borderRadius: 8,
+    border: '1px solid #e2e8f0',
+    boxShadow: 'none',
+  };
+
+  const pieCenter = (total: number) => ({ viewBox }: any) => {
+    const { cx: lx, cy: ly } = viewBox;
+    return (
+      <g>
+        <text x={lx} y={ly - 4} textAnchor="middle" style={{ fontSize: 16, fontWeight: 500, fill: '#0f172a' }}>
+          {total}
+        </text>
+        <text x={lx} y={ly + 12} textAnchor="middle" style={{ fontSize: 11, fill: '#64748b' }}>
+          Total
+        </text>
+      </g>
+    );
+  };
+
+  const nextProfessionalDate = upcomingProfessionalDates[0];
+
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
-
-      {/* Banner de período de teste */}
-      {trialBanner !== null && (
-        <div
-          className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm"
-          style={{
-            background: trialBanner <= 3 ? '#FEF2F2' : '#F4F0FF',
-            border: `1px solid ${trialBanner <= 3 ? '#FECACA' : '#DDD1FE'}`,
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Zap
-              size={16}
-              style={{ color: trialBanner <= 3 ? '#DC2626' : '#6D42F5', flexShrink: 0 }}
-            />
-            <span className="font-medium" style={{ color: trialBanner <= 3 ? '#991B1B' : '#3D1D97' }}>
-              {trialBanner <= 3
-                ? `Seu período de teste expira em ${trialBanner} dia${trialBanner === 1 ? '' : 's'}. Assine para não perder o acesso.`
-                : `Você está no período de teste gratuito — ${trialBanner} dia${trialBanner === 1 ? '' : 's'} restante${trialBanner === 1 ? '' : 's'}.`
-              }
-            </span>
-          </div>
-          <button
-            onClick={() => navigate('/assinatura')}
-            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
-            style={{
-              background: trialBanner <= 3 ? '#DC2626' : '#6D42F5',
-              color: '#fff',
-            }}
-          >
-            Assinar agora
-          </button>
-        </div>
-      )}
-
-      <SectionTitle
-        title="Dashboard"
-        description="Visão geral da agenda, indicadores e rotinas da clínica."
-        icon={Sparkles}
-        action={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button
-              variant="outline"
-              size="md"
-              fullWidth
-              iconLeft={<Calendar size={16} />}
-              onClick={() => navigate('/agenda')}
-            >
-              Ver agenda
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              fullWidth
-              iconLeft={<Plus size={16} />}
-              onClick={() => navigate('/pacientes')}
-            >
-              {t('patients.new')}
-            </Button>
-          </div>
-        }
-      />
-
-      <PanelCard
-        className="overflow-hidden border-[#2A1F6B]/20 bg-gradient-to-br from-[#150F2E] via-[#2A1F6B] to-[#5C2FE0] text-white shadow-[0_16px_40px_rgba(18,12,46,0.25)]"
-        contentClassName="relative p-4 sm:p-5"
-      >
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_60%)]" />
-        <div className="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-violet-300/10 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <span className="inline-flex w-fit items-center rounded-full border border-white/30 bg-white/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm backdrop-blur-sm">
-              {formattedDate}
-            </span>
-
-            <div className="space-y-1.5">
-              <h2 className="font-display text-xl font-black tracking-tight sm:text-2xl">
-                {greeting}, {greetingName}
-              </h2>
-              <p className="max-w-2xl text-xs leading-relaxed text-white/80 sm:text-sm">
-                Sua clínica está pronta para o dia. Você tem {todaysAppointments.length}{' '}
-                atendimento{todaysAppointments.length === 1 ? '' : 's'} programado
-                {todaysAppointments.length === 1 ? '' : 's'} para hoje.
-              </p>
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          title="Visão geral"
+          description={`${formattedDate} · Agenda, indicadores e rotinas da clínica.`}
+          icon={Sparkles}
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" iconLeft={<Calendar size={14} />} onClick={() => navigate('/agenda')}>
+                Ver agenda
+              </Button>
+              <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => navigate('/pacientes')}>
+                {t('patients.new')}
+              </Button>
             </div>
+          }
+        />
 
-            <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
-              <div className="flex items-start gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10">
-                  <Sparkles size={15} className="text-violet-200" />
-                </div>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200/90">
-                    Insights do dia
-                  </p>
-                  <p className="text-xs leading-relaxed text-white/90">{insightMessage}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-2.5 sm:grid-cols-2 xl:w-[320px]">
-            <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200/90">
-                Próximo atendimento
-              </p>
-              <p className="mt-1.5 text-sm font-black leading-tight text-white truncate">
-                {nextAppointment?.patient_name || 'Agenda livre'}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-white/75">
-                {nextAppointment
-                  ? `${nextAppointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
-                      day: '2-digit',
-                      month: 'short',
-                    })} às ${nextAppointmentTime}`
-                  : 'Sem novas consultas marcadas por enquanto.'}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/12 bg-white/10 p-3 backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-200/90">
-                Pendências
-              </p>
-              <p className="mt-1.5 text-xl font-black leading-none text-white">{pendingTodosCount}</p>
-              <p className="mt-1 text-xs leading-relaxed text-white/75">
-                {pendingTodosCount === 0
-                  ? 'Sua lista está em dia.'
-                  : `${pendingTodosCount} tarefa${pendingTodosCount === 1 ? '' : 's'} aguardando ação.`}
-              </p>
-            </div>
-          </div>
-        </div>
-      </PanelCard>
-
-      <PanelCard
-        title="Datas dos Profissionais"
-        description="Datas comemorativas da saúde mental para lembrar e comemorar com sua equipe e pacientes."
-        icon={PartyPopper}
-        iconWrapClassName="border-fuchsia-100 bg-fuchsia-50"
-        iconClassName="text-fuchsia-600"
-      >
-        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-          {(() => {
-            const next = upcomingProfessionalDates[0];
-            if (!next) return null;
-            return (
-              <div className="flex flex-col justify-center rounded-3xl bg-gradient-to-br from-fuchsia-600 to-violet-700 p-5 text-white">
-                <span className="text-4xl leading-none">{next.emoji}</span>
-                <p className="mt-3 text-[11px] font-black uppercase tracking-[0.14em] text-fuchsia-100">
-                  {next.isToday
-                    ? 'É hoje!'
-                    : `Em ${next.daysUntil} dia${next.daysUntil === 1 ? '' : 's'}`}
-                </p>
-                <h3 className="mt-1 text-lg font-black leading-snug">{next.label}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-white/80">{next.note}</p>
-                <p className="mt-3 text-xs font-bold text-fuchsia-100">
-                  {next.next.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
-                </p>
-              </div>
-            );
-          })()}
-
-          <div className="grid max-h-[340px] grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2">
-            {upcomingProfessionalDates.slice(1, 10).map((entry) => (
-              <div
-                key={`${entry.month}-${entry.day}-${entry.label}`}
-                className="flex items-start gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 p-3.5"
-              >
-                <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-zinc-100 bg-white text-xs font-black text-zinc-500">
-                  <span>{String(entry.next.getDate()).padStart(2, '0')}</span>
-                  <span>{String(entry.next.getMonth() + 1).padStart(2, '0')}</span>
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-black text-zinc-800">
-                    {entry.emoji} {entry.label}
-                  </p>
-                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-zinc-400">{entry.note}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </PanelCard>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
-        <div className="space-y-4 sm:space-y-6">
-          <StatGrid cols={4}>
-            <StatCard
-              title={t('dashboard.totalPatients')}
-              value={isLoading ? '-' : patients.length}
-              icon={Users}
-              color="info"
-              description="Pacientes cadastrados"
-              delay={0}
-            />
-            <StatCard
-              title="Atendimentos hoje"
-              value={isLoading ? '-' : todaysAppointments.length}
-              icon={Clock}
-              color="purple"
-              description="Consultas previstas para hoje"
-              delay={0.04}
-            />
-            <StatCard
-              title="Atendimentos no mês"
-              value={isLoading ? '-' : monthAppointments.length}
-              icon={Calendar}
-              color="default"
-              description="Rotina acumulada no mês"
-              delay={0.08}
-            />
-            <StatCard
-              title="Taxa de conclusão"
-              value={isLoading ? '-' : `${confirmedRate}%`}
-              icon={CheckCircle}
-              color="success"
-              description="Confirmados e finalizados"
-              delay={0.12}
-            />
-          </StatGrid>
-
-          <PanelCard
-            title="Próximos atendimentos"
-            description="Agenda filtrada para acompanhamento rápido do dia e das próximas janelas."
-            icon={Calendar}
-            iconWrapClassName="border-sky-100 bg-sky-50"
-            iconClassName="text-sky-600"
+        {trialBanner !== null && (
+          <Alert
+            variant={trialBanner <= 3 ? 'error' : 'info'}
             action={
-              <div className="flex flex-wrap items-center gap-2">
-                <FilterLineSegmented<UpcomingFilter>
-                  size="sm"
-                  value={upcomingFilter}
-                  onChange={setUpcomingFilter}
-                  options={(Object.keys(UPCOMING_FILTER_LABELS) as UpcomingFilter[]).map((filter) => ({
-                    value: filter,
-                    label: UPCOMING_FILTER_LABELS[filter],
-                  }))}
-                />
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  iconLeft={<Calendar size={14} />}
-                  onClick={() => navigate('/agenda')}
-                >
-                  Agenda
-                </Button>
-              </div>
-            }
-            contentClassName="p-0"
-          >
-            {isLoading ? (
-              <div className="space-y-3 p-4 sm:p-6">
-                {[1, 2, 3, 4].map((item) => (
-                  <div
-                    key={item}
-                    className="flex animate-pulse flex-col gap-3 rounded-2xl border border-zinc-100 p-4 sm:flex-row sm:items-center"
-                  >
-                    <div className="h-12 w-20 rounded-2xl bg-zinc-100" />
-                    <div className="space-y-2 sm:flex-1">
-                      <div className="h-4 w-40 rounded bg-zinc-100" />
-                      <div className="h-3 w-32 rounded bg-zinc-50" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : upcomingFiltered.length === 0 ? (
-              <div className="p-4 sm:p-6">
-                <EmptyState
-                  title="Nenhum atendimento encontrado"
-                  description={`Não há consultas ${
-                    upcomingFilter === 'hoje'
-                      ? 'para hoje'
-                      : upcomingFilter === 'semana'
-                        ? 'para esta semana'
-                        : upcomingFilter === 'mes'
-                          ? 'para este mês'
-                          : 'futuras'
-                  }.`}
-                  icon={Calendar}
-                />
-              </div>
-            ) : (
-              <div className="max-h-[460px] divide-y divide-zinc-100 overflow-y-auto">
-                {upcomingFiltered.slice(0, 10).map((appointment) => (
-                  <div
-                    key={appointment.id}
-                    className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-50/70 sm:gap-4 sm:px-6"
-                  >
-                    <div className="flex w-14 shrink-0 flex-col items-center justify-center text-center sm:w-16">
-                      <span className="text-[10px] font-black uppercase leading-tight text-zinc-400 sm:text-[11px]">
-                        {appointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
-                          day: '2-digit',
-                          month: 'short',
-                        })}
-                      </span>
-                      <span className="text-sm font-black leading-tight text-zinc-800 sm:text-base">
-                        {appointment.start.toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-
-                    <span className="h-8 w-px shrink-0 bg-zinc-100" aria-hidden />
-
-                    <div className="min-w-0 flex-1 py-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <h4 className="truncate text-sm font-bold text-zinc-900">
-                          {appointment.patient_name || 'Consulta'}
-                        </h4>
-                        {renderAppointmentStatus(appointment.status)}
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-zinc-400">
-                        {(appointment.type || 'consulta')}
-                        <span className="mx-1 text-zinc-300">·</span>
-                        {(appointment.modality || 'presencial')}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        title="Ver paciente"
-                        onClick={() =>
-                          navigate(`/pacientes?search=${encodeURIComponent(appointment.patient_name || '')}`)
-                        }
-                        className="rounded-lg p-2 text-[#295b85] transition-colors hover:bg-sky-50 hover:text-[#143a59]"
-                      >
-                        <Users size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        title="Abrir agenda"
-                        onClick={() => navigate(`/agenda?appointmentId=${appointment.id}`)}
-                        className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
-                      >
-                        <Calendar size={15} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </PanelCard>
-
-          <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-2">
-            <PanelCard
-              title="Atendimentos nos últimos 30 dias"
-              description={`Distribuição por dia da semana · ${periodLabel}`}
-              icon={TrendingUp}
-              iconWrapClassName="border-cyan-100 bg-cyan-50"
-              iconClassName="text-cyan-600"
-            >
-              {isLoading ? (
-                <div className="flex h-[220px] items-center justify-center sm:h-[240px]">
-                  <Loader2 className="animate-spin text-zinc-300" />
-                </div>
-              ) : (
-                <>
-                  <div className="h-[220px] sm:h-[240px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={appointmentsByDayOfWeek} barSize={24} margin={{ top: 20 }}>
-                        <XAxis
-                          dataKey="day"
-                          tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis hide allowDecimals={false} />
-                        <Tooltip
-                          cursor={{ fill: '#f1f5f9' }}
-                          contentStyle={{
-                            fontSize: 11,
-                            borderRadius: 14,
-                            border: '1px solid #e4e4e7',
-                            boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
-                          }}
-                          formatter={(value: number) => [value, 'Atendimentos']}
-                        />
-                        <Bar dataKey="atendimentos" fill="#2a74ac" radius={[8, 8, 0, 0]}>
-                          <LabelList
-                            dataKey="atendimentos"
-                            position="top"
-                            formatter={(value: number) => (value > 0 ? value : '')}
-                            style={{ fontSize: 11, fontWeight: 800, fill: '#334155' }}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  {busiestDay && (
-                    <p className="mt-2 border-t border-zinc-100 pt-2.5 text-xs text-zinc-500">
-                      Dia mais movimentado: <span className="font-bold text-zinc-800">{busiestDay.day}</span>
-                      {' '}com <span className="font-bold text-zinc-800">{busiestDay.atendimentos}</span> atendimento{busiestDay.atendimentos === 1 ? '' : 's'}
-                      {' '}· <span className="font-bold text-zinc-800">{busiestDay.total}</span> no período
-                    </p>
-                  )}
-                </>
-              )}
-            </PanelCard>
-
-            <PanelCard
-              title="Status dos atendimentos"
-              description={`Leitura consolidada · ${periodLabel}`}
-              icon={UserCheck}
-              iconWrapClassName="border-emerald-100 bg-emerald-50"
-              iconClassName="text-emerald-600"
-            >
-              {isLoading ? (
-                <div className="flex h-[220px] items-center justify-center">
-                  <Loader2 className="animate-spin text-zinc-300" />
-                </div>
-              ) : statusPieData.length === 0 ? (
-                <EmptyState
-                  title="Sem dados para exibir"
-                  description="Ainda não há atendimentos suficientes para o gráfico de status."
-                  icon={UserCheck}
-                  className="h-[220px]"
-                />
-              ) : (
-                <div className="h-[220px] sm:h-[240px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={statusPieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={48}
-                        outerRadius={78}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {statusPieData.map((entry, index) => (
-                          <Cell key={`${entry.name}-${index}`} fill={entry.color} />
-                        ))}
-                        <Label
-                          position="center"
-                          content={({ viewBox }: any) => {
-                            const { cx: lx, cy: ly } = viewBox;
-                            return (
-                              <g>
-                                <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 22, fontWeight: 900, fill: '#18181b' }}>
-                                  {statusPieTotal}
-                                </text>
-                                <text x={lx} y={ly + 13} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
-                                  TOTAL
-                                </text>
-                              </g>
-                            );
-                          }}
-                        />
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          fontSize: 11,
-                          borderRadius: 14,
-                          border: '1px solid #e4e4e7',
-                          boxShadow: '0 12px 30px rgba(0,0,0,0.08)',
-                        }}
-                        formatter={(value: number, name: string) => [
-                          `${value} (${statusPieTotal > 0 ? Math.round((value / statusPieTotal) * 100) : 0}%)`,
-                          name,
-                        ]}
-                      />
-                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </PanelCard>
-          </div>
-
-          <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-2">
-            <PanelCard
-              title="Tipos de atendimento"
-              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} · ${periodLabel}`}
-              icon={Layers}
-              iconWrapClassName="border-indigo-100 bg-indigo-50"
-              iconClassName="text-indigo-600"
-            >
-              <div className="space-y-4">
-                {['consulta', 'pessoal', 'bloqueio'].map((type) => (
-                  <div key={type} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-3 text-xs font-bold text-zinc-600">
-                      <span className="uppercase">{type}</span>
-                      <span className="tabular-nums">
-                        {typeCounts[type] || 0}
-                        <span className="ml-1.5 font-medium text-zinc-400">({ratio(typeCounts[type] || 0, totalAppointments)}%)</span>
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-zinc-100">
-                      <div
-                        className="h-2 rounded-full bg-[#295b85] transition-[width]"
-                        style={{ width: `${ratio(typeCounts[type] || 0, totalAppointments)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </PanelCard>
-
-            <PanelCard
-              title="Modalidades"
-              description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} · ${periodLabel}`}
-              icon={Video}
-              iconWrapClassName="border-emerald-100 bg-emerald-50"
-              iconClassName="text-emerald-600"
-            >
-              <div className="space-y-4">
-                {['presencial', 'online'].map((modality) => (
-                  <div key={modality} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-3 text-xs font-bold text-zinc-600">
-                      <span className="uppercase">{modality}</span>
-                      <span className="tabular-nums">
-                        {modalityCounts[modality] || 0}
-                        <span className="ml-1.5 font-medium text-zinc-400">({ratio(modalityCounts[modality] || 0, totalAppointments)}%)</span>
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-zinc-100">
-                      <div
-                        className="h-2 rounded-full bg-[#4f8d67] transition-[width]"
-                        style={{ width: `${ratio(modalityCounts[modality] || 0, totalAppointments)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </PanelCard>
-          </div>
-        </div>
-
-        <div className="space-y-4 sm:space-y-6">
-          <PanelCard
-            title="Financeiro do mês"
-            description="Comparativo de entradas em relação ao mês anterior."
-            icon={Banknote}
-            iconWrapClassName="border-emerald-200 bg-emerald-50"
-            iconClassName="text-emerald-600"
-            className="border-[#143a59]/10 bg-[#0f172a] text-white"
-            headerClassName="border-[#1e293b] [&_h3]:text-white [&_p]:text-slate-300"
-            action={
-              <button
-                type="button"
-                onClick={() => setShowFinance((current) => !current)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              <Button
+                variant={trialBanner <= 3 ? 'danger' : 'primary'}
+                size="xs"
+                onClick={() => navigate('/assinatura')}
               >
-                {showFinance ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            }
-            contentClassName="space-y-3"
-          >
-            <div className="space-y-1">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
-                Entradas acumuladas
-              </p>
-              {isLoading ? (
-                <div className="h-8 w-32 animate-pulse rounded-xl bg-slate-800" />
-              ) : (
-                <p className="text-xl font-black tracking-tight text-white">
-                  {showFinance ? formatCurrency(financeData.current) : 'R$ ••••••'}
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-slate-300">Variação mensal</span>
-                {isLoading ? (
-                  <div className="h-6 w-16 animate-pulse rounded-full bg-slate-800" />
-                ) : (
-                  <Badge
-                    color={financeData.percentage >= 0 ? 'success' : 'danger'}
-                    className="border-none"
-                  >
-                    {financeData.percentage >= 0 ? '+' : ''}
-                    {financeData.percentage}%
-                  </Badge>
-                )}
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-400">
-                Leitura rápida para acompanhar se a curva do mês está acelerando ou retraindo.
-              </p>
-            </div>
-          </PanelCard>
-
-          <PanelCard
-            title="Aniversários"
-            description="Pacientes ativos com datas mais próximas."
-            icon={Sparkles}
-            iconWrapClassName="border-amber-100 bg-amber-50"
-            iconClassName="text-amber-600"
-          >
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="flex animate-pulse items-center gap-3">
-                    <div className="h-12 w-12 rounded-2xl bg-zinc-100" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-32 rounded bg-zinc-100" />
-                      <div className="h-3 w-20 rounded bg-zinc-50" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : birthdays.length === 0 ? (
-              <EmptyState
-                title="Sem aniversários próximos"
-                description="Assim que houver pacientes com aniversários próximos, eles aparecerão aqui."
-                icon={Sparkles}
-              />
-            ) : (
-              <div className="space-y-3">
-                {birthdays.map(({ patient, next }) => {
-                  const bdStr = patient.birth_date || patient.birthDate || '';
-                  const bdParts = bdStr.split('T')[0].split('-');
-                  const birthDate = bdParts.length === 3
-                    ? new Date(Number(bdParts[0]), Number(bdParts[1]) - 1, Number(bdParts[2]))
-                    : new Date(bdStr);
-                  const age = Number.isNaN(birthDate.getTime())
-                    ? null
-                    : now.getFullYear() - birthDate.getFullYear();
-                  const isToday =
-                    next.getDate() === now.getDate() &&
-                    next.getMonth() === now.getMonth() &&
-                    next.getFullYear() === now.getFullYear();
-                  const phone = (patient.whatsapp || patient.phone || '').replace(/\D/g, '');
-
-                  const handleSendBirthdayMessage = () => {
-                    const message = `Olá ${
-                      patient.full_name || patient.name
-                    }, parabéns pelo seu aniversário! Desejo muita saúde, paz e realizações. Um grande abraço!`;
-                    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-                  };
-
-                  return (
-                    <div
-                      key={patient.id}
-                      className={`flex items-center justify-between gap-3 rounded-3xl border p-3.5 transition-colors ${
-                        isToday
-                          ? 'border-amber-200 bg-amber-50'
-                          : 'border-zinc-100 bg-zinc-50/80 hover:bg-white'
-                      }`}
-                    >
-                      <div className="min-w-0 flex items-center gap-3">
-                        <div
-                          className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl text-xs font-black ${
-                            isToday
-                              ? 'bg-amber-200 text-amber-800'
-                              : 'border border-zinc-100 bg-white text-zinc-500'
-                          }`}
-                        >
-                          <span>{String(next.getDate()).padStart(2, '0')}</span>
-                          <span>{String(next.getMonth() + 1).padStart(2, '0')}</span>
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-black text-zinc-900">
-                            {patient.full_name || patient.name}
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            {age !== null && <Badge color="default">{age} anos</Badge>}
-                            {isToday && <Badge color="primary">Hoje</Badge>}
-                          </div>
-                        </div>
-                      </div>
-
-                      {phone && (
-                        <button
-                          type="button"
-                          onClick={handleSendBirthdayMessage}
-                          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors ${
-                            isToday
-                              ? 'bg-amber-500 text-white hover:bg-amber-600'
-                              : 'border border-emerald-100 bg-white text-emerald-600 hover:bg-emerald-50'
-                          }`}
-                          title="Mandar mensagem"
-                        >
-                          <Send size={16} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </PanelCard>
-
-          <PanelCard
-            title="Tarefas diárias"
-            description="Checklist rápido para organização operacional."
-            icon={CheckCircle2}
-            iconWrapClassName="border-indigo-100 bg-indigo-50"
-            iconClassName="text-indigo-600"
-            action={<Badge color="info">{pendingTodosCount} pendente{pendingTodosCount === 1 ? '' : 's'}</Badge>}
-            contentClassName="space-y-4"
-          >
-            <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
-              {todosList.length === 0 ? (
-                <EmptyState
-                  title="Sua lista está vazia"
-                  description="Adicione tarefas do dia para centralizar o acompanhamento aqui."
-                  icon={CheckCircle2}
-                />
-              ) : (
-                todosList.map((todo) => (
-                  <div
-                    key={todo.id}
-                    className="group flex items-start gap-3 rounded-3xl border border-zinc-100 bg-zinc-50/70 p-3.5 transition-colors hover:bg-white"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleTodo(todo.id, !todo.completed)}
-                      className="mt-0.5 shrink-0 text-zinc-300 transition-transform hover:scale-105"
-                    >
-                      {todo.completed ? (
-                        <CheckCircle2 size={18} className="text-emerald-500" />
-                      ) : (
-                        <Circle size={18} className="text-zinc-300" />
-                      )}
-                    </button>
-
-                    <p
-                      className={`flex-1 text-sm leading-relaxed ${
-                        todo.completed ? 'text-zinc-400 line-through' : 'font-medium text-zinc-700'
-                      }`}
-                    >
-                      {todo.text}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTodo(todo.id)}
-                      className="shrink-0 text-zinc-300 opacity-100 transition-colors hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <form onSubmit={handleSaveTodo} className="space-y-3 border-t border-zinc-100 pt-4">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  value={newTodo}
-                  onChange={(event) => setNewTodo(event.target.value)}
-                  placeholder="O que você não pode esquecer hoje?"
-                  wrapperClassName="flex-1"
-                />
-                <Button type="submit" iconLeft={<Plus size={14} />} disabled={!newTodo.trim()}>
-                  Adicionar
-                </Button>
-              </div>
-            </form>
-          </PanelCard>
-
-          <PanelCard
-            title="Presença digital"
-            description="Configure os canais que conectam você aos seus pacientes."
-            icon={Sparkles}
-            iconWrapClassName="border-violet-100 bg-violet-50"
-            iconClassName="text-violet-600"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/bot')}
-                className="group/dp flex items-center gap-3 rounded-3xl border border-zinc-100 bg-zinc-50/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-sm">
-                  <Smartphone size={18} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-zinc-800">Bot de WhatsApp</p>
-                  <p className="text-[11px] text-zinc-400 line-clamp-2">Lembretes e avisos automáticos para seus pacientes</p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/meu-site')}
-                className="group/dp flex items-center gap-3 rounded-3xl border border-zinc-100 bg-zinc-50/70 p-4 text-left transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pink-500 text-white shadow-sm">
-                  <Globe size={18} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-zinc-800">Meu Site</p>
-                  <p className="text-[11px] text-zinc-400 line-clamp-2">Sua página pública para bio do Instagram e anúncios</p>
-                </div>
-              </button>
-            </div>
-          </PanelCard>
-
-          <PanelCard
-            title="Acessos rápidos"
-            description="Links de apoio usados na operação do consultório."
-            icon={Globe}
-            iconWrapClassName="border-sky-100 bg-sky-50"
-            iconClassName="text-sky-600"
-            action={
-              <Button variant="ghost" size="sm" iconLeft={<Plus size={14} />} onClick={openNewShortcutModal}>
-                Novo
+                Assinar agora
               </Button>
             }
           >
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {allShortcuts.map((shortcut) => (
-                <a
-                  key={shortcut.id}
-                  href={shortcut.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group/shortcut relative flex min-h-[118px] flex-col items-center justify-center rounded-3xl border border-zinc-100 bg-zinc-50/70 p-3 text-center transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+            {trialBanner <= 3
+              ? `Seu período de teste expira em ${trialBanner} dia${trialBanner === 1 ? '' : 's'}. Assine para não perder o acesso.`
+              : `Você está no período de teste gratuito — ${trialBanner} dia${trialBanner === 1 ? '' : 's'} restante${trialBanner === 1 ? '' : 's'}.`}
+          </Alert>
+        )}
+
+        <Alert variant="info" title={`${greeting}, ${greetingName}`}>
+          Você tem {todaysAppointments.length} atendimento{todaysAppointments.length === 1 ? '' : 's'} programado
+          {todaysAppointments.length === 1 ? '' : 's'} para hoje. {insightMessage}
+        </Alert>
+
+        <StatGrid cols={4}>
+          <StatCard
+            title={t('dashboard.totalPatients')}
+            value={isLoading ? '-' : patients.length}
+            icon={Users}
+            color="info"
+            description="Pacientes cadastrados"
+            delay={0}
+          />
+          <StatCard
+            title="Atendimentos hoje"
+            value={isLoading ? '-' : todaysAppointments.length}
+            icon={Clock}
+            color="default"
+            description="Consultas previstas para hoje"
+            delay={0.04}
+          />
+          <StatCard
+            title="Atendimentos no mês"
+            value={isLoading ? '-' : monthAppointments.length}
+            icon={Calendar}
+            color="default"
+            description="Rotina acumulada no mês"
+            delay={0.08}
+          />
+          <StatCard
+            title="Taxa de conclusão"
+            value={isLoading ? '-' : `${confirmedRate}%`}
+            icon={CheckCircle}
+            color="success"
+            description="Confirmados e finalizados"
+            delay={0.12}
+          />
+        </StatGrid>
+
+        <Tabs<DashboardTab>
+          items={DASHBOARD_TABS}
+          value={activeTab}
+          onChange={setActiveTab}
+          label="Seções da visão geral"
+        >
+          {activeTab === 'resumo' && (
+            <div className="space-y-3">
+              <PanelCard
+                title="Próximos atendimentos"
+                description="Agenda filtrada para acompanhamento rápido do dia e das próximas janelas."
+                icon={Calendar}
+                action={
+                  <div className="flex flex-wrap items-center gap-2">
+                    <FilterLineSegmented<UpcomingFilter>
+                      size="sm"
+                      value={upcomingFilter}
+                      onChange={setUpcomingFilter}
+                      options={(Object.keys(UPCOMING_FILTER_LABELS) as UpcomingFilter[]).map((filter) => ({
+                        value: filter,
+                        label: UPCOMING_FILTER_LABELS[filter],
+                      }))}
+                    />
+                    <Button variant="ghost" size="sm" iconLeft={<Calendar size={14} />} onClick={() => navigate('/agenda')}>
+                      Agenda
+                    </Button>
+                  </div>
+                }
+                contentClassName="p-0"
+              >
+                {isLoading ? (
+                  <div className="space-y-3 p-3">
+                    {[1, 2, 3, 4].map((item) => (
+                      <div key={item} className="flex animate-pulse flex-col gap-3 rounded-lg border border-slate-100 p-3 sm:flex-row sm:items-center">
+                        <div className="h-10 w-16 rounded-lg bg-slate-100" />
+                        <div className="space-y-2 sm:flex-1">
+                          <div className="h-3 w-40 rounded bg-slate-100" />
+                          <div className="h-3 w-32 rounded bg-slate-50" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : upcomingFiltered.length === 0 ? (
+                  <div className="p-3">
+                    <EmptyState
+                      title="Nenhum atendimento encontrado"
+                      description={`Não há consultas ${
+                        upcomingFilter === 'hoje'
+                          ? 'para hoje'
+                          : upcomingFilter === 'semana'
+                            ? 'para esta semana'
+                            : upcomingFilter === 'mes'
+                              ? 'para este mês'
+                              : 'futuras'
+                      }.`}
+                      icon={Calendar}
+                    />
+                  </div>
+                ) : (
+                  <div className="max-h-[460px] divide-y divide-slate-100 overflow-y-auto">
+                    {upcomingFiltered.slice(0, 10).map((appointment) => (
+                      <div key={appointment.id} className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-slate-50">
+                        <div className="flex w-14 shrink-0 flex-col items-center justify-center text-center sm:w-16">
+                          <span className="text-[11px] leading-tight text-slate-500">
+                            {appointment.start.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+                              day: '2-digit',
+                              month: 'short',
+                            })}
+                          </span>
+                          <span className="text-sm font-medium leading-tight text-slate-800">
+                            {appointment.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <span className="h-8 w-px shrink-0 bg-slate-100" aria-hidden />
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <h4 className="truncate text-[13px] font-medium text-slate-900">
+                              {appointment.patient_name || 'Consulta'}
+                            </h4>
+                            {renderAppointmentStatus(appointment.status)}
+                          </div>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                            {(appointment.type || 'consulta')}
+                            <span className="mx-1 text-slate-300">·</span>
+                            {(appointment.modality || 'presencial')}
+                          </p>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-1">
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Ver paciente"
+                            title="Ver paciente"
+                            onClick={() =>
+                              navigate(`/pacientes?search=${encodeURIComponent(appointment.patient_name || '')}`)
+                            }
+                          >
+                            <Users size={14} />
+                          </IconButton>
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Abrir agenda"
+                            title="Abrir agenda"
+                            onClick={() => navigate(`/agenda?appointmentId=${appointment.id}`)}
+                          >
+                            <Calendar size={14} />
+                          </IconButton>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </PanelCard>
+
+              <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
+                <PanelCard
+                  title="Atendimentos nos últimos 30 dias"
+                  description={`Distribuição por dia da semana · ${periodLabel}`}
+                  icon={TrendingUp}
                 >
-                  {!shortcut.isSystem && (
-                    <div className="absolute right-2 top-2 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/shortcut:opacity-100">
-                      <button
-                        type="button"
-                        onClick={(event) => openEditShortcut(shortcut, event)}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-zinc-500 shadow-sm transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                        title="Editar"
-                      >
-                        <Settings size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) => handleRemoveShortcut(shortcut.id, event)}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-zinc-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-600"
-                        title="Excluir"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                  {isLoading ? (
+                    <div className="flex h-64 items-center justify-center">
+                      <Loader2 className="animate-spin text-slate-300" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-64 min-w-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={appointmentsByDayOfWeek} barSize={24} margin={{ top: 20 }}>
+                            <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <YAxis hide allowDecimals={false} />
+                            <Tooltip
+                              cursor={{ fill: '#f1f5f9' }}
+                              contentStyle={tooltipStyle}
+                              formatter={(value: number) => [value, 'Atendimentos']}
+                            />
+                            <Bar dataKey="atendimentos" fill="var(--c-600)" radius={[4, 4, 0, 0]}>
+                              <LabelList
+                                dataKey="atendimentos"
+                                position="top"
+                                formatter={(value: number) => (value > 0 ? value : '')}
+                                style={{ fontSize: 11, fill: '#334155' }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {busiestDay && (
+                        <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-500">
+                          Dia mais movimentado: <span className="font-medium text-slate-800">{busiestDay.day}</span>
+                          {' '}com <span className="font-medium text-slate-800">{busiestDay.atendimentos}</span> atendimento{busiestDay.atendimentos === 1 ? '' : 's'}
+                          {' '}· <span className="font-medium text-slate-800">{busiestDay.total}</span> no período
+                        </p>
+                      )}
+                    </>
+                  )}
+                </PanelCard>
+
+                <PanelCard
+                  title="Status dos atendimentos"
+                  description={`Leitura consolidada · ${periodLabel}`}
+                  icon={UserCheck}
+                >
+                  {isLoading ? (
+                    <div className="flex h-64 items-center justify-center">
+                      <Loader2 className="animate-spin text-slate-300" />
+                    </div>
+                  ) : statusPieData.length === 0 ? (
+                    <EmptyState
+                      title="Sem dados para exibir"
+                      description="Ainda não há atendimentos suficientes para o gráfico de status."
+                      icon={UserCheck}
+                      className="h-64"
+                    />
+                  ) : (
+                    <div className="h-64 min-w-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={48} outerRadius={78} paddingAngle={4} dataKey="value">
+                            {statusPieData.map((entry, index) => (
+                              <Cell key={`${entry.name}-${index}`} fill={entry.color} />
+                            ))}
+                            <Label position="center" content={pieCenter(statusPieTotal)} />
+                          </Pie>
+                          <Tooltip
+                            contentStyle={tooltipStyle}
+                            formatter={(value: number, name: string) => [
+                              `${value} (${statusPieTotal > 0 ? Math.round((value / statusPieTotal) * 100) : 0}%)`,
+                              name,
+                            ]}
+                          />
+                          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
                   )}
+                </PanelCard>
+              </div>
 
-                  <div
-                    className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-sm ${shortcut.color}`}
-                  >
-                    {renderShortcutIcon(shortcut.icon, 18)}
-                  </div>
-                  <span className="line-clamp-2 text-xs font-black leading-snug text-zinc-700">
-                    {shortcut.title}
-                  </span>
-                </a>
-              ))}
-            </div>
-          </PanelCard>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 pt-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-600">
-          <Users size={15} />
-        </span>
-        <div>
-          <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Perfil dos pacientes</h2>
-          <p className="text-xs text-zinc-400">Como sua base de pacientes ativos está distribuída.</p>
-        </div>
-      </div>
-
-      <div className="grid min-w-0 gap-4 [&>*]:min-w-0 lg:grid-cols-2">
-        <PanelCard
-          title="Distribuição por Gênero"
-          description="Pacientes ativos cadastrados."
-          icon={Users}
-          iconWrapClassName="border-pink-100 bg-pink-50"
-          iconClassName="text-pink-600"
-        >
-          {isLoading ? (
-            <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
-              <Loader2 className="animate-spin text-zinc-300" />
-            </div>
-          ) : genderPieData.length === 0 ? (
-            <EmptyState
-              title="Sem dados para exibir"
-              description="Cadastre o gênero dos pacientes para ver esta distribuição."
-              icon={Users}
-              className="h-[280px] sm:h-[320px]"
-            />
-          ) : (
-            <div className="h-[280px] sm:h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={genderPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={64}
-                    outerRadius={100}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {genderPieData.map((entry, index) => (
-                      <Cell key={`${entry.name}-${index}`} fill={entry.color} />
+              <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
+                <PanelCard
+                  title="Tipos de atendimento"
+                  description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} · ${periodLabel}`}
+                  icon={Layers}
+                >
+                  <div className="space-y-3">
+                    {['consulta', 'pessoal', 'bloqueio'].map((type) => (
+                      <div key={type} className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-3 text-xs text-slate-600">
+                          <span>{type}</span>
+                          <span className="tabular-nums">
+                            {typeCounts[type] || 0}
+                            <span className="ml-1.5 text-slate-400">({ratio(typeCounts[type] || 0, totalAppointments)}%)</span>
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100">
+                          <div
+                            className="h-2 rounded-full bg-primary-600 transition-[width]"
+                            style={{ width: `${ratio(typeCounts[type] || 0, totalAppointments)}%` }}
+                          />
+                        </div>
+                      </div>
                     ))}
-                    <Label
-                      position="center"
-                      content={({ viewBox }: any) => {
-                        const { cx: lx, cy: ly } = viewBox;
-                        return (
-                          <g>
-                            <text x={lx} y={ly - 6} textAnchor="middle" style={{ fontSize: 22, fontWeight: 900, fill: '#18181b' }}>
-                              {genderPieTotal}
-                            </text>
-                            <text x={lx} y={ly + 13} textAnchor="middle" style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.6, fill: '#a1a1aa' }}>
-                              TOTAL
-                            </text>
-                          </g>
-                        );
-                      }}
-                    />
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
-                    formatter={(value: number, name: string) => [
-                      `${value} (${genderPieTotal > 0 ? Math.round((value / genderPieTotal) * 100) : 0}%)`,
-                      name,
-                    ]}
-                  />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
-                </PieChart>
-              </ResponsiveContainer>
+                  </div>
+                </PanelCard>
+
+                <PanelCard
+                  title="Modalidades"
+                  description={`${totalAppointments} registro${totalAppointments === 1 ? '' : 's'} · ${periodLabel}`}
+                  icon={Video}
+                >
+                  <div className="space-y-3">
+                    {['presencial', 'online'].map((modality) => (
+                      <div key={modality} className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-3 text-xs text-slate-600">
+                          <span>{modality}</span>
+                          <span className="tabular-nums">
+                            {modalityCounts[modality] || 0}
+                            <span className="ml-1.5 text-slate-400">({ratio(modalityCounts[modality] || 0, totalAppointments)}%)</span>
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100">
+                          <div
+                            className="h-2 rounded-full bg-emerald-600 transition-[width]"
+                            style={{ width: `${ratio(modalityCounts[modality] || 0, totalAppointments)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </PanelCard>
+              </div>
             </div>
           )}
-        </PanelCard>
 
-        <PanelCard
-          title="Faixa Etária"
-          description="Pacientes ativos por idade."
-          icon={Users}
-          iconWrapClassName="border-violet-100 bg-violet-50"
-          iconClassName="text-violet-600"
-        >
-          {isLoading ? (
-            <div className="flex h-[280px] items-center justify-center sm:h-[320px]">
-              <Loader2 className="animate-spin text-zinc-300" />
-            </div>
-          ) : ageDistributionTotal === 0 ? (
-            <EmptyState
-              title="Sem dados para exibir"
-              description="Cadastre a data de nascimento dos pacientes para ver esta distribuição."
-              icon={Users}
-              className="h-[280px] sm:h-[320px]"
-            />
-          ) : (
-            <div className="h-[280px] sm:h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={ageDistribution} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 0 }}>
-                  <XAxis type="number" hide allowDecimals={false} />
-                  <YAxis
-                    type="category"
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: '#64748b', fontWeight: 700 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={78}
-                  />
-                  <Tooltip
-                    cursor={{ fill: '#f1f5f9' }}
-                    contentStyle={{ fontSize: 11, borderRadius: 14, border: '1px solid #e4e4e7', boxShadow: '0 12px 30px rgba(0,0,0,0.08)' }}
-                    formatter={(value: number) => [value, 'Pacientes']}
-                  />
-                  <Bar dataKey="value" fill="#8b5cf6" radius={[0, 8, 8, 0]} maxBarSize={22}>
-                    <LabelList
-                      dataKey="value"
-                      position="right"
-                      formatter={(value: number) => (value > 0 ? value : '')}
-                      style={{ fontSize: 11, fontWeight: 800, fill: '#334155' }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </PanelCard>
-      </div>
-
-      <PanelCard
-        title="Pacientes no Mundo"
-        description="Localização por país cadastrado."
-        icon={Globe}
-        iconWrapClassName="border-sky-100 bg-sky-50"
-        iconClassName="text-sky-600"
-      >
-        {isLoading ? (
-          <div className="flex h-[520px] items-center justify-center">
-            <Loader2 className="animate-spin text-zinc-300" />
-          </div>
-        ) : countryDistributionTotal === 0 ? (
-          <EmptyState
-            title="Sem dados para exibir"
-            description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
-            icon={Globe}
-            className="h-[520px]"
-          />
-        ) : (
-          <div className="space-y-5">
-            <div className="overflow-hidden rounded-2xl bg-zinc-50 p-3">
-              <WorldMap
-                countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
-                stateCounts={Object.fromEntries(stateDistribution.map((s) => [s.uf, s.value]))}
-                cityCountsByState={cityDistributionByState}
-                height={520}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {countryDistribution.map((c) => {
-                const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
-                return (
-                  <div
-                    key={c.code}
-                    className="flex items-center gap-3 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-3.5 py-2.5"
-                  >
-                    <span className="text-lg leading-none">{c.flag}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-black text-zinc-800">{c.name}</p>
-                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+          {activeTab === 'rotina' && (
+            <div className="space-y-3">
+              <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-2 [&>*]:min-w-0">
+                <PanelCard
+                  title="Tarefas diárias"
+                  description="Checklist rápido para organização operacional."
+                  icon={CheckCircle2}
+                  action={<Badge color="info">{pendingTodosCount} pendente{pendingTodosCount === 1 ? '' : 's'}</Badge>}
+                  contentClassName="space-y-3"
+                >
+                  <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                    {todosList.length === 0 ? (
+                      <EmptyState
+                        title="Sua lista está vazia"
+                        description="Adicione tarefas do dia para centralizar o acompanhamento aqui."
+                        icon={CheckCircle2}
+                      />
+                    ) : (
+                      todosList.map((todo) => (
                         <div
-                          className="h-full rounded-full bg-[#295b85]"
-                          style={{ width: `${Math.max(pct, 4)}%` }}
-                        />
+                          key={todo.id}
+                          className="group flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3 transition-colors hover:bg-white"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleTodo(todo.id, !todo.completed)}
+                            className="mt-0.5 shrink-0 text-slate-300 transition-transform hover:scale-105"
+                            aria-label={todo.completed ? 'Marcar como pendente' : 'Concluir tarefa'}
+                          >
+                            {todo.completed ? (
+                              <CheckCircle2 size={16} className="text-emerald-500" />
+                            ) : (
+                              <Circle size={16} className="text-slate-300" />
+                            )}
+                          </button>
+
+                          <p
+                            className={`flex-1 text-xs leading-relaxed ${
+                              todo.completed ? 'text-slate-400 line-through' : 'font-medium text-slate-700'
+                            }`}
+                          >
+                            {todo.text}
+                          </p>
+
+                          <IconButton
+                            variant="ghost"
+                            size="xs"
+                            aria-label="Remover tarefa"
+                            onClick={() => handleRemoveTodo(todo.id)}
+                            className="shrink-0 text-slate-400 hover:text-red-600"
+                          >
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSaveTodo} className="border-t border-slate-100 pt-3">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={newTodo}
+                        onChange={(event) => setNewTodo(event.target.value)}
+                        placeholder="O que você não pode esquecer hoje?"
+                        wrapperClassName="flex-1"
+                      />
+                      <Button type="submit" size="md" iconLeft={<Plus size={14} />} disabled={!newTodo.trim()}>
+                        Adicionar
+                      </Button>
+                    </div>
+                  </form>
+                </PanelCard>
+
+                <PanelCard
+                  title="Financeiro do mês"
+                  description="Comparativo de entradas em relação ao mês anterior."
+                  icon={Banknote}
+                  action={
+                    <IconButton
+                      variant="outline"
+                      size="sm"
+                      aria-label={showFinance ? 'Ocultar valores' : 'Mostrar valores'}
+                      onClick={() => setShowFinance((current) => !current)}
+                    >
+                      {showFinance ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </IconButton>
+                  }
+                  contentClassName="space-y-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-slate-500">Entradas acumuladas</p>
+                    {isLoading ? (
+                      <div className="h-6 w-32 animate-pulse rounded-lg bg-slate-100" />
+                    ) : (
+                      <p className="text-base font-medium text-slate-900">
+                        {showFinance ? formatCurrency(financeData.current) : 'R$ ••••••'}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-medium text-slate-600">Variação mensal</span>
+                      {isLoading ? (
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-slate-100" />
+                      ) : (
+                        <Badge color={financeData.percentage >= 0 ? 'success' : 'danger'}>
+                          {financeData.percentage >= 0 ? '+' : ''}
+                          {financeData.percentage}%
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                      Leitura rápida para acompanhar se a curva do mês está acelerando ou retraindo.
+                    </p>
+                  </div>
+                </PanelCard>
+              </div>
+
+              <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-2 [&>*]:min-w-0">
+                <PanelCard
+                  title="Presença digital"
+                  description="Configure os canais que conectam você aos seus pacientes."
+                  icon={Sparkles}
+                >
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/bot')}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition-colors hover:border-primary-200 hover:bg-slate-50"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600">
+                        <Smartphone size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-800">Bot de WhatsApp</p>
+                        <p className="line-clamp-2 text-[11px] text-slate-500">Lembretes e avisos automáticos para seus pacientes</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/meu-site')}
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left transition-colors hover:border-primary-200 hover:bg-slate-50"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600">
+                        <Globe size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-800">Meu Site</p>
+                        <p className="line-clamp-2 text-[11px] text-slate-500">Sua página pública para bio do Instagram e anúncios</p>
+                      </div>
+                    </button>
+                  </div>
+                </PanelCard>
+
+                <PanelCard
+                  title="Acessos rápidos"
+                  description="Links de apoio usados na operação do consultório."
+                  icon={Globe}
+                  action={
+                    <Button variant="ghost" size="sm" iconLeft={<Plus size={14} />} onClick={openNewShortcutModal}>
+                      Novo
+                    </Button>
+                  }
+                >
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {allShortcuts.map((shortcut) => (
+                      <a
+                        key={shortcut.id}
+                        href={shortcut.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group/shortcut relative flex min-h-[104px] flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-3 text-center transition-colors hover:border-primary-200 hover:bg-slate-50"
+                      >
+                        {!shortcut.isSystem && (
+                          <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/shortcut:opacity-100">
+                            <IconButton
+                              variant="outline"
+                              size="xs"
+                              aria-label="Editar"
+                              title="Editar"
+                              onClick={(event) => openEditShortcut(shortcut, event)}
+                            >
+                              <Settings size={13} />
+                            </IconButton>
+                            <IconButton
+                              variant="outline"
+                              size="xs"
+                              aria-label="Excluir"
+                              title="Excluir"
+                              onClick={(event) => handleRemoveShortcut(shortcut.id, event)}
+                            >
+                              <Trash2 size={13} />
+                            </IconButton>
+                          </div>
+                        )}
+
+                        <div className={`mb-2 flex h-10 w-10 items-center justify-center rounded-lg text-white ${shortcut.color}`}>
+                          {renderShortcutIcon(shortcut.icon, 16)}
+                        </div>
+                        <span className="line-clamp-2 text-xs font-medium leading-snug text-slate-700">
+                          {shortcut.title}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </PanelCard>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'pacientes' && (
+            <div className="space-y-3">
+              <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-3 [&>*]:min-w-0">
+                <PanelCard title="Aniversários" description="Pacientes ativos com datas mais próximas." icon={Sparkles}>
+                  {isLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((item) => (
+                        <div key={item} className="flex animate-pulse items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-slate-100" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-3 w-32 rounded bg-slate-100" />
+                            <div className="h-3 w-20 rounded bg-slate-50" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : birthdays.length === 0 ? (
+                    <EmptyState
+                      title="Sem aniversários próximos"
+                      description="Assim que houver pacientes com aniversários próximos, eles aparecerão aqui."
+                      icon={Sparkles}
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      {birthdays.map(({ patient, next }) => {
+                        const bdStr = patient.birth_date || patient.birthDate || '';
+                        const bdParts = bdStr.split('T')[0].split('-');
+                        const birthDate = bdParts.length === 3
+                          ? new Date(Number(bdParts[0]), Number(bdParts[1]) - 1, Number(bdParts[2]))
+                          : new Date(bdStr);
+                        const age = Number.isNaN(birthDate.getTime())
+                          ? null
+                          : now.getFullYear() - birthDate.getFullYear();
+                        const isToday =
+                          next.getDate() === now.getDate() &&
+                          next.getMonth() === now.getMonth() &&
+                          next.getFullYear() === now.getFullYear();
+                        const phone = (patient.whatsapp || patient.phone || '').replace(/\D/g, '');
+
+                        const handleSendBirthdayMessage = () => {
+                          const message = `Olá ${
+                            patient.full_name || patient.name
+                          }, parabéns pelo seu aniversário! Desejo muita saúde, paz e realizações. Um grande abraço!`;
+                          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                        };
+
+                        return (
+                          <div
+                            key={patient.id}
+                            className={`flex items-center justify-between gap-3 rounded-lg border p-2.5 transition-colors ${
+                              isToday ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50/70 hover:bg-white'
+                            }`}
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div
+                                className={`flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg text-[11px] font-medium ${
+                                  isToday ? 'bg-amber-200 text-amber-800' : 'border border-slate-200 bg-white text-slate-500'
+                                }`}
+                              >
+                                <span>{String(next.getDate()).padStart(2, '0')}</span>
+                                <span>{String(next.getMonth() + 1).padStart(2, '0')}</span>
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="truncate text-[13px] font-medium text-slate-900">
+                                  {patient.full_name || patient.name}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  {age !== null && <Badge color="default">{age} anos</Badge>}
+                                  {isToday && <Badge color="primary">Hoje</Badge>}
+                                </div>
+                              </div>
+                            </div>
+
+                            {phone && (
+                              <IconButton
+                                variant={isToday ? 'success' : 'outline'}
+                                size="md"
+                                onClick={handleSendBirthdayMessage}
+                                aria-label="Mandar mensagem"
+                                title="Mandar mensagem"
+                              >
+                                <Send size={14} />
+                              </IconButton>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </PanelCard>
+
+                <PanelCard title="Distribuição por gênero" description="Pacientes ativos cadastrados." icon={Users}>
+                  {isLoading ? (
+                    <div className="flex h-64 items-center justify-center">
+                      <Loader2 className="animate-spin text-slate-300" />
+                    </div>
+                  ) : genderPieData.length === 0 ? (
+                    <EmptyState
+                      title="Sem dados para exibir"
+                      description="Cadastre o gênero dos pacientes para ver esta distribuição."
+                      icon={Users}
+                      className="h-64"
+                    />
+                  ) : (
+                    <div className="h-64 min-w-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={genderPieData} cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={4} dataKey="value">
+                            {genderPieData.map((entry, index) => (
+                              <Cell key={`${entry.name}-${index}`} fill={entry.color} />
+                            ))}
+                            <Label position="center" content={pieCenter(genderPieTotal)} />
+                          </Pie>
+                          <Tooltip
+                            contentStyle={tooltipStyle}
+                            formatter={(value: number, name: string) => [
+                              `${value} (${genderPieTotal > 0 ? Math.round((value / genderPieTotal) * 100) : 0}%)`,
+                              name,
+                            ]}
+                          />
+                          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </PanelCard>
+
+                <PanelCard title="Faixa etária" description="Pacientes ativos por idade." icon={Users}>
+                  {isLoading ? (
+                    <div className="flex h-64 items-center justify-center">
+                      <Loader2 className="animate-spin text-slate-300" />
+                    </div>
+                  ) : ageDistributionTotal === 0 ? (
+                    <EmptyState
+                      title="Sem dados para exibir"
+                      description="Cadastre a data de nascimento dos pacientes para ver esta distribuição."
+                      icon={Users}
+                      className="h-64"
+                    />
+                  ) : (
+                    <div className="h-64 min-w-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={ageDistribution} layout="vertical" margin={{ top: 4, right: 28, bottom: 4, left: 0 }}>
+                          <XAxis type="number" hide allowDecimals={false} />
+                          <YAxis
+                            type="category"
+                            dataKey="label"
+                            tick={{ fontSize: 11, fill: '#64748b' }}
+                            axisLine={false}
+                            tickLine={false}
+                            width={78}
+                          />
+                          <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={tooltipStyle} formatter={(value: number) => [value, 'Pacientes']} />
+                          <Bar dataKey="value" fill="var(--c-600)" radius={[0, 4, 4, 0]} maxBarSize={22}>
+                            <LabelList
+                              dataKey="value"
+                              position="right"
+                              formatter={(value: number) => (value > 0 ? value : '')}
+                              style={{ fontSize: 11, fill: '#334155' }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </PanelCard>
+              </div>
+
+              <PanelCard title="Pacientes no mundo" description="Localização por país cadastrado." icon={Globe}>
+                {isLoading ? (
+                  <div className="flex h-[420px] items-center justify-center">
+                    <Loader2 className="animate-spin text-slate-300" />
+                  </div>
+                ) : countryDistributionTotal === 0 ? (
+                  <EmptyState
+                    title="Sem dados para exibir"
+                    description="Cadastre a cidade/estado ou país dos pacientes para ver o mapa."
+                    icon={Globe}
+                    className="h-[420px]"
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="overflow-hidden rounded-lg bg-slate-50 p-3">
+                      <WorldMap
+                        countryCounts={Object.fromEntries(countryDistribution.map((c) => [c.code, c.value]))}
+                        stateCounts={Object.fromEntries(stateDistribution.map((s) => [s.uf, s.value]))}
+                        cityCountsByState={cityDistributionByState}
+                        height={520}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {countryDistribution.map((c) => {
+                        const pct = countryDistributionTotal > 0 ? Math.round((c.value / countryDistributionTotal) * 100) : 0;
+                        return (
+                          <div key={c.code} className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2">
+                            <span className="text-base leading-none">{c.flag}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium text-slate-800">{c.name}</p>
+                              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                                <div className="h-full rounded-full bg-primary-600" style={{ width: `${Math.max(pct, 4)}%` }} />
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-xs font-medium text-slate-900">{c.value}</p>
+                              <p className="text-[11px] text-slate-500">{pct}%</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </PanelCard>
+            </div>
+          )}
+
+          {activeTab === 'datas' && (
+            <PanelCard
+              title="Datas dos profissionais"
+              description="Datas comemorativas da saúde mental para lembrar e comemorar com sua equipe e pacientes."
+              icon={PartyPopper}
+            >
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr]">
+                {nextProfessionalDate && (
+                  <div className="flex flex-col justify-center rounded-lg border border-primary-100 bg-primary-50 p-4">
+                    <span className="text-3xl leading-none">{nextProfessionalDate.emoji}</span>
+                    <p className="mt-3 text-[11px] font-medium text-primary-700">
+                      {nextProfessionalDate.isToday
+                        ? 'É hoje!'
+                        : `Em ${nextProfessionalDate.daysUntil} dia${nextProfessionalDate.daysUntil === 1 ? '' : 's'}`}
+                    </p>
+                    <h3 className="mt-1 text-sm font-medium leading-snug text-slate-900">{nextProfessionalDate.label}</h3>
+                    <p className="mt-2 text-xs leading-relaxed text-slate-600">{nextProfessionalDate.note}</p>
+                    <p className="mt-3 text-xs font-medium text-primary-700">
+                      {nextProfessionalDate.next.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid max-h-[420px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                  {upcomingProfessionalDates.slice(1, 13).map((entry) => (
+                    <div
+                      key={`${entry.month}-${entry.day}-${entry.label}`}
+                      className="flex items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-500">
+                        <span>{String(entry.next.getDate()).padStart(2, '0')}</span>
+                        <span>{String(entry.next.getMonth() + 1).padStart(2, '0')}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-medium text-slate-800">
+                          {entry.emoji} {entry.label}
+                        </p>
+                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">{entry.note}</p>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs font-black text-zinc-900">{c.value}</p>
-                      <p className="text-[10px] font-bold text-zinc-400">{pct}%</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </PanelCard>
+                  ))}
+                </div>
+              </div>
+            </PanelCard>
+          )}
+        </Tabs>
+      </div>
 
       <Modal
         isOpen={isAddShortcutOpen}
@@ -2085,42 +1895,32 @@ export const Dashboard: React.FC = () => {
         size="sm"
         footer={
           <ModalFooter>
-            <Button variant="ghost" onClick={closeShortcutModal}>
+            <Button variant="ghost" size="sm" onClick={closeShortcutModal}>
               Cancelar
             </Button>
-            <Button variant="primary" onClick={handleSaveShortcut} loading={isSavingShortcut}>
+            <Button variant="primary" size="sm" onClick={handleSaveShortcut} loading={isSavingShortcut}>
               Salvar
             </Button>
           </ModalFooter>
         }
       >
-        <div className="space-y-4 py-2">
+        <div className="space-y-3">
           <Input
             label="Nome do acesso"
             placeholder="Ex: Meu site, artigos..."
             value={newShortcut.title || ''}
-            onChange={(event) =>
-              setNewShortcut((current) => ({
-                ...current,
-                title: event.target.value,
-              }))
-            }
+            onChange={(event) => setNewShortcut((current) => ({ ...current, title: event.target.value }))}
           />
 
           <Input
             label="Link (URL)"
             placeholder="exemplo.com.br"
             value={newShortcut.url || ''}
-            onChange={(event) =>
-              setNewShortcut((current) => ({
-                ...current,
-                url: event.target.value,
-              }))
-            }
+            onChange={(event) => setNewShortcut((current) => ({ ...current, url: event.target.value }))}
           />
 
           <div className="space-y-2">
-            <span className="block text-xs font-bold text-zinc-600">Selecione o ícone</span>
+            <span className="block text-xs font-medium text-slate-600">Selecione o ícone</span>
             <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
               {SHORTCUT_ICON_OPTIONS.map((option) => {
                 const Icon = option.icon;
@@ -2130,19 +1930,14 @@ export const Dashboard: React.FC = () => {
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() =>
-                      setNewShortcut((current) => ({
-                        ...current,
-                        icon: option.id,
-                        color: option.color,
-                      }))
-                    }
-                    className={`flex items-center justify-center rounded-xl border-2 p-3 transition-all ${
+                    onClick={() => setNewShortcut((current) => ({ ...current, icon: option.id, color: option.color }))}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
                       isActive
-                        ? 'scale-105 border-[#295b85] bg-[#edf5fb] text-[#295b85] shadow-sm'
-                        : 'border-zinc-100 bg-white text-zinc-400 hover:border-zinc-300 hover:bg-zinc-50'
+                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                        : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                     title={option.id}
+                    aria-label={option.id}
                   >
                     <Icon size={16} />
                   </button>
@@ -2152,22 +1947,18 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <span className="block text-xs font-bold text-zinc-600">Cor do círculo</span>
+            <span className="block text-xs font-medium text-slate-600">Cor do círculo</span>
             <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto p-1">
               {SHORTCUT_COLOR_OPTIONS.map((color) => (
                 <button
                   key={color}
                   type="button"
-                  onClick={() =>
-                    setNewShortcut((current) => ({
-                      ...current,
-                      color,
-                    }))
-                  }
-                  className={`h-8 w-8 rounded-full border-2 shadow-sm transition-transform hover:scale-105 ${
-                    newShortcut.color === color ? 'border-zinc-800 scale-110' : 'border-transparent'
+                  onClick={() => setNewShortcut((current) => ({ ...current, color }))}
+                  className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-105 ${
+                    newShortcut.color === color ? 'scale-110 border-slate-800' : 'border-transparent'
                   } ${color}`}
                   title={color}
+                  aria-label={color}
                 />
               ))}
             </div>

@@ -2,19 +2,31 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea } from '../../components/UI/Input';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
-import { 
-  Plus, Trash2, Save, Sparkles, X, Target, Heart, LayoutDashboard, Brain
+import {
+  Trash2, Save, Sparkles, Target, Heart, LayoutDashboard, Brain, ArrowLeft
 } from 'lucide-react';
+
+type IntegrativaTab = 'plan' | 'techniques';
+
+const integrativaTabs = [
+  { id: 'plan', label: 'Formulação', icon: Target },
+  { id: 'techniques', label: 'Técnicas', icon: Sparkles },
+] as const;
 
 export const IntegrativaPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'plan' | 'techniques'>('plan');
-  
+  const [activeSub, setActiveSub] = useState<IntegrativaTab>('plan');
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [patientSearch, setPatientSearch] = useState('');
@@ -23,7 +35,7 @@ export const IntegrativaPage: React.FC = () => {
 
   const [techniques, setTechniques] = useState<any[]>([]);
   const [formulation, setFormulation] = useState('');
-  
+
   const [newTechnique, setNewTechnique] = useState('');
 
   const fetchData = async () => {
@@ -99,33 +111,22 @@ export const IntegrativaPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<LayoutDashboard />}
-        title="Clínica Eclética / Integrativa"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Formulação Integrativa e Seleção de Ferramentas"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-2xl border border-slate-200 shadow-sm">
-              <button 
-                onClick={() => setActiveSub('plan')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'plan' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Target size={14}/> Formulação</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('techniques')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${activeSub === 'techniques' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Sparkles size={14}/> Técnicas</div>
-              </button>
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <ClinicalSidebar 
+        <SectionTitle
+          icon={LayoutDashboard}
+          title="Clínica Eclética / Integrativa"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Formulação Integrativa e Seleção de Ferramentas"}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -133,84 +134,83 @@ export const IntegrativaPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="space-y-6 animate-fadeIn text-center py-20 bg-white rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center">
-                <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-6">
-                    <LayoutDashboard size={40} />
-                </div>
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Workspace Integrativo</h2>
-                <p className="text-slate-400 text-sm max-w-md mx-auto">Desenvolva uma abordagem sob medida, mesclando diferentes técnicas e teorias para atender às necessidades específicas.</p>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'plan' && (
-                <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4 animate-slideUpFade">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight flex items-center gap-2">
-                        <Brain className="text-indigo-500" size={20} /> Formulação de Caso Integrativa
-                      </h3>
-                      <button onClick={() => handleSaveWorkspace()} className="bg-indigo-600 text-white px-6 py-2 rounded-2xl font-black uppercase text-xs shadow-lg flex items-center gap-2 hover:bg-indigo-700 transition">
-                         {saving ? <Sparkles size={14} className="animate-spin" /> : <Save size={14} />} Salvar Formulação
-                      </button>
-                    </div>
-                    <textarea 
-                      className="w-full min-h-[400px] p-6 rounded-2xl bg-slate-50 border border-slate-100 font-sans text-sm leading-relaxed outline-none focus:bg-white focus:border-indigo-400 transition-all custom-scrollbar resize-none"
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <ContentCard>
+                <EmptyState
+                  icon={LayoutDashboard}
+                  title="Workspace Integrativo"
+                  description="Desenvolva uma abordagem sob medida, mesclando diferentes técnicas e teorias para atender às necessidades específicas."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<IntegrativaTab> items={integrativaTabs} value={activeSub} onChange={setActiveSub} label="Seções da clínica integrativa">
+                {activeSub === 'plan' && (
+                  <PanelCard
+                    title="Formulação de Caso Integrativa"
+                    icon={Brain}
+                    action={
+                      <Button variant="primary" size="sm" loading={saving} iconLeft={<Save size={14} />} onClick={() => handleSaveWorkspace()}>
+                        Salvar Formulação
+                      </Button>
+                    }
+                  >
+                    <Textarea
+                      aria-label="Formulação de caso integrativa"
+                      rows={16}
                       placeholder="Construa aqui a lógica de intervenção, fatores mantenedores, hipóteses diagnósticas de diferentes abordagens..."
                       value={formulation}
                       onChange={e => setFormulation(e.target.value)}
                     />
-                </div>
-              )}
+                  </PanelCard>
+                )}
 
-              {activeSub === 'techniques' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-slideUpFade">
-                    <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[32px] p-8 shadow-xl text-white">
-                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">Plano de Técnicas</h3>
-                        <p className="text-xs font-bold text-indigo-200 mb-6">Registre e combine as técnicas a serem utilizadas.</p>
+                {activeSub === 'techniques' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <PanelCard title="Plano de Técnicas" icon={Sparkles}>
+                      <div className="space-y-3">
+                        <p className="text-[11px] text-slate-500">Registre e combine as técnicas a serem utilizadas.</p>
+                        <Input
+                          aria-label="Adicionar técnica"
+                          value={newTechnique}
+                          onChange={e => setNewTechnique(e.target.value)}
+                          placeholder="Adicionar técnica (e.g. Dessensibilização, ABC...)"
+                          onKeyDown={e => e.key === 'Enter' && addTechnique()}
+                        />
+                        <Button variant="primary" fullWidth onClick={addTechnique}>Adicionar Técnica</Button>
+                      </div>
+                    </PanelCard>
 
-                        <div className="space-y-4">
-                            <input 
-                              className="w-full h-12 px-4 rounded-xl bg-white/10 border border-white/20 text-sm font-bold text-white outline-none placeholder:text-white/40 focus:bg-white/20" 
-                              value={newTechnique} 
-                              onChange={e => setNewTechnique(e.target.value)} 
-                              placeholder="Adicionar técnica (e.g. Dessensibilização, ABC...)" 
-                              onKeyDown={e => e.key === 'Enter' && addTechnique()}
-                            />
-                            <button onClick={addTechnique} className="w-full h-12 bg-white text-indigo-900 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-indigo-50 transition-all">Adicionar Técnica</button>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm">
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Técnicas Selecionadas</h4>
-                        {techniques.length === 0 ? (
-                           <p className="text-sm font-medium text-slate-400 py-10 text-center">Nenhuma técnica adicionada.</p>
-                        ) : (
-                           <div className="space-y-3">
-                              {techniques.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                   <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                                         <Heart size={14} />
-                                      </div>
-                                      <p className="text-sm font-bold text-slate-700">{t.text}</p>
-                                   </div>
-                                   <button onClick={() => removeTechnique(t.id)} className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors">
-                                      <Trash2 size={14} />
-                                   </button>
+                    <PanelCard title="Técnicas Selecionadas">
+                      {techniques.length === 0 ? (
+                        <EmptyState icon={Sparkles} title="Nenhuma técnica adicionada." />
+                      ) : (
+                        <div className="space-y-2">
+                          {techniques.map(t => (
+                            <div key={t.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                                  <Heart size={14} />
                                 </div>
-                              ))}
-                           </div>
-                        )}
-                    </div>
-                </div>
-              )}
-            </>
-          )}
+                                <p className="text-[13px] font-medium text-slate-700 break-words min-w-0">{t.text}</p>
+                              </div>
+                              <IconButton variant="ghost" size="sm" aria-label="Remover técnica" title="Remover técnica" className="hover:text-red-600" onClick={() => removeTechnique(t.id)}>
+                                <Trash2 size={14} />
+                              </IconButton>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </PanelCard>
+                  </div>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

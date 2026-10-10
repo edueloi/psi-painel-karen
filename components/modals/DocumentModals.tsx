@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Modal } from '../UI/Modal';
-import { Button } from '../UI/Button';
+import { Modal, ModalFooter, Button, Input, Select, Textarea, FormRow, Tabs } from '../UI';
 import { api } from '../../services/api';
-import { Save, ArrowRight, ClipboardCheck } from 'lucide-react';
+import { Save, ArrowRight, ClipboardCheck, ClipboardList, FileText, FileSignature, Send } from 'lucide-react';
 
 interface Patient {
   id: string;
@@ -28,33 +27,38 @@ interface DocModalProps {
 }
 
 /* ── helpers ── */
-const Field: React.FC<{ label: string; children: React.ReactNode; required?: boolean }> = ({ label, children, required }) => (
-  <div className="space-y-1">
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-      {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
-    </label>
-    {children}
-  </div>
-);
-
-const ProfCard: React.FC<{ professional?: Professional; color: string }> = ({ professional, color }) => {
+const ProfCard: React.FC<{ professional?: Professional }> = ({ professional }) => {
   if (!professional?.name) return null;
   return (
-    <div className={`p-3 rounded-xl border text-xs space-y-0.5 ${color}`}>
-      <p className="font-black text-[10px] uppercase tracking-widest opacity-60 mb-1">Profissional Responsável</p>
-      <p className="font-bold">{professional.name}</p>
-      {professional.specialty && <p className="opacity-80">{professional.specialty}</p>}
-      {professional.crp && <p className="opacity-80">CRP: {professional.crp}</p>}
-      {professional.companyName && <p className="opacity-70">{professional.companyName}</p>}
-      {professional.address && <p className="opacity-70">{professional.address}</p>}
-      {professional.phone && <p className="opacity-70">{professional.phone}</p>}
+    <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-xs space-y-0.5 text-slate-700">
+      <p className="font-medium text-[11px] text-slate-500 mb-1">Profissional responsável</p>
+      <p className="font-medium text-slate-900">{professional.name}</p>
+      {professional.specialty && <p>{professional.specialty}</p>}
+      {professional.crp && <p>CRP: {professional.crp}</p>}
+      {professional.companyName && <p className="text-slate-500">{professional.companyName}</p>}
+      {professional.address && <p className="text-slate-500">{professional.address}</p>}
+      {professional.phone && <p className="text-slate-500">{professional.phone}</p>}
     </div>
   );
 };
 
-const inputCls = 'w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition';
-const selectCls = 'w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition';
-const textareaCls = 'w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700 outline-none focus:border-indigo-300 focus:bg-white transition resize-none';
+const PatientBanner: React.FC<{ icon: React.ElementType; label: string; patient: Patient }> = ({ icon: Icon, label, patient }) => (
+  <div className="flex items-center gap-3 p-3 bg-primary-50 rounded-lg border border-primary-100">
+    <div className="w-8 h-8 rounded-lg bg-white border border-primary-100 flex items-center justify-center text-primary-600 shrink-0">
+      <Icon size={15} />
+    </div>
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium text-primary-700">{label}</p>
+      <p className="text-xs text-slate-700 break-words">{patient.full_name}{patient.cpf ? ` · CPF ${patient.cpf}` : ''}</p>
+    </div>
+  </div>
+);
+
+const docTabs = [
+  { id: 'dados', label: 'Dados', icon: ClipboardList },
+  { id: 'conteudo', label: 'Conteúdo', icon: FileText },
+] as const;
+type DocTabId = typeof docTabs[number]['id'];
 
 /* ════════════════════════════════════════════════════
    RELATÓRIO
@@ -80,7 +84,7 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
     try {
       const title = `${form.tipo} — ${patient.full_name} — ${new Date(form.data_emissao).toLocaleDateString('pt-BR')}`;
       const profLine = professional?.name
-        ? `\nPROFISSIONAL: ${professional.name}${professional.crp ? ` · CRP ${professional.crp}` : ''}${professional.specialty ? ` · ${professional.specialty}` : ''}`
+        ? `\nPROFISSIONAL: ${professional.name}${professional.crp ?` · CRP ${professional.crp}` : ''}${professional.specialty ? ` · ${professional.specialty}` : ''}`
         : '';
       const content = [
         `TIPO: ${form.tipo}`,
@@ -113,83 +117,75 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
     }
   };
 
+  const [tab, setTab] = useState<DocTabId>('dados');
+  const trySave = () => {
+    if (!form.conteudo.trim()) { setTab('conteudo'); return; }
+    save();
+  };
+
   return (
     <Modal
       isOpen
       onClose={onClose}
       title="Relatório / Laudo"
       subtitle={`Paciente: ${patient.full_name}`}
-      maxWidth="2xl"
+      size="xl"
       footer={
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="ghost" onClick={onClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
-          <Button onClick={save} isLoading={saving} variant="primary" className="h-9 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-lg shadow-blue-200">
-            <Save size={14}/> Salvar Relatório
+        <ModalFooter align="between">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button onClick={trySave} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<Save size={14} />}>
+            Salvar relatório
           </Button>
-        </div>
+        </ModalFooter>
       }
     >
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
-          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-base">📄</div>
-          <div>
-            <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Relatório Técnico</p>
-            <p className="text-xs text-slate-500">{patient.full_name}{patient.cpf ? ` · CPF ${patient.cpf}` : ''}</p>
-          </div>
-        </div>
+      <div className="space-y-3">
+        <PatientBanner icon={FileText} label="Relatório técnico" patient={patient} />
 
-        <ProfCard professional={professional} color="bg-blue-50 border-blue-100 text-blue-800"/>
+        <Tabs<DocTabId> items={docTabs} value={tab} onChange={setTab} label="Seções do relatório">
+          {tab === 'dados' && (
+            <div className="space-y-3">
+              <ProfCard professional={professional} />
+              <FormRow cols={2}>
+                <Select label="Tipo de documento *" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
+                  {['Relatório Psicológico','Laudo Psicológico','Relatório de Alta','Relatório de Acompanhamento','Declaração','Outro'].map(o => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </Select>
+                <Select label="Finalidade" value={form.finalidade} onChange={e => set('finalidade', e.target.value)}>
+                  {['Clínico-Interno','Judicial','Escolar','Previdenciária','Médica','Seguro','Outro'].map(o => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </Select>
+                <Input label="Destinatário" placeholder="Pessoa, instituição ou setor..." value={form.destinatario} onChange={e => set('destinatario', e.target.value)} />
+                <FormRow cols={2}>
+                  <Input label="CID-10 (opcional)" placeholder="Ex: F41.1" value={form.cid} onChange={e => set('cid', e.target.value)} />
+                  <Input label="Data de emissão" type="date" value={form.data_emissao} onChange={e => set('data_emissao', e.target.value)} />
+                </FormRow>
+              </FormRow>
+            </div>
+          )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Tipo de Documento" required>
-            <select className={selectCls} value={form.tipo} onChange={e => set('tipo', e.target.value)}>
-              {['Relatório Psicológico','Laudo Psicológico','Relatório de Alta','Relatório de Acompanhamento','Declaração','Outro'].map(o => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Finalidade">
-            <select className={selectCls} value={form.finalidade} onChange={e => set('finalidade', e.target.value)}>
-              {['Clínico-Interno','Judicial','Escolar','Previdenciária','Médica','Seguro','Outro'].map(o => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Destinatário">
-            <input className={inputCls} placeholder="Pessoa, instituição ou setor..." value={form.destinatario} onChange={e => set('destinatario', e.target.value)}/>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="CID-10 (opcional)">
-              <input className={inputCls} placeholder="Ex: F41.1" value={form.cid} onChange={e => set('cid', e.target.value)}/>
-            </Field>
-            <Field label="Data de Emissão">
-              <input type="date" className={inputCls} value={form.data_emissao} onChange={e => set('data_emissao', e.target.value)}/>
-            </Field>
-          </div>
-        </div>
-
-        <Field label="Conteúdo Principal" required>
-          <textarea
-            className={textareaCls}
-            rows={7}
-            placeholder="Descreva o histórico, achados clínicos, intervenções realizadas, evolução do processo..."
-            value={form.conteudo}
-            onChange={e => set('conteudo', e.target.value)}
-          />
-        </Field>
-
-        <Field label="Conclusão / Parecer">
-          <textarea
-            className={textareaCls}
-            rows={3}
-            placeholder="Conclusão, recomendações e parecer final..."
-            value={form.conclusao}
-            onChange={e => set('conclusao', e.target.value)}
-          />
-        </Field>
+          {tab === 'conteudo' && (
+            <div className="space-y-3">
+              <Textarea
+                label="Conteúdo principal *"
+                rows={9}
+                placeholder="Descreva o histórico, achados clínicos, intervenções realizadas, evolução do processo..."
+                value={form.conteudo}
+                onChange={e => set('conteudo', e.target.value)}
+                error={!form.conteudo.trim() ? 'Obrigatório para salvar.' : undefined}
+              />
+              <Textarea
+                label="Conclusão / parecer"
+                rows={4}
+                placeholder="Conclusão, recomendações e parecer final..."
+                value={form.conclusao}
+                onChange={e => set('conclusao', e.target.value)}
+              />
+            </div>
+          )}
+        </Tabs>
       </div>
     </Modal>
   );
@@ -219,7 +215,7 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
     try {
       const title = `Encaminhamento ${form.especialidade} — ${patient.full_name} — ${new Date(form.data).toLocaleDateString('pt-BR')}`;
       const profLine = professional?.name
-        ? `\nPROFISSIONAL SOLICITANTE: ${professional.name}${professional.crp ? ` · CRP ${professional.crp}` : ''}${professional.specialty ? ` · ${professional.specialty}` : ''}`
+        ? `\nPROFISSIONAL SOLICITANTE: ${professional.name}${professional.crp ?` · CRP ${professional.crp}` : ''}${professional.specialty ? ` · ${professional.specialty}` : ''}`
         : '';
       const content = [
         `ESPECIALIDADE: ${form.especialidade}`,
@@ -250,10 +246,10 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
     }
   };
 
-  const urgencyColor: Record<string, string> = {
-    Normal: 'text-slate-500',
-    Urgente: 'text-amber-600',
-    'Emergência': 'text-rose-600',
+  const [tab, setTab] = useState<DocTabId>('dados');
+  const trySave = () => {
+    if (!form.motivo.trim()) { setTab('conteudo'); return; }
+    save();
   };
 
   return (
@@ -262,80 +258,65 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
       onClose={onClose}
       title="Encaminhamento"
       subtitle={`Paciente: ${patient.full_name}`}
-      maxWidth="2xl"
+      size="xl"
       footer={
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="ghost" onClick={onClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
-          <Button onClick={save} isLoading={saving} variant="primary" className="h-9 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest bg-amber-500 hover:bg-amber-600 border-amber-500 shadow-lg shadow-amber-200">
-            <ArrowRight size={14}/> Registrar Encaminhamento
+        <ModalFooter align="between">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button onClick={trySave} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<ArrowRight size={14} />}>
+            Registrar encaminhamento
           </Button>
-        </div>
+        </ModalFooter>
       }
     >
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-base">🔄</div>
-          <div>
-            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Encaminhamento Clínico</p>
-            <p className="text-xs text-slate-500">{patient.full_name}{patient.cpf ? ` · CPF ${patient.cpf}` : ''}</p>
-          </div>
-        </div>
+      <div className="space-y-3">
+        <PatientBanner icon={Send} label="Encaminhamento clínico" patient={patient} />
 
-        <ProfCard professional={professional} color="bg-amber-50 border-amber-100 text-amber-800"/>
+        <Tabs<DocTabId> items={docTabs} value={tab} onChange={setTab} label="Seções do encaminhamento">
+          {tab === 'dados' && (
+            <div className="space-y-3">
+              <ProfCard professional={professional} />
+              <FormRow cols={2}>
+                <Select label="Especialidade de destino *" value={form.especialidade} onChange={e => set('especialidade', e.target.value)}>
+                  {['Psiquiatria','Neurologia','Fonoaudiologia','Terapia Ocupacional','Psicologia Especializada','Nutrição','Fisioterapia','Cardiologia','Clínico Geral','Outro'].map(o => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </Select>
+                <Select label="Urgência" value={form.urgencia} onChange={e => set('urgencia', e.target.value)}>
+                  {['Normal','Urgente','Emergência'].map(o => <option key={o}>{o}</option>)}
+                </Select>
+                <Input label="Profissional / instituição destino" placeholder="Nome do profissional ou serviço receptor..." value={form.profissional_instituicao} onChange={e => set('profissional_instituicao', e.target.value)} />
+                <Input label="Data do encaminhamento" type="date" value={form.data} onChange={e => set('data', e.target.value)} />
+              </FormRow>
+            </div>
+          )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Especialidade de Destino" required>
-            <select className={selectCls} value={form.especialidade} onChange={e => set('especialidade', e.target.value)}>
-              {['Psiquiatria','Neurologia','Fonoaudiologia','Terapia Ocupacional','Psicologia Especializada','Nutrição','Fisioterapia','Cardiologia','Clínico Geral','Outro'].map(o => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Urgência">
-            <select className={`${selectCls} font-bold ${urgencyColor[form.urgencia]}`} value={form.urgencia} onChange={e => set('urgencia', e.target.value)}>
-              {['Normal','Urgente','Emergência'].map(o => <option key={o}>{o}</option>)}
-            </select>
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Profissional / Instituição Destino">
-            <input className={inputCls} placeholder="Nome do profissional ou serviço receptor..." value={form.profissional_instituicao} onChange={e => set('profissional_instituicao', e.target.value)}/>
-          </Field>
-          <Field label="Data do Encaminhamento">
-            <input type="date" className={inputCls} value={form.data} onChange={e => set('data', e.target.value)}/>
-          </Field>
-        </div>
-
-        <Field label="Motivo do Encaminhamento" required>
-          <textarea
-            className={textareaCls}
-            rows={4}
-            placeholder="Descreva o motivo clínico que justifica o encaminhamento..."
-            value={form.motivo}
-            onChange={e => set('motivo', e.target.value)}
-          />
-        </Field>
-
-        <Field label="Informações Clínicas Relevantes">
-          <textarea
-            className={textareaCls}
-            rows={3}
-            placeholder="Histórico, diagnóstico, medicações em uso, contexto relevante..."
-            value={form.informacoes_clinicas}
-            onChange={e => set('informacoes_clinicas', e.target.value)}
-          />
-        </Field>
-
-        <Field label="Recomendações / Orientações ao Destino">
-          <textarea
-            className={textareaCls}
-            rows={2}
-            placeholder="Orientações específicas para o profissional ou serviço receptor..."
-            value={form.recomendacoes}
-            onChange={e => set('recomendacoes', e.target.value)}
-          />
-        </Field>
+          {tab === 'conteudo' && (
+            <div className="space-y-3">
+              <Textarea
+                label="Motivo do encaminhamento *"
+                rows={5}
+                placeholder="Descreva o motivo clínico que justifica o encaminhamento..."
+                value={form.motivo}
+                onChange={e => set('motivo', e.target.value)}
+                error={!form.motivo.trim() ? 'Obrigatório para salvar.' : undefined}
+              />
+              <Textarea
+                label="Informações clínicas relevantes"
+                rows={4}
+                placeholder="Histórico, diagnóstico, medicações em uso, contexto relevante..."
+                value={form.informacoes_clinicas}
+                onChange={e => set('informacoes_clinicas', e.target.value)}
+              />
+              <Textarea
+                label="Recomendações / orientações ao destino"
+                rows={3}
+                placeholder="Orientações específicas para o profissional ou serviço receptor..."
+                value={form.recomendacoes}
+                onChange={e => set('recomendacoes', e.target.value)}
+              />
+            </div>
+          )}
+        </Tabs>
       </div>
     </Modal>
   );
@@ -417,78 +398,55 @@ export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, 
       onClose={onClose}
       title="Atestado"
       subtitle={`Paciente: ${patient.full_name}`}
-      maxWidth="lg"
+      size="lg"
       footer={
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="ghost" onClick={onClose} className="uppercase text-[10px] font-black tracking-widest px-3 h-9">Cancelar</Button>
-          <Button onClick={save} isLoading={saving} variant="primary" className="h-9 px-5 gap-1.5 uppercase text-[10px] font-black tracking-widest bg-rose-600 hover:bg-rose-700 border-rose-600 shadow-lg shadow-rose-200">
-            <ClipboardCheck size={14}/> Emitir Atestado
+        <ModalFooter align="between">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button onClick={save} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<ClipboardCheck size={14} />}>
+            Emitir atestado
           </Button>
-        </div>
+        </ModalFooter>
       }
     >
-      <div className="space-y-4">
-        {/* Paciente */}
-        <div className="flex items-center gap-2 p-3 bg-rose-50 rounded-xl border border-rose-100">
-          <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center text-base">📋</div>
-          <div>
-            <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Atestado Psicológico</p>
-            <p className="text-xs text-slate-700 font-semibold">{patient.full_name}</p>
-            {patient.cpf && <p className="text-[10px] text-slate-400">CPF: {patient.cpf}</p>}
-          </div>
-        </div>
+      <div className="space-y-3">
+        <PatientBanner icon={FileSignature} label="Atestado psicológico" patient={patient} />
 
-        {/* Profissional */}
-        <ProfCard professional={professional} color="bg-rose-50 border-rose-100 text-rose-800"/>
+        <ProfCard professional={professional} />
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Tipo de Atestado" required>
-            <select className={selectCls} value={form.tipo} onChange={e => set('tipo', e.target.value)}>
-              {['Comparecimento','Afastamento','Aptidão Psicológica','Declaração de Atendimento','Outro'].map(o => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Data de Emissão" required>
-            <input type="date" className={inputCls} value={form.data_emissao} onChange={e => set('data_emissao', e.target.value)}/>
-          </Field>
-        </div>
+        <FormRow cols={2}>
+          <Select label="Tipo de atestado *" value={form.tipo} onChange={e => set('tipo', e.target.value)}>
+            {['Comparecimento','Afastamento','Aptidão Psicológica','Declaração de Atendimento','Outro'].map(o => (
+              <option key={o}>{o}</option>
+            ))}
+          </Select>
+          <Input label="Data de emissão *" type="date" value={form.data_emissao} onChange={e => set('data_emissao', e.target.value)} />
+        </FormRow>
 
         {isAfastamento && (
-          <div className="grid grid-cols-3 gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-            <Field label="Início do Afastamento">
-              <input type="date" className={inputCls} value={form.afastamento_inicio} onChange={e => set('afastamento_inicio', e.target.value)}/>
-            </Field>
-            <Field label="Fim do Afastamento">
-              <input type="date" className={inputCls} value={form.afastamento_fim} onChange={e => set('afastamento_fim', e.target.value)}/>
-            </Field>
-            <Field label="Nº de Dias">
-              <input className={inputCls} type="number" min="1" placeholder="Ex: 7" value={form.dias_afastamento} onChange={e => set('dias_afastamento', e.target.value)}/>
-            </Field>
+          <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+            <FormRow cols={3}>
+              <Input label="Início do afastamento" type="date" value={form.afastamento_inicio} onChange={e => set('afastamento_inicio', e.target.value)} />
+              <Input label="Fim do afastamento" type="date" value={form.afastamento_fim} onChange={e => set('afastamento_fim', e.target.value)} />
+              <Input label="Nº de dias" type="number" min="1" placeholder="Ex: 7" value={form.dias_afastamento} onChange={e => set('dias_afastamento', e.target.value)} />
+            </FormRow>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="CID-10 (opcional)">
-            <input className={inputCls} placeholder="Ex: F41.1" value={form.cid} onChange={e => set('cid', e.target.value)}/>
-          </Field>
-          <Field label="Finalidade">
-            <input className={inputCls} placeholder="Ex: Apresentar na empresa, escola..." value={form.finalidade} onChange={e => set('finalidade', e.target.value)}/>
-          </Field>
-        </div>
+        <FormRow cols={2}>
+          <Input label="CID-10 (opcional)" placeholder="Ex: F41.1" value={form.cid} onChange={e => set('cid', e.target.value)} />
+          <Input label="Finalidade" placeholder="Ex: Apresentar na empresa, escola..." value={form.finalidade} onChange={e => set('finalidade', e.target.value)} />
+        </FormRow>
 
-        <Field label="Observações / Recomendações">
-          <textarea
-            className={textareaCls}
-            rows={3}
-            placeholder="Recomendações de repouso, restrições de atividades..."
-            value={form.observacoes}
-            onChange={e => set('observacoes', e.target.value)}
-          />
-        </Field>
+        <Textarea
+          label="Observações / recomendações"
+          rows={3}
+          placeholder="Recomendações de repouso, restrições de atividades..."
+          value={form.observacoes}
+          onChange={e => set('observacoes', e.target.value)}
+        />
 
-        <p className="text-[10px] text-slate-400 text-center">
-          Salvo no prontuário como <span className="font-black text-emerald-600">Aprovado</span>. Os dados do profissional são incluídos automaticamente.
+        <p className="text-[11px] text-slate-500 text-center">
+          Salvo no prontuário como <span className="font-medium text-emerald-600">Aprovado</span>. Os dados do profissional são incluídos automaticamente.
         </p>
       </div>
     </Modal>

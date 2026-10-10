@@ -3,14 +3,18 @@ import { getToken } from '../services/tokenStorage';
 import {
   FileText, Download, RefreshCw, Loader2, CheckCircle2, Clock,
   AlertCircle, XCircle, Ban, Archive, Mail, MessageCircle, HelpCircle, Repeat,
-  Search as SearchIcon, CalendarRange, ListFilter, Layers, MousePointerClick,
+  Search as SearchIcon, CalendarRange, ListFilter, Layers, MousePointerClick, LayoutList,
 } from 'lucide-react';
 import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { Button, IconButton } from '../components/UI/Button';
 import { GridTable, Column } from '../components/UI/GridTable';
 import { EmptyState } from '../components/UI/EmptyState';
-import { Modal } from '../components/UI/Modal';
+import { Modal, ModalFooter } from '../components/UI/Modal';
 import { Combobox } from '../components/UI/Combobox';
+import { Tabs } from '../components/UI/Tabs';
+import { Badge } from '../components/UI/Badge';
+import { Input, Textarea } from '../components/UI/Input';
+import { ContentCard } from '../components/UI/PageWrapper';
 import {
   FilterLine, FilterLineSection, FilterLineItem,
   FilterLineSearch, FilterLineDateRange,
@@ -49,13 +53,14 @@ interface NfseInvoiceRow {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<NfseStatus, { label: string; color: string; icon: React.ElementType }> = {
-  pending:    { label: 'Pendente',    color: 'bg-slate-100 text-slate-600 border-slate-200',     icon: Clock },
-  processing: { label: 'Processando', color: 'bg-amber-50 text-amber-700 border-amber-200',      icon: Loader2 },
-  authorized: { label: 'Autorizada',  color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-  rejected:   { label: 'Rejeitada',   color: 'bg-rose-50 text-rose-700 border-rose-200',          icon: XCircle },
-  error:      { label: 'Erro',        color: 'bg-rose-50 text-rose-700 border-rose-200',          icon: AlertCircle },
-  cancelled:  { label: 'Cancelada',   color: 'bg-slate-100 text-slate-500 border-slate-200',      icon: Ban },
+type BadgeTone = 'default' | 'warning' | 'success' | 'danger';
+const STATUS_CONFIG: Record<NfseStatus, { label: string; color: BadgeTone; icon: React.ElementType }> = {
+  pending:    { label: 'Pendente',    color: 'default',    icon: Clock },
+  processing: { label: 'Processando', color: 'warning',    icon: Loader2 },
+  authorized: { label: 'Autorizada',  color: 'success',    icon: CheckCircle2 },
+  rejected:   { label: 'Rejeitada',   color: 'danger',     icon: XCircle },
+  error:      { label: 'Erro',        color: 'danger',     icon: AlertCircle },
+  cancelled:  { label: 'Cancelada',   color: 'default',    icon: Ban },
 };
 
 const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -74,9 +79,16 @@ function currentMonthRange() {
   };
 }
 
-const STATUS_FILTER_OPTIONS = (Object.keys(STATUS_CONFIG) as NfseStatus[]).map(value => ({
-  value, label: STATUS_CONFIG[value].label,
-}));
+const STATUS_TABS = [
+  { id: 'all', label: 'Todas', icon: LayoutList },
+  { id: 'pending', label: STATUS_CONFIG.pending.label, icon: Clock },
+  { id: 'processing', label: STATUS_CONFIG.processing.label, icon: Loader2 },
+  { id: 'authorized', label: STATUS_CONFIG.authorized.label, icon: CheckCircle2 },
+  { id: 'rejected', label: STATUS_CONFIG.rejected.label, icon: XCircle },
+  { id: 'error', label: STATUS_CONFIG.error.label, icon: AlertCircle },
+  { id: 'cancelled', label: STATUS_CONFIG.cancelled.label, icon: Ban },
+] as const;
+type StatusTab = typeof STATUS_TABS[number]['id'];
 
 // Códigos oficiais de justificativa do evento de substituição (e105102), confirmados
 // no XSD do Sistema Nacional NFS-e (enum TSCodJustSubst).
@@ -297,20 +309,19 @@ export const NotaFiscal: React.FC = () => {
     const Icon = cfg.icon;
     return (
       <div>
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10px] font-bold ${cfg.color}`}>
-          <Icon size={11} className={inv.status === 'processing' ? 'animate-spin' : ''} />
+        <Badge color={cfg.color} size="sm" icon={<Icon size={11} className={inv.status === 'processing' ? 'animate-spin' : ''} />}>
           {cfg.label}
-        </span>
+        </Badge>
         {['rejected', 'error'].includes(inv.status) && inv.rejection_reason && (
-          <p className="text-[10px] text-rose-500 mt-1 max-w-[200px] truncate" title={inv.rejection_reason}>{inv.rejection_reason}</p>
+          <p className="text-[11px] text-red-600 mt-1 max-w-[200px] truncate" title={inv.rejection_reason}>{inv.rejection_reason}</p>
         )}
         {inv.status === 'authorized' && (
           inv.whatsapp_sent_at ? (
-            <p className="text-[10px] text-emerald-600 font-semibold mt-1 flex items-center gap-1" title={formatDateTime(inv.whatsapp_sent_at)}>
+            <p className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1" title={formatDateTime(inv.whatsapp_sent_at)}>
               <MessageCircle size={10} /> Enviado por WhatsApp
             </p>
           ) : inv.whatsapp_send_error ? (
-            <p className="text-[10px] text-rose-500 mt-1 max-w-[200px] truncate flex items-center gap-1" title={inv.whatsapp_send_error}>
+            <p className="text-[11px] text-red-600 mt-1 max-w-[200px] truncate flex items-center gap-1" title={inv.whatsapp_send_error}>
               <MessageCircle size={10} /> Não enviado — {inv.whatsapp_send_error}
             </p>
           ) : null
@@ -320,44 +331,42 @@ export const NotaFiscal: React.FC = () => {
   };
 
   const renderActions = (inv: NfseInvoiceRow, opts: { mobile?: boolean } = {}) => {
-    if (inv.status !== 'authorized') return <span className="text-slate-200 text-lg leading-none select-none">—</span>;
-    const size = opts.mobile ? 'w-9 h-9' : 'w-7 h-7';
-    const iconSize = opts.mobile ? 15 : 12;
+    if (inv.status !== 'authorized') return <span className="text-slate-300 text-lg leading-none select-none">—</span>;
+    const size = opts.mobile ? 'md' : 'xs';
     return (
       <div className={`flex items-center gap-1.5 ${opts.mobile ? 'flex-wrap' : 'justify-center'}`}>
-        <button
-          onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/xml`, `nfse-${inv.chave_acesso || inv.numero}.xml`)}
-          title="Baixar XML" className={`${size} flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all`}>
-          <Download size={iconSize} />
-        </button>
-        <button
-          onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/pdf`, `nfse-${inv.chave_acesso || inv.numero}.pdf`)}
-          title="Baixar PDF" className={`${size} flex items-center justify-center rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-all`}>
-          <FileText size={iconSize} />
-        </button>
-        {inv.patient_email && <button onClick={() => sendInvoice(inv, 'email')} title={`Enviar por e-mail: ${inv.patient_email}`} className={`${size} flex items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition-all`}><Mail size={iconSize} /></button>}
-        {inv.patient_whatsapp && (
-          <button
-            onClick={() => sendInvoice(inv, 'whatsapp')}
-            title={inv.whatsapp_sent_at ? `Já enviado por WhatsApp em ${formatDateTime(inv.whatsapp_sent_at)} — clique para reenviar` : 'Enviar por WhatsApp'}
-            className={`relative ${size} flex items-center justify-center rounded-lg transition-all ${
-              inv.whatsapp_sent_at ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-            }`}
-          >
-            <MessageCircle size={iconSize} />
-            {inv.whatsapp_sent_at && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white" />}
-          </button>
+        <IconButton
+          variant="ghost" size={size} aria-label="Baixar XML" title="Baixar XML"
+          onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/xml`, `nfse-${inv.chave_acesso || inv.numero}.xml`)}>
+          <Download size={14} />
+        </IconButton>
+        <IconButton
+          variant="ghost" size={size} aria-label="Baixar PDF" title="Baixar PDF"
+          onClick={() => downloadFile(`/nfse/${inv.financial_transaction_id}/pdf`, `nfse-${inv.chave_acesso || inv.numero}.pdf`)}>
+          <FileText size={14} />
+        </IconButton>
+        {inv.patient_email && (
+          <IconButton variant="ghost" size={size} aria-label="Enviar por e-mail" title={`Enviar por e-mail: ${inv.patient_email}`} onClick={() => sendInvoice(inv, 'email')}>
+            <Mail size={14} />
+          </IconButton>
         )}
-        <button
-          onClick={() => openSubstitute(inv)}
-          title="Substituir NFS-e (corrigir descrição/valor)" className={`${size} flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all`}>
-          <Repeat size={iconSize} />
-        </button>
-        <button
-          onClick={() => { setCancelTarget(inv); setCancelReason(''); }}
-          title="Cancelar NFS-e" className={`${size} flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all`}>
-          <Ban size={iconSize} />
-        </button>
+        {inv.patient_whatsapp && (
+          <IconButton
+            variant={inv.whatsapp_sent_at ? 'success' : 'ghost'}
+            size={size}
+            aria-label="Enviar por WhatsApp"
+            title={inv.whatsapp_sent_at ? `Já enviado por WhatsApp em ${formatDateTime(inv.whatsapp_sent_at)} — clique para reenviar` : 'Enviar por WhatsApp'}
+            onClick={() => sendInvoice(inv, 'whatsapp')}
+          >
+            <MessageCircle size={14} />
+          </IconButton>
+        )}
+        <IconButton variant="ghost" size={size} aria-label="Substituir NFS-e" title="Substituir NFS-e (corrigir descrição/valor)" onClick={() => openSubstitute(inv)}>
+          <Repeat size={14} />
+        </IconButton>
+        <IconButton variant="danger" size={size} aria-label="Cancelar NFS-e" title="Cancelar NFS-e" onClick={() => { setCancelTarget(inv); setCancelReason(''); }}>
+          <Ban size={14} />
+        </IconButton>
       </div>
     );
   };
@@ -367,8 +376,8 @@ export const NotaFiscal: React.FC = () => {
       header: 'Emitida em',
       render: (inv) => (
         <div>
-          <p className="text-xs font-bold text-slate-700">{formatDate(inv.created_at)}</p>
-          {inv.authorized_at && <p className="text-[10px] text-slate-400">Autorizada: {formatDateTime(inv.authorized_at)}</p>}
+          <p className="text-xs font-medium text-slate-800">{formatDate(inv.created_at)}</p>
+          {inv.authorized_at && <p className="text-[11px] text-slate-500">Autorizada: {formatDateTime(inv.authorized_at)}</p>}
         </div>
       ),
     },
@@ -376,11 +385,11 @@ export const NotaFiscal: React.FC = () => {
       header: 'NFS-e',
       render: (inv) => (
         <div>
-          <p className="text-xs font-bold text-slate-700">nº {inv.numero} · Série {inv.serie}</p>
-          {inv.chave_acesso && <p className="text-[10px] text-slate-400 truncate max-w-[160px]" title={inv.chave_acesso}>{inv.chave_acesso}</p>}
+          <p className="text-xs font-medium text-slate-800">nº {inv.numero} · Série {inv.serie}</p>
+          {inv.chave_acesso && <p className="text-[11px] text-slate-500 truncate max-w-[160px]" title={inv.chave_acesso}>{inv.chave_acesso}</p>}
           {inv.substituted_chave_acesso && (
             <p
-              className="text-[10px] text-amber-600 font-semibold mt-0.5 flex items-center gap-1 max-w-[160px] truncate"
+              className="text-[11px] text-amber-700 mt-0.5 flex items-center gap-1 max-w-[160px] truncate"
               title={`Substitui a NFS-e de chave ${inv.substituted_chave_acesso}${inv.substitution_reason ? ` — Motivo: ${inv.substitution_reason}` : ''}`}
             >
               <Repeat size={9} className="shrink-0" /> Nota substituta{inv.substitution_reason ? ` — ${inv.substitution_reason}` : ''}
@@ -392,7 +401,7 @@ export const NotaFiscal: React.FC = () => {
     {
       header: 'Paciente',
       render: (inv) => (
-        <p className="text-xs font-bold text-slate-700 max-w-[160px] truncate" title={inv.patient_name || undefined}>
+        <p className="text-xs font-medium text-slate-800 max-w-[160px] truncate" title={inv.patient_name || undefined}>
           {inv.patient_name || '—'}
         </p>
       ),
@@ -401,8 +410,8 @@ export const NotaFiscal: React.FC = () => {
       header: 'Descrição / Lançamento',
       render: (inv) => (
         <div className="max-w-[240px]">
-          <p className="text-xs font-bold text-slate-700 truncate">{inv.descricao_servico || inv.transaction_description || '—'}</p>
-          <p className="text-[10px] text-slate-400">{formatCurrency(inv.valor_servico)}</p>
+          <p className="text-xs font-medium text-slate-800 truncate">{inv.descricao_servico || inv.transaction_description || '—'}</p>
+          <p className="text-[11px] text-slate-500">{formatCurrency(inv.valor_servico)}</p>
         </div>
       ),
     },
@@ -413,11 +422,9 @@ export const NotaFiscal: React.FC = () => {
     {
       header: 'Ambiente',
       render: (inv) => (
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-          inv.environment === 'producao' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
-        }`}>
+        <Badge size="sm" color={inv.environment === 'producao' ? 'success' : 'warning'}>
           {inv.environment === 'producao' ? 'Produção' : 'Homologação'}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -429,29 +436,32 @@ export const NotaFiscal: React.FC = () => {
 
   if (!user?.nfseEnabled) {
     return (
-      <PageWrapper className="space-y-4 sm:space-y-6">
-        <SectionTitle icon={FileText} title="Nota Fiscal" description="Acompanhe as NFS-e emitidas, veja erros e baixe XML/PDF" />
-        <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
-          <EmptyState
-            icon={FileText}
-            title="NFS-e desativada para esta clínica"
-            description='Ative em Configurações > Dados Fiscais para começar a emitir notas fiscais.'
-          />
+      <PageWrapper>
+        <div className="space-y-4">
+          <SectionTitle icon={FileText} title="Nota Fiscal" description="Acompanhe as NFS-e emitidas, veja erros e baixe XML/PDF" />
+          <ContentCard>
+            <EmptyState
+              icon={FileText}
+              title="NFS-e desativada para esta clínica"
+              description='Ative em Configurações > Dados Fiscais para começar a emitir notas fiscais.'
+            />
+          </ContentCard>
         </div>
       </PageWrapper>
     );
   }
 
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
+    <PageWrapper>
+      <div className="space-y-4">
       <SectionTitle
         icon={FileText}
         title="Nota Fiscal"
         description="Acompanhe as NFS-e emitidas, veja erros e baixe XML/PDF"
         action={
-          <div className="flex items-center gap-2">
-            <IconButton variant="outline" size="sm" title="Como usar esta tela" onClick={() => setIsHelpOpen(true)}>
-              <HelpCircle size={15} />
+          <div className="flex flex-wrap items-center gap-2">
+            <IconButton variant="outline" size="sm" aria-label="Como usar esta tela" title="Como usar esta tela" onClick={() => setIsHelpOpen(true)}>
+              <HelpCircle size={14} />
             </IconButton>
             <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={fetchInvoices}>
               Atualizar
@@ -460,7 +470,13 @@ export const NotaFiscal: React.FC = () => {
         }
       />
 
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4 sm:space-y-6">
+        <Tabs<StatusTab>
+          items={STATUS_TABS}
+          value={statusFilter === '' ? 'all' : statusFilter}
+          onChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
+          label="Status das notas fiscais"
+        />
+
         <FilterLine>
           <FilterLineSection grow wrap>
             <FilterLineItem grow minWidth={200}>
@@ -474,24 +490,12 @@ export const NotaFiscal: React.FC = () => {
               <FilterLineDateRange from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
             </FilterLineItem>
           </FilterLineSection>
-          <FilterLineSection align="right">
-            <FilterLineItem minWidth={180}>
-              <Combobox
-                value={statusFilter}
-                onChange={(v) => setStatusFilter((v as string) as any)}
-                placeholder="Todos os status"
-                searchPlaceholder="Buscar status..."
-                options={STATUS_FILTER_OPTIONS}
-                size="sm"
-              />
-            </FilterLineItem>
-          </FilterLineSection>
         </FilterLine>
 
         {/* Barra de ações em lote */}
         {selectedIds.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-violet-200 bg-violet-50">
-            <span className="text-xs font-bold text-violet-700">{selectedIds.size} nota(s) selecionada(s)</span>
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-primary-200 bg-primary-50">
+            <span className="text-xs font-medium text-primary-700">{selectedIds.size} nota(s) selecionada(s)</span>
             <div className="flex-1" />
             <Button variant="outline" size="sm" disabled={batchRunning} iconLeft={<RefreshCw size={13} />} onClick={handleBatchRetry}>
               Tentar novamente
@@ -506,13 +510,17 @@ export const NotaFiscal: React.FC = () => {
         )}
 
         {invoices.length === 0 && !isLoading ? (
-          <EmptyState
-            icon={FileText}
-            title="Nenhuma NFS-e encontrada"
-            description="As notas fiscais emitidas pelo Livro Caixa aparecerão aqui. Experimente ajustar o período ou os filtros acima."
-          />
+          <ContentCard>
+            <EmptyState
+              icon={FileText}
+              title="Nenhuma NFS-e encontrada"
+              description="As notas fiscais emitidas pelo Livro Caixa aparecerão aqui. Experimente ajustar o período ou os filtros acima."
+            />
+          </ContentCard>
         ) : (
+          <ContentCard padding="none">
           <GridTable
+            noDesktopCard
             data={invoices}
             columns={columns}
             keyExtractor={(row) => row.id}
@@ -523,37 +531,35 @@ export const NotaFiscal: React.FC = () => {
             renderMobileItem={(inv) => (
               <div className="flex flex-col gap-1.5 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-sm text-zinc-900 truncate">nº {inv.numero} · {inv.patient_name || 'Sem paciente'}</span>
+                  <span className="font-medium text-[13px] text-slate-900 truncate">nº {inv.numero} · {inv.patient_name || 'Sem paciente'}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {renderStatusBadge(inv)}
-                  <span className="text-xs font-semibold text-zinc-500">{formatCurrency(inv.valor_servico)}</span>
+                  <span className="text-xs text-slate-500">{formatCurrency(inv.valor_servico)}</span>
                 </div>
               </div>
             )}
             renderMobileExpandedContent={(inv) => (
               <div className="p-4 space-y-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Descrição</p>
-                  <p className="text-xs font-semibold text-zinc-700">{inv.descricao_servico || inv.transaction_description || '—'}</p>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Descrição</p>
+                  <p className="text-xs text-slate-800">{inv.descricao_servico || inv.transaction_description || '—'}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Emitida em</p>
-                    <p className="text-xs font-semibold text-zinc-700">{formatDate(inv.created_at)}</p>
+                    <p className="text-[11px] text-slate-500 mb-0.5">Emitida em</p>
+                    <p className="text-xs text-slate-800">{formatDate(inv.created_at)}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Ambiente</p>
-                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      inv.environment === 'producao' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
-                    }`}>
+                    <p className="text-[11px] text-slate-500 mb-0.5">Ambiente</p>
+                    <Badge size="sm" color={inv.environment === 'producao' ? 'success' : 'warning'}>
                       {inv.environment === 'producao' ? 'Produção' : 'Homologação'}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
                 {inv.status === 'authorized' && (
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1.5">Ações</p>
+                    <p className="text-[11px] text-slate-500 mb-1.5">Ações</p>
                     {renderActions(inv, { mobile: true })}
                   </div>
                 )}
@@ -565,6 +571,7 @@ export const NotaFiscal: React.FC = () => {
               onPageSizeChange: (size) => { setPageSize(size); setPage(1); },
             }}
           />
+          </ContentCard>
         )}
       </div>
 
@@ -574,40 +581,37 @@ export const NotaFiscal: React.FC = () => {
         title="Cancelar NFS-e"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" disabled={cancelling} onClick={() => { setCancelTarget(null); setCancelReason(''); }}>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" disabled={cancelling} onClick={() => { setCancelTarget(null); setCancelReason(''); }}>
               Voltar
             </Button>
-            <Button variant="danger" disabled={cancelling || !cancelReason.trim()} onClick={handleConfirmCancel}>
+            <Button variant="danger" size="sm" loading={cancelling} disabled={cancelling || !cancelReason.trim()} onClick={handleConfirmCancel}>
               {cancelling ? 'Cancelando...' : 'Confirmar cancelamento'}
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         {cancelTarget && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+          <div className="space-y-3">
+            <p className="text-[13px] text-slate-600">
               A NFS-e nº <strong>{cancelTarget.numero}</strong> (Série {cancelTarget.serie}) será cancelada junto ao Sistema Nacional NFS-e.
               Essa ação não pode ser desfeita — depois de cancelada, emita uma nova nota com os dados corretos para este mesmo lançamento.
             </p>
-            <div className="flex gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50">
+            <div className="flex gap-2 p-3 rounded-lg border border-slate-200 bg-slate-50">
               <AlertCircle size={15} className="text-slate-400 shrink-0 mt-0.5" />
               <p className="text-xs text-slate-500">
                 O prazo de cancelamento varia por prefeitura, e o governo às vezes recusa esse pedido sem detalhar o motivo.
                 Se isso acontecer, use <strong>Substituir</strong> nesta nota em vez de cancelar — o prazo de substituição é bem mais generoso e resolve o mesmo problema.
               </p>
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Motivo do cancelamento</label>
-              <textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="Ex: Nota emitida em duplicidade"
-                rows={3}
-                maxLength={255}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 resize-none"
-              />
-            </div>
+            <Textarea
+              label="Motivo do cancelamento"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Ex: Nota emitida em duplicidade"
+              rows={3}
+              maxLength={255}
+            />
           </div>
         )}
       </Modal>
@@ -618,47 +622,43 @@ export const NotaFiscal: React.FC = () => {
         title="Substituir NFS-e"
         size="sm"
         footer={
-          <div className="flex w-full items-center justify-between">
-            <Button variant="ghost" disabled={substituting} onClick={() => setSubstTarget(null)}>
+          <ModalFooter align="between">
+            <Button variant="outline" size="sm" disabled={substituting} onClick={() => setSubstTarget(null)}>
               Voltar
             </Button>
             <Button
               variant="primary"
+              size="sm"
+              loading={substituting}
               disabled={substituting || !substDescricao.trim() || !substValor || Number(substValor) <= 0}
               onClick={handleConfirmSubstitute}
             >
               {substituting ? 'Substituindo...' : 'Confirmar substituição'}
             </Button>
-          </div>
+          </ModalFooter>
         }
       >
         {substTarget && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+          <div className="space-y-3">
+            <p className="text-[13px] text-slate-600">
               Corrija os dados abaixo e confirme: o governo cancela automaticamente a NFS-e nº <strong>{substTarget.numero}</strong> e autoriza uma nova, já com as informações certas, numa única operação. Nada se perde se der errado — a nota atual só muda quando a substituta for aceita.
             </p>
+            <Textarea
+              label="Descrição do serviço"
+              value={substDescricao}
+              onChange={(e) => setSubstDescricao(e.target.value)}
+              rows={3}
+              maxLength={1000}
+            />
+            <Input
+              label="Valor do serviço (R$)"
+              type="number" step="0.01" min="0.01"
+              value={substValor}
+              onChange={(e) => setSubstValor(e.target.value)}
+              hint="Se você é optante do Simples Nacional, o governo não permite mudar o valor numa substituição — mantenha o mesmo valor da nota original."
+            />
             <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Descrição do serviço</label>
-              <textarea
-                value={substDescricao}
-                onChange={(e) => setSubstDescricao(e.target.value)}
-                rows={3}
-                maxLength={1000}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 resize-none"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Valor do serviço (R$)</label>
-              <input
-                type="number" step="0.01" min="0.01"
-                value={substValor}
-                onChange={(e) => setSubstValor(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">Se você é optante do Simples Nacional, o governo não permite mudar o valor numa substituição — mantenha o mesmo valor da nota original.</p>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Motivo da substituição (oficial)</label>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Motivo da substituição (oficial)</label>
               <Combobox
                 value={substCodigo}
                 onChange={(v) => setSubstCodigo(v as string)}
@@ -666,17 +666,14 @@ export const NotaFiscal: React.FC = () => {
                 size="sm"
               />
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Observação (opcional)</label>
-              <textarea
-                value={substMotivo}
-                onChange={(e) => setSubstMotivo(e.target.value)}
-                placeholder="Ex: Descrição do serviço estava incorreta"
-                rows={2}
-                maxLength={255}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-violet-400 resize-none"
-              />
-            </div>
+            <Textarea
+              label="Observação (opcional)"
+              value={substMotivo}
+              onChange={(e) => setSubstMotivo(e.target.value)}
+              placeholder="Ex: Descrição do serviço estava incorreta"
+              rows={2}
+              maxLength={255}
+            />
           </div>
         )}
       </Modal>
@@ -687,25 +684,25 @@ export const NotaFiscal: React.FC = () => {
         title="Como funciona esta tela"
         size="md"
       >
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center shrink-0"><SearchIcon size={15} className="text-sky-600" /></div>
+            <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0"><SearchIcon size={15} className="text-primary-600" /></div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Busca</p>
+              <p className="text-[13px] font-medium text-slate-800">Busca</p>
               <p className="text-xs text-slate-500">Digite o nome do paciente, a descrição do serviço ou o número da nota para filtrar a lista.</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0"><CalendarRange size={15} className="text-violet-600" /></div>
+            <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0"><CalendarRange size={15} className="text-primary-600" /></div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Período (De / Até)</p>
+              <p className="text-[13px] font-medium text-slate-800">Período (De / Até)</p>
               <p className="text-xs text-slate-500">Filtra pela data de emissão da nota. Por padrão a tela mostra o mês atual — altere as datas para ver meses anteriores.</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0"><ListFilter size={15} className="text-amber-600" /></div>
+            <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0"><ListFilter size={15} className="text-primary-600" /></div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Status</p>
+              <p className="text-[13px] font-medium text-slate-800">Status</p>
               <p className="text-xs text-slate-500">
                 <strong>Pendente</strong> aguarda envio; <strong>Processando</strong> está em análise no governo; <strong>Autorizada</strong> foi emitida com sucesso;
                 {' '}<strong>Rejeitada</strong>/<strong>Erro</strong> falharam (veja o motivo abaixo do status); <strong>Cancelada</strong> foi cancelada junto ao Sistema Nacional NFS-e.
@@ -714,9 +711,9 @@ export const NotaFiscal: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0"><MessageCircle size={15} className="text-teal-600" /></div>
+            <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0"><MessageCircle size={15} className="text-primary-600" /></div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Envio automático por WhatsApp</p>
+              <p className="text-[13px] font-medium text-slate-800">Envio automático por WhatsApp</p>
               <p className="text-xs text-slate-500">
                 Assim que uma nota é autorizada (emissão ou substituição), o robô do WhatsApp envia o PDF para o paciente automaticamente — não precisa clicar em nada.
                 Se o paciente não tiver WhatsApp cadastrado ou o envio falhar, isso aparece abaixo do status; use o botão de WhatsApp nas ações para reenviar manualmente.
@@ -724,35 +721,35 @@ export const NotaFiscal: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0"><Layers size={15} className="text-emerald-600" /></div>
+            <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0"><Layers size={15} className="text-primary-600" /></div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Ambiente</p>
+              <p className="text-[13px] font-medium text-slate-800">Ambiente</p>
               <p className="text-xs text-slate-500"><strong>Produção</strong> é uma nota fiscal real e válida. <strong>Homologação</strong> é o ambiente de testes do governo — não tem valor fiscal.</p>
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0"><MousePointerClick size={15} className="text-rose-600" /></div>
+            <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0"><MousePointerClick size={15} className="text-primary-600" /></div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Ações (por nota autorizada)</p>
+              <p className="text-[13px] font-medium text-slate-800">Ações (por nota autorizada)</p>
               <p className="text-xs text-slate-500">
                 Baixar XML, baixar PDF, enviar por e-mail ou WhatsApp (quando o paciente tiver contato cadastrado), <strong>substituir</strong> e <strong>cancelar</strong>.
               </p>
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0"><Repeat size={15} className="text-amber-600" /></div>
+            <div className="w-8 h-8 rounded-lg bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0"><Repeat size={15} className="text-primary-600" /></div>
             <div>
-              <p className="text-sm font-bold text-slate-700">Substituir x Cancelar</p>
+              <p className="text-[13px] font-medium text-slate-800">Substituir x Cancelar</p>
               <p className="text-xs text-slate-500">
                 <strong>Cancelar</strong> anula a nota (ela deixa de existir); use quando a nota nem deveria ter sido emitida (duplicidade, serviço não prestado).
                 {' '}<strong>Substituir</strong> corrige a descrição/valor mantendo o vínculo com a nota original — o governo cancela a antiga e autoriza a nova, tudo numa operação só. Use substituir quando o serviço foi mesmo prestado e só um dado (como a descrição) está errado.
               </p>
             </div>
           </div>
-          <div className="flex gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
+          <div className="flex gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
             <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-bold text-amber-800">Prazos</p>
+              <p className="text-[13px] font-medium text-amber-800">Prazos</p>
               <p className="text-xs text-amber-800 mt-0.5">
                 O prazo de <strong>cancelamento</strong> varia conforme a prefeitura de cada emissor — o governo pode recusar sem detalhar o motivo quando ele já passou.
                 O prazo de <strong>substituição</strong> costuma ser bem mais generoso. Se o cancelamento for recusado, use Substituir na mesma nota — resolve o mesmo problema sem depender do prazo apertado.

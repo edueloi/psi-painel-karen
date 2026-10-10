@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, X, MessageSquare, ChevronDown, Minimize2, Paperclip, Bot } from 'lucide-react';
+import { Sparkles, Send, X, MessageSquare, ChevronDown, Paperclip, Bot } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { api, API_BASE_URL } from '../../services/api';
 import { getToken } from '../../services/tokenStorage';
+import { IconButton, Input } from '../UI';
 
 // --- Types ---
 interface Message {
@@ -160,10 +161,10 @@ export const AuroraAssistant: React.FC = () => {
     <>
       {/* --- TRIGGER BUTTON --- */}
       <div className={`fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2 transition-all duration-300 ${isOpen ? 'translate-y-[20px] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
-        
+
         {/* Tooltip / Welcome Bubble */}
-        <div className={`bg-white px-4 py-2 rounded-xl shadow-lg border border-indigo-100 mb-2 transition-all duration-500 origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-90 opacity-0 translate-y-4 pointer-events-none'}`}>
-            <p className="text-sm font-medium text-slate-700">{getGreeting()}! Posso ajudar? 👋</p>
+        <div className={`bg-white px-3 py-2 rounded-lg border border-slate-200 mb-2 transition-all duration-500 origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-90 opacity-0 translate-y-4 pointer-events-none'}`}>
+            <p className="text-xs font-medium text-slate-700">{getGreeting()}! Posso ajudar?</p>
         </div>
 
         <button
@@ -171,85 +172,76 @@ export const AuroraAssistant: React.FC = () => {
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           data-tour="aurora"
-          className="relative group w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95 shrink-0"
+          aria-label="Abrir assistente Bia" className="relative group w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shrink-0"
         >
-          {/* Animated Background */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-[spin_4s_linear_infinite] opacity-80 group-hover:opacity-100 transition-all"></div>
-          <div className="absolute inset-0.5 rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
-             {/* Inner Glow */}
-             <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-transparent"></div>
-             <Sparkles className="text-white relative z-10 w-5 h-5 animate-pulse" />
-          </div>
+          <div className="absolute inset-0 rounded-full bg-primary-600 transition-all group-hover:bg-primary-700"></div>
+          <Sparkles className="relative z-10 h-5 w-5 text-white" />
         </button>
       </div>
 
       {/* --- CHAT WINDOW --- */}
-      <div 
+      <div
         className={`
             fixed bottom-6 right-6 z-[100] w-[380px] h-[600px] max-h-[calc(100vh-40px)] max-w-[calc(100vw-40px)]
-            bg-white rounded-[32px] shadow-2xl flex flex-col overflow-hidden border border-slate-100
+            bg-white rounded-lg flex flex-col overflow-hidden border border-slate-200
             transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
             ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-75 opacity-0 translate-y-20 pointer-events-none'}
         `}
       >
         {/* Header */}
-        <div className="h-20 bg-slate-900 relative flex items-center px-6 shrink-0 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 opacity-90"></div>
-            <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-            
-            <div className="relative z-10 flex items-center justify-between w-full text-white">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
-                        <Bot size={20} className="text-white" />
-                    </div>
-                    <div>
-                        <h3 className="font-display font-bold text-lg leading-none">Bia</h3>
-                        <span className="text-[10px] font-medium text-indigo-100 flex items-center gap-1 opacity-80">
-                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Online
-                        </span>
-                    </div>
-                </div>
-                <div className="flex gap-1">
-                    <button 
-                        onClick={() => setIsOpen(false)}
-                        className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                    >
-                        <ChevronDown size={20} />
-                    </button>
-                </div>
+        <div className="flex h-14 shrink-0 items-center justify-between bg-primary-600 px-4 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/20">
+              <Bot size={16} className="text-white" />
             </div>
+            <div>
+              <h3 className="text-sm font-medium leading-none">Bia</h3>
+              <span className="mt-1 flex items-center gap-1 text-[11px] text-white/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Online
+              </span>
+            </div>
+          </div>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsOpen(false)}
+            aria-label="Minimizar assistente"
+            className="text-white hover:bg-white/10 hover:text-white"
+          >
+            <ChevronDown size={18} />
+          </IconButton>
         </div>
 
         {/* Messages Area */}
         <div className="flex-1 bg-slate-50 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {messages.map((msg) => (
-                <div 
-                    key={msg.id} 
+                <div
+                    key={msg.id}
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                    <div 
+                    <div
                         className={`
-                            max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm
-                            ${msg.role === 'user' 
-                                ? 'bg-indigo-600 text-white rounded-br-none' 
-                                : 'bg-white text-slate-700 rounded-tl-none border border-slate-100'}
+                            max-w-[85%] p-3 rounded-lg text-[13px] leading-relaxed
+                            ${msg.role === 'user'
+                                ? 'bg-primary-600 text-white rounded-br-none'
+                                : 'bg-white text-slate-700 rounded-tl-none border border-slate-200'}
                         `}
                     >
                         {/* Render simple markdown-like bold */}
                         <p dangerouslySetInnerHTML={{ __html: msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
-                        <span className={`text-[10px] mt-2 block ${msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
+                        <span className={`text-[11px] mt-2 block ${msg.role === 'user' ? 'text-white/70' : 'text-slate-400'}`}>
                             {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </span>
                     </div>
                 </div>
             ))}
-            
+
             {isTyping && (
                 <div className="flex justify-start">
-                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm flex gap-1">
-                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
-                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-100"></span>
-                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-200"></span>
+                    <div className="bg-white p-3 rounded-lg rounded-tl-none border border-slate-200 flex gap-1">
+                        <span className="w-2 h-2 bg-primary-400 rounded-full animate-bounce"></span>
+                        <span className="w-2 h-2 bg-primary-400 rounded-full animate-bounce delay-100"></span>
+                        <span className="w-2 h-2 bg-primary-400 rounded-full animate-bounce delay-200"></span>
                     </div>
                 </div>
             )}
@@ -257,15 +249,15 @@ export const AuroraAssistant: React.FC = () => {
         </div>
 
         {/* Input Area */}
-        <div className="bg-white p-4 border-t border-slate-100">
+        <div className="bg-white p-3 border-t border-slate-100">
             {/* Quick Suggestions */}
             {messages.length < 4 && !isTyping && (
                 <div className="flex gap-2 overflow-x-auto pb-3 no-scrollbar mb-2">
                     {suggestions.map((sug, i) => (
-                        <button 
+                        <button
                             key={i}
                             onClick={() => handleSendMessage(sug)}
-                            className="whitespace-nowrap px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
+                            className="whitespace-nowrap px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-primary-50 hover:text-primary-700 hover:border-primary-200 transition-colors"
                         >
                             {sug}
                         </button>
@@ -275,58 +267,59 @@ export const AuroraAssistant: React.FC = () => {
 
             {/* File Preview */}
             {selectedFile && (
-                <div className="flex items-center gap-2 mb-2 p-2 bg-indigo-50 rounded-lg animate-fadeIn border border-indigo-100">
-                    <div className="bg-indigo-100 p-1.5 rounded-md text-indigo-600">
+                <div className="flex items-center gap-2 mb-2 p-2 bg-primary-50 rounded-lg border border-primary-100">
+                    <div className="bg-primary-100 p-1.5 rounded-md text-primary-600">
                         <Paperclip size={14} />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase">Arquivo selecionado</p>
-                        <p className="text-xs font-semibold text-slate-700 truncate">{selectedFile.name}</p>
+                        <p className="text-[11px] text-slate-500">Arquivo selecionado</p>
+                        <p className="text-xs font-medium text-slate-700 truncate">{selectedFile.name}</p>
                     </div>
-                    <button 
-                        onClick={() => setSelectedFile(null)}
-                        className="p-1 hover:bg-white rounded-md text-slate-400 hover:text-red-500 transition-colors"
-                    >
+                    <IconButton variant="ghost" size="xs" onClick={() => setSelectedFile(null)} aria-label="Remover anexo">
                         <X size={14} />
-                    </button>
+                    </IconButton>
                 </div>
             )}
 
             <div className="relative flex items-center gap-2">
-                <input 
+                <input
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     className="hidden"
                     accept=".xlsx,.xls,.pdf,.txt,.csv"
                 />
-                <button 
+                <IconButton
+                    variant={selectedFile ? 'primary' : 'outline'}
+                    size="lg"
                     onClick={() => fileInputRef.current?.click()}
                     title="Anexar arquivo (Excel, PDF)"
-                    className={`p-3 rounded-xl border transition-all ${selectedFile ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'}`}
+                    aria-label="Anexar arquivo"
                 >
-                    <Paperclip size={18} />
-                </button>
-                <input 
+                    <Paperclip size={14} />
+                </IconButton>
+                <Input
                     ref={inputRef}
-                    type="text" 
+                    type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="Sua mensagem ou comando..."
-                    className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-all outline-none text-slate-700 placeholder:text-slate-400"
+                    wrapperClassName="flex-1"
                 />
-                <button 
+                <IconButton
+                    variant="primary"
+                    size="lg"
                     onClick={() => handleSendMessage()}
                     disabled={(!inputValue.trim() && !selectedFile) || isTyping}
-                    className="p-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+                    aria-label="Enviar mensagem"
                 >
-                    <Send size={18} />
-                </button>
+                    <Send size={14} />
+                </IconButton>
             </div>
 
             <div className="text-center mt-2">
-                <span className="text-[10px] text-slate-400">Powered by Bia AI • Plaelo</span>
+                <span className="text-[11px] text-slate-400">Powered by Bia AI • Plaelo</span>
             </div>
         </div>
       </div>

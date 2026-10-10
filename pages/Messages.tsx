@@ -5,18 +5,36 @@ import {
   MessageCircle, Plus, Edit3, Trash2, Send, Variable, Copy, Check,
   Loader2, MessageSquare, Tag, Users, Sparkles, AlertTriangle, Inbox, User,
 } from 'lucide-react';
-import { Button, ConfirmModal, Modal, ModalFooter, PageWrapper } from '../components/UI';
+import {
+  Alert, Button, ConfirmModal, ContentCard, EmptyState, IconButton, Modal, ModalFooter,
+  PageWrapper, Pagination, SectionTitle, Tabs, Textarea,
+  FilterLine, FilterLineSection, FilterLineItem, FilterLineSearch,
+  FilterLineSegmented, FilterLineViewToggle,
+} from '../components/UI';
 import { Input } from '../components/UI/Input';
 import { GridTable } from '../components/UI/GridTable';
 import { Combobox } from '../components/UI/Combobox';
-import {
-  FilterLine, FilterLineSection, FilterLineItem,
-  FilterLineSearch, FilterLineViewToggle,
-} from '../components/UI/FilterLine';
 import { useToast } from '../contexts/ToastContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAuth } from '../contexts/AuthContext';
-import { PageHeader } from '../components/UI/PageHeader';
+
+const MESSAGES_TABS = [
+  { id: 'inbox', label: 'Inbox', icon: Inbox },
+  { id: 'templates', label: 'Templates', icon: MessageSquare },
+] as const;
+type MessagesTab = (typeof MESSAGES_TABS)[number]['id'];
+
+const RECIPIENT_TABS = [
+  { id: 'professional', label: 'Profissional', icon: Users },
+  { id: 'patient', label: 'Paciente', icon: MessageSquare },
+] as const;
+type RecipientTab = (typeof RECIPIENT_TABS)[number]['id'];
+
+const RECIPIENT_STATUS_OPTIONS: { value: 'all' | 'ativo' | 'inativo'; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'ativo', label: 'Ativos' },
+  { value: 'inativo', label: 'Inativos' },
+];
 
 // ── Variáveis disponíveis ─────────────────────────────────────────────────────
 const AVAILABLE_VARIABLES = [
@@ -43,8 +61,8 @@ function getSaudacao(): string {
 
 const VARIABLE_COLORS: Record<string, string> = {
   '{{saudacao}}':          'bg-pink-100 text-pink-700 border-pink-300',
-  '{{nome_paciente}}':     'bg-indigo-100 text-indigo-700 border-indigo-300',
-  '{{primeiro_nome}}':     'bg-indigo-50 text-indigo-600 border-indigo-200',
+  '{{nome_paciente}}':     'bg-primary-100 text-primary-700 border-primary-300',
+  '{{primeiro_nome}}':     'bg-primary-50 text-primary-600 border-primary-200',
   '{{data_agendamento}}':  'bg-sky-100 text-sky-700 border-sky-300',
   '{{horario}}':           'bg-violet-100 text-violet-700 border-violet-300',
   '{{servico}}':           'bg-emerald-100 text-emerald-700 border-emerald-300',
@@ -65,11 +83,11 @@ const CATEGORY_COLORS: Record<string, string> = {
 const VARIABLE_MAP = Object.fromEntries(AVAILABLE_VARIABLES.map(v => [v.tag, v.label]));
 
 function getBadgeClass(tag: string) {
-  return `inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border mx-0.5 select-none cursor-default align-middle ${VARIABLE_COLORS[tag] || 'bg-slate-100 text-slate-700 border-slate-300'}`;
+  return `inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border mx-0.5 select-none cursor-default align-middle ${VARIABLE_COLORS[tag] || 'bg-slate-100 text-slate-700 border-slate-300'}`;
 }
 
 function getCategoryClass(cat: string) {
-  return `text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${CATEGORY_COLORS[cat] || 'bg-purple-50 text-purple-700 border-purple-200'}`;
+  return `text-[11px] font-medium px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[cat] || 'bg-purple-50 text-purple-700 border-purple-200'}`;
 }
 
 // Serializa uma linha (sem \n) em HTML com badges
@@ -171,24 +189,24 @@ const MobileTemplateCard: React.FC<MobileTemplateCardProps> = ({ template, copie
     <div className="flex items-start justify-between gap-2">
       <div className="flex-1 min-w-0">
         <span className={getCategoryClass(template.category)}>{template.category}</span>
-        <p className="font-bold text-zinc-800 text-sm mt-1.5 line-clamp-1">{template.title}</p>
+        <p className="font-medium text-slate-900 text-sm mt-1.5 line-clamp-1">{template.title}</p>
       </div>
-      {template.is_global === 1 && <span title="Template do sistema"><Sparkles size={13} className="text-amber-400 shrink-0 mt-1" /></span>}
+      {template.is_global === 1 && <span title="Template do sistema"><Sparkles size={13} className="text-amber-500 shrink-0 mt-1" /></span>}
     </div>
-    <p className="text-xs text-zinc-500 line-clamp-2 leading-relaxed">{template.content.replace(/\{\{[^}]+\}\}/g, '…')}</p>
+    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{template.content.replace(/\{\{[^}]+\}\}/g, '…')}</p>
     <div className="flex items-center gap-2 pt-1">
-      <Button variant="success" size="sm" radius="xl" leftIcon={<Send size={12} />} onClick={() => onSend(template)} className="flex-1 text-xs">
+      <Button variant="success" size="sm" iconLeft={<Send size={14} />} onClick={() => onSend(template)} className="flex-1">
         WhatsApp
       </Button>
-      <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => onCopy(template)} title="Copiar">
-        {copiedId === template.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-      </Button>
-      <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => onEdit(template)} title="Editar">
-        <Edit3 size={13} />
-      </Button>
-      <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => onDelete(template)} title="Excluir">
-        <Trash2 size={13} />
-      </Button>
+      <IconButton variant="ghost" size="sm" aria-label="Copiar" onClick={() => onCopy(template)} title="Copiar">
+        {copiedId === template.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+      </IconButton>
+      <IconButton variant="ghost" size="sm" aria-label="Editar" onClick={() => onEdit(template)} title="Editar">
+        <Edit3 size={14} />
+      </IconButton>
+      <IconButton variant="ghost" size="sm" aria-label="Excluir" onClick={() => onDelete(template)} title="Excluir" className="text-red-600 hover:bg-red-50">
+        <Trash2 size={14} />
+      </IconButton>
     </div>
   </div>
 );
@@ -274,22 +292,22 @@ const InboxChat: React.FC = () => {
   const pInitials = (p: any) => pName(p).trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase() || '').join('');
 
   return (
-    <div className="flex h-[calc(100vh-200px)] min-h-[500px] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+    <div className="flex h-[calc(100vh-280px)] min-h-[500px] rounded-lg overflow-hidden border border-slate-200 bg-white">
 
       {/* ── Lista de pacientes ── */}
-      <div className="w-72 shrink-0 border-r border-slate-100 flex flex-col">
-        <div className="px-4 py-3 border-b border-slate-100">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Conversas</p>
+      <div className="w-56 sm:w-72 shrink-0 border-r border-slate-100 flex flex-col">
+        <div className="px-3 py-2.5 border-b border-slate-100">
+          <p className="text-xs font-medium text-slate-600">Conversas</p>
         </div>
         {loadingList ? (
           <div className="flex-1 flex items-center justify-center">
-            <Loader2 size={20} className="animate-spin text-indigo-300" />
+            <Loader2 size={18} className="animate-spin text-slate-400" />
           </div>
         ) : patients.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
             <MessageCircle size={28} className="text-slate-200" />
-            <p className="text-xs text-slate-400 font-semibold">Nenhuma mensagem ainda</p>
-            <p className="text-[11px] text-slate-300">Quando pacientes enviarem mensagens pelo app, aparecerão aqui</p>
+            <p className="text-xs text-slate-500 font-medium">Nenhuma mensagem ainda</p>
+            <p className="text-[11px] text-slate-400">Quando pacientes enviarem mensagens pelo app, aparecerão aqui</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
@@ -300,18 +318,18 @@ const InboxChat: React.FC = () => {
                 <button
                   key={p.id}
                   onClick={() => setSelected(p)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-slate-50
-                    ${isActive ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-slate-50
+                    ${isActive ? 'bg-primary-50' : 'hover:bg-slate-50'}`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 text-indigo-600 font-bold text-sm">
+                  <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center shrink-0 text-primary-700 font-medium text-xs">
                     {pInitials(p)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold truncate ${isActive ? 'text-indigo-700' : 'text-slate-700'}`}>{pName(p)}</p>
+                    <p className={`text-[13px] font-medium truncate ${isActive ? 'text-primary-700' : 'text-slate-700'}`}>{pName(p)}</p>
                     <p className="text-[11px] text-slate-400 truncate">{p.phone || p.whatsapp || 'Sem telefone'}</p>
                   </div>
                   {badge > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <span className="w-5 h-5 rounded-full bg-primary-600 text-white text-[11px] font-medium flex items-center justify-center shrink-0">
                       {badge > 9 ? '9+' : badge}
                     </span>
                   )}
@@ -325,30 +343,30 @@ const InboxChat: React.FC = () => {
       {/* ── Área de chat ── */}
       {!selected ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
-            <MessageCircle size={28} className="text-indigo-300" />
+          <div className="w-12 h-12 rounded-lg bg-primary-50 flex items-center justify-center">
+            <MessageCircle size={22} className="text-primary-400" />
           </div>
-          <p className="text-sm font-bold text-slate-500">Selecione um paciente</p>
-          <p className="text-xs text-slate-400">Escolha uma conversa na lista ao lado para visualizar e responder</p>
+          <p className="text-sm font-medium text-slate-600">Selecione um paciente</p>
+          <p className="text-xs text-slate-500">Escolha uma conversa na lista ao lado para visualizar e responder</p>
         </div>
       ) : (
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
-          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 bg-white">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs shrink-0">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 bg-white">
+            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-medium text-xs shrink-0">
               {pInitials(selected)}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-700">{pName(selected)}</p>
+              <p className="text-[13px] font-medium text-slate-800">{pName(selected)}</p>
               <p className="text-[11px] text-slate-400">{selected.phone || selected.whatsapp || ''}</p>
             </div>
           </div>
 
           {/* Mensagens */}
-          <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-slate-50/60">
+          <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50/60">
             {loadingMsgs ? (
               <div className="flex-1 flex items-center justify-center py-10">
-                <Loader2 size={20} className="animate-spin text-indigo-300" />
+                <Loader2 size={18} className="animate-spin text-slate-400" />
               </div>
             ) : msgs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2">
@@ -360,17 +378,17 @@ const InboxChat: React.FC = () => {
               return (
                 <div key={m.id} className={`flex gap-2 ${isPro ? 'justify-end' : 'justify-start'}`}>
                   {!isPro && (
-                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                      <User size={11} className="text-indigo-500" />
+                    <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <User size={11} className="text-primary-600" />
                     </div>
                   )}
-                  <div className={`max-w-[68%] rounded-2xl px-3.5 py-2.5 ${
+                  <div className={`max-w-[68%] rounded-lg px-3.5 py-2.5 ${
                     isPro
-                      ? 'bg-indigo-600 text-white rounded-br-sm'
-                      : 'bg-white text-slate-700 rounded-bl-sm border border-slate-100 shadow-sm'
+                      ? 'bg-primary-600 text-white rounded-br-sm'
+                      : 'bg-white text-slate-700 rounded-bl-sm border border-slate-200'
                   }`}>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>
-                    <p className={`text-[10px] mt-1 ${isPro ? 'text-indigo-200 text-right' : 'text-slate-400'}`}>
+                    <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                    <p className={`text-[11px] mt-1 ${isPro ? 'text-white/70 text-right' : 'text-slate-400'}`}>
                       {fmtInboxTime(m.created_at)}
                       {isPro && m.read_at && <Check size={9} className="inline ml-1" />}
                     </p>
@@ -381,26 +399,28 @@ const InboxChat: React.FC = () => {
           </div>
 
           {/* Input */}
-          <div className="flex items-end gap-2 px-4 py-3 border-t border-slate-100 bg-white">
-            <textarea
-              className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm
-                         text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300
-                         max-h-28 min-h-[42px]"
+          <div className="flex items-end gap-2 px-3 py-2.5 border-t border-slate-100 bg-white">
+            <Textarea
+              wrapperClassName="flex-1"
+              className="max-h-28 min-h-[40px] resize-none"
               rows={1}
               placeholder="Escreva uma resposta..."
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
               disabled={sending}
+              aria-label="Resposta ao paciente"
             />
-            <button
+            <IconButton
+              variant="primary"
+              size="lg"
               onClick={send}
               disabled={!text.trim() || sending}
-              className="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40
-                         flex items-center justify-center transition-colors shrink-0"
+              aria-label="Enviar mensagem"
+              loading={sending}
             >
-              {sending ? <Loader2 size={15} className="text-white animate-spin" /> : <Send size={15} className="text-white" />}
-            </button>
+              <Send size={14} />
+            </IconButton>
           </div>
         </div>
       )}
@@ -421,7 +441,7 @@ export const Messages: React.FC = () => {
   const [isLoading, setIsLoading]           = useState(true);
 
   // Aba principal: inbox (chat) vs templates (WhatsApp)
-  const [pageTab, setPageTab] = useState<'inbox' | 'templates'>('inbox');
+  const [pageTab, setPageTab] = useState<MessagesTab>('inbox');
 
   // viewMode persisted in preferences
   const viewMode = preferences.messages.viewMode;
@@ -444,7 +464,7 @@ export const Messages: React.FC = () => {
   const [recipients, setRecipients]         = useState<any[]>([]);
   const [patients, setPatients]             = useState<any[]>([]);
   const [isRecipientsLoading, setIsRecipientsLoading] = useState(false);
-  const [recipientTab, setRecipientTab]     = useState<'professional' | 'patient'>('professional');
+  const [recipientTab, setRecipientTab]     = useState<RecipientTab>('professional');
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>('');
   const [recipientStatusFilter, setRecipientStatusFilter] = useState<'all' | 'ativo' | 'inativo'>('all');
   const [sendTemplate, setSendTemplate]     = useState<MessageTemplate | null>(null);
@@ -786,7 +806,7 @@ export const Messages: React.FC = () => {
 
   const allSendRecipients = recipientTab === 'professional' ? recipients : patients;
 
-  const handleRecipientTabChange = (tab: 'professional' | 'patient') => {
+  const handleRecipientTabChange = (tab: RecipientTab) => {
     setRecipientTab(tab);
     setSelectedRecipientId('');
   };
@@ -837,292 +857,236 @@ export const Messages: React.FC = () => {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
+  const renderTemplateActions = (template: MessageTemplate, fullWidthSend = false) => (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="success"
+        size="sm"
+        iconLeft={<Send size={14} />}
+        onClick={() => handleOpenSendModal(template)}
+        className={fullWidthSend ? 'flex-1' : undefined}
+      >
+        WhatsApp
+      </Button>
+      <IconButton variant="ghost" size="sm" aria-label="Copiar" title="Copiar" onClick={() => handleCopy(template)}>
+        {copiedId === template.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+      </IconButton>
+      <IconButton variant="ghost" size="sm" aria-label="Editar" title="Editar" onClick={() => handleOpenModal(template)}>
+        <Edit3 size={14} />
+      </IconButton>
+      <IconButton variant="ghost" size="sm" aria-label="Excluir" title="Excluir" onClick={() => handleDelete(template)} className="text-red-600 hover:bg-red-50">
+        <Trash2 size={14} />
+      </IconButton>
+    </div>
+  );
+
   return (
-    <PageWrapper className="space-y-4 sm:space-y-6">
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={MessageCircle}
+          title="Mensagens"
+          description={pageTab === 'inbox' ? 'Chat com pacientes pelo portal' : 'Modelos inteligentes com variáveis dinâmicas'}
+          action={pageTab === 'templates' ? (
+            <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenModal()}>
+              Nova Mensagem
+            </Button>
+          ) : undefined}
+        />
 
-      <PageHeader
-        icon={<MessageCircle />}
-        title="Mensagens"
-        subtitle={pageTab === 'inbox' ? 'Chat com pacientes pelo portal' : 'Modelos inteligentes com variáveis dinâmicas'}
-        iconGradient="from-sky-500 to-indigo-600"
-        containerClassName="mb-0"
-        actions={pageTab === 'templates' ? (
-          <Button
-            variant="primary"
-            radius="xl"
-            leftIcon={<Plus size={16} />}
-            onClick={() => handleOpenModal()}
-          >
-            Nova Mensagem
-          </Button>
-        ) : undefined}
-      />
+        <Tabs<MessagesTab>
+          items={MESSAGES_TABS}
+          value={pageTab}
+          onChange={setPageTab}
+          label="Seções de mensagens"
+        >
+          {/* ── Inbox ── */}
+          {pageTab === 'inbox' && <InboxChat />}
 
-      {/* ── Abas Inbox / Templates ── */}
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
-        <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-          {([
-            { key: 'inbox',     label: 'Inbox',     icon: <Inbox size={14} /> },
-            { key: 'templates', label: 'Templates', icon: <MessageSquare size={14} /> },
-          ] as const).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setPageTab(tab.key)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all
-                ${pageTab === tab.key
-                  ? 'bg-white text-indigo-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              {tab.icon}{tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+          {/* ── Templates ── */}
+          {pageTab === 'templates' && (
+            <div className="space-y-3">
 
-      {/* ── Inbox ── */}
-      {pageTab === 'inbox' && (
-        <div className="px-3 sm:px-5 lg:px-6 xl:px-8">
-          <InboxChat />
-        </div>
-      )}
+              {/* ── FILTROS ── */}
+              <FilterLine>
+                <FilterLineSection grow>
+                  <FilterLineItem grow>
+                    <FilterLineSearch
+                      value={searchTerm}
+                      onChange={setSearchTerm}
+                      placeholder="Buscar por título ou conteúdo..."
+                    />
+                  </FilterLineItem>
+                  <FilterLineItem fullOnMobile={false}>
+                    <FilterLineViewToggle
+                      value={viewMode}
+                      onChange={setViewMode}
+                      gridValue="cards"
+                      listValue="list"
+                    />
+                  </FilterLineItem>
+                </FilterLineSection>
 
-      {/* ── Templates (conteúdo original) ── */}
-      {pageTab === 'templates' && (
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-4">
-
-        {/* ── FILTROS ── */}
-        <FilterLine>
-          <FilterLineSection grow>
-            <FilterLineItem grow>
-              <FilterLineSearch
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Buscar por título ou conteúdo..."
-              />
-            </FilterLineItem>
-            <FilterLineItem fullOnMobile={false}>
-              <FilterLineViewToggle
-                value={viewMode}
-                onChange={setViewMode}
-                gridValue="cards"
-                listValue="list"
-              />
-            </FilterLineItem>
-          </FilterLineSection>
-
-          {/* Categorias — scroll horizontal no mobile */}
-          <FilterLineSection grow={false} wrap={false}>
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5 w-full" style={{ scrollbarWidth: 'none' }}>
-              {['Todos', ...allCategories].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
-                    categoryFilter === cat
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                      : 'bg-white text-zinc-500 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600'
-                  }`}
-                >
-                  {cat}
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
-                    categoryFilter === cat ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-500'
-                  }`}>
-                    {catCounts[cat] || 0}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </FilterLineSection>
-        </FilterLine>
-
-        {/* ── LOADING ── */}
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <Loader2 size={36} className="animate-spin text-indigo-500 mb-3" />
-            <p className="text-sm font-medium">Carregando modelos...</p>
-          </div>
-        )}
-
-        {/* ── CARD RENDERER (reutilizado em mobile e na grid) ── */}
-        {/* ── LISTA (desktop only — mobile sempre usa cards) ── */}
-        {!isLoading && viewMode === 'list' && (
-          <GridTable<MessageTemplate>
-            data={pagedTemplates}
-            keyExtractor={(row) => row.id}
-            renderMobileItem={(row) => (
-              <MobileTemplateCard
-                template={row}
-                copiedId={copiedId}
-                onSend={handleOpenSendModal}
-                onCopy={handleCopy}
-                onEdit={handleOpenModal}
-                onDelete={handleDelete}
-              />
-            )}
-            columns={[
-              {
-                header: 'Categoria',
-                headerClassName: 'w-28',
-                render: (row) => <span className={getCategoryClass(row.category)}>{row.category}</span>,
-              },
-              {
-                header: 'Título',
-                render: (row) => (
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-zinc-800 text-sm">{row.title}</span>
-                    {row.is_global === 1 && <span title="Template do sistema"><Sparkles size={12} className="text-amber-400 shrink-0" /></span>}
+                {/* Categorias — scroll horizontal no mobile */}
+                <FilterLineSection grow={false} wrap={false}>
+                  <div className="flex w-full gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+                    {['Todos', ...allCategories].map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setCategoryFilter(cat)}
+                        className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                          categoryFilter === cat
+                            ? 'border-primary-600 bg-primary-600 text-white'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-primary-300 hover:text-primary-700'
+                        }`}
+                      >
+                        {cat}
+                        <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none ${
+                          categoryFilter === cat ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {catCounts[cat] || 0}
+                        </span>
+                      </button>
+                    ))}
                   </div>
-                ),
-              },
-              {
-                header: 'Conteúdo',
-                render: (row) => <p className="text-xs text-zinc-500 truncate max-w-xs">{row.content}</p>,
-              },
-              {
-                header: 'Ações',
-                headerClassName: 'w-44',
-                render: (row) => (
-                  <div className="flex items-center gap-1.5">
-                    <Button variant="success" size="sm" radius="xl" leftIcon={<Send size={12} />} onClick={() => handleOpenSendModal(row)}>
-                      WhatsApp
-                    </Button>
-                    <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleCopy(row)} title="Copiar">
-                      {copiedId === row.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                    </Button>
-                    <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleOpenModal(row)} title="Editar">
-                      <Edit3 size={13} />
-                    </Button>
-                    <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => handleDelete(row)} title="Excluir">
-                      <Trash2 size={13} />
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-            emptyMessage="Nenhum modelo encontrado"
-          />
-        )}
+                </FilterLineSection>
+              </FilterLine>
 
-        {/* ── GRID DE CARDS ── */}
-        {!isLoading && viewMode === 'cards' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {pagedTemplates.map(template => (
-              <div
-                key={template.id}
-                className="bg-white rounded-2xl border border-zinc-200 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col overflow-hidden"
-              >
-                {/* Header do card */}
-                <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <span className={getCategoryClass(template.category)}>
-                      {template.category}
-                    </span>
-                    <h3 className="font-bold text-zinc-800 mt-2 text-sm leading-snug line-clamp-1" title={template.title}>
-                      {template.title}
-                    </h3>
-                  </div>
-                  {template.is_global === 1 && (
-                    <span title="Template do sistema"><Sparkles size={13} className="text-amber-400 shrink-0 mt-0.5" /></span>
+              {/* ── LOADING ── */}
+              {isLoading && (
+                <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                  <Loader2 size={18} className="animate-spin" />Carregando modelos...
+                </div>
+              )}
+
+              {/* ── LISTA (desktop only — mobile sempre usa cards) ── */}
+              {!isLoading && viewMode === 'list' && (
+                <GridTable<MessageTemplate>
+                  data={pagedTemplates}
+                  keyExtractor={(row) => row.id}
+                  renderMobileItem={(row) => (
+                    <MobileTemplateCard
+                      template={row}
+                      copiedId={copiedId}
+                      onSend={handleOpenSendModal}
+                      onCopy={handleCopy}
+                      onEdit={handleOpenModal}
+                      onDelete={handleDelete}
+                    />
+                  )}
+                  columns={[
+                    {
+                      header: 'Categoria',
+                      headerClassName: 'w-28',
+                      render: (row) => <span className={getCategoryClass(row.category)}>{row.category}</span>,
+                    },
+                    {
+                      header: 'Título',
+                      render: (row) => (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-slate-800">{row.title}</span>
+                          {row.is_global === 1 && <span title="Template do sistema"><Sparkles size={12} className="shrink-0 text-amber-500" /></span>}
+                        </div>
+                      ),
+                    },
+                    {
+                      header: 'Conteúdo',
+                      render: (row) => <p className="max-w-xs truncate text-[11px] text-slate-500">{row.content}</p>,
+                    },
+                    {
+                      header: 'Ações',
+                      headerClassName: 'w-52',
+                      render: (row) => renderTemplateActions(row),
+                    },
+                  ]}
+                  emptyMessage="Nenhum modelo encontrado"
+                />
+              )}
+
+              {/* ── GRID DE CARDS ── */}
+              {!isLoading && viewMode === 'cards' && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {pagedTemplates.map(template => (
+                    <ContentCard
+                      key={template.id}
+                      padding="none"
+                      className="flex h-full flex-col overflow-hidden transition-colors hover:border-primary-200"
+                    >
+                      {/* Header do card */}
+                      <div className="flex items-start justify-between gap-2 p-3 pb-2">
+                        <div className="min-w-0 flex-1">
+                          <span className={getCategoryClass(template.category)}>
+                            {template.category}
+                          </span>
+                          <h3 className="mt-2 line-clamp-1 text-sm font-medium leading-snug text-slate-900" title={template.title}>
+                            {template.title}
+                          </h3>
+                        </div>
+                        {template.is_global === 1 && (
+                          <span title="Template do sistema"><Sparkles size={13} className="mt-0.5 shrink-0 text-amber-500" /></span>
+                        )}
+                      </div>
+
+                      {/* Preview do conteúdo */}
+                      <div
+                        className="mx-3 mb-3 line-clamp-3 flex-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-500"
+                        dangerouslySetInnerHTML={{ __html: contentToHtml(template.content).replace(/<br\s*\/?>/gi, ' ').replace(/<\/div>/gi, ' ').replace(/<div>/gi, '') }}
+                      />
+
+                      {/* Ações */}
+                      <div className="border-t border-slate-100 bg-slate-50/50 p-3">
+                        {renderTemplateActions(template, true)}
+                      </div>
+                    </ContentCard>
+                  ))}
+
+                  {/* Empty state */}
+                  {filteredTemplates.length === 0 && (
+                    <ContentCard className="col-span-full">
+                      <EmptyState
+                        icon={MessageSquare}
+                        title="Nenhum modelo encontrado"
+                        description={searchTerm ? 'Tente outra busca' : 'Crie o primeiro modelo para essa categoria'}
+                        action={
+                          <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenModal()}>
+                            Criar Modelo
+                          </Button>
+                        }
+                      />
+                    </ContentCard>
+                  )}
+
+                  {/* Card nova mensagem */}
+                  {filteredTemplates.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenModal()}
+                      className="group flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 text-slate-400 transition-colors hover:border-primary-300 hover:bg-primary-50/40 hover:text-primary-600"
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 transition-colors group-hover:bg-primary-100">
+                        <Plus size={18} />
+                      </div>
+                      <span className="text-xs font-medium">Nova Mensagem</span>
+                    </button>
                   )}
                 </div>
+              )}
 
-                {/* Preview do conteúdo */}
-                <div
-                  className="mx-4 mb-4 flex-1 bg-zinc-50 rounded-xl border border-zinc-100 px-3 py-2.5 text-xs text-zinc-500 leading-relaxed line-clamp-3"
-                  dangerouslySetInnerHTML={{ __html: contentToHtml(template.content).replace(/<br\s*\/?>/gi, ' ').replace(/<\/div>/gi, ' ').replace(/<div>/gi, '') }}
+              {/* ── PAGINAÇÃO ── */}
+              {!isLoading && filteredTemplates.length > 0 && (
+                <Pagination
+                  total={filteredTemplates.length}
+                  page={currentPage}
+                  pageSize={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setItemsPerPage}
                 />
-
-                {/* Ações */}
-                <div className="px-4 pb-4 flex items-center gap-2">
-                  <Button
-                    variant="success"
-                    size="sm"
-                    radius="xl"
-                    leftIcon={<Send size={12} />}
-                    onClick={() => handleOpenSendModal(template)}
-                    className="flex-1 text-xs"
-                  >
-                    WhatsApp
-                  </Button>
-                  <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleCopy(template)} title="Copiar">
-                    {copiedId === template.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                  </Button>
-                  <Button variant="ghost" size="sm" iconOnly radius="xl" onClick={() => handleOpenModal(template)} title="Editar">
-                    <Edit3 size={13} />
-                  </Button>
-                  <Button variant="softDanger" size="sm" iconOnly radius="xl" onClick={() => handleDelete(template)} title="Excluir">
-                    <Trash2 size={13} />
-                  </Button>
-                </div>
-              </div>
-            ))}
-
-            {/* Empty state */}
-            {filteredTemplates.length === 0 && (
-              <div className="col-span-full flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-zinc-200">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-50 flex items-center justify-center mb-3">
-                  <MessageSquare size={24} className="text-zinc-300" />
-                </div>
-                <p className="font-bold text-zinc-400 text-sm">Nenhum modelo encontrado</p>
-                <p className="text-xs text-zinc-400 mt-1 mb-4">
-                  {searchTerm ? 'Tente outra busca' : 'Crie o primeiro modelo para essa categoria'}
-                </p>
-                <Button variant="primary" size="sm" radius="xl" leftIcon={<Plus size={14} />} onClick={() => handleOpenModal()}>
-                  Criar Modelo
-                </Button>
-              </div>
-            )}
-
-            {/* Card nova mensagem */}
-            {filteredTemplates.length > 0 && (
-              <button
-                onClick={() => handleOpenModal()}
-                className="border-2 border-dashed border-zinc-200 hover:border-indigo-300 rounded-2xl flex flex-col items-center justify-center gap-2.5 min-h-[160px] text-zinc-400 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-indigo-100 flex items-center justify-center transition-colors">
-                  <Plus size={20} />
-                </div>
-                <span className="text-xs font-bold">Nova Mensagem</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ── PAGINAÇÃO ── */}
-        {!isLoading && filteredTemplates.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white border border-zinc-200 rounded-2xl">
-            <p className="text-[11px] font-bold text-zinc-400 shrink-0">
-              {`${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, filteredTemplates.length)} de ${filteredTemplates.length}`}
-            </p>
-            <div className="flex items-center gap-1">
-              {[
-                { label: '«', action: () => setCurrentPage(1), disabled: currentPage === 1 },
-                { label: '‹', action: () => setCurrentPage(p => Math.max(1, p - 1)), disabled: currentPage === 1 },
-                { label: '›', action: () => setCurrentPage(p => Math.min(totalPages, p + 1)), disabled: currentPage === totalPages },
-                { label: '»', action: () => setCurrentPage(totalPages), disabled: currentPage === totalPages },
-              ].map((btn, i) => (
-                <button
-                  key={i}
-                  onClick={btn.action}
-                  disabled={btn.disabled}
-                  className="w-8 h-8 flex items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 text-sm font-black hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
-                  {btn.label}
-                </button>
-              ))}
-              <span className="px-2 text-xs font-bold text-zinc-500">{currentPage}/{totalPages}</span>
+              )}
             </div>
-            <select
-              value={itemsPerPage}
-              onChange={e => setItemsPerPage(Number(e.target.value))}
-              className="h-8 px-2 text-xs font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-400 transition-all cursor-pointer"
-            >
-              {[5, 15, 30, 50, 100].map(n => <option key={n} value={n}>{n} por pág.</option>)}
-            </select>
-          </div>
-        )}
+          )}
+        </Tabs>
       </div>
-      )} {/* fim pageTab === 'templates' */}
 
       {/* ── MODAL CRIAR / EDITAR ── */}
       <Modal
@@ -1133,15 +1097,15 @@ export const Messages: React.FC = () => {
         size="lg"
         footer={
           <ModalFooter>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Descartar</Button>
-            <Button variant="primary" loading={isSaving} iconLeft={<Check size={15} />} onClick={handleSave}>
+            <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>Descartar</Button>
+            <Button variant="primary" size="sm" loading={isSaving} iconLeft={<Check size={14} />} onClick={handleSave}>
               Salvar Modelo
             </Button>
           </ModalFooter>
         }
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
               label="Título *"
               value={currentTemplate.title || ''}
@@ -1159,11 +1123,11 @@ export const Messages: React.FC = () => {
                     placeholder="Nome da categoria..."
                     autoFocus
                   />
-                  <Button variant="primary" size="sm" onClick={handleAddCategory}>Ok</Button>
-                  <Button variant="ghost" size="sm" onClick={() => setShowNewCat(false)}>✕</Button>
+                  <Button variant="primary" size="md" onClick={handleAddCategory}>Ok</Button>
+                  <IconButton variant="ghost" size="md" aria-label="Cancelar nova categoria" onClick={() => setShowNewCat(false)}>✕</IconButton>
                 </div>
               ) : (
-                <div className="flex gap-2 items-end">
+                <div className="flex items-end gap-2">
                   <div className="flex-1">
                     <Combobox
                       options={allCategories.map(c => ({ id: c, label: c }))}
@@ -1172,28 +1136,29 @@ export const Messages: React.FC = () => {
                       placeholder="Selecionar categoria..."
                     />
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setShowNewCat(true)} title="Nova categoria" className="shrink-0 h-10">
+                  <IconButton variant="outline" size="md" aria-label="Nova categoria" title="Nova categoria" onClick={() => setShowNewCat(true)} className="shrink-0">
                     <Tag size={14} />
-                  </Button>
+                  </IconButton>
                 </div>
               )}
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <label className="ds-label">Conteúdo *</label>
-              <span className="text-[11px] text-zinc-400">Toque para inserir variável</span>
+              <span className="text-[11px] text-slate-500">Toque para inserir variável</span>
             </div>
-            <div className="flex flex-wrap gap-1.5 p-3 mb-2 bg-zinc-50 rounded-xl border border-zinc-200">
+            <div className="mb-2 flex flex-wrap gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-3">
               {AVAILABLE_VARIABLES.map(v => (
                 <button
                   key={v.tag}
+                  type="button"
                   onClick={() => handleInsertVariable(v.tag)}
                   title={v.hint}
-                  className={`${getBadgeClass(v.tag)} cursor-pointer hover:opacity-80 active:scale-95 transition-all`}
+                  className={`${getBadgeClass(v.tag)} cursor-pointer transition-all hover:opacity-80 active:scale-95`}
                 >
-                  <Variable size={9} />
+                  <Variable size={10} />
                   {v.label}
                 </button>
               ))}
@@ -1211,9 +1176,9 @@ export const Messages: React.FC = () => {
                 document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
               }}
               data-placeholder="Digite o conteúdo da mensagem..."
-              className="w-full p-4 min-h-[8rem] rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all text-sm text-zinc-700 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400"
+              className="min-h-[8rem] w-full rounded-lg border border-slate-200 p-3 text-[13px] leading-relaxed text-slate-700 transition-all focus:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-100 empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
             />
-            <p className="text-[11px] text-zinc-400 mt-1.5">As variáveis serão substituídas pelos dados reais ao enviar.</p>
+            <p className="mt-1.5 text-[11px] text-slate-500">As variáveis serão substituídas pelos dados reais ao enviar.</p>
           </div>
         </div>
       </Modal>
@@ -1227,75 +1192,53 @@ export const Messages: React.FC = () => {
         size="2xl"
         footer={
           <ModalFooter>
-            <Button variant="ghost" onClick={() => setIsSendModalOpen(false)}>Cancelar</Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsSendModalOpen(false)}>Cancelar</Button>
             {botStatus === 'connected' && (
               <Button
+                size="sm"
                 iconLeft={<Send size={14} />}
                 onClick={handleSendBot}
                 loading={isSendingBot}
                 disabled={!selectedRecipientId}
-                className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700 text-white"
               >
                 Enviar pelo Bot
               </Button>
             )}
-            <Button variant="success" iconLeft={<Send size={14} />} onClick={handleSendManual} disabled={!selectedRecipientId}>
+            <Button variant="success" size="sm" iconLeft={<Send size={14} />} onClick={handleSendManual} disabled={!selectedRecipientId}>
               Abrir WhatsApp
             </Button>
           </ModalFooter>
         }
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
           {/* ── Col 1: Destinatário ── */}
           <div className="space-y-3">
             {/* Status bot */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200">
-              <div className={`w-2 h-2 rounded-full shrink-0 ${botStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : botStatus === 'disconnected' ? 'bg-rose-400' : 'bg-zinc-300'}`} />
-              <span className="text-[11px] font-semibold text-zinc-500">
-                {botStatus === 'connected' ? 'Bot conectado — envio automático disponível' : botStatus === 'disconnected' ? 'Bot desconectado — apenas envio manual' : 'Verificando conexão...'}
-              </span>
-            </div>
+            <Alert variant={botStatus === 'connected' ? 'success' : botStatus === 'disconnected' ? 'warning' : 'info'}>
+              {botStatus === 'connected' ? 'Bot conectado — envio automático disponível' : botStatus === 'disconnected' ? 'Bot desconectado — apenas envio manual' : 'Verificando conexão...'}
+            </Alert>
 
             {/* Tabs Profissional / Paciente */}
-            <div className="flex gap-1 bg-zinc-100 p-1 rounded-xl">
-              {([
-                { key: 'professional', label: 'Profissional', icon: <Users size={13}/> },
-                { key: 'patient',      label: 'Paciente',     icon: <MessageSquare size={13}/> },
-              ] as const).map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => handleRecipientTabChange(tab.key)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                    recipientTab === tab.key ? 'bg-white text-indigo-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                  }`}
-                >
-                  {tab.icon} {tab.label}
-                </button>
-              ))}
-            </div>
+            <Tabs<RecipientTab>
+              items={RECIPIENT_TABS}
+              value={recipientTab}
+              onChange={handleRecipientTabChange}
+              label="Tipo de destinatário"
+            />
 
             {/* Filtro status */}
-            <div className="flex gap-1.5">
-              {(['all', 'ativo', 'inativo'] as const).map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => { setRecipientStatusFilter(opt); setSelectedRecipientId(''); }}
-                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                    recipientStatusFilter === opt
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-zinc-500 border-zinc-200 hover:border-indigo-300 hover:text-indigo-600'
-                  }`}
-                >
-                  {opt === 'all' ? 'Todos' : opt === 'ativo' ? 'Ativos' : 'Inativos'}
-                </button>
-              ))}
-            </div>
+            <FilterLineSegmented<'all' | 'ativo' | 'inativo'>
+              size="sm"
+              value={recipientStatusFilter}
+              onChange={opt => { setRecipientStatusFilter(opt); setSelectedRecipientId(''); }}
+              options={RECIPIENT_STATUS_OPTIONS}
+            />
 
             {/* Combobox */}
             {isRecipientsLoading ? (
-              <div className="flex items-center gap-2 py-3 text-zinc-400 text-sm">
-                <Loader2 size={15} className="animate-spin" /> Carregando...
+              <div role="status" className="flex items-center gap-2 py-3 text-xs text-slate-500">
+                <Loader2 size={14} className="animate-spin" /> Carregando...
               </div>
             ) : (
               <Combobox
@@ -1315,25 +1258,25 @@ export const Messages: React.FC = () => {
               if (!r) return null;
               const phone = normalizePhone(r.phone || r.whatsapp);
               return (
-                <div className="bg-zinc-50 rounded-xl border border-zinc-200 px-4 py-3 space-y-1">
-                  <p className="font-bold text-zinc-800 text-sm">{r.name || r.full_name}</p>
-                  <p className="text-xs text-zinc-400">{r.phone || r.whatsapp || 'Sem telefone'}</p>
-                  {r.email && <p className="text-xs text-zinc-400">{r.email}</p>}
+                <div className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <p className="text-[13px] font-medium text-slate-800">{r.name || r.full_name}</p>
+                  <p className="text-[11px] text-slate-500">{r.phone || r.whatsapp || 'Sem telefone'}</p>
+                  {r.email && <p className="text-[11px] text-slate-500">{r.email}</p>}
                   {phone.length < 8 && (
-                    <div className="flex items-center gap-1 text-rose-500 text-[11px] font-bold mt-1">
+                    <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-red-600">
                       <AlertTriangle size={11}/> Sem telefone válido no cadastro
                     </div>
                   )}
                   {phone.length >= 8 && botStatus === 'connected' && (
-                    <p className="text-[11px] text-emerald-600 font-bold">Bot envia para: +{phone}</p>
+                    <p className="text-[11px] font-medium text-emerald-700">Bot envia para: +{phone}</p>
                   )}
                   {isLoadingAppointment && (
-                    <div className="flex items-center gap-1 text-indigo-500 text-[11px] font-bold">
+                    <div className="flex items-center gap-1 text-[11px] font-medium text-primary-600">
                       <Loader2 size={10} className="animate-spin"/> Buscando agendamento...
                     </div>
                   )}
                   {!isLoadingAppointment && recipientTab === 'patient' && sendMeta.appointmentDate && (
-                    <p className="text-[11px] text-sky-600 font-bold">
+                    <p className="text-[11px] font-medium text-primary-700">
                       Próx.: {formatDateBR(sendMeta.appointmentDate)}{sendMeta.appointmentTime ? ` às ${sendMeta.appointmentTime}` : ''}
                     </p>
                   )}
@@ -1344,8 +1287,8 @@ export const Messages: React.FC = () => {
 
           {/* ── Col 2: Dados + Preview ── */}
           <div className="space-y-3">
-            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Dados da Mensagem</p>
-            <div className="grid grid-cols-2 gap-2">
+            <p className="text-xs font-medium text-slate-600">Dados da mensagem</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[
                 { label: 'Data',         type: 'date', key: 'appointmentDate' },
                 { label: 'Horário',      type: 'time', key: 'appointmentTime' },
@@ -1353,34 +1296,26 @@ export const Messages: React.FC = () => {
                 { label: 'Valor (R$)',   type: 'text', key: 'total',             placeholder: 'Ex: 150,00' },
                 { label: 'Profissional', type: 'text', key: 'professionalName',  placeholder: 'Ex: Karen' },
                 { label: 'Sessão',       type: 'text', key: 'sessao',            placeholder: 'Ex: 3 de 10' },
+                { label: 'Pacote',       type: 'text', key: 'pacote',            placeholder: 'Ex: Pacote Mensal' },
+                { label: 'Clínica',      type: 'text', key: 'clinic',            placeholder: 'Ex: Plaelo' },
               ].map(f => (
-                <div key={f.key}>
-                  <label className="block text-[11px] font-semibold text-zinc-500 mb-1">{f.label}</label>
-                  <input
-                    type={f.type}
-                    value={(sendMeta as any)[f.key]}
-                    onChange={e => setSendMeta({ ...sendMeta, [f.key]: e.target.value })}
-                    placeholder={(f as any).placeholder}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
-                  />
-                </div>
+                <Input
+                  key={f.key}
+                  label={f.label}
+                  type={f.type}
+                  value={(sendMeta as any)[f.key]}
+                  onChange={e => setSendMeta({ ...sendMeta, [f.key]: e.target.value })}
+                  placeholder={(f as any).placeholder}
+                />
               ))}
-              <div>
-                <label className="block text-[11px] font-semibold text-zinc-500 mb-1">Pacote</label>
-                <input type="text" value={sendMeta.pacote} onChange={e => setSendMeta({ ...sendMeta, pacote: e.target.value })} placeholder="Ex: Pacote Mensal" className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-zinc-500 mb-1">Clínica</label>
-                <input type="text" value={sendMeta.clinic} onChange={e => setSendMeta({ ...sendMeta, clinic: e.target.value })} placeholder="Ex: Plaelo" className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all" />
-              </div>
             </div>
 
             {/* Preview */}
             <div>
-              <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Preview</p>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed min-h-[80px]">
+              <p className="mb-2 text-xs font-medium text-slate-600">Preview</p>
+              <div className="min-h-[80px] whitespace-pre-wrap rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px] leading-relaxed text-slate-700">
                 {previewMessage || (
-                  <span className="text-zinc-400 italic text-xs">Selecione um destinatário para visualizar.</span>
+                  <span className="text-xs italic text-slate-400">Selecione um destinatário para visualizar.</span>
                 )}
               </div>
             </div>
