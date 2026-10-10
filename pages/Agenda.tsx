@@ -28,6 +28,7 @@ import { DatePicker } from '../components/UI/DatePicker';
 import { AgendaPlanner, WorkScheduleDay } from '../components/UI/AgendaPlanner';
 import { PageWrapper, StatGrid, SectionTitle } from '../components/UI/PageWrapper';
 import { Tabs } from '../components/UI/Tabs';
+import { SlotControl } from '../components/Agenda/SlotControl';
 import { Switch } from '../components/UI/Switch';
 import { StatCard } from '../components/UI/StatCard';
 import { IconButton } from '../components/UI/Button';
@@ -148,6 +149,8 @@ const VIEW_TABS = [
   { id: 'week', label: 'Semana', icon: CalendarRange },
   { id: 'month', label: 'Mês', icon: CalendarIcon },
 ] as const;
+// Aba extra de controle de horários (semana tipo com legendas); sempre disponível, independe das visões habilitadas.
+const SLOTS_TAB = { id: 'slots', label: 'Horários', icon: Clock } as const;
 const MANAGER_TABS = [
   { id: 'atendimentos', label: 'Atendimentos', icon: CalendarDays },
   { id: 'pagamentos', label: 'Pagamentos', icon: DollarSign },
@@ -169,7 +172,7 @@ export const Agenda: React.FC = () => {
   const [professionals, setProfessionals] = useState<User[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
-  const [view, setView] = useState<'day' | 'week' | 'month'>('week');
+  const [view, setView] = useState<'day' | 'week' | 'month' | 'slots'>('week');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apptTab, setApptTab] = useState<'dados' | 'notes'>('dados');
   useEffect(() => { if (isModalOpen) setApptTab('dados'); }, [isModalOpen]);
@@ -1807,10 +1810,10 @@ export const Agenda: React.FC = () => {
               {/* View switcher — só mostra views habilitadas nas preferências */}
               {(() => {
                 const enabledViews = preferences.agenda.enabledViews ?? ['day','week','month'];
-                const items = VIEW_TABS.filter(v => enabledViews.includes(v.id));
-                return enabledViews.length > 1 ? (
-                  <Tabs<typeof VIEW_TABS[number]['id']> items={items} value={view as any} onChange={(v) => setView(v as any)} label="Visão da agenda" className="shrink-0" />
-                ) : null;
+                const items = [...VIEW_TABS.filter(v => enabledViews.includes(v.id)), SLOTS_TAB];
+                return (
+                  <Tabs<typeof VIEW_TABS[number]['id'] | typeof SLOTS_TAB['id']> items={items} value={view as any} onChange={(v) => setView(v as any)} label="Visão da agenda" className="shrink-0" />
+                );
               })()}
 
               {/* Filtros */}
@@ -1881,6 +1884,19 @@ export const Agenda: React.FC = () => {
                     </div>
                 </div>
             </div>
+        ) : view === 'slots' ? (
+            <SlotControl
+              appointments={filteredAppointments}
+              onSlotClick={(dayOfWeek, hour) => {
+                // próxima data (a partir de agora) com esse dia da semana e hora
+                const target = new Date();
+                target.setHours(hour, 0, 0, 0);
+                let ahead = (dayOfWeek - target.getDay() + 7) % 7;
+                if (ahead === 0 && target.getTime() <= Date.now()) ahead = 7;
+                target.setDate(target.getDate() + ahead);
+                openNewModal(target);
+              }}
+            />
         ) : view === 'month' ? (
             <div className="flex flex-col h-full bg-white rounded-lg  overflow-hidden">
                 <div className="grid grid-cols-7 border-b border-slate-100 bg-primary-50/40 sticky top-0 z-20">
