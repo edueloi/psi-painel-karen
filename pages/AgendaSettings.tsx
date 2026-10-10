@@ -32,7 +32,7 @@ const SETTINGS_TABS = [
   { id: 'closed', label: 'Férias e folgas', icon: Trash2 },
 ] as const;
 
-export function AgendaSettings() {
+export function AgendaSettings({ embedded = false, onSaved }: { embedded?: boolean; onSaved?: () => void } = {}) {
   const [tab, setTab] = useState<typeof SETTINGS_TABS[number]['id']>('booking');
   const navigate = useNavigate(); const { pushToast } = useToast();
   const { preferences, updatePreference } = useUserPreferences();
@@ -42,10 +42,9 @@ export function AgendaSettings() {
   useEffect(() => { Promise.all([api.get<any>('/profile/me'), api.get<any[]>('/users')]).then(([data, users]) => { const s = typeof data.schedule === 'string' ? JSON.parse(data.schedule) : data.schedule; const c = typeof data.closed_dates === 'string' ? JSON.parse(data.closed_dates) : data.closed_dates; if (Array.isArray(s)) setSchedule(s.map((d: any) => ({ ...d, breaks: d.breaks || [] }))); if (Array.isArray(c)) setClosedDates(c); setProfessionals((users || []).filter((item: any) => item.role !== 'secretario')); }).catch(() => pushToast('error', 'Não foi possível carregar sua agenda.')); }, []);
   const activeCount = useMemo(() => schedule.filter(d => d.active).length, [schedule]);
   const updateDay = (idx: number, patch: Partial<Day>) => setSchedule(prev => prev.map((d, i) => i === idx ? { ...d, ...patch } : d));
-  const save = async () => { setSaving(true); try { await api.put('/profile/me/schedule', { schedule, closed_dates: closedDates }); pushToast('success', 'Minha agenda foi atualizada.'); } catch (e: any) { pushToast('error', e?.message || 'Erro ao salvar agenda.'); } finally { setSaving(false); } };
-  return <PageWrapper>
-    <div className="space-y-4">
-      <SectionTitle icon={CalendarDays} title="Configurações da Agenda" description="Defina seus dias, horários, intervalos, férias e feriados" action={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/agenda')}>Voltar</Button><Button size="sm" iconLeft={<Save size={14} />} onClick={save} loading={saving} disabled={saving}>{saving ? 'Salvando...' : 'Salvar agenda'}</Button></div>} />
+  const save = async () => { setSaving(true); try { await api.put('/profile/me/schedule', { schedule, closed_dates: closedDates }); pushToast('success', 'Minha agenda foi atualizada.'); onSaved?.(); } catch (e: any) { pushToast('error', e?.message || 'Erro ao salvar agenda.'); } finally { setSaving(false); } };
+  const content = <div className="space-y-4">
+      {!embedded && <SectionTitle icon={CalendarDays} title="Configurações da Agenda" description="Defina seus dias, horários, intervalos, férias e feriados" action={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/agenda')}>Voltar</Button><Button size="sm" iconLeft={<Save size={14} />} onClick={save} loading={saving} disabled={saving}>{saving ? 'Salvando...' : 'Salvar agenda'}</Button></div>} />}
       <StatGrid cols={3}>
         <StatCard title="Dias ativos" value={`${activeCount}/7`} icon={CalendarDays} color="default" />
         <StatCard title="Bloqueios" value={closedDates.length} icon={Trash2} color="danger" />
@@ -82,6 +81,6 @@ export function AgendaSettings() {
           <div className="mt-3 space-y-2">{closedDates.length === 0 ? <EmptyState icon={CalendarDays} title="Nenhuma data bloqueada." /> : closedDates.map((d: any) => <div key={d.date} className="flex items-center justify-between gap-2 p-2.5 bg-red-50 border border-red-100 rounded-lg"><span className="text-[13px] font-medium text-slate-700">{new Date(`${d.date}T12:00:00`).toLocaleDateString('pt-BR')} · {d.label}</span><IconButton aria-label="Remover bloqueio" variant="ghost" size="sm" onClick={() => setClosedDates(prev => prev.filter(x => x.date !== d.date))}><Trash2 size={14}/></IconButton></div>)}</div>
         </ContentCard>}
       </Tabs>
-    </div>
-  </PageWrapper>;
+    </div>;
+  return embedded ? content : <PageWrapper>{content}</PageWrapper>;
 }
