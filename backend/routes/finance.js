@@ -2,6 +2,7 @@ const { authMiddleware, checkPermission } = require('../middleware/auth');
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { ensureStatements } = require('../utils/schemaMigrate');
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const XLSX = require('xlsx');
@@ -50,9 +51,7 @@ async function ensureFinanceColumns() {
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   ];
-  for (const sql of cols) {
-    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column') && !e.message.includes('already exists')) console.warn('Finance schema warning:', e.message); }
-  }
+  await ensureStatements(cols, 'finance');
 }
 let financeSchemaReady = false;
 async function withFinanceSchema() {
@@ -77,9 +76,7 @@ async function ensureSchema() {
     'ALTER TABLE comandas ADD COLUMN livrocaixa_tx_id INT NULL',
     'ALTER TABLE comandas ADD COLUMN livrocaixa_date DATE NULL',
   ];
-  for (const sql of cols) {
-    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME' && !e.message.includes('Duplicate column')) console.warn('Schema Warning:', e.message); }
-  }
+  await ensureStatements(cols, 'comandas');
 
   // Criar tabela de histórico de pagamentos por comanda
   try {

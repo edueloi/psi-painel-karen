@@ -1887,6 +1887,8 @@ export const Agenda: React.FC = () => {
         ) : view === 'slots' ? (
             <SlotControl
               appointments={filteredAppointments}
+              workSchedule={workSchedule as any}
+              onPickDate={(date) => openNewModal(date)}
               onSlotClick={(dayOfWeek, hour) => {
                 // próxima data (a partir de agora) com esse dia da semana e hora
                 const target = new Date();

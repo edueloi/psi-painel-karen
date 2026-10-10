@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
+const { ensureStatements, toDbDateTime } = require('../utils/schemaMigrate');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -83,9 +84,7 @@ async function ensureSchema() {
     'ALTER TABLE virtual_rooms ADD COLUMN link VARCHAR(512) NULL',
     'ALTER TABLE virtual_rooms ADD COLUMN expiration_date DATETIME NULL',
   ];
-  for (const sql of cols) {
-    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') throw e; }
-  }
+  await ensureStatements(cols, 'virtual-rooms', { strict: true });
 }
 let schemaReady = false;
 async function withSchema() {
@@ -264,11 +263,11 @@ router.post('/', async (req, res) => {
 
     const optionals = [
       ['title', roomTitle], ['description', description || null],
-      ['code', roomCode], ['scheduled_start', scheduled_start || null],
-      ['scheduled_end', scheduled_end || null], ['patient_id', patient_id || null],
+      ['code', roomCode], ['scheduled_start', toDbDateTime(scheduled_start)],
+      ['scheduled_end', toDbDateTime(scheduled_end)], ['patient_id', patient_id || null],
       ['professional_id', professional_id || null], ['appointment_id', appointment_id || null],
       ['provider', provider || 'jitsi'], ['link', link || null],
-      ['expiration_date', expiration_date || null],
+      ['expiration_date', toDbDateTime(expiration_date)],
     ];
     for (const [col, val] of optionals) {
       cols.push(col); 
@@ -332,9 +331,9 @@ router.put('/:id', async (req, res) => {
          link = ?, expiration_date = ?
        WHERE id = ? AND tenant_id = ?`,
       [roomTitle, roomTitle, description,
-       scheduled_start || null, scheduled_end || null,
+       toDbDateTime(scheduled_start), toDbDateTime(scheduled_end),
        patient_id || null, professional_id || null,
-       provider, link || null, expiration_date || null,
+       provider, link || null, toDbDateTime(expiration_date),
        req.params.id, req.user.tenant_id]
     );
     const [rows] = await db.query('SELECT * FROM virtual_rooms WHERE id = ?', [req.params.id]);

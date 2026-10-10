@@ -8,6 +8,7 @@ const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const { generateShareToken } = require('../utils/shareToken');
 const { checkPermission } = require('../middleware/auth');
+const { ensureStatements } = require('../utils/schemaMigrate');
 
 // Add extra profile columns if they don't exist (safe migration)
 const ensureColumns = async () => {
@@ -35,15 +36,7 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN cnpj VARCHAR(20) NULL",
     "ALTER TABLE users ADD COLUMN waiting_room_message VARCHAR(500) NULL",
   ];
-  for (const sql of extras) {
-    try { 
-      await db.query(sql); 
-    } catch (err) { 
-      if (err.errno !== 1060 && err.code !== 'ER_DUP_FIELDNAME') {
-        console.error(`Erro ao adicionar coluna: ${sql}`, err.message);
-      }
-    }
-  }
+  await ensureStatements(extras, 'profile');
 };
 ensureColumns();
 

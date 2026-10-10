@@ -5,6 +5,7 @@ const path = require('path');
 const multer = require('multer');
 const archiver = require('archiver');
 const db = require('../db');
+const { ensureStatements } = require('../utils/schemaMigrate');
 const { authMiddleware, checkPermission } = require('../middleware/auth');
 const { emitirNfse } = require('../services/nfse/emitir');
 const { cancelarNfse } = require('../services/nfse/cancelar');
@@ -34,9 +35,7 @@ function ensureDir(dir) {
     'ALTER TABLE nfse_invoices ADD COLUMN whatsapp_sent_at TIMESTAMP NULL',
     'ALTER TABLE nfse_invoices ADD COLUMN whatsapp_send_error TEXT NULL',
   ];
-  for (const sql of alters) {
-    try { await db.query(sql); } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.error('[NFS-e] Erro na automigração de substituição:', e.message); }
-  }
+  await ensureStatements(alters, 'nfse');
 })();
 
 // Bloqueia emissão/retry quando a clínica desativou a NFS-e em Configurações — a
