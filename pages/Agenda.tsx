@@ -227,7 +227,7 @@ export const Agenda: React.FC = () => {
 
   useEffect(() => {
     const measure = () => {
-      if (window.innerWidth < 1024) { setStickyNavOffset(56); return; }
+      if (window.innerWidth < 1024) { setStickyNavOffset(0); return; } // a Topbar fica fora do <main> que rola: o cabeçalho cola no topo dele
       if (!stickyStats || !stickyNavRef.current) { setStickyNavOffset(0); return; }
       setStickyNavOffset(getTopbarHeight() + stickyNavRef.current.offsetHeight);
     };
