@@ -73,7 +73,7 @@ export const Finance: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
   const [isLoading, setIsLoading] = useState(false);
-  const [yearMonths, setYearMonths] = useState<{ month: number; income: number; expense: number }[]>([]);
+  const [yearMonths, setYearMonths] = useState<{ month: number; income: number; expense: number; sessions: number }[]>([]);
 
   // States para Modal de Lançamento
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -133,15 +133,22 @@ export const Finance: React.FC = () => {
   };
 
   const fetchYearData = async (year: number) => {
-    const results = await Promise.all(
-      Array.from({ length: 12 }, (_, i) => i + 1).map(async (month) => {
-        try {
-          const sum = await api.get<any>('/finance/summary', { month: month.toString(), year: year.toString() });
-          return { month, income: Number(sum.income) || 0, expense: Number(sum.expense) || 0 };
-        } catch { return { month, income: 0, expense: 0 }; }
-      })
-    );
-    setYearMonths(results);
+    try {
+      const rows = await api.get<any[]>('/finance/summary-year', { year: year.toString() });
+      const byMonth = new Map((rows || []).map(row => [Number(row.month), row]));
+      setYearMonths(Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1;
+        const row = byMonth.get(month);
+        return {
+          month,
+          income: Number(row?.income) || 0,
+          expense: Number(row?.expense) || 0,
+          sessions: Number(row?.sessions) || 0,
+        };
+      }));
+    } catch {
+      setYearMonths(Array.from({ length: 12 }, (_, index) => ({ month: index + 1, income: 0, expense: 0, sessions: 0 })));
+    }
   };
 
   const fetchPortalPayments = async () => {
@@ -908,6 +915,7 @@ export const Finance: React.FC = () => {
                       income: m.income,
                       expense: m.expense,
                       balance: m.income - m.expense,
+                      sessions: m.sessions,
                     }))}
                     selectedYear={currentDate.getFullYear()}
                   />

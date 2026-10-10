@@ -3591,19 +3591,32 @@ export const Agenda: React.FC = () => {
         };
 
         return (
-          <Modal isOpen={isDetailModalOpen} onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }} title="" maxWidth="max-w-lg" hideCloseButton>
-            <div className="pb-2 -mt-2">
+          <Modal
+            isOpen={isDetailModalOpen}
+            onClose={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }}
+            title="Detalhes do agendamento"
+            subtitle="Confira o atendimento, atualize o status ou acesse ações rápidas."
+            maxWidth="max-w-xl"
+          >
+            <div className="space-y-4 pb-1">
 
               {/* ── HERO HEADER ── */}
-              <div className="relative rounded-lg overflow-hidden mb-4 px-4 pt-4 pb-3" style={{ background: `linear-gradient(135deg, ${accentColor}18 0%, ${accentColor}08 100%)`, border: `1px solid ${accentColor}25` }}>
+              <div className="relative overflow-hidden rounded-lg border px-4 py-4" style={{ borderColor: `${accentColor}35`, background: `linear-gradient(135deg, ${accentColor}10 0%, #ffffff 72%)` }}>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white text-base font-semibold shadow-sm shrink-0" style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}>
                     {initials}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-sm font-semibold text-slate-900 truncate">{apt.patient_name || apt.title || 'Paciente'}</h2>
-                    {patient?.phone && <p className="text-[11px] font-semibold text-slate-500 mt-0.5">{patient.phone}</p>}
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h2 className="text-sm font-semibold text-slate-900 truncate">{apt.patient_name || apt.title || 'Paciente'}</h2>
+                        {patient?.phone && <p className="text-[11px] font-medium text-slate-500 mt-0.5">{patient.phone}</p>}
+                      </div>
+                      <span className={cx('shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full border', (statusMeta[currentStatus] || statusMeta.scheduled).chip)}>
+                        {(statusMeta[currentStatus] || statusMeta.scheduled).label}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-white/70 px-2 py-0.5 rounded-full border border-white/50">
                         <Clock size={10} />
                         {apt.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {apt.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -3618,14 +3631,11 @@ export const Agenda: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <IconButton variant="ghost" size="sm" aria-label="Fechar" onClick={() => { setIsDetailModalOpen(false); setDetailQuickStatus(null); setDetailQuickNotes(''); }}>
-                    <X size={14} />
-                  </IconButton>
                 </div>
               </div>
 
               {/* ── INFO PILLS ── */}
-              <div className="flex flex-wrap gap-1.5 px-1 mb-4">
+              <div className="flex flex-wrap gap-1.5">
                 {(srv || pkg) && (
                   <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
                     <Stethoscope size={12} className="text-primary-500 shrink-0" />
@@ -3676,7 +3686,7 @@ export const Agenda: React.FC = () => {
 
               {/* ── OBSERVAÇÕES ── */}
               {apt.notes && (
-                <div className="mx-1 mb-3 bg-slate-50 rounded-lg border border-slate-100 px-3 py-2">
+                <div className="bg-slate-50 rounded-lg border border-slate-200 px-3 py-2.5">
                   <p className="text-[11px] font-semibold text-slate-400 mb-1">Observações</p>
                   <p className="text-[11px] text-slate-600 leading-relaxed">{apt.notes}</p>
                 </div>
@@ -3692,7 +3702,7 @@ export const Agenda: React.FC = () => {
                   .slice(0, 30);
                 if (upcomingApts.length === 0) return null;
                 return (
-                  <div className="mx-1 mb-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
                     <p className="text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center gap-1.5">
                       <CalendarDays size={10} />
                       Datas do pacote ({upcomingApts.length})
@@ -3724,9 +3734,12 @@ export const Agenda: React.FC = () => {
               })()}
 
               {/* ── QUICK STATUS ── */}
-              <div className="px-1 mb-3">
-                <p className="text-[11px] font-semibold text-slate-400 mb-2">Atualizar Status</p>
-                <div className="flex flex-wrap gap-1.5">
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex items-center justify-between gap-3 mb-2.5">
+                  <p className="text-[11px] font-semibold text-slate-600">Atualizar status</p>
+                  <span className="text-[11px] text-slate-400">Selecione uma opção</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                   {quickStatuses.map(s => {
                     const isRescheduleBlocked = s.key === 'rescheduled' && apt.status === 'completed';
                     return (
@@ -3747,7 +3760,7 @@ export const Agenda: React.FC = () => {
                           });
                         }
                       }}
-                      className={cx('text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all', currentStatus === s.key ? s.active : s.color, isRescheduleBlocked && 'opacity-40 cursor-not-allowed')}
+                      className={cx('w-full text-center text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-all', currentStatus === s.key ? s.active : s.color, isRescheduleBlocked && 'opacity-40 cursor-not-allowed')}
                     >
                       {s.label}
                     </button>
@@ -3809,7 +3822,9 @@ export const Agenda: React.FC = () => {
               </div>
 
               {/* ── ACTION BAR ── */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 pt-3 border-t border-slate-100">
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                <p className="mb-2 text-[11px] font-semibold text-slate-500">Ações rápidas</p>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                 {(patient?.whatsapp || patient?.phone) && (
                   <button onClick={() => openQuickMessage({ apt, patient, service: srv, package: pkg, comanda: cmnd })}
                     className="flex flex-col items-center gap-0.5 py-2 rounded-lg bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-all">
@@ -3850,6 +3865,7 @@ export const Agenda: React.FC = () => {
                     <span className="text-[11px] font-semibold text-rose-500">Deletar</span>
                   </button>
                 )}
+                </div>
               </div>
 
             </div>

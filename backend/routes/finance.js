@@ -536,22 +536,37 @@ router.get('/summary-year', authMiddleware, checkPermission('view_financial_repo
       [tenantId, year]
     );
 
+    // Sessões efetivamente realizadas no mês. Este dado alimenta o cálculo
+    // de preço por sessão sem recorrer a uma média configurada manualmente.
+    const [sessionRows] = await db.query(
+      `SELECT MONTH(start_time) AS month, COUNT(*) AS sessions
+       FROM appointments
+       WHERE tenant_id = ?
+         AND YEAR(start_time) = ?
+         AND status = 'completed'
+       GROUP BY MONTH(start_time)`,
+      [tenantId, year]
+    );
+
     const incomeMap = {};
     const expenseMap = {};
+    const sessionMap = {};
     incomeRows.forEach(r => { incomeMap[r.month] = r; });
     expenseRows.forEach(r => { expenseMap[r.month] = r; });
+    sessionRows.forEach(r => { sessionMap[r.month] = Number(r.sessions) || 0; });
 
     const result = [];
     for (let m = 1; m <= 12; m++) {
       const inc = incomeMap[m];
       const exp = expenseMap[m];
-      if (!inc && !exp) continue;
+      const sessions = sessionMap[m] || 0;
+      if (!inc && !exp && sessions === 0) continue;
       const income  = parseFloat(inc?.paid   || 0);
       const expense = parseFloat(exp?.paid   || 0);
       const pending = parseFloat(inc?.pending || 0) - parseFloat(exp?.pending || 0);
       const count   = parseInt(inc?.cnt || 0);
       if (income === 0 && expense === 0 && pending === 0) continue;
-      result.push({ month: m, year, income, expense, balance: income - expense, pending, count });
+      result.push({ month: m, year, income, expense, balance: income - expense, pending, count, sessions });
     }
 
     res.json(result);

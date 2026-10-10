@@ -20,7 +20,6 @@ export interface FinancialProfile {
   professionCouncil: string; // CRP, CRM, etc.
   employeeCount: number;
   dependentCount: number;
-  monthlySessionCount: number;
   issApplies: boolean;
   issRate: number; // percentage 0-5
 }
@@ -31,6 +30,7 @@ interface MonthSummary {
   income: number;
   expense: number;
   balance: number;
+  sessions: number;
 }
 
 interface Props {
@@ -160,7 +160,6 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
   const [fProfession, setFProfession] = useState<FinancialProfile['professionType']>('psicologo');
   const [fEmployees, setFEmployees] = useState(0);
   const [fDependents, setFDependents] = useState(0);
-  const [fSessions, setFSessions] = useState(20);
   const [fIssApplies, setFIssApplies] = useState(false);
   const [fIssRate, setFIssRate] = useState(2);
 
@@ -179,7 +178,6 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
       professionCouncil: prof.council,
       employeeCount: fEmployees,
       dependentCount: fDependents,
-      monthlySessionCount: fSessions,
       issApplies: fIssApplies,
       issRate: fIssRate,
     };
@@ -195,7 +193,6 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
       setFProfession(existing.professionType);
       setFEmployees(existing.employeeCount);
       setFDependents(existing.dependentCount);
-      setFSessions(existing.monthlySessionCount);
       setFIssApplies(existing.issApplies);
       setFIssRate(existing.issRate);
     }
@@ -230,6 +227,7 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
     m.year === previousMonthDate.getFullYear() && m.month === previousMonthDate.getMonth() + 1
   );
   const referenceIncome = Number(referenceMonth?.income) || 0;
+  const referenceSessions = Number(referenceMonth?.sessions) || 0;
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -255,7 +253,6 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
             fProfession={fProfession} setFProfession={setFProfession}
             fEmployees={fEmployees} setFEmployees={setFEmployees}
             fDependents={fDependents} setFDependents={setFDependents}
-            fSessions={fSessions} setFSessions={setFSessions}
             fIssApplies={fIssApplies} setFIssApplies={setFIssApplies}
             fIssRate={fIssRate} setFIssRate={setFIssRate}
             onSave={saveProfile}
@@ -385,8 +382,8 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
   const referenceIss = calcIss(referenceIncome, profile.issApplies, profile.issRate);
   const referenceAnnualNeeded = (referenceIncome + council) * 12
     + (referenceInss + referenceIr + referenceDas + referenceIss) * 12;
-  const sessionSuggestion = profile.monthlySessionCount > 0 && referenceIncome > 0
-    ? Math.ceil(referenceAnnualNeeded / (profile.monthlySessionCount * workingMonths) / 5) * 5
+  const sessionSuggestion = referenceSessions > 0 && referenceIncome > 0
+    ? Math.ceil(referenceAnnualNeeded / (referenceSessions * workingMonths) / 5) * 5
     : null;
 
   const annualRows = [
@@ -530,11 +527,11 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
               </div>
             </PanelCard>
 
-            {sessionSuggestion && referenceMonth && profile.monthlySessionCount > 0 && (
+            {sessionSuggestion && referenceMonth && (
               <PanelCard title="Quanto cobrar por sessão?" icon={Calculator}>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <p className="flex-1 text-xs text-slate-600">
-                    Com <span className="font-semibold text-slate-900">{profile.monthlySessionCount} sessões/mês</span> e
+                    Com <span className="font-semibold text-slate-900">{referenceSessions} sessões realizadas no último mês fechado</span> e
                     usando a receita do último mês fechado, o valor mínimo sugerido por sessão é:
                   </p>
                   <div className="text-center bg-primary-50 border border-primary-100 text-primary-700 px-6 py-3 rounded-lg shrink-0">
@@ -544,13 +541,13 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
                 </div>
                 <p className="text-[11px] text-slate-500 mt-3 flex items-center gap-1">
                   <Info size={11} />
-                  Baseado em {MONTH_NAMES[referenceMonth.month - 1]}/{referenceMonth.year}: {formatCurrency(referenceIncome)} de receita, {profile.monthlySessionCount} sessões × {workingMonths} meses trabalhados/ano. O mês atual e meses futuros não entram no cálculo.
+                  Baseado em {MONTH_NAMES[referenceMonth.month - 1]}/{referenceMonth.year}: {formatCurrency(referenceIncome)} de receita e {referenceSessions} sessões realizadas. A projeção anual considera {referenceSessions * workingMonths} sessões em {workingMonths} meses trabalhados. O mês atual e meses futuros não entram no cálculo.
                 </p>
               </PanelCard>
             )}
-            {!sessionSuggestion && profile.monthlySessionCount > 0 && (
+            {!sessionSuggestion && (
               <Alert variant="info" title="Aguardando o último mês fechado">
-                A sugestão por sessão será calculada quando houver receita registrada em {MONTH_NAMES[previousMonthDate.getMonth()]}/{previousMonthDate.getFullYear()}. O mês atual e meses futuros são ignorados.
+                A sugestão por sessão será calculada quando houver receita e sessões realizadas registradas em {MONTH_NAMES[previousMonthDate.getMonth()]}/{previousMonthDate.getFullYear()}. O mês atual e meses futuros são ignorados.
               </Alert>
             )}
           </div>
@@ -765,7 +762,6 @@ export const FinancialHealth: React.FC<Props> = ({ monthSummaries, selectedYear 
           fProfession={fProfession} setFProfession={setFProfession}
           fEmployees={fEmployees} setFEmployees={setFEmployees}
           fDependents={fDependents} setFDependents={setFDependents}
-          fSessions={fSessions} setFSessions={setFSessions}
           fIssApplies={fIssApplies} setFIssApplies={setFIssApplies}
           fIssRate={fIssRate} setFIssRate={setFIssRate}
           onSave={saveProfile}
@@ -816,7 +812,6 @@ interface SetupProps {
   fProfession: FinancialProfile['professionType']; setFProfession: (v: FinancialProfile['professionType']) => void;
   fEmployees: number; setFEmployees: (n: number) => void;
   fDependents: number; setFDependents: (n: number) => void;
-  fSessions: number; setFSessions: (n: number) => void;
   fIssApplies: boolean; setFIssApplies: (v: boolean) => void;
   fIssRate: number; setFIssRate: (v: number) => void;
   onSave: () => void;
@@ -854,7 +849,6 @@ const SetupModal: React.FC<SetupProps> = ({
   fProfession, setFProfession,
   fEmployees, setFEmployees,
   fDependents, setFDependents,
-  fSessions, setFSessions,
   fIssApplies, setFIssApplies,
   fIssRate, setFIssRate,
   onSave, onClose,
@@ -951,17 +945,12 @@ const SetupModal: React.FC<SetupProps> = ({
           </div>
         )}
 
-        {/* Passo 3: sessões + ISS */}
+        {/* Passo 3: ISS */}
         {step === 3 && (
           <div className="space-y-4">
-            <Stepper
-              label="Quantas sessões você realiza por mês (em média)?"
-              hint="Usado para calcular o valor sugerido por sessão"
-              value={fSessions}
-              onChange={setFSessions}
-              min={1}
-              steps={[1, 5]}
-            />
+            <div className="rounded-lg border border-primary-100 bg-primary-50/50 px-3 py-2.5 text-xs text-primary-800">
+              A sugestão de valor por sessão usa automaticamente a quantidade de sessões realizadas no último mês fechado.
+            </div>
 
             {fWorkType !== 'pj_simples' && (
               <div className="border border-slate-200 rounded-lg p-3 space-y-3">
