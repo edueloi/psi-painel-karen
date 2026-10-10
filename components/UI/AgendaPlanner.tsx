@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronLeft,
@@ -364,6 +364,45 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
 }) => {
   const headerDaysRef = useRef<HTMLDivElement>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
+  // Semana no celular: ao chegar numa ponta da rolagem lateral aparece uma seta (ou basta continuar arrastando)
+  // para ir à semana seguinte/anterior.
+  const [scrollEdge, setScrollEdge] = useState<{ start: boolean; end: boolean }>({ start: false, end: false });
+  const pendingScrollTo = useRef<'start' | 'end' | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const edgeAtTouchStart = useRef<{ start: boolean; end: boolean }>({ start: false, end: false });
+
+  const updateScrollEdge = useCallback(() => {
+    const el = gridScrollRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth + 2) {
+      setScrollEdge(prev => (prev.start || prev.end ? { start: false, end: false } : prev));
+      return;
+    }
+    const start = el.scrollLeft <= 2;
+    const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    setScrollEdge(prev => (prev.start === start && prev.end === end ? prev : { start, end }));
+  }, []);
+
+  const goToWeek = useCallback((direction: 1 | -1) => {
+    pendingScrollTo.current = direction === 1 ? 'start' : 'end';
+    const next = new Date(currentDate);
+    next.setDate(next.getDate() + direction * 7);
+    onCurrentDateChange(next);
+  }, [currentDate, onCurrentDateChange]);
+
+  // Depois de trocar de semana: avanço começa no domingo; voltar abre no sábado (fim da semana anterior).
+  useEffect(() => {
+    const el = gridScrollRef.current;
+    if (el && pendingScrollTo.current) {
+      el.scrollLeft = pendingScrollTo.current === 'start' ? 0 : el.scrollWidth;
+      pendingScrollTo.current = null;
+    }
+    updateScrollEdge();
+  }, [currentDate, view, updateScrollEdge]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateScrollEdge);
+    return () => window.removeEventListener('resize', updateScrollEdge);
+  }, [updateScrollEdge]);
 
   const [hoveredSlot, setHoveredSlot] = useState<{
     dayIndex: number;
@@ -723,11 +762,49 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
             </div>
           </div>
 
+          {/* Setas de semana nas pontas da rolagem lateral (só quando a grade rola, ou seja, no celular) */}
+          {view === 'week' && (scrollEdge.start || scrollEdge.end) && (
+            <div className="pointer-events-none sticky top-[45vh] z-30 h-0 lg:hidden">
+              {scrollEdge.start && (
+                <button
+                  type="button"
+                  onClick={() => goToWeek(-1)}
+                  aria-label="Semana anterior"
+                  className="pointer-events-auto absolute flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-500 shadow-sm backdrop-blur-sm animate-pulse"
+                  style={{ left: TIME_COL_WIDTH + 6 }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+              )}
+              {scrollEdge.end && (
+                <button
+                  type="button"
+                  onClick={() => goToWeek(1)}
+                  aria-label="Próxima semana"
+                  className="pointer-events-auto absolute right-2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-500 shadow-sm backdrop-blur-sm animate-pulse"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Grid de horas — scroll horizontal independente, sincronizado com header */}
           <div
             ref={gridScrollRef}
             className="overflow-auto custom-scrollbar"
+            onTouchStart={(e) => { touchStartX.current = e.touches[0]?.clientX ?? null; edgeAtTouchStart.current = scrollEdge; }}
+            onTouchEnd={(e) => {
+              const startX = touchStartX.current;
+              touchStartX.current = null;
+              if (view !== 'week' || startX === null) return;
+              const dx = (e.changedTouches[0]?.clientX ?? startX) - startX;
+              // o gesto começou já na ponta e continuou para fora: muda de semana (arrastar até a ponta não conta)
+              if (dx < -70 && edgeAtTouchStart.current.end) goToWeek(1);
+              else if (dx > 70 && edgeAtTouchStart.current.start) goToWeek(-1);
+            }}
             onScroll={() => {
+              updateScrollEdge();
               if (headerDaysRef.current && gridScrollRef.current) {
                 headerDaysRef.current.style.transform = `translateX(-${gridScrollRef.current.scrollLeft}px)`;
               }
