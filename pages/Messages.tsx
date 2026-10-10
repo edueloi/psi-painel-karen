@@ -615,6 +615,16 @@ const WhatsAppInbox: React.FC = () => {
 
   const composerDisabled = !selected?.conversation || botStatus !== 'connected' || sending;
 
+  // No celular, com a conversa aberta (tela cheia), o botão flutuante do assistente cobre o enviar.
+  useEffect(() => {
+    if (!selected) return;
+    const fab = document.querySelector<HTMLElement>('[data-ai-fab]');
+    if (!fab || window.innerWidth >= 1024) return;
+    const previous = fab.style.display;
+    fab.style.display = 'none';
+    return () => { fab.style.display = previous; };
+  }, [selected]);
+
   return (
     <>
       <div className={`${selected
@@ -684,7 +694,7 @@ const WhatsAppInbox: React.FC = () => {
                 <p className="truncate text-[11px] text-slate-500">{patientPhone(selected.patient) || 'Paciente sem WhatsApp cadastrado'}</p>
               </div>
               <a href={`/pacientes/${selected.patient.id}`} className="hidden items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 sm:flex"><ExternalLink size={12} /> Paciente</a>
-              <IconButton variant="outline" size="md" aria-label="Enviar documento" title="Documentos do paciente" onClick={openDocuments} disabled={!selected.conversation}><Paperclip size={14} /></IconButton>
+              <IconButton variant="outline" size="md" className="hidden lg:inline-flex" aria-label="Enviar documento" title="Documentos do paciente" onClick={openDocuments} disabled={!selected.conversation}><Paperclip size={14} /></IconButton>
             </header>
 
             <div ref={messageListRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/60 px-3 py-3 sm:px-4">

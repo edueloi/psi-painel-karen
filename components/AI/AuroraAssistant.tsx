@@ -160,7 +160,7 @@ export const AuroraAssistant: React.FC = () => {
   return (
     <>
       {/* --- TRIGGER BUTTON --- */}
-      <div className={`fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2 transition-all duration-300 ${isOpen ? 'translate-y-[20px] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
+      <div data-ai-fab className={`fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2 transition-all duration-300 ${isOpen ? 'translate-y-[20px] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
 
         {/* Tooltip / Welcome Bubble */}
         <div className={`bg-white px-3 py-2 rounded-lg border border-slate-200 mb-2 transition-all duration-500 origin-bottom-right ${isHovered ? 'scale-100 opacity-100' : 'scale-90 opacity-0 translate-y-4 pointer-events-none'}`}>
