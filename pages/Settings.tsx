@@ -527,7 +527,7 @@ export const Settings: React.FC = () => {
     { icon: Video, title: 'Salas Virtuais', desc: 'Atendimentos por videochamada integrado ao sistema', onClick: () => navigate('/salas-virtuais') },
     { icon: MessageSquare, title: 'Bot / Automação', desc: 'Automação de mensagens e fluxos de atendimento', onClick: () => navigate('/bot') },
     { icon: FileCode, title: 'Formulários externos', desc: 'Links públicos de formulários para seus pacientes', onClick: () => navigate('/formularios') },
-    { icon: Briefcase, title: 'Gerador de documentos', desc: 'Modelos de laudos, declarações e relatórios clínicos', onClick: () => navigate('/gerador-documentos') },
+    { icon: Briefcase, title: 'Encaminhamentos', desc: 'Modelos de laudos, declarações e encaminhamentos clínicos', onClick: () => navigate('/encaminhamentos') },
   ];
 
   const comingSoon = [

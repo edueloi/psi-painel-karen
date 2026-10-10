@@ -24,14 +24,16 @@ import {
   UploadCloud,
   History,
   MapPin,
-  Stethoscope
+  Stethoscope,
+  Eye
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Modal } from '../components/UI/Modal';
-import { Input, Textarea } from '../components/UI/Input';
 import { Combobox } from '../components/UI/Combobox';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
-import { Button, ContentCard, PageWrapper, SectionTitle } from '../components/UI';
+import {
+  Alert, Badge, Button, ConfirmModal, DatePicker, EmptyState, FilterLineSearch, FormRow, IconButton,
+  Input, Modal, ModalFooter, PageWrapper, PanelCard, SectionTitle, Select, Tabs
+} from '../components/UI';
 
 type DocCategory = {
   id: string;
@@ -56,6 +58,12 @@ type UploadItem = {
   file_type?: string | null;
   file_url?: string | null;
 };
+
+const docTabs = [
+  { id: 'modelo', label: 'Modelo', icon: FileText },
+  { id: 'dados', label: 'Dados do documento', icon: User },
+  { id: 'timbrado', label: 'Papel timbrado', icon: ImageIcon },
+] as const;
 
 const monthNames = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -120,6 +128,8 @@ export const DocGenerator: React.FC = () => {
   const [uploadError, setUploadError] = useState('');
   const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [activeTab, setActiveTab] = useState<typeof docTabs[number]['id']>('modelo');
+  const [templateSearch, setTemplateSearch] = useState('');
 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -572,28 +582,83 @@ export const DocGenerator: React.FC = () => {
     }
   };
 
+  const areaRegistry = selectedArea === 'psicologia' ? 'CRP' : selectedArea === 'medicina' ? 'CRM' : selectedArea === 'psicopedagogia' ? 'ABPp' : selectedArea === 'enfermagem' ? 'COREN' : 'CREFITO';
+
+  const categoryNameOf = (id?: string | null) => categories.find(c => String(c.id) === String(id || ''))?.name || '';
+
+  const visibleTemplates = useMemo(() => {
+    const q = templateSearch.trim().toLowerCase();
+    if (!q) return filteredTemplates;
+    return filteredTemplates.filter(tpl =>
+      tpl.title.toLowerCase().includes(q) ||
+      (tpl.doc_type || '').toLowerCase().includes(q) ||
+      categoryNameOf(tpl.category_id).toLowerCase().includes(q)
+    );
+  }, [filteredTemplates, templateSearch, categories]);
+
+  const openPreview = async () => {
+    await renderPreview();
+    setIsPreviewModalOpen(true);
+  };
+
+  const renderUploadBox = (
+    label: string,
+    url: string,
+    setUrl: (v: string) => void,
+    inputRef: React.MutableRefObject<HTMLInputElement | null>,
+    target: 'header' | 'footer'
+  ) => (
+    <div className="space-y-1.5">
+      <span className="block text-xs font-medium text-slate-600">{label}</span>
+      <div className="flex min-h-[112px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-3 text-center">
+        {url ? (
+          <img src={url} alt={label} className="max-h-20 max-w-full object-contain" />
+        ) : (
+          <>
+            <UploadCloud size={18} className="text-slate-400" />
+            <p className="text-xs text-slate-500">Envie uma imagem (PNG ou JPG).</p>
+          </>
+        )}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="xs"
+            iconLeft={<UploadCloud size={14} />}
+            onClick={() => inputRef.current?.click()}
+            disabled={uploadingTarget === target}
+          >
+            {url ? 'Trocar imagem' : 'Selecionar imagem'}
+          </Button>
+          {url && (
+            <IconButton
+              variant="ghost"
+              size="xs"
+              aria-label={`Remover ${label.toLowerCase()}`}
+              title="Remover"
+              onClick={() => setUrl('')}
+            >
+              <Trash2 size={14} />
+            </IconButton>
+          )}
+        </div>
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e, target)} />
+      </div>
+    </div>
+  );
+
   return (
     <PageWrapper>
       <div className="space-y-4">
-      {/* TOASTS */}
-      <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3">
-        {toasts.map(t => (
-          <div key={t.id} className={`flex items-center gap-3 px-6 py-4 rounded-[1.5rem] shadow-sm border animate-slideIn ${t.type === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-            {t.type === 'success' ? <CheckCircle2 size={18}/> : <Info size={18}/>}
-            <span className="text-xs font-semibold">{t.message}</span>
-          </div>
-        ))}
-      </div>
-      <SectionTitle
+        <SectionTitle
           icon={FileText}
-          title="Emissor de Documentos"
-          description="Laudos, atestados e encaminhamentos profissionais."
+          title="Encaminhamentos"
+          description="Gere encaminhamentos, laudos, atestados e declarações a partir de modelos."
           action={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 onClick={() => setIsConfirmSeedModalOpen(true)}
                 disabled={isSeeding}
-                variant="success"
+                variant="outline"
                 size="sm"
                 iconLeft={<Sparkles size={14} />}
               >
@@ -609,537 +674,471 @@ export const DocGenerator: React.FC = () => {
               </Button>
               <Button
                 onClick={() => openTemplateModal()}
-                variant="primary"
+                variant="outline"
                 size="sm"
                 iconLeft={<Plus size={14} />}
               >
                 Novo template
               </Button>
+              <Button
+                onClick={openPreview}
+                disabled={!selectedTemplateId || isRendering}
+                variant="outline"
+                size="sm"
+                iconLeft={isRendering ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+              >
+                Visualizar
+              </Button>
+              <Button
+                onClick={handleGeneratePdf}
+                disabled={!previewHtml || !selectedTemplateId || isRendering}
+                variant="primary"
+                size="sm"
+                iconLeft={<Printer size={14} />}
+              >
+                Imprimir
+              </Button>
             </div>
           }
         />
 
-      <div className="space-y-4">
-        {/* Left Panel: Configuration */}
-        <div className="space-y-4">
-           {/* Section 1: Template Selection */}
-           <ContentCard className="p-3">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
-                        <History size={16} />
-                    </div>
-                    <h3 className="text-sm font-semibold text-slate-800">1. Configuração de Área</h3>
-                </div>
-                
-                <div className="space-y-4">
-                    <Combobox
-                      label="Área de Atuação"
-                      value={selectedArea}
-                      onChange={(v) => {
-                          setSelectedArea(v as string);
+        {isLoading ? (
+          <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+            <Loader2 size={18} className="animate-spin" /> Carregando...
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {/* Coluna esquerda: formulário em abas */}
+          <div className="min-w-0">
+            <Tabs<typeof docTabs[number]['id']> items={docTabs} value={activeTab} onChange={setActiveTab} label="Configuração do documento">
+              {activeTab === 'modelo' && (
+                <div className="space-y-3">
+                  <PanelCard title="Área e categoria" icon={History}>
+                    <FormRow cols={2}>
+                      <Select
+                        label="Área de atuação"
+                        value={selectedArea}
+                        onChange={e => {
+                          setSelectedArea(e.target.value);
                           setSelectedCategoryId('');
                           setSelectedTemplateId('');
-                      }}
-                      options={[
-                        { value: 'psicologia', label: 'Psicologia (CRP)' },
-                        { value: 'medicina', label: 'Medicina (CRM)' },
-                        { value: 'psicopedagogia', label: 'Psicopedagogia (ABPp)' },
-                        { value: 'enfermagem', label: 'Enfermagem (COREN)' },
-                        { value: 'fisioterapia', label: 'Fisioterapia (CREFITO)' },
-                      ]}
-                    />
+                        }}
+                        options={[
+                          { value: 'psicologia', label: 'Psicologia (CRP)' },
+                          { value: 'medicina', label: 'Medicina (CRM)' },
+                          { value: 'psicopedagogia', label: 'Psicopedagogia (ABPp)' },
+                          { value: 'enfermagem', label: 'Enfermagem (COREN)' },
+                          { value: 'fisioterapia', label: 'Fisioterapia (CREFITO)' },
+                        ]}
+                      />
+                      <Select
+                        label="Categoria"
+                        value={selectedCategoryId}
+                        onChange={e => setSelectedCategoryId(e.target.value)}
+                        placeholder="Todas as categorias"
+                        options={filteredCategories.map(c => ({ value: c.id, label: c.name }))}
+                      />
+                    </FormRow>
+                  </PanelCard>
 
-                    <Combobox
-                      label="Categoria"
-                      value={selectedCategoryId}
-                      onChange={(v) => setSelectedCategoryId(v as string)}
-                      placeholder="Todas as categorias"
-                      options={filteredCategories.map(c => ({ value: c.id, label: c.name }))}
-                    />
-
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                        {filteredTemplates.length === 0 && (
-                            <div className="p-8 text-center border-2 border-dashed border-slate-100 rounded-lg">
-                                <p className="text-xs font-semibold text-slate-400">Nenhum template encontrado.</p>
-                            </div>
-                        )}
-                        {filteredTemplates.map(tpl => (
-                            <div key={tpl.id} className="group/item relative">
-                                <button
-                                    onClick={() => setSelectedTemplateId(tpl.id)}
-                                    className={`w-full text-left p-4 rounded-lg border transition-all flex items-center justify-between group ${
-                                        selectedTemplateId === tpl.id 
-                                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-100' 
-                                        : 'bg-white border-slate-100 hover:border-indigo-300 text-slate-600'
-                                    }`}
-                                >
-                                    <div className="pr-16">
-                                        <p className="text-xs font-semibold leading-none mb-1">{tpl.title}</p>
-                                        <span className={`text-[11px] font-semibold ${selectedTemplateId === tpl.id ? 'text-indigo-100' : 'text-slate-400'}`}>
-                                            {tpl.doc_type || 'Geral'}
-                                        </span>
-                                    </div>
-                                    <ChevronRight size={16} className={selectedTemplateId === tpl.id ? 'text-white' : 'text-slate-300 group-hover:text-indigo-500'} />
-                                </button>
-                                
-                                <div className="absolute right-10 top-1/2 -translate-y-1/2 flex gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity bg-inherit rounded-lg p-1">
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); openTemplateModal(tpl); }}
-                                        className={`p-2 rounded-lg transition-colors ${selectedTemplateId === tpl.id ? 'hover:bg-indigo-500 text-indigo-100' : 'hover:bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
-                                        title="Editar Template"
-                                    >
-                                        <Edit3 size={14} />
-                                    </button>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); setTemplateToDelete(tpl); }}
-                                        className={`p-2 rounded-lg transition-colors ${selectedTemplateId === tpl.id ? 'hover:bg-indigo-500 text-indigo-100' : 'hover:bg-slate-100 text-slate-400 hover:text-rose-600'}`}
-                                        title="Excluir Template"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-           </ContentCard>
-
-           {/* Section 2: Document Data */}
-           <ContentCard className="p-3">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                        <User size={16} />
-                    </div>
-                    <h3 className="text-sm font-semibold text-slate-800">2. Dados do Documento</h3>
-                </div>
-
-                <div className="space-y-5">
-                    <Combobox
-                      label="Paciente"
-                      value={selectedPatientId}
-                      onChange={(v) => {
-                          const val = v as string;
-                          setSelectedPatientId(val);
-                          const p = patients.find(pt => String(pt.id) === val);
-                          if (p) setPatientName(p.name || p.full_name || '');
-                      }}
-                      placeholder="Selecione um paciente..."
-                      options={patients.map(p => ({ value: String(p.id), label: p.name || p.full_name || '' }))}
-                      icon={<User size={16} />}
-                    />
-
-                    <Input 
-                      label="Nome Manual/Extra"
-                      placeholder="Nome do Paciente"
-                      value={patientName}
-                      onChange={e => setPatientName(e.target.value)}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input 
-                          label="Data do Doc."
-                          type="date"
-                          value={docDate}
-                          onChange={e => setDocDate(e.target.value)}
+                  <PanelCard title="Modelos" description={`${visibleTemplates.length} disponíveis`}>
+                    <div className="space-y-3">
+                      <FilterLineSearch
+                        value={templateSearch}
+                        onChange={setTemplateSearch}
+                        placeholder="Buscar modelo..."
+                        className="max-w-[280px]"
+                      />
+                      {visibleTemplates.length === 0 ? (
+                        <EmptyState
+                          icon={FileText}
+                          title="Nenhum template encontrado"
+                          description={templateSearch ? 'Ajuste a busca ou os filtros.' : 'Importe os padrões ou crie um novo template.'}
                         />
-                        <Input 
+                      ) : (
+                        <div className="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 2xl:grid-cols-3">
+                          {visibleTemplates.map(tpl => {
+                            const active = selectedTemplateId === tpl.id;
+                            return (
+                              <div
+                                key={tpl.id}
+                                className={`relative rounded-lg border p-3 transition-colors ${
+                                  active ? 'border-primary-500 bg-primary-50' : 'border-slate-200 bg-white hover:border-primary-300'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedTemplateId(tpl.id)}
+                                  className="block w-full text-left"
+                                  aria-pressed={active}
+                                >
+                                  <p className="line-clamp-2 pr-14 text-[13px] font-medium leading-snug text-slate-800">{tpl.title}</p>
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                    <Badge color={active ? 'primary' : 'default'} size="sm">{tpl.doc_type || 'Geral'}</Badge>
+                                    {categoryNameOf(tpl.category_id) && (
+                                      <span className="text-[11px] text-slate-500">{categoryNameOf(tpl.category_id)}</span>
+                                    )}
+                                  </div>
+                                </button>
+                                <div className="absolute right-2 top-2 flex gap-0.5">
+                                  <IconButton
+                                    variant="ghost"
+                                    size="xs"
+                                    aria-label="Editar template"
+                                    title="Editar Template"
+                                    onClick={() => openTemplateModal(tpl)}
+                                  >
+                                    <Edit3 size={14} />
+                                  </IconButton>
+                                  <IconButton
+                                    variant="ghost"
+                                    size="xs"
+                                    aria-label="Excluir template"
+                                    title="Excluir Template"
+                                    onClick={() => setTemplateToDelete(tpl)}
+                                  >
+                                    <Trash2 size={14} />
+                                  </IconButton>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </PanelCard>
+                </div>
+              )}
+
+              {activeTab === 'dados' && (
+                <div className="space-y-3">
+                  <PanelCard title="Paciente e documento" icon={User}>
+                    <div className="space-y-3">
+                      <FormRow cols={2}>
+                        <Combobox
+                          label="Paciente"
+                          value={selectedPatientId}
+                          onChange={(v) => {
+                            const val = v as string;
+                            setSelectedPatientId(val);
+                            const p = patients.find(pt => String(pt.id) === val);
+                            if (p) setPatientName(p.name || p.full_name || '');
+                          }}
+                          placeholder="Selecione um paciente..."
+                          options={patients.map(p => ({ value: String(p.id), label: p.name || p.full_name || '' }))}
+                          icon={<User size={16} />}
+                        />
+                        <Input
+                          label="Nome manual/extra"
+                          placeholder="Nome do paciente"
+                          value={patientName}
+                          onChange={e => setPatientName(e.target.value)}
+                        />
+                      </FormRow>
+                      <FormRow cols={2}>
+                        <div className="space-y-1">
+                          <label className="block text-xs font-medium text-slate-600">Data do documento</label>
+                          <DatePicker value={docDate} onChange={v => setDocDate(v || '')} />
+                        </div>
+                        <Input
                           label="Cidade"
                           placeholder="Cidade"
                           value={city}
                           onChange={e => setCity(e.target.value)}
                         />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {hasTag('time_start') && (
-                         <Input 
-                           label="Horário de Início"
-                           placeholder="08:00"
-                           value={timeStart}
-                           onChange={e => setTimeStart(e.target.value)}
-                         />
-                        )}
-                        {hasTag('time_end') && (
-                         <Input 
-                           label="Horário de Fim"
-                           placeholder="09:00"
-                           value={timeEnd}
-                           onChange={e => setTimeEnd(e.target.value)}
-                         />
-                        )}
-                    </div>
-
-                    {hasTag('amount') && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input 
-                          label="Valor (R$)"
-                          placeholder="0,00"
-                          value={amount}
-                          onChange={e => setAmount(e.target.value)}
+                      </FormRow>
+                      {(hasTag('time_start') || hasTag('time_end')) && (
+                        <FormRow cols={2}>
+                          {hasTag('time_start') && (
+                            <Input
+                              label="Horário de início"
+                              placeholder="08:00"
+                              value={timeStart}
+                              onChange={e => setTimeStart(e.target.value)}
+                            />
+                          )}
+                          {hasTag('time_end') && (
+                            <Input
+                              label="Horário de fim"
+                              placeholder="09:00"
+                              value={timeEnd}
+                              onChange={e => setTimeEnd(e.target.value)}
+                            />
+                          )}
+                        </FormRow>
+                      )}
+                      {hasTag('amount') && (
+                        <FormRow cols={2}>
+                          <Input
+                            label="Valor (R$)"
+                            placeholder="0,00"
+                            value={amount}
+                            onChange={e => setAmount(e.target.value)}
+                          />
+                          <Input
+                            label="Valor por extenso"
+                            placeholder="Cento e vinte reais"
+                            value={amountText}
+                            onChange={e => setAmountText(e.target.value)}
+                          />
+                        </FormRow>
+                      )}
+                      {hasTag('service_name') && (
+                        <Input
+                          label="Serviço / finalidade"
+                          placeholder="Ex: Consulta de Psicopedagogia"
+                          value={serviceName}
+                          onChange={e => setServiceName(e.target.value)}
                         />
-                         <Input 
-                           label="Valor por Extenso"
-                           placeholder="Cento e vinte reais"
-                           value={amountText}
-                           onChange={e => setAmountText(e.target.value)}
-                         />
+                      )}
                     </div>
-                    )}
+                  </PanelCard>
 
-                    {hasTag('service_name') && (
-                    <Input 
-                      label="Serviço / Finalidade"
-                      placeholder="Ex: Consulta de Psicopedagogia"
-                      value={serviceName}
-                      onChange={e => setServiceName(e.target.value)}
-                    />
-                    )}
-
-                    <div className="pt-4 border-t border-slate-50 mt-4 space-y-3">
-                        <h4 className="text-[11px] font-semibold text-slate-400 px-1">IDENTIDADE PROFISSIONAL</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Input 
-                              label="Nome do Profissional"
-                              leftIcon={<Briefcase size={16} />}
-                              value={professionalName}
-                              onChange={e => setProfessionalName(e.target.value)}
-                            />
-                            <Input 
-                              label={`Registro (${selectedArea === 'psicologia' ? 'CRP' : selectedArea === 'medicina' ? 'CRM' : selectedArea === 'psicopedagogia' ? 'ABPp' : selectedArea === 'enfermagem' ? 'COREN' : 'CREFITO'})`}
-                              leftIcon={<CheckCircle2 size={16} />}
-                              value={professionalCrp}
-                              onChange={e => setProfessionalCrp(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                  <PanelCard title="Identidade profissional" icon={Briefcase}>
+                    <FormRow cols={2}>
+                      <Input
+                        label="Nome do profissional"
+                        leftIcon={<Briefcase size={14} />}
+                        value={professionalName}
+                        onChange={e => setProfessionalName(e.target.value)}
+                      />
+                      <Input
+                        label={`Registro (${areaRegistry})`}
+                        leftIcon={<CheckCircle2 size={14} />}
+                        value={professionalCrp}
+                        onChange={e => setProfessionalCrp(e.target.value)}
+                      />
+                    </FormRow>
+                  </PanelCard>
                 </div>
-           </ContentCard>
+              )}
 
-           {/* Section 3: Visual Identity */}
-           <ContentCard className="p-3">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                            <ImageIcon size={16} />
-                        </div>
-                        <h3 className="text-sm font-semibold text-slate-800">3. Papel Timbrado</h3>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div 
-                      className="group cursor-pointer"
-                      onClick={() => headerInputRef.current?.click()}
-                    >
-                        <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center group-hover:bg-indigo-50/50 group-hover:border-indigo-200 transition-all overflow-hidden p-2">
-                             {logoUrl ? (
-                                 <img src={logoUrl} className="max-h-full object-contain" />
-                             ) : (
-                                 <>
-                                    <UploadCloud size={20} className="text-slate-300 group-hover:text-indigo-500 mb-1" />
-                                    <span className="text-[11px] font-semibold text-slate-400 group-hover:text-indigo-600">CABEÇALHO</span>
-                                 </>
-                             )}
-                        </div>
-                        <input ref={headerInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e, 'header')} />
-                    </div>
-
-                    <div 
-                      className="group cursor-pointer"
-                      onClick={() => footerInputRef.current?.click()}
-                    >
-                        <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center group-hover:bg-indigo-50/50 group-hover:border-indigo-200 transition-all overflow-hidden p-2">
-                             {footerLogoUrl ? (
-                                 <img src={footerLogoUrl} className="max-h-full object-contain" />
-                             ) : (
-                                 <>
-                                    <UploadCloud size={20} className="text-slate-300 group-hover:text-indigo-500 mb-1" />
-                                    <span className="text-[11px] font-semibold text-slate-400 group-hover:text-indigo-600">RODAPÉ</span>
-                                 </>
-                             )}
-                        </div>
-                        <input ref={footerInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e, 'footer')} />
-                    </div>
-                </div>
-                {uploadingTarget && (
-                    <div className="flex items-center gap-2 mt-4 text-[11px] font-semibold text-indigo-600">
+              {activeTab === 'timbrado' && (
+                <PanelCard title="Papel timbrado" description="Logotipos usados no cabeçalho e no rodapé do documento." icon={ImageIcon}>
+                  <div className="space-y-3">
+                    <FormRow cols={2}>
+                      {renderUploadBox('Cabeçalho', logoUrl, setLogoUrl, headerInputRef, 'header')}
+                      {renderUploadBox('Rodapé', footerLogoUrl, setFooterLogoUrl, footerInputRef, 'footer')}
+                    </FormRow>
+                    {uploadingTarget && (
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-primary-600">
                         <Loader2 className="animate-spin" size={14} /> Enviando imagem...
-                    </div>
-                )}
-           </ContentCard>
+                      </div>
+                    )}
+                    {uploadError && <Alert variant="error">{uploadError}</Alert>}
+                  </div>
+                </PanelCard>
+              )}
+            </Tabs>
+          </div>
 
-           <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 pb-10">
-                <button 
-                  onClick={async () => {
-                      await renderPreview();
-                      setIsPreviewModalOpen(true);
-                  }}
-                  disabled={!selectedTemplateId || isRendering}
-                  className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-4 bg-slate-900 text-white rounded-[1.5rem] text-sm font-semibold shadow-sm hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
-                >
-                    {isRendering ? <Loader2 className="animate-spin" size={20} /> : <FileText size={20} />}
-                    VISUALIZAR DOCUMENTO
-                </button>
-
-                <button 
-                  onClick={handleGeneratePdf}
-                  disabled={!previewHtml || !selectedTemplateId || isRendering}
-                  className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-4 bg-emerald-500 text-white rounded-[1.5rem] text-sm font-semibold shadow-sm hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
-                >
-                    <Printer size={20} /> IMPRIMIR AGORA
-                </button>
-           </div>
+          {/* Coluna direita: pré-visualização */}
+          <div className="min-w-0">
+            <PanelCard
+              title="Pré-visualização"
+              description={selectedTemplate?.title}
+              icon={Eye}
+              action={
+                <Button variant="outline" size="xs" onClick={openPreview} disabled={!selectedTemplateId || isRendering}>
+                  Ampliar
+                </Button>
+              }
+            >
+              {!selectedTemplateId ? (
+                <EmptyState icon={FileText} title="Selecione um modelo" description="Escolha um modelo na aba Modelo para ver o documento." />
+              ) : isRendering && !previewHtml ? (
+                <div role="status" className="flex items-center justify-center gap-2 py-10 text-xs text-slate-500">
+                  <Loader2 size={16} className="animate-spin" /> Renderizando...
+                </div>
+              ) : previewHtml ? (
+                <div className="max-h-[640px] overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-2">
+                  <div style={{ zoom: 0.55 }} className="preview-content" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                </div>
+              ) : (
+                <EmptyState icon={FileText} title="Não foi possível renderizar" description="Confira os dados e tente novamente." />
+              )}
+            </PanelCard>
+          </div>
         </div>
+        )}
       </div>
 
-      <Modal 
-        isOpen={isPreviewModalOpen} 
-        onClose={() => setIsPreviewModalOpen(false)}
-        title="Pré-visualização do Documento"
-        maxWidth="max-w-5xl"
-      >
-          <div className="bg-slate-900 rounded-[2rem] p-4 md:p-10 flex flex-col items-center min-h-[80vh] overflow-y-auto no-scrollbar relative">
-                {/* Print Control Bar */}
-                <div className="w-full max-w-[210mm] bg-white/10 backdrop-blur-xl border border-white/10 rounded-lg p-4 mb-8 flex items-center justify-between relative z-20">
-                    <div className="flex items-center gap-4 px-2">
-                         <div className={`w-3 h-3 rounded-full ${previewHtml ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></div>
-                         <p className="text-[11px] font-semibold text-white leading-none">
-                            {isRendering ? 'Renderizando...' : previewHtml ? 'Preview Digital' : 'Erro na Renderização'}
-                         </p>
-                    </div>
-                    <button 
-                       onClick={handleGeneratePdf}
-                       className="flex items-center gap-2 px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-[11px] font-semibold shadow-sm transition-all"
-                    >
-                       <Printer size={16} /> IMPRIMIR AGORA
-                    </button>
-                </div>
-
-                {/* A4 Simulator */}
-                <div className="w-full max-w-[210mm] bg-white shadow-sm relative z-10 origin-top transform-gpu transition-all">
-                    <div className="w-full overflow-hidden bg-white">
-                        {previewHtml ? (
-                            <div className="w-full h-full preview-content" dangerouslySetInnerHTML={{ __html: previewHtml }}></div>
-                        ) : (
-                            <div className="p-20 text-center">
-                                <FileText size={64} className="mx-auto text-slate-200 mb-4" />
-                                <h4 className="text-sm sm:text-base font-semibold text-slate-800">Documento Vazio</h4>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                
-                <button 
-                  onClick={() => setIsPreviewModalOpen(false)}
-                  className="mt-8 px-8 py-3 bg-white/10 text-white rounded-lg text-[11px] font-semibold hover:bg-white/20 transition-all"
-                >
-                   FECHAR VISUALIZAÇÃO
-                </button>
+      {/* Toasts */}
+      <div className="fixed bottom-6 right-4 z-[200] flex flex-col gap-2">
+        {toasts.map(tt => (
+          <div key={tt.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${tt.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+            {tt.type === 'success' ? <CheckCircle2 size={16} /> : <Info size={16} />}
+            <span className="text-xs font-medium">{tt.message}</span>
           </div>
+        ))}
+      </div>
+
+      <Modal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        title="Pré-visualização do documento"
+        size="xl"
+        footer={
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Fechar</Button>
+            <Button variant="primary" iconLeft={<Printer size={14} />} onClick={handleGeneratePdf} disabled={!previewHtml || isRendering}>Imprimir</Button>
+          </ModalFooter>
+        }
+      >
+        <div className="flex flex-col items-center overflow-x-auto rounded-lg bg-slate-100 p-3">
+          <div className="mb-3 flex w-full max-w-[210mm] items-center gap-2 text-xs text-slate-600">
+            <span className={`h-2 w-2 rounded-full ${previewHtml ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+            {isRendering ? 'Renderizando...' : previewHtml ? 'Pré-visualização digital' : 'Erro na renderização'}
+          </div>
+          <div className="w-full max-w-[210mm] bg-white">
+            {previewHtml ? (
+              <div className="preview-content w-full" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            ) : (
+              <EmptyState icon={FileText} title="Documento vazio" />
+            )}
+          </div>
+        </div>
       </Modal>
 
-      {/* Category Manager Modal */}
-      {isCategoryModalOpen && (
-        <Modal 
-          isOpen={isCategoryModalOpen} 
-          onClose={() => setIsCategoryModalOpen(false)} 
-          title="Categorias de Documentos"
-        >
-          <div className="space-y-6">
-            <div className="flex gap-2">
-              <Input 
-                label="Nova Categoria"
-                hideLabel
-                placeholder="Nova Categoria" 
-                value={newCategoryName} 
-                onChange={e => setNewCategoryName(e.target.value)} 
-                containerClassName="flex-1"
-              />
-              <button 
-                onClick={handleAddCategory}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-[11px] font-semibold hover:bg-indigo-700 transition-all self-end mb-1"
-              >
-                ADC.
-              </button>
-            </div>
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+      {/* Categorias */}
+      <Modal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        title="Categorias de documentos"
+        size="md"
+        footer={<ModalFooter><Button variant="outline" onClick={() => setIsCategoryModalOpen(false)}>Fechar</Button></ModalFooter>}
+      >
+        <div className="space-y-3">
+          <div className="flex items-end gap-2">
+            <Input
+              label="Nova categoria"
+              placeholder="Nome da categoria"
+              value={newCategoryName}
+              onChange={e => setNewCategoryName(e.target.value)}
+              wrapperClassName="flex-1"
+            />
+            <Button variant="primary" iconLeft={<Plus size={14} />} onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
+              Adicionar
+            </Button>
+          </div>
+          {categories.length === 0 ? (
+            <EmptyState icon={Settings} title="Nenhuma categoria" />
+          ) : (
+            <ul className="max-h-60 space-y-2 overflow-y-auto">
               {categories.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                  <span className="text-xs font-semibold text-slate-700">{c.name}</span>
-                  <button 
+                <li key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <span className="text-xs font-medium text-slate-700">{c.name}</span>
+                  <IconButton
+                    variant="ghost"
+                    size="xs"
+                    aria-label={`Excluir categoria ${c.name}`}
                     onClick={async () => {
                       if (window.confirm('Deseja excluir esta categoria?')) {
                         await api.request(`/doc-generator/doc-categories/${c.id}`, { method: 'DELETE' });
                         await fetchData();
                       }
                     }}
-                    className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
                   >
                     <Trash2 size={14} />
-                  </button>
-                </div>
+                  </IconButton>
+                </li>
               ))}
-            </div>
+            </ul>
+          )}
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        isOpen={isConfirmSeedModalOpen}
+        onClose={() => setIsConfirmSeedModalOpen(false)}
+        onConfirm={handleSeedDefaults}
+        title="Importar modelos padrão"
+        message="Isso adicionará modelos de Atestado, Declaração, Recibo e Relatórios pré-configurados. Seus modelos atuais não serão alterados."
+        confirmLabel="Importar"
+        variant="primary"
+      />
+
+      {/* Modelo (criar/editar) */}
+      <Modal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        title={editingTemplateId ? 'Editar modelo' : 'Criar novo modelo'}
+        size="xl"
+        footer={
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setIsTemplateModalOpen(false)}>Descartar</Button>
+            <Button variant="primary" iconLeft={<Save size={14} />} onClick={saveTemplate}>Salvar template</Button>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-3">
+          <FormRow cols={3}>
+            <Input
+              label="Título do documento"
+              value={templateTitle}
+              onChange={e => setTemplateTitle(e.target.value)}
+              placeholder="Ex: Laudo Psicológico"
+            />
+            <Select
+              label="Categoria"
+              value={templateCategoryId}
+              onChange={e => setTemplateCategoryId(e.target.value)}
+              placeholder="Sem categoria"
+              options={categories.map(c => ({ value: c.id, label: c.name }))}
+            />
+            <Select
+              label="Tipo de documento"
+              value={templateDocType}
+              onChange={e => setTemplateDocType(e.target.value)}
+              options={[
+                { value: 'atestado', label: 'Atestado' },
+                { value: 'declaracao', label: 'Declaração' },
+                { value: 'encaminhamento', label: 'Encaminhamento' },
+                { value: 'recibo', label: 'Recibo' },
+                { value: 'prontuario', label: 'Prontuário' },
+                { value: 'ficha', label: 'Ficha de Anamnese' },
+                { value: 'laudo', label: 'Laudo' },
+                { value: 'outros', label: 'Outros' },
+              ]}
+            />
+          </FormRow>
+
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-slate-600">Corpo do template (tags dinâmicas)</label>
+            <RichTextEditor
+              value={templateBody}
+              onChange={setTemplateBody}
+              placeholder="Escreva o texto do documento aqui, use as variáveis no menu acima..."
+              minHeight={400}
+            />
           </div>
-        </Modal>
-      )}
 
-      {/* Confirmation Modal for Seed Defaults */}
-      {isConfirmSeedModalOpen && (
-        <Modal 
-          isOpen={isConfirmSeedModalOpen} 
-          onClose={() => setIsConfirmSeedModalOpen(false)} 
-          title="Importar Modelos Padrão"
-        >
-          <div className="p-6 text-center">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Sparkles size={32} />
-            </div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">Deseja importar os modelos padrão?</h3>
-            <p className="text-sm text-slate-500 mb-8">
-              Isso adicionará modelos de Atestado, Declaração, Recibo e Relatórios pré-configurados. Seus modelos atuais não serão alterados.
-            </p>
-            
-            <div className="flex justify-center gap-3">
-              <button 
-                onClick={() => setIsConfirmSeedModalOpen(false)}
-                className="px-6 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                CANCELAR
-              </button>
-              <button 
-                onClick={handleSeedDefaults}
-                className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg shadow-sm transition-all font-semibold text-[11px] transform active:scale-95"
-              >
-                SIM, IMPORTAR
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Template Manager Modal */}
-      {isTemplateModalOpen && (
-        <Modal 
-          isOpen={isTemplateModalOpen} 
-          onClose={() => setIsTemplateModalOpen(false)} 
-          title={editingTemplateId ? "Editar Modelo" : "Criar Novo Modelo"}
-          maxWidth="max-w-4xl"
-        >
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input 
-                label="Título do Documento" 
-                value={templateTitle} 
-                onChange={e => setTemplateTitle(e.target.value)} 
-                placeholder="Ex: Laudo Psicológico" 
-                containerClassName="md:col-span-1"
+          <PanelCard title="Assinatura do template" icon={CheckCircle2}>
+            <FormRow cols={2}>
+              <Input
+                label="Assinado por (nome)"
+                value={templateSignatureName}
+                onChange={e => setTemplateSignatureName(e.target.value)}
               />
-              <Combobox
-                label="Categoria"
-                value={templateCategoryId}
-                onChange={v => setTemplateCategoryId(v as string)}
-                placeholder="Sem Categoria"
-                options={categories.map(c => ({ value: c.id, label: c.name }))}
+              <Input
+                label="Reg. profissional (ex: CRP/CRM)"
+                value={templateSignatureCrp}
+                onChange={e => setTemplateSignatureCrp(e.target.value)}
               />
-              <Combobox
-                label="Tipo de Documento"
-                value={templateDocType}
-                onChange={v => setTemplateDocType(v as string)}
-                options={[
-                  { value: 'atestado', label: 'Atestado' },
-                  { value: 'declaracao', label: 'Declaração' },
-                  { value: 'encaminhamento', label: 'Encaminhamento' },
-                  { value: 'recibo', label: 'Recibo' },
-                  { value: 'prontuario', label: 'Prontuário' },
-                  { value: 'ficha', label: 'Ficha de Anamnese' },
-                  { value: 'laudo', label: 'Laudo' },
-                  { value: 'outros', label: 'Outros' },
-                ]}
-              />
-            </div>
+            </FormRow>
+          </PanelCard>
+        </div>
+      </Modal>
 
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-slate-400 px-1">Corpo do Template (Tags Dinâmicas)</label>
-              <RichTextEditor
-                value={templateBody}
-                onChange={setTemplateBody}
-                placeholder="Escreva o texto do documento aqui, use as variáveis no menu acima..."
-                minHeight="400px"
-              />
-            </div>
-
-            <div className="p-5 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-              <h4 className="flex items-center gap-2 text-[11px] font-semibold text-indigo-600 mb-4">
-                <CheckCircle2 size={14} /> Assinatura do Template
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input 
-                  label="Assinado por (Nome)" 
-                  value={templateSignatureName} 
-                  onChange={e => setTemplateSignatureName(e.target.value)} 
-                />
-                <Input 
-                  label="Reg. Profissional (Ex: CRP/CRM)" 
-                  value={templateSignatureCrp} 
-                  onChange={e => setTemplateSignatureCrp(e.target.value)} 
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-              <button 
-                onClick={() => setIsTemplateModalOpen(false)}
-                className="px-6 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                DESCARTAR
-              </button>
-              <button 
-                onClick={saveTemplate}
-                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg shadow-sm transition-all font-semibold text-[11px] transform active:scale-95 flex items-center gap-2"
-              >
-                <Save size={18}/> SALVAR TEMPLATE
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Template Delete Confirmation Modal */}
-      {templateToDelete && (
-        <Modal 
-          isOpen={!!templateToDelete} 
-          onClose={() => setTemplateToDelete(null)} 
-          title="Excluir Modelo"
-        >
-          <div className="p-6 text-center">
-            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trash2 size={32} />
-            </div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">Deseja excluir este modelo?</h3>
-            <p className="text-sm text-slate-500 mb-8">
-              Você está prestes a excluir o modelo <span className="font-semibold text-slate-700">"{templateToDelete.title}"</span>. 
-              Esta ação não pode ser desfeita.
-            </p>
-            
-            <div className="flex justify-center gap-3">
-              <button 
-                onClick={() => setTemplateToDelete(null)}
-                className="px-6 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                CANCELAR
-              </button>
-              <button 
-                onClick={handleDeleteTemplate}
-                className="px-8 py-3 bg-rose-500 text-white rounded-lg shadow-sm hover:bg-rose-600 transition-all font-semibold text-[11px] transform active:scale-95"
-              >
-                SIM, EXCLUIR
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-      </div>
+      <ConfirmModal
+        isOpen={!!templateToDelete}
+        onClose={() => setTemplateToDelete(null)}
+        onConfirm={handleDeleteTemplate}
+        title="Excluir modelo"
+        message={<>Você está prestes a excluir o modelo <span className="font-medium text-slate-800">"{templateToDelete?.title}"</span>. Esta ação não pode ser desfeita.</>}
+        confirmLabel="Excluir"
+        variant="danger"
+      />
     </PageWrapper>
   );
 };

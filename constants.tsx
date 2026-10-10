@@ -35,7 +35,7 @@ export const NAV_SECTIONS = [
     icon: <FolderOpen size={13}/>,
     items: [
       { label: 'nav.reports',   path: '/documentos',        icon: <FileText size={18} />, requiredPermission: 'manage_documents', requiredFeature: 'documentos' },
-      { label: 'nav.referrals', path: '/gerador-documentos',icon: <Printer size={18} />,  requiredPermission: 'manage_documents', requiredFeature: 'documentos' },
+      { label: 'nav.referrals', path: '/encaminhamentos',icon: <Printer size={18} />,  requiredPermission: 'manage_documents', requiredFeature: 'documentos' },
       { label: 'nav.terms',     path: '/termos',            icon: <BookCheck size={18} />,requiredPermission: 'manage_documents', requiredFeature: 'documentos' },
     ]
   },

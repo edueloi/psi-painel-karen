@@ -3458,7 +3458,7 @@ const RoomInner: React.FC<{
           {/* Gerar documento (só host, só com paciente vinculado) — abre o gerador em nova aba, prefiltrado */}
           {isHost && patientId && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }} className="hide-mobile">
-              <button onClick={() => window.open(`/gerador-documentos?patient_id=${patientId}`, '_blank')} style={btnActive(false)}>
+              <button onClick={() => window.open(`/encaminhamentos?patient_id=${patientId}`, '_blank')} style={btnActive(false)}>
                 <FileOutput size={22} />
               </button>
               <span style={{ fontSize: 10, color: "#94a3b8", letterSpacing: ".3px" }}>Doc.</span>

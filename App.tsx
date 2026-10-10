@@ -369,6 +369,12 @@ const PUBLIC_ROOT_TO_PAINEL_HOST: Record<string, string> = {
   'www.plaelo.com.br': 'painel.plaelo.com.br',
 };
 
+// Redireciona rotas antigas preservando a query string.
+const LegacyRedirect: React.FC<{ to: string }> = ({ to }) => {
+  const location = useLocation();
+  return <Navigate to={to + location.search} replace />;
+};
+
 const AppRoutes: React.FC = () => {
   const { user, logout, isInitializing } = useAuth();
   const { resolvedMode } = useTheme();
@@ -514,7 +520,9 @@ const AppRoutes: React.FC = () => {
       <Route path="/disc" element={<ProtectedRoute><Disc /></ProtectedRoute>} />
       <Route path="/termos" element={<ProtectedRoute requiredPermission="manage_documents"><DocumentVault /></ProtectedRoute>} />
       <Route path="/abordagens" element={<ProtectedRoute requiredCapability="does_psychotherapy"><Approaches /></ProtectedRoute>} />
-      <Route path="/gerador-documentos" element={<ProtectedRoute requiredPermission="manage_documents"><DocGenerator /></ProtectedRoute>} />
+      <Route path="/encaminhamentos" element={<ProtectedRoute requiredPermission="manage_documents"><DocGenerator /></ProtectedRoute>} />
+      {/* URL antiga: mantém links salvos funcionando (com a query, ex.: ?patient_id=) */}
+      <Route path="/gerador-documentos" element={<LegacyRedirect to="/encaminhamentos" />} />
       <Route path="/profissionais" element={<ProtectedRoute requiredPermission="manage_professionals"><Professionals /></ProtectedRoute>} />
       <Route path="/servicos" element={<ProtectedRoute requiredPermission="manage_services"><Services /></ProtectedRoute>} />
       <Route path="/produtos" element={<ProtectedRoute requiredPermission="manage_products"><Products /></ProtectedRoute>} />
