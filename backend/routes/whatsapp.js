@@ -5,6 +5,7 @@ const db = require('../db');
 const path = require('path');
 const fs = require('fs');
 const { authorize } = require('../middleware/auth');
+const { getFrontendUrl, getPortalUrl } = require('../utils/publicUrl');
 
 const BOT_URL = 'http://127.0.0.1:3014/bot-api';
 
@@ -412,7 +413,8 @@ router.get('/conversations/:id/documents', requireConversationAccess, async (req
     if (!conversation) return res.status(404).json({ error: 'Conversa não encontrada' });
     if (!conversation.patient_id) return res.json({ items: [] });
 
-    const [rows] = await db.query(
+    const [uploads, receipts, invoices, anamneses, portalDocuments] = await Promise.all([
+      db.query(
       `SELECT id, COALESCE(title, original_name, file_name, filename) AS title,
               COALESCE(original_name, file_name, filename) AS file_name,
               COALESCE(mime_type, file_type, 'application/octet-stream') AS mime_type,
@@ -421,38 +423,165 @@ router.get('/conversations/:id/documents', requireConversationAccess, async (req
        WHERE tenant_id = ? AND patient_id = ? AND filename IS NOT NULL AND filename <> ''
        ORDER BY created_at DESC LIMIT 50`,
       [tenantId, conversation.patient_id]
-    );
-    res.json({ items: rows });
+      ),
+      db.query(
+        `SELECT id, rs_receipt_file, rs_receipt_issued_at AS created_at
+         FROM financial_transactions
+         WHERE tenant_id = ? AND patient_id = ? AND rs_receipt_file IS NOT NULL AND rs_receipt_file <> ''
+         ORDER BY rs_receipt_issued_at DESC LIMIT 30`,
+        [tenantId, conversation.patient_id]
+      ),
+      db.query(
+        `SELECT ni.id, ni.numero, ni.chave_acesso, ni.nfse_pdf_path, ni.authorized_at AS created_at
+         FROM nfse_invoices ni
+         JOIN financial_transactions ft ON ft.id = ni.financial_transaction_id AND ft.tenant_id = ni.tenant_id
+         WHERE ni.tenant_id = ? AND ft.patient_id = ? AND ni.status = 'authorized'
+           AND ni.nfse_pdf_path IS NOT NULL AND ni.nfse_pdf_path <> ''
+         ORDER BY ni.authorized_at DESC LIMIT 30`,
+        [tenantId, conversation.patient_id]
+      ),
+      db.query(
+        `SELECT s.id, s.title, s.status, s.created_at
+         FROM anamnesis_sends s
+         JOIN anamnesis_secure_links l ON l.send_id = s.id
+           AND l.tenant_id = s.tenant_id AND l.patient_id = s.patient_id AND l.is_revoked = 0
+         WHERE s.tenant_id = ? AND s.patient_id = ?
+           AND s.status IN ('draft', 'sent', 'viewed', 'filling')
+           AND (l.expires_at IS NULL OR l.expires_at > NOW())
+         ORDER BY s.created_at DESC LIMIT 30`,
+        [tenantId, conversation.patient_id]
+      ),
+      db.query(
+        `SELECT id, title, created_at
+         FROM doc_instances
+         WHERE tenant_id = ? AND patient_id = ?
+         ORDER BY created_at DESC LIMIT 50`,
+        [tenantId, conversation.patient_id]
+      ).catch(() => [[]]),
+    ]);
+    const items = [
+      ...(uploads[0] || []).map(row => ({ ...row, id: `upload:${row.id}`, source: 'upload', kind: 'Anexo do paciente' })),
+      ...(receipts[0] || []).filter(row => fs.existsSync(path.join(__dirname, '../public/uploads', path.basename(row.rs_receipt_file)))).map(row => ({
+        id: `receipt:${row.id}`, title: 'Recibo Receita Saúde', file_name: path.basename(row.rs_receipt_file), mime_type: 'application/pdf', category: 'Financeiro', kind: 'Recibo', created_at: row.created_at, source: 'receipt',
+      })),
+      ...(invoices[0] || []).filter(row => fs.existsSync(row.nfse_pdf_path)).map(row => ({
+        id: `nfse:${row.id}`, title: `NFS-e${row.numero ? ` nº ${row.numero}` : ''}`, file_name: `nota-fiscal-${row.chave_acesso || row.numero || row.id}.pdf`, mime_type: 'application/pdf', category: 'Financeiro', kind: 'Nota fiscal', created_at: row.created_at, source: 'nfse',
+      })),
+      ...(anamneses[0] || []).map(row => ({
+        id: `anamnesis:${row.id}`, title: row.title, file_name: 'link-seguro-anamnese', mime_type: 'text/uri-list', category: 'Clínico', kind: 'Anamnese (link seguro)', created_at: row.created_at, source: 'anamnesis',
+      })),
+      ...(portalDocuments[0] || []).map(row => ({
+        id: `portal-document:${row.id}`, title: row.title, file_name: 'documento-no-portal', mime_type: 'text/uri-list', category: 'Clínico', kind: 'Documento no Portal', created_at: row.created_at, source: 'portal-document',
+      })),
+    ].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    res.json({ items });
   } catch (err) {
     console.error('[Conversations] Erro ao listar documentos:', err.message);
     res.status(500).json({ error: 'Erro ao listar documentos do paciente' });
   }
 });
 
-// POST /whatsapp/conversations/:id/documents/:uploadId - envia um anexo
-// previamente vinculado ao mesmo paciente da conversa.
-router.post('/conversations/:id/documents/:uploadId', requireConversationAccess, async (req, res) => {
+// POST /whatsapp/conversations/:id/documents/:documentId - envia um anexo,
+// recibo ou NFS-e pertencente ao mesmo paciente da conversa.
+router.post('/conversations/:id/documents/:documentId', requireConversationAccess, async (req, res) => {
   const tenantId = req.user.tenant_id;
   try {
-    const [[row]] = await db.query(
-      `SELECT c.id AS conversation_id, c.contact_phone, c.patient_id,
-              u.filename, COALESCE(u.original_name, u.file_name, u.filename) AS file_name,
-              COALESCE(u.mime_type, u.file_type, 'application/octet-stream') AS mime_type
-       FROM whatsapp_conversations c
-       JOIN uploads u ON u.patient_id = c.patient_id AND u.tenant_id = c.tenant_id
-       WHERE c.id = ? AND c.tenant_id = ? AND u.id = ?`,
-      [req.params.id, tenantId, req.params.uploadId]
-    );
-    if (!row?.patient_id) return res.status(404).json({ error: 'Documento ou conversa não encontrados' });
+    const [source, rawId] = String(req.params.documentId).split(':');
+    const documentId = Number(rawId);
+    if (!['upload', 'receipt', 'nfse', 'anamnesis', 'portal-document'].includes(source) || !Number.isInteger(documentId)) {
+      return res.status(400).json({ error: 'Documento inválido' });
+    }
 
-    const filePath = path.join(__dirname, '../public/uploads', path.basename(row.filename));
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Arquivo não está mais disponível no servidor' });
+    let row;
+    if (source === 'portal-document') {
+      [[row]] = await db.query(
+        `SELECT c.id AS conversation_id, c.contact_phone, c.patient_id, p.name AS patient_name, d.title
+         FROM whatsapp_conversations c
+         JOIN patients p ON p.id = c.patient_id AND p.tenant_id = c.tenant_id
+         JOIN doc_instances d ON d.patient_id = c.patient_id AND d.tenant_id = c.tenant_id
+         WHERE c.id = ? AND c.tenant_id = ? AND d.id = ?`,
+        [req.params.id, tenantId, documentId]
+      ).catch(() => [[]]);
+      if (!row?.patient_id) return res.status(404).json({ error: 'Documento ou conversa não encontrados' });
+
+      const intro = String(req.body?.caption || '').trim().slice(0, 700)
+        || `Olá, ${row.patient_name || ''}! O documento "${row.title}" está disponível para você.`;
+      const response = await axios.post(`${BOT_URL}/conversations/${tenantId}/send`, {
+        conversationId: row.conversation_id,
+        phone: row.contact_phone,
+        message: `${intro}\n\nAcesse com segurança pelo Portal do Paciente:\n${getPortalUrl(req)}`,
+        sentByUserId: req.user.id,
+      });
+      return res.json(response.data);
+    } else if (source === 'anamnesis') {
+      [[row]] = await db.query(
+        `SELECT c.id AS conversation_id, c.contact_phone, c.patient_id,
+                p.name AS patient_name, s.title, l.token AS secure_token
+         FROM whatsapp_conversations c
+         JOIN patients p ON p.id = c.patient_id AND p.tenant_id = c.tenant_id
+         JOIN anamnesis_sends s ON s.patient_id = c.patient_id AND s.tenant_id = c.tenant_id
+         JOIN anamnesis_secure_links l ON l.send_id = s.id
+           AND l.tenant_id = s.tenant_id AND l.patient_id = s.patient_id AND l.is_revoked = 0
+         WHERE c.id = ? AND c.tenant_id = ? AND s.id = ?
+           AND s.status IN ('draft', 'sent', 'viewed', 'filling')
+           AND (l.expires_at IS NULL OR l.expires_at > NOW())`,
+        [req.params.id, tenantId, documentId]
+      );
+      if (!row?.secure_token) return res.status(404).json({ error: 'Link seguro não está mais disponível' });
+
+      const link = `${getFrontendUrl(req)}/f/anamnese?t=${row.secure_token}`;
+      const intro = String(req.body?.caption || '').trim().slice(0, 700)
+        || `Olá, ${row.patient_name || ''}! Segue a anamnese "${row.title}" para preenchimento.`;
+      const response = await axios.post(`${BOT_URL}/conversations/${tenantId}/send`, {
+        conversationId: row.conversation_id,
+        phone: row.contact_phone,
+        message: `${intro}\n\n${link}\n\nSuas respostas são confidenciais.`,
+        sentByUserId: req.user.id,
+      });
+      return res.json(response.data);
+    } else if (source === 'upload') {
+      [[row]] = await db.query(
+        `SELECT c.id AS conversation_id, c.contact_phone, c.patient_id,
+                u.filename, COALESCE(u.original_name, u.file_name, u.filename) AS file_name,
+                COALESCE(u.mime_type, u.file_type, 'application/octet-stream') AS mime_type
+         FROM whatsapp_conversations c
+         JOIN uploads u ON u.patient_id = c.patient_id AND u.tenant_id = c.tenant_id
+         WHERE c.id = ? AND c.tenant_id = ? AND u.id = ?`,
+        [req.params.id, tenantId, documentId]
+      );
+      if (row) row.file_path = path.join(__dirname, '../public/uploads', path.basename(row.filename));
+    } else if (source === 'receipt') {
+      [[row]] = await db.query(
+        `SELECT c.id AS conversation_id, c.contact_phone, c.patient_id,
+                t.rs_receipt_file AS filename, CONCAT('recibo-receita-saude-', t.id, '.pdf') AS file_name,
+                'application/pdf' AS mime_type
+         FROM whatsapp_conversations c
+         JOIN financial_transactions t ON t.patient_id = c.patient_id AND t.tenant_id = c.tenant_id
+         WHERE c.id = ? AND c.tenant_id = ? AND t.id = ? AND t.rs_receipt_file IS NOT NULL`,
+        [req.params.id, tenantId, documentId]
+      );
+      if (row) row.file_path = path.join(__dirname, '../public/uploads', path.basename(row.filename));
+    } else {
+      [[row]] = await db.query(
+        `SELECT c.id AS conversation_id, c.contact_phone, c.patient_id,
+                ni.nfse_pdf_path AS file_path,
+                CONCAT('nota-fiscal-', COALESCE(ni.chave_acesso, ni.numero, ni.id), '.pdf') AS file_name,
+                'application/pdf' AS mime_type
+         FROM whatsapp_conversations c
+         JOIN financial_transactions t ON t.patient_id = c.patient_id AND t.tenant_id = c.tenant_id
+         JOIN nfse_invoices ni ON ni.financial_transaction_id = t.id AND ni.tenant_id = t.tenant_id
+         WHERE c.id = ? AND c.tenant_id = ? AND ni.id = ? AND ni.status = 'authorized'`,
+        [req.params.id, tenantId, documentId]
+      );
+    }
+    if (!row?.patient_id) return res.status(404).json({ error: 'Documento ou conversa não encontrados' });
+    if (!row.file_path || !fs.existsSync(row.file_path)) return res.status(404).json({ error: 'Arquivo não está mais disponível no servidor' });
 
     const caption = String(req.body?.caption || '').trim().slice(0, 1000);
     const response = await axios.post(`${BOT_URL}/conversations/${tenantId}/send-document`, {
       conversationId: row.conversation_id,
       phone: row.contact_phone,
-      filePath,
+      filePath: row.file_path,
       fileName: row.file_name,
       caption,
       mimeType: row.mime_type,
