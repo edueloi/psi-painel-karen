@@ -131,7 +131,7 @@ export const Performance: React.FC = () => {
             <FilterLineSegmented
               size="sm"
               value={period}
-              onChange={setPeriod}
+              onChange={value => setPeriod(String(value))}
               options={PERIOD_OPTIONS}
             />
           }

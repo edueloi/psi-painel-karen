@@ -37,9 +37,15 @@ import { Modal } from '../../components/UI/Modal';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Alert } from '../../components/UI/Alert';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
-import { Button } from '../../components/UI/Button';
+import { Button, IconButton } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { Patient } from '../../types';
 import { api } from '../../services/api';
@@ -98,7 +104,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     const headingMatch = line.match(/^\*\*([^*]+)\*\*\s*$/);
     if (headingMatch) {
       result.push(
-        <p key={i} className="text-xs font-semibold text-amber-300 mt-4 mb-1 first:mt-0">
+        <p key={i} className="text-xs font-semibold text-primary-700 mt-4 mb-1 first:mt-0">
           {headingMatch[1]}
         </p>
       );
@@ -108,7 +114,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (numMatch) {
       result.push(
         <div key={i} className="flex gap-2 mt-2">
-          <span className="shrink-0 font-semibold text-amber-300">{numMatch[1]}.</span>
+          <span className="shrink-0 font-semibold text-primary-700">{numMatch[1]}.</span>
           <span>{inlineMarkdown(numMatch[2])}</span>
         </div>
       );
@@ -118,7 +124,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (bulletMatch) {
       result.push(
         <div key={i} className="flex gap-2 mt-1">
-          <span className="shrink-0 text-amber-300">•</span>
+          <span className="shrink-0 text-primary-700">•</span>
           <span>{inlineMarkdown(bulletMatch[1])}</span>
         </div>
       );
@@ -134,7 +140,7 @@ function inlineMarkdown(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     const m = part.match(/^\*\*([^*]+)\*\*$/);
-    if (m) return <strong key={i} className="font-semibold text-white">{m[1]}</strong>;
+    if (m) return <strong key={i} className="font-semibold text-slate-900">{m[1]}</strong>;
     return part;
   });
 }
@@ -198,6 +204,15 @@ function getClinicalAnalysis(scores: { inattention: number; hyperactivity: numbe
   return { parts, conclusion };
 }
 
+type SnapTab = 'summary' | 'history';
+type SnapDetailTab = 'summary' | 'ai' | 'answers';
+type SnapSub = 'I' | 'H' | 'O';
+
+const snapTabs = [
+  { id: 'summary', label: 'Resumo', icon: Layout },
+  { id: 'history', label: 'Registros', icon: History },
+] as const;
+
 export const SNAPIVPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -219,6 +234,10 @@ export const SNAPIVPage: React.FC = () => {
   const [detailResult, setDetailResult] = useState<SnapResult | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [showAnswers, setShowAnswers] = useState(false);
+  const [activeTab, setActiveTab] = useState<SnapTab>('summary');
+  const [detailTab, setDetailTab] = useState<SnapDetailTab>('summary');
+  const [applySub, setApplySub] = useState<SnapSub>('I');
+  useEffect(() => { setDetailTab('summary'); }, [detailResult?.id]);
   const [isApplying, setIsApplying] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -391,9 +410,8 @@ export const SNAPIVPage: React.FC = () => {
 
         <polygon
           points={`${pI.x},${pI.y} ${pH.x},${pH.y} ${pO.x},${pO.y}`}
-          fill="rgba(37, 99, 235, 0.15)"
-          stroke="#2563eb"
-          strokeWidth="3"
+          style={{ fill: 'var(--c-500)', fillOpacity: 0.15, stroke: 'var(--c-600)' }}
+          strokeWidth="2"
         />
 
         {/* Cutoff polygon (normalized) */}
@@ -822,527 +840,465 @@ export const SNAPIVPage: React.FC = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
   const subscaleLabels: Record<string, string> = { I: 'Desatenção', H: 'Hiperatividade', O: 'Oposição' };
   const subscaleColors: Record<string, string> = {
-    I: 'text-blue-500 bg-blue-50',
-    H: 'text-indigo-500 bg-indigo-50',
-    O: 'text-violet-500 bg-violet-50',
+    I: 'text-primary-700 bg-primary-50',
+    H: 'text-sky-600 bg-sky-50',
+    O: 'text-slate-600 bg-slate-100',
   };
 
+  const detailPatientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
+  const SNAP_SUB_TITLES: Record<SnapSub, string> = { I: 'Desatenção', H: 'Hiperatividade / Impulsividade', O: 'Oposição / Desafio' };
+  const applyTabs = (['I', 'H', 'O'] as const).map(sub => ({
+    id: sub,
+    label: SNAP_SUB_TITLES[sub],
+    badge: `${SNAPIV_ITEMS.filter(it => it.subscale === sub && currentAnswers[it.id] !== undefined).length}/${SNAPIV_ITEMS.filter(it => it.subscale === sub).length}`,
+  }));
+
   return (
-    <>
-      <div className="space-y-8 animate-fadeIn mb-8">
-      <PageHeader
-        title="SNAP-IV"
-        subtitle="Escala de Avaliação de TDAH e Oposição/Desafio (Swanson, Nolan & Pelham)."
-        icon={<Activity className="text-blue-500" />}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              radius="xl"
-              leftIcon={<Plus size={16} />}
-              onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para aplicar a escala.')}
-              className="bg-blue-600 text-white shadow-sm shadow-blue-200"
-            >
-               Aplicar Nova Escala
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              radius="xl"
-              leftIcon={<Share2 size={16} />}
-              onClick={() => selectedPatientId ? setShareOpen(true) : info('Selecione um paciente', 'Escolha um prontuário para compartilhar.')}
-            >
-               Compartilhar
-            </Button>
-          </div>
-        }
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-        <div className="space-y-6">
-          <ClinicalSidebar
-            patients={patients}
-            selectedPatientId={selectedPatientId}
-            onSelectPatient={id => setSelectedPatientId(id)}
-            patientSearch={patientSearch}
-            setPatientSearch={setPatientSearch}
-            isLoading={loadingPatients}
-            t={t}
-          />
-
-          <div className="bg-white rounded-lg border border-slate-100 p-6 shadow-sm space-y-4">
-              <h4 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
-                 <Info size={14} className="text-blue-400" /> Referências Clínicas SNAP-IV
-              </h4>
-              <div className="space-y-3 pt-2 text-[11px] font-semibold text-slate-600">
-                 <p><span className="text-blue-600 font-semibold">0</span> — Nada</p>
-                 <p><span className="text-blue-600 font-semibold">1</span> — Um pouco</p>
-                 <p><span className="text-blue-600 font-semibold">2</span> — Bastante</p>
-                 <p><span className="text-blue-600 font-semibold">3</span> — Demais</p>
-              </div>
-              <div className="pt-2 border-t border-slate-50 space-y-2">
-                 <p className="text-[11px] font-semibold text-slate-400">Pontos de Corte</p>
-                 <p className="text-[11px] font-semibold text-slate-500">Desatenção / Hiperativ.: ≥ 2,0</p>
-                 <p className="text-[11px] font-semibold text-slate-500">Oposição/Desafio: ≥ 1,67</p>
-              </div>
-          </div>
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
         </div>
 
-        {!selectedPatientId ? (
-          <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-20 text-center space-y-4">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
-              <Activity size={32} />
+        <SectionTitle
+          icon={Activity}
+          title="SNAP-IV"
+          description="Escala de Avaliação de TDAH e Oposição/Desafio (Swanson, Nolan & Pelham)."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                iconLeft={<Plus size={14} />}
+                onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para aplicar a escala.')}
+              >
+                Aplicar Nova Escala
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                iconLeft={<Share2 size={14} />}
+                onClick={() => selectedPatientId ? setShareOpen(true) : info('Selecione um paciente', 'Escolha um prontuário para compartilhar.')}
+              >
+                Compartilhar
+              </Button>
             </div>
-            <p className="text-xs font-semibold text-slate-400 leading-loose">Selecione o paciente para visualizar dados e gráficos SNAP-IV.</p>
+          }
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <div className="min-w-0 space-y-3">
+            <ClinicalSidebar
+              patients={patients}
+              selectedPatientId={selectedPatientId}
+              onSelectPatient={id => setSelectedPatientId(id)}
+              patientSearch={patientSearch}
+              setPatientSearch={setPatientSearch}
+              isLoading={loadingPatients}
+              t={t}
+            />
+
+            <PanelCard title="Referências Clínicas SNAP-IV" icon={Info}>
+              <div className="space-y-3">
+                <div className="space-y-1.5 text-[11px] text-slate-600">
+                  <p><span className="text-primary-700 font-medium">0</span> — Nada</p>
+                  <p><span className="text-primary-700 font-medium">1</span> — Um pouco</p>
+                  <p><span className="text-primary-700 font-medium">2</span> — Bastante</p>
+                  <p><span className="text-primary-700 font-medium">3</span> — Demais</p>
+                </div>
+                <div className="pt-2 border-t border-slate-100 space-y-1">
+                  <p className="text-xs font-medium text-slate-600">Pontos de Corte</p>
+                  <p className="text-[11px] text-slate-500">Desatenção / Hiperativ.: ≥ 2,0</p>
+                  <p className="text-[11px] text-slate-500">Oposição/Desafio: ≥ 1,67</p>
+                </div>
+              </div>
+            </PanelCard>
           </div>
-        ) : (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* Left Column: Graphics */}
-              <div className="space-y-8">
-                 <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-sm relative overflow-hidden h-full">
-                    <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-                       <TrendingUp size={240} />
-                    </div>
 
-                    <h3 className="text-[11px] font-semibold flex items-center gap-2 text-blue-400 mb-10">
-                       <Layout size={18} /> Gráfico SNAP-IV
-                    </h3>
-
-                    <div className="flex flex-col items-center gap-12">
-                       <div className="shrink-0 bg-white/5 p-10 rounded-[3rem] border border-white/10 backdrop-blur-sm">
+          <div className="min-w-0 space-y-4">
+            {!selectedPatientId ? (
+              <ContentCard>
+                <EmptyState icon={Activity} title="Nenhum paciente selecionado" description="Selecione o paciente para visualizar dados e gráficos SNAP-IV." />
+              </ContentCard>
+            ) : (
+              <Tabs<SnapTab> items={snapTabs} value={activeTab} onChange={setActiveTab} label="Seções do SNAP-IV">
+                {activeTab === 'summary' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    <PanelCard title="Gráfico SNAP-IV" icon={Layout}>
+                      <div className="space-y-4">
+                        <div className="flex justify-center bg-slate-50 border border-slate-100 rounded-lg p-4 overflow-x-auto">
                           <RadarGraphic scores={history.length > 0 ? history[history.length - 1].scores : currentScores} />
-                       </div>
-                       <div className="flex-1 space-y-6 w-full">
-                          {(['inattention', 'hyperactivity', 'oppositional'] as const).map(sub => {
-                             const lastRes = history.length > 0 ? history[history.length - 1] : null;
-                             const score = lastRes ? lastRes.scores[sub] : currentScores[sub];
-                             const level = getLevel(sub, score);
-                             const subLabel = sub === 'inattention' ? 'Desatenção' : sub === 'hyperactivity' ? 'Hiperatividade' : 'Oposição';
-                             return (
-                               <div key={sub} className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                     <span className="text-[11px] font-semibold text-slate-400">{subLabel}</span>
-                                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/10 ${level.color}`}>{level.label}</span>
-                                  </div>
-                                  <div className="h-2 bg-white/10 rounded-full overflow-hidden relative">
-                                     <div className={`h-full transition-all duration-1000 ${level.color.replace('text', 'bg')}`} style={{ width:`${(score / 3) * 100}%` }} />
-                                     {/* Cutoff marker */}
-                                     <div className="absolute top-0 h-full w-px bg-rose-400 opacity-60" style={{ left: `${(SNAP_CUTOFFS[sub] / 3) * 100}%` }} />
-                                  </div>
-                               </div>
-                             );
-                          })}
-                          <div className="pt-4 border-t border-white/10 flex justify-between items-center text-slate-500">
-                             <p className="text-[11px] font-semibold italic leading-relaxed">Resultado da Última Avaliação Sincronizada</p>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-
-              {/* Right Column: History & Evolution */}
-              <div className="space-y-8">
-                 <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8">
-                    <div className="flex items-center justify-between">
-                       <h4 className="text-[11px] font-semibold text-slate-900 flex items-center gap-2">
-                          <TrendingUp size={16} className="text-blue-500" /> Evolução do Paciente
-                       </h4>
-                       <div className="flex gap-2">
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"/><span className="text-[7px] font-semibold">Des</span></div>
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500"/><span className="text-[7px] font-semibold">Hip</span></div>
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-500"/><span className="text-[7px] font-semibold">Opo</span></div>
-                       </div>
-                    </div>
-
-                    <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-5 flex items-end gap-2 relative">
-                       {history.length < 2 && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-lg">
-                            <p className="text-[11px] font-semibold text-slate-400">Aguardando mais dados históricos</p>
-                         </div>
-                       )}
-                       {[...history].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
-                         <div key={res.id} className="flex-1 flex flex-col justify-end gap-1 h-full min-w-[30px] group cursor-pointer relative" onClick={() => setDetailResult(res)}>
-                            <div className="bg-violet-500/20 w-full rounded-t-lg transition-all group-hover:bg-violet-500/40" style={{ height: `${(res.scores.oppositional / 3) * 100}%` }} />
-                            <div className="bg-indigo-500/40 w-full transition-all group-hover:bg-indigo-500/60" style={{ height: `${(res.scores.hyperactivity / 3) * 100}%` }} />
-                            <div className="bg-blue-500/60 w-full rounded-b-lg transition-all group-hover:bg-blue-500" style={{ height: `${(res.scores.inattention / 3) * 100}%` }} />
-
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-sm">
-                               <p className="text-[11px] font-semibold mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
-                               <div className="flex gap-2">
-                                  <span className="text-[11px] font-semibold text-blue-400">D{res.scores.inattention.toFixed(1)}</span>
-                                  <span className="text-[11px] font-semibold text-indigo-400">H{res.scores.hyperactivity.toFixed(1)}</span>
-                                  <span className="text-[11px] font-semibold text-violet-400">O{res.scores.oppositional.toFixed(1)}</span>
-                               </div>
-                            </div>
-                         </div>
-                       ))}
-                    </div>
-                 </div>
-
-                 {/* History List */}
-                 <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-                    <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                       <p className="text-[11px] font-semibold text-slate-400 leading-none">Registros Sincronizados</p>
-                       <History size={16} className="text-slate-300" />
-                    </div>
-                    <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
-                       {[...history].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => (
-                         <div key={res.id} className="px-6 py-4 hover:bg-slate-50 transition-all group flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4 min-w-0">
-                               <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                     <Clock size={11} className="text-blue-400 shrink-0" />
-                                     <span className="text-xs font-semibold text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
-                                     {res.analysis && <Sparkles size={11} className="text-amber-400" />}
-                                     {res.origin === 'external' && <span className="text-[11px] font-semibold text-slate-300 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">Externo</span>}
-                                  </div>
-                                  <div className="flex gap-3">
-                                     {(['inattention', 'hyperactivity', 'oppositional'] as const).map(s => {
-                                        const level = getLevel(s, res.scores[s]);
-                                        const letter = s === 'inattention' ? 'D' : s === 'hyperactivity' ? 'H' : 'O';
-                                        return (
-                                           <div key={s} className="flex flex-col items-center">
-                                              <span className="text-[7px] font-semibold text-slate-300">{letter}</span>
-                                              <span className={`text-xs font-semibold ${level.color}`}>{res.scores[s].toFixed(2)}</span>
-                                           </div>
-                                        );
-                                     })}
-                                  </div>
-                               </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                               <button
-                                 onClick={() => generateAIResult(res.id)}
-                                 title="Análise Bia"
-                                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${res.analysis ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300 hover:text-blue-500'}`}
-                               >
-                                  <Sparkles size={13} className={analyzingId === res.id ? 'animate-spin' : ''} />
-                               </button>
-                               <button
-                                 onClick={() => setDetailResult(res)}
-                                 className="flex items-center gap-1.5 px-3 h-8 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[11px] font-semibold transition-all"
-                               >
-                                 Ver <ChevronRight size={12} />
-                               </button>
-                            </div>
-                         </div>
-                       ))}
-                       {history.length === 0 && (
-                         <div className="p-20 text-center space-y-3 opacity-30">
-                            <FileText size={40} className="mx-auto" />
-                            <p className="text-[11px] font-semibold">Sem lançamentos</p>
-                         </div>
-                       )}
-                    </div>
-                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-      </div>
-
-    {/* Result Detail Modal */}
-    {detailResult && (
-      <div className="fixed inset-0 mt-0 bg-slate-950/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{maxHeight:'90vh'}}>
-
-            {/* Header fixo */}
-            <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
-               <div>
-                  <p className="text-[11px] font-semibold text-blue-500 mb-1">Avaliação SNAP-IV Consolidada</p>
-                  {(() => {
-                    const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                    return <h2 className="text-xl font-semibold text-slate-900 leading-tight">{patientName}</h2>;
-                  })()}
-                  <p className="text-xs font-medium text-slate-400 mt-0.5">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-               </div>
-               <div className="flex items-center gap-2 shrink-0">
-                  {(() => {
-                    const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                    return (<>
-                      <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                      <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14}/>} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-sm shadow-slate-200">PDF</Button>
-                    </>);
-                  })()}
-                  <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
-                     <Plus size={20} className="rotate-45" />
-                  </button>
-               </div>
-            </div>
-
-            {/* Conteúdo com scroll interno */}
-            <div className="overflow-y-auto flex-1 px-7 py-6 space-y-6 custom-scrollbar pb-12">
-            {(() => {
-              const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-              const { parts, conclusion } = getClinicalAnalysis(detailResult.scores);
-              return (<>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                 <div className="bg-slate-950 rounded-lg p-6 flex items-center justify-center shadow-sm" style={{minHeight:'200px'}}>
-                    <RadarGraphic scores={detailResult.scores} />
-                 </div>
-                 <div className="space-y-3">
-                    {(['inattention', 'hyperactivity', 'oppositional'] as const).map(sub => {
-                       const score = detailResult.scores[sub];
-                       const level = getLevel(sub, score);
-                       const subLabel = sub === 'inattention' ? 'Desatenção' : sub === 'hyperactivity' ? 'Hiperatividade/Impulsividade' : 'Oposição/Desafio';
-                       const cutoff = SNAP_CUTOFFS[sub];
-                       return (
-                         <div key={sub} className="px-4 py-3 rounded-lg border border-slate-100 bg-slate-50/50">
-                            <div className="flex items-center justify-between mb-2">
-                               <h4 className="text-[11px] font-semibold text-slate-700">{subLabel}</h4>
-                               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${level.bg} ${level.color}`}>{level.label}</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                               <div className="text-2xl font-semibold text-slate-900 w-12">{score.toFixed(2)}</div>
-                               <div className="flex-1">
-                                  <div className="h-2 bg-slate-200 rounded-full overflow-hidden relative">
-                                     <div className={`h-full ${level.color.replace('text', 'bg')}`} style={{ width:`${(score / 3) * 100}%` }} />
-                                     <div className="absolute top-0 h-full w-px bg-rose-400 opacity-70" style={{ left: `${(cutoff / 3) * 100}%` }} />
-                                  </div>
-                                  <div className="flex justify-between mt-1">
-                                     <span className="text-[11px] text-slate-400 font-semibold">0</span>
-                                     <span className="text-[11px] text-rose-400 font-semibold">corte {cutoff}</span>
-                                     <span className="text-[11px] text-slate-400 font-semibold">3</span>
-                                  </div>
-                               </div>
-                            </div>
-                         </div>
-                       );
-                    })}
-                 </div>
-              </div>
-
-              {/* Análise Clínica */}
-              <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
-                 <div className="bg-slate-50 px-8 py-5 flex items-center gap-3 border-b border-slate-100">
-                    <Brain size={18} className="text-blue-500" />
-                    <h3 className="text-xs font-semibold text-slate-700">Análise Clínica — SNAP-IV (Swanson, Nolan & Pelham)</h3>
-                 </div>
-                 <div className="p-8 space-y-4">
-                    {parts.map((part, i) => {
-                      const [bold, ...rest] = part.split(':');
-                      return (
-                        <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
-                           <span className="w-1.5 h-1.5 rounded-full bg-blue-300 mt-2 shrink-0" />
-                           <p><span className="font-semibold text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
                         </div>
-                      );
-                    })}
-                    <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-slate-700 leading-relaxed">
-                       <span className="font-semibold text-blue-700">Conclusão: </span>{conclusion}
-                    </div>
-                 </div>
-              </div>
-
-              {detailResult.analysis && (
-                <div className="bg-blue-600 rounded-lg p-5 text-white shadow-sm shadow-blue-100">
-                   <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
-                      <Sparkles size={14} className="text-amber-400" /> Análise Bia (IA)
-                   </h3>
-                   <div className="text-sm text-blue-100 space-y-0">
-                      {renderMarkdown(detailResult.analysis!)}
-                   </div>
-                </div>
-              )}
-
-              {!detailResult.analysis && (
-                <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
-                   <Sparkles size={32} className="text-slate-300 shrink-0" />
-                   <div className="flex-1">
-                      <p className="text-xs font-semibold text-slate-500 mb-1">Bia — IA Clínica</p>
-                      <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este resultado SNAP-IV.</p>
-                   </div>
-                   <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-blue-600 text-white rounded-lg px-6 py-3 shrink-0">Analisar</Button>
-                </div>
-              )}
-
-              {/* Respostas do Informante */}
-              {detailResult.answers && Object.keys(detailResult.answers).length > 0 && (
-                <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
-                   <button
-                     onClick={() => setShowAnswers(!showAnswers)}
-                     className="w-full bg-slate-50 px-8 py-5 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 transition-all"
-                   >
-                      <div className="flex items-center gap-3">
-                         <FileText size={18} className="text-slate-400" />
-                         <h3 className="text-xs font-semibold text-slate-700">Respostas do Informante (26 itens)</h3>
-                      </div>
-                      <ChevronRight size={18} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
-                   </button>
-                   {showAnswers && (
-                     <div className="divide-y divide-slate-50">
-                        {/* Group by subscale */}
-                        {(['I', 'H', 'O'] as const).map(sub => {
-                          const subItems = SNAPIV_ITEMS.filter(it => it.subscale === sub);
-                          const subTitles: Record<string, string> = { I: 'Desatenção (itens 1–9)', H: 'Hiperatividade/Impulsividade (itens 10–18)', O: 'Oposição/Desafio (itens 19–26)' };
-                          const subAccent: Record<string, string> = { I: 'text-blue-500 bg-blue-50', H: 'text-indigo-500 bg-indigo-50', O: 'text-violet-500 bg-violet-50' };
-                          return (
-                            <React.Fragment key={sub}>
-                              <div className={`px-8 py-3 ${subAccent[sub]} border-b border-slate-100`}>
-                                 <p className="text-[11px] font-semibold">{subTitles[sub]}</p>
+                        <div className="space-y-3">
+                          {(['inattention', 'hyperactivity', 'oppositional'] as const).map(sub => {
+                            const lastRes = history.length > 0 ? history[history.length - 1] : null;
+                            const score = lastRes ? lastRes.scores[sub] : currentScores[sub];
+                            const level = getLevel(sub, score);
+                            const subLabel = sub === 'inattention' ? 'Desatenção' : sub === 'hyperactivity' ? 'Hiperatividade' : 'Oposição';
+                            return (
+                              <div key={sub} className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-medium text-slate-600">{subLabel}</span>
+                                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${level.bg} ${level.color}`}>{level.label}</span>
+                                </div>
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden relative">
+                                  <div className={`h-full transition-all duration-1000 ${level.color.replace('text', 'bg')}`} style={{ width: `${(score / 3) * 100}%` }} />
+                                  {/* Cutoff marker */}
+                                  <div className="absolute top-0 h-full w-px bg-rose-400 opacity-60" style={{ left: `${(SNAP_CUTOFFS[sub] / 3) * 100}%` }} />
+                                </div>
                               </div>
-                              {subItems.map(item => {
-                                const val = detailResult.answers[item.id];
-                                const scaleLabels = ['Nada', 'Um pouco', 'Bastante', 'Demais'];
+                            );
+                          })}
+                          <p className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 italic">Resultado da Última Avaliação Sincronizada</p>
+                        </div>
+                      </div>
+                    </PanelCard>
+
+                    <PanelCard
+                      title="Evolução do Paciente"
+                      icon={TrendingUp}
+                      className="self-start"
+                      action={
+                        <div className="flex gap-3">
+                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary-500" /><span className="text-[11px] text-slate-500">Des</span></div>
+                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-500" /><span className="text-[11px] text-slate-500">Hip</span></div>
+                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400" /><span className="text-[11px] text-slate-500">Opo</span></div>
+                        </div>
+                      }
+                    >
+                      <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-3 flex items-end gap-2 relative">
+                        {history.length < 2 && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 rounded-lg">
+                            <p className="text-[11px] text-slate-500">Aguardando mais dados históricos</p>
+                          </div>
+                        )}
+                        {[...history].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
+                          <div key={res.id} className="flex-1 flex flex-col justify-end gap-1 h-full min-w-[30px] group cursor-pointer relative" onClick={() => setDetailResult(res)}>
+                            <div className="bg-slate-400/30 w-full rounded-t-md transition-all group-hover:bg-slate-400/50" style={{ height: `${(res.scores.oppositional / 3) * 100}%` }} />
+                            <div className="bg-sky-500/40 w-full transition-all group-hover:bg-sky-500/60" style={{ height: `${(res.scores.hyperactivity / 3) * 100}%` }} />
+                            <div className="bg-primary-500/60 w-full rounded-b-md transition-all group-hover:bg-primary-500" style={{ height: `${(res.scores.inattention / 3) * 100}%` }} />
+
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                              <p className="text-[11px] font-medium mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
+                              <div className="flex gap-2">
+                                <span className="text-[11px] font-medium text-white">D{res.scores.inattention.toFixed(1)}</span>
+                                <span className="text-[11px] font-medium text-white">H{res.scores.hyperactivity.toFixed(1)}</span>
+                                <span className="text-[11px] font-medium text-white">O{res.scores.oppositional.toFixed(1)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </PanelCard>
+                  </div>
+                )}
+
+                {activeTab === 'history' && (
+                  <PanelCard title="Registros Sincronizados" icon={History} contentClassName="p-0">
+                    <div className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto custom-scrollbar">
+                      {[...history].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => (
+                        <div key={res.id} className="px-3 py-3 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Clock size={12} className="text-primary-500 shrink-0" />
+                              <span className="text-xs font-medium text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
+                              {res.analysis && <Sparkles size={12} className="text-primary-500" />}
+                              {res.origin === 'external' && <Badge color="default">Externo</Badge>}
+                            </div>
+                            <div className="flex gap-3">
+                              {(['inattention', 'hyperactivity', 'oppositional'] as const).map(s => {
+                                const level = getLevel(s, res.scores[s]);
+                                const letter = s === 'inattention' ? 'D' : s === 'hyperactivity' ? 'H' : 'O';
                                 return (
-                                  <div key={item.id} className="px-8 py-4 flex items-start gap-4 hover:bg-slate-50/60">
-                                     <span className="text-[11px] font-semibold text-slate-300 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2,'0')}</span>
-                                     <p className="flex-1 text-sm text-slate-600 leading-relaxed">{item.text}</p>
-                                     <div className="shrink-0 text-right">
-                                        <span className="text-lg font-semibold text-blue-600">{val ?? '—'}</span>
-                                        {val !== undefined && <p className="text-[11px] text-slate-400 font-semibold">{scaleLabels[val]}</p>}
-                                     </div>
+                                  <div key={s} className="flex items-center gap-1">
+                                    <span className="text-[11px] text-slate-500">{letter}</span>
+                                    <span className={`text-xs font-medium ${level.color}`}>{res.scores[s].toFixed(2)}</span>
                                   </div>
                                 );
                               })}
-                            </React.Fragment>
-                          );
-                        })}
-                     </div>
-                   )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <IconButton
+                              variant={res.analysis ? 'primary' : 'outline'}
+                              size="sm"
+                              aria-label="Análise Bia"
+                              title="Análise Bia"
+                              loading={analyzingId === res.id}
+                              onClick={() => generateAIResult(res.id)}
+                            >
+                              <Sparkles size={14} />
+                            </IconButton>
+                            <Button variant="outline" size="sm" iconRight={<ChevronRight size={14} />} onClick={() => setDetailResult(res)}>
+                              Ver
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {history.length === 0 && (
+                        <EmptyState icon={FileText} title="Sem lançamentos" />
+                      )}
+                    </div>
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Result Detail Modal */}
+      <Modal
+        isOpen={!!detailResult}
+        onClose={() => { setDetailResult(null); setShowAnswers(false); }}
+        size="2xl"
+        title={detailPatientName}
+        subtitle={detailResult ? `Avaliação SNAP-IV Consolidada · ${new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : undefined}
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+            <Button variant="ghost" size="sm" onClick={() => { setDetailResult(null); setShowAnswers(false); }}>Fechar</Button>
+            {detailResult && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" iconLeft={<Printer size={14} />} onClick={() => handlePrintReport(detailResult, detailPatientName)}>Imprimir</Button>
+                <Button variant="primary" size="sm" iconLeft={<FileText size={14} />} onClick={() => handleDownloadPDF(detailResult, detailPatientName)}>PDF</Button>
+              </div>
+            )}
+          </div>
+        }
+      >
+        {detailResult && (() => {
+          const { parts, conclusion } = getClinicalAnalysis(detailResult.scores);
+          const hasAnswers = !!detailResult.answers && Object.keys(detailResult.answers).length > 0;
+          const detailTabs = [
+            { id: 'summary', label: 'Resultado', icon: Layout },
+            { id: 'ai', label: 'Análise Bia', icon: Sparkles },
+            ...(hasAnswers ? [{ id: 'answers', label: 'Respostas', icon: FileText }] : []),
+          ] as { id: SnapDetailTab; label: string; icon: typeof Layout }[];
+          return (
+            <Tabs<SnapDetailTab> items={detailTabs} value={detailTabs.some(d => d.id === detailTab) ? detailTab : 'summary'} onChange={setDetailTab} label="Detalhes da avaliação">
+              {detailTab === 'summary' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 flex items-center justify-center overflow-x-auto">
+                      <RadarGraphic scores={detailResult.scores} />
+                    </div>
+                    <div className="space-y-2">
+                      {(['inattention', 'hyperactivity', 'oppositional'] as const).map(sub => {
+                        const score = detailResult.scores[sub];
+                        const level = getLevel(sub, score);
+                        const subLabel = sub === 'inattention' ? 'Desatenção' : sub === 'hyperactivity' ? 'Hiperatividade/Impulsividade' : 'Oposição/Desafio';
+                        const cutoff = SNAP_CUTOFFS[sub];
+                        return (
+                          <div key={sub} className="px-3 py-2.5 rounded-lg border border-slate-100 bg-slate-50/50">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <h4 className="text-xs font-medium text-slate-700">{subLabel}</h4>
+                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md shrink-0 ${level.bg} ${level.color}`}>{level.label}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-base font-medium text-slate-900 w-10">{score.toFixed(2)}</div>
+                              <div className="flex-1">
+                                <div className="h-2 bg-slate-200 rounded-full overflow-hidden relative">
+                                  <div className={`h-full ${level.color.replace('text', 'bg')}`} style={{ width: `${(score / 3) * 100}%` }} />
+                                  <div className="absolute top-0 h-full w-px bg-rose-400 opacity-70" style={{ left: `${(cutoff / 3) * 100}%` }} />
+                                </div>
+                                <div className="flex justify-between mt-1">
+                                  <span className="text-[11px] text-slate-500">0</span>
+                                  <span className="text-[11px] text-rose-500">corte {cutoff}</span>
+                                  <span className="text-[11px] text-slate-500">3</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Análise Clínica */}
+                  <PanelCard title="Análise Clínica — SNAP-IV (Swanson, Nolan & Pelham)" icon={Brain}>
+                    <div className="space-y-3">
+                      {parts.map((part, i) => {
+                        const [bold, ...rest] = part.split(':');
+                        return (
+                          <div key={i} className="flex gap-3 text-[13px] leading-relaxed text-slate-600">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary-300 mt-2 shrink-0" />
+                            <p><span className="font-medium text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
+                          </div>
+                        );
+                      })}
+                      <div className="p-3 bg-primary-50 border border-primary-100 rounded-lg text-[13px] text-slate-700 leading-relaxed">
+                        <span className="font-medium text-primary-700">Conclusão: </span>{conclusion}
+                      </div>
+                    </div>
+                  </PanelCard>
                 </div>
               )}
-              </>);
-            })()}
-            </div>
-         </div>
-      </div>
-    )}
 
-    {/* Share Modal */}
-    <Modal
-      isOpen={shareOpen}
-      onClose={() => setShareOpen(false)}
-      title="Compartilhar SNAP-IV"
-      subtitle="Envie o questionário para pais ou professores responderem"
-      maxWidth="md"
-      footer={
-        <div className="flex justify-between w-full">
-          <Button variant="ghost" radius="xl" onClick={() => setShareOpen(false)}>Fechar</Button>
-          <Button variant="success" radius="xl" leftIcon={<WhatsAppIcon size={15} />} onClick={handleWhatsApp}>
-            Enviar WhatsApp
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-6">
-         <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-               <Share2 size={24} />
-            </div>
-            <div>
-               <p className="text-[11px] font-semibold text-blue-500 leading-tight mb-1">Link de Avaliação Direta</p>
-               <p className="text-xs text-slate-600 font-medium leading-relaxed">Este link é exclusivo para o paciente selecionado. As respostas serão integradas automaticamente ao gráfico de evolução.</p>
-            </div>
-         </div>
+              {detailTab === 'ai' && (
+                detailResult.analysis ? (
+                  <PanelCard title="Análise Bia (IA)" icon={Sparkles}>
+                    <div className="text-[13px] text-slate-700 space-y-0">
+                      {renderMarkdown(detailResult.analysis!)}
+                    </div>
+                  </PanelCard>
+                ) : (
+                  <ContentCard>
+                    <EmptyState
+                      icon={Sparkles}
+                      title="Bia — IA Clínica"
+                      description="Gere uma análise aprofundada com inteligência artificial para este resultado SNAP-IV."
+                      action={<Button variant="primary" size="sm" loading={analyzingId === detailResult.id} onClick={() => generateAIResult(detailResult.id)}>Analisar</Button>}
+                    />
+                  </ContentCard>
+                )
+              )}
 
-         <div className="space-y-2">
-            <div className="flex gap-2">
-              <input
+              {detailTab === 'answers' && hasAnswers && (
+                <PanelCard title="Respostas do Informante (26 itens)" icon={FileText} contentClassName="p-0">
+                  <div className="divide-y divide-slate-100">
+                    {/* Group by subscale */}
+                    {(['I', 'H', 'O'] as const).map(sub => {
+                      const subItems = SNAPIV_ITEMS.filter(it => it.subscale === sub);
+                      const subTitles: Record<string, string> = { I: 'Desatenção (itens 1–9)', H: 'Hiperatividade/Impulsividade (itens 10–18)', O: 'Oposição/Desafio (itens 19–26)' };
+                      return (
+                        <React.Fragment key={sub}>
+                          <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                            <p className="text-[11px] font-medium text-slate-600">{subTitles[sub]}</p>
+                          </div>
+                          {subItems.map(item => {
+                            const val = detailResult.answers[item.id];
+                            const scaleLabels = ['Nada', 'Um pouco', 'Bastante', 'Demais'];
+                            return (
+                              <div key={item.id} className="px-3 py-2.5 flex items-start gap-3 hover:bg-slate-50/60">
+                                <span className="text-[11px] text-slate-400 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2,'0')}</span>
+                                <p className="flex-1 text-[13px] text-slate-600 leading-relaxed">{item.text}</p>
+                                <div className="shrink-0 text-right">
+                                  <span className="text-sm font-medium text-primary-700">{val ?? '—'}</span>
+                                  {val !== undefined && <p className="text-[11px] text-slate-500">{scaleLabels[val]}</p>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </PanelCard>
+              )}
+            </Tabs>
+          );
+        })()}
+      </Modal>
+
+      {/* Share Modal */}
+      <Modal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        title="Compartilhar SNAP-IV"
+        subtitle="Envie o questionário para pais ou professores responderem"
+        size="md"
+        footer={
+          <div className="flex justify-between w-full">
+            <Button variant="ghost" size="sm" onClick={() => setShareOpen(false)}>Fechar</Button>
+            <Button variant="success" size="sm" iconLeft={<WhatsAppIcon size={14} />} onClick={handleWhatsApp}>
+              Enviar WhatsApp
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Alert variant="info" title="Link de Avaliação Direta">
+            Este link é exclusivo para o paciente selecionado. As respostas serão integradas automaticamente ao gráfico de evolução.
+          </Alert>
+
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
                 readOnly
+                aria-label="Link de avaliação"
+                wrapperClassName="flex-1"
+                className="font-mono"
                 value={getShareLink()}
-                className="flex-1 px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono focus:ring-2 focus:ring-blue-100 outline-none"
               />
-              <Button variant="outline" size="sm" radius="xl" onClick={handleCopy}
-                leftIcon={copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}>
+              <Button variant="outline" onClick={handleCopy}
+                iconLeft={copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}>
                 {copied ? 'Copiado!' : 'Copiar'}
               </Button>
             </div>
-            <p className="text-[11px] text-slate-400 text-center font-semibold pt-2 flex items-center justify-center gap-2">
-               <ShieldCheck size={12} /> Criptografia de Ponta-a-Ponta
+            <p className="text-[11px] text-slate-500 text-center pt-1 flex items-center justify-center gap-2">
+              <ShieldCheck size={12} /> Criptografia de Ponta-a-Ponta
             </p>
-         </div>
-      </div>
-    </Modal>
-
-    {/* Application Modal (Questionnaire) */}
-    <Modal
-      isOpen={isApplying}
-      onClose={() => setIsApplying(false)}
-      title="Aplicação SNAP-IV"
-      subtitle={`Respondendo por: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}`}
-      maxWidth="max-w-4xl"
-      footer={
-        <div className="flex gap-3 w-full">
-          <Button variant="outline" radius="xl" onClick={() => setIsApplying(false)} className="flex-1">Cancelar</Button>
-          <Button
-            variant="primary"
-            radius="xl"
-            onClick={handleSave}
-            isLoading={isSaving}
-            className="flex-2 bg-blue-600 text-white"
-          >
-            Processar e Salvar Escala <Save size={18} className="ml-2" />
-          </Button>
+          </div>
         </div>
-      }
-    >
-      <div className="space-y-10 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
-         <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 leading-relaxed italic">
-              "Avalie com que frequência cada comportamento ocorre. Baseie-se nos últimos 6 meses."
-            </p>
-            <div className="flex gap-6 mt-4 flex-wrap">
+      </Modal>
+
+      {/* Application Modal (Questionnaire) */}
+      <Modal
+        isOpen={isApplying}
+        onClose={() => setIsApplying(false)}
+        title="Aplicação SNAP-IV"
+        subtitle={`Respondendo por: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}`}
+        size="2xl"
+        footer={
+          <div className="flex items-center justify-between gap-3 w-full">
+            <Button variant="outline" size="sm" onClick={() => setIsApplying(false)}>Cancelar</Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSave}
+              loading={isSaving}
+              iconRight={<Save size={14} />}
+            >
+              Processar e Salvar Escala
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <Alert variant="info">
+            "Avalie com que frequência cada comportamento ocorre. Baseie-se nos últimos 6 meses."
+            <span className="flex gap-4 mt-2 flex-wrap">
               {[{ v: 0, l: 'Nada' }, { v: 1, l: 'Um pouco' }, { v: 2, l: 'Bastante' }, { v: 3, l: 'Demais' }].map(opt => (
-                <div key={opt.v} className="flex items-center gap-2">
-                   <span className="text-blue-600 font-semibold text-base">{opt.v}</span>
-                   <span className="text-[11px] font-semibold text-slate-400">{opt.l}</span>
+                <span key={opt.v} className="flex items-center gap-1.5">
+                  <span className="text-primary-700 font-medium text-xs">{opt.v}</span>
+                  <span className="text-[11px] text-slate-600">{opt.l}</span>
+                </span>
+              ))}
+            </span>
+          </Alert>
+
+          <Tabs<SnapSub> items={applyTabs} value={applySub} onChange={setApplySub} label="Domínios do SNAP-IV">
+            <div className="divide-y divide-slate-100">
+              {SNAPIV_ITEMS.filter(it => it.subscale === applySub).map(item => (
+                <div key={item.id} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                  <div className="flex gap-3 flex-1 min-w-0">
+                    <span className="w-7 h-7 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center font-medium text-[11px] shrink-0 border border-slate-200">{item.id}</span>
+                    <p className="text-[13px] font-medium text-slate-800 leading-snug pt-1">{item.text}</p>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 sm:w-56 shrink-0">
+                    {[0, 1, 2, 3].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setCurrentAnswers({ ...currentAnswers, [item.id]: val })}
+                        className={`h-9 rounded-lg text-xs font-medium transition-colors border ${
+                          currentAnswers[item.id] === val
+                            ? 'bg-primary-600 text-white border-primary-600'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-primary-300'
+                        }`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-         </div>
-
-         {(['I', 'H', 'O'] as const).map(sub => {
-           const subItems = SNAPIV_ITEMS.filter(it => it.subscale === sub);
-           const subTitles: Record<string, string> = {
-             I: 'Desatenção',
-             H: 'Hiperatividade / Impulsividade',
-             O: 'Oposição / Desafio',
-           };
-           const subBg: Record<string, string> = {
-             I: 'bg-blue-50 border-blue-100 text-blue-700',
-             H: 'bg-indigo-50 border-indigo-100 text-indigo-700',
-             O: 'bg-violet-50 border-violet-100 text-violet-700',
-           };
-           return (
-             <div key={sub} className="space-y-6">
-               <div className={`rounded-lg px-5 py-3 border ${subBg[sub]}`}>
-                  <p className="text-[11px] font-semibold">{subTitles[sub]}</p>
-               </div>
-               {subItems.map(item => (
-                 <div key={item.id} className="space-y-6">
-                    <div className="flex gap-4">
-                       <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center font-semibold text-[11px] shrink-0 border border-slate-200">{item.id}</span>
-                       <p className="text-base font-semibold text-slate-800 leading-tight pt-1">{item.text}</p>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                       {[0, 1, 2, 3].map(val => (
-                         <button
-                           key={val}
-                           onClick={() => setCurrentAnswers({ ...currentAnswers, [item.id]: val })}
-                           className={`h-14 rounded-lg text-xs font-semibold transition-all border ${
-                             currentAnswers[item.id] === val
-                             ? 'bg-slate-950 text-white border-slate-950 shadow-sm scale-[1.02]'
-                             : 'bg-white text-slate-300 border-slate-100 hover:border-slate-300'
-                           }`}
-                         >
-                           {val}
-                         </button>
-                       ))}
-                    </div>
-                 </div>
-               ))}
-             </div>
-           );
-         })}
-      </div>
-    </Modal>
-    </>
+          </Tabs>
+        </div>
+      </Modal>
+    </PageWrapper>
   );
 };

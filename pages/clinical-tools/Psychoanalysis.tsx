@@ -2,7 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
+import { ArrowLeft } from 'lucide-react';
 import { Patient, DreamRecord, CounterTransference } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { 
@@ -12,11 +19,20 @@ import {
   MessageSquare, BrainCircuit
 } from 'lucide-react';
 
+type PsychoTab = 'dreams' | 'free' | 'signifiers' | 'counter';
+
+const psychoTabs = [
+  { id: 'dreams', label: 'Sonhos', icon: Moon },
+  { id: 'free', label: 'Livre', icon: MessagesSquare },
+  { id: 'signifiers', label: 'Significantes', icon: ScanSearch },
+  { id: 'counter', label: 'Contra-Transf', icon: Eye },
+] as const;
+
 export const PsychoanalysisPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'dreams' | 'free' | 'signifiers' | 'counter'>('dreams');
+  const [activeSub, setActiveSub] = useState<PsychoTab>('dreams');
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -146,46 +162,22 @@ export const PsychoanalysisPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<Feather />}
-        title="Abordagem Psicanalítica"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Exploração do Inconsciente & Transferência"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
-              <button 
-                onClick={() => setActiveSub('dreams')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'dreams' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Moon size={14}/> Sonhos</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('free')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'free' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><MessagesSquare size={14}/> Livre</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('signifiers')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'signifiers' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><ScanSearch size={14}/> Significantes</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('counter')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'counter' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Eye size={14}/> Contra-Transf</div>
-              </button>
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        {/* SIDEBAR */}
-        <ClinicalSidebar 
+        <SectionTitle
+          icon={Feather}
+          title="Abordagem Psicanalítica"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Exploração do Inconsciente & Transferência"}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -193,350 +185,302 @@ export const PsychoanalysisPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        {/* CONTENT */}
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="space-y-6 animate-fadeIn">
-                <div className="bg-gradient-to-br from-amber-600 to-amber-900 rounded-[32px] p-8 text-white shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Feather size={120} />
-                    </div>
-                    <div className="relative z-10 max-w-2xl space-y-4">
-                        <div className="px-3 py-1 bg-white/10 rounded-full border border-white/20 w-fit backdrop-blur-md">
-                            <span className="text-[11px] font-semibold text-amber-100 italic">Exploração do Inconsciente</span>
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <div className="space-y-3">
+                <ContentCard>
+                  <EmptyState
+                    icon={Feather}
+                    title="Clínica da Escuta Psicanalítica"
+                    description="Selecione um paciente para iniciar a análise. Mapeie a cadeia de significantes, analise o material onírico e sustente o lugar da transferência no setting analítico."
+                  />
+                </ContentCard>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {[
+                    { title: 'Material Onírico', desc: 'Onirógrafo para registro e análise de sonhos.', icon: <Activity size={14} /> },
+                    { title: 'Livre Associação', desc: 'Espaço para a fala sem censura do sujeito.', icon: <MessageSquare size={14} /> },
+                    { title: 'Significantes', desc: 'Mapeamento de palavras-chave estruturantes.', icon: <ScanSearch size={14} /> }
+                  ].map((feat, i) => (
+                    <ContentCard key={i}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                          {feat.icon}
                         </div>
-                        <h2 className="text-3xl font-semibold leading-none">Clínica da Escuta<br/>Psicanalítica</h2>
-                        <p className="text-amber-100/70 text-[11px] font-medium leading-relaxed">
-                            Mapeie a cadeia de significantes, analise o material onírico e sustente o lugar da transferência no setting analítico.
-                        </p>
-                    </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-medium text-slate-800">{feat.title}</h3>
+                          <p className="text-[11px] text-slate-500">{feat.desc}</p>
+                        </div>
+                      </div>
+                    </ContentCard>
+                  ))}
                 </div>
+              </div>
+            ) : (
+              <Tabs<PsychoTab> items={psychoTabs} value={activeSub} onChange={setActiveSub} label="Seções da abordagem psicanalítica">
+                {activeSub === 'dreams' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-3">
+                    <PanelCard
+                      title="Relato do Sonho"
+                      className="h-fit"
+                      action={
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Limpar formulário"
+                          title="Limpar formulário"
+                          onClick={() => { setEditingDreamId(null); setNewDream({}); }}
+                        >
+                          <RotateCcw size={14} />
+                        </IconButton>
+                      }
+                    >
+                      <div className="space-y-3">
+                        <Input
+                          label="Título / Identificador"
+                          value={newDream.title || ''}
+                          onChange={e => setNewDream({ ...newDream, title: e.target.value })}
+                          placeholder="Ex: O Labirinto sem Fim"
+                        />
+                        <Textarea
+                          label="Conteúdo Manifesto (O Sonho)"
+                          rows={5}
+                          value={newDream.manifest || ''}
+                          onChange={e => setNewDream({ ...newDream, manifest: e.target.value })}
+                          placeholder="O que o paciente relatou ter sonhado?"
+                        />
+                        <Textarea
+                          label="Associações (Latente)"
+                          rows={5}
+                          value={newDream.latent || ''}
+                          onChange={e => setNewDream({ ...newDream, latent: e.target.value })}
+                          placeholder="Quais sentidos surgiram durante a associação livre?"
+                        />
+                        <Button
+                          variant="primary"
+                          fullWidth
+                          onClick={handleSaveDream}
+                          loading={saving}
+                          iconLeft={editingDreamId ? <Save size={14} /> : <Plus size={14} />}
+                        >
+                          {editingDreamId ? 'Atualizar' : 'Registrar'}
+                        </Button>
+                      </div>
+                    </PanelCard>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[
-                        { title: 'Material Onírico', desc: 'Onirógrafo para registro e análise de sonhos.', icon: <Activity size={22}/> },
-                        { title: 'Livre Associação', desc: 'Espaço para a fala sem censura do sujeito.', icon: <MessageSquare size={22}/> },
-                        { title: 'Significantes', desc: 'Mapeamento de palavras-chave estruturantes.', icon: <ScanSearch size={22}/> }
-                    ].map((feat, i) => (
-                        <div key={i} className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-sm hover:shadow-sm transition-all group">
-                             <div className="w-10 h-10 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-amber-50 group-hover:text-amber-600 transition-all">
-                                {feat.icon}
-                             </div>
-                             <h3 className="font-semibold text-slate-800 text-[11px] mb-1">{feat.title}</h3>
-                             <p className="text-[11px] text-slate-400 font-medium leading-relaxed">{feat.desc}</p>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] p-8 text-center">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-slate-200 mx-auto mb-4 shadow-sm">
-                        <Plus size={32} />
-                    </div>
-                    <p className="text-xs font-semibold text-slate-400 leading-loose italic">Selecione um paciente para iniciar a análise.</p>
-                </div>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'dreams' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 animate-slideUpFade">
-                    {/* NOVO SONHO */}
-                    <div className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm space-y-6 h-fit">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-slate-800 text-lg">Relato do Sonho</h3>
-                            <button onClick={() => { setEditingDreamId(null); setNewDream({}); }} className="text-slate-400 hover:text-amber-600 transition-colors"><RotateCcw size={18}/></button>
-                        </div>
-                        
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold text-slate-400 ml-1">Título / Identificador</label>
-                                <input 
-                                    className="w-full h-14 px-6 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold focus:bg-white focus:ring-4 focus:ring-amber-500/5 focus:border-amber-400 outline-none transition-all shadow-inner"
-                                    value={newDream.title || ''}
-                                    onChange={e => setNewDream({...newDream, title: e.target.value})}
-                                    placeholder="Ex: O Labirinto sem Fim"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold text-slate-400 ml-1">Conteúdo Manifesto (O Sonho)</label>
-                                <textarea 
-                                    className="w-full p-6 rounded-[32px] bg-slate-50 border border-slate-100 text-base font-medium focus:bg-white focus:ring-4 focus:ring-amber-500/5 focus:border-amber-400 outline-none transition-all h-32 resize-none shadow-inner leading-relaxed"
-                                    value={newDream.manifest || ''}
-                                    onChange={e => setNewDream({...newDream, manifest: e.target.value})}
-                                    placeholder="O que o paciente relatou ter sonhado?"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold text-slate-400 ml-1">Associações (Latente)</label>
-                                <textarea 
-                                    className="w-full p-6 rounded-[32px] bg-amber-50/20 border border-amber-100 text-base font-medium text-amber-900 focus:bg-white focus:ring-4 focus:ring-amber-500/5 focus:border-amber-400 outline-none transition-all h-32 resize-none shadow-inner leading-relaxed"
-                                    value={newDream.latent || ''}
-                                    onChange={e => setNewDream({...newDream, latent: e.target.value})}
-                                    placeholder="Quais sentidos surgiram durante a associação livre?"
-                                />
-                            </div>
-                            
-                            <button 
-                                onClick={handleSaveDream}
-                                disabled={saving}
-                                className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-xs shadow-sm shadow-amber-100 transition-all flex items-center justify-center gap-2 active:scale-95"
-                            >
-                                {saving ? <Loader2 size={16} className="animate-spin"/> : editingDreamId ? <Save size={16}/> : <Plus size={16}/>}
-                                {editingDreamId ? 'Atualizar' : 'Registrar'}
-                            </button>
-                        </div>
-                    </div>
-                    
-                    {/* HISTORICO SONHOS */}
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between px-6 mb-2 bg-white p-4 rounded-lg border border-slate-100 shadow-sm">
-                            <h3 className="font-semibold text-slate-800 flex items-center gap-3"><Moon size={20} className="text-indigo-900"/> Material Onírico</h3>
-                            <button onClick={() => loadPsychoData(selectedPatientId)} className="p-2 text-slate-400 hover:text-amber-600 transition-colors"><RefreshCcw size={18}/></button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 gap-6 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar pb-10">
-                            {dreams.length === 0 ? (
-                                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] p-16 text-center">
-                                    <p className="text-[11px] font-semibold text-slate-400 italic leading-loose">Nenhum sonho mapeado.</p>
-                                </div>
-                            ) : (
-                                dreams.slice().reverse().map(d => (
-                                    <div key={d.id} className="bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm hover:shadow-sm transition-all group relative animate-slideInRight">
-                                        <div className="absolute top-0 right-0 p-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0">
-                                            <button onClick={() => { setEditingDreamId(d.id); setNewDream(d); }} className="w-10 h-10 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center hover:bg-amber-600 hover:text-white transition-all shadow-sm shadow-amber-100 ring-2 ring-white"><Edit3 size={18}/></button>
-                                            <button onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/psycho/dreams/${d.id}`); loadPsychoData(selectedPatientId); }} className="w-10 h-10 bg-red-50 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm shadow-red-100 ring-2 ring-white"><Trash2 size={18}/></button>
-                                        </div>
-                                        
-                                        <div className="space-y-8">
-                                            <div className="space-y-2">
-                                                <span className="text-[11px] font-semibold text-slate-300 italic">{new Date(d.createdAt || "").toLocaleDateString()}</span>
-                                                <h4 className="text-2xl font-semibold text-slate-800 leading-none mb-4 pr-12">{d.title}</h4>
-                                                <div className="h-1 w-12 bg-amber-500 rounded-full" />
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-400">M</div>
-                                                        <span className="text-[11px] font-semibold text-slate-400">Conteúdo Manifesto</span>
-                                                    </div>
-                                                    <p className="text-base text-slate-600 italic leading-relaxed font-medium">"{d.manifest}"</p>
-                                                </div>
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-lg bg-amber-600 flex items-center justify-center text-[11px] font-semibold text-white">L</div>
-                                                        <span className="text-[11px] font-semibold text-amber-600 font-semibold">Interpretação Latente</span>
-                                                    </div>
-                                                    <p className="text-base font-semibold text-slate-800 leading-relaxed border-l-4 border-amber-100 pl-6">"{d.latent || 'Agurdando associações...'}"</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-              )}
-
-              {activeSub === 'free' && (
-                <div className="flex flex-col gap-6 animate-slideUpFade">
-                    <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm space-y-6 flex-1 flex flex-col min-h-[70vh]">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-indigo-50 text-indigo-900 rounded-[20px] flex items-center justify-center">
-                                    <Quote size={24}/>
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-semibold text-slate-800 leading-none">Livre Associação</h3>
-                                    <p className="text-[11px] text-slate-400 font-semibold mt-1">Notas do analista durante a sessão</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={handleSaveFreeText} 
-                                disabled={saving}
-                                className="px-8 py-4 bg-indigo-950 hover:bg-black text-white rounded-[24px] font-semibold text-xs shadow-sm active:scale-95 transition-all flex items-center gap-3"
-                            >
-                                {saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Gravar Reflexões
-                            </button>
-                        </div>
-                        
-                        <div className="flex-1 relative">
-                             <div className="absolute top-6 left-6 opacity-5 pointer-events-none">
-                                <Feather size={200} />
-                             </div>
-                             <textarea 
-                                className="w-full h-full min-h-[400px] bg-slate-50/50 p-6 rounded-[24px] border border-slate-100 text-sm font-medium text-slate-800 leading-relaxed focus:bg-white focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-200 outline-none transition-all placeholder:text-slate-200 resize-none shadow-inner"
-                                value={freeText}
-                                onChange={e => setFreeText(e.target.value)}
-                                placeholder="Abra espaço para a fala do sujeito. O que emerge sem censura?"
-                             />
-                        </div>
-                    </div>
-                </div>
-              )}
-
-              {activeSub === 'signifiers' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-8 animate-slideUpFade">
-                    {/* GRID DE SIGNIFICANTES */}
-                    <div className="space-y-6">
-                        <div className="bg-amber-600 rounded-[32px] p-6 text-white shadow-sm relative overflow-hidden">
-                             <div className="absolute top-0 left-0 p-6 opacity-10">
-                                <ScanSearch size={80} />
-                             </div>
-                             <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
-                                <div className="space-y-1 flex-1 text-center md:text-left">
-                                     <h2 className="text-xl font-semibold leading-none">Cadeia de Significantes</h2>
-                                     <p className="text-amber-100 font-medium text-[11px] max-w-sm">Mapeie as palavras-chave que se repetem e sustentam a estrutura do sujeito.</p>
-                                </div>
-                                <div className="bg-white p-1 rounded-lg shadow-sm flex items-center pr-2">
-                                    <input 
-                                        type="text"
-                                        className="h-10 px-4 bg-transparent text-slate-800 font-semibold outline-none w-[180px] lg:w-[240px] text-sm placeholder:text-slate-300"
-                                        placeholder="Novo significante..."
-                                        value={newSignifier}
-                                        onChange={e => setNewSignifier(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleSaveSignifier()}
-                                    />
-                                    <button 
-                                        onClick={handleSaveSignifier}
-                                        className="w-8 h-8 bg-amber-600 text-white rounded-lg flex items-center justify-center hover:bg-indigo-900 transition-all shadow-sm active:scale-90"
-                                    >
-                                        <Plus size={18}/>
-                                    </button>
-                                </div>
-                             </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-4 pt-4">
-                            {signifiers.length === 0 ? (
-                                <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-[40px] p-32 text-center text-slate-300 font-semibold text-[11px]">Aguardando marcações do Simbólico...</div>
-                            ) : (
-                                signifiers.slice().reverse().map(s => (
-                                    <div key={s.id} className="group relative">
-                                        <div className="flex items-center gap-2 px-4 py-3 h-12 bg-white border border-slate-100 rounded-lg shadow-sm hover:shadow-sm hover:border-amber-200 hover:-translate-y-1 transition-all cursor-default pr-12 relative overflow-hidden">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                            <span className="text-sm font-semibold text-slate-800 lowercase">#{s.term}</span>
-                                            
-                                            <button 
-                                                onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/psycho/signifiers/${s.id}`); loadPsychoData(selectedPatientId); }}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-red-50 text-red-600 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 hover:text-white"
-                                            >
-                                                <Trash2 size={16}/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* INFOTIP ANALISE */}
-                    <div className="space-y-6">
-                        <div className="bg-indigo-50 rounded-[40px] p-10 border border-indigo-100 space-y-8 animate-slideInRight duration-1000">
-                             <div className="flex flex-col items-center text-center gap-3">
-                                <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm shadow-indigo-100 shadow-pulse">
-                                    <ScanSearch size={22}/>
-                                </div>
-                                <h4 className="font-semibold text-indigo-900 text-[11px]">Dica Clínica</h4>
-                             </div>
-                             <p className="text-xs text-indigo-700/80 font-medium leading-relaxed text-center italic">"O significante é o que representa o sujeito para outro significante." <br/><br/> <span className="font-semibold text-indigo-900">— Jacques Lacan</span></p>
-                             <div className="h-px bg-indigo-200" />
-                             <p className="text-[11px] text-indigo-500 font-semibold leading-loose">Identifique os pontos de estofo onde o sentido é interrompido.</p>
-                        </div>
-                    </div>
-                </div>
-              )}
-
-              {activeSub === 'counter' && (
-                <div className="space-y-8 animate-slideUpFade">
-                    <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-8">
-                        {/* FORM CONTRA-TRANSF */}
-                        <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm space-y-8 h-fit">
-                            <div className="flex flex-col items-center gap-4 text-center">
-                                <div className="w-16 h-16 bg-slate-900 rounded-[28px] flex items-center justify-center text-white shadow-sm">
-                                    <Eye size={30} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-semibold text-slate-800">O Olhar do Analista</h3>
-                                    <p className="text-[11px] text-slate-400 font-semibold">Contra-Transferência</p>
-                                </div>
-                            </div>
-                            
-                            <div className="space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-semibold text-slate-400 ml-1">O que senti?</label>
-                                    <input 
-                                        className="w-full h-14 px-6 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold focus:bg-white outline-none transition-all shadow-inner"
-                                        value={newCounter.feeling}
-                                        onChange={e => setNewCounter({...newCounter, feeling: e.target.value})}
-                                        placeholder="Ex: Tédio, urgência, maternal..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-semibold text-slate-400 ml-1">Observação Subjetiva</label>
-                                    <textarea 
-                                        className="w-full h-40 p-6 rounded-[32px] bg-slate-50 border border-slate-100 text-base font-medium focus:bg-white outline-none resize-none shadow-inner leading-relaxed"
-                                        value={newCounter.observation}
-                                        onChange={e => setNewCounter({...newCounter, observation: e.target.value})}
-                                        placeholder="Como esse sentimento ilumina a estrutura do paciente?"
-                                    />
-                                </div>
-                                <button 
-                                    onClick={handleSaveCounter}
-                                    className="w-full h-16 bg-slate-900 text-white rounded-[32px] font-semibold text-xs shadow-sm active:scale-95 transition-all"
+                    <PanelCard
+                      title="Material Onírico"
+                      icon={Moon}
+                      className="min-w-0"
+                      action={
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Atualizar sonhos"
+                          title="Atualizar sonhos"
+                          onClick={() => loadPsychoData(selectedPatientId)}
+                        >
+                          <RefreshCcw size={14} />
+                        </IconButton>
+                      }
+                    >
+                      {dreams.length === 0 ? (
+                        <EmptyState icon={Moon} title="Nenhum sonho mapeado." />
+                      ) : (
+                        <div className="space-y-3 max-h-[75vh] overflow-y-auto">
+                          {dreams.slice().reverse().map(d => (
+                            <div key={d.id} className="rounded-lg border border-slate-200 p-3 group relative space-y-3">
+                              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Editar sonho"
+                                  title="Editar sonho"
+                                  onClick={() => { setEditingDreamId(d.id); setNewDream(d); }}
                                 >
-                                    Arquivar Auto-Análise
-                                </button>
+                                  <Edit3 size={14} />
+                                </IconButton>
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Excluir sonho"
+                                  title="Excluir sonho"
+                                  className="hover:text-red-600"
+                                  onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/psycho/dreams/${d.id}`); loadPsychoData(selectedPatientId); }}
+                                >
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </div>
+                              <div className="space-y-0.5 pr-16">
+                                <span className="text-[11px] text-slate-500">{new Date(d.createdAt || "").toLocaleDateString()}</span>
+                                <h4 className="text-sm font-medium text-slate-800">{d.title}</h4>
+                              </div>
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Badge color="default" size="sm">M</Badge>
+                                    <span className="text-xs font-medium text-slate-600">Conteúdo Manifesto</span>
+                                  </div>
+                                  <p className="text-xs text-slate-600 italic">"{d.manifest}"</p>
+                                </div>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Badge color="primary" size="sm">L</Badge>
+                                    <span className="text-xs font-medium text-primary-700">Interpretação Latente</span>
+                                  </div>
+                                  <p className="text-xs font-medium text-slate-800 border-l-2 border-primary-200 pl-3">"{d.latent || 'Agurdando associações...'}"</p>
+                                </div>
+                              </div>
                             </div>
+                          ))}
+                        </div>
+                      )}
+                    </PanelCard>
+                  </div>
+                )}
+
+                {activeSub === 'free' && (
+                  <PanelCard
+                    title="Livre Associação"
+                    description="Notas do analista durante a sessão"
+                    icon={Quote}
+                    action={
+                      <Button variant="primary" size="sm" onClick={handleSaveFreeText} loading={saving} iconLeft={<Save size={14} />}>
+                        Gravar Reflexões
+                      </Button>
+                    }
+                  >
+                    <Textarea
+                      aria-label="Livre associação"
+                      rows={16}
+                      className="min-h-[320px]"
+                      value={freeText}
+                      onChange={e => setFreeText(e.target.value)}
+                      placeholder="Abra espaço para a fala do sujeito. O que emerge sem censura?"
+                    />
+                  </PanelCard>
+                )}
+
+                {activeSub === 'signifiers' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-3">
+                    <PanelCard
+                      title="Cadeia de Significantes"
+                      description="Mapeie as palavras-chave que se repetem e sustentam a estrutura do sujeito."
+                      icon={ScanSearch}
+                      className="min-w-0"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex gap-2 max-w-md">
+                          <Input
+                            aria-label="Novo significante"
+                            placeholder="Novo significante..."
+                            value={newSignifier}
+                            onChange={e => setNewSignifier(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleSaveSignifier()}
+                          />
+                          <Button variant="primary" iconLeft={<Plus size={14} />} onClick={handleSaveSignifier}>
+                            Adicionar
+                          </Button>
                         </div>
 
-                        {/* LISTA CONTRA-TRANSF */}
-                        <div className="space-y-6">
-                            <h3 className="font-semibold text-slate-800 flex items-center gap-3 px-6 py-4 bg-white rounded-[32px] border border-slate-100 shadow-sm">
-                                <Activity size={20} className="text-indigo-900"/> Notas de Super-Ego Clínico
-                            </h3>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {counterTransference.length === 0 ? (
-                                    <div className="md:col-span-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[40px] p-24 text-center">
-                                         <p className="text-[11px] font-semibold text-slate-400">Use este espaço para monitorar sua própria contratransferência.</p>
-                                    </div>
-                                ) : (
-                                    counterTransference.slice().reverse().map(c => (
-                                        <div key={c.id} className="bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm hover:border-slate-900 transition-all group">
-                                            <div className="flex justify-between items-start mb-6">
-                                                <div className="px-5 py-2.5 bg-slate-900 text-white rounded-full text-[11px] font-semibold shadow-sm shadow-slate-100">
-                                                    {c.feeling}
-                                                </div>
-                                                <button 
-                                                   onClick={async () => {
-                                                        const newList = counterTransference.filter(it => it.id !== c.id);
-                                                        await api.put(`/clinical-tools/${selectedPatientId}/psycho/counter`, { data: newList });
-                                                        setCounterTransference(newList);
-                                                   }}
-                                                   className="text-slate-200 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 size={16}/>
-                                                </button>
-                                            </div>
-                                            <p className="text-sm font-medium text-slate-600 leading-relaxed italic">"{c.observation}"</p>
-                                            <div className="mt-8 pt-4 border-t border-slate-50 text-[11px] font-semibold text-slate-300 text-right italic">
-                                                Registrado em {new Date(c.createdAt || "").toLocaleDateString()}
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                        {signifiers.length === 0 ? (
+                          <EmptyState icon={ScanSearch} title="Aguardando marcações do Simbólico..." />
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {signifiers.slice().reverse().map(s => (
+                              <div key={s.id} className="inline-flex items-center gap-1 pl-3 pr-1 h-9 bg-white border border-slate-200 rounded-lg hover:border-primary-200 transition-colors">
+                                <span className="text-xs font-medium text-slate-800 lowercase">#{s.term}</span>
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Excluir significante"
+                                  title="Excluir significante"
+                                  className="hover:text-red-600"
+                                  onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/psycho/signifiers/${s.id}`); loadPsychoData(selectedPatientId); }}
+                                >
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </PanelCard>
+
+                    <PanelCard title="Dica Clínica" icon={ScanSearch} className="h-fit">
+                      <div className="space-y-2">
+                        <p className="text-xs text-slate-600 italic">"O significante é o que representa o sujeito para outro significante."</p>
+                        <p className="text-xs font-medium text-slate-800">— Jacques Lacan</p>
+                        <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">Identifique os pontos de estofo onde o sentido é interrompido.</p>
+                      </div>
+                    </PanelCard>
+                  </div>
+                )}
+
+                {activeSub === 'counter' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-3">
+                    <PanelCard title="O Olhar do Analista" description="Contra-Transferência" icon={Eye} className="h-fit">
+                      <div className="space-y-3">
+                        <Input
+                          label="O que senti?"
+                          value={newCounter.feeling}
+                          onChange={e => setNewCounter({ ...newCounter, feeling: e.target.value })}
+                          placeholder="Ex: Tédio, urgência, maternal..."
+                        />
+                        <Textarea
+                          label="Observação Subjetiva"
+                          rows={6}
+                          value={newCounter.observation}
+                          onChange={e => setNewCounter({ ...newCounter, observation: e.target.value })}
+                          placeholder="Como esse sentimento ilumina a estrutura do paciente?"
+                        />
+                        <Button variant="primary" fullWidth onClick={handleSaveCounter}>
+                          Arquivar Auto-Análise
+                        </Button>
+                      </div>
+                    </PanelCard>
+
+                    <PanelCard title="Notas de Super-Ego Clínico" icon={Activity} className="min-w-0">
+                      {counterTransference.length === 0 ? (
+                        <EmptyState icon={Eye} title="Use este espaço para monitorar sua própria contratransferência." />
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {counterTransference.slice().reverse().map(c => (
+                            <div key={c.id} className="rounded-lg border border-slate-200 p-3 space-y-2">
+                              <div className="flex justify-between items-start gap-2">
+                                <Badge color="default" size="md">{c.feeling}</Badge>
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Excluir nota"
+                                  title="Excluir nota"
+                                  className="hover:text-red-600"
+                                  onClick={async () => {
+                                    const newList = counterTransference.filter(it => it.id !== c.id);
+                                    await api.put(`/clinical-tools/${selectedPatientId}/psycho/counter`, { data: newList });
+                                    setCounterTransference(newList);
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </div>
+                              <p className="text-xs text-slate-600 italic">"{c.observation}"</p>
+                              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 text-right">
+                                Registrado em {new Date(c.createdAt || "").toLocaleDateString()}
+                              </div>
                             </div>
+                          ))}
                         </div>
-                    </div>
-                </div>
-              )}
-            </>
-          )}
+                      )}
+                    </PanelCard>
+                  </div>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

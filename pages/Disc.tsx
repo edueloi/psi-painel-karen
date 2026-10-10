@@ -1174,8 +1174,8 @@ export default function Disc() {
           </div>
 
           {/* Roteiro de exploração */}
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-            <p className="text-[11px] font-semibold text-blue-600 mb-3">Roteiro de Exploração na Sessão</p>
+          <div className="bg-primary-50 border border-primary-100 rounded-lg p-4">
+            <p className="text-[11px] font-semibold text-primary-700 mb-3">Roteiro de Exploração na Sessão</p>
             <div className="space-y-2">
               {[
                 ['1. Situações-gatilho', 'Em quais situações esse traço aparece mais? No trabalho, relacionamentos, decisões ou conflitos?'],

@@ -9,9 +9,9 @@ import {
   HelpCircle, MessageSquare, Layout, Sparkles, AlertTriangle, 
   CheckCircle2, ArrowRight, PenLine, ChevronRight, X, Loader2,
   BrainCircuit, ClipboardList, Target, Feather, ScanSearch, Camera,
-  Sun, Smile, Zap, LayoutGrid
+  Sun, Smile, Zap, LayoutGrid, ArrowLeft
 } from 'lucide-react';
-import { Button, ContentCard, EmptyState, IconButton, Input, PageWrapper, PanelCard, SectionTitle, Tabs, Textarea } from '../../components/UI';
+import { Badge, Button, ContentCard, EmptyState, IconButton, Input, PageWrapper, PanelCard, SectionTitle, Tabs, Textarea } from '../../components/UI';
 
 const toIso = (v?: any) => {
   if (!v) return new Date().toISOString();
@@ -21,11 +21,19 @@ const toIso = (v?: any) => {
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
+type TccTab = 'rpd' | 'cards' | 'socratic';
+
+const tccTabs = [
+  { id: 'rpd', label: 'RPD', icon: Layout },
+  { id: 'cards', label: 'Cartões', icon: Sparkles },
+  { id: 'socratic', label: 'Socrático', icon: HelpCircle },
+] as const;
+
 export const TCCPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'rpd' | 'cards' | 'socratic'>('rpd');
+  const [activeSub, setActiveSub] = useState<TccTab>('rpd');
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -150,29 +158,20 @@ export const TCCPage: React.FC = () => {
   return (
     <PageWrapper>
       <div className="space-y-4">
-      <SectionTitle
-        icon={Brain}
-        title="Terapia Cognitivo-Comportamental"
-        description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : 'Registros de pensamentos, cartões de enfrentamento e questionamento socrático.'}
-        action={<Button variant="ghost" size="sm" onClick={() => navigate('/caixa-ferramentas')} iconLeft={<ChevronRight className="rotate-180" size={14} />}>Voltar</Button>}
-      />
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      {selectedPatient && (
-        <Tabs
-          items={[
-            { id: 'rpd', label: 'RPD', icon: Layout },
-            { id: 'cards', label: 'Cartões', icon: Sparkles },
-            { id: 'socratic', label: 'Socrático', icon: HelpCircle },
-          ] as const}
-          value={activeSub}
-          onChange={setActiveSub}
-          label="Ferramentas da TCC"
+        <SectionTitle
+          icon={Brain}
+          title="Terapia Cognitivo-Comportamental"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : 'Registros de pensamentos, cartões de enfrentamento e questionamento socrático.'}
         />
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        {/* SIDEBAR */}
-        <ClinicalSidebar 
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -180,15 +179,14 @@ export const TCCPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        {/* CONTENT */}
-        <div className="space-y-4">
-          {!selectedPatient ? (
-            <div className="space-y-3 animate-fadeIn">
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <div className="space-y-3">
                 <ContentCard>
                   <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-600"><BrainCircuit size={16} /></div>
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-primary-100 bg-primary-50 text-primary-700"><BrainCircuit size={14} /></div>
                     <div>
                       <h2 className="text-sm font-medium text-slate-900">Fluxo clínico estruturado</h2>
                       <p className="mt-1 text-xs leading-relaxed text-slate-500">Organize pensamentos, reestruture crenças e acompanhe a evolução comportamental com protocolos da TCC.</p>
@@ -196,333 +194,276 @@ export const TCCPage: React.FC = () => {
                   </div>
                 </ContentCard>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {[
-                        { title: 'RPD digital', desc: 'Registro de pensamentos disfuncionais estruturado.', icon: ClipboardList },
-                        { title: 'Questionamento socrático', desc: 'Estruture o diálogo para desafiar distorções.', icon: MessageSquare },
-                        { title: 'Cartões de enfrentamento', desc: 'Cards para o paciente utilizar fora da sessão.', icon: Target }
-                    ].map((feat, i) => (
-                        <ContentCard key={i} className="p-3">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-primary-100 bg-primary-50 text-primary-600"><feat.icon size={14} /></div>
-                          <h3 className="mt-3 text-sm font-medium text-slate-900">{feat.title}</h3>
-                          <p className="mt-1 text-xs leading-relaxed text-slate-500">{feat.desc}</p>
-                        </ContentCard>
-                    ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {[
+                    { title: 'RPD digital', desc: 'Registro de pensamentos disfuncionais estruturado.', icon: ClipboardList },
+                    { title: 'Questionamento socrático', desc: 'Estruture o diálogo para desafiar distorções.', icon: MessageSquare },
+                    { title: 'Cartões de enfrentamento', desc: 'Cards para o paciente utilizar fora da sessão.', icon: Target }
+                  ].map((feat, i) => (
+                    <ContentCard key={i}>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md border border-primary-100 bg-primary-50 text-primary-700"><feat.icon size={14} /></div>
+                      <h3 className="mt-3 text-sm font-medium text-slate-900">{feat.title}</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">{feat.desc}</p>
+                    </ContentCard>
+                  ))}
                 </div>
 
                 <ContentCard><EmptyState icon={Brain} title="Selecione um paciente para iniciar" description="Escolha um paciente na coluna ao lado para visualizar e registrar os dados clínicos." /></ContentCard>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'rpd' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
-                    {/* FORM RPD */}
+              </div>
+            ) : (
+              <Tabs<TccTab> items={tccTabs} value={activeSub} onChange={setActiveSub} label="Ferramentas da TCC">
+                {activeSub === 'rpd' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
                     <PanelCard
-                        title="Novo Registro"
-                        action={<IconButton aria-label="Limpar registro" size="sm" onClick={() => { setEditingRPDId(null); setNewRPD({ intensity: 5 }); }}><RotateCcw /></IconButton>}
-                        contentClassName="space-y-3"
+                      title="Novo Registro"
+                      className="h-fit"
+                      action={<IconButton aria-label="Limpar registro" title="Limpar registro" size="sm" onClick={() => { setEditingRPDId(null); setNewRPD({ intensity: 5 }); }}><RotateCcw size={14} /></IconButton>}
                     >
-                        
-                        <div className="space-y-3">
-                            <div className="space-y-2">
-                                <label className="ds-label">Situação</label>
-                                <textarea 
-                                    className="ds-input min-h-[88px] h-24 resize-none py-2"
-                                    value={newRPD.situation || ''}
-                                    onChange={e => setNewRPD({...newRPD, situation: e.target.value})}
-                                    placeholder="O que aconteceu? Onde? Com quem?"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="ds-label">Pensamento Automático</label>
-                                <textarea 
-                                    className="ds-input min-h-[88px] h-24 resize-none py-2"
-                                    value={newRPD.thought || ''}
-                                    onChange={e => setNewRPD({...newRPD, thought: e.target.value})}
-                                    placeholder="O que passou pela sua cabeça no momento?"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="ds-label">Emoção</label>
-                                    <input 
-                                        type="text"
-                                        className="ds-input"
-                                        value={newRPD.emotion || ''}
-                                        onChange={e => setNewRPD({...newRPD, emotion: e.target.value})}
-                                        placeholder="Tristeza, medo..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="ds-label">Intensidade (0-10)</label>
-                                    <input 
-                                        type="number"
-                                        className="ds-input text-center"
-                                        value={newRPD.intensity || 5}
-                                        onChange={e => setNewRPD({...newRPD, intensity: parseInt(e.target.value)})}
-                                    />
-                                </div>
-                            </div>
-                            
-                            <Button
-                                onClick={handleSaveRPD}
-                                disabled={saving}
-                                fullWidth
-                                size="sm"
-                                iconLeft={saving ? <Loader2 className="animate-spin"/> : editingRPDId ? <Save/> : <Plus/>}
-                            >
-                                {editingRPDId ? 'Salvar' : 'Adicionar'}
-                            </Button>
+                      <div className="space-y-3">
+                        <Textarea
+                          label="Situação"
+                          rows={4}
+                          value={newRPD.situation || ''}
+                          onChange={e => setNewRPD({ ...newRPD, situation: e.target.value })}
+                          placeholder="O que aconteceu? Onde? Com quem?"
+                        />
+                        <Textarea
+                          label="Pensamento Automático"
+                          rows={4}
+                          value={newRPD.thought || ''}
+                          onChange={e => setNewRPD({ ...newRPD, thought: e.target.value })}
+                          placeholder="O que passou pela sua cabeça no momento?"
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input
+                            label="Emoção"
+                            type="text"
+                            value={newRPD.emotion || ''}
+                            onChange={e => setNewRPD({ ...newRPD, emotion: e.target.value })}
+                            placeholder="Tristeza, medo..."
+                          />
+                          <Input
+                            label="Intensidade (0-10)"
+                            type="number"
+                            value={newRPD.intensity || 5}
+                            onChange={e => setNewRPD({ ...newRPD, intensity: parseInt(e.target.value) })}
+                          />
                         </div>
+                        <Button
+                          onClick={handleSaveRPD}
+                          loading={saving}
+                          fullWidth
+                          size="sm"
+                          iconLeft={editingRPDId ? <Save size={14} /> : <Plus size={14} />}
+                        >
+                          {editingRPDId ? 'Salvar' : 'Adicionar'}
+                        </Button>
+                      </div>
                     </PanelCard>
-                    
-                    {/* HISTORICO RPD */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-slate-800 flex items-center gap-2"><Sparkles size={15} className="text-amber-500"/> Registros Clínicos</h3>
-                            <IconButton aria-label="Atualizar registros" size="sm" onClick={() => loadTccData(selectedPatientId)}><RefreshCcw /></IconButton>
-                        </div>
-                        
-                        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
-                            {records.length === 0 ? (
-                                <ContentCard><EmptyState icon={MessageSquare} title="Nenhum registro encontrado" description="Adicione um registro para acompanhar o pensamento clínico." /></ContentCard>
-                            ) : (
-                                records.slice().reverse().map(r => (
-                                    <ContentCard key={r.id} className="group relative hover:border-primary-200 transition-colors">
-                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <IconButton aria-label="Editar registro" size="xs" variant="outline" onClick={() => { setEditingRPDId(r.id); setNewRPD(r); }}><Edit3 /></IconButton>
-                                            <IconButton aria-label="Excluir registro" size="xs" variant="danger" onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/tcc/rpd/${r.id}`); loadTccData(selectedPatientId); }}><Trash2 /></IconButton>
-                                        </div>
-                                        
-                                        <div className="flex flex-col gap-4">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-[11px] font-semibold text-slate-300">{new Date(r.date || "").toLocaleDateString()}</span>
-                                                <div className="h-4 w-px bg-slate-100" />
-                                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold  ${r.intensity > 7 ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                                                    Intensidade: {r.intensity}/10
-                                                </span>
-                                            </div>
-                                            
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <p className="text-[11px] font-semibold text-slate-400 mb-1">Pensamento Alvo</p>
-                                                    <p className="text-lg font-semibold text-slate-800 leading-tight italic">"{r.thought}"</p>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-6">
-                                                    <div>
-                                                        <p className="text-[11px] font-semibold text-slate-400 mb-1">Situação</p>
-                                                        <p className="text-xs font-medium text-slate-600 leading-relaxed">{r.situation}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[11px] font-semibold text-slate-400 mb-1">Emoção</p>
-                                                        <p className="text-xs font-semibold text-slate-800 leading-relaxed">{r.emotion || '-'}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </ContentCard>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-              )}
 
-              {activeSub === 'cards' && (
-                <div className="space-y-4 animate-slideUpFade">
-                    <div className="bg-gradient-to-br from-indigo-600 to-primary-700 rounded-[32px] p-6 text-white relative overflow-hidden shadow-sm">
-                        <div className="absolute top-0 right-0 p-6 opacity-10">
-                            <Sparkles size={100} />
-                        </div>
-                        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="space-y-1">
-                                <h2 className="text-xl font-semibold">Cartões de Enfrentamento</h2>
-                                <p className="text-indigo-100/80 font-medium text-[11px] max-w-md">Lembretes para o paciente utilizar fora da sessão.</p>
-                            </div>
-                            <button 
-                                onClick={() => { setEditingCardId(null); setNewCard({ front: '', back: '' }); }}
-                                className="px-6 py-3 bg-white text-indigo-600 rounded-lg font-semibold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2 active:scale-95 text-xs"
-                            >
-                                <Plus size={16}/> Novo Cartão
-                            </button>
-                        </div>
-                    </div>
+                    <PanelCard
+                      title="Registros Clínicos"
+                      icon={Sparkles}
+                      className="min-w-0"
+                      action={<IconButton aria-label="Atualizar registros" title="Atualizar registros" size="sm" onClick={() => loadTccData(selectedPatientId)}><RefreshCcw size={14} /></IconButton>}
+                    >
+                      {records.length === 0 ? (
+                        <EmptyState icon={MessageSquare} title="Nenhum registro encontrado" description="Adicione um registro para acompanhar o pensamento clínico." />
+                      ) : (
+                        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+                          {records.slice().reverse().map(r => (
+                            <div key={r.id} className="group relative rounded-lg border border-slate-200 p-3 hover:border-primary-200 transition-colors space-y-3">
+                              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <IconButton aria-label="Editar registro" title="Editar registro" size="xs" variant="outline" onClick={() => { setEditingRPDId(r.id); setNewRPD(r); }}><Edit3 size={14} /></IconButton>
+                                <IconButton aria-label="Excluir registro" title="Excluir registro" size="xs" variant="danger" onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/tcc/rpd/${r.id}`); loadTccData(selectedPatientId); }}><Trash2 size={14} /></IconButton>
+                              </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pt-4">
-                        {/* FORM COMPACTO */}
-                        <div className="bg-white rounded-[32px] border-2 border-dashed border-indigo-200 p-8 flex flex-col gap-6 shadow-sm hover:border-solid hover:border-indigo-400 transition-all group">
-                             <div className="space-y-5">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-semibold text-slate-400">Frente / Gatilho</label>
-                                    <input 
-                                        className="w-full h-12 px-4 rounded-lg bg-indigo-50/50 border border-indigo-100 text-sm font-semibold text-indigo-900 focus:bg-white outline-none"
-                                        value={newCard.front}
-                                        onChange={(e) => setNewCard({...newCard, front: e.target.value})}
-                                        placeholder="Ex: Quando me sinto sozinho..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-semibold text-slate-400">Verso / Enfrentamento</label>
-                                    <textarea 
-                                        className="w-full h-32 p-4 rounded-lg bg-slate-50 border border-slate-100 text-sm focus:bg-white outline-none resize-none"
-                                        value={newCard.back}
-                                        onChange={(e) => setNewCard({...newCard, back: e.target.value})}
-                                        placeholder="Ex: Respire fundo e lembre que esse sentimento é passageiro..."
-                                    />
-                                </div>
-                                <button 
-                                    onClick={handleSaveCard}
-                                    className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                                >
-                                    {editingCardId ? 'Salvar' : 'Criar Cartão'}
-                                </button>
-                             </div>
-                        </div>
+                              <div className="flex flex-wrap items-center gap-2 pr-16">
+                                <span className="text-[11px] text-slate-500">{new Date(r.date || "").toLocaleDateString()}</span>
+                                <Badge color={r.intensity > 7 ? 'danger' : 'primary'} size="sm">
+                                  Intensidade: {r.intensity}/10
+                                </Badge>
+                              </div>
 
-                        {cards.map(c => (
-                            <div key={c.id} className="bg-white rounded-[32px] border border-slate-100 overflow-hidden shadow-sm hover:shadow-sm hover:-translate-y-2 transition-all flex flex-col h-full group">
-                                <div className="p-7 bg-indigo-600/5 flex-1 relative">
-                                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => { setEditingCardId(c.id); setNewCard(c); }} className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"><Edit3 size={14}/></button>
-                                        <button onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/tcc/cards/${c.id}`); loadTccData(selectedPatientId); }} className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all"><Trash2 size={14}/></button>
-                                    </div>
-                                    <h4 className="text-lg font-semibold text-slate-800 leading-tight mb-4 pr-12">{c.front}</h4>
-                                    <div className="h-px bg-slate-200/50 mb-6" />
-                                    <p className="text-sm text-slate-600 leading-relaxed font-medium">{c.back}</p>
-                                </div>
-                                <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-                                    <span className="text-[11px] font-semibold text-slate-300 italic flex items-center gap-1.5 align-top"><CheckCircle2 size={10}/> Lembrete Terapêutico</span>
-                                    <span className="text-[11px] font-semibold text-slate-300">{new Date(c.createdAt || "").toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-              )}
-
-              {activeSub === 'socratic' && (
-                <div className="space-y-8 animate-slideUpFade">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* GUIA DE PERGUNTAS */}
-                        <div className="bg-white rounded-[40px] border border-slate-200 p-8 shadow-sm space-y-8">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-                                    <HelpCircle size={24} />
+                              <div>
+                                <p className="text-[11px] text-slate-500 mb-0.5">Pensamento Alvo</p>
+                                <p className="text-sm font-medium text-slate-800 italic">"{r.thought}"</p>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-[11px] text-slate-500 mb-0.5">Situação</p>
+                                  <p className="text-xs text-slate-600">{r.situation}</p>
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-semibold text-slate-800">Questionamento Socrático</h3>
-                                    <p className="text-[11px] text-slate-400 font-semibold flex items-center gap-2">Exploração de Evidências</p>
+                                  <p className="text-[11px] text-slate-500 mb-0.5">Emoção</p>
+                                  <p className="text-xs font-medium text-slate-800">{r.emotion || '-'}</p>
                                 </div>
+                              </div>
                             </div>
-                            
-                            <div className="space-y-4">
-                                <p className="text-sm text-slate-500 leading-relaxed font-medium">Use as perguntas guia abaixo para estimular a reflexão do paciente sobre seus pensamentos disfuncionais:</p>
-                                <div className="grid grid-cols-1 gap-2.5">
-                                    {[
-                                        "Quais evidências apoiam esse pensamento?",
-                                        "Quais evidências contrariam esse pensamento?",
-                                        "Existe uma explicação alternativa?",
-                                        "Qual o pior que pode acontecer? E o melhor?",
-                                        "O que eu diria a um amigo se ele estivesse nessa situação?",
-                                        "Qual o efeito de acreditar nesse pensamento?"
-                                    ].map((q, idx) => (
-                                        <button 
-                                            key={idx}
-                                            onClick={() => setNewSocratic({...newSocratic, question: q})}
-                                            className="px-5 py-3.5 rounded-lg bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 text-left text-sm font-semibold text-slate-600 hover:text-indigo-800 transition-all group flex items-center justify-between"
-                                        >
-                                            {q}
-                                            <ChevronRight size={16} className="text-slate-200 group-hover:text-indigo-300 group-hover:translate-x-1 transition-all" />
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                          ))}
                         </div>
+                      )}
+                    </PanelCard>
+                  </div>
+                )}
 
-                        {/* FORM RESPOSTA */}
-                        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[40px] p-10 text-white shadow-sm relative overflow-hidden">
-                             <div className="absolute top-0 right-0 p-10 opacity-5">
-                                <PenLine size={160} />
-                             </div>
-                             <div className="relative z-10 space-y-8 h-full flex flex-col justify-between">
-                                <div className="space-y-6">
-                                     <div className="space-y-3">
-                                        <label className="text-[11px] font-semibold text-indigo-300">Pergunta Selecionada</label>
-                                        <input 
-                                            className="w-full bg-white/5 border border-white/10 rounded-lg h-14 px-6 text-sm font-semibold placeholder:text-white/20 outline-none focus:bg-white/10 transition-all shadow-inner"
-                                            value={newSocratic.question}
-                                            onChange={e => setNewSocratic({...newSocratic, question: e.target.value})}
-                                            placeholder="Selecione ao lado ou digite..."
-                                        />
-                                     </div>
-                                     <div className="space-y-3">
-                                        <label className="text-[11px] font-semibold text-indigo-300">Resposta do Paciente</label>
-                                        <textarea 
-                                            className="w-full bg-white/5 border border-white/10 rounded-[32px] p-6 text-base font-medium placeholder:text-white/20 outline-none focus:bg-white/10 transition-all h-48 resize-none shadow-inner leading-relaxed"
-                                            value={newSocratic.answer}
-                                            onChange={e => setNewSocratic({...newSocratic, answer: e.target.value})}
-                                            placeholder="Registre aqui a reflexão do paciente..."
-                                        />
-                                     </div>
-                                </div>
-                                <button 
-                                    onClick={handleSaveSocratic}
-                                    className="w-full h-16 bg-white text-indigo-900 rounded-[28px] font-semibold shadow-sm hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-3"
+                {activeSub === 'cards' && (
+                  <div className="space-y-3">
+                    <ContentCard>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h2 className="text-sm font-medium text-slate-900">Cartões de Enfrentamento</h2>
+                          <p className="text-[11px] text-slate-500">Lembretes para o paciente utilizar fora da sessão.</p>
+                        </div>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          iconLeft={<Plus size={14} />}
+                          onClick={() => { setEditingCardId(null); setNewCard({ front: '', back: '' }); }}
+                        >
+                          Novo Cartão
+                        </Button>
+                      </div>
+                    </ContentCard>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                      <PanelCard title={editingCardId ? 'Editar cartão' : 'Novo cartão'} className="h-fit">
+                        <div className="space-y-3">
+                          <Input
+                            label="Frente / Gatilho"
+                            value={newCard.front}
+                            onChange={(e) => setNewCard({ ...newCard, front: e.target.value })}
+                            placeholder="Ex: Quando me sinto sozinho..."
+                          />
+                          <Textarea
+                            label="Verso / Enfrentamento"
+                            rows={5}
+                            value={newCard.back}
+                            onChange={(e) => setNewCard({ ...newCard, back: e.target.value })}
+                            placeholder="Ex: Respire fundo e lembre que esse sentimento é passageiro..."
+                          />
+                          <Button variant="primary" fullWidth onClick={handleSaveCard}>
+                            {editingCardId ? 'Salvar' : 'Criar Cartão'}
+                          </Button>
+                        </div>
+                      </PanelCard>
+
+                      {cards.map(c => (
+                        <ContentCard key={c.id} padding="none" className="overflow-hidden flex flex-col h-full group">
+                          <div className="p-3 bg-primary-50/40 flex-1 relative">
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                              <IconButton aria-label="Editar cartão" title="Editar cartão" size="xs" variant="outline" onClick={() => { setEditingCardId(c.id); setNewCard(c); }}><Edit3 size={14} /></IconButton>
+                              <IconButton aria-label="Excluir cartão" title="Excluir cartão" size="xs" variant="danger" onClick={async () => { await api.delete(`/clinical-tools/${selectedPatientId}/tcc/cards/${c.id}`); loadTccData(selectedPatientId); }}><Trash2 size={14} /></IconButton>
+                            </div>
+                            <h4 className="text-sm font-medium text-slate-800 mb-2 pr-16">{c.front}</h4>
+                            <div className="h-px bg-slate-200/60 mb-2" />
+                            <p className="text-xs text-slate-600">{c.back}</p>
+                          </div>
+                          <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                            <span className="text-[11px] text-slate-500 flex items-center gap-1.5"><CheckCircle2 size={12} /> Lembrete Terapêutico</span>
+                            <span className="text-[11px] text-slate-500">{new Date(c.createdAt || "").toLocaleDateString()}</span>
+                          </div>
+                        </ContentCard>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeSub === 'socratic' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <PanelCard title="Questionamento Socrático" description="Exploração de Evidências" icon={HelpCircle}>
+                        <div className="space-y-3">
+                          <p className="text-xs text-slate-500">Use as perguntas guia abaixo para estimular a reflexão do paciente sobre seus pensamentos disfuncionais:</p>
+                          <div className="grid grid-cols-1 gap-2">
+                            {[
+                              "Quais evidências apoiam esse pensamento?",
+                              "Quais evidências contrariam esse pensamento?",
+                              "Existe uma explicação alternativa?",
+                              "Qual o pior que pode acontecer? E o melhor?",
+                              "O que eu diria a um amigo se ele estivesse nessa situação?",
+                              "Qual o efeito de acreditar nesse pensamento?"
+                            ].map((q, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setNewSocratic({ ...newSocratic, question: q })}
+                                className="px-3 py-2 min-h-[36px] rounded-lg bg-slate-50 hover:bg-primary-50 border border-slate-200 hover:border-primary-200 text-left text-xs text-slate-600 hover:text-primary-700 transition-colors group flex items-center justify-between gap-2"
+                              >
+                                {q}
+                                <ChevronRight size={14} className="text-slate-300 group-hover:text-primary-400 shrink-0" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </PanelCard>
+
+                      <PanelCard title="Resposta do Paciente" icon={PenLine}>
+                        <div className="space-y-3">
+                          <Input
+                            label="Pergunta Selecionada"
+                            value={newSocratic.question}
+                            onChange={e => setNewSocratic({ ...newSocratic, question: e.target.value })}
+                            placeholder="Selecione ao lado ou digite..."
+                          />
+                          <Textarea
+                            label="Resposta do Paciente"
+                            rows={8}
+                            value={newSocratic.answer}
+                            onChange={e => setNewSocratic({ ...newSocratic, answer: e.target.value })}
+                            placeholder="Registre aqui a reflexão do paciente..."
+                          />
+                          <Button variant="primary" fullWidth iconLeft={<Save size={14} />} onClick={handleSaveSocratic}>
+                            Registrar Reflexão
+                          </Button>
+                        </div>
+                      </PanelCard>
+                    </div>
+
+                    <PanelCard title="Desafios Cognitivos">
+                      {socratic.length === 0 ? (
+                        <EmptyState icon={HelpCircle} title="Nenhum questionamento registrado ainda." />
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {socratic.slice().reverse().map(s => (
+                            <div key={s.id} className="group relative rounded-lg border border-slate-200 p-3 space-y-2">
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Excluir questionamento"
+                                  title="Excluir questionamento"
+                                  className="hover:text-red-600"
+                                  onClick={async () => {
+                                    const newList = socratic.filter(it => it.id !== s.id);
+                                    await api.put(`/clinical-tools/${selectedPatientId}/tcc/socratic`, { data: newList });
+                                    setSocratic(newList);
+                                  }}
                                 >
-                                    <Save size={20}/> Registrar Reflexão
-                                </button>
-                             </div>
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </div>
+                              <div className="flex items-start gap-2 pr-8">
+                                <Badge color="primary" size="sm">?</Badge>
+                                <p className="text-xs font-medium text-slate-800">{s.question}</p>
+                              </div>
+                              <div className="pl-3 border-l-2 border-primary-100">
+                                <p className="text-xs text-slate-600 italic">"{s.answer}"</p>
+                              </div>
+                              <div className="flex justify-end">
+                                <span className="text-[11px] text-slate-500">{new Date(s.createdAt || "").toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                    </div>
-
-                    {/* LISTA SOCRATIC */}
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-slate-800 flex items-center gap-2 px-4 shadow-sm py-3 bg-white rounded-lg border border-slate-100 mb-6 underline decoration-indigo-500 decoration-4 underline-offset-8">Desafios Cognitivos</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {socratic.length === 0 ? (
-                                <div className="md:col-span-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[40px] p-24 text-center">
-                                    <p className="text-sm font-semibold text-slate-400">Nenhum questionamento registrado ainda.</p>
-                                </div>
-                            ) : (
-                                socratic.slice().reverse().map(s => (
-                                    <div key={s.id} className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm hover:shadow-sm transition-all group relative overflow-hidden flex flex-col gap-6">
-                                        <div className="absolute top-0 right-0 p-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button 
-                                              onClick={async () => {
-                                                  const newList = socratic.filter(it => it.id !== s.id);
-                                                  await api.put(`/clinical-tools/${selectedPatientId}/tcc/socratic`, { data: newList });
-                                                  setSocratic(newList);
-                                              }}
-                                              className="w-9 h-9 bg-red-50 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                                            >
-                                                <Trash2 size={16}/>
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-indigo-500 font-semibold text-[11px]">?</div>
-                                                <p className="text-sm font-semibold text-slate-800 leading-tight">{s.question}</p>
-                                            </div>
-                                            <div className="pl-11 border-l-2 border-indigo-100">
-                                                <p className="text-base text-slate-600 font-medium italic leading-relaxed">"{s.answer}"</p>
-                                            </div>
-                                        </div>
-                                        <div className="mt-auto pt-4 flex justify-end">
-                                             <span className="text-[11px] font-semibold text-slate-300">{new Date(s.createdAt || "").toLocaleDateString()}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-              )}
-            </>
-          )}
+                      )}
+                    </PanelCard>
+                  </div>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
-      </div>
       </div>
     </PageWrapper>
   );

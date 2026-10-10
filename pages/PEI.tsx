@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 // Data loaded from API
 import { PEI as PEIType, ClinicalGoal, ABCRecord, GoalStatus, Patient } from '../types';
 import { api } from '../services/api';
-import { 
-  BrainCircuit, Plus, Search, ChevronDown, CheckCircle, TrendingUp, 
-  Target, Calendar, Activity, ArrowRight, User, List, Layers, ClipboardCheck, 
+import {
+  BrainCircuit, Plus, Search, ChevronDown, CheckCircle, TrendingUp,
+  Target, Calendar, Activity, ArrowRight, User, List, Layers, ClipboardCheck,
   AlertTriangle, Radar, Eye, Volume2, Hand, Info, Footprints, Smile, MessageSquare,
   Clock, FileText, ChevronRight, X, Save, ArrowLeft, Zap, Box, Brain, Loader2,
   Trash2, Edit2
@@ -13,11 +13,17 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle } from '../components/UI/PageWrapper';
 import { Modal } from '../components/UI/Modal';
-import { Button } from '../components/UI/Button';
+import { Button, IconButton } from '../components/UI/Button';
 import { FilterLine, FilterLineSearch, FilterLineSection } from '../components/UI/FilterLine';
-import { Input } from '../components/UI/Input';
+import { Input, Select, Textarea } from '../components/UI/Input';
+import { Tabs } from '../components/UI/Tabs';
+import { Alert } from '../components/UI/Alert';
+import { EmptyState } from '../components/UI/EmptyState';
+
+const PEI_TAB_IDS = ['goals', 'abc', 'sensory', 'assessments'] as const;
+type PeiTabId = typeof PEI_TAB_IDS[number];
 
 // --- COMPONENTS FOR SUB-TABS ---
 type NeuroAssessment = {
@@ -33,9 +39,9 @@ type NeuroAssessment = {
 };
 
 // 1. Goals
-const GoalsTab: React.FC<{ 
-    pei: PEIType, 
-    onUpdate: (id: string, val: number) => void, 
+const GoalsTab: React.FC<{
+    pei: PEIType,
+    onUpdate: (id: string, val: number) => void,
     onAdd: (goal: ClinicalGoal) => void,
     onDelete: (id: string) => void,
     onEdit: (goal: ClinicalGoal) => void
@@ -44,7 +50,7 @@ const GoalsTab: React.FC<{
     const { success, error } = useToast();
     const [inputVal, setInputVal] = useState('');
     const [targetGoal, setTargetGoal] = useState('');
-    
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [idToDelete, setIdToDelete] = useState<string | null>(null);
@@ -80,15 +86,15 @@ const GoalsTab: React.FC<{
     };
 
     return (
-        <div className="space-y-6 animate-fadeIn">
+        <div className="space-y-3 animate-fadeIn">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                <h3 className="font-semibold text-slate-800 text-lg flex items-center gap-2">
-                    <Target size={20} className="text-primary-600" /> {t('pei.goals')}
+                <h3 className="font-medium text-slate-800 text-sm flex items-center gap-2">
+                    <Target size={16} className="text-primary-600" /> {t('pei.goals')}
                 </h3>
-                <Button 
+                <Button
                     variant="soft"
                     size="sm"
-                    leftIcon={<Plus size={16} />}
+                    leftIcon={<Plus size={14} />}
                     onClick={() => {
                         setNewGoal({ area: 'Comunicação', status: 'acquisition', currentValue: 0, targetValue: 80, startDate: new Date().toISOString().split('T')[0] });
                         setIsModalOpen(true);
@@ -98,28 +104,28 @@ const GoalsTab: React.FC<{
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {pei.goals.map(goal => {
                     const progress = Math.min((goal.currentValue / goal.targetValue) * 100, 100);
                     return (
-                        <div key={goal.id} className="bg-white rounded-lg p-4 sm:p-5 border border-slate-100 hover:border-primary-200 shadow-sm transition-all group">
+                        <div key={goal.id} className="bg-white rounded-lg p-3 lg:p-4 border border-slate-200 hover:border-primary-200 transition-all group">
                             <div className="flex justify-between items-start gap-3 mb-3">
                                 <div>
                                     <span className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md">
-                                        {goal.area === 'Comunicação' ? t('pei.goal.area.communication') || 'Comunicação' : 
+                                        {goal.area === 'Comunicação' ? t('pei.goal.area.communication') || 'Comunicação' :
                                          goal.area === 'Socioemocional' ? t('pei.goal.area.social') || 'Social' :
                                          goal.area === 'Psicomotricidade' ? t('pei.goal.area.motor') || 'Motor' :
                                          goal.area === 'Autonomia' ? t('pei.goal.area.autonomia') || 'Autonomia' :
                                          goal.area === 'Cognitivo' ? t('pei.goal.area.cognitive') || 'Cognitivo' :
                                          goal.area === 'Acadêmico' ? t('pei.goal.area.academic') || 'Acadêmico' : goal.area}
                                     </span>
-                                    <h4 className="font-semibold text-slate-800 mt-2 text-base leading-snug">{goal.title}</h4>
+                                    <h4 className="font-medium text-slate-800 mt-2 text-sm leading-snug">{goal.title}</h4>
                                 </div>
                                 <div className="flex items-start gap-2">
                                     <div className="flex flex-col gap-1 items-end">
                                         <div className="flex gap-1">
-                                            <button onClick={() => openEdit(goal)} className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all" title={t('common.edit')}><Edit2 size={14}/></button>
-                                            <button onClick={() => { setIdToDelete(goal.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title={t('common.delete')}><Trash2 size={14}/></button>
+                                            <IconButton size="sm" variant="ghost" onClick={() => openEdit(goal)} title={t('common.edit')} aria-label={t('common.edit')}><Edit2 size={14}/></IconButton>
+                                            <IconButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => { setIdToDelete(goal.id); setIsDeleteModalOpen(true); }} title={t('common.delete')} aria-label={t('common.delete')}><Trash2 size={14}/></IconButton>
                                         </div>
                                         <span className={`text-[11px] font-semibold px-2 py-1 rounded-full border  ${
                                             goal.status === 'acquisition' ? 'bg-primary-50 text-primary-600 border-primary-100' :
@@ -131,7 +137,7 @@ const GoalsTab: React.FC<{
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <p className="text-xs text-slate-500 mb-4 line-clamp-2">{goal.description}</p>
 
                             <div className="mb-4">
@@ -145,14 +151,15 @@ const GoalsTab: React.FC<{
                             </div>
 
                             <div className="flex flex-col sm:flex-row gap-2 sm:items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                <input 
-                                    type="number" 
+                                <Input
+                                    type="number"
                                     placeholder="%"
-                                    className="w-full sm:w-16 p-2 text-sm text-center font-semibold bg-white border border-slate-200 rounded-lg outline-none focus:border-primary-500"
+                                    wrapperClassName="w-full sm:w-20"
+                                    className="text-center"
                                     value={targetGoal === goal.id ? inputVal : ''}
                                     onChange={(e) => { setTargetGoal(goal.id); setInputVal(e.target.value); }}
                                 />
-                                <Button 
+                                <Button
                                     className="flex-1"
                                     size="sm"
                                     onClick={() => {
@@ -206,14 +213,11 @@ const GoalsTab: React.FC<{
                     </div>
                 )}
             >
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="md:col-span-1">
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-2">
-                                <Layers size={14} className="text-slate-300" /> {t('pei.goal.area')}
-                            </label>
-                            <select 
-                                className="w-full h-11 px-4 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 shadow-sm focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all"
+                            <Select
+                                label={t('pei.goal.area')}
                                 value={newGoal.area}
                                 onChange={e => setNewGoal({...newGoal, area: e.target.value})}
                             >
@@ -223,14 +227,11 @@ const GoalsTab: React.FC<{
                                 <option value="Autonomia">{t('pei.goal.area.autonomia')}</option>
                                 <option value="Cognitivo">{t('pei.goal.area.cognitive')}</option>
                                 <option value="Acadêmico">{t('pei.goal.area.academic')}</option>
-                            </select>
+                            </Select>
                         </div>
                         <div className="md:col-span-1">
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-2">
-                                <TrendingUp size={14} className="text-slate-300" /> {t('pei.status')}
-                            </label>
-                            <select 
-                                className="w-full h-11 px-4 rounded-lg border border-slate-200 bg-white font-semibold text-sm shadow-sm focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all"
+                            <Select
+                                label={t('pei.status')}
                                 value={newGoal.status}
                                 onChange={e => setNewGoal({...newGoal, status: e.target.value as GoalStatus})}
                             >
@@ -238,39 +239,34 @@ const GoalsTab: React.FC<{
                                 <option value="maintenance">{t('pei.maintenance')}</option>
                                 <option value="generalization">{t('pei.generalization') || 'Generalização'}</option>
                                 <option value="completed">{t('pei.completed') || 'Concluído'}</option>
-                            </select>
+                            </Select>
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-[11px] font-semibold text-slate-400 mb-2">{t('pei.goal.title')}</label>
-                        <Input 
-                            value={newGoal.title || ''}
-                            onChange={(e) => setNewGoal({...newGoal, title: e.target.value})}
-                            placeholder="Ex: Segurar o talher com preensão palmar..."
-                            className="font-semibold text-slate-800"
-                        />
-                    </div>
+                    <Input
+                        label={t('pei.goal.title')}
+                        value={newGoal.title || ''}
+                        onChange={(e) => setNewGoal({...newGoal, title: e.target.value})}
+                        placeholder="Ex: Segurar o talher com preensão palmar..."
+                    />
 
-                    <div>
-                        <label className="block text-[11px] font-semibold text-slate-400 mb-2">{t('pei.goal.desc')}</label>
-                        <textarea 
-                            className="w-full p-4 rounded-lg border border-slate-200 bg-slate-50/50 h-24 resize-none text-sm focus:ring-2 focus:ring-primary-500/10 focus:border-primary-400 outline-none transition-all"
-                            value={newGoal.description || ''}
-                            onChange={e => setNewGoal({...newGoal, description: e.target.value})}
-                            placeholder="Critérios de êxito e observações clínicas..."
-                        />
-                    </div>
+                    <Textarea
+                        label={t('pei.goal.desc')}
+                        rows={4}
+                        value={newGoal.description || ''}
+                        onChange={e => setNewGoal({...newGoal, description: e.target.value})}
+                        placeholder="Critérios de êxito e observações clínicas..."
+                    />
 
-                    <div className="bg-slate-50 p-5 rounded-lg border border-slate-100">
-                        <div className="grid grid-cols-2 gap-6">
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-2">
+                                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-2">
                                     <ArrowRight size={12} className="text-primary-400" /> {t('pei.goal.initial')}
                                 </label>
                                 <div className="relative">
-                                    <Input 
-                                        type="number" 
+                                    <Input
+                                        type="number"
                                         value={String(newGoal.currentValue || 0)}
                                         onChange={(e) => setNewGoal({...newGoal, currentValue: parseInt(e.target.value) || 0})}
                                         className="pr-8 text-center font-semibold"
@@ -279,12 +275,12 @@ const GoalsTab: React.FC<{
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-2">
+                                <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-2">
                                     <CheckCircle size={12} className="text-emerald-400" /> {t('pei.goal.target')}
                                 </label>
                                 <div className="relative">
-                                    <Input 
-                                        type="number" 
+                                    <Input
+                                        type="number"
                                         value={String(newGoal.targetValue || 80)}
                                         onChange={(e) => setNewGoal({...newGoal, targetValue: parseInt(e.target.value) || 0})}
                                         className="pr-8 text-center font-semibold"
@@ -305,8 +301,8 @@ const GoalsTab: React.FC<{
                 footer={(
                     <div className="flex justify-end gap-3 w-full">
                         <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>{t('common.cancel')}</Button>
-                        <Button 
-                            variant="danger" 
+                        <Button
+                            variant="danger"
                             onClick={() => {
                                 if (idToDelete) onDelete(idToDelete);
                                 setIsDeleteModalOpen(false);
@@ -326,8 +322,8 @@ const GoalsTab: React.FC<{
 };
 
 // 2. ABC Recording
-const ABCTab: React.FC<{ 
-    pei: PEIType, 
+const ABCTab: React.FC<{
+    pei: PEIType,
     onAdd: (abc: ABCRecord) => void,
     onEdit: (abc: ABCRecord) => void,
     onDelete: (id: string) => void
@@ -362,17 +358,18 @@ const ABCTab: React.FC<{
     };
 
     return (
-        <div className="space-y-6 animate-fadeIn">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
+        <div className="space-y-3 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div>
-                    <h3 className="font-semibold text-slate-800 text-lg flex items-center gap-2">
-                        <List size={20} className="text-amber-500" /> {t('pei.tab.abc')}
+                    <h3 className="font-medium text-slate-800 text-sm flex items-center gap-2">
+                        <List size={16} className="text-amber-500" /> {t('pei.tab.abc')}
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">Análise funcional do comportamento</p>
                 </div>
-                <Button 
+                <Button
                     variant="warning"
-                    leftIcon={<Plus size={16} />}
+                    size="sm"
+                    leftIcon={<Plus size={14} />}
                     onClick={() => {
                         setNewABC({ intensity: 'medium', date: new Date().toISOString().slice(0, 16) });
                         setIsModalOpen(true);
@@ -382,33 +379,33 @@ const ABCTab: React.FC<{
                 </Button>
             </div>
 
-            <div className="relative border-l-2 border-slate-200 ml-4 space-y-8">
+            <div className="relative border-l-2 border-slate-200 ml-4 space-y-3">
                 {pei.abcRecords?.map((abc, idx) => (
                     <div key={abc.id} className="relative pl-8">
                         <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
                             abc.intensity === 'high' ? 'bg-red-500' : abc.intensity === 'medium' ? 'bg-amber-500' : 'bg-primary-500'
                         }`}></div>
-                        
-                        <div className="bg-white rounded-lg p-4 sm:p-5 border border-slate-100 shadow-sm hover:shadow-sm transition-all">
+
+                        <div className="bg-white rounded-lg p-3 lg:p-4 border border-slate-200 transition-all">
                             <div className="flex justify-between items-start gap-3 mb-3">
                                 <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
                                     <Clock size={12} /> {new Date(abc.date).toLocaleString()}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <button onClick={() => openEdit(abc)} className="p-1 text-slate-400 hover:text-amber-500 transition-colors"><Edit2 size={14}/></button>
-                                    <button onClick={() => { setIdToDelete(abc.id); setIsDeleteModalOpen(true); }} className="p-1 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={14}/></button>
+                                    <IconButton size="sm" variant="ghost" onClick={() => openEdit(abc)} title={t('common.edit')} aria-label={t('common.edit')}><Edit2 size={14}/></IconButton>
+                                    <IconButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => { setIdToDelete(abc.id); setIsDeleteModalOpen(true); }} title={t('common.delete')} aria-label={t('common.delete')}><Trash2 size={14}/></IconButton>
                                     <span className={`text-[11px] font-semibold  px-2 py-0.5 rounded-full border ${
-                                        abc.intensity === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 
-                                        abc.intensity === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                                        abc.intensity === 'high' ? 'bg-red-50 text-red-600 border-red-100' :
+                                        abc.intensity === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                         'bg-primary-50 text-primary-600 border-primary-100'
                                     }`}>
-                                        {t('pei.abc.intensity')}: {t(`pei.abc.intensity.${abc.intensity || 'low'}`)} 
+                                        {t('pei.abc.intensity')}: {t(`pei.abc.intensity.${abc.intensity || 'low'}`)}
                                         {abc.duration && ` | ${abc.duration}`}
                                     </span>
                                 </div>
                             </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div className="bg-slate-50 p-3 rounded-lg">
                                     <span className="text-[11px] font-semibold text-slate-400 block mb-1">{t('pei.abc.antecedent')}</span>
                                     <p className="text-sm font-medium text-slate-700">{abc.antecedent}</p>
@@ -449,87 +446,79 @@ const ABCTab: React.FC<{
                     </div>
                 )}
             >
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
                         <div>
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center gap-2">
-                                <Clock size={12} className="text-slate-300" /> {t('pei.abc.date')}
-                            </label>
-                            <input 
-                                type="datetime-local" 
-                                className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-primary-400 outline-none transition-all" 
-                                value={newABC.date} 
-                                onChange={e => setNewABC({...newABC, date: e.target.value})} 
+                            <Input
+                                label={t('pei.abc.date')}
+                                type="datetime-local"
+                                value={newABC.date}
+                                onChange={e => setNewABC({...newABC, date: e.target.value})}
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center gap-2">
-                                <Activity size={12} className="text-slate-300" /> {t('pei.abc.intensity')}
-                            </label>
-                            <select 
-                                className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white shadow-sm text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-primary-400 outline-none transition-all"
+                            <Select
+                                label={t('pei.abc.intensity')}
                                 value={newABC.intensity}
                                 onChange={e => setNewABC({...newABC, intensity: e.target.value})}
                             >
                                 <option value="low">{t('pei.abc.intensity.low')}</option>
                                 <option value="medium">{t('pei.abc.intensity.medium')}</option>
                                 <option value="high">{t('pei.abc.intensity.high')}</option>
-                            </select>
+                            </Select>
                         </div>
                     </div>
 
-                    <div className="space-y-5 relative">
+                    <div className="space-y-3 relative">
                         <div className="absolute left-[15px] top-8 bottom-8 w-0.5 bg-slate-100 border-dashed border-l-2 opacity-50"></div>
-                        
+
                         <div className="relative pl-10">
                             <div className="absolute left-0 top-0 w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[11px] font-semibold text-slate-400 shadow-sm">A</div>
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-2">
-                                {t('pei.abc.antecedent')} <span className="text-slate-300 lowercase font-medium">(O que aconteceu antes?)</span>
+                            <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-2">
+                                {t('pei.abc.antecedent')} <span className="text-slate-400 font-normal">(O que aconteceu antes?)</span>
                             </label>
-                            <textarea 
-                                className="w-full p-4 rounded-lg border border-slate-200 bg-white h-24 resize-none text-sm focus:ring-2 focus:ring-slate-500/10 focus:border-slate-400 outline-none transition-all " 
-                                value={newABC.antecedent || ''} 
-                                onChange={e => setNewABC({...newABC, antecedent: e.target.value})} 
+                            <Textarea
+                                rows={3}
+                                value={newABC.antecedent || ''}
+                                onChange={e => setNewABC({...newABC, antecedent: e.target.value})}
                                 placeholder="Gatilhos, ambiente, pessoas presentes..."
                             />
                         </div>
 
                         <div className="relative pl-10">
                             <div className="absolute left-0 top-0 w-8 h-8 rounded-full bg-primary-100 border-2 border-white flex items-center justify-center text-[11px] font-semibold text-primary-500 shadow-sm">B</div>
-                            <label className="block text-[11px] font-semibold text-primary-400 mb-2 flex items-center gap-2">
-                                {t('pei.abc.behavior')} <span className="text-primary-300 lowercase font-medium">(Ação observada)</span>
+                            <label className="block text-xs font-medium text-primary-700 mb-1 flex items-center gap-2">
+                                {t('pei.abc.behavior')} <span className="text-primary-400 font-normal">(Ação observada)</span>
                             </label>
-                            <textarea 
-                                className="w-full p-4 rounded-lg border-2 border-primary-100 bg-primary-50/30 h-24 resize-none text-sm font-semibold text-primary-900 focus:ring-2 focus:ring-primary-500/10 focus:border-primary-400 outline-none transition-all" 
-                                value={newABC.behavior || ''} 
-                                onChange={e => setNewABC({...newABC, behavior: e.target.value})} 
+                            <Textarea
+                                rows={3}
+                                value={newABC.behavior || ''}
+                                onChange={e => setNewABC({...newABC, behavior: e.target.value})}
                                 placeholder="Descreva o comportamento de forma objetiva..."
                             />
                         </div>
 
                         <div className="relative pl-10">
                             <div className="absolute left-0 top-0 w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[11px] font-semibold text-slate-400 shadow-sm">C</div>
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-2">
-                                {t('pei.abc.consequence')} <span className="text-slate-300 lowercase font-medium">(Reação imediata)</span>
+                            <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-2">
+                                {t('pei.abc.consequence')} <span className="text-slate-400 font-normal">(Reação imediata)</span>
                             </label>
-                            <textarea 
-                                className="w-full p-4 rounded-lg border border-slate-200 bg-white h-24 resize-none text-sm focus:ring-2 focus:ring-slate-500/10 focus:border-slate-400 outline-none transition-all " 
-                                value={newABC.consequence || ''} 
-                                onChange={e => setNewABC({...newABC, consequence: e.target.value})} 
+                            <Textarea
+                                rows={3}
+                                value={newABC.consequence || ''}
+                                onChange={e => setNewABC({...newABC, consequence: e.target.value})}
                                 placeholder="Punição, reforço, retirada de estímulo..."
                             />
                         </div>
                     </div>
 
                     <div className="pt-2 pl-10">
-                        <label className="block text-[11px] font-semibold text-slate-400 mb-2 flex items-center gap-2">
-                            <Clock size={12} className="text-slate-300" /> {t('pei.abc.duration')}
-                        </label>
-                        <Input 
-                            value={newABC.duration || ''} 
-                            onChange={(e) => setNewABC({...newABC, duration: e.target.value})} 
-                            placeholder="Ex: 5min, 10s..." 
-                            className="max-w-[140px]"
+                        <Input
+                            label={t('pei.abc.duration')}
+                            value={newABC.duration || ''}
+                            onChange={(e) => setNewABC({...newABC, duration: e.target.value})}
+                            placeholder="Ex: 5min, 10s..."
+                            wrapperClassName="max-w-[200px]"
                         />
                     </div>
                 </div>
@@ -543,8 +532,8 @@ const ABCTab: React.FC<{
                 footer={(
                     <div className="flex justify-end gap-3 w-full">
                         <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>{t('common.cancel')}</Button>
-                        <Button 
-                            variant="danger" 
+                        <Button
+                            variant="danger"
                             onClick={() => {
                                 if (idToDelete) onDelete(idToDelete);
                                 setIsDeleteModalOpen(false);
@@ -601,85 +590,85 @@ const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
 
         // Auditory
         if (p.auditory > 70) {
-            strategies.push({ 
-                title: 'Hipersensibilidade Auditiva', 
+            strategies.push({
+                title: 'Hipersensibilidade Auditiva',
                 items: ['Uso de abafadores em ambientes barulhentos', 'Ambiente de estudo silencioso', 'Aviso prévio antes de ruídos'],
-                icon: <Volume2 size={16} />, color: 'bg-purple-100 text-purple-700 border-purple-200 shadow-sm'
+                icon: <Volume2 size={16} />, color: 'bg-purple-100 text-purple-700 border-purple-200 '
             });
         } else if (p.auditory < 30) {
-            strategies.push({ 
-                title: 'Busca Auditiva', 
+            strategies.push({
+                title: 'Busca Auditiva',
                 items: ['Brinquedos que emitem sons', 'Músicas com ritmos variados', 'Exploração de tons de voz'],
-                icon: <Volume2 size={16} />, color: 'bg-purple-100 text-purple-700 border-purple-200 shadow-sm'
+                icon: <Volume2 size={16} />, color: 'bg-purple-100 text-purple-700 border-purple-200 '
             });
         }
 
         // Visual
         if (p.visual > 70) {
-            strategies.push({ 
-                title: 'Hipersensibilidade Visual', 
+            strategies.push({
+                title: 'Hipersensibilidade Visual',
                 items: ['Reduzir poluição visual no ambiente', 'Uso de luzes suaves/indiretas', 'Luminárias de sal ou fibra ótica'],
-                icon: <Eye size={16} />, color: 'bg-primary-100 text-primary-700 border-primary-200 shadow-sm'
+                icon: <Eye size={16} />, color: 'bg-primary-100 text-primary-700 border-primary-200 '
             });
         } else if (p.visual < 30) {
-            strategies.push({ 
-                title: 'Busca Visual', 
+            strategies.push({
+                title: 'Busca Visual',
                 items: ['Estímulos com cores vibrantes', 'Brinquedos luminosos', 'Atividades de rastreio visual'],
-                icon: <Eye size={16} />, color: 'bg-primary-100 text-primary-700 border-primary-200 shadow-sm'
+                icon: <Eye size={16} />, color: 'bg-primary-100 text-primary-700 border-primary-200 '
             });
         }
 
         // Tactile
         if (p.tactile > 70) {
-            strategies.push({ 
-                title: 'Hipersensibilidade Tátil', 
+            strategies.push({
+                title: 'Hipersensibilidade Tátil',
                 items: ['Roupas sem etiquetas e costuras', 'Pressão profunda (toque firme)', 'Respeitar o espaço pessoal'],
-                icon: <Hand size={16} />, color: 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm'
+                icon: <Hand size={16} />, color: 'bg-emerald-100 text-emerald-700 border-emerald-200 '
             });
         } else if (p.tactile < 30) {
-            strategies.push({ 
-                title: 'Busca Tátil', 
+            strategies.push({
+                title: 'Busca Tátil',
                 items: ['Exploração de texturas (massinha, areia)', 'Atividades de "mãos sujas"', 'Materiais de diferentes densidades'],
-                icon: <Hand size={16} />, color: 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm'
+                icon: <Hand size={16} />, color: 'bg-emerald-100 text-emerald-700 border-emerald-200 '
             });
         }
 
         // Vestibular
         if (p.vestibular > 70) {
-            strategies.push({ 
-                title: 'Insegurança Gravitacional', 
+            strategies.push({
+                title: 'Insegurança Gravitacional',
                 items: ['Movimentos lineares lentos', 'Atividades com os pés no chão', 'Predictibilidade nos movimentos'],
-                icon: <Footprints size={16} />, color: 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm'
+                icon: <Footprints size={16} />, color: 'bg-orange-100 text-orange-700 border-orange-200 '
             });
         } else if (p.vestibular < 30) {
-            strategies.push({ 
-                title: 'Busca Vestibular', 
+            strategies.push({
+                title: 'Busca Vestibular',
                 items: ['Balanços e redes de licra', 'Pular em cama elástica', 'Atividades de girar com pausa'],
-                icon: <Footprints size={16} />, color: 'bg-orange-100 text-orange-700 border-orange-200 shadow-sm'
+                icon: <Footprints size={16} />, color: 'bg-orange-100 text-orange-700 border-orange-200 '
             });
         }
 
         // Proprioceptive
         if (p.proprioceptive < 40) {
-            strategies.push({ 
-                title: 'Propriocepção (Trabalho Pesado)', 
+            strategies.push({
+                title: 'Propriocepção (Trabalho Pesado)',
                 items: ['Atividades de empurrar/puxar', 'Escaladas e saltos controlados', 'Abraços apertados (pressão)'],
-                icon: <Layers size={16} />, color: 'bg-teal-100 text-teal-700 border-teal-200 shadow-sm'
+                icon: <Layers size={16} />, color: 'bg-teal-100 text-teal-700 border-teal-200 '
             });
         }
 
         // Oral
         if (p.oral > 70) {
-            strategies.push({ 
-                title: 'Seletividade / Hipersensibilidade Oral', 
+            strategies.push({
+                title: 'Seletividade / Hipersensibilidade Oral',
                 items: ['Alimentos com sabores suaves', 'Introdução gradual de texturas', 'Respeitar aversão a texturas pastosas'],
-                icon: <Smile size={16} />, color: 'bg-pink-100 text-pink-700 border-pink-200 shadow-sm'
+                icon: <Smile size={16} />, color: 'bg-pink-100 text-pink-700 border-pink-200 '
             });
         } else if (p.oral < 30) {
-            strategies.push({ 
-                title: 'Busca Oral', 
+            strategies.push({
+                title: 'Busca Oral',
                 items: ['Alimentos crocantes e firmes', 'Mordedores sensoriais seguros', 'Escovação vibratória'],
-                icon: <Smile size={16} />, color: 'bg-pink-100 text-pink-700 border-pink-200 shadow-sm'
+                icon: <Smile size={16} />, color: 'bg-pink-100 text-pink-700 border-pink-200 '
             });
         }
 
@@ -689,10 +678,10 @@ const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
     const suggestedStrategies = getSensoryStrategies();
 
     return (
-        <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-            <div className="bg-white rounded-lg p-5 sm:p-6 border border-slate-200 shadow-sm">
-                <h4 className="font-semibold text-slate-700 mb-6 text-xs border-b border-slate-100 pb-2">Perfil Sensorial</h4>
-                <div className="space-y-6">
+        <div className="animate-fadeIn grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="bg-white rounded-lg p-3 lg:p-4 border border-slate-200">
+                <h4 className="font-medium text-slate-800 mb-3 text-sm border-b border-slate-100 pb-2">Perfil Sensorial</h4>
+                <div className="space-y-3">
                     {sensoryTypes.map(s => {
                         const val = (profile as any)[s.key] as number;
                         return (
@@ -701,48 +690,43 @@ const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
                                     <div className="flex items-center gap-3"><div className={`p-2 rounded-lg ${s.bg} ${s.color}`}>{s.icon}</div><span className="font-semibold text-slate-700">{s.label}</span></div>
                                     <span className="text-xs font-semibold text-slate-400">{val}%</span>
                                 </div>
-                                <input 
-                                    type="range" 
-                                    min="0" max="100" 
-                                    value={val} 
-                                    className={`w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer ${s.accent}`} 
+                                <input
+                                    type="range"
+                                    min="0" max="100"
+                                    value={val}
+                                    className={`w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer ${s.accent}`}
                                     onChange={(e) => setProfile(p => ({ ...p, [s.key]: parseInt(e.target.value) }))}
                                 />
                             </div>
                         );
                     })}
                 </div>
-                <div className="mt-8 flex justify-end">
-                    <button 
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700  disabled:opacity-50 transition-all font-sans"
-                    >
-                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                <div className="mt-4 flex justify-end">
+                    <Button onClick={handleSave} loading={saving} disabled={saving} size="sm" leftIcon={<Save size={14} />}>
                         {t('common.save') || 'Salvar Perfil'}
-                    </button>
+                    </Button>
                 </div>
             </div>
-            
-            <div className="bg-primary-50/40 rounded-lg p-5 sm:p-8 border border-primary-100/50 flex flex-col relative overflow-hidden group">
+
+            <div className="bg-primary-50/40 rounded-lg p-3 lg:p-4 border border-primary-100/50 flex flex-col relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
                     <Zap size={140} className="text-primary-600" />
                 </div>
 
-                <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center text-white ">
-                        <Zap size={24} /> 
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white ">
+                        <Zap size={15} />
                     </div>
                     <div>
-                        <h4 className="font-semibold text-primary-900 text-lg leading-tight">Dieta Sensorial Sugerida</h4>
+                        <h4 className="font-medium text-primary-900 text-sm leading-tight">Dieta Sensorial Sugerida</h4>
                         <p className="text-[11px] text-primary-400 font-semibold mt-1">Estratégias de Regulação</p>
                     </div>
                 </div>
 
-                <div className="flex-1 space-y-5 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
+                <div className="flex-1 space-y-3 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
                     {suggestedStrategies.length > 0 ? (
                         suggestedStrategies.map((s, idx) => (
-                            <div key={idx} className={`p-5 rounded-lg border ${s.color} animate-fadeIn transition-all hover:scale-[1.02] shadow-sm`} style={{ animationDelay: `${idx * 0.1}s` }}>
+                            <div key={idx} className={`p-3 rounded-lg border ${s.color} animate-fadeIn`} style={{ animationDelay: `${idx * 0.1}s` }}>
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="p-1.5 bg-white/50 rounded-lg border border-current opacity-60">
                                         {s.icon}
@@ -771,8 +755,8 @@ const SensoryTab: React.FC<{ pei: PEIType }> = ({ pei }) => {
                         </div>
                     )}
                 </div>
-                
-                <div className="mt-8 p-4 bg-white/60 backdrop-blur-sm rounded-lg border border-primary-100/50 flex gap-3">
+
+                <div className="mt-4 p-3 bg-white/60 backdrop-blur-sm rounded-lg border border-primary-100/50 flex gap-3">
                     <AlertTriangle size={16} className="text-primary-400 shrink-0 mt-0.5" />
                     <p className="text-[11px] text-primary-500 font-medium italic leading-relaxed">
                         Estas sugestões são automatizadas. Consulte sempre um Terapeuta Ocupacional para validação clínica das estratégias.
@@ -871,7 +855,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
 
     const handleSaveResult = async () => {
         if (!active) return;
-        
+
         setLoading(true);
         setError(null);
         try {
@@ -887,11 +871,11 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                 });
                 toastSuccess(t('common.save') || 'Salvo', 'Resultado registrado com sucesso.');
             }
-            
+
             setEditingId(null);
             setDynamicValues({});
             await loadResults(String(active.id));
-            await loadAssessments(); 
+            await loadAssessments();
             setActive(null);
         } catch (e) {
             console.error(e);
@@ -905,9 +889,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
     return (
         <div className="animate-fadeIn space-y-4">
             {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-2 text-xs font-semibold">
-                    {error}
-                </div>
+                <Alert variant="error">{error}</Alert>
             )}
             {loading && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
@@ -915,49 +897,52 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                 </div>
             )}
             {assessments.length === 0 && !loading ? (
-                <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/40 min-h-[160px] flex items-center justify-center text-slate-400">
-                    <div className="text-sm font-semibold">{t('common.empty') || 'Sem avaliacoes cadastradas'}</div>
-                </div>
+                <EmptyState icon={ClipboardCheck} title={t('common.empty') || 'Sem avaliacoes cadastradas'} />
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     {assessments.map(item => {
                         const lastResult = latestResults[item.id];
                         return (
-                            <div key={item.id} className="bg-white p-5 rounded-lg border border-slate-200 hover:border-primary-300 transition-all flex flex-col gap-4 shadow-sm group">
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-lg bg-primary-600 text-white flex items-center justify-center text-lg font-semibold shrink-0 ">
+                            <div key={item.id} className="bg-white p-3 lg:p-4 rounded-lg border border-slate-200 hover:border-primary-300 transition-all flex flex-col gap-3 group">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-9 h-9 rounded-lg bg-primary-600 text-white flex items-center justify-center text-sm font-medium shrink-0 ">
                                         {item.initial || item.name?.charAt(0) || 'A'}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex justify-between items-start">
-                                            <h4 className="font-semibold text-slate-800 truncate">{item.name}</h4>
+                                            <h4 className="font-medium text-slate-800 text-sm truncate">{item.name}</h4>
                                             <span className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">{item.assessment_type || 'sum'}</span>
                                         </div>
                                         {item.description && <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{item.description}</p>}
                                     </div>
                                 </div>
-                                
+
                                 {lastResult ? (
                                     <div className="bg-primary-50/50 rounded-lg p-3 border border-primary-100/50 relative group/result">
                                         <div className="flex justify-between items-center mb-1">
                                             <span className="text-[11px] font-semibold text-primary-400">Último Resultado</span>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[11px] text-primary-300 font-medium">{new Date(lastResult.created_at).toLocaleDateString()}</span>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover/result:opacity-100 transition-opacity ml-2">
-                                                    <button 
+                                                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/result:opacity-100 sm:focus-within:opacity-100 transition-opacity ml-2">
+                                                    <IconButton
+                                                        size="sm"
+                                                        variant="ghost"
                                                         onClick={(e) => { e.stopPropagation(); setEditingId(String(lastResult.id)); setDynamicValues(lastResult.data || {}); setActive(item); }}
-                                                        className="p-1 text-primary-400 hover:text-primary-600 transition-colors"
                                                         title={t('common.edit')}
+                                                        aria-label={t('common.edit')}
                                                     >
-                                                        <Edit2 size={10} />
-                                                    </button>
-                                                    <button 
+                                                        <Edit2 size={12} />
+                                                    </IconButton>
+                                                    <IconButton
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-red-600 hover:bg-red-50"
                                                         onClick={(e) => { e.stopPropagation(); handleDeleteResult(String(lastResult.id)); }}
-                                                        className="p-1 text-slate-300 hover:text-red-600 transition-colors"
                                                         title={t('common.delete')}
+                                                        aria-label={t('common.delete')}
                                                     >
-                                                        <Trash2 size={10} />
-                                                    </button>
+                                                        <Trash2 size={12} />
+                                                    </IconButton>
                                                 </div>
                                             </div>
                                         </div>
@@ -1017,9 +1002,9 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                     </div>
                 )}
             >
-                <div className="space-y-6">
+                <div className="space-y-3">
                     {active?.help_text && (
-                        <div className="bg-primary-50 border border-primary-100 p-4 rounded-lg flex gap-3">
+                        <div className="bg-primary-50 border border-primary-100 p-3 rounded-lg flex gap-3">
                             <Info size={18} className="text-primary-500 shrink-0 mt-0.5" />
                             <div>
                                 <h5 className="text-[11px] font-semibold text-primary-600 mb-1">Referência Clínica</h5>
@@ -1027,30 +1012,28 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                             </div>
                         </div>
                     )}
-                    <div className="grid grid-cols-1 gap-5">
+                    <div className="grid grid-cols-1 gap-3">
                         {(active?.fields || []).map(f => (
                             <div key={f.id} className="relative">
-                                <label className="block text-[11px] font-semibold text-slate-400 mb-2 ml-1">{f.label}</label>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">{f.label}</label>
                                 {f.type === 'select' ? (
-                                    <select
-                                        className="w-full h-11 px-4 rounded-lg border border-slate-200 bg-white shadow-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 transition-all"
+                                    <Select
                                         value={dynamicValues[f.id] || ''}
                                         onChange={e => setDynamicValues(v => ({ ...v, [f.id]: e.target.value }))}
                                     >
                                         <option value="">Selecione...</option>
                                         {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                                    </select>
+                                    </Select>
                                 ) : f.type === 'number' ? (
                                     <Input
                                         type="number"
                                         value={String(dynamicValues[f.id] || '')}
                                         onChange={(e) => setDynamicValues(v_prev => ({ ...v_prev, [f.id]: e.target.value }))}
                                         placeholder={f.placeholder || '0'}
-                                        className="font-semibold text-slate-800"
                                     />
                                 ) : (
-                                    <textarea
-                                        className="w-full p-4 rounded-lg border border-slate-200 bg-white h-32 resize-none text-sm outline-none focus:ring-2 focus:ring-primary-500/10 focus:border-primary-400 transition-all "
+                                    <Textarea
+                                        rows={4}
                                         value={dynamicValues[f.id] || ''}
                                         onChange={e => setDynamicValues(v => ({ ...v, [f.id]: e.target.value }))}
                                         placeholder={f.placeholder || 'Descreva as observações clínicas detalhadamente...'}
@@ -1067,13 +1050,13 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                         </div>
                     )}
 
-                    <div className="pt-6 border-t border-slate-100">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="pt-3 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
                             <h5 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
                                 <Activity size={12} className="text-slate-300" /> Resultados anteriores
                             </h5>
                         </div>
-                        
+
                         {resultsLoading ? (
                             <div className="flex items-center gap-2 text-xs text-slate-400">
                                 <Loader2 className="animate-spin" size={12} /> Carregando histórico...
@@ -1085,7 +1068,7 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                         ) : (
                             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                                 {results.map(r => (
-                                    <div key={r.id} className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm relative group/item">
+                                    <div key={r.id} className="bg-white p-3 rounded-lg border border-slate-200 relative group/item">
                                         <div className="flex justify-between items-center mb-3">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[11px] font-semibold text-primary-400 bg-primary-50 px-2 py-0.5 rounded-lg border border-primary-100/50">
@@ -1093,21 +1076,13 @@ const AssessmentsTab: React.FC<{ patientId: string }> = ({ patientId }) => {
                                                 </span>
                                                 <span className="text-[11px] text-slate-300 italic">{new Date(r.created_at || r.createdAt || Date.now()).toLocaleTimeString()}</span>
                                             </div>
-                                            <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                                <button 
-                                                    onClick={() => { setEditingId(String(r.id)); setDynamicValues(r.data || {}); }}
-                                                    className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all"
-                                                    title={t('common.edit')}
-                                                >
+                                            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+                                                <IconButton size="sm" variant="ghost" onClick={() => { setEditingId(String(r.id)); setDynamicValues(r.data || {}); }} title={t('common.edit')} aria-label={t('common.edit')}>
                                                     <Edit2 size={12} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleDeleteResult(String(r.id))}
-                                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                    title={t('common.delete')}
-                                                >
+                                                </IconButton>
+                                                <IconButton size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => handleDeleteResult(String(r.id))} title={t('common.delete')} aria-label={t('common.delete')}>
                                                     <Trash2 size={12} />
-                                                </button>
+                                                </IconButton>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -1136,7 +1111,7 @@ export const PEI: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'goals' | 'abc' | 'sensory' | 'assessments'>('goals');
+  const [activeTab, setActiveTab] = useState<PeiTabId>('goals');
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -1407,24 +1382,27 @@ export const PEI: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-[fadeIn_0.5s_ease-out] font-sans pb-16 sm:pb-20 px-4 sm:px-6 lg:px-0">
-      
-      <PageHeader
-        icon={<BrainCircuit />}
+    <PageWrapper>
+    <div className="space-y-4 animate-fadeIn">
+
+      <SectionTitle
+        icon={BrainCircuit}
         title={t('pei.title')}
-        subtitle={t('pei.subtitle')}
-        containerClassName="mb-0"
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
+        description={t('pei.subtitle')}
+        action={
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
-          
-          <div className="lg:col-span-1 space-y-4 sm:space-y-6">
-              <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-                  <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col gap-3">
-                      <h3 className="font-semibold text-slate-700 text-xs">Meus Pacientes</h3>
-                      <FilterLineSearch 
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+
+          <div className="lg:col-span-1 space-y-3">
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden flex flex-col">
+                  <div className="p-3 border-b border-slate-100 bg-slate-50 flex flex-col gap-2">
+                      <h3 className="font-medium text-slate-800 text-sm">Meus Pacientes</h3>
+                      <FilterLineSearch
                         value={patientSearch}
                         onChange={setPatientSearch}
                         placeholder={t('common.search') || 'Buscar...'}
@@ -1438,7 +1416,7 @@ export const PEI: React.FC = () => {
                           <button
                             key={p.id}
                             onClick={() => setSelectedPatientId(String(p.id))}
-                            className={`w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors text-left ${selectedPatientId === String(p.id) ? 'bg-primary-50 border-l-4 border-primary-600 ' : ''}`}
+                            className={`w-full flex items-center gap-3 p-3 min-h-[44px] hover:bg-slate-50 transition-colors text-left ${selectedPatientId === String(p.id) ? 'bg-primary-50 border-l-4 border-primary-600 ' : ''}`}
                           >
                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-500 shrink-0">
                                    {(p.full_name || '?').charAt(0).toUpperCase()}
@@ -1459,46 +1437,45 @@ export const PEI: React.FC = () => {
 
           <div className="lg:col-span-3">
               {selectedPatientId && selectedPei ? (
-                  <div className="space-y-6 animate-fadeIn">
-                  <div className="bg-white p-4 sm:p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center text-base sm:text-lg font-semibold">
+                  <div className="space-y-3 animate-fadeIn">
+                  <div className="bg-white p-3 lg:p-4 rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center gap-3">
+                          <div className="w-10 h-10 bg-primary-100 text-primary-600 rounded-lg flex items-center justify-center text-sm font-medium">
                             {(patient?.full_name || '?').charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                                <h2 className="text-lg sm:text-xl font-semibold text-slate-800 truncate">{patient?.full_name}</h2>
-                                <p className="text-xs sm:text-sm text-slate-500 flex items-center gap-2">
+                                <h2 className="text-sm font-medium text-slate-800 truncate">{patient?.full_name}</h2>
+                                <p className="text-[11px] text-slate-500 flex items-center gap-2">
                                   <Calendar size={14} /> Revisão PEI: {selectedPei.reviewDate ? new Date(selectedPei.reviewDate).toLocaleDateString() : '—'}
                                 </p>
                           </div>
                       </div>
 
-                      <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto no-scrollbar">
-                          {[
-                              { id: 'goals', label: t('pei.tab.goals'), icon: <Target size={16} /> },
-                              { id: 'abc', label: t('pei.tab.abc'), icon: <List size={16} /> },
-                              { id: 'sensory', label: t('pei.tab.sensory'), icon: <Activity size={16} /> },
-                              { id: 'assessments', label: t('pei.tab.assessments'), icon: <ClipboardCheck size={16} /> },
-                          ].map(tab => (
-                              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-none sm:flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all whitespace-nowrap min-w-[140px] sm:min-w-0 ${activeTab === tab.id ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                                  {tab.icon} {tab.label}
-                              </button>
-                          ))}
-                      </div>
+                      <Tabs<PeiTabId>
+                          items={[
+                              { id: 'goals', label: t('pei.tab.goals'), icon: Target },
+                              { id: 'abc', label: t('pei.tab.abc'), icon: List },
+                              { id: 'sensory', label: t('pei.tab.sensory'), icon: Activity },
+                              { id: 'assessments', label: t('pei.tab.assessments'), icon: ClipboardCheck },
+                          ]}
+                          value={activeTab}
+                          onChange={setActiveTab}
+                          label="Seções do PEI"
+                      />
 
                       <div className="min-h-[400px]">
                           {activeTab === 'goals' && selectedPei && (
-                              <GoalsTab 
-                                pei={selectedPei} 
-                                onUpdate={handleUpdateGoal} 
-                                onAdd={handleAddGoal} 
+                              <GoalsTab
+                                pei={selectedPei}
+                                onUpdate={handleUpdateGoal}
+                                onAdd={handleAddGoal}
                                 onEdit={handleEditGoal}
                                 onDelete={handleDeleteGoal}
                               />
                           )}
                           {activeTab === 'abc' && selectedPei && (
-                              <ABCTab 
-                                pei={selectedPei} 
-                                onAdd={handleAddABC} 
+                              <ABCTab
+                                pei={selectedPei}
+                                onAdd={handleAddABC}
                                 onEdit={handleEditABC}
                                 onDelete={handleDeleteABC}
                               />
@@ -1508,26 +1485,18 @@ export const PEI: React.FC = () => {
                       </div>
                   </div>
               ) : selectedPatientId && peiMissing ? (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-slate-50/50 rounded-lg border-2 border-dashed border-slate-200 text-slate-400">
-                      <BrainCircuit size={48} className="mb-4 opacity-20" />
-                      <p className="font-medium text-lg">Nenhum PEI encontrado</p>
-                      <p className="text-sm mt-1 mb-4">Crie um plano educacional para este paciente</p>
-                      <Button
-                          onClick={handleCreatePei}
-                          leftIcon={<Plus size={16} />}
-                          className="mt-2"
-                      >
-                          Criar PEI
-                      </Button>
-                  </div>
+                  <EmptyState
+                      icon={BrainCircuit}
+                      title="Nenhum PEI encontrado"
+                      description="Crie um plano educacional para este paciente"
+                      action={<Button size="sm" onClick={handleCreatePei} leftIcon={<Plus size={14} />}>Criar PEI</Button>}
+                  />
               ) : (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-slate-50/50 rounded-lg border-2 border-dashed border-slate-200 text-slate-400">
-                      <BrainCircuit size={48} className="mb-4 opacity-20" />
-                      <p className="font-medium text-lg">{t('pei.selectPatient')}</p>
-                  </div>
+                  <EmptyState icon={BrainCircuit} title={t('pei.selectPatient')} />
               )}
           </div>
       </div>
     </div>
+    </PageWrapper>
   );
 };

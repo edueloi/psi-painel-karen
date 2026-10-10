@@ -2,7 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
+import { ArrowLeft } from 'lucide-react';
 import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { 
@@ -12,11 +19,18 @@ import {
   Layers, Filter, Eye, Activity
 } from 'lucide-react';
 
+type EmdrTab = 'reprocess' | 'sudar' | 'resources';
+
+const emdrTabs = [
+  { id: 'reprocess', label: 'Reprocessar', icon: Eye },
+  { id: 'resources', label: 'Recursos', icon: Shield },
+] as const;
+
 export const EMDRPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'reprocess' | 'sudar' | 'resources'>('reprocess');
+  const [activeSub, setActiveSub] = useState<EmdrTab>('reprocess');
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -104,33 +118,22 @@ export const EMDRPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<Zap />}
-        title="EMDR - Reprocessamento de Traumas"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Dessensibilização & Reprocessamento"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
-              <button 
-                onClick={() => setActiveSub('reprocess')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'reprocess' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Eye size={14}/> Reprocessar</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('resources')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'resources' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Shield size={14}/> Recursos</div>
-              </button>
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <ClinicalSidebar 
+        <SectionTitle
+          icon={Zap}
+          title="EMDR - Reprocessamento de Traumas"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Dessensibilização & Reprocessamento"}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -138,100 +141,78 @@ export const EMDRPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="space-y-6 animate-fadeIn text-center py-20 bg-white rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center">
-                <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-6">
-                    <Zap size={40} />
-                </div>
-                <h2 className="text-2xl font-semibold text-slate-800">EMDR Workspace</h2>
-                <p className="text-slate-400 text-sm max-w-md mx-auto">Workflow automatizado para Reprocessamento de Traumas e Escalameto SUD.</p>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'reprocess' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
-                    <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                        <h3 className="font-semibold text-slate-800 text-lg">Sessão de Reprocessamento</h3>
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold text-slate-400">Alvo / Memória Traumática</label>
-                                <textarea className="w-full p-4 rounded-lg bg-rose-50/50 border border-rose-100/50 text-sm font-semibold text-rose-900 focus:bg-white transition-all h-24 resize-none" value={newSession.target} onChange={e => setNewSession({...newSession, target: e.target.value})} placeholder="Descrição breve da memória..." />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-semibold text-slate-400">SUD Inicial (0-10)</label>
-                                    <input type="number" className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold text-center outline-none" value={newSession.sudInitial} onChange={e => setNewSession({...newSession, sudInitial: parseInt(e.target.value)})} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-semibold text-slate-400">SUD Final (0-10)</label>
-                                    <input type="number" className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold text-center outline-none" value={newSession.sudFinal} onChange={e => setNewSession({...newSession, sudFinal: parseInt(e.target.value)})} />
-                                </div>
-                            </div>
-                            <button onClick={handleSaveSession} className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-indigo-700 transition-all">Registrar Alvo</button>
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Zap}
+                  title="EMDR Workspace"
+                  description="Workflow automatizado para Reprocessamento de Traumas e Escalameto SUD."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<EmdrTab> items={emdrTabs} value={activeSub} onChange={setActiveSub} label="Seções do EMDR">
+                {activeSub === 'reprocess' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
+                    <PanelCard title="Sessão de Reprocessamento">
+                      <div className="space-y-3">
+                        <Textarea label="Alvo / Memória Traumática" rows={4} value={newSession.target} onChange={e => setNewSession({ ...newSession, target: e.target.value })} placeholder="Descrição breve da memória..." />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input label="SUD Inicial (0-10)" type="number" value={newSession.sudInitial} onChange={e => setNewSession({ ...newSession, sudInitial: parseInt(e.target.value) })} />
+                          <Input label="SUD Final (0-10)" type="number" value={newSession.sudFinal} onChange={e => setNewSession({ ...newSession, sudFinal: parseInt(e.target.value) })} />
                         </div>
-                    </div>
-                    <div className="space-y-4">
-                        {sessions.map(s => (
-                            <div key={s.id} className="bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm group">
-                                <div className="flex gap-6 items-center">
-                                    <div className="space-y-1 flex-1">
-                                        <h4 className="text-base font-semibold text-slate-800 italic">"{s.target}"</h4>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-[11px] font-semibold p-2 bg-rose-50 text-rose-600 rounded-lg leading-none">SUD Inicial: {s.sudInitial}</span>
-                                            <ArrowRight size={14} className="text-slate-300"/>
-                                            <span className="text-[11px] font-semibold p-2 bg-emerald-50 text-emerald-600 rounded-lg leading-none">SUD Final: {s.sudFinal}</span>
-                                        </div>
-                                    </div>
-                                    <div className="w-px h-12 bg-slate-100" />
-                                    <div className="text-center">
-                                        <p className="text-[11px] font-semibold text-slate-300">Dessensibilização</p>
-                                        <p className="text-xl font-semibold text-emerald-600">-{s.sudInitial - s.sudFinal}</p>
-                                    </div>
-                                </div>
+                        <Button variant="primary" fullWidth onClick={handleSaveSession} loading={saving}>Registrar Alvo</Button>
+                      </div>
+                    </PanelCard>
+                    <div className="space-y-3 min-w-0">
+                      {sessions.map(s => (
+                        <ContentCard key={s.id}>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <div className="space-y-1.5 flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-slate-800 italic">"{s.target}"</h4>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge color="danger" size="sm">SUD Inicial: {s.sudInitial}</Badge>
+                                <ArrowRight size={14} className="text-slate-300" />
+                                <Badge color="success" size="sm">SUD Final: {s.sudFinal}</Badge>
+                              </div>
                             </div>
-                        ))}
+                            <div className="sm:border-l sm:border-slate-100 sm:pl-3 sm:text-center">
+                              <p className="text-[11px] text-slate-500">Dessensibilização</p>
+                              <p className="text-base font-medium text-emerald-600">-{s.sudInitial - s.sudFinal}</p>
+                            </div>
+                          </div>
+                        </ContentCard>
+                      ))}
                     </div>
-                </div>
-              )}
+                  </div>
+                )}
 
-              {activeSub === 'resources' && (
-                <div className="space-y-6 animate-slideUpFade">
-                    <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm space-y-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                                <Shield size={24} />
-                            </div>
-                            <h3 className="text-xl font-semibold text-slate-800">Instalação de Recursos</h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* FORM RECURSO */}
-                            <div className="bg-slate-50 p-6 rounded-[28px] border border-slate-100 space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-semibold text-slate-400">Recurso / Lugar Seguro</label>
-                                    <input className="w-full h-12 px-4 rounded-lg bg-white border border-slate-100 text-sm font-semibold shadow-sm outline-none" value={newResource.title} onChange={e => setNewResource({...newResource, title: e.target.value})} placeholder="Ex: Praia secreta, Montanha..." />
-                                </div>
-                                <button onClick={handleSaveResource} className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-indigo-700 transition-all">Instalar Recurso</button>
-                            </div>
-                            {resources.map(r => (
-                                <div key={r.id} className="bg-white rounded-[28px] border border-indigo-100 p-6 shadow-sm flex flex-col justify-between hover:scale-105 transition-all group">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-base font-semibold text-slate-800">{r.title}</h4>
-                                        <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center"><CheckCircle2 size={16}/></div>
-                                    </div>
-                                    <span className="text-[11px] font-semibold text-slate-300 mt-4">Ponto de Estabilização</span>
-                                </div>
-                            ))}
-                        </div>
+                {activeSub === 'resources' && (
+                  <PanelCard title="Instalação de Recursos" icon={Shield}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
+                        <Input label="Recurso / Lugar Seguro" value={newResource.title} onChange={e => setNewResource({ ...newResource, title: e.target.value })} placeholder="Ex: Praia secreta, Montanha..." />
+                        <Button variant="primary" fullWidth onClick={handleSaveResource} loading={saving}>Instalar Recurso</Button>
+                      </div>
+                      {resources.map(r => (
+                        <ContentCard key={r.id}>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="text-sm font-medium text-slate-800">{r.title}</h4>
+                            <CheckCircle2 size={14} className="text-primary-600 shrink-0" />
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-2">Ponto de Estabilização</p>
+                        </ContentCard>
+                      ))}
                     </div>
-                </div>
-              )}
-            </>
-          )}
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

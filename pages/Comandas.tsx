@@ -62,6 +62,12 @@ const COMANDA_STATUS_TABS = [
   { id: 'closed', label: 'Pagas', icon: CheckCircle2 },
 ] as const;
 
+const MANAGER_TABS = [
+  { id: 'atendimentos', label: 'Atendimentos', icon: CalendarDays },
+  { id: 'pagamentos', label: 'Pagamentos', icon: CreditCard },
+  { id: 'pacote', label: 'Pacote', icon: Package },
+] as const;
+
 const COMANDA_TYPE_TABS = [
   { id: 'avulsa', label: 'Avulsa', icon: FileText },
   { id: 'pacote', label: 'Pacote', icon: Package },
@@ -117,21 +123,21 @@ const TypeButton: React.FC<{
       onClick={onClick}
       className={`flex items-start gap-4 p-4 rounded-lg border-2 text-left transition-all w-full flex-1 ${
         active
-          ? 'border-indigo-500 bg-indigo-50/50 shadow-sm shadow-indigo-100/50'
-          : 'border-slate-100 bg-white hover:border-indigo-200 hover:bg-slate-50'
+          ? 'border-primary-500 bg-primary-50/50 shadow-sm'
+          : 'border-slate-100 bg-white hover:border-primary-200 hover:bg-slate-50'
       }`}
     >
       {icon && (
-        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-indigo-500 text-white shadow-inner' : 'bg-slate-100 text-slate-500'}`}>
+        <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
           {icon}
         </div>
       )}
       <div className="flex-1">
-        <div className={`font-semibold text-sm   ${active ? 'text-indigo-900' : 'text-slate-700'}`}>{label}</div>
-        {description && <div className={`text-xs mt-1 font-medium ${active ? 'text-indigo-600/80' : 'text-slate-500'}`}>{description}</div>}
+        <div className={`font-semibold text-sm   ${active ? 'text-primary-900' : 'text-slate-700'}`}>{label}</div>
+        {description && <div className={`text-xs mt-1 font-medium ${active ? 'text-primary-600/80' : 'text-slate-500'}`}>{description}</div>}
       </div>
       <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-1.5 ${
-          active ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+          active ? 'border-primary-600 bg-primary-600' : 'border-slate-300 bg-white'
       }`}>
         {active && <Check size={12} className="text-white" strokeWidth={4} />}
       </div>
@@ -1934,7 +1940,7 @@ export const Comandas: React.FC = () => {
                       <div className="flex flex-col">
                         <span className="text-xs text-slate-600">{d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                         {c.created_by_name && <span className="text-[11px] text-slate-400 truncate max-w-[100px]">{c.created_by_name}</span>}
-                        {!c.created_by_name && c.source === 'portal' && <span className="text-[11px] text-indigo-400">Portal</span>}
+                        {!c.created_by_name && c.source === 'portal' && <span className="text-[11px] text-primary-400">Portal</span>}
                       </div>
                     );
                   }
@@ -2449,31 +2455,13 @@ export const Comandas: React.FC = () => {
             </span>
           )}
           {!(historyComanda as any).created_by_name && (historyComanda as any).source === 'portal' && (
-            <span className="text-indigo-500 font-medium">Via Portal do Paciente</span>
+            <span className="text-primary-500 font-medium">Via Portal do Paciente</span>
           )}
         </div>
       )}
 
       {/* tabs */}
-      <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
-        {([
-          { key: 'atendimentos', label: 'Atendimentos' },
-          { key: 'pagamentos', label: 'Pagamentos' },
-          { key: 'pacote', label: 'Pacote' },
-        ] as const).map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setManagerTab(tab.key)}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              managerTab === tab.key
-                ? 'bg-white text-primary-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs<'atendimentos' | 'pagamentos' | 'pacote'> items={MANAGER_TABS} value={managerTab} onChange={setManagerTab} label="Seções da comanda" />
 
       {/* conteúdo das tabs */}
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -2545,20 +2533,22 @@ export const Comandas: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {payment.financial_transaction_id && (
-                        <button
+                        <IconButton
+                          variant="ghost"
+                          size="xs"
+                          aria-label="Ver no Livro Caixa"
                           onClick={() => {
                             const date = new Date(payment.payment_date || new Date());
                             const m = date.getMonth() + 1;
                             const y = date.getFullYear();
                             navigate(`/livro-caixa?month=${m}&year=${y}`);
                           }}
-                          className="p-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-200"
                           title="Ver no Livro Caixa"
                         >
-                          <BookOpen size={12} />
-                        </button>
+                          <BookOpen size={14} />
+                        </IconButton>
                       )}
-                      <button onClick={() => {
+                      <IconButton variant="ghost" size="xs" aria-label="Editar" onClick={() => {
                           setNewPayment({
                             value: formatCurrencyInput(Number(payment.amount || 0)) || '0,00',
                             date: payment.payment_date ? payment.payment_date.slice(0, 10) : getLocalDateISO(),
@@ -2569,16 +2559,16 @@ export const Comandas: React.FC = () => {
                           });
                           setIsAddPaymentModalOpen(true);
                         }} 
-                        className="p-1 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-200" title="Editar">
-                        <Edit3 size={12} />
-                      </button>
-                      <button onClick={() => {
+                        title="Editar">
+                        <Edit3 size={14} />
+                      </IconButton>
+                      <IconButton variant="ghost" size="xs" aria-label="Excluir" onClick={() => {
                           setPaymentToDelete(payment);
                           setIsDeletePaymentModalOpen(true);
-                        }} 
-                        className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-200" title="Excluir">
-                        <Trash2 size={12} />
-                      </button>
+                        }}
+                        title="Excluir">
+                        <Trash2 size={14} />
+                      </IconButton>
                     </div>
                     <span className="text-[11px] font-semibold text-emerald-400 group-hover:hidden">Recebido</span>
                   </div>
@@ -2589,16 +2579,16 @@ export const Comandas: React.FC = () => {
             {comandaLivroCaixaTx.length > 0 && (historyComanda as any).sync_to_livrocaixa && (
               <a
                 href="/livro-caixa"
-                className="flex items-center gap-3 px-3 py-3 bg-indigo-50/60 border-t border-indigo-100 hover:bg-indigo-100/60 transition-colors cursor-pointer no-underline"
+                className="flex items-center gap-3 px-3 py-3 bg-primary-50/60 border-t border-primary-100 hover:bg-primary-100/60 transition-colors cursor-pointer no-underline"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-500 text-white">
                   <BookOpen size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-indigo-700">
+                  <p className="text-[11px] font-semibold text-primary-700">
                     Sincronizado no Livro Caixa
                   </p>
-                  <p className="text-[11px] text-indigo-500 truncate">
+                  <p className="text-[11px] text-primary-500 truncate">
                     {comandaLivroCaixaTx[0]?.date || comandaLivroCaixaTx[0]?.payment_date
                       ? formatDate(comandaLivroCaixaTx[0].date || comandaLivroCaixaTx[0].payment_date)
                       : '—'}
@@ -2608,7 +2598,7 @@ export const Comandas: React.FC = () => {
                     {formatCurrency(Number(comandaLivroCaixaTx[0]?.amount || 0))}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 text-indigo-400 shrink-0">
+                <div className="flex items-center gap-1 text-primary-400 shrink-0">
                   <span className="text-[11px] font-semibold">Ver no Livro Caixa</span>
                   <ExternalLink size={11} />
                 </div>
@@ -2796,7 +2786,7 @@ export const Comandas: React.FC = () => {
             variant="primary"
             size="sm"
             fullWidth
-            className="mt-2 bg-indigo-500 hover:bg-indigo-600"
+            className="mt-2 bg-primary-500 hover:bg-primary-600"
             onClick={handleReopenComanda}
           >
             Reabrir Comanda
@@ -3033,12 +3023,9 @@ export const Comandas: React.FC = () => {
                     <span className="text-xs font-semibold text-primary-700">
                       {importSelectedIds.size} linha(s) selecionada(s)
                     </span>
-                    <button
-                      onClick={deleteSelected}
-                      className="flex items-center gap-1.5 rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-600"
-                    >
-                      <Trash2 size={12} /> Remover selecionadas
-                    </button>
+                    <Button variant="danger" size="sm" onClick={deleteSelected} iconLeft={<Trash2 size={14} />}>
+                      Remover selecionadas
+                    </Button>
                   </div>
                 )}
 
@@ -3100,13 +3087,15 @@ export const Comandas: React.FC = () => {
                               </span>
                             </td>
                             <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                              <button
+                              <IconButton
+                                variant="ghost"
+                                size="xs"
                                 onClick={() => setImportRows(prev => prev.filter((_, idx) => idx !== i))}
                                 title="Remover esta linha"
-                                className="rounded-lg p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
+                                aria-label="Remover esta linha"
                               >
-                                <Trash2 size={13} />
-                              </button>
+                                <Trash2 size={14} />
+                              </IconButton>
                             </td>
                           </tr>
                         );

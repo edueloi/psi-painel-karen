@@ -2,21 +2,34 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { 
   Workflow, Plus, Trash2, Edit3, Save, RotateCcw, 
   HelpCircle, Sparkles, CheckCircle2, ArrowRight, 
   ChevronRight, X, Loader2, Smile, Heart, Shield,
-  Layers, Filter, Eye, Activity, Share2, Users
+  Layers, Filter, Eye, Activity, Share2, Users, ArrowLeft
 } from 'lucide-react';
+
+type SistemicaTab = 'genogram' | 'circular';
+
+const sistemicaTabs = [
+  { id: 'genogram', label: 'Genograma', icon: Users },
+  { id: 'circular', label: 'Circulares', icon: Share2 },
+] as const;
 
 export const SistemicaPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'genogram' | 'circular' | 'patterns'>('genogram');
+  const [activeSub, setActiveSub] = useState<SistemicaTab>('genogram');
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -104,33 +117,22 @@ export const SistemicaPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<Workflow />}
-        title="Terapia Sistêmica"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Vínculos, Padrões & Dinâmicas Familiares"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
-              <button 
-                onClick={() => setActiveSub('genogram')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'genogram' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Users size={14}/> Genograma</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('circular')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'circular' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Share2 size={14}/> Circulares</div>
-              </button>
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <ClinicalSidebar 
+        <SectionTitle
+          icon={Workflow}
+          title="Terapia Sistêmica"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Vínculos, Padrões & Dinâmicas Familiares"}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -138,87 +140,76 @@ export const SistemicaPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="space-y-6 animate-fadeIn text-center py-20 bg-white rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center">
-                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6">
-                    <Workflow size={40} />
-                </div>
-                <h2 className="text-2xl font-semibold text-slate-800">Systemic Workspace</h2>
-                <p className="text-slate-400 text-sm max-w-md mx-auto">Mapeamento de relações familiares e quebra de padrões transgeracionais.</p>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'genogram' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
-                    <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                        <h3 className="font-semibold text-slate-800 text-lg">Adicionar Membro (Genograma)</h3>
-                        <div className="space-y-4">
-                            <input className="w-full h-12 px-4 rounded-lg bg-white border border-slate-100 text-sm font-semibold shadow-sm outline-none" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} placeholder="Nome / Identificador" />
-                            <select className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" value={newMember.relation} onChange={e => setNewMember({...newMember, relation: e.target.value})}>
-                                <option value="">Relação...</option>
-                                <option value="Pai">Pai</option>
-                                <option value="Mae">Mãe</option>
-                                <option value="Irmao/a">Irmão/a</option>
-                                <option value="Conjuge">Cônjuge</option>
-                                <option value="Filho/a">Filho/a</option>
-                            </select>
-                            <textarea className="w-full p-4 rounded-lg bg-slate-50 border border-slate-100 text-sm focus:bg-white h-24 resize-none" value={newMember.dynamic} onChange={e => setNewMember({...newMember, dynamic: e.target.value})} placeholder="Dinâmica Relacional (Ex: Conflituoso, Distante...)" />
-                            <button onClick={handleSaveMember} className="w-full h-12 bg-indigo-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-indigo-700 transition-all">Registrar Membro</button>
-                        </div>
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Workflow}
+                  title="Systemic Workspace"
+                  description="Mapeamento de relações familiares e quebra de padrões transgeracionais."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<SistemicaTab> items={sistemicaTabs} value={activeSub} onChange={setActiveSub} label="Seções da terapia sistêmica">
+                {activeSub === 'genogram' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
+                    <PanelCard title="Adicionar Membro (Genograma)">
+                      <div className="space-y-3">
+                        <Input aria-label="Nome / Identificador" value={newMember.name} onChange={e => setNewMember({ ...newMember, name: e.target.value })} placeholder="Nome / Identificador" />
+                        <Select aria-label="Relação" value={newMember.relation} onChange={e => setNewMember({ ...newMember, relation: e.target.value })}>
+                          <option value="">Relação...</option>
+                          <option value="Pai">Pai</option>
+                          <option value="Mae">Mãe</option>
+                          <option value="Irmao/a">Irmão/a</option>
+                          <option value="Conjuge">Cônjuge</option>
+                          <option value="Filho/a">Filho/a</option>
+                        </Select>
+                        <Textarea aria-label="Dinâmica relacional" rows={4} value={newMember.dynamic} onChange={e => setNewMember({ ...newMember, dynamic: e.target.value })} placeholder="Dinâmica Relacional (Ex: Conflituoso, Distante...)" />
+                        <Button variant="primary" fullWidth loading={saving} onClick={handleSaveMember}>Registrar Membro</Button>
+                      </div>
+                    </PanelCard>
+                    <div className="min-w-0 grid grid-cols-1 md:grid-cols-2 gap-3 content-start">
+                      {genogramData.map(m => (
+                        <ContentCard key={m.id}>
+                          <div className="flex gap-3 items-center">
+                            <div className="w-9 h-9 rounded-lg bg-primary-50 border border-primary-100 text-primary-700 flex items-center justify-center font-medium text-xs shrink-0">{m.relation.charAt(0)}</div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-slate-800 break-words">{m.name}</h4>
+                              <p className="text-[11px] text-slate-500">{m.relation}</p>
+                            </div>
+                          </div>
+                          {m.dynamic && <p className="mt-2 text-xs text-slate-500 italic break-words">"{m.dynamic}"</p>}
+                        </ContentCard>
+                      ))}
                     </div>
+                  </div>
+                )}
+
+                {activeSub === 'circular' && (
+                  <PanelCard title="Perguntas Circulares" icon={Share2}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {genogramData.map(m => (
-                            <div key={m.id} className="bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm group">
-                                <div className="flex gap-4 items-center">
-                                    <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-semibold text-xs">{m.relation.charAt(0)}</div>
-                                    <div className="flex-1">
-                                        <h4 className="text-base font-semibold text-slate-800">{m.name}</h4>
-                                        <p className="text-[11px] text-blue-400 font-semibold">{m.relation}</p>
-                                    </div>
-                                    <div className="text-xs font-medium text-slate-400 italic">"{m.dynamic}"</div>
-                                </div>
-                            </div>
+                      <div className="space-y-3">
+                        <Textarea label="A Pergunta Circular" rows={4} value={newQuestion.question} onChange={e => setNewQuestion({ ...newQuestion, question: e.target.value })} placeholder="Ex: De que maneira as reações do seu pai influenciam o silêncio da sua mãe?" />
+                        <Button variant="primary" fullWidth loading={saving} onClick={handleSaveQuestion}>Registrar Reflexão</Button>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-medium text-slate-600">Histórico de Circularidade</h4>
+                        {questions.map(q => (
+                          <div key={q.id} className="bg-slate-50 border border-slate-200 p-3 rounded-lg">
+                            <p className="text-xs text-slate-800 break-words">"{q.question}"</p>
+                          </div>
                         ))}
+                      </div>
                     </div>
-                </div>
-              )}
-
-              {activeSub === 'circular' && (
-                <div className="space-y-6 animate-slideUpFade">
-                    <div className="bg-gradient-to-br from-blue-900 to-indigo-950 rounded-[40px] p-10 text-white shadow-sm relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-10 opacity-5">
-                            <Share2 size={160} />
-                        </div>
-                        <div className="relative z-10 space-y-8">
-                            <h3 className="text-2xl font-semibold">Perguntas Circulares</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                     <div className="space-y-2">
-                                        <label className="text-[11px] font-semibold text-blue-300">A Pergunta Circular</label>
-                                        <textarea className="w-full bg-white/5 border border-white/10 rounded-lg p-4 text-sm font-semibold text-white outline-none focus:bg-white/10 h-24 resize-none" value={newQuestion.question} onChange={e => setNewQuestion({...newQuestion, question: e.target.value})} placeholder="Ex: De que maneira as reações do seu pai influenciam o silêncio da sua mãe?" />
-                                     </div>
-                                     <button onClick={handleSaveQuestion} className="w-full h-12 bg-white text-blue-900 rounded-lg font-semibold text-xs shadow-sm hover:bg-blue-50 transition-all">Registrar Reflexão</button>
-                                </div>
-                                <div className="space-y-4">
-                                    <h4 className="text-[11px] font-semibold text-white/40">Histórico de Circularidade</h4>
-                                    {questions.map(q => (
-                                        <div key={q.id} className="bg-white/5 border border-white/10 p-4 rounded-lg">
-                                            <p className="text-xs font-semibold text-white mb-1">"{q.question}"</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-              )}
-            </>
-          )}
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

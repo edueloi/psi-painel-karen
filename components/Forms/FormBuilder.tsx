@@ -279,7 +279,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({ initialData, onSave, o
                         label=""
                         placeholder="Selecione ou digite..."
                         value={category}
-                        onChange={(val) => setCategory(val)}
+                        onChange={(val) => setCategory(Array.isArray(val) ? (val[0] ?? "") : val)}
                         options={[
                           { id: 'TCC', label: 'TCC' },
                           { id: 'Neuropsicologia', label: 'Neuropsicologia' },

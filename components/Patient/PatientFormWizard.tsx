@@ -4,7 +4,7 @@ import { CheckCircle, ChevronRight, ChevronLeft, Save, User, MapPin, Heart, User
 import { useLanguage } from '../../contexts/LanguageContext';
 import { API_BASE_URL } from '../../services/api';
 import { DatePicker } from '../UI/DatePicker';
-import { Button, IconButton, Modal } from '../UI';
+import { Button, IconButton, Modal, Input, Select, Textarea, Tabs, Switch } from '../UI';
 import { COUNTRIES, CountrySelect, maskPhone } from '../UI/CountrySelect';
 
 /* ─── CPF/CNPJ e CEP (COUNTRIES/maskPhone/CountrySelect movidos para
@@ -144,12 +144,12 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
   };
 
   const STEPS = [
-    { id: 'basic', title: t('wizard.step1'), icon: <User size={18} /> },
-    { id: 'address', title: t('wizard.step2'), icon: <MapPin size={18} /> },
-    { id: 'social', title: t('wizard.step3'), icon: <Heart size={18} /> },
-    { id: 'family', title: t('wizard.step4'), icon: <Users size={18} /> },
-    { id: 'financial', title: t('wizard.step5'), icon: <CreditCard size={18} /> },
-    { id: 'docs', title: t('wizard.step6'), icon: <FileText size={18} /> },
+    { id: 'basic', title: t('wizard.step1'), icon: <User size={14} /> },
+    { id: 'address', title: t('wizard.step2'), icon: <MapPin size={14} /> },
+    { id: 'social', title: t('wizard.step3'), icon: <Heart size={14} /> },
+    { id: 'family', title: t('wizard.step4'), icon: <Users size={14} /> },
+    { id: 'financial', title: t('wizard.step5'), icon: <CreditCard size={14} /> },
+    { id: 'docs', title: t('wizard.step6'), icon: <FileText size={14} /> },
   ];
 
   const updateField = (field: keyof Patient, value: any) => {
@@ -244,30 +244,28 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               </button>
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.name')}</label>
-              <input 
-                type="text" 
+              <label className="text-xs font-medium text-slate-600">{t('wizard.name')}</label>
+              <Input
+                type="text"
                 required
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none transition-all"
-                value={formData.full_name || ''} 
+                value={formData.full_name || ''}
                 onChange={e => updateField('full_name', e.target.value)}
               />
             </div>
-            
+
             {/* Email - ocupando espaço total como solicitado */}
             <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.email')}</label>
-              <input 
-                type="email" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none"
-                value={formData.email || ''} 
+              <label className="text-xs font-medium text-slate-600">{t('wizard.email')}</label>
+              <Input
+                type="email"
+                value={formData.email || ''}
                 onChange={e => updateField('email', e.target.value)}
               />
             </div>
 
             {/* Telefones - País/DDI e Número */}
             <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-medium text-slate-600">
                 {t('wizard.phone')}
                 {formData.phone_country && formData.phone_country !== 'OTHER' && (
                   <span className="ml-1 text-[11px] text-primary-500 font-semibold">
@@ -280,10 +278,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   value={formData.phone_country || 'BR'}
                   onChange={v => updateField('phone_country', v)}
                 />
-                <input
+                <Input
                   type="tel"
-                  placeholder={COUNTRIES.find(c => c.code === formData.phone_country)?.mask || 'Telefone'}
-                  className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none shadow-sm"
+                  placeholder={COUNTRIES.find(c => c.code === formData.phone_country)?.mask || 'Telefone'} wrapperClassName="flex-1"
                   value={formData.whatsapp || ''}
                   onChange={e => updateField('whatsapp', maskPhone(e.target.value, formData.phone_country))}
                 />
@@ -291,7 +288,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-600">
+              <label className="text-xs font-medium text-slate-600">
                 Telefone 2
                 {formData.phone2_country && formData.phone2_country !== 'OTHER' && (
                    <span className="ml-1 text-[11px] text-primary-500 font-semibold">
@@ -304,10 +301,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   value={formData.phone2_country || 'BR'}
                   onChange={v => updateField('phone2_country', v)}
                 />
-                <input
+                <Input
                   type="tel"
-                  placeholder={COUNTRIES.find(c => c.code === formData.phone2_country)?.mask || 'Telefone'}
-                  className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none shadow-sm"
+                  placeholder={COUNTRIES.find(c => c.code === formData.phone2_country)?.mask || 'Telefone'} wrapperClassName="flex-1"
                   value={formData.phone2 || ''}
                   onChange={e => updateField('phone2', maskPhone(e.target.value, formData.phone2_country))}
                 />
@@ -315,26 +311,24 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.taxId')}</label>
-              <input
+              <label className="text-xs font-medium text-slate-600">{t('wizard.taxId')}</label>
+              <Input
                 type="text"
                 placeholder="000.000.000-00"
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none"
                 value={formData.cpf_cnpj || ''}
                 onChange={e => updateField('cpf_cnpj', maskCpfCnpj(e.target.value))}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.birthDate')}</label>
+              <label className="text-xs font-medium text-slate-600">{t('wizard.birthDate')}</label>
               <DatePicker
                 value={formData.birth_date ? formData.birth_date.split('T')[0] : ''}
                 onChange={val => updateField('birth_date', val)}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">Gênero</label>
-              <select
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+              <label className="text-xs font-medium text-slate-600">Gênero</label>
+              <Select
                 value={(formData as any).gender || ''}
                 onChange={e => updateField('gender' as any, e.target.value as any)}
               >
@@ -342,31 +336,29 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 <option value="feminino">Feminino</option>
                 <option value="masculino">Masculino</option>
                 <option value="outro">Outro</option>
-              </select>
+              </Select>
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">Observações / Referência</label>
-              <textarea 
+              <label className="text-xs font-medium text-slate-600">Observações / Referência</label>
+              <Textarea
                 rows={3}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none resize-none"
-                value={formData.notes || ''} 
+                value={formData.notes || ''}
                 onChange={e => updateField('notes', e.target.value)}
               />
             </div>
           </div>
         );
-      
+
       case 1: // Endereço
         return (
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3 animate-fadeIn">
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.zip')}</label>
+              <label className="text-xs font-medium text-slate-600">{t('wizard.zip')}</label>
               <div className="relative">
-                <input
+                <Input
                   type="text"
                   placeholder="00000-000"
                   maxLength={9}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 pr-8"
                   value={formData.address_zip || ''}
                   onChange={e => {
                     const masked = maskCep(e.target.value);
@@ -378,61 +370,55 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               </div>
             </div>
             <div className="md:col-span-4 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.street')}</label>
-              <input
+              <label className="text-xs font-medium text-slate-600">{t('wizard.street')}</label>
+              <Input
                 type="text"
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
                 value={formData.street || ''}
                 onChange={e => updateField('street', e.target.value)}
               />
             </div>
             <div className="md:col-span-1 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.number')}</label>
-              <input 
-                type="text" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
-                value={formData.house_number || ''} 
+              <label className="text-xs font-medium text-slate-600">{t('wizard.number')}</label>
+              <Input
+                type="text"
+                value={formData.house_number || ''}
                 onChange={e => updateField('house_number', e.target.value)}
               />
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.neighborhood')}</label>
-              <input 
-                type="text" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
-                value={formData.neighborhood || ''} 
+              <label className="text-xs font-medium text-slate-600">{t('wizard.neighborhood')}</label>
+              <Input
+                type="text"
+                value={formData.neighborhood || ''}
                 onChange={e => updateField('neighborhood', e.target.value)}
               />
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.city')}</label>
-              <input 
-                type="text" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
-                value={formData.city || ''} 
+              <label className="text-xs font-medium text-slate-600">{t('wizard.city')}</label>
+              <Input
+                type="text"
+                value={formData.city || ''}
                 onChange={e => updateField('city', e.target.value)}
               />
             </div>
             <div className="md:col-span-1 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.state')}</label>
-              <input
+              <label className="text-xs font-medium text-slate-600">{t('wizard.state')}</label>
+              <Input
                 type="text" maxLength={2}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
                 value={formData.state || ''}
                 onChange={e => updateField('state', e.target.value.toUpperCase())}
               />
             </div>
             <div className="md:col-span-3 space-y-2">
-              <label className="text-xs font-semibold text-slate-600">País</label>
-              <select
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+              <label className="text-xs font-medium text-slate-600">País</label>
+              <Select
                 value={formData.country || 'BR'}
                 onChange={e => updateField('country', e.target.value)}
               >
                 {COUNTRIES.filter(c => c.code !== 'OTHER').map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         );
@@ -441,9 +427,8 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-fadeIn">
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.civilStatus')}</label>
-              <select 
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none"
+              <label className="text-xs font-medium text-slate-600">{t('wizard.civilStatus')}</label>
+              <Select
                 value={formData.marital_status || ''}
                 onChange={e => updateField('marital_status', e.target.value)}
               >
@@ -451,12 +436,11 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 {maritalOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.education')}</label>
-              <select 
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white outline-none"
+              <label className="text-xs font-medium text-slate-600">{t('wizard.education')}</label>
+              <Select
                 value={formData.education || ''}
                 onChange={e => updateField('education', e.target.value)}
               >
@@ -464,23 +448,21 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 {educationOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.profession')}</label>
-              <input 
-                type="text" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
-                value={formData.profession || ''} 
+              <label className="text-xs font-medium text-slate-600">{t('wizard.profession')}</label>
+              <Input
+                type="text"
+                value={formData.profession || ''}
                 onChange={e => updateField('profession', e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.nationality')}</label>
-              <input 
-                type="text" 
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
-                value={formData.nationality || ''} 
+              <label className="text-xs font-medium text-slate-600">{t('wizard.nationality')}</label>
+              <Input
+                type="text"
+                value={formData.nationality || ''}
                 onChange={e => updateField('nationality', e.target.value)}
               />
             </div>
@@ -504,7 +486,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
           if (digits.length >= 10) window.open(`https://wa.me/55${digits}`, '_blank');
         };
         return (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="space-y-3 animate-fadeIn">
             {/* Filhos */}
             <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-lg border border-slate-200">
               <input
@@ -514,25 +496,23 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 checked={formData.has_children || false}
                 onChange={e => updateField('has_children', e.target.checked)}
               />
-              <label htmlFor="has_children" className="text-xs font-semibold text-slate-600">{t('wizard.hasChildren')}</label>
+              <label htmlFor="has_children" className="text-xs font-medium text-slate-600">{t('wizard.hasChildren')}</label>
             </div>
 
             {formData.has_children && (
               <div className="grid grid-cols-2 gap-4 pl-8">
                 <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500">{t('wizard.childrenTotal')}</label>
-                    <input
+                    <label className="text-xs font-medium text-slate-600">{t('wizard.childrenTotal')}</label>
+                    <Input
                     type="number"
-                    className="w-full p-2 border border-slate-300 rounded-lg"
                     value={formData.children_count || 0}
                     onChange={e => updateField('children_count', parseInt(e.target.value))}
                     />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500">{t('wizard.childrenMinors')}</label>
-                    <input
+                    <label className="text-xs font-medium text-slate-600">{t('wizard.childrenMinors')}</label>
+                    <Input
                     type="number"
-                    className="w-full p-2 border border-slate-300 rounded-lg"
                     value={formData.minor_children_count || 0}
                     onChange={e => updateField('minor_children_count', parseInt(e.target.value))}
                     />
@@ -546,16 +526,14 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 <Heart size={16} className="text-rose-500"/> {t('wizard.spouseData')}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input
+                <Input
                   type="text" placeholder={t('wizard.spouseName')}
-                  className="p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
                   value={formData.spouse_name || ''}
                   onChange={e => updateField('spouse_name', e.target.value)}
                 />
                 <div className="flex gap-2">
-                  <input
-                    type="text" placeholder={t('wizard.spousePhone')}
-                    className="flex-1 p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+                  <Input
+                    type="text" placeholder={t('wizard.spousePhone')} wrapperClassName="flex-1"
                     value={formData.spouse_phone || ''}
                     onChange={e => updateField('spouse_phone', mkP(e.target.value))}
                     maxLength={15}
@@ -590,20 +568,18 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 {emergencyContacts.map((contact, idx) => (
                   <div key={contact.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-500">{t('wizard.contact')} {idx + 1}</span>
+                      <span className="text-xs font-medium text-slate-600">{t('wizard.contact')} {idx + 1}</span>
                       <IconButton type="button" variant="ghost" size="xs" onClick={() => removeEmergencyContact(contact.id)} className="hover:text-rose-500 hover:bg-rose-50">
                         <Trash2 size={14}/>
                       </IconButton>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <input
+                      <Input
                         type="text" placeholder={t('wizard.contactName')}
-                        className="p-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
                         value={contact.name}
                         onChange={e => updateEmergencyContact(contact.id, 'name', e.target.value)}
                       />
-                      <select
-                        className="p-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 bg-white"
+                      <Select
                         value={contact.relationship}
                         onChange={e => updateEmergencyContact(contact.id, 'relationship', e.target.value)}
                       >
@@ -620,11 +596,10 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                         <option value="primo">{t('wizard.rel.primo')}</option>
                         <option value="amigo">{t('wizard.rel.amigo')}</option>
                         <option value="outro">{t('wizard.rel.outro')}</option>
-                      </select>
+                      </Select>
                       <div className="flex gap-2">
-                        <input
-                          type="text" placeholder={t('wizard.contactPhone')}
-                          className="flex-1 p-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+                        <Input
+                          type="text" placeholder={t('wizard.contactPhone')} wrapperClassName="flex-1"
                           value={contact.phone}
                           onChange={e => updateEmergencyContact(contact.id, 'phone', mkP(e.target.value))}
                           maxLength={15}
@@ -646,14 +621,14 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
 
       case 4: // Financeiro
         return (
-          <div className="space-y-6 animate-fadeIn">
+          <div className="space-y-3 animate-fadeIn">
              <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.paymentType')}</label>
+              <label className="text-xs font-medium text-slate-600">{t('wizard.paymentType')}</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer border p-4 rounded-lg flex-1 hover:bg-slate-50 transition-colors shadow-sm">
-                  <input 
-                    type="radio" 
-                    name="convenio" 
+                  <input
+                    type="radio"
+                    name="convenio"
                     checked={!formData.convenio}
                     onChange={() => updateField('convenio', false)}
                     className="text-primary-600"
@@ -661,9 +636,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   <span className="font-semibold">{t('wizard.private')}</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer border p-4 rounded-lg flex-1 hover:bg-slate-50 transition-colors shadow-sm">
-                  <input 
-                    type="radio" 
-                    name="convenio" 
+                  <input
+                    type="radio"
+                    name="convenio"
                     checked={formData.convenio}
                     onChange={() => updateField('convenio', true)}
                     className="text-primary-600"
@@ -676,19 +651,18 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             {formData.convenio && (
               <div className="p-4 bg-primary-50 rounded-lg border border-primary-100 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500">{t('wizard.insuranceName')}</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
+                  <label className="text-xs font-medium text-slate-600">{t('wizard.insuranceName')}</label>
+                  <Input
+                    type="text"
                     value={formData.convenio_name || ''}
                     onChange={e => updateField('convenio_name', e.target.value)}
                   />
                 </div>
-                
+
                 <label className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        className="w-4 h-4 text-primary-600" 
+                    <input
+                        type="checkbox"
+                        className="w-4 h-4 text-primary-600"
                         checked={formData.needs_reimbursement || false}
                         onChange={e => updateField('needs_reimbursement', e.target.checked)}
                     />
@@ -698,7 +672,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             )}
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-600">{t('wizard.status')}</label>
+              <label className="text-xs font-medium text-slate-600">{t('wizard.status')}</label>
               <div className="flex bg-slate-100 p-1 rounded-lg w-fit gap-1">
                 <button
                   type="button"
@@ -725,15 +699,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                   </h4>
                   <p className="text-[11px] text-slate-400 font-medium">O paciente é o próprio pagador?</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => updateField('is_payer', !formData.is_payer)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.is_payer ? 'bg-primary-600' : 'bg-slate-200'}`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.is_payer ? 'translate-x-5' : 'translate-x-0'}`}
-                  />
-                </button>
+                <Switch checked={!!formData.is_payer} onCheckedChange={() => updateField('is_payer', !formData.is_payer)} aria-label="Paciente é o próprio pagador" />
               </div>
 
               {!formData.is_payer && (
@@ -742,10 +708,10 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                     <label className={`text-xs font-semibold   ${!formData.payer_name ? 'text-rose-500' : 'text-slate-500'}`}>
                       Nome do Pagador *
                     </label>
-                    <input
+                    <Input
                       type="text"
-                      className={`w-full px-3 py-2 text-sm border rounded-lg outline-none transition-all ${!formData.payer_name ? 'border-rose-300 bg-rose-50/30' : 'border-slate-300 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400'}`}
                       value={formData.payer_name || ''}
+                      error={!formData.payer_name ? 'Obrigatório' : undefined}
                       onChange={e => updateField('payer_name', e.target.value)}
                       placeholder="Nome completo do responsável"
                     />
@@ -754,21 +720,20 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                     <label className={`text-xs font-semibold   ${!formData.payer_cpf ? 'text-rose-500' : 'text-slate-500'}`}>
                       CPF do Pagador *
                     </label>
-                    <input
+                    <Input
                       type="text"
-                      className={`w-full px-3 py-2 text-sm border rounded-lg outline-none transition-all ${!formData.payer_cpf ? 'border-rose-300 bg-rose-50/30' : 'border-slate-300 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400'}`}
                       value={formData.payer_cpf || ''}
+                      error={!formData.payer_cpf ? 'Obrigatório' : undefined}
                       onChange={e => updateField('payer_cpf', maskCpfCnpj(e.target.value))}
                       placeholder="000.000.000-00"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500">
+                    <label className="text-xs font-medium text-slate-600">
                       Telefone do Pagador
                     </label>
-                    <input
+                    <Input
                       type="text"
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400"
                       value={formData.payer_phone || ''}
                       onChange={e => updateField('payer_phone', maskPhone(e.target.value))}
                       placeholder="(00) 00000-0000"
@@ -783,11 +748,11 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
       case 5: // Docs
         return (
           <div className="space-y-4 animate-fadeIn">
-            <input 
-              type="file" 
-              className="hidden" 
-              id="patient-docs-upload" 
-              multiple 
+            <input
+              type="file"
+              className="hidden"
+              id="patient-docs-upload"
+              multiple
               onChange={async (e) => {
                 const files: File[] = Array.from(e.target.files || []);
                 if (!files.length) return;
@@ -798,9 +763,9 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
                 e.target.value = '';
               }}
             />
-            <label 
+            <label
               htmlFor="patient-docs-upload"
-              className="border-2 border-dashed border-slate-300 rounded-[2rem] p-12 flex flex-col items-center justify-center text-slate-500 bg-slate-50 hover:bg-primary-50/30 hover:border-primary-300 transition-all cursor-pointer group"
+              className="border-2 border-dashed border-slate-300 rounded-lg p-8 flex flex-col items-center justify-center text-slate-500 bg-slate-50 hover:bg-primary-50/30 hover:border-primary-300 transition-all cursor-pointer group"
             >
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
                 <FileText className="h-8 w-8 text-primary-400" />
@@ -813,19 +778,18 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
             </div>
             {selectedFiles.length > 0 && (
               <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
-                <div className="text-xs font-semibold text-slate-600">
+                <div className="text-xs font-medium text-slate-600">
                   {selectedFiles.length} arquivo(s) selecionado(s)
                 </div>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {selectedFiles.map((doc, idx) => (
                     <div key={`${doc.file.name}-${doc.file.size}-${idx}`} className="flex items-center gap-2">
                       <div className="flex-1 min-w-0">
-                        <input
+                        <Input
                           type="text"
                           value={doc.label}
                           onChange={e => setSelectedFiles(prev => prev.map((d, i) => i === idx ? { ...d, label: e.target.value } : d))}
                           placeholder="Nome do documento (opcional)"
-                          className="w-full text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-400 text-slate-700"
                         />
                         <div className="text-[11px] text-slate-400 mt-0.5 truncate px-0.5">{doc.file.name}</div>
                       </div>
@@ -864,7 +828,7 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
               <h2 className="text-base font-semibold text-slate-900">
                 {formData.id ? t('wizard.editTitle') : t('wizard.newTitle')}
               </h2>
-              <p className="text-[11px] text-[#2a74ac] font-semibold mt-0.5">
+              <p className="text-[11px] text-primary-600 font-semibold mt-0.5">
                 Passo {currentStep + 1} de {STEPS.length} — {STEPS[currentStep].title}
               </p>
             </div>
@@ -874,29 +838,13 @@ export const PatientFormWizard: React.FC<PatientFormWizardProps> = ({ initialDat
           </div>
         )}
 
-        {/* Progress steps */}
-        <div className="flex items-center gap-1.5">
-          {STEPS.map((step, idx) => (
-            <React.Fragment key={step.id}>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(idx)}
-                className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all text-xs shrink-0 ${
-                  idx === currentStep
-                    ? 'bg-[#2a74ac] border-[#2a74ac] text-white shadow-sm shadow-[#2a74ac]/30'
-                    : idx < currentStep
-                    ? 'bg-[#e6f0f8] border-[#2a74ac]/40 text-[#2a74ac]'
-                    : 'bg-white border-slate-200 text-slate-400'
-                }`}
-              >
-                {idx < currentStep ? <CheckCircle size={14} /> : step.icon}
-              </button>
-              {idx < STEPS.length - 1 && (
-                <div className={`flex-1 h-0.5 rounded-full transition-colors ${idx < currentStep ? 'bg-[#2a74ac]/40' : 'bg-slate-200'}`} />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+        {/* Etapas (abas) */}
+        <Tabs<string>
+          items={STEPS.map(step => ({ id: step.id, label: step.title, icon: step.icon }))}
+          value={STEPS[currentStep].id}
+          onChange={(id) => setCurrentStep(Math.max(0, STEPS.findIndex(st => st.id === id)))}
+          label="Etapas do cadastro do paciente"
+        />
       </div>
 
       {/* Body scrollável */}
@@ -970,14 +918,13 @@ export const WizardModal: React.FC<WizardModalProps> = ({ isOpen, onClose, initi
       title={
         <div>
           <div>{initialData?.id ? t('wizard.editTitle') : t('wizard.newTitle')}</div>
-          <div className="text-[11px] text-[#2a74ac] font-semibold normal-case tracking-normal mt-0.5">
+          <div className="text-[11px] text-primary-600 font-medium mt-0.5">
             Passo {footerMeta.currentStep + 1} de 6 — {t(`wizard.step${footerMeta.currentStep + 1}` as any)}
           </div>
         </div>
       }
-      size="2xl"
+      size="full"
       mobileStyle="bottom-sheet"
-      className="sm:max-w-[760px]"
       footer={
         <div className="flex flex-col-reverse sm:flex-row w-full sm:justify-between sm:items-center gap-2">
           {/* Mobile: primário em cima, secundário embaixo */}

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { AccessToken, RoomServiceClient, WebhookReceiver } = require('livekit-server-sdk');
 const { authMiddleware } = require('../middleware/auth');
+const db = require('../db');
 
 // POST /livekit/token
 // Body: { roomName: string, participantName: string, isHost?: boolean }
@@ -154,6 +155,25 @@ router.post('/webhook', express.raw({ type: 'application/webhook+json' }), async
       participant: participant?.identity,
       track: track ? { sid: track.sid, type: track.type, source: track.source, muted: track.muted } : undefined,
     }));
+    // Sala vazia / encerrada: fecha sessões que ficaram abertas (aba fechada sem
+    // clicar em Encerrar). Idempotente: só atinge linhas com ended_at NULL.
+    if (evtType === 'room_finished' || (evtType === 'participant_left' && room?.numParticipants === 0)) {
+      try {
+        const ident = String(room?.name || '').replace(/^psiflux-/, '');
+        if (ident) {
+          await db.query(
+            `UPDATE room_sessions rs
+               JOIN virtual_rooms vr ON vr.id = rs.room_id
+                SET rs.ended_at = NOW(),
+                    rs.duration_seconds = COALESCE(rs.duration_seconds, TIMESTAMPDIFF(SECOND, rs.started_at, NOW()))
+              WHERE rs.ended_at IS NULL AND (vr.id = ? OR vr.code = ? OR vr.hash = ?)`,
+            [Number.parseInt(ident, 10) || 0, ident, ident]
+          );
+        }
+      } catch (e) {
+        console.error('[LiveKit-WEBHOOK] falha ao fechar sessões:', e.message);
+      }
+    }
     res.status(200).send();
   } catch (err) {
     console.error('[LiveKit-WEBHOOK] erro ao processar:', err.message);

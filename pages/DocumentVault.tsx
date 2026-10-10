@@ -492,7 +492,7 @@ export const DocumentVault: React.FC = () => {
                     value={newDocContent}
                     onChange={setNewDocContent}
                     placeholder="Escreva ou cole o conteúdo do documento aqui..."
-                    minHeight="50vh"
+                    minHeight={420}
                   />
                 </div>
               </div>

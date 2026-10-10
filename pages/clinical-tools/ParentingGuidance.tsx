@@ -23,8 +23,14 @@ import {
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
-import { PageHeader } from '../../components/UI/PageHeader';
-import { Button } from '../../components/UI/Button';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { Alert } from '../../components/UI/Alert';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { Patient } from '../../types';
 import { api } from '../../services/api';
@@ -49,6 +55,13 @@ interface ParentingData {
   updated_at: string;
 }
 
+type ParentingTab = 'routine' | 'plan';
+
+const parentingTabs = [
+  { id: 'routine', label: 'Rotina', icon: Calendar },
+  { id: 'plan', label: 'Plano de Manejo', icon: Layout },
+] as const;
+
 export const ParentingGuidancePage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -69,6 +82,7 @@ export const ParentingGuidancePage: React.FC = () => {
     updated_at: new Date().toISOString()
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [activeSub, setActiveSub] = useState<ParentingTab>('routine');
   const [newRoutine, setNewRoutine] = useState<Partial<RoutineItem>>({ time: '', activity: '', status: 'pending' });
 
   // Carregar lista de pacientes
@@ -180,19 +194,23 @@ export const ParentingGuidancePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      <PageHeader
-        title="Orientação de Pais & Parentalidade"
-        subtitle={selectedPatientId ? `Paciente: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}` : "Construção de rotinas visuais e manejo de contingências comportamentais."}
-        icon={<UserCheck className="text-amber-500" />}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-        {/* Lado Esquerdo - Seleção de Paciente */}
-        <div className="space-y-6">
-          <ClinicalSidebar 
+        <SectionTitle
+          icon={UserCheck}
+          title="Orientação de Pais & Parentalidade"
+          description={selectedPatientId ? `Paciente: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}` : "Construção de rotinas visuais e manejo de contingências comportamentais."}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          {/* Seleção de Paciente */}
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId ? String(selectedPatientId) : null}
             onSelectPatient={(id) => setSelectedPatientId(id)}
@@ -200,146 +218,118 @@ export const ParentingGuidancePage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoadingPatients}
             t={t}
-
           />
-        </div>
 
-        {/* Lado Direito - Conteúdo */}
-        {!selectedPatientId ? (
-          <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-20 text-center space-y-4">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
-              <Users size={32} />
-            </div>
-            <p className="text-xs font-semibold text-slate-400 leading-loose">Selecione um prontuário para iniciar a orientação parental.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            {/* Lado Esquerdo - Rotina Visual */}
-            <div className="xl:col-span-2 space-y-8">
-               <div className="bg-white rounded-[2.5rem] border border-slate-100 p-10 shadow-sm space-y-10">
-                  <div className="flex items-center justify-between">
-                     <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3">
-                        <Calendar className="text-amber-500" size={24} /> Estruturação de Rotina
-                     </h3>
-                     <div className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 flex items-center gap-2 shadow-sm">
-                        <Clock size={12} /> Painel Diário
-                     </div>
-                  </div>
-
-                  <div className="space-y-4">
-                     {data.routine.sort((a,b) => a.time.localeCompare(b.time)).map(item => (
-                        <div key={item.id} className="group flex items-center justify-between p-6 bg-slate-50 rounded-lg border border-slate-100 transition-all hover:bg-white hover:border-amber-200 shadow-sm hover:shadow-sm">
-                           <div className="flex items-center gap-8">
-                              <div className="w-20 h-20 bg-amber-50 rounded-lg flex flex-col items-center justify-center border border-amber-100 shadow-inner">
-                                 <span className="text-xs font-semibold text-amber-700">{item.time}</span>
-                                 <span className="text-[11px] font-semibold text-amber-400">H</span>
+          {/* Conteúdo */}
+          <div className="min-w-0 space-y-4">
+            {!selectedPatientId ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Users}
+                  title="Nenhum prontuário selecionado"
+                  description="Selecione um prontuário para iniciar a orientação parental."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<ParentingTab> items={parentingTabs} value={activeSub} onChange={setActiveSub} label="Seções da orientação parental">
+                {activeSub === 'routine' && (
+                  <PanelCard
+                    title="Estruturação de Rotina"
+                    icon={Calendar}
+                    action={<Badge color="default" icon={<Clock size={12} />}>Painel Diário</Badge>}
+                  >
+                    <div className="space-y-3">
+                      {data.routine.length === 0 && (
+                        <EmptyState icon={Calendar} title="Nenhuma atividade na rotina." description="Adicione horários e atividades abaixo." />
+                      )}
+                      {data.routine.sort((a,b) => a.time.localeCompare(b.time)).map(item => (
+                        <div key={item.id} className="flex items-center justify-between gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100 hover:bg-white hover:border-primary-200 transition-colors">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-14 h-12 bg-primary-50 rounded-lg flex flex-col items-center justify-center border border-primary-100 shrink-0">
+                              <span className="text-xs font-medium text-primary-700">{item.time}</span>
+                              <span className="text-[11px] text-primary-400">h</span>
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[13px] font-medium text-slate-900 break-words">{item.activity}</p>
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${item.status === 'success' ? 'bg-emerald-500' : item.status === 'need_improvement' ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                                <span className="text-[11px] text-slate-500">Execução {item.status === 'success' ? 'Ok' : 'Em ajuste'}</span>
                               </div>
-                              <div className="space-y-1">
-                                 <p className="text-sm font-semibold text-slate-900">{item.activity}</p>
-                                 <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${item.status === 'success' ? 'bg-emerald-500' : item.status === 'need_improvement' ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                                    <span className="text-[11px] font-semibold text-slate-400">Execução {item.status === 'success' ? 'Ok' : 'Em ajuste'}</span>
-                                 </div>
-                              </div>
-                           </div>
-                           <div className="flex items-center gap-2">
-                              <button 
-                                 onClick={() => {
-                                    const updated = {...data, routine: data.routine.map(r => r.id === item.id ? {...r, status: r.status === 'success' ? 'need_improvement' : 'success'} : r)};
-                                    setData(updated);
-                                    handleSave(updated);
-                                 }}
-                                 className="p-2.5 bg-white text-slate-300 hover:text-emerald-500 rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all scale-90 hover:scale-105"
-                              >
-                                 <CheckCircle2 size={16} />
-                              </button>
-                              <button onClick={() => removeRoutineItem(item.id)} className="p-2.5 bg-white text-slate-300 hover:text-red-500 rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all scale-90 hover:scale-105">
-                                 <Trash2 size={16} />
-                              </button>
-                           </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <IconButton
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Alternar execução"
+                              title="Alternar execução"
+                              className="hover:text-emerald-600"
+                              onClick={() => {
+                                const updated = {...data, routine: data.routine.map(r => r.id === item.id ? {...r, status: r.status === 'success' ? 'need_improvement' : 'success'} : r)};
+                                setData(updated as ParentingData);
+                                handleSave(updated as ParentingData);
+                              }}
+                            >
+                              <CheckCircle2 size={14} />
+                            </IconButton>
+                            <IconButton variant="ghost" size="sm" aria-label="Remover atividade" title="Remover atividade" className="hover:text-red-600" onClick={() => removeRoutineItem(item.id)}>
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </div>
                         </div>
-                     ))}
+                      ))}
 
-                     {/* Add New Routine */}
-                     <div className="bg-slate-50/50 p-8 rounded-[2rem] border border-slate-100 border-dashed grid grid-cols-1 md:grid-cols-12 gap-6 items-end mt-10">
-                        <div className="md:col-span-2 space-y-2">
-                           <label className="text-[11px] font-semibold text-slate-400 ml-1">Horário</label>
-                           <input 
-                              type="time"
-                              value={newRoutine.time}
-                              onChange={e => setNewRoutine({...newRoutine, time: e.target.value})}
-                              className="w-full bg-white border border-slate-200 rounded-lg px-4 py-3 text-xs font-semibold outline-none ring-4 ring-transparent focus:ring-amber-50 transition-all font-mono shadow-sm"
-                           />
-                        </div>
-                        <div className="md:col-span-7 space-y-2">
-                           <label className="text-[11px] font-semibold text-slate-400 ml-1">Atividade</label>
-                           <input 
-                              placeholder="Ex: Hora do banho..."
-                              value={newRoutine.activity}
-                              onChange={e => setNewRoutine({...newRoutine, activity: e.target.value})}
-                              className="w-full bg-white border border-slate-200 rounded-lg px-5 py-3 text-xs font-semibold outline-none ring-4 ring-transparent focus:ring-amber-50 transition-all shadow-sm"
-                           />
-                        </div>
-                        <div className="md:col-span-3">
-                           <Button 
-                              onClick={addRoutineItem}
-                              fullWidth
-                              className="bg-slate-950 text-white rounded-lg py-4 font-semibold text-[11px] h-[50px] shadow-sm shadow-slate-200 hover:bg-amber-600 transition-all"
-                           >
-                              Add <Plus size={16} className="ml-2" />
-                           </Button>
-                        </div>
-                     </div>
-                  </div>
-               </div>
-            </div>
-
-            {/* Lado Direito - Contingências Comportamentais */}
-            <div className="xl:col-span-1 space-y-8">
-               <div className="bg-slate-950 rounded-[2.5rem] p-10 text-white shadow-sm space-y-8 relative overflow-hidden h-full">
-                  <div className="absolute top-0 right-0 p-10 opacity-10 animate-pulse">
-                     <Zap size={120} className="text-amber-500" />
-                  </div>
-                  
-                  <h3 className="text-sm font-semibold flex items-center gap-3 relative z-10">
-                     <Layout size={18} className="text-amber-400" /> Plano de Manejo (ABC)
-                  </h3>
-
-                  <div className="space-y-6 relative z-10">
-                     <div className="space-y-2">
-                        <p className="text-[11px] font-semibold text-slate-500 mb-4">Metas do Treinamento</p>
-                        <textarea 
-                           rows={6}
-                           value={data.goals.join('\n')}
-                           onChange={e => setData({...data, goals: e.target.value.split('\n')})}
-                           className="w-full bg-white/5 border border-white/10 rounded-lg p-6 text-xs font-semibold leading-relaxed focus:ring-4 focus:ring-amber-500/20 outline-none transition-all placeholder:text-white/10 resize-none italic shadow-inner"
-                           placeholder="Quais são as principais mudanças esperadas?"
+                      {/* Add New Routine */}
+                      <div className="bg-slate-50/50 p-3 rounded-lg border border-slate-200 border-dashed grid grid-cols-1 sm:grid-cols-[140px_1fr_auto] gap-3 items-end">
+                        <Input
+                          label="Horário"
+                          type="time"
+                          value={newRoutine.time}
+                          onChange={e => setNewRoutine({...newRoutine, time: e.target.value})}
                         />
-                     </div>
+                        <Input
+                          label="Atividade"
+                          placeholder="Ex: Hora do banho..."
+                          value={newRoutine.activity}
+                          onChange={e => setNewRoutine({...newRoutine, activity: e.target.value})}
+                        />
+                        <Button variant="primary" onClick={addRoutineItem} iconLeft={<Plus size={14} />}>
+                          Adicionar
+                        </Button>
+                      </div>
+                    </div>
+                  </PanelCard>
+                )}
 
-                     <div className="p-8 bg-amber-500/10 rounded-lg border border-amber-500/20 space-y-4 shadow-inner">
-                        <h4 className="text-[11px] font-semibold text-amber-500 flex items-center gap-2">
-                           <AlertCircle size={14} /> Nota Técnica
-                        </h4>
-                        <p className="text-[11px] font-semibold text-slate-300 leading-relaxed">
-                           O foco deste painel é a **Psicoeducação**. Utilize o registro para validar a implementação semanal.
-                        </p>
-                     </div>
-
-                     <Button 
-                        fullWidth
-                        onClick={() => handleSave()}
-                        isLoading={isSaving}
-                        className="bg-amber-500 hover:bg-white hover:text-slate-950 text-white rounded-lg py-6 font-semibold text-[11px] shadow-sm transition-all border border-amber-400/30"
-                     >
-                        Sincronizar Plano <Save size={16} className="ml-2" />
-                     </Button>
-                  </div>
-               </div>
-            </div>
+                {activeSub === 'plan' && (
+                  <PanelCard
+                    title="Plano de Manejo (ABC)"
+                    icon={Layout}
+                    action={
+                      <Button variant="primary" size="sm" loading={isSaving} iconLeft={<Save size={14} />} onClick={() => handleSave()}>
+                        Sincronizar Plano
+                      </Button>
+                    }
+                  >
+                    <div className="space-y-3">
+                      <Textarea
+                        label="Metas do Treinamento"
+                        rows={6}
+                        value={data.goals.join('\n')}
+                        onChange={e => setData({...data, goals: e.target.value.split('\n')})}
+                        placeholder="Quais são as principais mudanças esperadas?"
+                      />
+                      <Alert variant="warning" title="Nota Técnica">
+                        O foco deste painel é a Psicoeducação. Utilize o registro para validar a implementação semanal.
+                      </Alert>
+                    </div>
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

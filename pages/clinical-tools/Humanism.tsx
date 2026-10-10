@@ -2,7 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
+import { ArrowLeft } from 'lucide-react';
 import { Patient, PhenomenonRecord, ActualizationGoal } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { 
@@ -12,11 +19,18 @@ import {
   Compass, BrainCircuit
 } from 'lucide-react';
 
+type HumanismTab = 'phenomenon' | 'goals';
+
+const humanismTabs = [
+  { id: 'phenomenon', label: 'Experiência', icon: Sun },
+  { id: 'goals', label: 'Projeto de Ser', icon: Target },
+] as const;
+
 export const HumanismPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'phenomenon' | 'goals'>('phenomenon');
+  const [activeSub, setActiveSub] = useState<HumanismTab>('phenomenon');
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -121,34 +135,22 @@ export const HumanismPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<Heart />}
-        title="Abordagem Humanista"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Existencialismo & Fenomenologia"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
-              <button 
-                onClick={() => setActiveSub('phenomenon')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'phenomenon' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Sun size={14}/> Experiência</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('goals')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'goals' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Target size={14}/> Projeto de Ser</div>
-              </button>
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        {/* SIDEBAR */}
-        <ClinicalSidebar 
+        <SectionTitle
+          icon={Heart}
+          title="Abordagem Humanista"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Existencialismo & Fenomenologia"}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -156,222 +158,176 @@ export const HumanismPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        {/* CONTENT */}
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="space-y-6 animate-fadeIn">
-                <div className="bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-[32px] p-8 text-white shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Heart size={120} />
-                    </div>
-                    <div className="relative z-10 max-w-2xl space-y-4">
-                        <div className="px-3 py-1 bg-white/10 rounded-full border border-white/20 w-fit backdrop-blur-md">
-                            <span className="text-[11px] font-semibold text-emerald-100 italic">Existencialismo & Fenomenologia</span>
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <div className="space-y-3">
+                <ContentCard>
+                  <EmptyState
+                    icon={Heart}
+                    title="Clínica da Presença e Autonomia"
+                    description="Selecione um paciente para iniciar o encontro clínico. Explore a experiência imediata, o projeto de vida e a responsabilidade existencial através do encontro terapêutico."
+                  />
+                </ContentCard>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {[
+                    { title: 'Experiência Vivida', desc: 'Registro do encontro fenomenológico imediato.', icon: <Activity size={14} /> },
+                    { title: 'Projeto de Ser', desc: 'Mapeamento de metas de autonomia e sentido.', icon: <Target size={14} /> },
+                    { title: 'Aqui e Agora', desc: 'Foco na percepção e consciência do presente.', icon: <Smile size={14} /> }
+                  ].map((feat, i) => (
+                    <ContentCard key={i}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                          {feat.icon}
                         </div>
-                        <h2 className="text-3xl font-semibold leading-none">Clínica da Presença<br/>e Autonomia</h2>
-                        <p className="text-emerald-100/70 text-[11px] font-medium leading-relaxed">
-                            Explore a experiência imediata, o projeto de vida e a responsabilidade existencial através do encontro terapêutico.
-                        </p>
-                    </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-medium text-slate-800">{feat.title}</h3>
+                          <p className="text-[11px] text-slate-500">{feat.desc}</p>
+                        </div>
+                      </div>
+                    </ContentCard>
+                  ))}
                 </div>
+              </div>
+            ) : (
+              <Tabs<HumanismTab> items={humanismTabs} value={activeSub} onChange={setActiveSub} label="Seções da abordagem humanista">
+                {activeSub === 'phenomenon' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-3">
+                    <PanelCard title="O Aqui e Agora" description="Fenomenologia da Experiência" icon={Smile} className="h-fit">
+                      <div className="space-y-3">
+                        <Textarea
+                          label="Experiência Vivida"
+                          rows={5}
+                          value={newPhenomenon.experience}
+                          onChange={e => setNewPhenomenon({ ...newPhenomenon, experience: e.target.value })}
+                          placeholder="Descreva o que acontece no encontro terapêutico..."
+                        />
+                        <Textarea
+                          label="Percepção Terapêutica"
+                          rows={5}
+                          value={newPhenomenon.perception}
+                          onChange={e => setNewPhenomenon({ ...newPhenomenon, perception: e.target.value })}
+                          placeholder="Sua percepção sobre essa vivência..."
+                        />
+                        <Button variant="primary" fullWidth onClick={handleSavePhenomenon}>
+                          Registrar Experiência
+                        </Button>
+                      </div>
+                    </PanelCard>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[
-                        { title: 'Experiência Vivida', desc: 'Registro do encontro fenomenológico imediato.', icon: <Activity size={22}/> },
-                        { title: 'Projeto de Ser', desc: 'Mapeamento de metas de autonomia e sentido.', icon: <Target size={22}/> },
-                        { title: 'Aqui e Agora', desc: 'Foco na percepção e consciência do presente.', icon: <Smile size={22}/> }
-                    ].map((feat, i) => (
-                        <div key={i} className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-sm hover:shadow-sm transition-all group">
-                             <div className="w-10 h-10 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-all">
-                                {feat.icon}
-                             </div>
-                             <h3 className="font-semibold text-slate-800 text-[11px] mb-1">{feat.title}</h3>
-                             <p className="text-[11px] text-slate-400 font-medium leading-relaxed">{feat.desc}</p>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] p-8 text-center">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-slate-200 mx-auto mb-4 shadow-sm">
-                        <Plus size={32} />
+                    <div className="space-y-3 min-w-0">
+                      {phenomenons.length === 0 ? (
+                        <ContentCard>
+                          <EmptyState icon={Smile} title="Nenhuma experiência registrada." />
+                        </ContentCard>
+                      ) : (
+                        phenomenons.slice().reverse().map(p => (
+                          <ContentCard key={p.id} className="group relative">
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                              <IconButton
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Excluir experiência"
+                                title="Excluir experiência"
+                                className="hover:text-red-600"
+                                onClick={async () => {
+                                  const newList = phenomenons.filter(it => it.id !== p.id);
+                                  await api.put(`/clinical-tools/${selectedPatientId}/humanism/data`, { data: { phenomenons: newList, goals } });
+                                  setPhenomenons(newList);
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </IconButton>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pr-8">
+                              <div className="space-y-1">
+                                <span className="text-xs font-medium text-slate-600">O Vivido</span>
+                                <p className="text-xs text-slate-600 italic">"{p.experience}"</p>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-xs font-medium text-primary-700">A Compreensão</span>
+                                <p className="text-xs font-medium text-slate-800 border-l-2 border-primary-500 pl-3">"{p.perception}"</p>
+                              </div>
+                            </div>
+                            <div className="pt-3 mt-3 border-t border-slate-100 text-[11px] text-slate-500">
+                              Sessão de {new Date(p.createdAt || "").toLocaleDateString()}
+                            </div>
+                          </ContentCard>
+                        ))
+                      )}
                     </div>
-                    <p className="text-xs font-semibold text-slate-400 leading-loose italic">Selecione um paciente para iniciar o encontro clínico.</p>
-                </div>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'phenomenon' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-6 animate-slideUpFade">
-                    {/* NOVO FENOMENO */}
-                    <div className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm space-y-6 h-fit">
-                        <div className="flex flex-col items-center gap-4 text-center">
-                            <div className="w-20 h-20 bg-emerald-50 rounded-[32px] flex items-center justify-center text-emerald-600 shadow-inner">
-                                <Smile size={40} />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-semibold text-slate-800">O Aqui e Agora</h3>
-                                <p className="text-[11px] text-slate-400 font-semibold">Fenomenologia da Experiência</p>
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold text-slate-400 ml-1">Experiência Vivida</label>
-                                <textarea 
-                                    className="w-full h-32 p-6 rounded-[32px] bg-slate-50 border border-slate-100 text-sm font-medium focus:bg-white outline-none resize-none shadow-inner"
-                                    value={newPhenomenon.experience}
-                                    onChange={e => setNewPhenomenon({...newPhenomenon, experience: e.target.value})}
-                                    placeholder="Descreva o que acontece no encontro terapêutico..."
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-semibold text-slate-400 ml-1">Percepção Terapêutica</label>
-                                <textarea 
-                                    className="w-full h-32 p-6 rounded-[32px] bg-emerald-50/20 border border-emerald-100 text-sm font-semibold text-emerald-900 focus:bg-white outline-none resize-none shadow-inner"
-                                    value={newPhenomenon.perception}
-                                    onChange={e => setNewPhenomenon({...newPhenomenon, perception: e.target.value})}
-                                    placeholder="Sua percepção sobre essa vivência..."
-                                />
-                            </div>
-                            <button 
-                                onClick={handleSavePhenomenon}
-                                className="w-full h-12 bg-emerald-600 text-white rounded-lg font-semibold text-[11px] shadow-sm active:scale-95 transition-all"
+                  </div>
+                )}
+
+                {activeSub === 'goals' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-3">
+                    <PanelCard title="Projeto de Ser" description="Metas de autorealização e autonomia." icon={Target} className="h-fit">
+                      <div className="space-y-3">
+                        <Textarea
+                          aria-label="Novo objetivo"
+                          rows={4}
+                          value={newGoal}
+                          onChange={e => setNewGoal(e.target.value)}
+                          placeholder="Ex: Assumir responsabilidade existencial..."
+                        />
+                        <Button variant="primary" fullWidth iconLeft={<Plus size={14} />} onClick={handleSaveGoal}>
+                          Adicionar Objetivo
+                        </Button>
+                      </div>
+                    </PanelCard>
+
+                    <PanelCard title="Caminho da Autorealização" icon={Zap}>
+                      {goals.length === 0 ? (
+                        <EmptyState icon={Target} title="Aguardando a emersão de projetos de vida." />
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {goals.slice().reverse().map(g => (
+                            <div
+                              key={g.id}
+                              className={`group relative rounded-lg border p-3 flex items-start gap-3 ${g.status === 'achieved' ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 bg-white'}`}
                             >
-                                Registrar Experiência
-                            </button>
-                        </div>
-                    </div>
-                    
-                    {/* HISTORICO FENOMENO */}
-                    <div className="space-y-6">
-                        <div className="flex flex-wrap gap-6">
-                            {phenomenons.length === 0 ? (
-                                 <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] p-16 text-center">
-                                    <p className="text-[11px] font-semibold text-slate-400 italic">Nenhuma experiência registrada.</p>
-                                </div>
-                            ) : (
-                                phenomenons.slice().reverse().map(p => (
-                                    <div key={p.id} className="w-full bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm hover:shadow-sm transition-all relative group overflow-hidden flex flex-col gap-4">
-                                        <div className="absolute top-0 right-0 p-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button 
-                                              onClick={async () => {
-                                                  const newList = phenomenons.filter(it => it.id !== p.id);
-                                                  await api.put(`/clinical-tools/${selectedPatientId}/humanism/data`, { data: { phenomenons: newList, goals } });
-                                                  setPhenomenons(newList);
-                                              }}
-                                              className="w-10 h-10 bg-red-50 text-red-600 rounded-lg flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                                            >
-                                                <Trash2 size={18}/>
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="flex flex-col lg:flex-row gap-8">
-                                             <div className="flex-1 space-y-3">
-                                                 <span className="text-[11px] font-semibold text-slate-300 underline decoration-emerald-200 underline-offset-4">O Vivido</span>
-                                                 <p className="text-base text-slate-600 font-medium leading-relaxed italic">"{p.experience}"</p>
-                                             </div>
-                                             <div className="w-px bg-slate-100 self-stretch hidden lg:block" />
-                                             <div className="flex-1 space-y-3">
-                                                 <span className="text-[11px] font-semibold text-emerald-500 underline decoration-emerald-600 underline-offset-4">A Compreensão</span>
-                                                 <p className="text-base font-semibold text-slate-800 leading-relaxed border-l-4 border-emerald-500 pl-6">"{p.perception}"</p>
-                                             </div>
-                                        </div>
-                                        
-                                        <div className="pt-6 border-t border-slate-50 flex justify-between items-center text-[11px] font-semibold text-slate-300">
-                                            <span>Sessão de {new Date(p.createdAt || "").toLocaleDateString()}</span>
-                                            <Sparkles size={16} className="text-emerald-300 animate-pulse" />
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-              )}
-
-              {activeSub === 'goals' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-10 animate-slideUpFade">
-                    {/* PROJETO DE SER */}
-                    <div className="bg-gradient-to-br from-indigo-900 to-indigo-950 rounded-[32px] p-8 text-white shadow-sm relative overflow-hidden h-fit">
-                        <div className="absolute top-0 right-0 p-8 opacity-5 scale-125 rotate-12">
-                             <Target size={140} />
-                        </div>
-                        <div className="relative z-10 space-y-6">
-                             <div className="space-y-2 text-center md:text-left">
-                                <h3 className="text-2xl font-semibold leading-none">Projeto de Ser</h3>
-                                <p className="text-indigo-200 text-[11px] font-medium leading-relaxed italic">Metas de autorealização e autonomia.</p>
-                             </div>
-                             
-                             <div className="bg-white/5 border border-white/10 rounded-[28px] p-4 space-y-4">
-                                <textarea 
-                                    className="w-full bg-white/10 border border-white/10 rounded-lg p-4 text-xs font-semibold placeholder:text-white/20 outline-none focus:bg-white/20 transition-all h-24 resize-none shadow-inner leading-relaxed"
-                                    value={newGoal}
-                                    onChange={e => setNewGoal(e.target.value)}
-                                    placeholder="Ex: Assumir responsabilidade existencial..."
-                                />
-                                <button 
-                                    onClick={handleSaveGoal}
-                                    className="w-full h-12 bg-white text-indigo-950 rounded-lg font-semibold text-[11px] shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
+                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Excluir objetivo"
+                                  title="Excluir objetivo"
+                                  className="hover:text-red-600"
+                                  onClick={async () => {
+                                    const newList = goals.filter(it => it.id !== g.id);
+                                    await api.put(`/clinical-tools/${selectedPatientId}/humanism/data`, { data: { phenomenons, goals: newList } });
+                                    setGoals(newList);
+                                  }}
                                 >
-                                    <Plus size={16}/> Adicionar Objetivo
-                                </button>
-                             </div>
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </div>
+                              <IconButton
+                                variant={g.status === 'achieved' ? 'primary' : 'outline'}
+                                size="sm"
+                                aria-label="Alternar objetivo alcançado"
+                                title="Alternar objetivo alcançado"
+                                onClick={() => toggleGoal(g.id)}
+                              >
+                                <CheckCircle2 size={14} />
+                              </IconButton>
+                              <div className="space-y-1 min-w-0 pr-6">
+                                <p className={`text-sm font-medium ${g.status === 'achieved' ? 'text-emerald-900 line-through opacity-60' : 'text-slate-800'}`}>{g.goal}</p>
+                                <span className="text-[11px] text-slate-500">{new Date(g.createdAt || "").toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                    </div>
-
-                    {/* LISTA GOALS */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-4 px-6 py-4 bg-white rounded-[32px] border border-slate-100 shadow-sm mb-6">
-                             <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600"><Zap size={20}/></div>
-                             <h3 className="font-semibold text-slate-800">Caminho da Autorealização</h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {goals.length === 0 ? (
-                                <div className="md:col-span-2 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[40px] p-24 text-center">
-                                    <p className="text-sm font-semibold text-slate-400 italic">Aguardando a emersão de projetos de vida.</p>
-                                </div>
-                            ) : (
-                                goals.slice().reverse().map(g => (
-                                    <div key={g.id} className={`bg-white rounded-[40px] border p-8 shadow-sm hover:shadow-sm transition-all group flex flex-col gap-6 relative ${g.status === 'achieved' ? 'border-emerald-200 bg-emerald-50/10 shadow-emerald-50' : 'border-slate-100'}`}>
-                                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button 
-                                              onClick={async () => {
-                                                  const newList = goals.filter(it => it.id !== g.id);
-                                                  await api.put(`/clinical-tools/${selectedPatientId}/humanism/data`, { data: { phenomenons, goals: newList } });
-                                                  setGoals(newList);
-                                              }}
-                                              className="text-red-200 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 size={16}/>
-                                            </button>
-                                        </div>
-
-                                        <div className="flex items-start gap-4">
-                                            <button 
-                                              onClick={() => toggleGoal(g.id)}
-                                              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all shrink-0 ${g.status === 'achieved' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-300 hover:bg-emerald-50 hover:text-emerald-600 shadow-inner'}`}
-                                            >
-                                                <CheckCircle2 size={24}/>
-                                            </button>
-                                            <div className="space-y-2">
-                                                <p className={`text-lg font-semibold leading-tight  ${g.status === 'achieved' ? 'text-emerald-900 line-through opacity-50' : 'text-slate-800'}`}>{g.goal}</p>
-                                                <span className="text-[11px] font-semibold text-slate-300">{new Date(g.createdAt || "").toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-              )}
-            </>
-          )}
+                      )}
+                    </PanelCard>
+                  </div>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

@@ -7,14 +7,19 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { PageWrapper } from '../components/UI/PageWrapper';
-import { PageHeader } from '../components/UI/PageHeader';
-import { PanelCard } from '../components/UI/PanelCard';
-import { Button } from '../components/UI/Button';
-import { Switch } from '../components/UI/Switch';
-import { Badge } from '../components/UI/Badge';
-import { StatCard } from '../components/UI/StatCard';
-import { Input } from '../components/UI/Input';
+import { FilterLineSegmented, PageWrapper, SectionTitle, StatGrid, Tabs, PanelCard, Button, IconButton, Switch, Badge, StatCard, Input, Select, Modal, ModalFooter, EmptyState } from '../components/UI';
+
+const BOT_TABS = [
+  { id: 'conexao', label: 'Conexão', icon: Smartphone },
+  { id: 'mensagens', label: 'Mensagens', icon: MessageSquare },
+  { id: 'historico', label: 'Histórico', icon: History },
+] as const;
+type BotTab = typeof BOT_TABS[number]['id'];
+
+const EDITOR_TABS = [
+  { id: 'edit', label: 'Editar', icon: MessageSquare },
+  { id: 'preview', label: 'Pré-visualizar', icon: Eye },
+] as const;
 
 // ── Variáveis disponíveis por seção ──────────────────────────────────────────
 const GENERAL_VARS = [
@@ -43,7 +48,7 @@ const ROOM_LINK_VARS = [
 ];
 
 const VAR_COLORS: Record<string, string> = {
-  patient_name:      'bg-indigo-100 text-indigo-700 border-indigo-200',
+  patient_name:      'bg-primary-100 text-primary-700 border-primary-200',
   professional_name: 'bg-amber-100 text-amber-700 border-amber-200',
   date:              'bg-sky-100 text-sky-700 border-sky-200',
   time:              'bg-violet-100 text-violet-700 border-violet-200',
@@ -178,8 +183,8 @@ const BadgeEditor = ({
   return (
     <div className="space-y-2">
       {/* Barra de variáveis + toggle preview */}
-      <div className="flex flex-wrap gap-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
-        <span className="text-[11px] font-semibold text-zinc-400 flex items-center mr-1">Variáveis:</span>
+      <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+        <span className="text-[11px] font-semibold text-slate-400 flex items-center mr-1">Variáveis:</span>
         {variables.map(v => (
           <button
             key={v.key}
@@ -192,23 +197,7 @@ const BadgeEditor = ({
         ))}
       </div>
 
-      {/* Tabs editar / pré-visualizar */}
-      <div className="flex items-center gap-1 border-b border-zinc-100">
-        <button
-          type="button"
-          onClick={() => setShowPreview(false)}
-          className={`px-3 py-1.5 text-[11px] font-semibold   transition-colors border-b-2 -mb-px ${!showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
-        >
-          Editar
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowPreview(true)}
-          className={`px-3 py-1.5 text-[11px] font-semibold   transition-colors border-b-2 -mb-px flex items-center gap-1 ${showPreview ? 'border-amber-400 text-amber-600' : 'border-transparent text-zinc-400 hover:text-zinc-600'}`}
-        >
-          <Eye size={11} /> Pré-visualizar
-        </button>
-      </div>
+      <Tabs<'edit' | 'preview'> items={EDITOR_TABS} value={showPreview ? 'preview' : 'edit'} onChange={v => setShowPreview(v === 'preview')} label="Modo do editor" />
 
       {/* Editor */}
       {!showPreview && (
@@ -221,7 +210,7 @@ const BadgeEditor = ({
             e.preventDefault();
             document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
           }}
-          className="w-full min-h-[130px] p-4 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all text-sm text-zinc-700 bg-white leading-relaxed"
+          className="w-full min-h-[130px] p-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all text-[13px] text-slate-700 bg-white leading-relaxed"
           style={{ whiteSpace: 'pre-wrap' }}
         />
       )}
@@ -232,14 +221,14 @@ const BadgeEditor = ({
           <div className="flex justify-end">
             <div className="bg-[#dcf8c6] rounded-lg rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm">
               <p
-                className="text-sm text-zinc-800 leading-relaxed"
+                className="text-sm text-slate-800 leading-relaxed"
                 style={{ whiteSpace: 'pre-wrap' }}
                 dangerouslySetInnerHTML={{ __html: renderPreview(value) }}
               />
-              <p className="text-[11px] text-zinc-500 text-right mt-1.5">14:30 ✓✓</p>
+              <p className="text-[11px] text-slate-500 text-right mt-1.5">14:30 ✓✓</p>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-500 text-center mt-3 font-medium">
+          <p className="text-[11px] text-slate-500 text-center mt-3 font-medium">
             Pré-visualização com dados de exemplo
           </p>
         </div>
@@ -272,34 +261,33 @@ const DispatchBlock = ({
   showTime?: boolean;
   children?: React.ReactNode;
 }) => (
-  <div className={`rounded-lg border transition-all duration-200 ${enabled ? 'border-zinc-200 bg-white shadow-sm' : 'border-zinc-100 bg-zinc-50/60 opacity-70'}`}>
-    <div className="flex items-center justify-between gap-4 p-4">
+  <div className={`rounded-lg border transition-all duration-200 ${enabled ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50/60 opacity-70'}`}>
+    <div className="flex flex-wrap items-center justify-between gap-3 p-3">
       <div className="flex items-center gap-3 min-w-0">
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
           <Icon size={17} />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-zinc-800">{label}</p>
-          {description && <p className="text-[11px] text-zinc-400 font-medium truncate">{description}</p>}
+          <p className="text-sm font-medium text-slate-900">{label}</p>
+          {description && <p className="text-[11px] text-slate-400 font-medium truncate">{description}</p>}
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
         {showTime && enabled && onTimeChange && (
-          <div className="flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 px-3 py-1.5 rounded-lg">
-            <Clock size={13} className="text-zinc-400" />
-            <input
-              type="time"
-              value={time}
-              onChange={e => onTimeChange(e.target.value)}
-              className="text-xs font-semibold text-zinc-700 focus:outline-none bg-transparent w-16 cursor-pointer"
-            />
-          </div>
+          <Input
+            type="time"
+            aria-label="Horário de envio"
+            value={time}
+            onChange={e => onTimeChange(e.target.value)}
+            iconLeft={<Clock size={14} />}
+            wrapperClassName="w-32"
+          />
         )}
         <Switch checked={enabled} onCheckedChange={onToggle} />
       </div>
     </div>
     {enabled && children && (
-      <div className="px-4 pb-4 border-t border-zinc-100 pt-4 animate-fadeIn">
+      <div className="px-3 pb-3 border-t border-slate-100 pt-3 animate-fadeIn">
         {children}
       </div>
     )}
@@ -321,6 +309,7 @@ export const BotIntegration: React.FC = () => {
   const [selectedMsg, setSelectedMsg]     = useState<any | null>(null);
   const [filterStatus, setFilterStatus]   = useState<string>('');
   const [filterDate, setFilterDate]       = useState<string>('');
+  const [activeTab, setActiveTab]         = useState<BotTab>('conexao');
 
   const [prefs, setPrefs] = useState({
     reminder_24h_enabled: true,
@@ -426,8 +415,8 @@ export const BotIntegration: React.FC = () => {
   if (isLoading) {
     return (
       <PageWrapper>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="animate-spin text-amber-500" size={40} />
+        <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+          <Loader2 className="animate-spin text-primary-600" size={18} />Carregando…
         </div>
       </PageWrapper>
     );
@@ -437,30 +426,27 @@ export const BotIntegration: React.FC = () => {
   const isConnecting  = status === 'connecting';
 
   return (
-    <PageWrapper className="space-y-5 pb-20">
-      <PageHeader
-        icon={<Smartphone />}
-        title="WhatsApp Bot"
-        subtitle="Configure o disparo automático de mensagens para pacientes e profissionais"
-        iconGradient="from-emerald-500 to-teal-600"
-        containerClassName="mb-0"
-        actions={
-          <Button
-            variant="primary"
-            leftIcon={isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            onClick={handleSave}
-            loading={isSaving}
-            className="shadow-sm"
-          >
-            Salvar Tudo
-          </Button>
-        }
-      />
-
-      <div className="px-3 sm:px-5 lg:px-6 xl:px-8 space-y-6">
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={Smartphone}
+          title="WhatsApp Bot"
+          description="Configure o disparo automático de mensagens para pacientes e profissionais"
+          action={
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={<Save size={14} />}
+              onClick={handleSave}
+              loading={isSaving}
+            >
+              Salvar tudo
+            </Button>
+          }
+        />
 
         {/* Stats rápidos */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatGrid cols={3}>
           <StatCard
             title="Bot"
             value={isConnected ? 'Ativo' : isConnecting ? 'Conectando' : 'Inativo'}
@@ -485,18 +471,21 @@ export const BotIntegration: React.FC = () => {
             description="mensagens enviadas hoje"
             delay={0.1}
           />
-        </div>
+        </StatGrid>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <Tabs<BotTab> items={BOT_TABS} value={activeTab} onChange={setActiveTab} label="Seções do bot de WhatsApp">
+
+        {activeTab === 'conexao' && (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-3">
 
           {/* ── Coluna esquerda: dispositivo ── */}
-          <div className="xl:col-span-4 space-y-4">
+          <div className="xl:col-span-5 space-y-3">
             <PanelCard
               icon={Smartphone}
               title="Dispositivo Bot"
               description="Escaneie o QR Code para ativar"
-              iconWrapClassName="bg-emerald-50 border-emerald-100"
-              iconClassName="text-emerald-600"
+              
+              
             >
               {isConnected ? (
                 <div className="flex flex-col items-center gap-4 py-6 animate-fadeIn">
@@ -507,32 +496,31 @@ export const BotIntegration: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-center">
-                    <p className="font-semibold text-zinc-800 text-base">Conectado</p>
+                    <p className="font-semibold text-slate-800 text-base">Conectado</p>
                     <p className="text-sm text-emerald-600 font-semibold mt-0.5">{phone || 'Dispositivo vinculado'}</p>
-                    <p className="text-xs text-zinc-400 mt-1">Bot ativo e enviando notificações</p>
+                    <p className="text-xs text-slate-400 mt-1">Bot ativo e enviando notificações</p>
                   </div>
                   <Badge color="success" dot>Online</Badge>
                   <Button
-                    variant="ghost"
+                    variant="danger"
                     size="sm"
                     onClick={handleDisconnect}
                     loading={isActionLoading}
-                    className="text-rose-500 hover:bg-rose-50 hover:text-rose-600 border-rose-100 gap-1.5"
                   >
-                    <X size={13} /> Desconectar
+                    <X size={14} /> Desconectar
                   </Button>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-4 py-4">
                   {/* QR frame */}
-                  <div className="relative bg-zinc-900 p-4 rounded-[20px] shadow-sm border border-zinc-800">
+                  <div className="relative bg-slate-900 p-3 rounded-lg border border-slate-800">
                     <div className="w-52 h-52 bg-white rounded-lg flex items-center justify-center overflow-hidden relative">
                       {qrCode ? (
                         <img src={qrCode} alt="QR Code" className="w-full h-full object-contain p-2 animate-fadeIn" />
                       ) : (
                         <div className="w-full h-full grid grid-cols-6 grid-rows-6 gap-1 p-3 opacity-[0.08]">
                           {Array.from({ length: 36 }).map((_, i) => (
-                            <div key={i} className={`bg-zinc-900 rounded-[2px] ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'}`} />
+                            <div key={i} className={`bg-slate-900 rounded-[2px] ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'}`} />
                           ))}
                         </div>
                       )}
@@ -550,7 +538,7 @@ export const BotIntegration: React.FC = () => {
                             <Button
                               variant="primary"
                               onClick={handleConnect}
-                              className="bg-emerald-600 border-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-200 gap-2"
+                             
                             >
                               <Smartphone size={15} /> Gerar QR Code
                             </Button>
@@ -560,27 +548,24 @@ export const BotIntegration: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-semibold text-zinc-800">Conectar Aparelho</p>
-                    <p className="text-xs text-zinc-400 mt-1 max-w-[200px] leading-relaxed">
+                    <p className="text-sm font-semibold text-slate-800">Conectar Aparelho</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-[200px] leading-relaxed">
                       Abra seu WhatsApp e escaneie o código para ativar o robô
                     </p>
                   </div>
                   {isConnecting && (
-                    <button
-                      onClick={handleDisconnect}
-                      className="text-[11px] font-semibold text-zinc-400 hover:text-rose-500 underline transition-colors"
-                    >
+                    <Button variant="ghost" size="sm" onClick={handleDisconnect}>
                       Cancelar
-                    </button>
+                    </Button>
                   )}
                   {isConnecting && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => fetchStatus(false)}
-                      className="gap-1.5 text-zinc-500"
+                     
                     >
-                      <RefreshCw size={13} /> Atualizar status
+                      <RefreshCw size={14} /> Atualizar status
                     </Button>
                   )}
                 </div>
@@ -591,20 +576,20 @@ export const BotIntegration: React.FC = () => {
             <PanelCard
               icon={AlertCircle}
               title="Dicas de Uso"
-              iconWrapClassName="bg-blue-50 border-blue-100"
-              iconClassName="text-blue-500"
+              
+              
             >
-              <ul className="space-y-2.5 text-xs text-zinc-500 font-medium">
+              <ul className="space-y-2.5 text-xs text-slate-500 font-medium">
                 <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0 mt-1.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0 mt-1.5" />
                   Seu celular pode ficar longe — mantemos a conexão via túnel com a API oficial.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0 mt-1.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0 mt-1.5" />
                   Use as variáveis coloridas para inserir dados dinâmicos do paciente.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0 mt-1.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0 mt-1.5" />
                   O WhatsApp Web precisa da versão mais recente instalada.
                 </li>
                 <li className="flex items-start gap-2">
@@ -615,15 +600,32 @@ export const BotIntegration: React.FC = () => {
             </PanelCard>
           </div>
 
-          {/* ── Coluna direita: configurações ── */}
-          <div className="xl:col-span-8 space-y-5">
+          {/* ── Coluna direita: teste de envio ── */}
+          <div className="xl:col-span-7 space-y-3">
+            {/* Disparo manual de teste */}
+            {isConnected && (
+              <PanelCard
+                icon={Send}
+                title="Teste de Envio"
+                description="Envie uma mensagem de teste para verificar se o bot está funcionando"
+                
+                
+              >
+                <TestSendPanel />
+              </PanelCard>
+            )}
+          </div>
+        </div>
+        )}
 
+        {activeTab === 'mensagens' && (
+          <div className="space-y-3">
             {/* Legenda de variáveis */}
-            <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4">
-              <p className="text-[11px] font-semibold text-zinc-400 mb-3">Variáveis disponíveis nas mensagens</p>
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+              <p className="text-[11px] font-semibold text-slate-400 mb-3">Variáveis disponíveis nas mensagens</p>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { key: 'patient_name',      label: 'Nome Paciente',      desc: 'Ex: Maria Silva',            cls: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+                  { key: 'patient_name',      label: 'Nome Paciente',      desc: 'Ex: Maria Silva',            cls: 'bg-primary-100 text-primary-700 border-primary-200' },
                   { key: 'professional_name', label: 'Nome Profissional',  desc: 'Ex: Karen Gomes',            cls: 'bg-amber-100 text-amber-700 border-amber-200' },
                   { key: 'date',              label: 'Data',               desc: 'Ex: 03/06/2026',             cls: 'bg-sky-100 text-sky-700 border-sky-200' },
                   { key: 'time',              label: 'Hora',               desc: 'Ex: 14:30',                  cls: 'bg-violet-100 text-violet-700 border-violet-200' },
@@ -637,13 +639,13 @@ export const BotIntegration: React.FC = () => {
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border cursor-default ${v.cls}`}>
                       {`{${v.key}}`}
                     </span>
-                    <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-10 bg-zinc-900 text-white text-[11px] font-medium rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-sm">
+                    <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-10 bg-slate-900 text-white text-[11px] font-medium rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-sm">
                       <span className="font-semibold">{v.label}</span> — {v.desc}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-zinc-400 mt-3 leading-relaxed">
+              <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
                 Clique nas variáveis coloridas dentro dos editores abaixo para inseri-las na mensagem. Passe o mouse sobre cada variável para ver o exemplo.
               </p>
             </div>
@@ -653,15 +655,15 @@ export const BotIntegration: React.FC = () => {
               icon={Calendar}
               title="Lembretes de Consultas"
               description="Notificações automáticas para reduzir faltas"
-              iconWrapClassName="bg-indigo-50 border-indigo-100"
-              iconClassName="text-indigo-600"
+              
+              
             >
               <div className="space-y-3">
                 <DispatchBlock
                   icon={Bell}
                   label="Aviso Antecipado (24 Horas Antes)"
                   description="Enviado na véspera da consulta"
-                  color="bg-indigo-50 text-indigo-600"
+                  color="bg-primary-50 text-primary-600"
                   enabled={prefs.reminder_24h_enabled}
                   onToggle={() => set('reminder_24h_enabled', !prefs.reminder_24h_enabled)}
                 >
@@ -676,7 +678,7 @@ export const BotIntegration: React.FC = () => {
                   icon={Zap}
                   label="Aviso Imediato (60 Minutos Antes)"
                   description="Enviado no dia do atendimento"
-                  color="bg-violet-50 text-violet-600"
+                  color="bg-primary-50 text-primary-600"
                   enabled={prefs.reminder_1h_enabled}
                   onToggle={() => set('reminder_1h_enabled', !prefs.reminder_1h_enabled)}
                 >
@@ -694,15 +696,15 @@ export const BotIntegration: React.FC = () => {
               icon={Gift}
               title="Rotinas Automáticas Diárias"
               description="Mensagens que disparam no horário configurado"
-              iconWrapClassName="bg-emerald-50 border-emerald-100"
-              iconClassName="text-emerald-600"
+              
+              
             >
               <div className="space-y-3">
                 <DispatchBlock
                   icon={Gift}
                   label="Mensagem de Aniversário"
                   description="Enviada no dia do aniversário do paciente"
-                  color="bg-amber-50 text-amber-600"
+                  color="bg-primary-50 text-primary-600"
                   enabled={prefs.birthday_enabled}
                   onToggle={() => set('birthday_enabled', !prefs.birthday_enabled)}
                   showTime
@@ -720,7 +722,7 @@ export const BotIntegration: React.FC = () => {
                   icon={DollarSign}
                   label="Cobrança Padrão (Dia do Vencimento)"
                   description="Enviada quando há parcela vencendo hoje"
-                  color="bg-rose-50 text-rose-600"
+                  color="bg-primary-50 text-primary-600"
                   enabled={prefs.payment_enabled}
                   onToggle={() => set('payment_enabled', !prefs.payment_enabled)}
                   showTime
@@ -741,15 +743,15 @@ export const BotIntegration: React.FC = () => {
               icon={Video}
               title="Link de Sala Virtual"
               description="Mensagem enviada ao paciente com o link de acesso à sala"
-              iconWrapClassName="bg-sky-50 border-sky-100"
-              iconClassName="text-sky-600"
+              
+              
             >
               <div className="space-y-3">
                 <DispatchBlock
                   icon={Video}
                   label="Envio do Link da Sala"
                   description="Enviado ao confirmar na criação da sala, ou 1min antes se agendada"
-                  color="bg-sky-50 text-sky-600"
+                  color="bg-primary-50 text-primary-600"
                   enabled={prefs.virtual_room_link_enabled}
                   onToggle={() => set('virtual_room_link_enabled', !prefs.virtual_room_link_enabled)}
                 >
@@ -762,73 +764,52 @@ export const BotIntegration: React.FC = () => {
               </div>
             </PanelCard>
 
-            {/* Disparo manual de teste */}
-            {isConnected && (
-              <PanelCard
-                icon={Send}
-                title="Teste de Envio"
-                description="Envie uma mensagem de teste para verificar se o bot está funcionando"
-                iconWrapClassName="bg-teal-50 border-teal-100"
-                iconClassName="text-teal-600"
-              >
-                <TestSendPanel />
-              </PanelCard>
-            )}
           </div>
-        </div>
+        )}
 
-        {/* Histórico de mensagens */}
+        {activeTab === 'historico' && (
         <PanelCard
           icon={History}
-          title="Histórico de Mensagens"
+          title="Histórico de mensagens"
           description="Mensagens enviadas, pendentes e com erro"
-          iconWrapClassName="bg-slate-50 border-slate-100"
-          iconClassName="text-slate-500"
           action={
-            <Button variant="ghost" size="sm" onClick={() => fetchQueue(filterStatus, filterDate)} loading={queueLoading} className="gap-1.5 text-zinc-500">
-              <RefreshCw size={13} /> Atualizar
+            <Button variant="outline" size="sm" iconLeft={<RefreshCw size={14} />} onClick={() => fetchQueue(filterStatus, filterDate)} loading={queueLoading}>
+              Atualizar
             </Button>
           }
         >
           {/* Filtros */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <input
+          <div className="flex flex-wrap items-end gap-2 mb-3">
+            <Input
               type="date"
+              aria-label="Filtrar por data"
               value={filterDate}
               onChange={e => { setFilterDate(e.target.value); fetchQueue(filterStatus, e.target.value); }}
-              className="text-xs border border-zinc-200 rounded-lg px-3 py-1.5 text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              wrapperClassName="w-full sm:w-44"
             />
-            {(['', 'sent', 'pending', 'error', 'canceled'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => { setFilterStatus(s); fetchQueue(s, filterDate); }}
-                className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
-                  filterStatus === s
-                    ? s === 'sent'     ? 'bg-emerald-500 border-emerald-500 text-white'
-                    : s === 'error'    ? 'bg-red-500 border-red-500 text-white'
-                    : s === 'pending'  ? 'bg-amber-400 border-amber-400 text-white'
-                    : s === 'canceled' ? 'bg-zinc-400 border-zinc-400 text-white'
-                    : 'bg-indigo-600 border-indigo-600 text-white'
-                    : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300'
-                }`}
-              >
-                {s === '' ? 'Todos' : s === 'sent' ? 'Enviado' : s === 'pending' ? 'Pendente' : s === 'error' ? 'Erro' : 'Cancelado'}
-              </button>
-            ))}
+            <FilterLineSegmented<string>
+              size="sm"
+              value={filterStatus}
+              onChange={v => { setFilterStatus(v); fetchQueue(v, filterDate); }}
+              options={[
+                { value: '', label: 'Todos' },
+                { value: 'sent', label: 'Enviado' },
+                { value: 'pending', label: 'Pendente' },
+                { value: 'error', label: 'Erro' },
+                { value: 'canceled', label: 'Cancelado' },
+              ]}
+            />
             {(filterDate || filterStatus) && (
-              <button
-                onClick={() => { setFilterDate(''); setFilterStatus(''); fetchQueue('', ''); }}
-                className="text-xs px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-400 hover:text-zinc-600 flex items-center gap-1"
-              >
-                <X size={10} /> Limpar
-              </button>
+              <Button variant="ghost" size="sm" iconLeft={<X size={14} />} onClick={() => { setFilterDate(''); setFilterStatus(''); fetchQueue('', ''); }}>
+                Limpar
+              </Button>
             )}
           </div>
 
           {queueLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-zinc-300" size={28} /></div>
+            <div role="status" className="flex justify-center py-8"><Loader2 className="animate-spin text-slate-300" size={24} /></div>
           ) : queue.length === 0 ? (
-            <div className="py-10 text-center text-xs text-zinc-400 font-medium">Nenhuma mensagem registrada.</div>
+            <EmptyState icon={MessageSquare} title="Nenhuma mensagem registrada." />
           ) : (
             <div className="space-y-2">
               {queue.map(item => {
@@ -856,30 +837,32 @@ export const BotIntegration: React.FC = () => {
                 const name = item.patient_name || null;
 
                 return (
-                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border border-zinc-100 bg-white hover:border-zinc-200 transition-all">
-                    <div className="w-9 h-9 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0">
-                      <User size={15} className="text-zinc-400" />
+                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-white hover:border-slate-200 transition-all">
+                    <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                      <User size={15} className="text-slate-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-zinc-800 truncate">{name || phone}</span>
-                        {name && <span className="text-[11px] text-zinc-400 font-medium">{phone}</span>}
+                        <span className="text-xs font-semibold text-slate-800 truncate">{name || phone}</span>
+                        {name && <span className="text-[11px] text-slate-400 font-medium">{phone}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         <Badge color={type.color as any} size="sm">{type.label}</Badge>
                         <Badge color={st.color as any} size="sm" dot>{st.label}</Badge>
-                        <span className="text-[11px] text-zinc-400 flex items-center gap-0.5">
+                        <span className="text-[11px] text-slate-400 flex items-center gap-0.5">
                           <Clock size={10} /> {sentAt}
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setSelectedMsg(item)}
-                      className="p-2 rounded-lg hover:bg-zinc-50 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0"
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Ver mensagem"
                       title="Ver mensagem"
+                      onClick={() => setSelectedMsg(item)}
                     >
                       <Eye size={14} />
-                    </button>
+                    </IconButton>
                   </div>
                 );
               })}
@@ -887,45 +870,38 @@ export const BotIntegration: React.FC = () => {
           )}
         </PanelCard>
 
-        {/* Modal conteúdo da mensagem */}
+        )}
+        </Tabs>
+      </div>
+
+      {/* Modal conteúdo da mensagem */}
+      <Modal
+        isOpen={!!selectedMsg}
+        onClose={() => setSelectedMsg(null)}
+        title="Conteúdo da mensagem"
+        size="md"
+        footer={<ModalFooter align="right"><Button variant="outline" size="sm" onClick={() => setSelectedMsg(null)}>Fechar</Button></ModalFooter>}
+      >
         {selectedMsg && (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelectedMsg(null)}>
-            <div className="bg-white rounded-lg shadow-sm max-w-md w-full p-6 space-y-4" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-zinc-800">Conteúdo da Mensagem</p>
-                <button onClick={() => setSelectedMsg(null)} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400"><X size={16} /></button>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[11px] font-semibold text-zinc-400">Destinatário</p>
-                <p className="text-sm font-semibold text-zinc-700">{selectedMsg.patient_name || selectedMsg.recipient_phone}</p>
-                {selectedMsg.patient_name && <p className="text-xs text-zinc-400">{selectedMsg.recipient_phone}</p>}
-              </div>
-              <div className="space-y-1">
-                <p className="text-[11px] font-semibold text-zinc-400">Mensagem</p>
-                <pre className="text-xs text-zinc-700 whitespace-pre-wrap bg-zinc-50 border border-zinc-100 rounded-lg p-4 font-sans leading-relaxed max-h-60 overflow-y-auto">{selectedMsg.content}</pre>
-              </div>
-              {selectedMsg.last_error && (
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-red-400">Erro</p>
-                  <p className="text-xs text-red-600 bg-red-50 rounded-lg p-3">{selectedMsg.last_error}</p>
-                </div>
-              )}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-slate-600">Destinatário</p>
+              <p className="text-[13px] font-medium text-slate-800">{selectedMsg.patient_name || selectedMsg.recipient_phone}</p>
+              {selectedMsg.patient_name && <p className="text-[11px] text-slate-500">{selectedMsg.recipient_phone}</p>}
             </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-slate-600">Mensagem</p>
+              <pre className="text-xs text-slate-700 whitespace-pre-wrap bg-slate-50 border border-slate-100 rounded-lg p-3 font-sans leading-relaxed max-h-60 overflow-y-auto">{selectedMsg.content}</pre>
+            </div>
+            {selectedMsg.last_error && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-red-500">Erro</p>
+                <p className="text-xs text-red-600 bg-red-50 rounded-lg p-3">{selectedMsg.last_error}</p>
+              </div>
+            )}
           </div>
         )}
-
-        {/* Botão salvar mobile */}
-        <div className="flex lg:hidden sticky bottom-5 z-50 px-2">
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            loading={isSaving}
-            className="w-full h-14 text-base shadow-sm shadow-emerald-200 bg-emerald-600 border-emerald-600 hover:bg-emerald-700 gap-3"
-          >
-            <Save size={20} /> Salvar Configurações
-          </Button>
-        </div>
-      </div>
+      </Modal>
     </PageWrapper>
   );
 };
@@ -975,7 +951,7 @@ const TestSendPanel: React.FC = () => {
           variant="primary"
           onClick={handleTest}
           loading={sending}
-          className="gap-2 bg-teal-600 border-teal-600 hover:bg-teal-700"
+         
         >
           <Send size={14} /> Enviar Mensagem de Teste
         </Button>

@@ -360,7 +360,7 @@ export const ClinicalTools: React.FC = () => {
                     <div className="p-3 flex-1 flex flex-col gap-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
-                          {React.cloneElement(tool.icon as React.ReactElement, { size: 14 })}
+                          {React.cloneElement(tool.icon as React.ReactElement<any>, { size: 14 })}
                         </div>
                         <Badge color="success" size="sm" dot>PRO</Badge>
                       </div>
@@ -459,7 +459,7 @@ export const ClinicalTools: React.FC = () => {
                   <GripVertical size={16} />
                 </div>
                 <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
-                  {React.cloneElement(tool.icon as React.ReactElement, { size: 14 })}
+                  {React.cloneElement(tool.icon as React.ReactElement<any>, { size: 14 })}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-medium text-slate-800 truncate">{tool.title}</h4>

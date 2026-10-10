@@ -142,3 +142,8 @@ export function DarkTabs<T extends string>({ items, value, onChange, label, clas
     </div>
   );
 }
+
+// Classes reutilizáveis para campos nativos (select/input/label/cartão) dentro dos painéis escuros.
+export const darkFieldClass = 'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-[13px] text-slate-100 outline-none placeholder:text-slate-500 focus:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30';
+export const darkLabelClass = 'mb-1.5 text-xs font-medium text-slate-300';
+export const darkCardClass = 'rounded-lg border border-white/10 bg-white/[0.04] p-3';

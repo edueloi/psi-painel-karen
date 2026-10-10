@@ -2,10 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
-import { Save, Plus, Trash2, HeartHandshake, Eye, MessageSquare, Activity, Loader2 } from 'lucide-react';
+import { Save, Plus, Trash2, HeartHandshake, Eye, MessageSquare, Activity, Loader2, ArrowLeft } from 'lucide-react';
 
 const CRB_COLORS: Record<string, string> = {
   CRB1: 'bg-rose-100 text-rose-700 border-rose-200',
@@ -13,11 +19,19 @@ const CRB_COLORS: Record<string, string> = {
   CRB3: 'bg-blue-100 text-blue-700 border-blue-200',
 };
 
+type FapTab = 'crb' | 'five_rules' | 'session_notes';
+
+const fapTabs = [
+  { id: 'crb', label: 'CRBs', icon: Activity },
+  { id: 'five_rules', label: '5 Regras', icon: Eye },
+  { id: 'session_notes', label: 'Notas de Sessão', icon: MessageSquare },
+] as const;
+
 export const FAPPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'crb' | 'five_rules' | 'session_notes'>('crb');
+  const [activeSub, setActiveSub] = useState<FapTab>('crb');
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -97,180 +111,167 @@ export const FAPPage: React.FC = () => {
   const removeNote = (id: string) => { const upd = sessionNotes.filter(n => n.id !== id); setSessionNotes(upd); saveAll({ session_notes: upd }); };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<HeartHandshake />}
-        title="FAP — Psicoterapia Analítica Funcional"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "CRBs · 5 Regras da FAP · Notas de Sessão"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-1 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
-            {[
-              { key: 'crb', icon: <Activity size={13}/>, label: 'CRBs' },
-              { key: 'five_rules', icon: <Eye size={13}/>, label: '5 Regras' },
-              { key: 'session_notes', icon: <MessageSquare size={13}/>, label: 'Notas de Sessão' },
-            ].map(tab => (
-              <button key={tab.key} onClick={() => setActiveSub(tab.key as any)}
-                className={`px-3 py-2 rounded-lg text-xs font-semibold   transition-all flex items-center gap-1.5 ${activeSub === tab.key ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <ClinicalSidebar patients={patients} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} patientSearch={patientSearch} setPatientSearch={setPatientSearch} isLoading={isLoading && patients.length === 0} t={t} />
+        <SectionTitle
+          icon={HeartHandshake}
+          title="FAP — Psicoterapia Analítica Funcional"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "CRBs · 5 Regras da FAP · Notas de Sessão"}
+        />
 
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="text-center py-20 bg-white rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center">
-              <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6"><HeartHandshake size={40} /></div>
-              <h2 className="text-2xl font-semibold text-slate-800">FAP Workspace</h2>
-              <p className="text-slate-400 text-sm max-w-md mx-auto mt-2">Mapeie CRBs ao vivo na sessão, aplique as 5 Regras da FAP e registre a qualidade da relação terapêutica.</p>
-            </div>
-          ) : (
-            <>
-              {/* CRBs */}
-              {activeSub === 'crb' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 animate-slideUpFade">
-                  <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                    <h3 className="font-semibold text-slate-800 text-base">Novo CRB — Em Sessão</h3>
-                    <select className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold outline-none" value={newCrb.type} onChange={e => setNewCrb({...newCrb, type: e.target.value})}>
-                      <option value="CRB1">CRB1 — Comportamento Problema (Sessão)</option>
-                      <option value="CRB2">CRB2 — Melhoria / Comportamento alvo</option>
-                      <option value="CRB3">CRB3 — Interpretação do Paciente</option>
-                    </select>
-                    {[
-                      { field: 'description', label: 'Descrição do Comportamento (o que ocorreu?)' },
-                      { field: 'context', label: 'Contexto / Antecedente na sessão' },
-                      { field: 'intervention', label: 'Sua Intervenção Terapêutica (Regra 3 / 4)' },
-                      { field: 'patient_response', label: 'Resposta do Paciente à Intervenção' },
-                    ].map(f => (
-                      <div key={f.field} className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-400 pl-1">{f.label}</label>
-                        <textarea className="w-full p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs font-medium h-16 resize-none outline-none focus:bg-white focus:border-emerald-300 transition-all"
-                          value={(newCrb as any)[f.field]} onChange={e => setNewCrb({...newCrb, [f.field]: e.target.value})} />
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar patients={patients} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} patientSearch={patientSearch} setPatientSearch={setPatientSearch} isLoading={isLoading && patients.length === 0} t={t} />
+
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <ContentCard>
+                <EmptyState
+                  icon={HeartHandshake}
+                  title="FAP Workspace"
+                  description="Mapeie CRBs ao vivo na sessão, aplique as 5 Regras da FAP e registre a qualidade da relação terapêutica."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<FapTab> items={fapTabs} value={activeSub} onChange={setActiveSub} label="Seções da FAP">
+                {/* CRBs */}
+                {activeSub === 'crb' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-3">
+                    <PanelCard title="Novo CRB — Em Sessão">
+                      <div className="space-y-3">
+                        <Select aria-label="Tipo de CRB" value={newCrb.type} onChange={e => setNewCrb({ ...newCrb, type: e.target.value })}>
+                          <option value="CRB1">CRB1 — Comportamento Problema (Sessão)</option>
+                          <option value="CRB2">CRB2 — Melhoria / Comportamento alvo</option>
+                          <option value="CRB3">CRB3 — Interpretação do Paciente</option>
+                        </Select>
+                        {[
+                          { field: 'description', label: 'Descrição do Comportamento (o que ocorreu?)' },
+                          { field: 'context', label: 'Contexto / Antecedente na sessão' },
+                          { field: 'intervention', label: 'Sua Intervenção Terapêutica (Regra 3 / 4)' },
+                          { field: 'patient_response', label: 'Resposta do Paciente à Intervenção' },
+                        ].map(f => (
+                          <Textarea key={f.field} label={f.label} rows={3}
+                            value={(newCrb as any)[f.field]} onChange={e => setNewCrb({ ...newCrb, [f.field]: e.target.value })} />
+                        ))}
+                        <Button variant="primary" fullWidth loading={saving} iconLeft={<Plus size={14} />} onClick={addCRB}>Registrar CRB</Button>
                       </div>
-                    ))}
-                    <button onClick={addCRB} className="w-full h-12 bg-emerald-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
-                      {saving ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16} />} Registrar CRB
-                    </button>
-                  </div>
+                    </PanelCard>
 
-                  <div className="space-y-3">
-                    {crbs.length === 0 ? (
-                      <div className="bg-white rounded-[32px] border border-slate-100 p-10 shadow-sm text-center"><p className="text-slate-400 font-semibold">Nenhum CRB registrado ainda.</p></div>
-                    ) : crbs.map(c => (
-                      <div key={c.id} className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm relative group">
-                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => removeCRB(c.id)} className="p-2 bg-rose-50 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"><Trash2 size={14}/></button>
-                        </div>
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className={`px-3 py-1 rounded-full text-[11px] font-semibold border ${CRB_COLORS[c.type]}`}>{c.type}</span>
-                          <span className="text-[11px] text-slate-400">{c.date ? new Date(c.date).toLocaleDateString() : ''}</span>
-                        </div>
-                        <p className="text-sm font-semibold text-slate-800 mb-2">{c.description}</p>
-                        {c.context && <p className="text-xs text-slate-500 mb-1"><span className="font-semibold text-slate-700">Contexto: </span>{c.context}</p>}
-                        {c.intervention && <p className="text-xs text-slate-500 mb-1"><span className="font-semibold text-slate-700">Intervenção: </span>{c.intervention}</p>}
-                        {c.patient_response && <p className="text-xs text-emerald-600 italic"><span className="font-semibold text-emerald-700">Resposta: </span>"{c.patient_response}"</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 5 Regras */}
-              {activeSub === 'five_rules' && (
-                <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm animate-slideUpFade space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-3"><Eye className="text-emerald-500"/> 5 Regras da FAP</h3>
-                    <button onClick={saveFiveRules} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold text-xs shadow hover:bg-emerald-700 transition flex items-center gap-2">
-                      {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salvar
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {[
-                      { key: 'rule1', num: '1', title: 'Observar CRBs', color: 'rose', desc: 'Identificar quando surgem CRBs durante a sessão.' },
-                      { key: 'rule2', num: '2', title: 'Evocar CRBs', color: 'amber', desc: 'Criar condições para que CRBs ocorram na sessão.' },
-                      { key: 'rule3', num: '3', title: 'Reforçar CRB2s', color: 'emerald', desc: 'Reforçar naturalmente os comportamentos de melhoria.' },
-                      { key: 'rule4', num: '4', title: 'Observar Efeitos', color: 'blue', desc: 'Observar seus efeitos no comportamento do paciente.' },
-                      { key: 'rule5', num: '5', title: 'Interpretar', color: 'purple', desc: 'Ajudar o paciente a fazer análises funcionais.' },
-                    ].map(r => (
-                      <div key={r.key} className={`p-5 rounded-lg border border-${r.color}-100 bg-${r.color}-50/40 space-y-3`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-lg bg-${r.color}-100 text-${r.color}-700 flex items-center justify-center font-semibold text-sm`}>{r.num}</div>
-                          <div>
-                            <h4 className="font-semibold text-slate-800 text-sm">{r.title}</h4>
-                            <p className="text-[11px] text-slate-500 font-medium">{r.desc}</p>
+                    <div className="min-w-0 space-y-3">
+                      {crbs.length === 0 ? (
+                        <ContentCard><EmptyState icon={Activity} title="Nenhum CRB registrado ainda." /></ContentCard>
+                      ) : crbs.map(c => (
+                        <ContentCard key={c.id}>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`px-2 py-0.5 rounded-md text-[11px] font-medium border ${CRB_COLORS[c.type]}`}>{c.type}</span>
+                              <span className="text-[11px] text-slate-500">{c.date ? new Date(c.date).toLocaleDateString() : ''}</span>
+                            </div>
+                            <IconButton variant="ghost" size="sm" aria-label="Remover CRB" title="Remover CRB" className="hover:text-red-600" onClick={() => removeCRB(c.id)}>
+                              <Trash2 size={14} />
+                            </IconButton>
                           </div>
-                        </div>
-                        <textarea
-                          className="w-full h-24 p-3 rounded-lg bg-white border border-slate-100 text-xs resize-none outline-none focus:border-emerald-300 transition font-medium"
-                          placeholder={`O que você fez sobre a Regra ${r.num} nesta sessão?`}
-                          value={(fiveRules as any)[r.key]}
-                          onChange={e => setFiveRules({...fiveRules, [r.key]: e.target.value})}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Session Notes */}
-              {activeSub === 'session_notes' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 animate-slideUpFade">
-                  <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                    <h3 className="font-semibold text-slate-800 text-base">Nota de Sessão</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-400">Data</label>
-                        <input type="date" className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" value={newNote.date} onChange={e => setNewNote({...newNote, date: e.target.value})} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-400">Qualidade Relação (1-10)</label>
-                        <input type="number" min="1" max="10" className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" value={newNote.relationship_quality} onChange={e => setNewNote({...newNote, relationship_quality: Number(e.target.value)})} />
-                      </div>
+                          <p className="text-[13px] font-medium text-slate-800 mb-2 break-words">{c.description}</p>
+                          {c.context && <p className="text-xs text-slate-500 mb-1"><span className="font-medium text-slate-700">Contexto: </span>{c.context}</p>}
+                          {c.intervention && <p className="text-xs text-slate-500 mb-1"><span className="font-medium text-slate-700">Intervenção: </span>{c.intervention}</p>}
+                          {c.patient_response && <p className="text-xs text-emerald-600 italic"><span className="font-medium text-emerald-700">Resposta: </span>"{c.patient_response}"</p>}
+                        </ContentCard>
+                      ))}
                     </div>
-                    {[
-                      { field: 'observation', label: 'Observação Geral da Sessão', ph: 'O que aconteceu de mais relevante?' },
-                      { field: 'patient_emotion', label: 'Estado Emocional do Paciente', ph: 'Ex: Ansioso, aberto, defensivo...' },
-                      { field: 'therapist_reaction', label: 'Sua Reação como Terapeuta (Regra 4)', ph: 'O que você sentiu? Como respondeu?' },
-                    ].map(f => (
-                      <div key={f.field} className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-400 pl-1">{f.label}</label>
-                        <textarea className="w-full p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs font-medium h-16 resize-none outline-none focus:bg-white focus:border-emerald-300"
-                          placeholder={f.ph} value={(newNote as any)[f.field]} onChange={e => setNewNote({...newNote, [f.field]: e.target.value})} />
-                      </div>
-                    ))}
-                    <button onClick={addNote} className="w-full h-12 bg-emerald-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-emerald-700 transition flex items-center justify-center gap-2">
-                      {saving ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16}/>} Registrar Sessão
-                    </button>
                   </div>
+                )}
 
-                  <div className="space-y-3">
-                    {sessionNotes.length === 0 ? (
-                      <div className="bg-white rounded-[32px] border border-slate-100 p-10 shadow-sm text-center"><p className="text-slate-400 font-semibold">Nenhuma nota registrada.</p></div>
-                    ) : sessionNotes.map(n => (
-                      <div key={n.id} className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5 relative group">
-                        <button onClick={() => removeNote(n.id)} className="absolute top-4 right-4 text-rose-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition"><Trash2 size={16}/></button>
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-[11px] bg-emerald-50 text-emerald-600 font-semibold px-2 py-0.5 rounded">{n.date ? new Date(n.date).toLocaleDateString() : ''}</span>
-                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded  ${n.relationship_quality >= 7 ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>Relação: {n.relationship_quality}/10</span>
+                {/* 5 Regras */}
+                {activeSub === 'five_rules' && (
+                  <PanelCard
+                    title="5 Regras da FAP"
+                    icon={Eye}
+                    action={
+                      <Button variant="primary" size="sm" loading={saving} iconLeft={<Save size={14} />} onClick={saveFiveRules}>Salvar</Button>
+                    }
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {[
+                        { key: 'rule1', num: '1', title: 'Observar CRBs', desc: 'Identificar quando surgem CRBs durante a sessão.' },
+                        { key: 'rule2', num: '2', title: 'Evocar CRBs', desc: 'Criar condições para que CRBs ocorram na sessão.' },
+                        { key: 'rule3', num: '3', title: 'Reforçar CRB2s', desc: 'Reforçar naturalmente os comportamentos de melhoria.' },
+                        { key: 'rule4', num: '4', title: 'Observar Efeitos', desc: 'Observar seus efeitos no comportamento do paciente.' },
+                        { key: 'rule5', num: '5', title: 'Interpretar', desc: 'Ajudar o paciente a fazer análises funcionais.' },
+                      ].map(r => (
+                        <div key={r.key} className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center font-medium text-xs shrink-0">{r.num}</div>
+                            <div className="min-w-0">
+                              <h4 className="font-medium text-slate-800 text-sm">{r.title}</h4>
+                              <p className="text-[11px] text-slate-500">{r.desc}</p>
+                            </div>
+                          </div>
+                          <Textarea
+                            aria-label={`Regra ${r.num}: ${r.title}`}
+                            rows={4}
+                            placeholder={`O que você fez sobre a Regra ${r.num} nesta sessão?`}
+                            value={(fiveRules as any)[r.key]}
+                            onChange={e => setFiveRules({ ...fiveRules, [r.key]: e.target.value })}
+                          />
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 mb-2">{n.observation}</p>
-                        {n.patient_emotion && <p className="text-xs text-slate-500 mb-1"><span className="font-semibold text-slate-700">Estado: </span>{n.patient_emotion}</p>}
-                        {n.therapist_reaction && <p className="text-xs text-slate-500 italic"><span className="font-semibold text-slate-700">Reação: </span>"{n.therapist_reaction}"</p>}
+                      ))}
+                    </div>
+                  </PanelCard>
+                )}
+
+                {/* Session Notes */}
+                {activeSub === 'session_notes' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-3">
+                    <PanelCard title="Nota de Sessão">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input label="Data" type="date" value={newNote.date} onChange={e => setNewNote({ ...newNote, date: e.target.value })} />
+                          <Input label="Qualidade Relação (1-10)" type="number" min="1" max="10" value={newNote.relationship_quality} onChange={e => setNewNote({ ...newNote, relationship_quality: Number(e.target.value) })} />
+                        </div>
+                        {[
+                          { field: 'observation', label: 'Observação Geral da Sessão', ph: 'O que aconteceu de mais relevante?' },
+                          { field: 'patient_emotion', label: 'Estado Emocional do Paciente', ph: 'Ex: Ansioso, aberto, defensivo...' },
+                          { field: 'therapist_reaction', label: 'Sua Reação como Terapeuta (Regra 4)', ph: 'O que você sentiu? Como respondeu?' },
+                        ].map(f => (
+                          <Textarea key={f.field} label={f.label} rows={3}
+                            placeholder={f.ph} value={(newNote as any)[f.field]} onChange={e => setNewNote({ ...newNote, [f.field]: e.target.value })} />
+                        ))}
+                        <Button variant="primary" fullWidth loading={saving} iconLeft={<Plus size={14} />} onClick={addNote}>Registrar Sessão</Button>
                       </div>
-                    ))}
+                    </PanelCard>
+
+                    <div className="min-w-0 space-y-3">
+                      {sessionNotes.length === 0 ? (
+                        <ContentCard><EmptyState icon={MessageSquare} title="Nenhuma nota registrada." /></ContentCard>
+                      ) : sessionNotes.map(n => (
+                        <ContentCard key={n.id}>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge color="default">{n.date ? new Date(n.date).toLocaleDateString() : ''}</Badge>
+                              <Badge color={n.relationship_quality >= 7 ? 'success' : 'warning'}>Relação: {n.relationship_quality}/10</Badge>
+                            </div>
+                            <IconButton variant="ghost" size="sm" aria-label="Remover nota" title="Remover nota" className="hover:text-red-600" onClick={() => removeNote(n.id)}>
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </div>
+                          <p className="text-[13px] font-medium text-slate-800 mb-2 break-words">{n.observation}</p>
+                          {n.patient_emotion && <p className="text-xs text-slate-500 mb-1"><span className="font-medium text-slate-700">Estado: </span>{n.patient_emotion}</p>}
+                          {n.therapist_reaction && <p className="text-xs text-slate-500 italic"><span className="font-medium text-slate-700">Reação: </span>"{n.therapist_reaction}"</p>}
+                        </ContentCard>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

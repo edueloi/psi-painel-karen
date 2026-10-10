@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api';
-import { Loader2, RefreshCw, Clock, Filter } from 'lucide-react';
+import { Loader2, RefreshCw, Clock, Filter, Inbox } from 'lucide-react';
+import { IconButton } from './UI/Button';
+import { EmptyState } from './UI/EmptyState';
+import { FilterLineSegmented } from './UI/FilterLine';
 
 interface TimelineEvent {
   id: string;
@@ -118,22 +121,16 @@ export const PatientTimeline: React.FC<PatientTimelineProps> = ({ patientId, pat
         </div>
         <div className="flex items-center gap-1.5">
           {/* Filtro */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-            {FILTER_OPTIONS.map(f => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold   transition-all ${
-                  filter === f.key ? 'bg-primary-600 text-white shadow' : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto no-scrollbar">
+            <FilterLineSegmented
+              value={filter}
+              onChange={(v) => setFilter(v)}
+              options={FILTER_OPTIONS.map(f => ({ value: f.key, label: f.label }))}
+            />
           </div>
-          <button onClick={load} disabled={loading} className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition">
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''}/>
-          </button>
+          <IconButton size="md" variant="outline" onClick={load} disabled={loading} title="Atualizar" aria-label="Atualizar">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''}/>
+          </IconButton>
         </div>
       </div>
 
@@ -147,11 +144,7 @@ export const PatientTimeline: React.FC<PatientTimelineProps> = ({ patientId, pat
 
       {/* Empty */}
       {!loading && filtered.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-3xl mb-2">📭</p>
-          <p className="text-sm text-slate-400 font-medium">Nenhum evento encontrado</p>
-          <p className="text-xs text-slate-300 mt-1">Os eventos aparecerão aqui conforme forem registrados</p>
-        </div>
+        <EmptyState icon={Inbox} title="Nenhum evento encontrado" description="Os eventos aparecerão aqui conforme forem registrados" />
       )}
 
       {/* Timeline */}

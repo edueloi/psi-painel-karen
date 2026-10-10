@@ -2,16 +2,31 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
+import { ArrowLeft } from 'lucide-react';
 import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { Heart, Save, Plus, Trash2, Sun, Sparkles, Activity, Anchor, MapPin } from 'lucide-react';
+
+type MindfulnessTab = 'practices' | 'bodyscan' | 'anchor';
+
+const mindfulnessTabs = [
+  { id: 'practices', label: 'Diário de Prática', icon: Sparkles },
+  { id: 'bodyscan', label: 'Body Scan', icon: Activity },
+  { id: 'anchor', label: 'Ancoragem', icon: Anchor },
+] as const;
 
 export const MindfulnessPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'practices' | 'bodyscan' | 'anchor'>('practices');
+  const [activeSub, setActiveSub] = useState<MindfulnessTab>('practices');
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -125,39 +140,22 @@ export const MindfulnessPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<Sun />}
-        title="Atenção Plena (Mindfulness)"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Práticas, Escaneamento Corporal e Ancoragem"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
-              <button 
-                onClick={() => setActiveSub('practices')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'practices' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Sparkles size={14}/> Diário de Prática</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('bodyscan')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'bodyscan' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Activity size={14}/> Body Scan</div>
-              </button>
-              <button 
-                onClick={() => setActiveSub('anchor')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold   transition-all ${activeSub === 'anchor' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <div className="flex items-center gap-2"><Anchor size={14}/> Ancoragem</div>
-              </button>
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <ClinicalSidebar 
+        <SectionTitle
+          icon={Sun}
+          title="Atenção Plena (Mindfulness)"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Práticas, Escaneamento Corporal e Ancoragem"}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
             onSelectPatient={setSelectedPatientId}
@@ -165,256 +163,245 @@ export const MindfulnessPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoading && patients.length === 0}
             t={t}
-        />
+          />
 
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="space-y-6 animate-fadeIn text-center py-20 bg-white rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center">
-                <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6">
-                    <Sun size={40} />
-                </div>
-                <h2 className="text-2xl font-semibold text-slate-800">Mindfulness Workspace</h2>
-                <p className="text-slate-400 text-sm max-w-md mx-auto">Acompanhamento completo de meditação, atenção plena corporificada e regulação por enraizamento.</p>
-            </div>
-          ) : (
-            <>
-              {activeSub === 'practices' && (
-                 <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
-                    <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                       <h3 className="font-semibold text-slate-800 text-lg">Registrar Prática</h3>
-                       <div className="space-y-4">
-                          <input 
-                            className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold outline-none" 
-                            placeholder="Nome (Ex: Meditação Guiada, Caminhada)"
-                            value={newPractice.name}
-                            onChange={e => setNewPractice({...newPractice, name: e.target.value})}
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Sun}
+                  title="Mindfulness Workspace"
+                  description="Acompanhamento completo de meditação, atenção plena corporificada e regulação por enraizamento."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<MindfulnessTab> items={mindfulnessTabs} value={activeSub} onChange={setActiveSub} label="Seções de Mindfulness">
+                {activeSub === 'practices' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
+                    <PanelCard title="Registrar Prática">
+                      <div className="space-y-3">
+                        <Input
+                          aria-label="Nome da prática"
+                          placeholder="Nome (Ex: Meditação Guiada, Caminhada)"
+                          value={newPractice.name}
+                          onChange={e => setNewPractice({ ...newPractice, name: e.target.value })}
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input
+                            label="Duração (Min)"
+                            type="number"
+                            placeholder="Ex: 15"
+                            value={newPractice.duration}
+                            onChange={e => setNewPractice({ ...newPractice, duration: e.target.value })}
                           />
-                          <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                  <label className="text-[11px] font-semibold text-slate-400 pl-1">Duração (Min)</label>
-                                  <input 
-                                    type="number"
-                                    className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" 
-                                    placeholder="Ex: 15"
-                                    value={newPractice.duration}
-                                    onChange={e => setNewPractice({...newPractice, duration: e.target.value})}
-                                  />
-                              </div>
-                              <div className="space-y-1">
-                                  <label className="text-[11px] font-semibold text-slate-400 pl-1">Foco (1 a 10)</label>
-                                  <input 
-                                    type="number"
-                                    min="1" max="10"
-                                    className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" 
-                                    value={newPractice.focus_level}
-                                    onChange={e => setNewPractice({...newPractice, focus_level: Number(e.target.value)})}
-                                  />
-                              </div>
-                          </div>
-                          <div className="space-y-1">
-                              <label className="text-[11px] font-semibold text-slate-400 pl-1">Observações / Distrações</label>
-                              <textarea 
-                                className="w-full p-4 rounded-lg bg-slate-50 border border-slate-100 text-sm focus:bg-white h-24 resize-none outline-none focus:border-emerald-300 transition-all" 
-                                placeholder="Desafios, onde a mente foi parar, como retornou ao foco..."
-                                value={newPractice.observation}
-                                onChange={e => setNewPractice({...newPractice, observation: e.target.value})}
-                              />
-                          </div>
-                          <button onClick={addPractice} className="w-full h-12 bg-emerald-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
-                            <Plus size={16} /> Salvar Prática
-                          </button>
-                       </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {practices.length === 0 ? (
-                          <div className="bg-white rounded-[32px] border border-slate-100 p-10 shadow-sm text-center">
-                             <p className="text-slate-400 font-semibold">Nenhuma prática registrada ainda.</p>
-                          </div>
-                        ) : (
-                          <div className="grid gap-4">
-                             {practices.map(p => (
-                                <div key={p.id} className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm group relative flex items-start gap-4">
-                                   <div className="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                                       <Sparkles size={20} />
-                                   </div>
-                                   <div className="flex-1">
-                                      <div className="flex justify-between items-center mb-1">
-                                          <h4 className="text-sm font-semibold text-slate-800">{p.name}</h4>
-                                          <span className="text-[11px] text-slate-400 font-semibold">{new Date(p.date).toLocaleDateString()}</span>
-                                      </div>
-                                      <div className="flex gap-2 mb-2">
-                                          <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold">{p.duration} min</span>
-                                          <span className={`text-[11px] px-2 py-0.5 rounded font-semibold ${p.focus_level >= 7 ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'}`}>Foco: {p.focus_level}/10</span>
-                                      </div>
-                                      <p className="text-xs text-slate-600 font-medium">"{p.observation}"</p>
-                                   </div>
-                                   <button onClick={() => removePractice(p.id)} className="p-2 bg-rose-50 text-rose-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Trash2 size={14} />
-                                   </button>
-                                </div>
-                             ))}
-                          </div>
-                        )}
-                    </div>
-                 </div>
-              )}
-
-              {activeSub === 'bodyscan' && (
-                 <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 animate-slideUpFade">
-                    <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                       <h3 className="font-semibold text-slate-800 text-lg">Body Scan (Escaneamento)</h3>
-                       <div className="space-y-4">
-                          <div className="space-y-1">
-                              <label className="text-[11px] font-semibold text-slate-400 pl-1">Onde está ocorrendo?</label>
-                              <input 
-                                className="w-full h-12 px-4 rounded-lg bg-orange-50/50 border border-orange-100 text-sm font-semibold outline-none focus:bg-white focus:border-orange-300" 
-                                placeholder="Peito, garganta, estômago, nuca..."
-                                value={newBodyscan.body_part}
-                                onChange={e => setNewBodyscan({...newBodyscan, body_part: e.target.value})}
-                              />
-                          </div>
-                          <div className="space-y-1">
-                              <label className="text-[11px] font-semibold text-slate-400 pl-1">Sensação Física</label>
-                              <input 
-                                className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" 
-                                placeholder="Aperto, calor, formigamento..."
-                                value={newBodyscan.sensation}
-                                onChange={e => setNewBodyscan({...newBodyscan, sensation: e.target.value})}
-                              />
-                          </div>
-                          <div className="space-y-1">
-                              <label className="text-[11px] font-semibold text-slate-400 pl-1">Intensidade (1-10)</label>
-                              <input 
-                                type="number" min="1" max="10"
-                                className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" 
-                                value={newBodyscan.intensity}
-                                onChange={e => setNewBodyscan({...newBodyscan, intensity: Number(e.target.value)})}
-                              />
-                          </div>
-                          <div className="space-y-1">
-                              <label className="text-[11px] font-semibold text-slate-400 pl-1">Interpretação Mental</label>
-                              <textarea 
-                                className="w-full p-4 rounded-lg bg-slate-50 border border-slate-100 text-sm h-20 resize-none outline-none" 
-                                placeholder="O que a mente está contando sobre essa sensação?"
-                                value={newBodyscan.interpretation}
-                                onChange={e => setNewBodyscan({...newBodyscan, interpretation: e.target.value})}
-                              />
-                          </div>
-                          <button onClick={addBodyscan} className="w-full h-12 bg-orange-500 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-orange-600 transition-all flex items-center justify-center gap-2">
-                             Mapear Corpo
-                          </button>
-                       </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {bodyscans.length === 0 ? (
-                          <div className="bg-white rounded-[32px] border border-slate-100 p-10 shadow-sm text-center">
-                             <p className="text-slate-400 font-semibold">Nenhum escaneamento salvo.</p>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             {bodyscans.map(b => (
-                                <div key={b.id} className="bg-white rounded-[24px] border border-slate-200 shadow-sm group p-5 relative">
-                                   <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={() => removeBodyscan(b.id)} className="text-red-400 hover:text-red-600">
-                                         <Trash2 size={16} />
-                                      </button>
-                                   </div>
-                                   <div className="flex items-center gap-2 mb-3">
-                                       <MapPin size={16} className="text-orange-500" />
-                                       <h4 className="font-semibold text-slate-800 text-sm">{b.body_part}</h4>
-                                   </div>
-                                   <div className="space-y-2">
-                                       <p className="text-xs text-slate-600"><span className="font-semibold text-slate-800">Sensação:</span> {b.sensation}</p>
-                                       <p className="text-xs text-slate-600"><span className="font-semibold text-slate-800">Intensidade:</span> {b.intensity}/10</p>
-                                       {b.interpretation && (
-                                          <p className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded-lg mt-2 border border-slate-100">"{b.interpretation}"</p>
-                                       )}
-                                   </div>
-                                </div>
-                             ))}
-                          </div>
-                        )}
-                    </div>
-                 </div>
-              )}
-
-              {activeSub === 'anchor' && (
-                 <div className="animate-slideUpFade">
-                    <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                                <Anchor size={24} />
-                            </div>
-                            <div>
-                               <h3 className="text-xl font-semibold text-slate-800">Técnicas de Ancoragem</h3>
-                               <p className="text-sm font-medium text-slate-500">Voltar ao presente quando a mente se perde ou acelera.</p>
-                            </div>
+                          <Input
+                            label="Foco (1 a 10)"
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={newPractice.focus_level}
+                            onChange={e => setNewPractice({ ...newPractice, focus_level: Number(e.target.value) })}
+                          />
                         </div>
+                        <Textarea
+                          label="Observações / Distrações"
+                          rows={4}
+                          placeholder="Desafios, onde a mente foi parar, como retornou ao foco..."
+                          value={newPractice.observation}
+                          onChange={e => setNewPractice({ ...newPractice, observation: e.target.value })}
+                        />
+                        <Button variant="primary" fullWidth iconLeft={<Plus size={14} />} onClick={addPractice}>
+                          Salvar Prática
+                        </Button>
+                      </div>
+                    </PanelCard>
 
-                        <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-8">
-                            <div className="space-y-4">
-                                <div className="space-y-1">
-                                    <label className="text-[11px] font-semibold text-slate-400 pl-1">Gatilho (Quando a mente viajou)</label>
-                                    <input 
-                                      className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold outline-none" 
-                                      placeholder="Ex: Ansiedade sobre o futuro..."
-                                      value={newAnchor.trigger}
-                                      onChange={e => setNewAnchor({...newAnchor, trigger: e.target.value})}
-                                    />
+                    <div className="space-y-3 min-w-0">
+                      {practices.length === 0 ? (
+                        <ContentCard>
+                          <EmptyState icon={Sparkles} title="Nenhuma prática registrada ainda." />
+                        </ContentCard>
+                      ) : (
+                        practices.map(p => (
+                          <ContentCard key={p.id} className="group relative">
+                            <div className="flex items-start gap-3">
+                              <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                                <Sparkles size={14} />
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-1.5">
+                                <div className="flex flex-wrap justify-between items-center gap-2">
+                                  <h4 className="text-sm font-medium text-slate-800">{p.name}</h4>
+                                  <span className="text-[11px] text-slate-500">{new Date(p.date).toLocaleDateString()}</span>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[11px] font-semibold text-slate-400 pl-1">Técnica Usada (A Âncora)</label>
-                                    <input 
-                                      className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" 
-                                      placeholder="Ex: 5-4-3-2-1, Som da respiração..."
-                                      value={newAnchor.grounding_technique}
-                                      onChange={e => setNewAnchor({...newAnchor, grounding_technique: e.target.value})}
-                                    />
+                                <div className="flex flex-wrap gap-2">
+                                  <Badge color="default" size="sm">{p.duration} min</Badge>
+                                  <Badge color={p.focus_level >= 7 ? 'primary' : 'warning'} size="sm">Foco: {p.focus_level}/10</Badge>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[11px] font-semibold text-emerald-500 pl-1">Eficácia (1-10)</label>
-                                    <input 
-                                      type="number" min="1" max="10"
-                                      className="w-full h-12 px-4 rounded-lg bg-emerald-50/50 border border-emerald-100 text-sm outline-none text-emerald-700 font-semibold" 
-                                      value={newAnchor.effectiveness}
-                                      onChange={e => setNewAnchor({...newAnchor, effectiveness: Number(e.target.value)})}
-                                    />
-                                </div>
-                                <button onClick={addAnchor} className="w-full h-12 bg-blue-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-blue-700 transition-all">
-                                   Registrar Retorno
-                                </button>
+                                <p className="text-xs text-slate-600">"{p.observation}"</p>
+                              </div>
+                              <IconButton
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Excluir prática"
+                                title="Excluir prática"
+                                className="hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                onClick={() => removePractice(p.id)}
+                              >
+                                <Trash2 size={14} />
+                              </IconButton>
                             </div>
-                            
-                            <div className="space-y-3">
-                                <h4 className="text-xs font-semibold text-slate-400 mb-2">Histórico de Ancoragem</h4>
-                                {anchors.map(a => (
-                                    <div key={a.id} className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex items-center justify-between group">
-                                       <div>
-                                          <div className="flex items-center gap-2 mb-1">
-                                             <span className="text-[11px] font-semibold text-blue-500 bg-blue-100 px-2 rounded">Gatilho</span>
-                                             <span className="text-xs font-semibold text-slate-800">{a.trigger}</span>
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                             <span className="text-[11px] font-semibold text-emerald-500 bg-emerald-100 px-2 rounded">Âncora</span>
-                                             <span className="text-xs font-medium text-slate-600">{a.grounding_technique} (Eficácia: {a.effectiveness}/10)</span>
-                                          </div>
-                                       </div>
-                                       <button onClick={() => removeAnchor(a.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                                          <Trash2 size={16} />
-                                       </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                          </ContentCard>
+                        ))
+                      )}
                     </div>
-                 </div>
-              )}
-            </>
-          )}
+                  </div>
+                )}
+
+                {activeSub === 'bodyscan' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-3">
+                    <PanelCard title="Body Scan (Escaneamento)">
+                      <div className="space-y-3">
+                        <Input
+                          label="Onde está ocorrendo?"
+                          placeholder="Peito, garganta, estômago, nuca..."
+                          value={newBodyscan.body_part}
+                          onChange={e => setNewBodyscan({ ...newBodyscan, body_part: e.target.value })}
+                        />
+                        <Input
+                          label="Sensação Física"
+                          placeholder="Aperto, calor, formigamento..."
+                          value={newBodyscan.sensation}
+                          onChange={e => setNewBodyscan({ ...newBodyscan, sensation: e.target.value })}
+                        />
+                        <Input
+                          label="Intensidade (1-10)"
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={newBodyscan.intensity}
+                          onChange={e => setNewBodyscan({ ...newBodyscan, intensity: Number(e.target.value) })}
+                        />
+                        <Textarea
+                          label="Interpretação Mental"
+                          rows={3}
+                          placeholder="O que a mente está contando sobre essa sensação?"
+                          value={newBodyscan.interpretation}
+                          onChange={e => setNewBodyscan({ ...newBodyscan, interpretation: e.target.value })}
+                        />
+                        <Button variant="primary" fullWidth onClick={addBodyscan}>
+                          Mapear Corpo
+                        </Button>
+                      </div>
+                    </PanelCard>
+
+                    <div className="min-w-0">
+                      {bodyscans.length === 0 ? (
+                        <ContentCard>
+                          <EmptyState icon={Activity} title="Nenhum escaneamento salvo." />
+                        </ContentCard>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {bodyscans.map(b => (
+                            <ContentCard key={b.id} className="group relative">
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Excluir escaneamento"
+                                  title="Excluir escaneamento"
+                                  className="hover:text-red-600"
+                                  onClick={() => removeBodyscan(b.id)}
+                                >
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </div>
+                              <div className="flex items-center gap-2 mb-2 pr-8">
+                                <MapPin size={14} className="text-primary-600 shrink-0" />
+                                <h4 className="font-medium text-slate-800 text-sm">{b.body_part}</h4>
+                              </div>
+                              <div className="space-y-1.5">
+                                <p className="text-xs text-slate-600"><span className="font-medium text-slate-800">Sensação:</span> {b.sensation}</p>
+                                <p className="text-xs text-slate-600"><span className="font-medium text-slate-800">Intensidade:</span> {b.intensity}/10</p>
+                                {b.interpretation && (
+                                  <p className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded-lg border border-slate-100">"{b.interpretation}"</p>
+                                )}
+                              </div>
+                            </ContentCard>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeSub === 'anchor' && (
+                  <PanelCard
+                    title="Técnicas de Ancoragem"
+                    description="Voltar ao presente quando a mente se perde ou acelera."
+                    icon={Anchor}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4">
+                      <div className="space-y-3">
+                        <Input
+                          label="Gatilho (Quando a mente viajou)"
+                          placeholder="Ex: Ansiedade sobre o futuro..."
+                          value={newAnchor.trigger}
+                          onChange={e => setNewAnchor({ ...newAnchor, trigger: e.target.value })}
+                        />
+                        <Input
+                          label="Técnica Usada (A Âncora)"
+                          placeholder="Ex: 5-4-3-2-1, Som da respiração..."
+                          value={newAnchor.grounding_technique}
+                          onChange={e => setNewAnchor({ ...newAnchor, grounding_technique: e.target.value })}
+                        />
+                        <Input
+                          label="Eficácia (1-10)"
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={newAnchor.effectiveness}
+                          onChange={e => setNewAnchor({ ...newAnchor, effectiveness: Number(e.target.value) })}
+                        />
+                        <Button variant="primary" fullWidth onClick={addAnchor}>
+                          Registrar Retorno
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2 min-w-0">
+                        <h4 className="text-xs font-medium text-slate-600">Histórico de Ancoragem</h4>
+                        {anchors.map(a => (
+                          <div key={a.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center justify-between gap-2 group">
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge color="info" size="sm">Gatilho</Badge>
+                                <span className="text-xs font-medium text-slate-800">{a.trigger}</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge color="success" size="sm">Âncora</Badge>
+                                <span className="text-xs text-slate-600">{a.grounding_technique} (Eficácia: {a.effectiveness}/10)</span>
+                              </div>
+                            </div>
+                            <IconButton
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Excluir registro de ancoragem"
+                              title="Excluir registro de ancoragem"
+                              className="hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                              onClick={() => removeAnchor(a.id)}
+                            >
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

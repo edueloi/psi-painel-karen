@@ -7,6 +7,9 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from './UI/Button';
+import { Input, Textarea, Select } from './UI/Input';
+import { Tabs } from './UI/Tabs';
 
 /* ── Types ── */
 export interface TheraNeed {
@@ -175,36 +178,25 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; color?: st
 );
 
 const Field: React.FC<{ label: string; value: string; onChange: (v: string) => void; multiline?: boolean; placeholder?: string }> = ({ label, value, onChange, multiline = false, placeholder = '' }) => (
-  <div className="space-y-1">
-    <label className="text-[11px] font-semibold text-slate-400 block">{label}</label>
-    {multiline ? (
-      <textarea rows={3}
-        className="w-full px-3 py-2.5 rounded-lg bg-slate-50 border border-slate-100 text-sm font-medium text-slate-700 outline-none focus:border-primary-300 resize-none leading-relaxed"
-        value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}/>
-    ) : (
-      <input type="text"
-        className="w-full h-10 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm font-medium text-slate-700 outline-none focus:border-primary-300"
-        value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}/>
-    )}
-  </div>
+  multiline ? (
+    <Textarea label={label} rows={3} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}/>
+  ) : (
+    <Input label={label} type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}/>
+  )
 );
 
 const SelectField: React.FC<{ label: string; value: string; onChange: (v: string) => void; options: Array<{ value: string; label: string }> }> = ({ label, value, onChange, options }) => (
-  <div className="space-y-1">
-    <label className="text-[11px] font-semibold text-slate-400 block">{label}</label>
-    <select className="w-full h-10 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold text-slate-700 outline-none focus:border-primary-300"
-      value={value} onChange={e => onChange(e.target.value)}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  </div>
+  <Select label={label} value={value} onChange={e => onChange(e.target.value)}>
+    {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+  </Select>
 );
 
 const Collapsible: React.FC<{ title: string; icon?: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean; badge?: string }> = ({ title, icon, children, defaultOpen = false, badge }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white border border-slate-100 rounded-lg overflow-hidden shadow-sm">
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition">
+    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        className="w-full flex items-center justify-between px-3 py-3 min-h-[44px] hover:bg-slate-50 transition">
         <div className="flex items-center gap-2">
           {icon && <span className="text-slate-400">{icon}</span>}
           <span className="font-semibold text-slate-700 text-xs">{title}</span>
@@ -212,7 +204,7 @@ const Collapsible: React.FC<{ title: string; icon?: React.ReactNode; children: R
         </div>
         {open ? <ChevronDown size={16} className="text-slate-400"/> : <ChevronRight size={16} className="text-slate-400"/>}
       </button>
-      {open && <div className="px-5 pb-5 border-t border-slate-50">{children}</div>}
+      {open && <div className="px-3 pb-3 border-t border-slate-100">{children}</div>}
     </div>
   );
 };
@@ -348,63 +340,49 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
   const approachFields = APPROACH_SPECIFIC_FIELDS[plan.approach] || APPROACH_SPECIFIC_FIELDS.TCC;
 
   const TABS = [
-    { id: 'overview', label: 'Visão Geral', icon: <Brain size={13}/> },
-    { id: 'current', label: 'Estado', icon: <Activity size={13}/> },
-    { id: 'destination', label: 'Destino', icon: <Target size={13}/> },
-    { id: 'needs', label: `Nec. (${plan.needs.length})`, icon: <Heart size={13}/> },
-    { id: 'goals', label: `Metas (${plan.goals.length})`, icon: <CheckCircle2 size={13}/> },
-    { id: 'roadmap', label: 'Roadmap', icon: <Map size={13}/> },
-    { id: 'interventions', label: `Interv. (${plan.interventions.length})`, icon: <Zap size={13}/> },
-    { id: 'approach', label: plan.approach, icon: <BookOpen size={13}/> },
-    { id: 'reprogramming', label: `Reprog. (${plan.reprogrammings.length})`, icon: <RotateCcw size={13}/> },
+    { id: 'overview', label: 'Visão Geral', icon: Brain },
+    { id: 'current', label: 'Estado', icon: Activity },
+    { id: 'destination', label: 'Destino', icon: Target },
+    { id: 'needs', label: 'Necessidades', icon: Heart, badge: plan.needs.length },
+    { id: 'goals', label: 'Metas', icon: CheckCircle2, badge: plan.goals.length },
+    { id: 'roadmap', label: 'Roadmap', icon: Map },
+    { id: 'interventions', label: 'Intervenções', icon: Zap, badge: plan.interventions.length },
+    { id: 'approach', label: plan.approach, icon: BookOpen },
+    { id: 'reprogramming', label: 'Reprogramações', icon: RotateCcw, badge: plan.reprogrammings.length },
   ];
 
   return (
     <div className="space-y-4">
       {/* AI Banner */}
-      <div className="bg-gradient-to-r from-violet-600 to-primary-600 rounded-lg p-4 flex items-center justify-between shadow-sm">
+      <div className="bg-primary-50 border border-primary-100 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-            <Sparkles size={20} className="text-white"/>
+          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+            <Sparkles size={15} className="text-white"/>
           </div>
           <div>
-            <p className="font-semibold text-white text-sm">Assistência IA</p>
-            <p className="text-white/70 text-xs font-medium">Gera plano estruturado a partir dos dados do paciente</p>
+            <p className="font-medium text-primary-900 text-sm">Assistência IA</p>
+            <p className="text-slate-500 text-[11px]">Gera plano estruturado a partir dos dados do paciente</p>
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={handleAISuggest}
           disabled={aiLoading || !patientId}
-          className="h-9 px-5 bg-white text-primary-700 rounded-lg text-[11px] font-semibold flex items-center gap-2 hover:bg-primary-50 transition disabled:opacity-50"
+          loading={aiLoading}
+          iconLeft={<Sparkles size={14}/>}
         >
-          {aiLoading ? <Loader2 size={14} className="animate-spin"/> : <Sparkles size={14}/>}
           {aiLoading ? 'Gerando...' : 'Gerar com IA'}
-        </button>
+        </Button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold   whitespace-nowrap transition-all ${
-              activeTab === tab.id
-                ? 'bg-primary-600 text-white '
-                : 'bg-white border border-slate-100 text-slate-500 hover:border-primary-200 hover:text-primary-600'
-            }`}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs<string> items={TABS} value={activeTab} onChange={setActiveTab} label="Seções do plano terapêutico" />
 
       {/* ── TAB: VISÃO GERAL ── */}
       {activeTab === 'overview' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5">
             <SectionHeader icon={<Brain size={16}/>} title="Visão Geral do Plano"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SelectField label="Abordagem Terapêutica" value={plan.approach}
@@ -460,7 +438,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
               { label: 'Intervenções', value: plan.interventions.length, icon: <Zap size={16}/>, color: 'amber' },
               { label: 'Metas concluídas', value: plan.goals.filter(g => g.status === 'concluido').length, icon: <TrendingUp size={16}/>, color: 'emerald' },
             ].map(s => (
-              <div key={s.label} className={`bg-white border border-${s.color}-100 rounded-lg p-4 shadow-sm flex items-center gap-3`}>
+              <div key={s.label} className={`bg-white border border-${s.color}-100 rounded-lg p-3 flex items-center gap-3`}>
                 <div className={`w-8 h-8 rounded-lg bg-${s.color}-50 text-${s.color}-600 flex items-center justify-center shrink-0`}>{s.icon}</div>
                 <div>
                   <div className="text-base sm:text-xl font-semibold text-slate-800">{s.value}</div>
@@ -475,7 +453,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {/* ── TAB: ESTADO ATUAL ── */}
       {activeTab === 'current' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5">
             <SectionHeader icon={<Activity size={16}/>} title="Estado Atual do Caso" color="blue"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Queixa Principal Atual" value={plan.current_state.main_complaint} multiline
@@ -514,7 +492,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {/* ── TAB: DESTINO ── */}
       {activeTab === 'destination' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5">
             <SectionHeader icon={<Target size={16}/>} title="Destino Terapêutico" color="emerald"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
@@ -547,10 +525,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
             <p className="text-[11px] font-semibold text-slate-400">
               {plan.needs.length} necessidade(s) identificada(s)
             </p>
-            <button type="button" onClick={addNeed}
-              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
-              <Plus size={13}/> Adicionar
-            </button>
+            <Button type="button" size="sm" onClick={addNeed} iconLeft={<Plus size={14}/>}>Adicionar</Button>
           </div>
           {plan.needs.length === 0 && (
             <div className="bg-slate-50 rounded-lg border border-dashed border-slate-200 p-8 text-center">
@@ -593,10 +568,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                     { value: 'concluido', label: 'Concluído' },
                   ]}/>
                 <div className="md:col-span-2 flex justify-end">
-                  <button type="button" onClick={() => removeNeed(need.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
-                    <Trash2 size={12}/> Remover
-                  </button>
+                  <Button type="button" size="sm" variant="softDanger" onClick={() => removeNeed(need.id)} iconLeft={<Trash2 size={14}/>}>Remover</Button>
                 </div>
               </div>
             </Collapsible>
@@ -611,10 +583,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
             <p className="text-[11px] font-semibold text-slate-400">
               {plan.goals.length} meta(s) definida(s)
             </p>
-            <button type="button" onClick={addGoal}
-              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
-              <Plus size={13}/> Adicionar
-            </button>
+            <Button type="button" size="sm" onClick={addGoal} iconLeft={<Plus size={14}/>}>Adicionar</Button>
           </div>
           {plan.goals.length === 0 && (
             <div className="bg-slate-50 rounded-lg border border-dashed border-slate-200 p-8 text-center">
@@ -665,10 +634,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                     placeholder="Observações sobre o andamento desta meta..."/>
                 </div>
                 <div className="md:col-span-2 flex justify-end">
-                  <button type="button" onClick={() => removeGoal(goal.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
-                    <Trash2 size={12}/> Remover
-                  </button>
+                  <Button type="button" size="sm" variant="softDanger" onClick={() => removeGoal(goal.id)} iconLeft={<Trash2 size={14}/>}>Remover</Button>
                 </div>
               </div>
             </Collapsible>
@@ -681,14 +647,11 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold text-slate-400">Fases do Processo Terapêutico</p>
-            <button type="button" onClick={addPhase}
-              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
-              <Plus size={13}/> Fase
-            </button>
+            <Button type="button" size="sm" onClick={addPhase} iconLeft={<Plus size={14}/>}>Fase</Button>
           </div>
           {/* Visual roadmap */}
           {plan.phases.length > 0 && (
-            <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
+            <div className="bg-white rounded-lg border border-slate-100 p-5">
               <div className="flex items-start gap-0 overflow-x-auto pb-2">
                 {plan.phases.sort((a, b) => a.order - b.order).map((phase, idx) => (
                   <div key={phase.id} className="flex items-center shrink-0">
@@ -744,16 +707,12 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                   onChange={v => updatePhase(phase.id, 'goals', v)}/>
                 <div className="flex justify-between items-center md:col-span-2">
                   <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-semibold text-slate-400">Ordem</label>
-                    <input type="number" min={1}
-                      className="w-16 h-8 px-2 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold outline-none text-center"
+                    <label className="text-xs font-medium text-slate-600">Ordem</label>
+                    <Input type="number" min={1} wrapperClassName="w-20" className="text-center"
                       value={phase.order}
                       onChange={e => updatePhase(phase.id, 'order', Number(e.target.value))}/>
                   </div>
-                  <button type="button" onClick={() => removePhase(phase.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
-                    <Trash2 size={12}/> Remover
-                  </button>
+                  <Button type="button" size="sm" variant="softDanger" onClick={() => removePhase(phase.id)} iconLeft={<Trash2 size={14}/>}>Remover</Button>
                 </div>
               </div>
             </Collapsible>
@@ -766,10 +725,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold text-slate-400">{plan.interventions.length} intervenção(ões) planejada(s)</p>
-            <button type="button" onClick={addIntervention}
-              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
-              <Plus size={13}/> Adicionar
-            </button>
+            <Button type="button" size="sm" onClick={addIntervention} iconLeft={<Plus size={14}/>}>Adicionar</Button>
           </div>
           {/* Quick add pills */}
           <div className="flex flex-wrap gap-1.5">
@@ -806,10 +762,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                     onChange={v => updateIntervention(intv.id, 'notes', v)}/>
                 </div>
                 <div className="md:col-span-2 flex justify-end">
-                  <button type="button" onClick={() => removeIntervention(intv.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
-                    <Trash2 size={12}/> Remover
-                  </button>
+                  <Button type="button" size="sm" variant="softDanger" onClick={() => removeIntervention(intv.id)} iconLeft={<Trash2 size={14}/>}>Remover</Button>
                 </div>
               </div>
             </Collapsible>
@@ -820,7 +773,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
       {/* ── TAB: ABORDAGEM ESPECÍFICA ── */}
       {activeTab === 'approach' && (
         <div className="space-y-4 animate-fadeIn">
-          <div className="bg-white rounded-lg border border-slate-100 p-5 shadow-sm">
+          <div className="bg-white rounded-lg border border-slate-100 p-5">
             <SectionHeader icon={<BookOpen size={16}/>} title={`Campos Específicos — ${plan.approach}`} color="violet"/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {approachFields.map(f => (
@@ -838,10 +791,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
         <div className="space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold text-slate-400">Histórico de Reprogramações do Plano</p>
-            <button type="button" onClick={addReprogramming}
-              className="h-8 px-4 bg-primary-600 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ">
-              <Plus size={13}/> Registrar
-            </button>
+            <Button type="button" size="sm" onClick={addReprogramming} iconLeft={<Plus size={14}/>}>Registrar</Button>
           </div>
           {plan.reprogrammings.length === 0 && (
             <div className="bg-slate-50 rounded-lg border border-dashed border-slate-200 p-8 text-center">
@@ -855,11 +805,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
               icon={<RotateCcw size={14}/>}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-400 block">Data</label>
-                  <input type="date" className="w-full h-10 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm font-medium outline-none focus:border-primary-300"
-                    value={rep.date} onChange={e => updateReprogramming(rep.id, 'date', e.target.value)}/>
-                </div>
+                <Input label="Data" type="date" value={rep.date} onChange={e => updateReprogramming(rep.id, 'date', e.target.value)}/>
                 <Field label="Motivo da Mudança" value={rep.reason}
                   onChange={v => updateReprogramming(rep.id, 'reason', v)}/>
                 <Field label="O Que Mudou" value={rep.what_changed} multiline
@@ -871,10 +817,7 @@ export const TherapeuticPlanEditor: React.FC<TherapeuticPlanEditorProps> = ({ pl
                     onChange={v => updateReprogramming(rep.id, 'expected_impact', v)}/>
                 </div>
                 <div className="md:col-span-2 flex justify-end">
-                  <button type="button" onClick={() => removeReprogramming(rep.id)}
-                    className="h-8 px-4 text-rose-500 bg-rose-50 border border-rose-100 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500 hover:text-white transition">
-                    <Trash2 size={12}/> Remover
-                  </button>
+                  <Button type="button" size="sm" variant="softDanger" onClick={() => removeReprogramming(rep.id)} iconLeft={<Trash2 size={14}/>}>Remover</Button>
                 </div>
               </div>
             </Collapsible>

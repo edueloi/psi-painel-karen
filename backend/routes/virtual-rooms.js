@@ -672,7 +672,7 @@ router.post('/:id/sessions/:sessionKey/end', async (req, res) => {
     await db.query(
       `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, ended_at, duration_seconds)
        VALUES (?, ?, ?, NOW(), NOW(), ?)
-       ON DUPLICATE KEY UPDATE ended_at = NOW(), duration_seconds = ?, updated_at = NOW()`,
+       ON DUPLICATE KEY UPDATE ended_at = COALESCE(ended_at, NOW()), duration_seconds = COALESCE(?, duration_seconds), updated_at = NOW()`,
       [room.id, room.tenant_id, req.params.sessionKey, duration_seconds || null, duration_seconds || null]
     );
     res.json({ ok: true });
@@ -680,6 +680,21 @@ router.post('/:id/sessions/:sessionKey/end', async (req, res) => {
     res.status(500).json({ error: 'Erro interno.' });
   }
 });
+
+// Fallback por inatividade: sessões abertas sem nenhuma atividade há 30 min são
+// encerradas (aba fechada/queda de rede sem "Encerrar"). Idempotente.
+const SESSION_IDLE_MINUTES = 30;
+const sessionSweeper = setInterval(async () => {
+  try {
+    await db.query(
+      `UPDATE room_sessions
+          SET ended_at = updated_at,
+              duration_seconds = COALESCE(duration_seconds, TIMESTAMPDIFF(SECOND, started_at, updated_at))
+        WHERE ended_at IS NULL AND updated_at < (NOW() - INTERVAL ${SESSION_IDLE_MINUTES} MINUTE)`
+    );
+  } catch (e) { /* tabela pode não existir ainda */ }
+}, 5 * 60 * 1000);
+if (sessionSweeper.unref) sessionSweeper.unref();
 
 // ── Waiting room ──────────────────────────────────────────────────────────────
 

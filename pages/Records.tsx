@@ -232,7 +232,7 @@ const ExportModal: React.FC<{
 
   const OPTIONS = [
     { id: 'standard', title: 'Resumo Clínico Padrão', desc: 'Informações essenciais para continuidade do cuidado.' },
-    { id: 'full', title: 'Prontuário Completo', desc: 'Todo o histórico clínico e evoluções (sem campo restrito).' },
+    { id: 'full', title: 'Prontuário Completo', desc: 'Ficha cadastral, evoluções e notas de sessão, humor por sessão, plano terapêutico, documentos, encaminhamentos, instrumentos e anexos (sem campo restrito).' },
     { id: 'no_restricted', title: 'Versão Compartilhada', desc: 'Apenas os campos públicos/compartilhados.' },
     { id: 'restricted_only', title: 'Anotações Restritas', desc: 'Apenas o campo restrito (uso interno autorizado).' },
   ];
@@ -1105,7 +1105,7 @@ const LinkedToolsSection: React.FC<{
   const isSidebar = variant === 'sidebar';
 
   return (
-    <div className={`bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col ${isSidebar ? 'h-full max-h-[1000px]' : 'space-y-6 p-8'}`}>
+    <div className={`bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden flex flex-col ${isSidebar ? 'h-full max-h-[1000px]' : 'space-y-3 p-4'}`}>
       <div className={`flex flex-col gap-4 ${isSidebar ? 'p-5 bg-slate-50/50 border-b border-slate-100' : ''}`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center border border-emerald-100 shrink-0">
@@ -1118,25 +1118,23 @@ const LinkedToolsSection: React.FC<{
         </div>
         
         <div className={`flex gap-2 ${isSidebar ? 'flex-col' : ''}`}>
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Instrumento..." 
+          <div className="flex-1">
+            <Input
+              type="text"
+              placeholder="Instrumento..."
               value={filter}
               onChange={e => setFilter(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 rounded-lg bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-primary-300 transition-all shadow-sm"
+              iconLeft={<Search size={14} />}
             />
           </div>
           {!isSidebar && (
-            <select 
-              className="h-9 px-3 rounded-lg bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-primary-300 transition-all shadow-sm"
+            <Select
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
             >
               <option value="all">Todas Categorias</option>
               {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            </Select>
           )}
         </div>
       </div>
@@ -1187,40 +1185,27 @@ const LinkedToolsSection: React.FC<{
 
                 <div className="flex gap-1.5 pt-2 border-t border-slate-50">
                   {isSidebar && (
-                    <button 
+                    <IconButton
+                      size="sm"
+                      variant={selectedIds.includes(item.id) ? 'primary' : 'outline'}
                       onClick={() => toggleSelect(item.id)}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors border shadow-sm ${
-                        selectedIds.includes(item.id) 
-                          ? 'bg-primary-600 text-white border-primary-600' 
-                          : 'bg-white text-slate-300 border-slate-100 hover:border-primary-200'
-                      }`}
                       title={selectedIds.includes(item.id) ? 'Remover da seleção' : 'Selecionar para síntese IA'}
+                      aria-label={selectedIds.includes(item.id) ? 'Remover da seleção' : 'Selecionar para síntese IA'}
                     >
                       <CheckCheck size={14} />
-                    </button>
+                    </IconButton>
                   )}
-                  <button 
-                    onClick={() => handleSelectSource(item)}
-                    className="flex-1 h-8 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors "
-                  >
+                  <Button size="sm" variant="success" className="flex-1" onClick={() => handleSelectSource(item)}>
                     Usar Fonte
-                  </button>
+                  </Button>
                   {hasHistory && (
-                    <button 
-                      onClick={() => setComparing(item.id)}
-                      className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
-                      title="Análise Longitudinal"
-                    >
+                    <IconButton size="sm" variant="outline" onClick={() => setComparing(item.id)} title="Análise Longitudinal" aria-label="Análise Longitudinal">
                       <BarChart2 size={14} />
-                    </button>
+                    </IconButton>
                   )}
-                  <button 
-                    className="w-8 h-8 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors"
-                    title="Ver Detalhes"
-                    onClick={() => setViewing(item)}
-                  >
+                  <IconButton size="sm" variant="ghost" title="Ver Detalhes" aria-label="Ver Detalhes" onClick={() => setViewing(item)}>
                     <Eye size={14} />
-                  </button>
+                  </IconButton>
                 </div>
               </div>
             );
@@ -1262,8 +1247,7 @@ const LinkedToolsSection: React.FC<{
 
               <div className="space-y-2">
                  <label className="text-[11px] font-semibold text-slate-400 px-1">Selecione sua Abordagem Terapêutica</label>
-                 <select 
-                   className="w-full h-12 px-4 rounded-lg bg-slate-50 border border-slate-200 text-sm font-semibold outline-none focus:border-primary-300 transition-all shadow-sm"
+                 <Select
                    value={approach}
                    onChange={e => setApproach(e.target.value)}
                  >
@@ -1279,23 +1263,19 @@ const LinkedToolsSection: React.FC<{
                       'Terapia Sistêmica / Familiar',
                       'Logoterapia'
                     ].map(a => <option key={a} value={a}>{a}</option>)}
-                 </select>
+                 </Select>
                  <p className="text-[11px] text-slate-400 italic px-1">A IA utilizará terminologia e conceitos específicos desta abordagem.</p>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
-                 <button 
-                   type="button"
-                   onClick={() => setShowSynthesisModal(false)} 
-                   className="h-11 px-6 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all"
-                 >
+                 <Button type="button" variant="outline" size="sm" onClick={() => setShowSynthesisModal(false)}>
                     Cancelar
-                 </button>
+                 </Button>
                  <Button
                    onClick={handleGenerateSynthesis}
                    loading={synthesisLoading}
                    variant="primary"
-                   className="h-11 w-72 bg-primary-600 hover:bg-primary-700 text-white text-[11px] font-semibold  flex items-center justify-center gap-2"
+                   size="sm"
                  >
                     <Brain size={14} /> Iniciar Processamento IA
                  </Button>
@@ -2193,7 +2173,6 @@ const AnamnesisResponseModal: React.FC<{
       title="Respostas da Anamnese"
       subtitle={patientName}
       size="full"
-      className={BIG_MODAL}
       footer={
         <ModalFooter align="between">
           <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
@@ -2406,6 +2385,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   
   // Filtros
   const [search, setSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
   const [dateFrom, setDateFrom] = useState<string | null>(null);
@@ -2583,6 +2563,12 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
   const patientRecords = useMemo(() => records.filter(r => String(r.patient_id) === String(selectedPatientId)).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [records, selectedPatientId]);
 
+  const visibleRecords = useMemo(() => {
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return patientRecords;
+    return patientRecords.filter(r => (r.title || '').toLowerCase().includes(q) || strip(r.content || r.draft_content || '').toLowerCase().includes(q) || (r.tags || []).some(t => String(t).toLowerCase().includes(q)));
+  }, [patientRecords, historySearch]);
+
   const analysisData = useMemo(() => {
     if (!patientRecords.length) return null;
     const byType: Record<string, number> = {};
@@ -2655,10 +2641,79 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     } catch (e) { pushToast('error', 'Erro ao carregar registro'); }
   };
 
+  // Reúne tudo do paciente que não vem na lista de registros: ficha cadastral, humor por sessão,
+  // instrumentos aplicados, anexos dos registros e documentos enviados. Falha parcial nunca bloqueia a exportação.
+  const collectExportExtras = async (): Promise<{ head: { title: string; lines: string[] }[]; tail: { title: string; lines: string[] }[] }> => {
+    const head: { title: string; lines: string[] }[] = [];
+    const tail: { title: string; lines: string[] }[] = [];
+    if (!selectedPatientId) return { head, tail };
+    const pid = selectedPatientId;
+    const [pat, moods, templates, uploads] = await Promise.all([
+      api.get<any>(`/patients/${pid}`).catch(() => null),
+      api.get<any[]>(`/patients/${pid}/mood-logs`).catch(() => []),
+      api.get<any[]>('/neuro-assessments').catch(() => []),
+      api.get<any[]>('/documents', { patient_id: pid }).catch(() => []),
+    ]);
+
+    if (pat) {
+      const F: [string, string][] = [
+        ['email', 'E-mail'], ['phone', 'Telefone'], ['phone2', 'Telefone 2'], ['whatsapp', 'WhatsApp'], ['rg', 'RG'], ['gender', 'Gênero'],
+        ['marital_status', 'Estado civil'], ['education', 'Escolaridade'], ['profession', 'Profissão'], ['nationality', 'Nacionalidade'],
+        ['naturality', 'Naturalidade'], ['children_count', 'Filhos'], ['spouse_name', 'Cônjuge'], ['family_contact', 'Contato familiar'],
+        ['emergency_contact', 'Contato de emergência'], ['address', 'Endereço'], ['city', 'Cidade'], ['state', 'Estado'], ['zip_code', 'CEP'],
+        ['responsible_name', 'Responsável'], ['responsible_phone', 'Telefone do responsável'], ['health_plan', 'Convênio / plano'],
+        ['diagnosis', 'Diagnóstico'], ['notes', 'Observações cadastrais'], ['status', 'Situação'],
+      ];
+      const lines = F.map(([k, label]) => (pat[k] !== undefined && pat[k] !== null && String(pat[k]).trim() !== '') ? label + ': ' + (typeof pat[k] === 'string' ? strip(pat[k]) : String(pat[k])) : '').filter(Boolean);
+      if (lines.length) head.push({ title: 'Dados Cadastrais', lines });
+    }
+
+    if (Array.isArray(moods) && moods.length) {
+      tail.push({
+        title: 'Humor por Sessão',
+        lines: moods.map((m: any) => {
+          const d = m.recorded_at || m.created_at;
+          const emo = m.emotions ? (Array.isArray(m.emotions) ? m.emotions.join(', ') : String(m.emotions).replace(/[\[\]"]/g, '')) : '';
+          return (d ? new Date(d).toLocaleDateString('pt-BR') : '—') + ' — nota ' + m.mood_score + '/5' + (emo ? ' — ' + emo : '') + (m.note ? ' — ' + m.note : '');
+        }),
+      });
+    }
+
+    if (Array.isArray(templates) && templates.length) {
+      const lines: string[] = [];
+      await Promise.all(templates.map(async (tpl: any) => {
+        const res = await api.get<any[]>(`/neuro-assessments/${tpl.id}/results`, { patient_id: pid }).catch(() => []);
+        (res || []).forEach((r: any) => {
+          const labels: Record<string, string> = {};
+          (tpl.fields || []).forEach((f: any) => { labels[f.id] = f.label; });
+          const data = Object.entries(r.data || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+            .map(([k, v]) => (labels[k] || k.replace(/_/g, ' ')) + ': ' + String(v)).join(' | ');
+          lines.push(tpl.name + ' — ' + (r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : '—') + (data ? ' — ' + data : ''));
+        });
+      }));
+      if (lines.length) tail.push({ title: 'Instrumentos Aplicados', lines });
+    }
+
+    const attLines: string[] = [];
+    await Promise.all(patientRecords.map(async (r) => {
+      let atts = r.attachments;
+      if (!atts) {
+        const full = await api.get<MedicalRecord>(`/medical-records/${r.id}`).catch(() => null);
+        atts = full?.attachments || [];
+      }
+      (atts || []).forEach((a: any) => attLines.push((a.file_name || 'Arquivo') + ' (registro: ' + r.title + ')'));
+    }));
+    (Array.isArray(uploads) ? uploads : []).forEach((u: any) => attLines.push((u.file_name || u.name || u.original_name || 'Arquivo') + (u.created_at ? ' — enviado em ' + new Date(u.created_at).toLocaleDateString('pt-BR') : '')));
+    if (attLines.length) tail.push({ title: 'Anexos e Documentos', lines: attLines });
+
+    return { head, tail };
+  };
+
   const finishExport = async (mode: ExportMode, format: 'pdf' | 'word') => {
     if (!selectedPatient) return;
     setIsLoading(true);
     try {
+        const extras = mode === 'restricted_only' ? { head: [] as { title: string; lines: string[] }[], tail: [] as { title: string; lines: string[] }[] } : await collectExportExtras();
         const systemName = 'Plaelo — Sistema de Prontuário Informatizado';
         const profName = user?.name || 'Profissional';
         const profCRP = (user as any)?.crp || 'Não informado';
@@ -2723,6 +2778,25 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
             // ── Records ───────────────────────────────────────────
             const addPage = () => { doc.addPage(); y = 20; };
+
+            const drawSection = (s: { title: string; lines: string[] }) => {
+                if (y > 255) addPage();
+                doc.setFillColor(238, 242, 255);
+                doc.roundedRect(MARGIN, y, CONTENT_W, 9, 3, 3, 'F');
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(55, 48, 163);
+                doc.text(s.title, MARGIN + 5, y + 6.2);
+                y += 13;
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(51, 65, 85);
+                s.lines.forEach(line => {
+                    doc.splitTextToSize(line, CONTENT_W - 6).forEach((l: string) => {
+                        if (y > 275) addPage();
+                        doc.text(l, MARGIN + 3, y); y += 4.5;
+                    });
+                    y += 1;
+                });
+                y += 4;
+            };
+            extras.head.forEach(drawSection);
 
             patientRecords.forEach((r, idx) => {
                 // Record header pill
@@ -2808,6 +2882,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                 if (y < 270) { doc.setDrawColor(226, 232, 240); doc.line(MARGIN, y, W - MARGIN, y); y += 6; }
             });
 
+            extras.tail.forEach(drawSection);
+
             // Footer on each page
             const totalPages = (doc as any).internal.getNumberOfPages();
             for (let pg = 1; pg <= totalPages; pg++) {
@@ -2826,6 +2902,13 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                 new Paragraph({ children: [new TextRun({ text: `Profissional: ${profName} CRP: ${profCRP}`, bold: false })], spacing: { after: 100 } }),
                 new Paragraph({ children: [new TextRun({ text: `Gerado em: ${exportDate}`, italics: true, color: '888888' })], spacing: { after: 400 } }),
             ];
+
+            const addSection = (s: { title: string; lines: string[] }) => {
+                children.push(new Paragraph({ text: s.title, heading: HeadingLevel.HEADING_2 }));
+                s.lines.forEach(l => children.push(new Paragraph({ text: l, spacing: { after: 80 } })));
+                children.push(new Paragraph({ text: '', spacing: { after: 200 } }));
+            };
+            extras.head.forEach(addSection);
 
             patientRecords.forEach((r, idx) => {
                 children.push(new Paragraph({ text: `${idx + 1}. ${r.title}`, heading: HeadingLevel.HEADING_2 }));
@@ -2851,6 +2934,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                 }
                 children.push(new Paragraph({ text: '─────────────────────────────────────────────', spacing: { after: 200 } }));
             });
+
+            extras.tail.forEach(addSection);
 
             const docx = new Document({ sections: [{ children }] });
             const blob = await Packer.toBlob(docx);
@@ -2976,16 +3061,25 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
       {/* Linha de Filtros de Tipo (Mobile Friendly) */}
       {view === 'patient' && activeTab === 'history' && (
-        <div className="overflow-x-auto no-scrollbar animate-fadeIn">
-          <FilterLineSegmented
-            value={filterType || '__all__'}
-            onChange={(v) => setFilterType(v === '__all__' ? '' : v)}
-            options={[
-              { value: '__all__', label: 'Tudo' },
-              ...Object.entries(TYPE_LABELS).map(([key, label]) => ({ value: key, label })),
-            ]}
-          />
-        </div>
+        <FilterLine className="animate-fadeIn">
+          <FilterLineSection grow wrap>
+            <FilterLineItem grow minWidth={200}>
+              <FilterLineSearch value={historySearch} onChange={setHistorySearch} placeholder="Buscar nas evoluções e notas..." className="w-full sm:max-w-[280px]" />
+            </FilterLineItem>
+            <FilterLineItem fullOnMobile={false}>
+              <div className="overflow-x-auto no-scrollbar">
+                <FilterLineSegmented
+                  value={filterType || '__all__'}
+                  onChange={(v) => setFilterType(v === '__all__' ? '' : v)}
+                  options={[
+                    { value: '__all__', label: 'Tudo' },
+                    ...Object.entries(TYPE_LABELS).map(([key, label]) => ({ value: key, label })),
+                  ]}
+                />
+              </div>
+            </FilterLineItem>
+          </FilterLineSection>
+        </FilterLine>
       )}
 
       {/* ─── GRID DE PACIENTES ─── */}
@@ -3234,11 +3328,18 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                     </Button>
                   }
                 />
+              ) : visibleRecords.length === 0 ? (
+                <EmptyState
+                  icon={Search}
+                  title="Nenhum registro encontrado"
+                  description="Ajuste a busca ou os filtros para ver outros registros."
+                  action={<Button variant="outline" size="sm" onClick={() => { setHistorySearch(''); setFilterType(''); }}>Limpar busca</Button>}
+                />
               ) : (
                 <>
                   {/* Mobile: card list */}
                   <div className="md:hidden space-y-3">
-                    {patientRecords.map((r) => {
+                    {visibleRecords.map((r) => {
                       const sendForThisRecord = anamnesisSends.find(s => String(s.medical_record_id) === String(r.id));
                       const pat = patients.find(p => String(p.id) === String(r.patient_id));
                       return (
@@ -3295,7 +3396,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   {/* Desktop: table */}
                   <div className="hidden md:block">
                   <GridTable
-                    data={patientRecords}
+                    data={visibleRecords}
 
                   keyExtractor={(r) => r.id}
                   columns={[

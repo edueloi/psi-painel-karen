@@ -2,10 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
-import { Star, Plus, Trash2, Heart, Smile, Save, Loader2, SunMedium, BookOpen } from 'lucide-react';
+import { Star, Plus, Trash2, Heart, Smile, Save, Loader2, SunMedium, BookOpen, ArrowLeft } from 'lucide-react';
 
 const VIA_STRENGTHS = [
   'Criatividade', 'Curiosidade', 'Julgamento Crítico', 'Amor ao Aprendizado',
@@ -17,11 +23,19 @@ const VIA_STRENGTHS = [
   'Esperança / Otimismo', 'Humor / Alegria', 'Espiritualidade / Propósito'
 ];
 
+type PositiveTab = 'strengths' | 'gratitude' | 'wellbeing';
+
+const positiveTabs = [
+  { id: 'strengths', label: 'Forças VIA', icon: Star },
+  { id: 'gratitude', label: 'Gratidão', icon: Heart },
+  { id: 'wellbeing', label: 'PERMA', icon: SunMedium },
+] as const;
+
 export const PositivePsychologyPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<'strengths' | 'gratitude' | 'wellbeing'>('strengths');
+  const [activeSub, setActiveSub] = useState<PositiveTab>('strengths');
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -95,195 +109,178 @@ export const PositivePsychologyPage: React.FC = () => {
   const saveWellbeing = () => saveAll({ wellbeing });
 
   return (
-    <div className="flex flex-col gap-4 pb-16 animate-fadeIn">
-      <PageHeader
-        icon={<Star />}
-        title="Psicologia Positiva"
-        subtitle={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Forças VIA · Diário de Gratidão · Modelo PERMA"}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={selectedPatient && (
-          <div className="flex items-center gap-1 bg-white/50 backdrop-blur-sm p-1 rounded-lg border border-slate-200 shadow-sm">
-            {[
-              { key: 'strengths', icon: <Star size={13}/>, label: 'Forças VIA' },
-              { key: 'gratitude', icon: <Heart size={13}/>, label: 'Gratidão' },
-              { key: 'wellbeing', icon: <SunMedium size={13}/>, label: 'PERMA' },
-            ].map(tab => (
-              <button key={tab.key} onClick={() => setActiveSub(tab.key as any)}
-                className={`px-3 py-2 rounded-lg text-xs font-semibold   transition-all flex items-center gap-1.5 ${activeSub === tab.key ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <ClinicalSidebar patients={patients} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} patientSearch={patientSearch} setPatientSearch={setPatientSearch} isLoading={isLoading && patients.length === 0} t={t} />
+        <SectionTitle
+          icon={Star}
+          title="Psicologia Positiva"
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Forças VIA · Diário de Gratidão · Modelo PERMA"}
+        />
 
-        <div className="space-y-6">
-          {!selectedPatient ? (
-            <div className="text-center py-20 bg-white rounded-[40px] border border-slate-100 shadow-sm flex flex-col items-center">
-              <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-6"><Star size={40}/></div>
-              <h2 className="text-2xl font-semibold text-slate-800">Psicologia Positiva</h2>
-              <p className="text-slate-400 text-sm max-w-md mx-auto mt-2">Mapeie Forças VIA, pratique gratidão e monitore o florescimento com o modelo PERMA.</p>
-            </div>
-          ) : (
-            <>
-              {/* FORÇAS VIA */}
-              {activeSub === 'strengths' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 animate-slideUpFade">
-                  <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                    <h3 className="font-semibold text-slate-800 text-base">Mapear Força VIA</h3>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-400">Força / Virtude</label>
-                      <select className="w-full h-12 px-4 rounded-lg bg-amber-50/40 border border-amber-100 text-sm font-semibold outline-none focus:border-amber-300" value={newStrength.virtue} onChange={e => setNewStrength({...newStrength, virtue: e.target.value})}>
-                        <option value="">Selecione...</option>
-                        {VIA_STRENGTHS.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-400">Em que contexto o paciente usa essa força?</label>
-                      <textarea className="w-full p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs font-medium h-20 resize-none outline-none focus:bg-white focus:border-amber-300"
-                        placeholder="Ex: No trabalho quando ajuda colegas, em casa com os filhos..." value={newStrength.usage_context} onChange={e => setNewStrength({...newStrength, usage_context: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-400">Plano de expansão / uso criativo</label>
-                      <textarea className="w-full p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs font-medium h-20 resize-none outline-none focus:bg-white focus:border-amber-300"
-                        placeholder="Como poderia usar mais essa força de forma nova?" value={newStrength.growth_plan} onChange={e => setNewStrength({...newStrength, growth_plan: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-400">Frequência de uso</label>
-                      <select className="w-full h-11 px-4 rounded-lg bg-slate-50 border border-slate-100 text-sm font-semibold outline-none" value={newStrength.frequency} onChange={e => setNewStrength({...newStrength, frequency: e.target.value})}>
-                        {['Raramente', 'Semanal', 'Diário', 'Múltiplas vezes ao dia'].map(f => <option key={f}>{f}</option>)}
-                      </select>
-                    </div>
-                    <button onClick={addStrength} className="w-full h-12 bg-amber-500 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-amber-600 transition flex items-center justify-center gap-2">
-                      {saving ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16}/>} Mapear Força
-                    </button>
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar patients={patients} selectedPatientId={selectedPatientId} onSelectPatient={setSelectedPatientId} patientSearch={patientSearch} setPatientSearch={setPatientSearch} isLoading={isLoading && patients.length === 0} t={t} />
 
-                  <div className="space-y-3">
-                    {strengths.length === 0 ? (
-                      <div className="bg-white rounded-[32px] border border-slate-100 p-10 shadow-sm text-center"><p className="text-slate-400 font-semibold">Nenhuma força mapeada.</p></div>
-                    ) : strengths.map(s => (
-                      <div key={s.id} className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm relative group">
-                        <button onClick={() => { const upd = strengths.filter(x => x.id !== s.id); setStrengths(upd); saveAll({ strengths: upd }); }} className="absolute top-4 right-4 text-rose-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition"><Trash2 size={16}/></button>
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center"><Star size={16}/></div>
-                          <div>
-                            <h4 className="font-semibold text-slate-800 text-sm">{s.virtue}</h4>
-                            <span className="text-[11px] bg-slate-100 text-slate-500 px-2 rounded font-semibold">{s.frequency}</span>
+          <div className="min-w-0 space-y-4">
+            {!selectedPatient ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Star}
+                  title="Psicologia Positiva"
+                  description="Mapeie Forças VIA, pratique gratidão e monitore o florescimento com o modelo PERMA."
+                />
+              </ContentCard>
+            ) : (
+              <Tabs<PositiveTab> items={positiveTabs} value={activeSub} onChange={setActiveSub} label="Seções da psicologia positiva">
+                {/* FORÇAS VIA */}
+                {activeSub === 'strengths' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-3">
+                    <PanelCard title="Mapear Força VIA">
+                      <div className="space-y-3">
+                        <Select label="Força / Virtude" value={newStrength.virtue} onChange={e => setNewStrength({ ...newStrength, virtue: e.target.value })}>
+                          <option value="">Selecione...</option>
+                          {VIA_STRENGTHS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </Select>
+                        <Textarea label="Em que contexto o paciente usa essa força?" rows={3}
+                          placeholder="Ex: No trabalho quando ajuda colegas, em casa com os filhos..." value={newStrength.usage_context} onChange={e => setNewStrength({ ...newStrength, usage_context: e.target.value })} />
+                        <Textarea label="Plano de expansão / uso criativo" rows={3}
+                          placeholder="Como poderia usar mais essa força de forma nova?" value={newStrength.growth_plan} onChange={e => setNewStrength({ ...newStrength, growth_plan: e.target.value })} />
+                        <Select label="Frequência de uso" value={newStrength.frequency} onChange={e => setNewStrength({ ...newStrength, frequency: e.target.value })}>
+                          {['Raramente', 'Semanal', 'Diário', 'Múltiplas vezes ao dia'].map(f => <option key={f}>{f}</option>)}
+                        </Select>
+                        <Button variant="primary" fullWidth loading={saving} iconLeft={<Plus size={14} />} onClick={addStrength}>Mapear Força</Button>
+                      </div>
+                    </PanelCard>
+
+                    <div className="min-w-0 space-y-3">
+                      {strengths.length === 0 ? (
+                        <ContentCard><EmptyState icon={Star} title="Nenhuma força mapeada." /></ContentCard>
+                      ) : strengths.map(s => (
+                        <ContentCard key={s.id}>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0"><Star size={14} /></div>
+                              <div className="min-w-0">
+                                <h4 className="font-medium text-slate-800 text-sm break-words">{s.virtue}</h4>
+                                <Badge color="default">{s.frequency}</Badge>
+                              </div>
+                            </div>
+                            <IconButton variant="ghost" size="sm" aria-label="Remover força" title="Remover força" className="hover:text-red-600"
+                              onClick={() => { const upd = strengths.filter(x => x.id !== s.id); setStrengths(upd); saveAll({ strengths: upd }); }}>
+                              <Trash2 size={14} />
+                            </IconButton>
                           </div>
-                        </div>
-                        {s.usage_context && <p className="text-xs text-slate-600 mb-1"><span className="font-semibold text-slate-800">Como usa: </span>{s.usage_context}</p>}
-                        {s.growth_plan && <p className="text-xs text-amber-700 italic"><span className="font-semibold">Plano: </span>{s.growth_plan}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* GRATIDÃO */}
-              {activeSub === 'gratitude' && (
-                <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4 animate-slideUpFade">
-                  <div className="bg-white rounded-[28px] border border-slate-200 p-6 shadow-sm space-y-4">
-                    <h3 className="font-semibold text-slate-800 text-base">Diário de Gratidão</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-400">Data</label>
-                        <input type="date" className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" value={newGratitude.date} onChange={e => setNewGratitude({...newGratitude, date: e.target.value})} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-semibold text-slate-400">Intensidade (1-10)</label>
-                        <input type="number" min="1" max="10" className="w-full h-11 px-3 rounded-lg bg-slate-50 border border-slate-100 text-sm outline-none" value={newGratitude.intensity} onChange={e => setNewGratitude({...newGratitude, intensity: Number(e.target.value)})} />
-                      </div>
+                          {s.usage_context && <p className="text-xs text-slate-600 mb-1"><span className="font-medium text-slate-800">Como usa: </span>{s.usage_context}</p>}
+                          {s.growth_plan && <p className="text-xs text-primary-700 italic"><span className="font-medium">Plano: </span>{s.growth_plan}</p>}
+                        </ContentCard>
+                      ))}
                     </div>
-                    {newGratitude.entries.map((entry, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <label className="text-[11px] font-semibold text-amber-500">Gratidão #{idx + 1}</label>
-                        <input className="w-full h-11 px-3 rounded-lg bg-amber-50/40 border border-amber-100 text-sm outline-none focus:bg-white focus:border-amber-300 font-medium"
-                          placeholder={`Sou grato(a) por...`}
-                          value={entry}
-                          onChange={e => { const upd = [...newGratitude.entries]; upd[idx] = e.target.value; setNewGratitude({...newGratitude, entries: upd}); }}
+                  </div>
+                )}
+
+                {/* GRATIDÃO */}
+                {activeSub === 'gratitude' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-3">
+                    <PanelCard title="Diário de Gratidão">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Input label="Data" type="date" value={newGratitude.date} onChange={e => setNewGratitude({ ...newGratitude, date: e.target.value })} />
+                          <Input label="Intensidade (1-10)" type="number" min="1" max="10" value={newGratitude.intensity} onChange={e => setNewGratitude({ ...newGratitude, intensity: Number(e.target.value) })} />
+                        </div>
+                        {newGratitude.entries.map((entry, idx) => (
+                          <Input key={idx} label={`Gratidão #${idx + 1}`}
+                            placeholder={`Sou grato(a) por...`}
+                            value={entry}
+                            onChange={e => { const upd = [...newGratitude.entries]; upd[idx] = e.target.value; setNewGratitude({ ...newGratitude, entries: upd }); }}
+                          />
+                        ))}
+                        <Button variant="primary" fullWidth loading={saving} iconLeft={<Heart size={14} />} onClick={addGratitude}>Registrar Gratidão</Button>
+                      </div>
+                    </PanelCard>
+
+                    <div className="min-w-0 space-y-3">
+                      {gratitudeEntries.length === 0 ? (
+                        <ContentCard><EmptyState icon={Heart} title="Nenhum registro de gratidão ainda." /></ContentCard>
+                      ) : gratitudeEntries.map(g => (
+                        <ContentCard key={g.id}>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge color="default">{g.date ? new Date(g.date).toLocaleDateString() : ''}</Badge>
+                              <Badge color="primary">Intensidade: {g.intensity}/10</Badge>
+                            </div>
+                            <IconButton variant="ghost" size="sm" aria-label="Remover registro" title="Remover registro" className="hover:text-red-600"
+                              onClick={() => { const upd = gratitudeEntries.filter(x => x.id !== g.id); setGratitudeEntries(upd); saveAll({ gratitude_entries: upd }); }}>
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </div>
+                          <ul className="space-y-1">
+                            {(g.entries || []).filter((e: string) => e).map((e: string, idx: number) => (
+                              <li key={idx} className="text-xs text-slate-700 flex items-start gap-2">
+                                <span className="text-primary-600 font-medium">#{idx + 1}</span> {e}
+                              </li>
+                            ))}
+                          </ul>
+                        </ContentCard>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PERMA */}
+                {activeSub === 'wellbeing' && (
+                  <PanelCard
+                    title="Modelo PERMA"
+                    description="Mapeie os 5 pilares do florescimento de Seligman"
+                    icon={SunMedium}
+                    action={
+                      <Button variant="primary" size="sm" loading={saving} iconLeft={<Save size={14} />} onClick={saveWellbeing}>Salvar PERMA</Button>
+                    }
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {[
+                        { key: 'positive_emotions', label: 'P — Emoções Positivas', desc: 'Sentimentos de alegria, amor, esperança, gratidão...' },
+                        { key: 'engagement', label: 'E — Engajamento / Flow', desc: 'Atividades que causam imersão total, time flies...' },
+                        { key: 'relationships', label: 'R — Relacionamentos', desc: 'Conexões positivas e suporte social...' },
+                        { key: 'meaning', label: 'M — Sentido e Propósito', desc: 'Pertencer a algo maior, valores, missão de vida...' },
+                        { key: 'achievement', label: 'A — Conquistas / Realização', desc: 'Metas alcançadas, progresso, autodeterminação...' },
+                      ].map(p => (
+                        <div key={p.key} className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3">
+                          <div>
+                            <h4 className="font-medium text-slate-800 text-sm">{p.label}</h4>
+                            <p className="text-[11px] text-slate-500 mt-1">{p.desc}</p>
+                          </div>
+                          <Textarea
+                            aria-label={p.label}
+                            rows={5}
+                            placeholder="Como está esse pilar para o paciente?"
+                            value={(wellbeing as any)[p.key]}
+                            onChange={e => setWellbeing({ ...wellbeing, [p.key]: e.target.value })}
+                          />
+                        </div>
+                      ))}
+                      <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3 md:col-span-2 xl:col-span-1">
+                        <h4 className="font-medium text-slate-800 text-sm flex items-center gap-2"><BookOpen size={14} className="text-slate-500" /> Notas Gerais PERMA</h4>
+                        <Textarea
+                          aria-label="Notas gerais PERMA"
+                          rows={6}
+                          placeholder="Observações gerais, áreas de intervenção prioritária..."
+                          value={wellbeing.perma_notes}
+                          onChange={e => setWellbeing({ ...wellbeing, perma_notes: e.target.value })}
                         />
                       </div>
-                    ))}
-                    <button onClick={addGratitude} className="w-full h-12 bg-amber-500 text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-amber-600 transition flex items-center justify-center gap-2">
-                      {saving ? <Loader2 size={16} className="animate-spin"/> : <Heart size={16}/>} Registrar Gratidão
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {gratitudeEntries.length === 0 ? (
-                      <div className="bg-white rounded-[32px] border border-slate-100 p-10 shadow-sm text-center"><p className="text-slate-400 font-semibold">Nenhum registro de gratidão ainda.</p></div>
-                    ) : gratitudeEntries.map(g => (
-                      <div key={g.id} className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5 relative group">
-                        <button onClick={() => { const upd = gratitudeEntries.filter(x => x.id !== g.id); setGratitudeEntries(upd); saveAll({ gratitude_entries: upd }); }} className="absolute top-4 right-4 text-rose-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition"><Trash2 size={16}/></button>
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-[11px] font-semibold bg-amber-50 text-amber-600 px-2 py-0.5 rounded">{g.date ? new Date(g.date).toLocaleDateString() : ''}</span>
-                          <span className="text-[11px] font-semibold bg-rose-50 text-rose-500 px-2 py-0.5 rounded">❤️ Intensidade: {g.intensity}/10</span>
-                        </div>
-                        <ul className="space-y-1">
-                          {(g.entries || []).filter((e: string) => e).map((e: string, idx: number) => (
-                            <li key={idx} className="text-xs font-medium text-slate-700 flex items-start gap-2">
-                              <span className="text-amber-400 font-semibold">#{idx + 1}</span> {e}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* PERMA */}
-              {activeSub === 'wellbeing' && (
-                <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm animate-slideUpFade">
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h3 className="text-xl font-semibold text-slate-800 flex items-center gap-3"><SunMedium className="text-amber-500"/> Modelo PERMA</h3>
-                      <p className="text-sm text-slate-500 mt-1">Mapeie os 5 pilares do florescimento de Seligman</p>
                     </div>
-                    <button onClick={saveWellbeing} className="bg-amber-500 text-white px-6 py-2 rounded-lg font-semibold text-xs shadow hover:bg-amber-600 transition flex items-center gap-2">
-                      {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salvar PERMA
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {[
-                      { key: 'positive_emotions', label: 'P — Emoções Positivas', color: 'yellow', emoji: '😊', desc: 'Sentimentos de alegria, amor, esperança, gratidão...' },
-                      { key: 'engagement', label: 'E — Engajamento / Flow', color: 'blue', emoji: '🔥', desc: 'Atividades que causam imersão total, time flies...' },
-                      { key: 'relationships', label: 'R — Relacionamentos', color: 'rose', emoji: '❤️', desc: 'Conexões positivas e suporte social...' },
-                      { key: 'meaning', label: 'M — Sentido e Propósito', color: 'purple', emoji: '🌟', desc: 'Pertencer a algo maior, valores, missão de vida...' },
-                      { key: 'achievement', label: 'A — Conquistas / Realização', color: 'emerald', emoji: '🏆', desc: 'Metas alcançadas, progresso, autodeterminação...' },
-                    ].map(p => (
-                      <div key={p.key} className={`p-5 rounded-lg border border-${p.color}-100 bg-${p.color}-50/30 space-y-3`}>
-                        <div>
-                          <h4 className="font-semibold text-slate-800 text-sm flex items-center gap-2">{p.emoji} {p.label}</h4>
-                          <p className="text-[11px] text-slate-500 mt-1 font-medium">{p.desc}</p>
-                        </div>
-                        <textarea className="w-full h-28 p-3 rounded-lg bg-white border border-slate-100 text-xs resize-none outline-none focus:border-amber-300 transition font-medium"
-                          placeholder="Como está esse pilar para o paciente?"
-                          value={(wellbeing as any)[p.key]}
-                          onChange={e => setWellbeing({...wellbeing, [p.key]: e.target.value})}
-                        />
-                      </div>
-                    ))}
-                    <div className="p-5 rounded-lg border border-slate-100 bg-slate-50/40 space-y-3 md:col-span-2 xl:col-span-1">
-                      <h4 className="font-semibold text-slate-800 text-sm flex items-center gap-2"><BookOpen size={16} className="text-slate-500"/> Notas Gerais PERMA</h4>
-                      <textarea className="w-full h-36 p-3 rounded-lg bg-white border border-slate-100 text-xs resize-none outline-none focus:border-amber-300 transition font-medium"
-                        placeholder="Observações gerais, áreas de intervenção prioritária..."
-                        value={wellbeing.perma_notes}
-                        onChange={e => setWellbeing({...wellbeing, perma_notes: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

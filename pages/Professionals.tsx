@@ -20,12 +20,12 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ConfirmModal, ContentCard, EmptyState, PageWrapper, SectionTitle, StatCard, StatGrid } from '../components/UI';
+import { ConfirmModal, ContentCard, EmptyState, PageWrapper, SectionTitle, StatCard, StatGrid, Tabs } from '../components/UI';
 import { Modal } from '../components/UI/Modal';
 import { Button } from '../components/UI/Button';
 import { Input, Select } from '../components/UI/Input';
 import { 
-  FilterLine, FilterLineSection, FilterLineSearch, FilterLineSegmented 
+  FilterLine, FilterLineSection, FilterLineSearch 
 } from '../components/UI/FilterLine';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
@@ -457,6 +457,17 @@ export const Professionals: React.FC = () => {
           ))}
         </StatGrid>
 
+        <Tabs<string>
+          items={[
+            { id: 'team', label: t('professionals.team'), icon: Users },
+            ...(hasPermission('manage_professionals') ? [{ id: 'permissions', label: t('professionals.permissions'), icon: Key }] : []),
+            ...(hasPermission('manage_commissions') ? [{ id: 'commissions', label: 'Comissões', icon: DollarSign }] : []),
+          ]}
+          value={activeTab}
+          onChange={(val) => setActiveTab(val as any)}
+          label="Seções de profissionais"
+        />
+
         {/* FILTERS */}
         <FilterLine>
           <FilterLineSection grow>
@@ -464,28 +475,17 @@ export const Professionals: React.FC = () => {
               value={searchTerm}
               onChange={setSearchTerm}
               placeholder="Pesquisar por nome ou e-mail..."
-              className="max-w-[420px]"
+              className="w-full sm:max-w-[280px]"
             />
           </FilterLineSection>
 
-          <FilterLineSection align="right">
-            <FilterLineSegmented
-              value={activeTab}
-              onChange={(val) => setActiveTab(val as any)}
-              options={[
-                { value: 'team', label: t('professionals.team'), icon: <Users size={14}/> },
-                ...(hasPermission('manage_professionals') ? [{ value: 'permissions', label: t('professionals.permissions'), icon: <Key size={14}/> }] : []),
-                ...(hasPermission('manage_commissions') ? [{ value: 'commissions', label: 'Comissões', icon: <DollarSign size={14}/> }] : [])
-              ]}
-            />
-          </FilterLineSection>
         </FilterLine>
 
         {/* --- CONTENT --- */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-            <Loader2 className="animate-spin text-indigo-600 mb-6" size={48} />
-            <p className="text-sm font-semibold">Sincronizando com a clínica...</p>
+            <Loader2 className="animate-spin text-primary-600 mb-3" size={24} />
+            <p className="text-xs font-medium">Sincronizando com a clínica...</p>
           </div>
         ) : activeTab === 'team' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -503,7 +503,7 @@ export const Professionals: React.FC = () => {
                 <div className="flex justify-between items-start mb-3 relative z-10">
                   <div className="flex items-center gap-3">
                     <div className={cx(
-                      "h-14 w-14 rounded-lg flex items-center justify-center font-semibold text-xl border transition-all overflow-hidden",
+                      "h-14 w-14 rounded-lg flex items-center justify-center font-semibold text-base border transition-all overflow-hidden",
                       !effectiveActive
                         ? "bg-slate-50 text-slate-300 border-slate-200"
                         : "bg-primary-50 text-primary-600 border-primary-100 group-hover:bg-primary-600 group-hover:text-white group-hover:border-primary-400"
@@ -514,17 +514,17 @@ export const Professionals: React.FC = () => {
                       }
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-800 text-[16px] truncate max-w-[150px]">{pro.name}</h3>
+                      <h3 className="font-semibold text-slate-800 text-sm truncate max-w-[150px]">{pro.name}</h3>
                       <div className="flex flex-col gap-1 mt-1">
                         <span className={cx(
                           "inline-flex w-fit px-2 py-0.5 rounded-lg text-[11px] font-semibold border",
                           pro.role === 'admin' ? "bg-amber-50 text-amber-600 border-amber-100" :
-                          "bg-indigo-50 text-indigo-600 border-indigo-100"
+                          "bg-primary-50 text-primary-600 border-primary-100"
                         )}>
                           {profiles.find(p => p.id === pro.tenant_profile_id)?.name || pro.role}
                         </span>
                         {pro.specialty && (
-                          <span className="text-[11px] font-medium text-indigo-400 italic truncate max-w-[180px]">
+                          <span className="text-[11px] font-medium text-primary-400 italic truncate max-w-[180px]">
                             {pro.specialty}
                           </span>
                         )}
@@ -559,11 +559,11 @@ export const Professionals: React.FC = () => {
                 <div className="space-y-3 mb-3 flex-1 relative z-10">
                   <div className="bg-slate-50/50 border border-slate-100 p-3 rounded-lg space-y-2.5">
                     <div className="flex items-center gap-3 text-[13px] text-slate-600">
-                      <Mail size={15} className="text-indigo-400 shrink-0" />
+                      <Mail size={15} className="text-primary-400 shrink-0" />
                       <span className="font-medium truncate" title={pro.email}>{pro.email}</span>
                     </div>
                     <div className="flex items-center gap-3 text-[13px] text-slate-600">
-                      <Phone size={15} className="text-indigo-400 shrink-0" />
+                      <Phone size={15} className="text-primary-400 shrink-0" />
                       <span className="font-medium">{pro.phone || 'Sem telefone'}</span>
                     </div>
                     {pro.crp && (
@@ -579,7 +579,7 @@ export const Professionals: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <div className={cx(
                       "w-2 h-2 rounded-full",
-                      effectiveActive ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" : "bg-rose-400 shadow-sm"
+                      effectiveActive ? "bg-emerald-500 animate-pulse" : "bg-rose-400 shadow-sm"
                     )} />
                     <span className={cx(
                       "font-semibold text-[11px]",
@@ -601,11 +601,11 @@ export const Professionals: React.FC = () => {
             )}
           </div>
         ) : activeTab === 'permissions' ? (
-          <div className="flex flex-col lg:flex-row gap-8 min-h-[600px] animate-fadeIn">
+          <div className="flex flex-col lg:flex-row gap-3 animate-fadeIn">
             {/* Escolha do Profissional */}
             <div className="w-full lg:w-80 shrink-0 space-y-4">
-              <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
-                <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                   <h3 className="text-xs font-semibold text-slate-400">Perfis de Acesso</h3>
                   <Button variant="ghost" size="xs" onClick={() => setIsCreatingProfile(true)} iconOnly title="Novo Perfil"><Plus size={16} /></Button>
                 </div>
@@ -629,21 +629,21 @@ export const Professionals: React.FC = () => {
                       onClick={() => setSelectedProfileId(pro.id)}
                       className={cx(
                         "w-full px-5 py-4 flex items-center justify-between transition-all hover:bg-slate-50 relative cursor-pointer",
-                        selectedProfileId === pro.id ? "bg-indigo-50/50" : ""
+                        selectedProfileId === pro.id ? "bg-primary-50/50" : ""
                       )}
                     >
-                      {selectedProfileId === pro.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-[2px_0_10px_rgba(79,70,229,0.3)]" />}
+                      {selectedProfileId === pro.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary-600 rounded-r-full" />}
                       
                       <div className="flex items-center gap-4">
                         <div className={cx(
                           "h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-sm shrink-0",
-                          selectedProfileId === pro.id ? "bg-indigo-600 text-white shadow-sm shadow-indigo-100" : "bg-slate-100 text-slate-400"
+                          selectedProfileId === pro.id ? "bg-primary-600 text-white " : "bg-slate-100 text-slate-400"
                         )}>
                           {(pro.name || '?').charAt(0).toUpperCase()}
                         </div>
                         
                         <div className="text-left min-w-0">
-                          <p className={cx("text-sm font-semibold truncate", selectedProfileId === pro.id ? "text-indigo-600" : "text-slate-700")}>
+                          <p className={cx("text-sm font-semibold truncate", selectedProfileId === pro.id ? "text-primary-600" : "text-slate-700")}>
                             {pro.name}
                           </p>
                           <p className="text-[11px] text-slate-400 font-semibold">{pro.is_default ? 'Padrão do Sistema' : 'Personalizado'}</p>
@@ -664,7 +664,7 @@ export const Professionals: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-amber-50 rounded-lg p-5 border border-amber-100">
+              <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
                 <div className="flex gap-3 text-amber-600 mb-2">
                   <ShieldAlert size={20} className="shrink-0" />
                   <h4 className="text-xs font-semibold mt-0.5">Aviso Importante</h4>
@@ -676,13 +676,13 @@ export const Professionals: React.FC = () => {
             </div>
 
             {/* Grid de Permissões */}
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-3">
               {selectedProfileId ? (
                 <>
-                  <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                     <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-20">
                       <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+                        <div className="p-3 bg-primary-50 text-primary-600 rounded-lg">
                           <Key size={24} />
                         </div>
                         <div>
@@ -701,17 +701,17 @@ export const Professionals: React.FC = () => {
                           variant="primary"
                           onClick={handleSaveProfilePermissions}
                           isLoading={isUpdatingProfile}
-                          leftIcon={<CheckCircle size={18} />}
-                          className="shadow-sm shadow-indigo-100"
+                          leftIcon={<CheckCircle size={14} />}
+                          className=""
                         >
-                          SALVAR PERFIL
+                          Salvar perfil
                         </Button>
                       )}
                     </div>
 
-                    <div className="p-8 space-y-10">
+                    <div className="p-4 space-y-4">
                       {PERMISSION_SCHEMA.map((cat, idx) => (
-                        <div key={idx} className="space-y-6">
+                        <div key={idx} className="space-y-3">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
                               {cat.icon}
@@ -726,21 +726,21 @@ export const Professionals: React.FC = () => {
                                 key={perm.key}
                                 onClick={() => toggleProfilePermission(perm.key)}
                                 className={cx(
-                                  "group flex items-center justify-between p-5 rounded-lg border-2 cursor-pointer transition-all duration-300",
+                                  "group flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-300",
                                   pendingProfilePermissions[perm.key] 
-                                    ? "bg-indigo-50/30 border-indigo-100 shadow-sm" 
+                                    ? "bg-primary-50/30 border-primary-100 shadow-sm" 
                                     : "bg-white border-slate-50 hover:border-slate-200"
                                 )}
                               >
                                 <div className="flex items-center gap-4">
                                   <div className={cx(
                                     "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300",
-                                    pendingProfilePermissions[perm.key] ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200" : "bg-slate-100 text-slate-400"
+                                    pendingProfilePermissions[perm.key] ? "bg-primary-600 text-white " : "bg-slate-100 text-slate-400"
                                   )}>
                                     {pendingProfilePermissions[perm.key] ? <Check size={18} strokeWidth={3} /> : <X size={18} />}
                                   </div>
                                   <div>
-                                    <p className={cx("text-sm font-semibold transition-colors", pendingProfilePermissions[perm.key] ? "text-indigo-700" : "text-slate-700")}>
+                                    <p className={cx("text-sm font-semibold transition-colors", pendingProfilePermissions[perm.key] ? "text-primary-700" : "text-slate-700")}>
                                       {perm.label}
                                     </p>
                                     <p className="text-[11px] text-slate-400 font-medium leading-none mt-1">
@@ -751,7 +751,7 @@ export const Professionals: React.FC = () => {
                                 
                                 <div className={cx(
                                   "w-10 h-6 rounded-full relative transition-all duration-300 p-0.5",
-                                  pendingProfilePermissions[perm.key] ? "bg-indigo-600" : "bg-slate-200"
+                                  pendingProfilePermissions[perm.key] ? "bg-primary-600" : "bg-slate-200"
                                 )}>
                                   <div className={cx(
                                     "w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 transform",
@@ -767,7 +767,7 @@ export const Professionals: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center bg-white rounded-[40px] border border-slate-200 border-dashed p-12 text-slate-400">
+                <div className="h-full flex flex-col items-center justify-center bg-white rounded-lg border border-slate-200 border-dashed p-12 text-slate-400">
                   <Key size={48} className="mb-4 opacity-20" />
                   <p className="font-semibold text-xs">Selecione um perfil à esquerda</p>
                 </div>
@@ -775,11 +775,11 @@ export const Professionals: React.FC = () => {
             </div>
           </div>
         ) : activeTab === 'commissions' ? (
-          <div className="flex flex-col lg:flex-row gap-8 min-h-[600px] animate-fadeIn">
+          <div className="flex flex-col lg:flex-row gap-3 animate-fadeIn">
             {/* Escolha do Profissional */}
             <div className="w-full lg:w-80 shrink-0 space-y-4">
-              <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
-                <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                   <h3 className="text-xs font-semibold text-slate-400">Selecionar Equipe</h3>
                 </div>
                 <div className="max-h-[500px] overflow-y-auto no-scrollbar py-2">
@@ -789,18 +789,18 @@ export const Professionals: React.FC = () => {
                       onClick={() => setSelectedComProId(pro.id)}
                       className={cx(
                         "w-full px-5 py-4 flex items-center gap-4 transition-all hover:bg-slate-50 relative",
-                        selectedComProId === pro.id ? "bg-indigo-50/50" : ""
+                        selectedComProId === pro.id ? "bg-primary-50/50" : ""
                       )}
                     >
-                      {selectedComProId === pro.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-indigo-600 rounded-r-full shadow-[2px_0_10px_rgba(79,70,229,0.3)]" />}
+                      {selectedComProId === pro.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary-600 rounded-r-full" />}
                       <div className={cx(
                         "h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-sm shrink-0",
-                        selectedComProId === pro.id ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
+                        selectedComProId === pro.id ? "bg-primary-600 text-white" : "bg-slate-100 text-slate-400"
                       )}>
                         {(pro.name || '?').charAt(0).toUpperCase()}
                       </div>
                       <div className="text-left min-w-0">
-                        <p className={cx("text-sm font-semibold truncate", selectedComProId === pro.id ? "text-indigo-600" : "text-slate-700")}>{pro.name}</p>
+                        <p className={cx("text-sm font-semibold truncate", selectedComProId === pro.id ? "text-primary-600" : "text-slate-700")}>{pro.name}</p>
                       </div>
                     </button>
                   ))}
@@ -809,9 +809,9 @@ export const Professionals: React.FC = () => {
             </div>
 
             {/* Area Principal */}
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-3">
               {selectedComProId ? (
-                <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                   <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-20">
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><DollarSign size={24} /></div>
@@ -820,18 +820,18 @@ export const Professionals: React.FC = () => {
                         <p className="text-xs text-slate-400 font-medium">Configure os repasses para {professionals.find(p => p.id === selectedComProId)?.name}</p>
                       </div>
                     </div>
-                    <Button variant="primary" onClick={handleSaveCommissions} isLoading={isSavingCommissions} leftIcon={<CheckCircle size={18} />}>
-                      SALVAR REGRAS
+                    <Button variant="primary" onClick={handleSaveCommissions} isLoading={isSavingCommissions} leftIcon={<CheckCircle size={14} />}>
+                      Salvar regras
                     </Button>
                   </div>
 
-                  <div className="p-8 space-y-8">
+                  <div className="p-4 space-y-8">
                     {/* Regra Geral */}
                     <div className="space-y-4">
                       <h4 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
                         <Layout size={14} /> Regra Global (Padrão)
                       </h4>
-                      <div className="p-5 border-2 border-slate-100 rounded-[24px] flex flex-wrap md:flex-nowrap items-center gap-4 bg-slate-50/50">
+                      <div className="p-3 border border-slate-100 rounded-lg flex flex-wrap md:flex-nowrap items-center gap-4 bg-slate-50/50">
                         <div className="w-48">
                             <Select
                               label=""
@@ -876,7 +876,7 @@ export const Professionals: React.FC = () => {
                         {commissions.filter(c => c.service_id !== null).map((c) => {
                           const srv = services.find(s => s.id === c.service_id);
                           return (
-                            <div key={c.service_id} className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:border-indigo-200">
+                            <div key={c.service_id} className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:border-primary-200">
                               <div>
                                 <p className="font-semibold text-slate-800 text-sm">{srv?.name || 'Serviço Excluído'}</p>
                                 <p className="text-xs text-slate-400 font-medium">Preço do Módulo: R$ {srv?.price || '0.00'}</p>
@@ -906,7 +906,7 @@ export const Professionals: React.FC = () => {
                           );
                         })}
                         {commissions.filter(c => c.service_id !== null).length === 0 && (
-                          <div className="p-8 text-center text-slate-400 text-[13px] font-medium border-2 border-dashed border-slate-200 bg-slate-50/50 rounded-lg">
+                          <div className="p-4 text-center text-slate-400 text-[13px] font-medium border border-dashed border-slate-200 bg-slate-50/50 rounded-lg">
                             Nenhuma regra específica configurada.
                           </div>
                         )}
@@ -915,7 +915,7 @@ export const Professionals: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center bg-white rounded-[40px] border border-slate-200 border-dashed p-12 text-slate-400">
+                <div className="h-full flex flex-col items-center justify-center bg-white rounded-lg border border-slate-200 border-dashed p-12 text-slate-400">
                   <DollarSign size={48} className="mb-4 opacity-20" />
                   <p className="font-semibold text-xs">Selecione um profissional à esquerda para comissões</p>
                 </div>
@@ -930,27 +930,27 @@ export const Professionals: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingPro?.id ? 'Editar Cadastro' : 'Novo Integrante'}
-        subtitle="Controle de Staff & Acesso do sistema"
+        subtitle="Controle de equipe e acesso ao sistema"
         maxWidth="2xl"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
-              DESCARTAR
+            <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>
+              Descartar
             </Button>
             <Button
               variant="primary"
               onClick={handleSave}
               isLoading={isSaving}
-              leftIcon={<CheckCircle size={18} />}
+              leftIcon={<CheckCircle size={14} />}
             >
-              SALVAR ALTERAÇÕES
+              Salvar alterações
             </Button>
           </>
         }
       >
         {editingPro && (
-          <div className="space-y-6 sm:p-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-3 sm:p-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input
                 label="Nome Completo *"
                 value={editingPro.name}
@@ -965,7 +965,7 @@ export const Professionals: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input
                 label="CPF"
                 value={editingPro.cpf || ''}
@@ -980,7 +980,7 @@ export const Professionals: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input
                 label="Registro Profissional (CRP/CRM)"
                 value={editingPro.crp || ''}
@@ -989,7 +989,7 @@ export const Professionals: React.FC = () => {
               />
             </div>
 
-            <div className="bg-slate-50/50 p-6 rounded-lg border border-slate-100 space-y-6">
+            <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100 space-y-3">
               <h4 className="text-[11px] font-semibold text-slate-400">
                 Credenciais de Acesso
               </h4>
@@ -1004,7 +1004,7 @@ export const Professionals: React.FC = () => {
                 hint={editingPro.id ? "O e-mail não pode ser alterado após criado." : undefined}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="relative">
                   <Input
                     label={editingPro.id ? 'Redefinir Senha' : 'Senha Inicial *'}
@@ -1017,7 +1017,7 @@ export const Professionals: React.FC = () => {
                       <button 
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="text-slate-400 hover:text-indigo-600 transition-colors"
+                        className="text-slate-400 hover:text-primary-600 transition-colors"
                       >
                           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -1042,14 +1042,14 @@ export const Professionals: React.FC = () => {
             <div 
               onClick={() => setEditingPro({...editingPro, is_active: !editingPro.is_active})}
               className={cx(
-                "flex items-center justify-between p-5 rounded-lg border-2 cursor-pointer transition-all",
+                "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all",
                 editingPro.is_active ? "bg-emerald-50/50 border-emerald-100" : "bg-rose-50/50 border-rose-100"
               )}
             >
               <div className="flex items-center gap-4">
                 <div className={cx(
                   "w-12 h-12 rounded-lg flex items-center justify-center text-white",
-                  editingPro.is_active ? "bg-emerald-500 shadow-sm shadow-emerald-100" : "bg-rose-500 shadow-sm shadow-rose-100"
+                  editingPro.is_active ? "bg-emerald-500 " : "bg-rose-500 "
                 )}>
                   <Power size={20} />
                 </div>

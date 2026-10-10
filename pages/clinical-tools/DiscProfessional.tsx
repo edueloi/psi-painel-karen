@@ -24,10 +24,14 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { PageHeader } from '../../components/UI/PageHeader';
-import { ContentCard, EmptyState, IconButton, PanelCard } from '../../components/UI';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Alert } from '../../components/UI/Alert';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
-import { Button } from '../../components/UI/Button';
+import { Button, IconButton } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { Modal } from '../../components/UI/Modal';
@@ -93,7 +97,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     const headingMatch = line.match(/^\*\*([^*]+)\*\*\s*$/);
     if (headingMatch) {
       result.push(
-        <p key={i} className="text-xs font-semibold text-amber-300 mt-4 mb-1 first:mt-0">
+        <p key={i} className="text-xs font-semibold text-primary-700 mt-4 mb-1 first:mt-0">
           {headingMatch[1]}
         </p>
       );
@@ -103,7 +107,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (numMatch) {
       result.push(
         <div key={i} className="flex gap-2 mt-2">
-          <span className="shrink-0 font-semibold text-amber-300">{numMatch[1]}.</span>
+          <span className="shrink-0 font-semibold text-primary-700">{numMatch[1]}.</span>
           <span>{inlineMarkdown(numMatch[2])}</span>
         </div>
       );
@@ -113,7 +117,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (bulletMatch) {
       result.push(
         <div key={i} className="flex gap-2 mt-1">
-          <span className="shrink-0 text-amber-300">•</span>
+          <span className="shrink-0 text-primary-700">•</span>
           <span>{inlineMarkdown(bulletMatch[1])}</span>
         </div>
       );
@@ -129,7 +133,7 @@ function inlineMarkdown(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     const m = part.match(/^\*\*([^*]+)\*\*$/);
-    if (m) return <strong key={i} className="font-semibold text-white">{m[1]}</strong>;
+    if (m) return <strong key={i} className="font-semibold text-slate-900">{m[1]}</strong>;
     return part;
   });
 }
@@ -188,6 +192,15 @@ function getClinicalAnalysis(scores: { D: number; I: number; S: number; C: numbe
   return { parts, conclusion: conclusionMap[dominant], dominant, dominantLabel };
 }
 
+type DiscTab = 'summary' | 'history';
+type DiscDetailTab = 'summary' | 'ai' | 'answers';
+type DiscBlock = 'D' | 'I' | 'S' | 'C';
+
+const discTabs = [
+  { id: 'summary', label: 'Resumo', icon: Layout },
+  { id: 'history', label: 'Histórico', icon: History },
+] as const;
+
 export const DISCProfessionalPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -210,6 +223,10 @@ export const DISCProfessionalPage: React.FC = () => {
   const [analyzingId, setAnalyzingId] = useState<string | number | null>(null);
   const [detailResult, setDetailResult] = useState<DiscResult | null>(null);
   const [showAnswers, setShowAnswers] = useState(false);
+  const [activeTab, setActiveTab] = useState<DiscTab>('summary');
+  const [detailTab, setDetailTab] = useState<DiscDetailTab>('summary');
+  const [applyBlock, setApplyBlock] = useState<DiscBlock>('D');
+  useEffect(() => { setDetailTab('summary'); }, [detailResult?.id]);
 
   const getShareLink = () => {
     const base = `${getPublicBaseUrl()}/f/disc`;
@@ -677,16 +694,16 @@ export const DISCProfessionalPage: React.FC = () => {
     });
 
     return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-2xl">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="max-w-full h-auto">
         {webPaths.map((path, i) => (
-          <polygon key={i} points={path} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          <polygon key={i} points={path} fill="none" stroke="#e2e8f0" strokeWidth="1" />
         ))}
         {factors.map((_, i) => {
           const angle = (Math.PI * 2 * i) / factors.length - Math.PI / 2;
           return (
             <line key={i} x1={center} y1={center}
               x2={center + radius * Math.cos(angle)} y2={center + radius * Math.sin(angle)}
-              stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+              stroke="#cbd5e1" strokeWidth="1" />
           );
         })}
         {factors.map((f, i) => {
@@ -694,442 +711,407 @@ export const DISCProfessionalPage: React.FC = () => {
           const r = radius + 25;
           return (
             <text key={i} x={center + r * Math.cos(angle)} y={center + r * Math.sin(angle)}
-              fill="white" fontSize="10" fontWeight="900" textAnchor="middle" alignmentBaseline="middle"
-              className="opacity-40 font-semibold">
+              fill="#64748b" fontSize="11" fontWeight="500" textAnchor="middle" alignmentBaseline="middle">
               {f}
             </text>
           );
         })}
-        <polygon points={points} fill="rgba(139, 92, 246, 0.3)" stroke="#8b5cf6" strokeWidth="3" strokeLinejoin="round" />
+        <polygon points={points} style={{ fill: 'var(--c-500)', fillOpacity: 0.2, stroke: 'var(--c-600)' }} strokeWidth="2" strokeLinejoin="round" />
         {points.split(' ').map((p, i) => {
           const [x, y] = p.split(',');
-          return <circle key={i} cx={x} cy={y} r="4" fill="#8b5cf6" stroke="white" strokeWidth="2" />;
+          return <circle key={i} cx={x} cy={y} r="4" style={{ fill: 'var(--c-600)' }} stroke="white" strokeWidth="2" />;
         })}
       </svg>
     );
   };
 
+  const detailPatientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
+  const applyTabs = (['D', 'I', 'S', 'C'] as const).map(block => ({
+    id: block,
+    label: `${block} — ${BLOCK_COLORS[block].label}`,
+    badge: `${DISC_ENTRIES.filter(e => e.block === block && currentAnswers[e.id] !== undefined).length}/${DISC_ENTRIES.filter(e => e.block === block).length}`,
+  }));
+
   return (
-    <>
-      <div className="space-y-8 animate-fadeIn">
-      <PageHeader
-        title="DISC Avaliativo (Clínico)"
-        subtitle="Mapeamento técnico de tendências comportamentais para uso em sessão."
-        icon={<Gauge className="text-violet-500" />}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={
-          <div className="flex gap-2">
-             <Button
-                variant="outline"
-                size="sm"
-                radius="xl"
-                leftIcon={<Share2 size={16} />}
-                onClick={() => selectedPatientId ? setIsSharing(true) : info('Selecione um paciente', 'Escolha um prontuário para compartilhar o link.')}
-                className="bg-white text-slate-600 border-slate-200"
-             >
-                Compartilhar
-             </Button>
-             <Button
-                variant="primary"
-                size="sm"
-                radius="xl"
-                leftIcon={<Plus size={16} />}
-                onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para realizar o mapeamento.')}
-                className="bg-violet-600 text-white shadow-sm shadow-violet-200"
-             >
-                Novo Mapeamento
-             </Button>
-          </div>
-        }
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <div className="space-y-4">
-          <ClinicalSidebar
-            patients={patients}
-            selectedPatientId={selectedPatientId}
-            onSelectPatient={id => setSelectedPatientId(id)}
-            patientSearch={patientSearch}
-            setPatientSearch={setPatientSearch}
-            isLoading={loadingPatients}
-            t={t}
-          />
-
-          <PanelCard title="Referência técnica" icon={BookOpen} contentClassName="space-y-3">
-              <div className="space-y-3">
-                 {Object.entries(BLOCK_COLORS).map(([k, v]) => (
-                   <div key={k} className="space-y-1">
-                      <p className={`text-[11px] font-semibold ${v.color}`}>{k} — {v.label}</p>
-                      <p className="text-[11px] text-slate-400 font-medium italic leading-tight">Reage a {k === 'D' ? 'Desafios e Resultados' : k === 'I' ? 'Pessoas e Networking' : k === 'S' ? 'Ritmo e Estabilidade' : 'Regras e Detalhes'}.</p>
-                   </div>
-                 ))}
-              </div>
-          </PanelCard>
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
         </div>
 
-        {!selectedPatientId ? (
-          <ContentCard><EmptyState icon={Gauge} title="Selecione um paciente" description="Escolha um paciente para realizar o DISC Avaliativo." /></ContentCard>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <PanelCard title="Tendência comportamental" icon={Target} className="relative overflow-hidden h-full" contentClassName="space-y-4">
-                <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-                   <Brain size={240} />
-                </div>
+        <SectionTitle
+          icon={Gauge}
+          title="DISC Avaliativo (Clínico)"
+          description="Mapeamento técnico de tendências comportamentais para uso em sessão."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                iconLeft={<Share2 size={14} />}
+                onClick={() => selectedPatientId ? setIsSharing(true) : info('Selecione um paciente', 'Escolha um prontuário para compartilhar o link.')}
+              >
+                Compartilhar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                iconLeft={<Plus size={14} />}
+                onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para realizar o mapeamento.')}
+              >
+                Novo Mapeamento
+              </Button>
+            </div>
+          }
+        />
 
-                <div className="flex flex-col items-center gap-4">
-                   <div className="shrink-0 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                      <RadarGraphic scores={history.length > 0 ? history[history.length - 1].scores : currentScores} />
-                   </div>
-                   <div className="flex-1 space-y-4 w-full">
-                      {(['D', 'I', 'S', 'C'] as const).map(k => {
-                         const lastRes = history.length > 0 ? history[history.length - 1] : null;
-                         const score = lastRes ? lastRes.scores[k] : currentScores[k];
-                         const v = BLOCK_COLORS[k];
-                         return (
-                           <div key={k} className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                 <span className="text-[11px] font-semibold text-slate-400">{v.label}</span>
-                                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/10 ${v.color}`}>{getLevel(score)}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <div className="min-w-0 space-y-3">
+            <ClinicalSidebar
+              patients={patients}
+              selectedPatientId={selectedPatientId}
+              onSelectPatient={id => setSelectedPatientId(id)}
+              patientSearch={patientSearch}
+              setPatientSearch={setPatientSearch}
+              isLoading={loadingPatients}
+              t={t}
+            />
+
+            <PanelCard title="Referência técnica" icon={BookOpen}>
+              <div className="space-y-3">
+                {Object.entries(BLOCK_COLORS).map(([k, v]) => (
+                  <div key={k} className="space-y-1">
+                    <p className={`text-[11px] font-medium ${v.color}`}>{k} — {v.label}</p>
+                    <p className="text-[11px] text-slate-500 italic leading-tight">Reage a {k === 'D' ? 'Desafios e Resultados' : k === 'I' ? 'Pessoas e Networking' : k === 'S' ? 'Ritmo e Estabilidade' : 'Regras e Detalhes'}.</p>
+                  </div>
+                ))}
+              </div>
+            </PanelCard>
+          </div>
+
+          <div className="min-w-0 space-y-4">
+            {!selectedPatientId ? (
+              <ContentCard><EmptyState icon={Gauge} title="Selecione um paciente" description="Escolha um paciente para realizar o DISC Avaliativo." /></ContentCard>
+            ) : (
+              <Tabs<DiscTab> items={discTabs} value={activeTab} onChange={setActiveTab} label="Seções do DISC">
+                {activeTab === 'summary' && (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    <PanelCard title="Tendência comportamental" icon={Target}>
+                      <div className="space-y-4">
+                        <div className="flex justify-center bg-slate-50 p-3 rounded-lg border border-slate-100 overflow-x-auto">
+                          <RadarGraphic scores={history.length > 0 ? history[history.length - 1].scores : currentScores} />
+                        </div>
+                        <div className="space-y-3">
+                          {(['D', 'I', 'S', 'C'] as const).map(k => {
+                            const lastRes = history.length > 0 ? history[history.length - 1] : null;
+                            const score = lastRes ? lastRes.scores[k] : currentScores[k];
+                            const v = BLOCK_COLORS[k];
+                            return (
+                              <div key={k} className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-medium text-slate-600">{v.label}</span>
+                                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${v.bg} ${v.color}`}>{getLevel(score)}</span>
+                                </div>
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className={`h-full transition-all duration-1000 ${v.color.replace('text', 'bg')}`} style={{ width: `${(score / 5) * 100}%` }} />
+                                </div>
                               </div>
-                              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                 <div className={`h-full transition-all duration-1000 ${v.color.replace('text', 'bg')}`} style={{ width:`${(score / 5) * 100}%` }} />
-                              </div>
-                           </div>
-                         );
-                      })}
-                      <div className="pt-3 border-t border-slate-100 text-slate-500">
-                         <p className="text-[11px] font-semibold italic leading-relaxed">Perfil Técnico da Última Observação</p>
+                            );
+                          })}
+                          <p className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 italic">Perfil Técnico da Última Observação</p>
+                        </div>
                       </div>
-                   </div>
-                </div>
-              </PanelCard>
+                    </PanelCard>
 
-              <div className="space-y-4">
-                 <PanelCard title="Evolução de adaptabilidade" icon={TrendingUp} contentClassName="space-y-3">
-                    <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-5 flex items-end gap-2 relative">
-                       {history.length < 2 && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-lg">
-                            <p className="text-[11px] font-semibold text-slate-400">Ponto único de observação</p>
-                         </div>
-                       )}
-                       {history.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
-                         <div key={res.id} className="flex-1 flex flex-col justify-end gap-1 h-full min-w-[30px] group cursor-pointer relative" onClick={() => setDetailResult(res)}>
-                            <div className="bg-blue-500/20 w-full rounded-t-lg" style={{ height: `${(res.scores.C / 5) * 100}%` }} />
+                    <PanelCard title="Evolução de adaptabilidade" icon={TrendingUp} className="self-start">
+                      <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-3 flex items-end gap-2 relative">
+                        {history.length < 2 && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 rounded-lg">
+                            <p className="text-[11px] text-slate-500">Ponto único de observação</p>
+                          </div>
+                        )}
+                        {history.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
+                          <div key={res.id} className="flex-1 flex flex-col justify-end gap-1 h-full min-w-[30px] group cursor-pointer relative" onClick={() => setDetailResult(res)}>
+                            <div className="bg-blue-500/20 w-full rounded-t-md" style={{ height: `${(res.scores.C / 5) * 100}%` }} />
                             <div className="bg-emerald-500/40 w-full" style={{ height: `${(res.scores.S / 5) * 100}%` }} />
                             <div className="bg-amber-500/60 w-full" style={{ height: `${(res.scores.I / 5) * 100}%` }} />
-                            <div className="bg-red-500/80 w-full rounded-b-lg" style={{ height: `${(res.scores.D / 5) * 100}%` }} />
-                         </div>
-                       ))}
-                    </div>
-                 </PanelCard>
+                            <div className="bg-red-500/80 w-full rounded-b-md" style={{ height: `${(res.scores.D / 5) * 100}%` }} />
+                          </div>
+                        ))}
+                      </div>
+                    </PanelCard>
+                  </div>
+                )}
 
-                 <PanelCard title="Histórico de mapeamento" icon={History} contentClassName="p-0">
-                    <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
-                       {history.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => (
-                         <div key={res.id} className="px-6 py-4 hover:bg-slate-50 transition-all group flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4 min-w-0">
-                               <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                     <Clock size={11} className="text-violet-400 shrink-0" />
-                                     <span className="text-xs font-semibold text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
-                                     {res.analysis && <Sparkles size={11} className="text-amber-400" />}
-                                  </div>
-                                  <div className="grid grid-cols-4 gap-2">
-                                     {Object.entries(res.scores).map(([k, v]: any) => (
-                                        <div key={k} className="flex flex-col">
-                                           <span className="text-[11px] font-semibold text-slate-400">{k}</span>
-                                           <span className={`text-[12px] font-semibold ${BLOCK_COLORS[k as keyof typeof BLOCK_COLORS].color}`}>{v}</span>
-                                        </div>
-                                     ))}
-                                  </div>
-                               </div>
+                {activeTab === 'history' && (
+                  <PanelCard title="Histórico de mapeamento" icon={History} contentClassName="p-0">
+                    <div className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto custom-scrollbar">
+                      {history.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => (
+                        <div key={res.id} className="px-3 py-3 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Clock size={12} className="text-primary-500 shrink-0" />
+                              <span className="text-xs font-medium text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
+                              {res.analysis && <Sparkles size={12} className="text-primary-500" />}
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                               <button
-                                 onClick={() => generateAIResult(res.id)}
-                                 title="Análise Bia"
-                                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${res.analysis ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-300 hover:text-violet-500'}`}
-                               >
-                                  <Sparkles size={13} className={analyzingId === res.id ? 'animate-spin' : ''} />
-                               </button>
-                               <button
-                                 onClick={() => { setDetailResult(res); setShowAnswers(false); }}
-                                 className="flex items-center gap-1.5 px-3 h-8 bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white rounded-lg text-[11px] font-semibold transition-all"
-                               >
-                                 Ver <ChevronRight size={12} />
-                               </button>
+                            <div className="grid grid-cols-4 gap-3">
+                              {Object.entries(res.scores).map(([k, v]: any) => (
+                                <div key={k} className="flex items-center gap-1">
+                                  <span className="text-[11px] text-slate-500">{k}</span>
+                                  <span className={`text-xs font-medium ${BLOCK_COLORS[k as keyof typeof BLOCK_COLORS].color}`}>{v}</span>
+                                </div>
+                              ))}
                             </div>
-                         </div>
-                       ))}
-                       {history.length === 0 && (
-                         <div className="p-20 text-center space-y-3 opacity-30">
-                            <FileText size={40} className="mx-auto" />
-                            <p className="text-[11px] font-semibold">Sem lançamentos</p>
-                         </div>
-                       )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <IconButton
+                              variant={res.analysis ? 'primary' : 'outline'}
+                              size="sm"
+                              aria-label="Análise Bia"
+                              title="Análise Bia"
+                              loading={analyzingId === res.id}
+                              onClick={() => generateAIResult(res.id)}
+                            >
+                              <Sparkles size={14} />
+                            </IconButton>
+                            <Button variant="outline" size="sm" iconRight={<ChevronRight size={14} />} onClick={() => { setDetailResult(res); setShowAnswers(false); }}>
+                              Ver
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {history.length === 0 && (
+                        <EmptyState icon={FileText} title="Sem lançamentos" />
+                      )}
                     </div>
-                 </PanelCard>
-              </div>
-            </div>
+                  </PanelCard>
+                )}
+              </Tabs>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
 
-    <Modal
+      {/* Apply Modal */}
+      <Modal
         isOpen={isApplying}
         onClose={() => setIsApplying(false)}
         title="Mapeamento DISC Clínico"
         subtitle={`Avaliando Perfil: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}`}
-        maxWidth="max-w-4xl"
+        size="2xl"
         footer={
-          <div className="flex gap-3 w-full">
-            <Button variant="outline" radius="xl" onClick={() => setIsApplying(false)} className="flex-1">Cancelar</Button>
+          <div className="flex items-center justify-between gap-3 w-full">
+            <Button variant="outline" size="sm" onClick={() => setIsApplying(false)}>Cancelar</Button>
             <Button
-                variant="primary"
-                radius="xl"
-                onClick={handleSave}
-                isLoading={isSaving}
-                className="flex-2 bg-violet-600 text-white"
+              variant="primary"
+              size="sm"
+              onClick={handleSave}
+              loading={isSaving}
+              iconRight={<Save size={14} />}
             >
-                Processar Perfil Marston <Save size={18} className="ml-2" />
+              Processar Perfil Marston
             </Button>
           </div>
         }
       >
-        <div className="space-y-10 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
-           <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 italic text-[11px] font-medium text-slate-500">
-              "Observe as tendências comportamentais do paciente durante as sessões e responda de 1 a 5 o quanto cada fator se manifesta."
-           </div>
+        <div className="space-y-3">
+          <Alert variant="info">
+            "Observe as tendências comportamentais do paciente durante as sessões e responda de 1 a 5 o quanto cada fator se manifesta."
+          </Alert>
 
-           {(['D', 'I', 'S', 'C'] as const).map(block => (
-              <div key={block} className="space-y-8">
-                 <div className={`p-4 rounded-lg border ${BLOCK_COLORS[block].bg} ${BLOCK_COLORS[block].border} flex items-center gap-3`}>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white bg-current ${BLOCK_COLORS[block].color}`}>
-                       <span className="font-semibold text-lg">{block}</span>
-                    </div>
-                    <div>
-                       <p className={`text-xs font-semibold ${BLOCK_COLORS[block].color}`}>{BLOCK_COLORS[block].label}</p>
-                       <p className="text-[11px] text-slate-500 font-semibold">Dimensionamento de Fator</p>
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-1 gap-3">
-                    {DISC_ENTRIES.filter(e => e.block === block).map(entry => (
-                       <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 bg-white border border-slate-100 rounded-lg hover:border-violet-200 transition-all shadow-sm">
-                          <span className="text-xs font-semibold text-slate-700 flex-1 leading-tight">{entry.text}</span>
-                          <div className="flex gap-1.5 self-end">
-                             {[1, 2, 3, 4, 5].map(v => (
-                               <button
-                                 key={v}
-                                 onClick={() => setCurrentAnswers({ ...currentAnswers, [entry.id]: v })}
-                                 className={`w-11 h-11 rounded-lg text-xs font-semibold border transition-all ${
-                                   currentAnswers[entry.id] === v
-                                   ? `bg-slate-950 text-white border-slate-950 shadow-sm scale-[1.1]`
-                                   : 'bg-white text-slate-300 border-slate-100 hover:border-violet-200 hover:text-violet-500'
-                                 }`}
-                               >
-                                  {v}
-                               </button>
-                             ))}
-                          </div>
-                       </div>
-                    ))}
-                 </div>
+          <Tabs<DiscBlock> items={applyTabs} value={applyBlock} onChange={setApplyBlock} label="Fatores do DISC">
+            <div className="space-y-3">
+              <div className={`p-3 rounded-lg border ${BLOCK_COLORS[applyBlock].bg} ${BLOCK_COLORS[applyBlock].border} flex items-center gap-3`}>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center bg-white border ${BLOCK_COLORS[applyBlock].border} ${BLOCK_COLORS[applyBlock].color}`}>
+                  <span className="font-medium text-sm">{applyBlock}</span>
+                </div>
+                <div>
+                  <p className={`text-xs font-medium ${BLOCK_COLORS[applyBlock].color}`}>{BLOCK_COLORS[applyBlock].label}</p>
+                  <p className="text-[11px] text-slate-500">Dimensionamento de Fator</p>
+                </div>
               </div>
-           ))}
+
+              <div className="grid grid-cols-1 gap-2">
+                {DISC_ENTRIES.filter(e => e.block === applyBlock).map(entry => (
+                  <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 bg-white border border-slate-200 rounded-lg hover:border-primary-200 transition-colors">
+                    <span className="text-[13px] text-slate-700 flex-1 leading-snug">{entry.text}</span>
+                    <div className="flex gap-1.5 self-end shrink-0">
+                      {[1, 2, 3, 4, 5].map(v => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setCurrentAnswers({ ...currentAnswers, [entry.id]: v })}
+                          className={`w-9 h-9 rounded-lg text-xs font-medium border transition-colors ${
+                            currentAnswers[entry.id] === v
+                              ? 'bg-primary-600 text-white border-primary-600'
+                              : 'bg-white text-slate-500 border-slate-200 hover:border-primary-300'
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Tabs>
         </div>
       </Modal>
 
+      {/* Share Modal */}
       <Modal
         isOpen={isSharing}
         onClose={() => setIsSharing(false)}
         title="Compartilhar Perfil DISC"
         subtitle="Enviar link de mapeamento para resposta externa do paciente."
-        maxWidth="max-w-md"
+        size="md"
+        footer={
+          <div className="flex items-center justify-between gap-3 w-full">
+            <Button variant="ghost" size="sm" onClick={() => setIsSharing(false)}>Cancelar</Button>
+            <Button variant="success" size="sm" onClick={handleWhatsApp}>Enviar via WhatsApp</Button>
+          </div>
+        }
       >
-        <div className="space-y-6">
-           <div className="p-6 bg-violet-50 rounded-lg border border-violet-100 space-y-3">
-              <p className="text-[11px] font-semibold text-violet-600 leading-none">Link de Resposta Segura</p>
-              <div className="flex gap-2">
-                 <input
-                   readOnly
-                   value={getShareLink()}
-                   className="flex-1 bg-white border border-violet-200 rounded-lg px-4 py-3 text-[11px] font-medium text-slate-500 outline-none"
-                 />
-                 <button
-                   onClick={handleCopyLink}
-                   className="w-12 h-12 bg-white border border-violet-200 rounded-lg flex items-center justify-center text-violet-600 hover:bg-violet-600 hover:text-white transition-all shadow-sm"
-                 >
-                    {copied ? <CheckCircle size={18} /> : <Copy size={18} />}
-                 </button>
-              </div>
-           </div>
-
-           <div className="space-y-3">
-              <Button
-                variant="primary"
-                radius="xl"
-                className="w-full py-8 bg-emerald-600 border-b-4 border-emerald-800 hover:bg-slate-950"
-                onClick={handleWhatsApp}
-              >
-                 Enviar via WhatsApp
-              </Button>
-              <Button
-                variant="outline"
-                radius="xl"
-                className="w-full py-8 text-slate-400 font-semibold text-[11px]"
-                onClick={() => setIsSharing(false)}
-              >
-                 Cancelar
-              </Button>
-           </div>
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-slate-600">Link de Resposta Segura</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              readOnly
+              aria-label="Link de resposta segura"
+              wrapperClassName="flex-1"
+              className="font-mono"
+              value={getShareLink()}
+            />
+            <Button variant="outline" onClick={handleCopyLink} iconLeft={copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}>
+              {copied ? 'Copiado!' : 'Copiar'}
+            </Button>
+          </div>
         </div>
       </Modal>
 
       {/* Detail Modal */}
-      {detailResult && (
-        <div className="fixed inset-0 mt-0 bg-slate-950/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-lg shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{maxHeight:'90vh'}}>
-
-            <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
-               <div>
-                  <p className="text-[11px] font-semibold text-violet-500 mb-1">Perfil Comportamental Consolidado</p>
-                  {(() => {
-                    const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                    return <h2 className="text-xl font-semibold text-slate-900 leading-tight">{patientName}</h2>;
-                  })()}
-                  <p className="text-xs font-medium text-slate-400 mt-0.5">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-               </div>
-               <div className="flex items-center gap-2 shrink-0">
-                  {(() => {
-                    const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                    return (<>
-                      <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14}/>} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                      <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14}/>} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-sm shadow-slate-200">PDF</Button>
-                    </>);
-                  })()}
-                  <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
-                     <Plus size={20} className="rotate-45" />
-                  </button>
-               </div>
-            </div>
-
-            <div className="overflow-y-auto flex-1 px-7 py-6 space-y-6 custom-scrollbar pb-12">
-              {(() => {
-                const { parts, conclusion, dominant, dominantLabel } = getClinicalAnalysis(detailResult.scores);
-                return (<>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                   <div className="bg-slate-950 rounded-lg p-6 flex items-center justify-center shadow-sm" style={{minHeight:'200px'}}>
+      <Modal
+        isOpen={!!detailResult}
+        onClose={() => { setDetailResult(null); setShowAnswers(false); }}
+        size="2xl"
+        title={detailPatientName}
+        subtitle={detailResult ? `Perfil Comportamental Consolidado · ${new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : undefined}
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+            <Button variant="ghost" size="sm" onClick={() => { setDetailResult(null); setShowAnswers(false); }}>Fechar</Button>
+            {detailResult && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" iconLeft={<Printer size={14} />} onClick={() => handlePrintReport(detailResult, detailPatientName)}>Imprimir</Button>
+                <Button variant="primary" size="sm" iconLeft={<FileText size={14} />} onClick={() => handleDownloadPDF(detailResult, detailPatientName)}>PDF</Button>
+              </div>
+            )}
+          </div>
+        }
+      >
+        {detailResult && (() => {
+          const { parts, conclusion, dominantLabel } = getClinicalAnalysis(detailResult.scores);
+          const hasAnswers = !!detailResult.answers && Object.keys(detailResult.answers).length > 0;
+          const detailTabs = [
+            { id: 'summary', label: 'Resultado', icon: Layout },
+            { id: 'ai', label: 'Análise Bia', icon: Sparkles },
+            ...(hasAnswers ? [{ id: 'answers', label: 'Respostas', icon: FileText }] : []),
+          ] as { id: DiscDetailTab; label: string; icon: typeof Layout }[];
+          return (
+            <Tabs<DiscDetailTab> items={detailTabs} value={detailTabs.some(d => d.id === detailTab) ? detailTab : 'summary'} onChange={setDetailTab} label="Detalhes da avaliação">
+              {detailTab === 'summary' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-center justify-center overflow-x-auto">
                       <RadarGraphic scores={detailResult.scores} />
-                   </div>
-                   <div className="space-y-3">
+                    </div>
+                    <div className="space-y-2">
                       {(['D', 'I', 'S', 'C'] as const).map(k => {
-                         const score = detailResult.scores[k];
-                         const level = getLevel(score);
-                         const v = BLOCK_COLORS[k];
-                         return (
-                           <div key={k} className={`px-4 py-3 rounded-lg border ${v.border} ${v.bg}`}>
-                              <div className="flex items-center justify-between mb-2">
-                                 <h4 className={`text-[11px] font-semibold ${v.color}`}>{k} — {v.label}</h4>
-                                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/80 ${v.color}`}>{level}</span>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                 <div className={`text-2xl font-semibold w-12 ${v.color}`}>{score.toFixed(2)}</div>
-                                 <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div className={`h-full ${v.color.replace('text', 'bg')}`} style={{ width:`${(score / 5) * 100}%` }} />
-                                 </div>
-                              </div>
-                           </div>
-                         );
-                      })}
-                   </div>
-                </div>
-
-                <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
-                   <div className="bg-slate-50 px-8 py-5 flex items-center gap-3 border-b border-slate-100">
-                      <Brain size={18} className="text-violet-500" />
-                      <h3 className="text-xs font-semibold text-slate-700">Análise Comportamental — DISC (Protocolo Marston)</h3>
-                   </div>
-                   <div className="p-8 space-y-4">
-                      {parts.map((part, i) => {
-                        const [bold, ...rest] = part.split(':');
+                        const score = detailResult.scores[k];
+                        const level = getLevel(score);
+                        const v = BLOCK_COLORS[k];
                         return (
-                          <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
-                             <span className="w-1.5 h-1.5 rounded-full bg-violet-300 mt-2 shrink-0" />
-                             <p><span className="font-semibold text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
+                          <div key={k} className={`px-3 py-2.5 rounded-lg border ${v.border} ${v.bg}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className={`text-xs font-medium ${v.color}`}>{k} — {v.label}</h4>
+                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md bg-white/80 ${v.color}`}>{level}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className={`text-base font-medium w-12 ${v.color}`}>{score.toFixed(2)}</div>
+                              <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div className={`h-full ${v.color.replace('text', 'bg')}`} style={{ width: `${(score / 5) * 100}%` }} />
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
-                      <div className="mt-4 p-4 bg-violet-50 border border-violet-100 rounded-lg text-sm text-slate-700 leading-relaxed">
-                         <span className="font-semibold text-violet-700">Fator Dominante — {dominantLabel}: </span>{conclusion}
+                    </div>
+                  </div>
+
+                  <PanelCard title="Análise Comportamental — DISC (Protocolo Marston)" icon={Brain}>
+                    <div className="space-y-3">
+                      {parts.map((part, i) => {
+                        const [bold, ...rest] = part.split(':');
+                        return (
+                          <div key={i} className="flex gap-3 text-[13px] leading-relaxed text-slate-600">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary-300 mt-2 shrink-0" />
+                            <p><span className="font-medium text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
+                          </div>
+                        );
+                      })}
+                      <div className="p-3 bg-primary-50 border border-primary-100 rounded-lg text-[13px] text-slate-700 leading-relaxed">
+                        <span className="font-medium text-primary-700">Fator Dominante — {dominantLabel}: </span>{conclusion}
                       </div>
-                   </div>
+                    </div>
+                  </PanelCard>
                 </div>
+              )}
 
-                {detailResult.analysis && (
-                  <div className="bg-violet-600 rounded-lg p-5 text-white shadow-sm shadow-violet-100">
-                     <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
-                        <Sparkles size={14} className="text-amber-400" /> Análise Bia (IA)
-                     </h3>
-                     <div className="text-sm text-violet-100 space-y-0">
-                        {renderMarkdown(detailResult.analysis!)}
-                     </div>
-                  </div>
-                )}
+              {detailTab === 'ai' && (
+                detailResult.analysis ? (
+                  <PanelCard title="Análise Bia (IA)" icon={Sparkles}>
+                    <div className="text-[13px] text-slate-700 space-y-0">
+                      {renderMarkdown(detailResult.analysis!)}
+                    </div>
+                  </PanelCard>
+                ) : (
+                  <ContentCard>
+                    <EmptyState
+                      icon={Sparkles}
+                      title="Bia — IA Clínica"
+                      description="Gere uma análise aprofundada com inteligência artificial para este perfil."
+                      action={<Button variant="primary" size="sm" loading={analyzingId === detailResult.id} onClick={() => generateAIResult(detailResult.id)}>Analisar</Button>}
+                    />
+                  </ContentCard>
+                )
+              )}
 
-                {!detailResult.analysis && (
-                  <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
-                     <Sparkles size={32} className="text-slate-300 shrink-0" />
-                     <div className="flex-1">
-                        <p className="text-xs font-semibold text-slate-500 mb-1">Bia — IA Clínica</p>
-                        <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este perfil.</p>
-                     </div>
-                     <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-violet-600 text-white rounded-lg px-6 py-3 shrink-0">Analisar</Button>
-                  </div>
-                )}
-
-                {detailResult.answers && Object.keys(detailResult.answers).length > 0 && (
-                  <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
-                     <button
-                       onClick={() => setShowAnswers(!showAnswers)}
-                       className="w-full bg-slate-50 px-8 py-5 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 transition-all"
-                     >
-                        <div className="flex items-center gap-3">
-                           <FileText size={18} className="text-slate-400" />
-                           <h3 className="text-xs font-semibold text-slate-700">Respostas Registradas (30 itens)</h3>
+              {detailTab === 'answers' && hasAnswers && (
+                <PanelCard title="Respostas Registradas (30 itens)" icon={FileText} contentClassName="p-0">
+                  <div className="divide-y divide-slate-100">
+                    {DISC_ENTRIES.map(item => {
+                      const val = detailResult.answers![item.id];
+                      const v = BLOCK_COLORS[item.block as keyof typeof BLOCK_COLORS];
+                      return (
+                        <div key={item.id} className="px-3 py-2.5 flex items-start gap-3 hover:bg-slate-50/60">
+                          <span className="text-[11px] text-slate-400 w-6 shrink-0 mt-0.5">{String(DISC_ENTRIES.indexOf(item)+1).padStart(2,'0')}</span>
+                          <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md shrink-0 mt-0.5 ${v.bg} ${v.color}`}>{item.block}</span>
+                          <p className="flex-1 text-[13px] text-slate-600 leading-relaxed">{item.text}</p>
+                          <div className="shrink-0 text-right">
+                            <span className={`text-sm font-medium ${v.color}`}>{val ?? '—'}</span>
+                          </div>
                         </div>
-                        <ChevronRight size={18} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
-                     </button>
-                     {showAnswers && (
-                       <div className="divide-y divide-slate-50">
-                          {DISC_ENTRIES.map(item => {
-                            const val = detailResult.answers![item.id];
-                            const v = BLOCK_COLORS[item.block as keyof typeof BLOCK_COLORS];
-                            return (
-                              <div key={item.id} className="px-8 py-4 flex items-start gap-4 hover:bg-slate-50/60">
-                                 <span className="text-[11px] font-semibold text-slate-300 w-6 shrink-0 mt-0.5">{String(DISC_ENTRIES.indexOf(item)+1).padStart(2,'0')}</span>
-                                 <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${v.bg} ${v.color}`}>{item.block}</span>
-                                 <p className="flex-1 text-sm text-slate-600 leading-relaxed">{item.text}</p>
-                                 <div className="shrink-0 text-right">
-                                    <span className={`text-lg font-semibold ${v.color}`}>{val ?? '—'}</span>
-                                 </div>
-                              </div>
-                            );
-                          })}
-                       </div>
-                     )}
+                      );
+                    })}
                   </div>
-                )}
-                </>);
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+                </PanelCard>
+              )}
+            </Tabs>
+          );
+        })()}
+      </Modal>
+    </PageWrapper>
   );
 };

@@ -22,8 +22,13 @@ import {
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
-import { PageHeader } from '../../components/UI/PageHeader';
-import { Button } from '../../components/UI/Button';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { Patient } from '../../types';
 import { api } from '../../services/api';
@@ -178,19 +183,22 @@ export const CoupleTherapyPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      <PageHeader
-        title="Terapia de Casal & Conjugalidade"
-        subtitle={selectedPatientId ? `Paciente: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}` : "Mapeamento de vínculos, contratos e mapas do amor."}
-        icon={<Users className="text-emerald-500" />}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+            Voltar
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-        {/* Lado Esquerdo - Seleção de Paciente */}
-        <div className="space-y-6">
-          <ClinicalSidebar 
+        <SectionTitle
+          icon={Users}
+          title="Terapia de Casal & Conjugalidade"
+          description={selectedPatientId ? `Paciente: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}` : "Mapeamento de vínculos, contratos e mapas do amor."}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+          <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId ? String(selectedPatientId) : null}
             onSelectPatient={(id) => setSelectedPatientId(id)}
@@ -198,170 +206,139 @@ export const CoupleTherapyPage: React.FC = () => {
             setPatientSearch={setPatientSearch}
             isLoading={isLoadingPatients}
             t={t}
-
           />
-        </div>
 
-        {/* Lado Direito - Conteúdo */}
-        {!selectedPatientId ? (
-          <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-20 text-center space-y-4">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
-              <Users size={32} />
-            </div>
-            <p className="text-xs font-semibold text-slate-400 leading-loose">Selecione um prontuário de casal para iniciar o mapeamento.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            {/* Lado Esquerdo - Mapa do Amor */}
-            <div className="space-y-8">
-               <div className="bg-white rounded-[2.5rem] border border-slate-100 p-10 shadow-sm space-y-10">
-                  <div className="flex items-center justify-between">
-                     <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-3">
-                        <Heart className="text-rose-400" size={24} /> Mapa do Amor (Gottman)
-                     </h3>
-                     <div className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                        Sincronização Ativa
-                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     {/* Parceiro A */}
-                     <div className="space-y-6">
-                        <div className="flex items-center gap-3 border-b border-emerald-50 pb-4">
-                           <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-semibold">A</div>
-                           <p className="text-[11px] font-semibold text-slate-500">Interesses & Sonhos</p>
-                        </div>
-                        <div className="space-y-3">
-                           {data.loveMap.filter(i => i.partner === 'A').map(item => (
-                              <div key={item.id} className="group flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100 transition-all hover:bg-white hover:border-emerald-200">
-                                 <div className="flex items-center gap-3">
-                                    <div className="p-1.5 bg-white rounded-lg shadow-sm text-emerald-500"><CheckCircle2 size={12}/></div>
-                                    <span className="text-xs font-semibold text-slate-700">{item.interest}</span>
-                                 </div>
-                                 <button onClick={() => removeMapItem(item.id)} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
-                                    <Trash2 size={14} />
-                                 </button>
+          <div className="min-w-0">
+            {!selectedPatientId ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Users}
+                  title="Terapia de Casal"
+                  description="Selecione um prontuário de casal para iniciar o mapeamento."
+                />
+              </ContentCard>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                <PanelCard
+                  title="Mapa do Amor (Gottman)"
+                  icon={Heart}
+                  className="min-w-0"
+                  action={<Badge color="default" size="sm">Sincronização Ativa</Badge>}
+                >
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {(['A', 'B'] as const).map(partner => (
+                        <div key={partner} className="space-y-2 min-w-0">
+                          <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                            <Badge color={partner === 'A' ? 'success' : 'danger'} size="md">{partner}</Badge>
+                            <p className="text-xs font-medium text-slate-600">Interesses & Sonhos</p>
+                          </div>
+                          <div className="space-y-2">
+                            {data.loveMap.filter(i => i.partner === partner).map(item => (
+                              <div key={item.id} className="group flex items-center justify-between gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 hover:bg-white transition-colors">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <CheckCircle2 size={14} className={`shrink-0 ${partner === 'A' ? 'text-emerald-500' : 'text-rose-500'}`} />
+                                  <span className="text-xs text-slate-700">{item.interest}</span>
+                                </div>
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Remover interesse"
+                                  title="Remover interesse"
+                                  className="hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                  onClick={() => removeMapItem(item.id)}
+                                >
+                                  <Trash2 size={14} />
+                                </IconButton>
                               </div>
-                           ))}
+                            ))}
+                          </div>
                         </div>
-                     </div>
+                      ))}
+                    </div>
 
-                     {/* Parceiro B */}
-                     <div className="space-y-6">
-                        <div className="flex items-center gap-3 border-b border-rose-50 pb-4">
-                           <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center font-semibold">B</div>
-                           <p className="text-[11px] font-semibold text-slate-500">Interesses & Sonhos</p>
-                        </div>
-                        <div className="space-y-3">
-                           {data.loveMap.filter(i => i.partner === 'B').map(item => (
-                              <div key={item.id} className="group flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100 transition-all hover:bg-white hover:border-rose-200">
-                                 <div className="flex items-center gap-3">
-                                    <div className="p-1.5 bg-white rounded-lg shadow-sm text-rose-500"><CheckCircle2 size={12}/></div>
-                                    <span className="text-xs font-semibold text-slate-700">{item.interest}</span>
-                                 </div>
-                                 <button onClick={() => removeMapItem(item.id)} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
-                                    <Trash2 size={14} />
-                                 </button>
-                              </div>
-                           ))}
-                        </div>
-                     </div>
+                    <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100">
+                      <Select
+                        aria-label="Parceiro"
+                        wrapperClassName="sm:w-36"
+                        value={newMapItem.partner}
+                        onChange={e => setNewMapItem({ ...newMapItem, partner: e.target.value as 'A' | 'B' })}
+                      >
+                        <option value="A">Parceiro A</option>
+                        <option value="B">Parceiro B</option>
+                      </Select>
+                      <Input
+                        aria-label="Novo interesse"
+                        wrapperClassName="flex-1"
+                        placeholder="Novo interesse..."
+                        value={newMapItem.interest}
+                        onChange={e => setNewMapItem({ ...newMapItem, interest: e.target.value })}
+                      />
+                      <Button variant="primary" iconLeft={<Plus size={14} />} onClick={addMapItem}>
+                        Adicionar
+                      </Button>
+                    </div>
                   </div>
+                </PanelCard>
 
-                  {/* Add New Map Item */}
-                  <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100/50 border-dashed space-y-5">
-                     <div className="flex gap-4">
-                        <select 
-                           value={newMapItem.partner}
-                           onChange={e => setNewMapItem({...newMapItem, partner: e.target.value as 'A' | 'B'})}
-                           className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-[11px] font-semibold outline-none focus:ring-4 focus:ring-emerald-50 shadow-sm"
-                        >
-                           <option value="A">Parceiro A</option>
-                           <option value="B">Parceiro B</option>
-                        </select>
-                        <input 
-                           placeholder="Novo interesse..."
-                           value={newMapItem.interest}
-                           onChange={e => setNewMapItem({...newMapItem, interest: e.target.value})}
-                           className="flex-1 bg-white border border-slate-200 rounded-lg px-5 py-3 text-xs font-semibold outline-none focus:ring-4 focus:ring-emerald-50 shadow-sm"
+                <div className="space-y-3 min-w-0">
+                  <PanelCard title="Monitor de Tensão Sistêmica" icon={Activity}>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-[11px] font-medium">
+                        <span className="text-emerald-600">Conexão Terapêutica</span>
+                        <span className="text-rose-600">Conflito Agudo</span>
+                      </div>
+                      <div className="h-5 w-full bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200 relative group cursor-pointer">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${data.conflictLevel > 7 ? 'bg-rose-500' : data.conflictLevel > 4 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+                          style={{ width: `${data.conflictLevel * 10}%` }}
                         />
-                        <Button 
-                           onClick={addMapItem}
-                           className="bg-emerald-600 hover:bg-slate-950 text-white rounded-lg px-6 py-3 font-semibold text-[11px] shadow-sm shadow-emerald-100"
-                        >
-                           <Plus size={16} />
-                        </Button>
-                     </div>
-                  </div>
-               </div>
-            </div>
-
-            {/* Lado Direito - Conflito e Contratos */}
-            <div className="space-y-8">
-               {/* Monitor de Tensão */}
-               <div className="bg-white rounded-[2.5rem] border border-slate-100 p-10 shadow-sm space-y-8">
-                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                     <Activity className="text-amber-500" size={18} /> Monitor de Tensão Sistêmica
-                  </h3>
-                  
-                  <div className="space-y-6">
-                     <div className="flex items-center justify-between text-[11px] font-semibold">
-                        <span className="text-emerald-500">Conexão Terapêutica</span>
-                        <span className="text-rose-500">Conflito Agudo</span>
-                     </div>
-                     <div className="h-6 w-full bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200 relative group cursor-pointer">
-                        <div 
-                           className={`h-full rounded-full transition-all duration-1000 bg-gradient-to-r ${data.conflictLevel > 7 ? 'from-amber-400 to-rose-600' : 'from-emerald-400 to-amber-400 font-semibold'}`}
-                           style={{ width: `${data.conflictLevel * 10}%` }}
+                        <input
+                          type="range" min="1" max="10" step="1"
+                          aria-label="Nível de conflito"
+                          value={data.conflictLevel}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setData({ ...data, conflictLevel: val });
+                            handleSave({ ...data, conflictLevel: val });
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
                         />
-                        <input 
-                           type="range" min="1" max="10" step="1"
-                           value={data.conflictLevel}
-                           onChange={e => {
-                              const val = Number(e.target.value);
-                              setData({...data, conflictLevel: val});
-                              handleSave({...data, conflictLevel: val});
-                           }}
-                           className="absolute inset-0 opacity-0 cursor-pointer"
-                        />
-                     </div>
-                     <div className="flex justify-between px-2">
-                        {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                           <span key={n} className={`text-[11px] font-semibold ${data.conflictLevel === n ? 'text-slate-900 scale-125' : 'text-slate-300'}`}>{n}</span>
+                      </div>
+                      <div className="flex justify-between px-1">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                          <span key={n} className={`text-[11px] ${data.conflictLevel === n ? 'text-slate-900 font-medium' : 'text-slate-400'}`}>{n}</span>
                         ))}
-                     </div>
-                  </div>
-               </div>
+                      </div>
+                    </div>
+                  </PanelCard>
 
-               {/* Contratos & Combinados */}
-               <div className="bg-slate-950 rounded-[2.5rem] p-10 text-white shadow-sm space-y-8 relative overflow-hidden">
-                  <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-[80px]" />
-                  <h3 className="text-sm font-semibold flex items-center gap-2 relative z-10">
-                     <Layers size={18} className="text-emerald-400" /> Acordos & Contratos de Convivência
-                  </h3>
-
-                  <div className="space-y-4 relative z-10">
-                     <textarea 
+                  <PanelCard title="Acordos & Contratos de Convivência" icon={Layers}>
+                    <div className="space-y-3">
+                      <Textarea
+                        aria-label="Acordos e contratos de convivência"
                         rows={8}
-                        className="w-full bg-white/5 border border-white/10 rounded-[2rem] p-8 text-xs font-semibold leading-relaxed focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-white/20 resize-none shadow-inner"
                         placeholder="Quais são os combinados estabelecidos em sessão? Utilize este espaço para consolidar o contrato de convivência e as metas do casal."
                         value={data.agreements.join('\n')}
-                        onChange={e => setData({...data, agreements: e.target.value.split('\n')})}
-                     />
-                     <Button 
+                        onChange={e => setData({ ...data, agreements: e.target.value.split('\n') })}
+                      />
+                      <Button
+                        variant="primary"
                         fullWidth
                         onClick={() => handleSave()}
                         isLoading={isSaving}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg py-6 font-semibold text-[11px] ring-4 ring-emerald-500/10"
-                     >
-                        Consolidar Acordo <Save size={16} className="ml-2" />
-                     </Button>
-                  </div>
-               </div>
-            </div>
+                        iconRight={<Save size={14} />}
+                      >
+                        Consolidar Acordo
+                      </Button>
+                    </div>
+                  </PanelCard>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };

@@ -37,9 +37,16 @@ import { Modal } from '../../components/UI/Modal';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { PageHeader } from '../../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
+import { PanelCard } from '../../components/UI/PanelCard';
+import { Tabs } from '../../components/UI/Tabs';
+import { Button, IconButton } from '../../components/UI/Button';
+import { Input, Textarea, Select } from '../../components/UI/Input';
+import { Badge } from '../../components/UI/Badge';
+import { EmptyState } from '../../components/UI/EmptyState';
+
+import { Alert } from '../../components/UI/Alert';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
-import { Button } from '../../components/UI/Button';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
 import { Patient } from '../../types';
 import { api } from '../../services/api';
@@ -646,8 +653,8 @@ export const BDIPage: React.FC = () => {
     return (
       <div className="space-y-4 w-full">
         <div className="text-center">
-          <p className={`text-6xl font-semibold ${level.color}`}>{score}</p>
-          <p className={`text-sm font-semibold mt-2 ${level.color}`}>{level.label}</p>
+          <p className={`text-xl font-medium ${level.color}`}>{score}</p>
+          <p className={`text-xs font-medium mt-1 ${level.color}`}>{level.label}</p>
         </div>
         <div className="h-4 bg-white/20 rounded-full overflow-hidden">
           <div className="h-full bg-rose-400 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
@@ -662,391 +669,335 @@ export const BDIPage: React.FC = () => {
 
   return (
     <>
-      <div className="space-y-8 animate-fadeIn mb-8">
-      <PageHeader
-        title="BDI-II"
-        subtitle="Inventário de Depressão de Beck — Avaliação padronizada de sintomas depressivos."
-        icon={<Activity className="text-rose-600" />}
-        showBackButton
-        onBackClick={() => navigate('/caixa-ferramentas')}
-        actions={
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              radius="xl"
-              leftIcon={<Plus size={16} />}
-              onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para aplicar a escala.')}
-              className="bg-rose-600 text-white shadow-sm shadow-rose-200"
-            >
-               Aplicar Nova Escala
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              radius="xl"
-              leftIcon={<Share2 size={16} />}
-              onClick={() => selectedPatientId ? setShareOpen(true) : info('Selecione um paciente', 'Escolha um prontuário para compartilhar.')}
-            >
-               Compartilhar
+      <PageWrapper>
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
+              Voltar
             </Button>
           </div>
-        }
-      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-        <div className="space-y-6">
-          <ClinicalSidebar
-            patients={patients}
-            selectedPatientId={selectedPatientId}
-            onSelectPatient={id => setSelectedPatientId(id)}
-            patientSearch={patientSearch}
-            setPatientSearch={setPatientSearch}
-            isLoading={loadingPatients}
-            t={t}
+          <SectionTitle
+            icon={Activity}
+            title="BDI-II"
+            description="Inventário de Depressão de Beck — Avaliação padronizada de sintomas depressivos."
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  iconLeft={<Plus size={14} />}
+                  onClick={() => selectedPatientId ? setIsApplying(true) : info('Selecione um paciente', 'Escolha um prontuário para aplicar a escala.')}
+                >
+                  Aplicar Nova Escala
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  iconLeft={<Share2 size={14} />}
+                  onClick={() => selectedPatientId ? setShareOpen(true) : info('Selecione um paciente', 'Escolha um prontuário para compartilhar.')}
+                >
+                  Compartilhar
+                </Button>
+              </div>
+            }
           />
 
-          <div className="bg-white rounded-lg border border-slate-100 p-6 shadow-sm space-y-4">
-              <h4 className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
-                 <Info size={14} className="text-rose-400" /> Instruções (Beck et al.)
-              </h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed font-semibold bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
-                "Selecione a alternativa que melhor descreve como você se sentiu nas últimas duas semanas."
-              </p>
-              <div className="space-y-3 pt-2 text-[11px] font-semibold text-slate-600">
-                 <p><span className="text-rose-600 font-semibold">0</span> — Nada</p>
-                 <p><span className="text-rose-600 font-semibold">1</span> — Leve</p>
-                 <p><span className="text-rose-600 font-semibold">2</span> — Moderado</p>
-                 <p><span className="text-rose-600 font-semibold">3</span> — Grave</p>
-              </div>
-              <div className="pt-2 border-t border-slate-50">
-                <p className="text-[11px] font-semibold text-slate-400">Escore Total</p>
-                <div className="space-y-1 mt-2 text-[11px] font-semibold text-slate-500">
-                  <p><span className="text-emerald-500">0–13</span> Mínimo</p>
-                  <p><span className="text-amber-500">14–19</span> Leve</p>
-                  <p><span className="text-orange-500">20–28</span> Moderado</p>
-                  <p><span className="text-rose-600">29–63</span> Grave</p>
+          <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+            <div className="space-y-3 min-w-0">
+              <ClinicalSidebar
+                patients={patients}
+                selectedPatientId={selectedPatientId}
+                onSelectPatient={id => setSelectedPatientId(id)}
+                patientSearch={patientSearch}
+                setPatientSearch={setPatientSearch}
+                isLoading={loadingPatients}
+                t={t}
+              />
+
+              <PanelCard title="Instruções (Beck et al.)" icon={Info}>
+                <div className="space-y-3">
+                  <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 italic">
+                    "Selecione a alternativa que melhor descreve como você se sentiu nas últimas duas semanas."
+                  </p>
+                  <div className="space-y-1 text-[11px] text-slate-600">
+                    <p><span className="text-primary-700 font-medium">0</span> — Nada</p>
+                    <p><span className="text-primary-700 font-medium">1</span> — Leve</p>
+                    <p><span className="text-primary-700 font-medium">2</span> — Moderado</p>
+                    <p><span className="text-primary-700 font-medium">3</span> — Grave</p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100">
+                    <p className="text-xs font-medium text-slate-600">Escore Total</p>
+                    <div className="space-y-1 mt-2 text-[11px] text-slate-500">
+                      <p><span className="text-emerald-600">0–13</span> Mínimo</p>
+                      <p><span className="text-amber-600">14–19</span> Leve</p>
+                      <p><span className="text-orange-600">20–28</span> Moderado</p>
+                      <p><span className="text-rose-600">29–63</span> Grave</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-          </div>
-        </div>
-
-        {!selectedPatientId ? (
-          <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-20 text-center space-y-4">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-300">
-              <Activity size={32} />
+              </PanelCard>
             </div>
-            <p className="text-xs font-semibold text-slate-400 leading-loose">Selecione o paciente para visualizar dados e histórico BDI-II.</p>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {/* Left Column: Graphics */}
-              <div className="space-y-8">
-                 <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-sm relative overflow-hidden h-full">
-                    <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-                       <TrendingUp size={240} />
-                    </div>
 
-                    <h3 className="text-[11px] font-semibold flex items-center gap-2 text-rose-400 mb-10">
-                       <Layout size={18} /> Escore Depressão (BDI-II)
-                    </h3>
+            <div className="min-w-0">
+              {!selectedPatientId ? (
+                <ContentCard>
+                  <EmptyState
+                    icon={Activity}
+                    title="BDI-II"
+                    description="Selecione o paciente para visualizar dados e histórico BDI-II."
+                  />
+                </ContentCard>
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  {/* Left Column: Graphics */}
+                  <PanelCard title="Escore Depressão (BDI-II)" icon={Layout} className="min-w-0">
+                    <div className="space-y-3">
+                      <div className="bg-slate-900 rounded-lg p-4">
+                        <ScoreGraphic score={history.length > 0 ? history[history.length - 1].scores.total : currentScores.total} />
+                      </div>
 
-                    <div className="flex flex-col items-center gap-12">
-                       <div className="shrink-0 bg-white/5 p-10 rounded-[3rem] border border-white/10 backdrop-blur-sm w-full">
-                          <ScoreGraphic score={history.length > 0 ? history[history.length - 1].scores.total : currentScores.total} />
-                       </div>
-
-                       <div className="flex-1 space-y-6 w-full">
-                          {(() => {
-                            const lastRes = history.length > 0 ? history[history.length - 1] : null;
-                            const score = lastRes ? lastRes.scores.total : currentScores.total;
-                            const interpretation = getInterpretation(score);
-                            return (
-                              <div className="space-y-2">
-                                 <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-semibold text-slate-400">Total BDI-II</span>
-                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-white/10 ${interpretation.color}`}>{interpretation.label}</span>
-                                 </div>
-                                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                    <div className="h-full bg-rose-400 transition-all duration-1000" style={{ width: `${(score / 63) * 100}%` }} />
-                                 </div>
-                                 <div className="flex justify-between text-[11px] text-slate-500 font-semibold">
-                                    <span>0</span>
-                                    <span>{score} pts</span>
-                                    <span>63</span>
-                                 </div>
-                              </div>
-                            );
-                          })()}
-                          {(() => {
-                            const lastRes = history.length > 0 ? history[history.length - 1] : null;
-                            const score = lastRes ? lastRes.scores.total : currentScores.total;
-                            const interpretation = getInterpretation(score);
-                            if (['Moderado', 'Grave'].includes(interpretation.label)) {
-                              return (
-                                <div className="mt-4 flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-4 py-3">
-                                  <Sparkles size={12} className="text-amber-400 shrink-0" />
-                                  <p className="text-[11px] font-semibold text-slate-400 leading-relaxed">
-                                    Considere correlacionar com DASS-21 para análise triaxial.
-                                  </p>
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                          <div className="pt-4 border-t border-white/10 flex justify-between items-center text-slate-500">
-                             <p className="text-[11px] font-semibold italic leading-relaxed">Resultado da Última Avaliação Sincronizada</p>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-
-              {/* Right Column: History & Evolution */}
-              <div className="space-y-8">
-                 {/* Historical Graphic Evolution */}
-                 <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm space-y-8">
-                    <div className="flex items-center justify-between">
-                       <h4 className="text-[11px] font-semibold text-slate-900 flex items-center gap-2">
-                          <TrendingUp size={16} className="text-rose-500" /> Evolução do Paciente
-                       </h4>
-                       <div className="flex gap-2">
-                          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"/><span className="text-[7px] font-semibold">Total</span></div>
-                       </div>
-                    </div>
-
-                    <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-5 flex items-end gap-2 relative">
-                       {history.length < 2 && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-[2px] rounded-lg">
-                            <p className="text-[11px] font-semibold text-slate-400">Aguardando mais dados históricos</p>
-                         </div>
-                       )}
-                       {[...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
-                         <div key={res.id} className="flex-1 flex flex-col justify-end gap-1 h-full min-w-[30px] group cursor-pointer relative" onClick={() => setDetailResult(res)}>
-                            <div className="bg-rose-500/60 w-full rounded-lg transition-all group-hover:bg-rose-500" style={{ height: `${(res.scores.total / 63) * 100}%` }} />
-
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-sm">
-                               <p className="text-[11px] font-semibold mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
-                               <div className="flex gap-2">
-                                  <span className="text-[11px] font-semibold text-rose-400">Total: {res.scores.total}</span>
-                               </div>
+                      {(() => {
+                        const lastRes = history.length > 0 ? history[history.length - 1] : null;
+                        const score = lastRes ? lastRes.scores.total : currentScores.total;
+                        const interpretation = getInterpretation(score);
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium text-slate-600">Total BDI-II</span>
+                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-lg bg-slate-900 ${interpretation.color}`}>{interpretation.label}</span>
                             </div>
-                         </div>
-                       ))}
+                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-primary-500 transition-all duration-500" style={{ width: `${(score / 63) * 100}%` }} />
+                            </div>
+                            <div className="flex justify-between text-[11px] text-slate-500">
+                              <span>0</span>
+                              <span>{score} pts</span>
+                              <span>63</span>
+                            </div>
+                            {['Moderado', 'Grave'].includes(interpretation.label) && (
+                              <Alert variant="warning">
+                                Considere correlacionar com DASS-21 para análise triaxial.
+                              </Alert>
+                            )}
+                            <p className="text-[11px] text-slate-500 italic pt-2 border-t border-slate-100">Resultado da Última Avaliação Sincronizada</p>
+                          </div>
+                        );
+                      })()}
                     </div>
-                 </div>
+                  </PanelCard>
 
-                 {/* History List */}
-                 <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-                    <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                       <p className="text-[11px] font-semibold text-slate-400 leading-none">Registros Sincronizados</p>
-                       <History size={16} className="text-slate-300" />
-                    </div>
-                    <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto custom-scrollbar">
-                       {[...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => {
-                         const interp = getInterpretation(res.scores.total);
-                         return (
-                           <div key={res.id} className="px-6 py-4 hover:bg-slate-50 transition-all group flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-4 min-w-0">
-                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                       <Clock size={11} className="text-rose-400 shrink-0" />
-                                       <span className="text-xs font-semibold text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
-                                       {res.analysis && <Sparkles size={11} className="text-amber-400" />}
-                                       {res.origin === 'external' && <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Externo</span>}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                       <span className={`text-xs font-semibold ${interp.color}`}>{res.scores.total} pts</span>
-                                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
-                                    </div>
-                                 </div>
+                  {/* Right Column: History & Evolution */}
+                  <div className="space-y-3 min-w-0">
+                    <PanelCard
+                      title="Evolução do Paciente"
+                      icon={TrendingUp}
+                      action={<Badge color="danger" size="sm" dot>Total</Badge>}
+                    >
+                      <div className="h-56 w-full bg-slate-50 rounded-lg border border-slate-100 p-4 flex items-end gap-2 relative">
+                        {history.length < 2 && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 rounded-lg">
+                            <p className="text-[11px] text-slate-500">Aguardando mais dados históricos</p>
+                          </div>
+                        )}
+                        {[...history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(res => (
+                          <div key={res.id} className="flex-1 flex flex-col justify-end gap-1 h-full min-w-[30px] group cursor-pointer relative" onClick={() => setDetailResult(res)}>
+                            <div className="bg-primary-500/60 w-full rounded-lg transition-all group-hover:bg-primary-500" style={{ height: `${(res.scores.total / 63) * 100}%` }} />
+
+                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                              <p className="text-[11px] font-medium mb-1 border-b border-white/10 pb-1">{new Date(res.date).toLocaleDateString()}</p>
+                              <span className="text-[11px] text-slate-200">Total: {res.scores.total}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </PanelCard>
+
+                    <PanelCard title="Registros Sincronizados" icon={History} contentClassName="p-0">
+                      <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+                        {[...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(res => {
+                          const interp = getInterpretation(res.scores.total);
+                          return (
+                            <div key={res.id} className="px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3">
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Clock size={12} className="text-slate-400 shrink-0" />
+                                  <span className="text-xs font-medium text-slate-700">{new Date(res.date).toLocaleDateString('pt-BR')}</span>
+                                  {res.analysis && <Sparkles size={12} className="text-amber-400" />}
+                                  {res.origin === 'external' && <Badge color="default" size="sm">Externo</Badge>}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`text-xs font-medium ${interp.color}`}>{res.scores.total} pts</span>
+                                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
-                                 <button
-                                   onClick={() => generateAIResult(res.id)}
-                                   title="Análise Bia"
-                                   className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${res.analysis ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300 hover:text-rose-500'}`}
-                                 >
-                                    <Sparkles size={13} className={analyzingId === res.id ? 'animate-spin' : ''} />
-                                 </button>
-                                 <button
-                                   onClick={() => setDetailResult(res)}
-                                   className="flex items-center gap-1.5 px-3 h-8 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg text-[11px] font-semibold transition-all"
-                                 >
-                                   Ver <ChevronRight size={12} />
-                                 </button>
+                                <IconButton
+                                  variant={res.analysis ? 'primary' : 'outline'}
+                                  size="sm"
+                                  aria-label="Análise Bia"
+                                  title="Análise Bia"
+                                  onClick={() => generateAIResult(res.id)}
+                                >
+                                  <Sparkles size={14} className={analyzingId === res.id ? 'animate-spin' : ''} />
+                                </IconButton>
+                                <Button variant="outline" size="sm" iconRight={<ChevronRight size={14} />} onClick={() => setDetailResult(res)}>
+                                  Ver
+                                </Button>
                               </div>
-                           </div>
-                         );
-                       })}
-                       {history.length === 0 && (
-                         <div className="p-20 text-center space-y-3 opacity-30">
-                            <FileText size={40} className="mx-auto" />
-                            <p className="text-[11px] font-semibold">Sem lançamentos</p>
-                         </div>
-                       )}
-                    </div>
-                 </div>
-              </div>
+                            </div>
+                          );
+                        })}
+                        {history.length === 0 && (
+                          <EmptyState icon={FileText} title="Sem lançamentos" />
+                        )}
+                      </div>
+                    </PanelCard>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      </PageWrapper>
 
-    {/* Result Detail Modal — fixed overlay (same pattern as DASS-21) */}
-    {detailResult && (
-        <div className="fixed inset-0 mt-0 bg-slate-950/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white rounded-lg shadow-[0_20px_70px_rgba(15,23,42,0.18)] w-full max-w-3xl flex flex-col overflow-hidden transition-all duration-300" style={{ maxHeight: '90vh' }}>
-
-              {/* Header fixo */}
-              <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 border-b border-slate-100 shrink-0">
-                 <div>
-                    <p className="text-[11px] font-semibold text-rose-600 mb-1">Avaliação Consolidada — BDI-II</p>
-                    {(() => {
-                      const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                      return <h2 className="text-xl font-semibold text-slate-900 leading-tight">{patientName}</h2>;
-                    })()}
-                    <p className="text-xs font-medium text-slate-400 mt-0.5">{new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                 </div>
-                 <div className="flex items-center gap-2 shrink-0">
-                    {(() => {
-                      const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
-                      return (<>
-                        <Button variant="outline" size="sm" radius="xl" leftIcon={<Printer size={14} />} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
-                        <Button variant="primary" size="sm" radius="xl" leftIcon={<FileText size={14} />} onClick={() => handleDownloadPDF(detailResult, patientName)} className="bg-slate-800 text-white shadow-sm shadow-slate-200">PDF</Button>
-                      </>);
-                    })()}
-                    <button onClick={() => { setDetailResult(null); setShowAnswers(false); }} className="w-9 h-9 bg-slate-100 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center ml-1">
-                       <Plus size={20} className="rotate-45" />
-                    </button>
-                 </div>
+      {/* Result Detail Modal */}
+      <Modal
+        isOpen={!!detailResult}
+        onClose={() => { setDetailResult(null); setShowAnswers(false); }}
+        title="Avaliação Consolidada — BDI-II"
+        subtitle={detailResult ? `${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente'} · ${new Date(detailResult.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : undefined}
+        size="xl"
+        footer={
+          detailResult ? (
+            <div className="flex flex-wrap justify-between gap-2 w-full">
+              <Button variant="ghost" size="sm" onClick={() => { setDetailResult(null); setShowAnswers(false); }}>Fechar</Button>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const patientName = patients.find(p => String(p.id) === String(selectedPatientId))?.full_name || 'Paciente';
+                  return (<>
+                    <Button variant="outline" size="sm" iconLeft={<Printer size={14} />} onClick={() => handlePrintReport(detailResult, patientName)}>Imprimir</Button>
+                    <Button variant="primary" size="sm" iconLeft={<FileText size={14} />} onClick={() => handleDownloadPDF(detailResult, patientName)}>PDF</Button>
+                  </>);
+                })()}
+              </div>
+            </div>
+          ) : undefined
+        }
+      >
+        {detailResult && (() => {
+          const { parts, conclusion } = getClinicalAnalysis(detailResult.scores);
+          const interp = getInterpretation(detailResult.scores.total);
+          return (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="bg-slate-900 rounded-lg p-4 flex items-center justify-center" style={{ minHeight: '200px' }}>
+                  <ScoreGraphic score={detailResult.scores.total} />
+                </div>
+                <div className="space-y-3 flex flex-col justify-center">
+                  <div className="p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-medium text-slate-700">BDI-II Total</h4>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className={`text-xl font-medium w-14 ${interp.color}`}>{detailResult.scores.total}</div>
+                      <div className="flex-1">
+                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div className={`h-full ${interp.color.replace('text', 'bg')}`} style={{ width: `${(detailResult.scores.total / 63) * 100}%` }} />
+                        </div>
+                        <div className="flex justify-between mt-1 text-[11px] text-slate-500">
+                          <span>0</span><span>63</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {['Moderado', 'Grave'].includes(interp.label) && (
+                    <Alert variant="warning">
+                      Score elevado: considere correlacionar com DASS-21 para análise triaxial.
+                    </Alert>
+                  )}
+                </div>
               </div>
 
-              {/* Conteúdo com scroll interno */}
-              <div className="overflow-y-auto flex-1 px-7 py-6 space-y-6 custom-scrollbar pb-12">
-              {(() => {
-                const { parts, conclusion } = getClinicalAnalysis(detailResult.scores);
-                const interp = getInterpretation(detailResult.scores.total);
-                return (<>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                   <div className="bg-slate-950 rounded-lg p-8 flex items-center justify-center shadow-sm" style={{ minHeight: '200px' }}>
-                      <ScoreGraphic score={detailResult.scores.total} />
-                   </div>
-                   <div className="space-y-3 flex flex-col justify-center">
-                      <div className="px-4 py-4 rounded-lg border border-slate-100 bg-slate-50/50">
-                         <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-[11px] font-semibold text-slate-700">BDI-II Total</h4>
-                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${interp.bg} ${interp.color}`}>{interp.label}</span>
-                         </div>
-                         <div className="flex items-center gap-4">
-                            <div className={`text-4xl font-semibold w-14 ${interp.color}`}>{detailResult.scores.total}</div>
-                            <div className="flex-1">
-                               <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                  <div className={`h-full ${interp.color.replace('text', 'bg')}`} style={{ width:`${(detailResult.scores.total / 63) * 100}%` }} />
-                               </div>
-                               <div className="flex justify-between mt-1 text-[11px] text-slate-400 font-semibold">
-                                  <span>0</span><span>63</span>
-                               </div>
-                            </div>
-                         </div>
+              {/* Análise Clínica */}
+              <PanelCard title="Análise Clínica — BDI-II (Beck et al.)" icon={Brain}>
+                <div className="space-y-3">
+                  {parts.map((part, i) => {
+                    const [bold, ...rest] = part.split(':');
+                    return (
+                      <div key={i} className="flex gap-3 text-xs leading-relaxed text-slate-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary-300 mt-1.5 shrink-0" />
+                        <p><span className="font-medium text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
                       </div>
-                      {['Moderado', 'Grave'].includes(interp.label) && (
-                        <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3">
-                          <Sparkles size={12} className="text-amber-500 shrink-0" />
-                          <p className="text-[11px] font-semibold text-amber-700 leading-relaxed">
-                            Score elevado: considere correlacionar com DASS-21 para análise triaxial.
-                          </p>
-                        </div>
-                      )}
-                   </div>
+                    );
+                  })}
+                  <div className="p-3 bg-primary-50 border border-primary-100 rounded-lg text-xs text-slate-700 leading-relaxed">
+                    <span className="font-medium text-primary-700">Conclusão: </span>{conclusion}
+                  </div>
                 </div>
+              </PanelCard>
 
-                {/* Análise Clínica */}
-                <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
-                   <div className="bg-slate-50 px-8 py-5 flex items-center gap-3 border-b border-slate-100">
-                      <Brain size={18} className="text-rose-600" />
-                      <h3 className="text-xs font-semibold text-slate-700">Análise Clínica — BDI-II (Beck et al.)</h3>
-                   </div>
-                   <div className="p-8 space-y-4">
-                      {parts.map((part, i) => {
-                        const [bold, ...rest] = part.split(':');
+              {detailResult.analysis && (
+                <PanelCard title="Análise Bia (IA)" icon={Sparkles}>
+                  <div className="text-xs text-slate-700 space-y-0">
+                    {renderMarkdown(detailResult.analysis!)}
+                  </div>
+                </PanelCard>
+              )}
+
+              {!detailResult.analysis && (
+                <ContentCard>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Sparkles size={20} className="text-slate-300 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-slate-600">Bia — IA Clínica</p>
+                      <p className="text-xs text-slate-500">Gere uma análise aprofundada com inteligência artificial para este resultado.</p>
+                    </div>
+                    <Button variant="primary" size="sm" onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="shrink-0">Analisar</Button>
+                  </div>
+                </ContentCard>
+              )}
+
+              {/* Respostas do Paciente */}
+              {detailResult.answers && Object.keys(detailResult.answers).length > 0 && (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    aria-expanded={showAnswers}
+                    onClick={() => setShowAnswers(!showAnswers)}
+                    className="w-full bg-slate-50 px-3 py-2.5 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText size={14} className="text-slate-400" />
+                      <h3 className="text-sm font-medium text-slate-700">Respostas do Paciente (21 itens)</h3>
+                    </div>
+                    <ChevronRight size={14} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
+                  </button>
+                  {showAnswers && (
+                    <div className="divide-y divide-slate-100">
+                      {BDI_ITEMS.map(item => {
+                        const val = detailResult.answers[item.id];
+                        const labels = ['Nada', 'Leve', 'Moderado', 'Grave'];
                         return (
-                          <div key={i} className="flex gap-3 text-sm leading-relaxed text-slate-600">
-                             <span className="w-1.5 h-1.5 rounded-full bg-rose-300 mt-2 shrink-0" />
-                             <p><span className="font-semibold text-slate-800">{bold.replace(/\*\*/g, '')}:</span>{rest.join(':').replace(/^\*\*\s*/, ' ')}</p>
+                          <div key={item.id} className="px-3 py-2.5 flex items-start gap-3 hover:bg-slate-50/60">
+                            <span className="text-[11px] text-slate-400 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2, '0')}</span>
+                            <p className="flex-1 text-xs text-slate-600">{item.text}</p>
+                            <div className="shrink-0 text-right">
+                              <span className="text-sm font-medium text-primary-700">{val ?? '—'}</span>
+                              {val !== undefined && <p className="text-[11px] text-slate-500">{labels[val]}</p>}
+                            </div>
                           </div>
                         );
                       })}
-                      <div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-lg text-sm text-slate-700 leading-relaxed">
-                         <span className="font-semibold text-rose-700">Conclusão: </span>{conclusion}
-                      </div>
-                   </div>
+                    </div>
+                  )}
                 </div>
-
-                {detailResult.analysis && (
-                  <div className="bg-rose-600 rounded-lg p-5 text-white shadow-sm shadow-rose-100">
-                     <h3 className="text-xs font-semibold flex items-center gap-2 mb-3">
-                        <Sparkles size={14} className="text-amber-400" /> Análise Bia (IA)
-                     </h3>
-                     <div className="text-sm text-rose-100 space-y-0">
-                        {renderMarkdown(detailResult.analysis!)}
-                     </div>
-                  </div>
-                )}
-
-                {!detailResult.analysis && (
-                  <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 flex items-center gap-6">
-                     <Sparkles size={32} className="text-slate-300 shrink-0" />
-                     <div className="flex-1">
-                        <p className="text-xs font-semibold text-slate-500 mb-1">Bia — IA Clínica</p>
-                        <p className="text-sm text-slate-400">Gere uma análise aprofundada com inteligência artificial para este resultado.</p>
-                     </div>
-                     <Button onClick={() => generateAIResult(detailResult.id)} isLoading={analyzingId === detailResult.id} className="bg-rose-600 text-white rounded-lg px-6 py-3 shrink-0">Analisar</Button>
-                  </div>
-                )}
-
-                {/* Respostas do Paciente */}
-                {detailResult.answers && Object.keys(detailResult.answers).length > 0 && (
-                  <div className="border border-slate-100 rounded-[2rem] overflow-hidden">
-                     <button
-                       onClick={() => setShowAnswers(!showAnswers)}
-                       className="w-full bg-slate-50 px-8 py-5 flex items-center justify-between border-b border-slate-100 hover:bg-slate-100 transition-all"
-                     >
-                        <div className="flex items-center gap-3">
-                           <FileText size={18} className="text-slate-400" />
-                           <h3 className="text-xs font-semibold text-slate-700">Respostas do Paciente (21 itens)</h3>
-                        </div>
-                        <ChevronRight size={18} className={`text-slate-400 transition-transform ${showAnswers ? 'rotate-90' : ''}`} />
-                     </button>
-                     {showAnswers && (
-                       <div className="divide-y divide-slate-50">
-                          {BDI_ITEMS.map(item => {
-                            const val = detailResult.answers[item.id];
-                            const labels = ['Nada', 'Leve', 'Moderado', 'Grave'];
-                            return (
-                              <div key={item.id} className="px-8 py-4 flex items-start gap-4 hover:bg-slate-50/60">
-                                 <span className="text-[11px] font-semibold text-slate-300 w-6 shrink-0 mt-0.5">{String(item.id).padStart(2, '0')}</span>
-                                 <p className="flex-1 text-sm text-slate-600 leading-relaxed">{item.text}</p>
-                                 <div className="shrink-0 text-right">
-                                    <span className="text-lg font-semibold text-rose-600">{val ?? '—'}</span>
-                                    {val !== undefined && <p className="text-[11px] text-slate-400 font-semibold">{labels[val]}</p>}
-                                 </div>
-                              </div>
-                            );
-                          })}
-                       </div>
-                     )}
-                  </div>
-                )}
-                </>);
-              })()}
-              </div>
-           </div>
-        </div>
-      )}
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* Share Modal */}
       <Modal
@@ -1054,43 +1005,45 @@ export const BDIPage: React.FC = () => {
         onClose={() => setShareOpen(false)}
         title="Compartilhar BDI-II"
         subtitle="Envie o inventário para o paciente responder em casa"
-        maxWidth="md"
+        size="md"
         footer={
-          <div className="flex justify-between w-full">
-            <Button variant="ghost" radius="xl" onClick={() => setShareOpen(false)}>Fechar</Button>
-            <Button variant="success" radius="xl" leftIcon={<WhatsAppIcon size={15} />} onClick={handleWhatsApp}>
+          <div className="flex justify-between w-full gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setShareOpen(false)}>Fechar</Button>
+            <Button variant="success" size="sm" iconLeft={<WhatsAppIcon size={14} />} onClick={handleWhatsApp}>
               Enviar WhatsApp
             </Button>
           </div>
         }
       >
-        <div className="space-y-6">
-           <div className="p-4 bg-rose-50 border border-rose-100 rounded-lg flex items-center gap-4">
-              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-rose-600 shadow-sm shrink-0">
-                 <Share2 size={24} />
-              </div>
-              <div>
-                 <p className="text-[11px] font-semibold text-rose-500 leading-tight mb-1">Link de Avaliação Direta</p>
-                 <p className="text-xs text-slate-600 font-medium leading-relaxed">Este link é exclusivo para o paciente selecionado. As respostas serão integradas automaticamente ao histórico dele.</p>
-              </div>
-           </div>
+        <div className="space-y-3">
+          <div className="p-3 bg-primary-50 border border-primary-100 rounded-lg flex items-center gap-3">
+            <div className="w-7 h-7 bg-white rounded-md border border-primary-100 flex items-center justify-center text-primary-700 shrink-0">
+              <Share2 size={14} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-primary-700 mb-0.5">Link de Avaliação Direta</p>
+              <p className="text-xs text-slate-600">Este link é exclusivo para o paciente selecionado. As respostas serão integradas automaticamente ao histórico dele.</p>
+            </div>
+          </div>
 
-           <div className="space-y-2">
-              <div className="flex gap-2">
-                <input
-                  readOnly
-                  value={getShareLink()}
-                  className="flex-1 px-4 py-3 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono focus:ring-2 focus:ring-rose-100 outline-none"
-                />
-                <Button variant="outline" size="sm" radius="xl" onClick={handleCopy}
-                  leftIcon={copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}>
-                  {copied ? 'Copiado!' : 'Copiar'}
-                </Button>
-              </div>
-              <p className="text-[11px] text-slate-400 text-center font-semibold pt-2 flex items-center justify-center gap-2">
-                 <ShieldCheck size={12} /> Criptografia de Ponta-a-Ponta
-              </p>
-           </div>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                aria-label="Link de avaliação"
+                wrapperClassName="flex-1"
+                value={getShareLink()}
+                className="font-mono"
+              />
+              <Button variant="outline" size="sm" onClick={handleCopy}
+                iconLeft={copied ? <CheckCircle size={14} className="text-emerald-500" /> : <Copy size={14} />}>
+                {copied ? 'Copiado!' : 'Copiar'}
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-500 text-center pt-2 flex items-center justify-center gap-2">
+              <ShieldCheck size={12} /> Criptografia de Ponta-a-Ponta
+            </p>
+          </div>
         </div>
       </Modal>
 
@@ -1100,54 +1053,56 @@ export const BDIPage: React.FC = () => {
         onClose={() => setIsApplying(false)}
         title="Aplicação BDI-II"
         subtitle={`Respondendo por: ${patients.find(p => String(p.id) === String(selectedPatientId))?.full_name}`}
-        maxWidth="max-w-4xl"
+        size="xl"
         footer={
-          <div className="flex gap-3 w-full">
-            <Button variant="outline" radius="xl" onClick={() => setIsApplying(false)} className="flex-1">Cancelar</Button>
+          <div className="flex gap-2 w-full justify-between">
+            <Button variant="outline" size="sm" onClick={() => setIsApplying(false)}>Cancelar</Button>
             <Button
               variant="primary"
-              radius="xl"
+              size="sm"
               onClick={handleSave}
               isLoading={isSaving}
-              className="flex-2 bg-rose-600 text-white"
+              iconRight={<Save size={14} />}
             >
-              Processar e Salvar Escala <Save size={18} className="ml-2" />
+              Processar e Salvar Escala
             </Button>
           </div>
         }
       >
-        <div className="space-y-10 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
-           <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-              <p className="text-xs font-semibold text-slate-500 leading-relaxed italic">
-                "Selecione a alternativa que melhor descreve como o paciente se sentiu nas últimas duas semanas."
-              </p>
-           </div>
+        <div className="space-y-4">
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+            <p className="text-xs text-slate-500 italic">
+              "Selecione a alternativa que melhor descreve como o paciente se sentiu nas últimas duas semanas."
+            </p>
+          </div>
 
-           <div className="space-y-12">
-              {BDI_ITEMS.map((item) => (
-                <div key={item.id} className="space-y-6">
-                   <div className="flex gap-4">
-                      <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center font-semibold text-[11px] shrink-0 border border-slate-200">{item.id}</span>
-                      <p className="text-base font-semibold text-slate-800 leading-tight pt-1">{item.text}</p>
-                   </div>
-                   <div className="grid grid-cols-4 gap-2">
-                      {[0, 1, 2, 3].map(val => (
-                        <button
-                          key={val}
-                          onClick={() => setCurrentAnswers({ ...currentAnswers, [item.id]: val })}
-                          className={`h-14 rounded-lg text-xs font-semibold transition-all border ${
-                            currentAnswers[item.id] === val
-                            ? 'bg-slate-950 text-white border-slate-950 shadow-sm scale-[1.02]'
-                            : 'bg-white text-slate-300 border-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          {val}
-                        </button>
-                      ))}
-                   </div>
+          <div className="space-y-4">
+            {BDI_ITEMS.map((item) => (
+              <div key={item.id} className="space-y-2">
+                <div className="flex gap-3 items-start">
+                  <Badge color="default" size="md">{item.id}</Badge>
+                  <p className="text-sm font-medium text-slate-800">{item.text}</p>
                 </div>
-              ))}
-           </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[0, 1, 2, 3].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      aria-pressed={currentAnswers[item.id] === val}
+                      onClick={() => setCurrentAnswers({ ...currentAnswers, [item.id]: val })}
+                      className={`h-10 rounded-lg text-xs font-medium transition-colors border ${
+                        currentAnswers[item.id] === val
+                          ? 'bg-primary-600 text-white border-primary-600'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-primary-300'
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </Modal>
     </>

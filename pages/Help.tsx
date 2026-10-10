@@ -8,9 +8,23 @@ import {
   MessageSquare, Loader2, Phone, ExternalLink, AlertCircle
 } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
-import { Button } from '../components/UI/Button';
-import { Modal } from '../components/UI/Modal';
-import { PageHeader } from '../components/UI/PageHeader';
+import { PageWrapper, SectionTitle, Tabs, Button, IconButton, Input, Select, Textarea, Modal, ModalFooter, Badge, EmptyState, ContentCard, PanelCard } from '../components/UI';
+
+const HELP_TABS = [
+  { id: 'faq', label: 'Perguntas frequentes', icon: HelpCircle },
+  { id: 'guides', label: 'Guias e tutoriais', icon: BookOpen },
+  { id: 'contact', label: 'Falar com suporte', icon: Mail },
+] as const;
+type HelpTab = typeof HELP_TABS[number]['id'];
+
+const TAG_BADGE: Record<string, 'warning' | 'info' | 'success' | 'primary' | 'default'> = {
+  'Essencial': 'warning',
+  'Popular': 'info',
+  'Avançado': 'success',
+  'Novo': 'primary',
+  'Equipe': 'default',
+  'Clínico': 'primary',
+};
 
 // ── FAQ Data ─────────────────────────────────────────────────────────────────
 const FAQ_CATEGORIES = [
@@ -146,22 +160,14 @@ const GUIDES_CONTENT: Record<string, any> = {
 };
 
 const GUIDES = [
-  { Icon: Zap, color: 'bg-amber-50 text-amber-600', title: 'Primeiros Passos', desc: 'Configure sua clínica em 5 passos simples.', tag: 'Essencial' },
-  { Icon: Calendar, color: 'bg-sky-50 text-sky-600', title: 'Dominando a Agenda', desc: 'Bloqueios, recorrências e lembretes automáticos.', tag: 'Popular' },
-  { Icon: DollarSign, color: 'bg-emerald-50 text-emerald-600', title: 'Financeiro Avançado', desc: 'Relatórios, NFS-e e controle de inadimplência.', tag: 'Avançado' },
-  { Icon: Video, color: 'bg-violet-50 text-violet-600', title: 'Salas Virtuais', desc: 'Atendimento online integrado com vídeo.', tag: 'Novo' },
-  { Icon: Users, color: 'bg-rose-50 text-rose-600', title: 'Gestão de Equipe', desc: 'Adicionar profissionais e controlar permissões.', tag: 'Equipe' },
-  { Icon: BookOpen, color: 'bg-indigo-50 text-indigo-600', title: 'Prontuário Digital', desc: 'Evoluções, DISC e histórico clínico completo.', tag: 'Clínico' },
+  { Icon: Zap, color: 'bg-primary-50 text-primary-600', title: 'Primeiros Passos', desc: 'Configure sua clínica em 5 passos simples.', tag: 'Essencial' },
+  { Icon: Calendar, color: 'bg-primary-50 text-primary-600', title: 'Dominando a Agenda', desc: 'Bloqueios, recorrências e lembretes automáticos.', tag: 'Popular' },
+  { Icon: DollarSign, color: 'bg-primary-50 text-primary-600', title: 'Financeiro Avançado', desc: 'Relatórios, NFS-e e controle de inadimplência.', tag: 'Avançado' },
+  { Icon: Video, color: 'bg-primary-50 text-primary-600', title: 'Salas Virtuais', desc: 'Atendimento online integrado com vídeo.', tag: 'Novo' },
+  { Icon: Users, color: 'bg-primary-50 text-primary-600', title: 'Gestão de Equipe', desc: 'Adicionar profissionais e controlar permissões.', tag: 'Equipe' },
+  { Icon: BookOpen, color: 'bg-primary-50 text-primary-600', title: 'Prontuário Digital', desc: 'Evoluções, DISC e histórico clínico completo.', tag: 'Clínico' },
 ];
 
-const TAG_COLORS: Record<string, string> = {
-  'Essencial': 'bg-amber-100 text-amber-700',
-  'Popular':   'bg-sky-100 text-sky-700',
-  'Avançado':  'bg-emerald-100 text-emerald-700',
-  'Novo':      'bg-violet-100 text-violet-700',
-  'Equipe':    'bg-rose-100 text-rose-700',
-  'Clínico':   'bg-indigo-100 text-indigo-700',
-};
 
 interface ChatMsg { id: string; role: 'user' | 'model'; text: string; }
 
@@ -250,324 +256,295 @@ export const Help: React.FC = () => {
   }, [searchTerm, activeCategory, activeGroup]);
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 pt-6 pb-20 animate-fadeIn font-sans space-y-8">
-      <PageHeader
-        icon={<HelpCircle />}
-        title="Central de Ajuda & Suporte"
-        subtitle="Encontre respostas nas perguntas frequentes, guias detalhados ou converse diretamente com a Bia."
-        containerClassName="mb-0"
-        showBackButton
-        onBackClick={() => navigate('/')}
-        actions={
-          <div className="flex-1 max-w-lg relative">
-            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => { setSearchTerm(e.target.value); setActiveTab('faq'); }}
-              placeholder="Buscar nas perguntas frequentes..."
-              className="w-full py-4 pl-12 pr-5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-300/30 transition-all"
-            />
-            {searchTerm && (
-              <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X size={16} />
-              </button>
-            )}
-          </div>
-        }
-      />
+    <PageWrapper>
+      <div className="space-y-4">
+        <SectionTitle
+          icon={HelpCircle}
+          title="Central de ajuda e suporte"
+          description="Encontre respostas nas perguntas frequentes, guias detalhados ou converse diretamente com a Bia."
+          action={
+            <Button variant="outline" size="sm" onClick={() => navigate('/')}>Voltar ao início</Button>
+          }
+        />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div className="xl:col-span-2 space-y-6">
-          <div className="flex gap-2 bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
-            {[
-              { id: 'faq',     label: 'Perguntas Frequentes', icon: <HelpCircle size={14} /> },
-              { id: 'guides',  label: 'Guias e Tutoriais',    icon: <BookOpen size={14} /> },
-              { id: 'contact', label: 'Falar com Suporte',    icon: <Mail size={14} /> },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
-                    : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
-                }`}
-              >
-                {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            ))}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+          <div className="xl:col-span-2 space-y-3 min-w-0">
+            <Tabs<HelpTab> items={HELP_TABS} value={activeTab} onChange={setActiveTab} label="Seções da central de ajuda">
+              <div className="space-y-3">
+                {activeTab === 'faq' && (
+                  <div className="space-y-3">
+                    <div className="w-full sm:max-w-[280px]">
+                      <Input
+                        type="text"
+                        aria-label="Buscar nas perguntas frequentes"
+                        value={searchTerm}
+                        onChange={e => { setSearchTerm(e.target.value); setActiveTab('faq'); }}
+                        placeholder="Buscar nas perguntas frequentes..."
+                        iconLeft={<Search size={14} />}
+                        iconRight={searchTerm ? (
+                          <button type="button" aria-label="Limpar busca" onClick={() => setSearchTerm('')} className="text-slate-400 hover:text-slate-600">
+                            <X size={14} />
+                          </button>
+                        ) : undefined}
+                      />
+                    </div>
+
+                    {!searchTerm && (
+                      <div className="flex gap-2 flex-wrap">
+                        {FAQ_CATEGORIES.map(cat => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => { setActiveCategory(cat.id); setOpenFaq(null); }}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                              activeCategory === cat.id
+                                ? 'bg-primary-600 text-white border-primary-600'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-primary-200 hover:text-primary-700'
+                            }`}
+                          >
+                            <cat.Icon size={14} /> {cat.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {searchTerm && (
+                      <p className="text-xs text-slate-500">
+                        {displayedFaqs.length} resultado(s) para <span className="font-medium text-primary-600">"{searchTerm}"</span>
+                      </p>
+                    )}
+
+                    {displayedFaqs.length === 0 ? (
+                      <ContentCard>
+                        <EmptyState icon={HelpCircle} title="Nenhum resultado encontrado" description="Tente outros termos ou pergunte à Bia." />
+                      </ContentCard>
+                    ) : (
+                      <div className="space-y-2">
+                        {displayedFaqs.map((faq, idx) => (
+                          <div
+                            key={idx}
+                            className={`bg-white border rounded-lg overflow-hidden transition-all ${
+                              openFaq === idx ? 'border-primary-200' : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                              aria-expanded={openFaq === idx}
+                              className="w-full flex items-center justify-between gap-3 px-3 py-3 text-left"
+                            >
+                              <span className={`font-medium text-[13px] leading-relaxed ${openFaq === idx ? 'text-primary-700' : 'text-slate-800'}`}>
+                                {faq.q}
+                              </span>
+                              <ChevronDown
+                                size={16}
+                                className={`shrink-0 text-slate-400 transition-transform duration-300 ${openFaq === idx ? 'rotate-180 text-primary-500' : ''}`}
+                              />
+                            </button>
+                            <div className={`overflow-hidden transition-all duration-300 ${openFaq === idx ? 'max-h-60 pb-3' : 'max-h-0'}`}>
+                              <p className="px-3 text-xs text-slate-500 leading-relaxed">{faq.a}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'guides' && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-500">Guias detalhados para aproveitar ao máximo o Plaelo.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {GUIDES.map((g, i) => (
+                        <button
+                          type="button"
+                          key={i}
+                          onClick={() => {
+                            const content = GUIDES_CONTENT[g.title];
+                            setSelectedGuide({ ...g, steps: content?.steps || [], themeColor: content?.themeColor || 'indigo' });
+                          }}
+                          className="group text-left bg-white border border-slate-200 rounded-lg p-3 hover:border-primary-200 transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${g.color}`}>
+                              <g.Icon size={16} />
+                            </div>
+                            <Badge size="sm" color={TAG_BADGE[g.tag] || 'default'}>{g.tag}</Badge>
+                          </div>
+                          <h4 className="text-sm font-medium text-slate-900 mb-0.5">{g.title}</h4>
+                          <p className="text-xs text-slate-500">{g.desc}</p>
+                          <div className="flex items-center gap-1 mt-2 text-xs font-medium text-primary-600 group-hover:text-primary-700 transition-colors">
+                            <span>Ver guia</span> <ChevronRight size={12} />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'contact' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        { icon: <MessageCircle size={18} />, color: 'bg-emerald-50 text-emerald-600', label: 'WhatsApp', desc: 'Resposta em minutos', badge: 'Rápido' },
+                        { icon: <Mail size={18} />, color: 'bg-primary-50 text-primary-600', label: 'E-mail', desc: 'suporte@psiflux.com', badge: '<2h' },
+                        { icon: <Phone size={18} />, color: 'bg-primary-50 text-primary-600', label: 'Telefone', desc: 'Seg–Sex, 9h–18h', badge: 'Direto' },
+                      ].map((ch, i) => (
+                        <div key={i} className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col items-center text-center gap-1.5 hover:border-primary-200 transition-all">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${ch.color}`}>
+                            {ch.icon}
+                          </div>
+                          <p className="font-medium text-slate-900 text-sm">{ch.label}</p>
+                          <p className="text-xs text-slate-500">{ch.desc}</p>
+                          <Badge size="sm">{ch.badge}</Badge>
+                        </div>
+                      ))}
+                    </div>
+
+                    <PanelCard icon={Mail} title="Enviar mensagem">
+                      <form className="space-y-3" onSubmit={e => { e.preventDefault(); }}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <Select label="Assunto">
+                            <option>Dúvida sobre Funcionalidade</option>
+                            <option>Problema Técnico</option>
+                            <option>Sugestão de Melhoria</option>
+                            <option>Financeiro / Cobrança</option>
+                            <option>Cancelamento</option>
+                          </Select>
+                          <Select label="Prioridade">
+                            <option>Normal</option>
+                            <option>Alta — Sistema fora do ar</option>
+                            <option>Baixa — Dúvida geral</option>
+                          </Select>
+                        </div>
+                        <Textarea
+                          label="Mensagem"
+                          rows={5}
+                          placeholder="Descreva com detalhes como podemos ajudar..."
+                        />
+                        <div className="flex justify-end">
+                          <Button type="submit" variant="primary" size="sm">Enviar mensagem</Button>
+                        </div>
+                      </form>
+                    </PanelCard>
+                  </div>
+                )}
+              </div>
+            </Tabs>
           </div>
 
-          {activeTab === 'faq' && (
-            <div className="space-y-4">
-              {!searchTerm && (
-                <div className="flex gap-2 flex-wrap">
-                  {FAQ_CATEGORIES.map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => { setActiveCategory(cat.id); setOpenFaq(null); }}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold border transition-all ${
-                        activeCategory === cat.id
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : `${cat.color} hover:opacity-80`
+          <div className="space-y-3 min-w-0">
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col h-[520px]">
+              <div className="bg-primary-600 px-3 py-3 flex items-center gap-3 shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                  <Sparkles size={16} className="text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-white text-sm">Bia</p>
+                  <p className="text-[11px] text-white/80">Assistente inteligente · Online agora</p>
+                </div>
+                <div className="ml-auto w-2 h-2 rounded-full bg-emerald-400" />
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-slate-50/50">
+                {chatMessages.map(msg => (
+                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {msg.role === 'model' && (
+                      <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shrink-0 mr-2 mt-0.5">
+                        <Bot size={14} className="text-white" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[78%] px-3 py-2 rounded-lg text-[13px] leading-relaxed whitespace-pre-wrap ${
+                        msg.role === 'user'
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-white border border-slate-200 text-slate-700'
                       }`}
                     >
-                      <cat.Icon size={14} /> {cat.label}
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {isChatLoading && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center shrink-0">
+                      <Bot size={14} className="text-white" />
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-lg px-3 py-2.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-bounce [animation-delay:300ms]" />
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {chatMessages.length <= 1 && (
+                <div className="px-3 pt-2 pb-1 flex gap-2 flex-wrap shrink-0 border-t border-slate-100 bg-white">
+                  {AURORA_SUGGESTIONS.slice(0, 3).map(sug => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => sendMessage(sug)}
+                      className="text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors border border-primary-100"
+                    >
+                      {sug}
                     </button>
                   ))}
                 </div>
               )}
 
-              {searchTerm && (
-                <p className="text-sm text-slate-500 px-1">
-                  {displayedFaqs.length} resultado(s) para <span className="font-semibold text-indigo-600">"{searchTerm}"</span>
-                </p>
-              )}
-
-              {displayedFaqs.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-lg border border-slate-100">
-                  <HelpCircle size={32} className="text-slate-300 mx-auto mb-3" />
-                  <p className="font-semibold text-slate-500">Nenhum resultado encontrado</p>
-                  <p className="text-sm text-slate-400 mt-1">Tente outros termos ou pergunte à Bia →</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {displayedFaqs.map((faq, idx) => (
-                    <div
-                      key={idx}
-                      className={`bg-white border rounded-lg overflow-hidden transition-all duration-300 ${
-                        openFaq === idx ? 'border-indigo-200 shadow-sm shadow-indigo-50' : 'border-slate-100 hover:border-slate-200'
-                      }`}
-                    >
-                      <button
-                        onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                        className="w-full flex items-center justify-between px-5 py-4 text-left"
-                      >
-                        <span className={`font-semibold text-sm leading-relaxed ${openFaq === idx ? 'text-indigo-700' : 'text-slate-700'}`}>
-                          {faq.q}
-                        </span>
-                        <ChevronDown
-                          size={18}
-                          className={`shrink-0 ml-3 text-slate-400 transition-transform duration-300 ${openFaq === idx ? 'rotate-180 text-indigo-500' : ''}`}
-                        />
-                      </button>
-                      <div className={`overflow-hidden transition-all duration-300 ${openFaq === idx ? 'max-h-60 pb-5' : 'max-h-0'}`}>
-                        <p className="px-5 text-sm text-slate-500 leading-relaxed">{faq.a}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'guides' && (
-            <div className="space-y-4">
-              <p className="text-sm text-slate-500 px-1">Guias detalhados para aproveitar ao máximo o Plaelo.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {GUIDES.map((g, i) => (
-                  <div
-                    key={i}
-                    onClick={() => {
-                        const content = GUIDES_CONTENT[g.title];
-                        setSelectedGuide({ ...g, steps: content?.steps || [], themeColor: content?.themeColor || 'indigo' });
-                    }}
-                    className="group bg-white border border-slate-100 rounded-lg p-5 hover:border-indigo-200 hover:shadow-sm hover:-translate-y-0.5 transition-all cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${g.color}`}>
-                        <g.Icon size={18} />
-                      </div>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${TAG_COLORS[g.tag]}`}>
-                        {g.tag}
-                      </span>
-                    </div>
-                    <h4 className="font-semibold text-slate-800 mb-1">{g.title}</h4>
-                    <p className="text-xs text-slate-500">{g.desc}</p>
-                    <div className="flex items-center gap-1 mt-3 text-xs font-semibold text-indigo-500 group-hover:text-indigo-700 transition-colors">
-                      <span>Ver guia</span> <ChevronRight size={12} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'contact' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  { icon: <MessageCircle size={20} />, color: 'bg-emerald-50 text-emerald-600', label: 'WhatsApp', desc: 'Resposta em minutos', badge: 'Rápido' },
-                  { icon: <Mail size={20} />, color: 'bg-indigo-50 text-indigo-600', label: 'E-mail', desc: 'suporte@psiflux.com', badge: '<2h' },
-                  { icon: <Phone size={20} />, color: 'bg-sky-50 text-sky-600', label: 'Telefone', desc: 'Seg–Sex, 9h–18h', badge: 'Direto' },
-                ].map((ch, i) => (
-                  <div key={i} className="bg-white border border-slate-100 rounded-lg p-4 flex flex-col items-center text-center gap-2 hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer group">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${ch.color} group-hover:scale-110 transition-transform`}>
-                      {ch.icon}
-                    </div>
-                    <p className="font-semibold text-slate-800 text-sm">{ch.label}</p>
-                    <p className="text-xs text-slate-500">{ch.desc}</p>
-                    <span className="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{ch.badge}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-white rounded-lg border border-slate-100 p-6 shadow-sm">
-                <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <Mail size={18} className="text-indigo-500" /> Enviar Mensagem
-                </h3>
-                <form className="space-y-4" onSubmit={e => { e.preventDefault(); }}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 block mb-1">Assunto</label>
-                      <select className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
-                        <option>Dúvida sobre Funcionalidade</option>
-                        <option>Problema Técnico</option>
-                        <option>Sugestão de Melhoria</option>
-                        <option>Financeiro / Cobrança</option>
-                        <option>Cancelamento</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-500 block mb-1">Prioridade</label>
-                      <select className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
-                        <option>Normal</option>
-                        <option>Alta — Sistema fora do ar</option>
-                        <option>Baixa — Dúvida geral</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Mensagem</label>
-                    <textarea
-                      className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 resize-none h-32"
-                      placeholder="Descreva com detalhes como podemos ajudar..."
-                    />
-                  </div>
-                  <Button variant="primary" radius="xl" className="w-full shadow-sm shadow-indigo-100">
-                    Enviar Mensagem
-                  </Button>
-                </form>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-[24px] shadow-sm overflow-hidden flex flex-col" style={{ height: 520 }}>
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 flex items-center gap-3 shrink-0">
-              <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
-                <Sparkles size={17} className="text-white" />
-              </div>
-              <div>
-                <p className="font-semibold text-white text-sm">Bia</p>
-                <p className="text-[11px] text-indigo-200">Assistente inteligente · Online agora</p>
-              </div>
-              <div className="ml-auto w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]" />
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/50">
-              {chatMessages.map(msg => (
-                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {msg.role === 'model' && (
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                      <Bot size={13} className="text-white" />
-                    </div>
-                  )}
-                  <div
-                    className={`max-w-[78%] px-4 py-2.5 rounded-lg text-sm leading-relaxed whitespace-pre-wrap ${
-                      msg.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-br-sm'
-                        : 'bg-white border border-slate-200 text-slate-700 rounded-bl-sm shadow-sm'
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-              {isChatLoading && (
+              <div className="px-3 py-3 border-t border-slate-100 bg-white shrink-0">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
-                    <Bot size={13} className="text-white" />
-                  </div>
-                  <div className="bg-white border border-slate-200 rounded-lg rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:300ms]" />
-                  </div>
+                  <Input
+                    ref={chatInputRef}
+                    type="text"
+                    aria-label="Mensagem para a Bia"
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                    placeholder="Pergunte à Bia..."
+                    disabled={isChatLoading}
+                    wrapperClassName="flex-1"
+                  />
+                  <IconButton
+                    variant="primary"
+                    aria-label="Enviar mensagem"
+                    onClick={() => sendMessage()}
+                    disabled={!chatInput.trim() || isChatLoading}
+                  >
+                    {isChatLoading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  </IconButton>
                 </div>
-              )}
-              <div ref={chatEndRef} />
+              </div>
             </div>
 
-            {chatMessages.length <= 1 && (
-              <div className="px-4 pt-2 pb-1 flex gap-2 flex-wrap shrink-0 border-t border-slate-100 bg-white">
-                {AURORA_SUGGESTIONS.slice(0, 3).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => sendMessage(s)}
-                    className="text-[11px] font-semibold px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-100"
-                  >
-                    {s}
-                  </button>
+            <PanelCard title="Status do sistema">
+              <div className="space-y-2">
+                {[
+                  { label: 'Plataforma Web',     ok: true },
+                  { label: 'API / Dados',        ok: true },
+                  { label: 'Agendamentos',       ok: true },
+                  { label: 'IA / Bia',        ok: true },
+                  { label: 'Vídeo Consultas',    ok: true },
+                  { label: 'Notificações',       ok: true },
+                ].map((st, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 text-xs text-slate-600">
+                      <CheckCircle size={14} className="text-emerald-500" /> {st.label}
+                    </span>
+                    <Badge size="sm" color={st.ok ? 'success' : 'danger'}>{st.ok ? 'Operacional' : 'Falha'}</Badge>
+                  </div>
                 ))}
               </div>
-            )}
-
-            <div className="px-4 py-3 border-t border-slate-100 bg-white shrink-0">
-              <div className="flex items-center gap-2">
-                <input
-                  ref={chatInputRef}
-                  type="text"
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  placeholder="Pergunte à Bia..."
-                  disabled={isChatLoading}
-                  className="flex-1 text-sm px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 disabled:opacity-60"
-                />
-                <button
-                  onClick={() => sendMessage()}
-                  disabled={!chatInput.trim() || isChatLoading}
-                  className="w-9 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
-                >
-                  {isChatLoading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                </button>
+              <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+                <span>Última verificação: agora</span>
+                <a href="#" className="text-primary-600 font-medium flex items-center gap-0.5 hover:underline">
+                  Ver histórico <ExternalLink size={10} />
+                </a>
               </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-[24px] p-5 shadow-sm">
-            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2 text-sm">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Status do Sistema
-            </h3>
-            <div className="space-y-2.5">
-              {[
-                { label: 'Plataforma Web',     ok: true },
-                { label: 'API / Dados',        ok: true },
-                { label: 'Agendamentos',       ok: true },
-                { label: 'IA / Bia',        ok: true },
-                { label: 'Vídeo Consultas',    ok: true },
-                { label: 'Notificações',       ok: true },
-              ].map((s, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                    <CheckCircle size={13} className="text-emerald-500" /> {s.label}
-                  </span>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${s.ok ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                    {s.ok ? 'Operacional' : 'Falha'}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
-              <span>Última verificação: agora</span>
-              <a href="#" className="text-indigo-500 font-semibold flex items-center gap-0.5 hover:underline">
-                Ver histórico <ExternalLink size={10} />
-              </a>
-            </div>
+            </PanelCard>
           </div>
         </div>
       </div>
@@ -576,56 +553,55 @@ export const Help: React.FC = () => {
         isOpen={!!selectedGuide}
         onClose={() => setSelectedGuide(null)}
         title={selectedGuide?.title || ''}
-        maxWidth="max-w-2xl"
+        size="lg"
+        footer={
+          <ModalFooter align="right">
+            <Button variant="primary" size="sm" onClick={() => setSelectedGuide(null)}>Entendi, obrigado!</Button>
+          </ModalFooter>
+        }
       >
-        <div className="space-y-6 py-2">
-            <div className={`p-4 rounded-lg flex items-center gap-4 bg-${selectedGuide?.themeColor || 'indigo'}-50 border border-${selectedGuide?.themeColor || 'indigo'}-100`}>
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center bg-white shadow-sm text-${selectedGuide?.themeColor || 'indigo'}-600`}>
-                    {selectedGuide && <selectedGuide.Icon size={20} />}
-                </div>
-                <div>
-                    <h3 className="font-semibold text-slate-800">{selectedGuide?.title}</h3>
-                    <p className="text-xs text-slate-500">{selectedGuide?.desc}</p>
-                </div>
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg flex items-center gap-3 bg-primary-50 border border-primary-100">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white text-primary-600">
+              {selectedGuide && <selectedGuide.Icon size={18} />}
             </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-900">{selectedGuide?.title}</h3>
+              <p className="text-xs text-slate-500">{selectedGuide?.desc}</p>
+            </div>
+          </div>
 
-            <div className="space-y-4">
-                <h4 className="text-xs font-semibold text-slate-400 flex items-center gap-2">
-                    <Zap size={14} className="text-amber-500" /> Passo a Passo
-                </h4>
-                
-                <div className="space-y-3">
-                    {selectedGuide?.steps?.map((step: any, idx: number) => (
-                        <div key={idx} className="flex gap-4 group">
-                            <div className="flex flex-col items-center">
-                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold border-2 transition-colors ${selectedGuide?.themeColor === 'indigo' ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-slate-500 group-hover:border-indigo-400'}`}>
-                                    {idx + 1}
-                                </div>
-                                {idx < selectedGuide?.steps.length - 1 && <div className="w-0.5 flex-1 bg-slate-100 my-1 group-hover:bg-indigo-100 transition-colors" />}
-                            </div>
-                            <div className="pb-4">
-                                <p className="text-sm font-semibold text-slate-800 leading-tight mb-1">{step.t}</p>
-                                <p className="text-xs text-slate-500 leading-relaxed">{step.d}</p>
-                            </div>
-                        </div>
-                    ))}
+          <div className="space-y-3">
+            <h4 className="text-xs font-medium text-slate-600 flex items-center gap-2">
+              <Zap size={14} className="text-amber-500" /> Passo a passo
+            </h4>
+
+            <div className="space-y-2">
+              {selectedGuide?.steps?.map((step: any, idx: number) => (
+                <div key={idx} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium bg-primary-600 text-white">
+                      {idx + 1}
+                    </div>
+                    {idx < selectedGuide?.steps.length - 1 && <div className="w-0.5 flex-1 bg-slate-100 my-1" />}
+                  </div>
+                  <div className="pb-3">
+                    <p className="text-[13px] font-medium text-slate-800 leading-tight mb-1">{step.t}</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">{step.d}</p>
+                  </div>
                 </div>
+              ))}
             </div>
+          </div>
 
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex items-start gap-3 mt-4">
-                <AlertCircle size={16} className="text-indigo-500 mt-0.5" />
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Dica: Você também pode pedir para a <b>Bia</b> te mostrar como realizar essas funções na prática. Basta perguntar a ela no chat ao lado!
-                </p>
-            </div>
-
-            <div className="pt-2">
-                <Button variant="primary" radius="xl" className="w-full h-11" onClick={() => setSelectedGuide(null)}>
-                    Entendi, obrigado!
-                </Button>
-            </div>
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-start gap-3">
+            <AlertCircle size={16} className="text-primary-500 mt-0.5 shrink-0" />
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Dica: Você também pode pedir para a <b>Bia</b> te mostrar como realizar essas funções na prática. Basta perguntar a ela no chat ao lado!
+            </p>
+          </div>
         </div>
       </Modal>
-    </div>
+    </PageWrapper>
   );
 };

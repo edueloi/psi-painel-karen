@@ -8,7 +8,7 @@ import {
 import { Patient } from '../../types';
 import { api, getStaticUrl } from '../../services/api';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Badge, EmptyState, FilterLineSegmented } from '../UI';
+import { Badge, EmptyState, FilterLineSegmented, Button } from '../UI';
 import { ActionDrawer } from '../UI/ActionDrawer';
 
 interface TimelineItem {
@@ -159,12 +159,14 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-800">{patient.full_name}</p>
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
+                className="mt-0.5 -ml-2 text-primary-600"
                 onClick={() => { navigate(`/pacientes/${patient.id}`); onClose(); }}
-                className="mt-0.5 block text-[11px] font-semibold text-primary-500 hover:text-primary-700 hover:underline"
               >
                 Ver perfil completo →
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -256,7 +258,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                             } : undefined}
                           >
                             <div className="flex flex-col gap-4">
-                              
+
                               <div className="flex items-start justify-between gap-4">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -270,7 +272,7 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                                       <Badge color="default" size="sm">#{cfg.label}</Badge>
                                     </div>
                                   </div>
-                                  
+
                                   {item.subtitle && (
                                     <p className="text-[11px] font-semibold text-primary-500">{item.subtitle}</p>
                                   )}
@@ -297,10 +299,10 @@ export const PatientHistoryDrawer: React.FC<Props> = ({ patient, onClose }) => {
                                   </div>
                                 </div>
                               )}
-                              
+
                               {item.notes && (
                                 <p className="text-[11px] font-semibold text-slate-400 italic flex items-start gap-2 bg-slate-50/30 p-2 rounded-lg">
-                                    <Info size={12} className="shrink-0 mt-0.5 text-primary-400"/> 
+                                    <Info size={12} className="shrink-0 mt-0.5 text-primary-400"/>
                                     <span>{item.notes}</span>
                                 </p>
                               )}

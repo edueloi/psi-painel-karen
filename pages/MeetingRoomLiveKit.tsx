@@ -13,7 +13,7 @@ import {
   useRoomContext,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
-import { Track, RoomEvent, ConnectionQuality, type LocalParticipant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication, type Participant } from "livekit-client";
+import { Track, RoomEvent, ParticipantEvent, ConnectionQuality, type LocalParticipant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication, type Participant } from "livekit-client";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, ScreenShare, ScreenShareOff,
   MessageSquare, X, Send, Copy, Check, UserPlus, Clock, Shield, Link as LinkIcon,
@@ -33,7 +33,11 @@ import { DatePicker } from '../components/UI/DatePicker';
 import { AuroraAssistant } from '../components/AI/AuroraAssistant';
 import { ControlBar, ControlItem } from '../components/Room/ControlBar';
 import { NotesPanel } from '../components/Room/NotesPanel';
-import { DarkBadge, DarkButton, DarkCard, DarkIconButton, DarkInput, DarkPanelHeader, DarkTabs, darkPanelShell } from '../components/Room/Dark';
+import { InstrumentPanel } from '../components/Room/InstrumentPanel';
+import { Lobby, type RoomInfo } from '../components/Room/Lobby';
+import { InvitePanel } from '../components/Room/InvitePanel';
+import { useTestSession } from '../components/Room/TestSession';
+import { DarkBadge, DarkButton, DarkCard, DarkIconButton, DarkInput, DarkTextarea, DarkPanelHeader, DarkTabs, darkPanelShell, darkFieldClass, darkLabelClass, darkCardClass } from '../components/Room/Dark';
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface MeetingRoomLiveKitProps { isGuest?: boolean; }
@@ -62,49 +66,6 @@ const Spinner = () => (
   </svg>
 );
 
-// ── DeviceSelect ──────────────────────────────────────────────────────────────
-const DeviceSelect: React.FC<{
-  label: string; devices: MediaDeviceInfo[]; value: string;
-  onChange: (id: string) => void; icon: React.ReactNode;
-}> = ({ label, devices, value, onChange, icon }) => {
-  const [open, setOpen] = useState(false);
-  const selected = devices.find(d => d.deviceId === value);
-  return (
-    <div className="relative">
-      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400">{icon} {label}</p>
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen(v => !v)}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-[13px] text-slate-100 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-      >
-        <span className="flex-1 truncate text-left">{selected?.label || "Padrão do sistema"}</span>
-        <ChevronDown size={14} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div role="listbox" className="absolute left-0 right-0 top-full z-[100] mt-1 max-h-60 overflow-y-auto rounded-lg border border-white/10 bg-slate-800 shadow-lg">
-          {devices.map(d => (
-            <button
-              key={d.deviceId}
-              type="button"
-              role="option"
-              aria-selected={d.deviceId === value}
-              onClick={() => { onChange(d.deviceId); setOpen(false); }}
-              className={`w-full px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-white/10 ${d.deviceId === value ? "bg-primary-500/20 text-primary-200" : "text-slate-300"}`}
-            >
-              {d.label || `Dispositivo ${d.deviceId.slice(0, 8)}`}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ── Lobby ─────────────────────────────────────────────────────────────────────
-type RoomInfo = { host_name?: string; company_name?: string; clinic_logo_url?: string; crp?: string; specialty?: string; avatar_url?: string; scheduled_start?: string | null; waiting_room_message?: string | null; };
-
 // Traduz erros de getUserMedia/LiveKit em mensagens que a pessoa entende —
 // sem isso, um clique em "ligar câmera" que falha (permissão negada, câmera
 // em uso por outro app, dispositivo removido) parece simplesmente não fazer nada.
@@ -115,546 +76,6 @@ const mediaErrorMessage = (err: any): string => {
   if (name === 'NotReadableError') return 'A câmera ou microfone já está em uso por outro aplicativo ou aba.';
   if (name === 'OverconstrainedError') return 'O dispositivo selecionado não está mais disponível. Escolha outro em Configurações.';
   return 'Não foi possível ativar. Verifique as permissões do navegador e tente novamente.';
-};
-
-const Toggle: React.FC<{ on: boolean; onChange: (v: boolean) => void; label?: string }> = ({ on, onChange, label }) => (
-  <button
-    type="button"
-    role="switch"
-    aria-checked={on}
-    aria-label={label}
-    onClick={() => onChange(!on)}
-    className={`relative h-[22px] w-10 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${on ? "bg-primary-600" : "bg-white/15"}`}
-  >
-    <span className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all ${on ? "left-[21px]" : "left-[3px]"}`} />
-  </button>
-);
-
-const LOBBY_TABS = [
-  { id: "link", label: "Convidar", icon: <LinkIcon size={12} /> },
-  { id: "devices", label: "Dispositivos", icon: <Settings size={12} /> },
-  { id: "recording", label: "Gravação", icon: <Circle size={12} /> },
-] as const;
-
-const Lobby: React.FC<{
-  roomCode: string; isGuest: boolean; guestName: string;
-  setGuestName: (v: string) => void; onJoin: () => void;
-  joining: boolean; error: string | null; isDark: boolean;
-  userName?: string; onCamChange?: (v: boolean) => void; onMicChange?: (v: boolean) => void;
-  onDeviceChange?: (videoId: string, audioId: string) => void;
-  onStreamReady?: (stream: MediaStream | null) => void;
-  guestRole?: string; onGuestRoleChange?: (v: string) => void;
-}> = ({ roomCode, isGuest, guestName, setGuestName, onJoin, joining, error, isDark, userName, onCamChange, onMicChange, onDeviceChange, onStreamReady, guestRole, onGuestRoleChange }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const { preferences, updatePreference } = useUserPreferences();
-
-  const [micOn, setMicOn] = useState(true);
-  const [camOn, setCamOn] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [deviceError, setDeviceError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<"link" | "devices" | "recording" | null>("link");
-  const [guestDevicesOpen, setGuestDevicesOpen] = useState(false);
-  const [roomInfo, setRoomInfo] = useState<RoomInfo>({});
-  const [consentAccepted, setConsentAccepted] = useState(false);
-
-  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [audioOutDevices, setAudioOutDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedAudio, setSelectedAudio] = useState("");
-  const [selectedVideo, setSelectedVideo] = useState("");
-  const [selectedAudioOut, setSelectedAudioOut] = useState("");
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  const guestUrl = `${getPublicBaseUrl()}/sala/${roomCode}`;
-
-  useEffect(() => {
-    if (!roomCode) return;
-    fetch(`${API_BASE_URL}/virtual-rooms/public/${roomCode}/info`)
-      .then(r => r.json()).then(d => setRoomInfo(d)).catch(() => {});
-  }, [roomCode]);
-
-  const startPreview = useCallback(async (audioId?: string, videoId?: string, facing?: "user" | "environment") => {
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setDeviceError("Este navegador não tem suporte a câmera/microfone. Use uma versão recente de Chrome, Firefox, Edge ou Safari, acessando por HTTPS.");
-      return;
-    }
-    // "exact" força falha explícita se o dispositivo não tiver a câmera pedida,
-    // em vez do navegador devolver a frontal silenciosamente (o que fazia o
-    // botão "Virar" nunca trocar de fato, só reespelhar a mesma câmera).
-    const videoConstraint = videoId ? { deviceId: { exact: videoId } } : { facingMode: { exact: facing || "user" } };
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraint,
-        audio: audioId ? { deviceId: { exact: audioId } } : true,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      stream.getVideoTracks().forEach(t => { t.enabled = camOn; });
-      stream.getAudioTracks().forEach(t => { t.enabled = micOn; });
-      const actualFacing = stream.getVideoTracks()[0]?.getSettings().facingMode;
-      if (actualFacing === 'environment' || actualFacing === 'user') setFacingMode(actualFacing);
-      onStreamReady?.(stream);
-      setDeviceError(null);
-    } catch (err: any) {
-      // "exact" no facingMode falhou (dispositivo só tem 1 câmera, ou navegador
-      // não reporta facingMode) — tenta de novo sem "exact" antes de desistir.
-      if (!videoId && facing) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: facing },
-            audio: audioId ? { deviceId: { exact: audioId } } : true,
-          });
-          streamRef.current = stream;
-          if (videoRef.current) videoRef.current.srcObject = stream;
-          stream.getVideoTracks().forEach(t => { t.enabled = camOn; });
-          stream.getAudioTracks().forEach(t => { t.enabled = micOn; });
-          onStreamReady?.(stream);
-          setDeviceError(null);
-          return;
-        } catch {}
-      }
-      const name = err?.name || '';
-      const msg = name === 'NotAllowedError'
-        ? 'Permissão de câmera/microfone negada. Verifique as permissões do site nas configurações do navegador e recarregue a página.'
-        : name === 'NotFoundError'
-        ? 'Nenhuma câmera ou microfone foi encontrado neste dispositivo.'
-        : name === 'NotReadableError'
-        ? 'A câmera/microfone já está em uso por outro programa ou aba.'
-        : 'Não foi possível acessar a câmera/microfone. Tente outro navegador ou dispositivo.';
-      setDeviceError(msg);
-    }
-  }, []);
-
-  // No celular alterna entre câmera frontal/traseira; troca o device explícito
-  // do LiveKit quando já publicado (mesmo padrão usado pela lista de dispositivos).
-  const flipCamera = () => {
-    const next = facingMode === "user" ? "environment" : "user";
-    setSelectedVideo("");
-    onDeviceChange?.("", selectedAudio);
-    startPreview(selectedAudio || undefined, undefined, next);
-  };
-
-  useEffect(() => {
-    const init = async () => {
-      await startPreview();
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      setAudioDevices(devices.filter(d => d.kind === "audioinput"));
-      setVideoDevices(devices.filter(d => d.kind === "videoinput"));
-      setAudioOutDevices(devices.filter(d => d.kind === "audiooutput"));
-    };
-    init();
-    // Não para o stream aqui — o LiveKit reutiliza o dispositivo ao entrar na sala.
-    // Parar o stream antes do LiveKit conectar causa atraso na publicação da câmera.
-    return () => {};
-  }, []);
-
-  const togglePreviewMic = () => { const n = !micOn; setMicOn(n); onMicChange?.(n); streamRef.current?.getAudioTracks().forEach(t => { t.enabled = n; }); };
-  const togglePreviewCam = () => { const n = !camOn; setCamOn(n); onCamChange?.(n); streamRef.current?.getVideoTracks().forEach(t => { t.enabled = n; }); };
-  const handleVideoDevice = (id: string) => { setSelectedVideo(id); onDeviceChange?.(id, selectedAudio); startPreview(selectedAudio || undefined, id); };
-  const handleAudioDevice = (id: string) => { setSelectedAudio(id); onDeviceChange?.(selectedVideo, id); startPreview(id, selectedVideo || undefined); };
-  const copyLink = () => { navigator.clipboard.writeText(guestUrl); setCopied(true); setTimeout(() => setCopied(false), 2500); };
-  const sendWhatsApp = () => {
-    const msg = `Olá! Sua consulta vai começar em breve.\n\nAcesse sua sala virtual pelo link:\n${guestUrl}\n\n_Não é necessário login._`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-  };
-  const canJoin = !joining && (!isGuest || (guestName.trim().length > 0 && consentAccepted));
-  const scheduledLabel = roomInfo.scheduled_start
-    ? new Date(roomInfo.scheduled_start).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-    : null;
-  const displayName = isGuest ? (guestName || "Você") : (userName || "Você");
-
-  /* ── Lobby do profissional: layout tela cheia com câmera em destaque ── */
-  if (!isGuest) {
-    const previewBtn = (off: boolean) =>
-      `!h-11 !w-11 !rounded-full !border-transparent backdrop-blur-md ${off ? "!bg-red-600/85 !text-white hover:!bg-red-600" : "!bg-white/15 !text-white hover:!bg-white/25"}`;
-    return (
-      <div className="flex min-h-screen flex-col overflow-hidden bg-slate-950">
-
-        {/* Barra superior */}
-        <div className="relative z-10 flex shrink-0 items-center justify-between px-4 py-4 sm:px-7">
-          <img src={logoUrl} alt="Plaelo" className="h-8 rounded-lg bg-white object-contain p-[3px] opacity-90" />
-          <DarkBadge tone="success" className="!px-3 !py-1.5 !text-xs">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Sala pronta
-          </DarkBadge>
-        </div>
-
-        {/* Corpo principal */}
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-4 pb-5 md:flex-row md:gap-7 md:px-7 md:pb-7">
-
-          {/* ── Câmera grande ── */}
-          <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/10 md:aspect-[16/10] md:w-[min(520px,55vw)]">
-            <video ref={videoRef} autoPlay muted playsInline
-              className="h-full w-full -scale-x-100 object-cover" style={{ display: camOn && !deviceError ? "block" : "none" }} />
-            {deviceError ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 p-6 text-center">
-                <Shield size={36} className="text-red-400" />
-                <span className="max-w-xs text-[13px] font-medium text-red-300">{deviceError}</span>
-                <span className="text-xs text-slate-500">Você ainda pode entrar na sala sem câmera/microfone.</span>
-              </div>
-            ) : !camOn && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3.5">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-600 text-3xl font-semibold text-white">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-                <span className="text-[13px] text-slate-500">Câmera desligada</span>
-              </div>
-            )}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
-            <div className="absolute bottom-[60px] left-4 rounded-lg bg-black/65 px-3 py-1 text-[13px] font-medium text-slate-100 backdrop-blur-md">
-              {displayName}
-            </div>
-            {/* Controles mic/cam */}
-            <div className="absolute bottom-3.5 left-1/2 flex -translate-x-1/2 gap-3">
-              <DarkIconButton aria-label={micOn ? "Desligar microfone" : "Ligar microfone"} aria-pressed={micOn} title={micOn ? "Desligar microfone" : "Ligar microfone"} size="lg" onClick={togglePreviewMic} className={previewBtn(!micOn)}>
-                {micOn ? <Mic size={18} /> : <MicOff size={18} />}
-              </DarkIconButton>
-              <DarkIconButton aria-label={camOn ? "Desligar câmera" : "Ligar câmera"} aria-pressed={camOn} title={camOn ? "Desligar câmera" : "Ligar câmera"} size="lg" onClick={togglePreviewCam} className={previewBtn(!camOn)}>
-                {camOn ? <Video size={18} /> : <VideoOff size={18} />}
-              </DarkIconButton>
-              {isMobile && camOn && (
-                <DarkIconButton aria-label="Virar câmera" title="Virar câmera" size="lg" onClick={flipCamera} className={previewBtn(false)}>
-                  <SwitchCamera size={18} />
-                </DarkIconButton>
-              )}
-            </div>
-          </div>
-
-          {/* ── Painel direito ── */}
-          <div className="flex w-full flex-col gap-3 md:w-[min(340px,38vw)] md:shrink-0">
-
-            {/* Título */}
-            <div>
-              <h1 className="text-lg font-medium leading-tight text-slate-100 sm:text-xl">Sua sala virtual</h1>
-              <p className="mt-1 text-xs text-slate-500">Pronto para iniciar a sessão?</p>
-            </div>
-
-            {/* Abas de seção */}
-            <DarkTabs<"link" | "devices" | "recording"> label="Preparar sessão" items={LOBBY_TABS} value={activeSection || "link"} onChange={setActiveSection} />
-
-            {/* Seção: Link */}
-            {activeSection === "link" && (
-              <DarkCard className="flex flex-col gap-2.5 !border-primary-500/20 !bg-primary-500/[0.07]">
-                <p className="text-xs font-medium text-slate-300">Link do paciente</p>
-                <div className="select-all break-all rounded-lg bg-black/35 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-400">
-                  {guestUrl}
-                </div>
-                <div className="flex gap-2">
-                  <DarkButton fullWidth size="lg" onClick={copyLink} iconLeft={copied ? <Check size={14} /> : <Copy size={14} />} className={copied ? "!border-emerald-500/35 !bg-emerald-500/15 !text-emerald-300" : ""}>
-                    {copied ? "Copiado!" : "Copiar"}
-                  </DarkButton>
-                  <DarkButton fullWidth size="lg" onClick={sendWhatsApp} iconLeft={(<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>)} className="!border-emerald-500/25 !bg-emerald-500/10 !text-emerald-300 hover:!bg-emerald-500/20">
-                    WhatsApp
-                  </DarkButton>
-                </div>
-              </DarkCard>
-            )}
-
-            {/* Seção: Dispositivos */}
-            {activeSection === "devices" && (
-              <DarkCard className="flex flex-col gap-2.5">
-                <p className="text-xs font-medium text-slate-300">Dispositivos</p>
-                {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={12} />} />}
-                {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={12} />} />}
-                {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={12} />} />}
-              </DarkCard>
-            )}
-
-            {/* Seção: Gravação */}
-            {activeSection === "recording" && (
-              <DarkCard className="flex flex-col gap-3">
-                <p className="text-xs font-medium text-slate-300">Gravação da sessão</p>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[13px] font-medium text-slate-200">Gravar automaticamente</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">Inicia ao entrar na sala</p>
-                  </div>
-                  <Toggle label="Gravar automaticamente" on={preferences.sessions?.autoRecord ?? false} onChange={v => updatePreference('sessions', { autoRecord: v })} />
-                </div>
-                <div className="h-px bg-white/5" />
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[13px] font-medium text-slate-200">Transcrever ao encerrar</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">Gera transcrição automática</p>
-                  </div>
-                  <Toggle label="Transcrever ao encerrar" on={preferences.sessions?.autoTranscribe ?? false} onChange={v => updatePreference('sessions', { autoTranscribe: v })} />
-                </div>
-              </DarkCard>
-            )}
-
-            {error && (
-              <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 text-[13px] text-red-300">
-                {error}
-              </div>
-            )}
-
-            {/* Botão iniciar */}
-            <DarkButton variant="primary" size="lg" fullWidth onClick={onJoin} disabled={!canJoin} loading={joining} loadingText="Conectando..." iconLeft={<Video size={16} />} className="!h-11 !text-sm">
-              Iniciar sessão
-            </DarkButton>
-
-            <div className="flex items-center justify-center gap-1.5">
-              <Shield size={11} className="text-slate-600" />
-              <span className="text-[11px] text-slate-600">Conexão segura e criptografada</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Lobby do paciente (guest): layout card compacto ── */
-  const guestPreviewBtn = (off: boolean) =>
-    `!h-11 !w-11 !rounded-full !border-transparent backdrop-blur-md ${off ? "!bg-red-600/90 !text-white hover:!bg-red-600" : "!bg-white/20 !text-white hover:!bg-white/30"}`;
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 pb-6 pt-3">
-
-      <div className="mb-3 sm:mb-4">
-        <img src={roomInfo.clinic_logo_url || logoUrl} alt={roomInfo.company_name || "Plaelo"} className="h-7 rounded-lg bg-white object-contain p-[3px] opacity-90" />
-      </div>
-
-      <div className="grid w-full max-w-[760px] grid-cols-1 overflow-hidden rounded-xl border border-white/10 bg-slate-900 sm:grid-cols-2">
-
-        {/* ── Câmera ── */}
-        <div className="relative flex h-[180px] flex-col bg-slate-950 sm:h-auto sm:min-h-[320px]">
-          <video ref={videoRef} autoPlay muted playsInline
-            className="h-full w-full flex-1 -scale-x-100 object-cover" style={{ display: camOn && !deviceError ? "block" : "none" }} />
-          {deviceError ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-slate-950 p-5 text-center">
-              <Shield size={30} className="text-red-400" />
-              <span className="max-w-[260px] text-xs font-medium text-red-300">{deviceError}</span>
-              <span className="text-[11px] text-slate-500">Você ainda pode entrar na sala sem câmera/microfone.</span>
-            </div>
-          ) : !camOn && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950">
-              <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary-600 text-3xl font-semibold text-white">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-              <span className="text-xs text-slate-500">Câmera desligada</span>
-            </div>
-          )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
-          <div className="absolute bottom-14 left-3 rounded-md bg-black/70 px-2.5 py-[3px] text-xs font-medium text-slate-100 backdrop-blur-md">
-            {displayName}
-          </div>
-          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-2.5 sm:bottom-3">
-            <DarkIconButton aria-label={micOn ? "Desligar microfone" : "Ligar microfone"} aria-pressed={micOn} title={micOn ? "Desligar microfone" : "Ligar microfone"} size="lg" onClick={togglePreviewMic} className={guestPreviewBtn(!micOn)}>
-              {micOn ? <Mic size={17} /> : <MicOff size={17} />}
-            </DarkIconButton>
-            <DarkIconButton aria-label={camOn ? "Desligar câmera" : "Ligar câmera"} aria-pressed={camOn} title={camOn ? "Desligar câmera" : "Ligar câmera"} size="lg" onClick={togglePreviewCam} className={guestPreviewBtn(!camOn)}>
-              {camOn ? <Video size={17} /> : <VideoOff size={17} />}
-            </DarkIconButton>
-            {isMobile && camOn && (
-              <DarkIconButton aria-label="Virar câmera" title="Virar câmera" size="lg" onClick={flipCamera} className={guestPreviewBtn(false)}>
-                <SwitchCamera size={17} />
-              </DarkIconButton>
-            )}
-          </div>
-        </div>
-
-        {/* ── Formulário guest ── */}
-        <div className="flex flex-col sm:max-h-[90vh] sm:overflow-y-auto">
-          <div className="border-b border-white/10 px-5 pb-4 pt-5">
-            {(roomInfo.host_name || roomInfo.company_name) && (
-              <DarkCard className="mb-4 flex items-center gap-3 !p-2.5">
-                {roomInfo.avatar_url
-                  ? <img src={roomInfo.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-                  : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-base font-semibold text-white">{(roomInfo.host_name || "P").charAt(0).toUpperCase()}</div>
-                }
-                <div className="min-w-0">
-                  {roomInfo.host_name && <p className="text-sm font-medium text-slate-100">{roomInfo.host_name}</p>}
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                    {roomInfo.specialty && <span className="text-[11px] text-slate-400">{roomInfo.specialty}</span>}
-                    {roomInfo.crp && <DarkBadge tone="primary">CRP {roomInfo.crp}</DarkBadge>}
-                    {roomInfo.company_name && <span className="text-[11px] text-slate-500">· {roomInfo.company_name}</span>}
-                  </div>
-                </div>
-              </DarkCard>
-            )}
-            {scheduledLabel && (
-              <DarkBadge tone="primary" className="mb-3 !px-2.5 !py-1">
-                <Clock size={11} /> Consulta agendada para {scheduledLabel}
-              </DarkBadge>
-            )}
-            <h1 className="text-lg font-medium text-slate-100">Entrar na consulta</h1>
-            <p className="mt-1 text-xs text-slate-500">Informe seu nome para aguardar aprovação</p>
-          </div>
-
-          <div className="flex flex-1 flex-col gap-3.5 px-5 py-4">
-            <DarkInput
-              label="Seu nome completo"
-              type="text"
-              value={guestName}
-              onChange={e => setGuestName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && canJoin && onJoin()}
-              placeholder="Ex: Ana Lima"
-              autoFocus
-            />
-
-            {onGuestRoleChange && (
-              <DarkInput
-                label="Seu papel nesta sessão (opcional)"
-                type="text"
-                value={guestRole || ""}
-                onChange={e => onGuestRoleChange(e.target.value)}
-                placeholder="Ex: Paciente, Mãe, Pai, Acompanhante"
-                hint="Ajuda o profissional a identificar quem é quem, se mais de uma pessoa entrar na sessão."
-              />
-            )}
-
-            {(videoDevices.length > 0 || audioDevices.length > 0 || audioOutDevices.length > 0) && (
-              <div>
-                <DarkButton variant="ghost" size="sm" aria-expanded={guestDevicesOpen} onClick={() => setGuestDevicesOpen(v => !v)}
-                  iconLeft={<Settings size={13} />} iconRight={<ChevronDown size={13} className={`transition-transform ${guestDevicesOpen ? "rotate-180" : ""}`} />}>
-                  Configurar dispositivos
-                </DarkButton>
-                {guestDevicesOpen && (
-                  <div className="mt-2.5 flex flex-col gap-2">
-                    {videoDevices.length > 0 && <DeviceSelect label="Câmera" devices={videoDevices} value={selectedVideo} onChange={handleVideoDevice} icon={<Video size={12} />} />}
-                    {audioDevices.length > 0 && <DeviceSelect label="Microfone" devices={audioDevices} value={selectedAudio} onChange={handleAudioDevice} icon={<Mic size={12} />} />}
-                    {audioOutDevices.length > 0 && <DeviceSelect label="Alto-falante" devices={audioOutDevices} value={selectedAudioOut} onChange={setSelectedAudioOut} icon={<Shield size={12} />} />}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <label className="flex cursor-pointer items-start gap-2.5">
-              <input
-                type="checkbox"
-                checked={consentAccepted}
-                onChange={(e) => setConsentAccepted(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-primary-600"
-              />
-              <span className="text-xs leading-relaxed text-slate-400">
-                Li e concordo com os{" "}
-                <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">termos de atendimento online</a>
-                {" "}e a{" "}
-                <a href="/politica-privacidade" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">política de privacidade</a>.
-              </span>
-            </label>
-
-            {error && (
-              <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 text-[13px] text-red-300">
-                {error}
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-white/10 px-5 pb-5 pt-4">
-            <DarkButton variant="primary" size="lg" fullWidth onClick={onJoin} disabled={!canJoin} loading={joining} loadingText="Conectando..." className="!h-11 !text-sm">
-              Solicitar entrada
-            </DarkButton>
-            <div className="mt-2.5 flex items-center justify-center gap-1.5">
-              <Shield size={11} className="text-slate-600" />
-              <span className="text-[11px] text-slate-600">Conexão segura e criptografada</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-// ── Painel de Convidar ────────────────────────────────────────────────────────
-const InvitePanel: React.FC<{ roomId: string; roomCode: string; patientId?: number | null; onClose: () => void }> = ({ roomId, roomCode, patientId, onClose }) => {
-  const [copied, setCopied] = useState(false);
-  const [botStatus, setBotStatus] = useState<'connected' | 'disconnected' | 'connecting' | 'checking'>('checking');
-  const [sendingBotMsg, setSendingBotMsg] = useState(false);
-  const [botMsgSent, setBotMsgSent] = useState(false);
-  const [botMsgError, setBotMsgError] = useState<string | null>(null);
-  const guestUrl = `${getPublicBaseUrl()}/sala/${roomCode}`;
-
-  useEffect(() => {
-    api.get<{ status?: string }>('/whatsapp/status')
-      .then((data) => setBotStatus((data?.status as any) || 'disconnected'))
-      .catch(() => setBotStatus('disconnected'));
-  }, []);
-
-  const copy = () => {
-    navigator.clipboard.writeText(guestUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const whatsapp = () => {
-    const msg = `Olá! Sua consulta vai começar em breve.\n\nAcesse sua sala virtual pelo link abaixo:\n${guestUrl}\n\n_Você não precisa de login para entrar._`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-  };
-
-  const sendViaBot = async () => {
-    setSendingBotMsg(true);
-    setBotMsgError(null);
-    try {
-      await api.post(`/virtual-rooms/${roomId}/notify-patient`, {});
-      setBotMsgSent(true);
-      setTimeout(() => setBotMsgSent(false), 4000);
-    } catch (err: any) {
-      setBotMsgError(err?.message || 'Não foi possível enviar a mensagem.');
-    } finally {
-      setSendingBotMsg(false);
-    }
-  };
-
-  const canSendViaBot = botStatus === 'connected' && !!patientId;
-
-  return (
-    <div className={darkPanelShell}>
-      <DarkPanelHeader title="Convidar Paciente" icon={<UserPlus size={16} />} onClose={onClose} />
-
-      <div style={{ flex: 1, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-        <p style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6 }}>
-          Compartilhe o link abaixo com seu paciente. Ele entrará diretamente na sala sem precisar de login.
-        </p>
-
-        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 }}>
-          <p style={{ fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Link da sala</p>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ flex: 1, fontSize: 12, color: "#94a3b8", fontFamily: "monospace", wordBreak: "break-all" }}>{guestUrl}</span>
-            <button onClick={copy} style={{ flexShrink: 0, padding: "6px 12px", borderRadius: 8, background: copied ? "#16a34a" : "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 4, transition: "background .2s" }}>
-              {copied ? <><Check size={13} /> Copiado!</> : <><Copy size={13} /> Copiar</>}
-            </button>
-          </div>
-        </div>
-
-        {canSendViaBot && (
-          <button
-            onClick={sendViaBot}
-            disabled={sendingBotMsg}
-            style={{ width: "100%", height: 44, borderRadius: 12, background: botMsgSent ? "rgba(34,197,94,0.18)" : "#6366f1", border: botMsgSent ? "1px solid rgba(34,197,94,0.4)" : "none", cursor: sendingBotMsg ? "not-allowed" : "pointer", color: botMsgSent ? "#86efac" : "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: sendingBotMsg ? 0.7 : 1 }}
-          >
-            {sendingBotMsg
-              ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Enviando…</>
-              : botMsgSent
-              ? <><Check size={16} /> Enviado ao paciente!</>
-              : <>Enviar link automaticamente (bot da clínica)</>}
-          </button>
-        )}
-        {botMsgError && (
-          <p style={{ fontSize: 12, color: "#f87171", margin: 0 }}>{botMsgError}</p>
-        )}
-
-        <button onClick={whatsapp} style={{ width: "100%", height: 44, borderRadius: 12, background: "#16a34a", border: "none", cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          Enviar pelo meu WhatsApp
-        </button>
-        {botStatus !== 'checking' && !canSendViaBot && (
-          <p style={{ fontSize: 11, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
-            {botStatus !== 'connected'
-              ? 'Conecte o bot de WhatsApp da clínica em Configurações para enviar o link automaticamente.'
-              : 'Esta sala não tem um paciente vinculado, então o envio automático não está disponível.'}
-          </p>
-        )}
-
-        <div style={{ padding: 12, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 12 }}>
-          <p style={{ fontSize: 12, color: "#818cf8", lineHeight: 1.6 }}>
-            O paciente verá uma tela pedindo seu nome antes de entrar. Você verá quando ele conectar.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 // ── Painel de dados do paciente vinculado à sala (só host) ────────────────────
@@ -701,23 +122,21 @@ const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = (
   }, [patientId]);
 
   const age = calcAge(data?.patient?.birth_date);
-  const sectionStyle: React.CSSProperties = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 };
-  const labelStyle: React.CSSProperties = { fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 };
   return (
     <div className={darkPanelShell}>
       <DarkPanelHeader title={data?.patient?.name || "Paciente"} icon={<FileText size={16} />} onClose={onClose} />
 
       <DarkTabs<typeof tab> label="Dados do paciente" items={PATIENT_PANEL_TABS} value={tab} onChange={setTab} className="px-2" />
 
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+      <div className="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
         {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+          <div className="flex justify-center p-6"><Loader2 size={20} color="#64748b" className="animate-spin" /></div>
         ) : !data ? (
-          <p style={{ fontSize: 13, color: "#64748b" }}>Não foi possível carregar os dados do paciente.</p>
+          <p className="text-[13px] text-slate-500">Não foi possível carregar os dados do paciente.</p>
         ) : tab === "dados" ? (
-          <div style={sectionStyle}>
-            <p style={labelStyle}>Dados cadastrais</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "#cbd5e1" }}>
+          <div className={darkCardClass}>
+            <p className={darkLabelClass}>Dados cadastrais</p>
+            <div className="flex flex-col gap-1.5 text-[13px] text-slate-300">
               {age != null && <span>Idade: {age} anos</span>}
               {data.patient.phone && <span>Telefone: {data.patient.phone}</span>}
               {data.patient.whatsapp && <span>WhatsApp: {data.patient.whatsapp}</span>}
@@ -727,29 +146,29 @@ const PatientInfoPanel: React.FC<{ patientId: number; onClose: () => void }> = (
           </div>
         ) : tab === "prontuario" ? (
           data.records.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhuma anotação de prontuário registrada.</p>
+            <p className="text-[13px] text-slate-500">Nenhuma anotação de prontuário registrada.</p>
           ) : data.records.map(r => (
-            <div key={r.id} style={sectionStyle}>
-              <p style={labelStyle}>{new Date(r.date).toLocaleDateString('pt-BR')}{r.professional_name ? ` · ${r.professional_name}` : ''}</p>
-              <p style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>{String(r.content).slice(0, 300)}</p>
+            <div key={r.id} className={darkCardClass}>
+              <p className={darkLabelClass}>{new Date(r.date).toLocaleDateString('pt-BR')}{r.professional_name ? ` · ${r.professional_name}` : ''}</p>
+              <p className="text-[13px] text-slate-300 leading-[1.5]">{String(r.content).slice(0, 300)}</p>
             </div>
           ))
         ) : tab === "testes" ? (
           data.tools.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum teste clínico registrado.</p>
+            <p className="text-[13px] text-slate-500">Nenhum teste clínico registrado.</p>
           ) : data.tools.map(t => (
-            <div key={t.id} style={sectionStyle}>
-              <p style={labelStyle}>{new Date(t.date).toLocaleDateString('pt-BR')}</p>
-              <p style={{ fontSize: 13, color: "#cbd5e1" }}>{t.tool_type}</p>
+            <div key={t.id} className={darkCardClass}>
+              <p className={darkLabelClass}>{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+              <p className="text-[13px] text-slate-300">{t.tool_type}</p>
             </div>
           ))
         ) : (
           data.comandas.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum pacote em aberto.</p>
+            <p className="text-[13px] text-slate-500">Nenhum pacote em aberto.</p>
           ) : data.comandas.map(c => (
-            <div key={c.id} style={sectionStyle}>
-              <p style={labelStyle}>{c.description || `Comanda #${c.id}`}</p>
-              <p style={{ fontSize: 13, color: "#cbd5e1" }}>
+            <div key={c.id} className={darkCardClass}>
+              <p className={darkLabelClass}>{c.description || `Comanda #${c.id}`}</p>
+              <p className="text-[13px] text-slate-300">
                 {c.sessions_used}/{c.sessions_total} sessões · R$ {Number(c.amount || 0).toFixed(2)}
               </p>
             </div>
@@ -802,29 +221,24 @@ const BillingPanel: React.FC<{ patientId: number; patientName?: string; onClose:
     <div className={darkPanelShell}>
       <DarkPanelHeader title="Cobrança" icon={<Receipt size={16} />} onClose={onClose} />
 
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+      <div className="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
         {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+          <div className="flex justify-center p-6"><Loader2 size={20} color="#64748b" className="animate-spin" /></div>
         ) : comandas.length === 0 ? (
-          <p style={{ fontSize: 13, color: "#64748b" }}>Nenhuma comanda em aberto para este paciente.</p>
+          <p className="text-[13px] text-slate-500">Nenhuma comanda em aberto para este paciente.</p>
         ) : (
           comandas.map(c => {
             const total = Number(c.total || 0);
             const paid = Number(c.paidValue ?? c.paid_value ?? 0);
             const remaining = Math.max(0, total - paid);
             return (
-              <div key={c.id} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{c.description || `Comanda #${c.id}`}</p>
-                <p style={{ fontSize: 12, color: "#94a3b8" }}>
+              <div key={c.id} className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-3 flex flex-col gap-2">
+                <p className="text-[13px] font-semibold text-slate-200">{c.description || `Comanda #${c.id}`}</p>
+                <p className="text-xs text-slate-400">
                   Total R$ {total.toFixed(2)} · Pago R$ {paid.toFixed(2)} · Pendente <strong style={{ color: remaining > 0 ? "#f87171" : "#4ade80" }}>R$ {remaining.toFixed(2)}</strong>
                 </p>
                 {remaining > 0 && (
-                  <button
-                    onClick={() => setPaying(c)}
-                    style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
-                  >
-                    <Receipt size={14} /> Cobrar agora
-                  </button>
+                  <DarkButton variant="primary" size="sm" className="self-start" onClick={() => setPaying(c)} iconLeft={<Receipt size={14} />}>Cobrar agora</DarkButton>
                 )}
               </div>
             );
@@ -922,62 +336,46 @@ const SignaturePanel: React.FC<{ patientId: number; onClose: () => void }> = ({ 
     <div className={darkPanelShell}>
       <DarkPanelHeader title="Contrato / Assinatura" icon={<FileSignature size={16} />} onClose={onClose} />
 
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+      <div className="flex-1 p-4 flex flex-col gap-3.5 overflow-y-auto">
         {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+          <div className="flex justify-center p-6"><Loader2 size={20} color="#64748b" className="animate-spin" /></div>
         ) : !contract ? (
           <>
-            <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>Nenhum contrato enviado a este paciente ainda.</p>
+            <p className="text-[13px] text-slate-500 leading-[1.6]">Nenhum contrato enviado a este paciente ainda.</p>
             <div>
-              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Modalidade</label>
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">Modalidade</label>
               <select value={contractType} onChange={(e) => setContractType(e.target.value as 'online' | 'presencial')}
-                style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 10px", color: "#e2e8f0", fontSize: 13, outline: "none" }}>
+                className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg py-2 px-2.5 text-slate-200 text-[13px] outline-none">
                 <option value="online">Atendimento online</option>
                 <option value="presencial">Atendimento presencial</option>
               </select>
             </div>
-            <button
-              onClick={handleSend}
-              disabled={sending}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: sending ? "not-allowed" : "pointer", background: sending ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
-            >
-              {sending ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <FileSignature size={16} />}
-              Enviar para assinatura
-            </button>
+            <DarkButton variant="primary" fullWidth onClick={handleSend} loading={sending} iconLeft={<FileSignature size={14} />}>Enviar para assinatura</DarkButton>
           </>
         ) : (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/[0.04] border border-white/[0.08]">
               <Circle size={8} style={{ fill: status?.color, color: status?.color, flexShrink: 0 }} />
               <span style={{ fontSize: 12, fontWeight: 700, color: status?.color }}>{status?.label}</span>
             </div>
 
             {contract.status === 'signed' && contract.signature ? (
-              <div style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 12, padding: 12 }}>
-                <p style={{ fontSize: 13, color: "#cbd5e1" }}>Assinado por <strong>{contract.signature.signer_name}</strong></p>
-                <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{new Date(contract.signature.signed_at).toLocaleString('pt-BR')}</p>
+              <div className="bg-emerald-500/[0.1] border border-emerald-500/[0.25] rounded-lg p-3">
+                <p className="text-[13px] text-slate-300">Assinado por <strong>{contract.signature.signer_name}</strong></p>
+                <p className="text-xs text-slate-500 mt-1">{new Date(contract.signature.signed_at).toLocaleString('pt-BR')}</p>
               </div>
             ) : (
               <>
                 {contract.public_link && (
-                  <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12 }}>
-                    <p style={{ fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Link de assinatura</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ flex: 1, fontSize: 12, color: "#94a3b8", fontFamily: "monospace", wordBreak: "break-all" }}>{contract.public_link}</span>
-                      <button onClick={copyLink} style={{ flexShrink: 0, padding: "6px 12px", borderRadius: 8, background: copied ? "#16a34a" : "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                        {copied ? <><Check size={13} /> Copiado!</> : <><Copy size={13} /> Copiar</>}
-                      </button>
+                  <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-3">
+                    <p className="text-[11px] text-slate-500 font-medium mb-2">Link de assinatura</p>
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 text-xs text-slate-400 font-mono break-all">{contract.public_link}</span>
+                      <DarkButton size="sm" onClick={copyLink} iconLeft={copied ? <Check size={13} /> : <Copy size={13} />} className={copied ? "!border-emerald-600 !bg-emerald-600 !text-white" : ""}>{copied ? "Copiado!" : "Copiar"}</DarkButton>
                     </div>
                   </div>
                 )}
-                <button
-                  onClick={handleResend}
-                  disabled={sending}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", cursor: sending ? "not-allowed" : "pointer", background: "rgba(255,255,255,0.04)", color: "#94a3b8", fontSize: 12, fontWeight: 700 }}
-                >
-                  {sending ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={14} />}
-                  Gerar novo link
-                </button>
+                <DarkButton fullWidth onClick={handleResend} loading={sending} iconLeft={<Upload size={14} />}>Gerar novo link</DarkButton>
               </>
             )}
           </>
@@ -1071,33 +469,26 @@ const FilesPanel: React.FC<{ patientId: number | null; isHost: boolean; particip
 
       {isHost && <DarkTabs<typeof tab> label="Arquivos" items={FILES_PANEL_TABS} value={tab} onChange={setTab} className="px-3" />}
 
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+      <div className="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
         {isHost && tab === "send" && (
           <>
-            <input ref={fileInputRef} type="file" style={{ display: "none" }}
+            <input ref={fileInputRef} type="file" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: uploading ? "not-allowed" : "pointer", background: uploading ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
-            >
-              {uploading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={16} />}
-              Enviar arquivo
-            </button>
+            <DarkButton variant="primary" fullWidth onClick={() => fileInputRef.current?.click()} loading={uploading} iconLeft={<Upload size={14} />}>Enviar arquivo</DarkButton>
           </>
         )}
 
         {isHost && tab === "library" && (
           library === null ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
+            <div className="flex justify-center p-6"><Loader2 size={20} color="#64748b" className="animate-spin" /></div>
           ) : library.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum material cadastrado ainda. Adicione em Documentos, na tela principal do sistema.</p>
+            <p className="text-[13px] text-slate-500">Nenhum material cadastrado ainda. Adicione em Documentos, na tela principal do sistema.</p>
           ) : (
             library.map(doc => (
-              <button key={doc.id} onClick={() => shareLibraryDoc(doc)}
-                style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, textAlign: "left", cursor: "pointer" }}>
-                <FileText size={18} color="#6366f1" style={{ flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title || doc.file_name}</span>
+              <button type="button" key={doc.id} onClick={() => shareLibraryDoc(doc)}
+                className="flex items-center gap-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg p-3 text-left cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 hover:bg-white/10">
+                <FileText size={18} className="text-primary-400 shrink-0" />
+                <span className="text-[13px] font-semibold text-slate-200 overflow-hidden text-ellipsis whitespace-nowrap">{doc.title || doc.file_name}</span>
               </button>
             ))
           )
@@ -1105,108 +496,19 @@ const FilesPanel: React.FC<{ patientId: number | null; isHost: boolean; particip
 
         {(!isHost || tab === "send") && (
           files.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum arquivo compartilhado nesta sessão ainda.</p>
+            <p className="text-[13px] text-slate-500">Nenhum arquivo compartilhado nesta sessão ainda.</p>
           ) : (
             files.map(f => (
               <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"
-                style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, textDecoration: "none" }}>
-                <FileText size={18} color="#6366f1" style={{ flexShrink: 0 }} />
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</p>
-                  <p style={{ fontSize: 11, color: "#64748b", margin: "2px 0 0" }}>{f.sender} · {new Date(f.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                className="flex items-center gap-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg p-3 no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
+                <FileText size={18} className="text-primary-400 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-slate-200 m-0 overflow-hidden text-ellipsis whitespace-nowrap">{f.name}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5 mx-0 mb-0">{f.sender} · {new Date(f.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </a>
             ))
           )
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ── Painel de aplicação de instrumento/teste clínico durante a chamada ────────
-// Reaproveita o sistema de Formulários que já existe (mesmo backend que a sala
-// antiga usava, endpoint /forms/public/by-id já tinha o comentário "usada pela
-// sala virtual") — o paciente responde na página pública já pronta, em vez de
-// eu reimplementar a renderização de formulário aqui dentro.
-type FormListItem = { id: number; title: string; description?: string; category?: string; hash: string };
-
-const InstrumentPanel: React.FC<{ patientId: number | null; isHost: boolean; onClose: () => void }> = ({ patientId, isHost, onClose }) => {
-  const room = useRoomContext();
-  const { localParticipant } = useLocalParticipant();
-  const [forms, setForms] = useState<FormListItem[] | null>(null);
-  const [sentForm, setSentForm] = useState<{ title: string; url: string } | null>(null);
-  const [received, setReceived] = useState<{ title: string; url: string } | null>(null);
-  const { success: toastSuccess } = useToast();
-
-  useEffect(() => {
-    if (!isHost) return;
-    api.get<FormListItem[]>('/forms').then(setForms).catch(() => setForms([]));
-  }, [isHost]);
-
-  useEffect(() => {
-    if (!room) return;
-    const onData = (payload: Uint8Array) => {
-      let msg: any;
-      try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
-      if (msg?.type !== 'psi-instrument') return;
-      setReceived({ title: msg.title, url: msg.url });
-    };
-    room.on(RoomEvent.DataReceived, onData);
-    return () => { room.off(RoomEvent.DataReceived, onData); };
-  }, [room]);
-
-  const handleSend = (form: FormListItem) => {
-    const base = `${getPublicBaseUrl()}/f/${form.hash}`;
-    const url = patientId ? `${base}?p=${patientId}` : base;
-    try {
-      localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'psi-instrument', title: form.title, url })), { reliable: true });
-    } catch {}
-    setSentForm({ title: form.title, url });
-    toastSuccess('Instrumento enviado', `${form.title} foi enviado — o paciente responde numa página própria.`);
-  };
-
-  return (
-    <div className={darkPanelShell}>
-      <DarkPanelHeader title="Aplicar teste" icon={<ClipboardList size={16} />} onClose={onClose} />
-
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
-        {isHost ? (
-          <>
-            <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
-              O paciente responde numa página própria, fora da chamada — ele recebe o link agora mesmo.
-            </p>
-            {forms === null ? (
-              <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 size={20} color="#64748b" style={{ animation: "spin 1s linear infinite" }} /></div>
-            ) : forms.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum formulário cadastrado. Crie um em Formulários, na tela principal do sistema.</p>
-            ) : (
-              forms.map(f => (
-                <button key={f.id} onClick={() => handleSend(f)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, textAlign: "left", cursor: "pointer" }}>
-                  <ClipboardList size={16} color="#6366f1" style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{f.title}</span>
-                </button>
-              ))
-            )}
-            {sentForm && (
-              <div style={{ marginTop: 8, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 12, padding: 12 }}>
-                <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>{sentForm.title} enviado ✓</p>
-                <a href={sentForm.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#94a3b8" }}>Ver a página do paciente</a>
-              </div>
-            )}
-          </>
-        ) : received ? (
-          <div style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-            <p style={{ fontSize: 13, color: "#e2e8f0" }}>Seu profissional pediu que você responda: <strong>{received.title}</strong></p>
-            <a href={received.url} target="_blank" rel="noopener noreferrer"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-              Responder agora <ExternalLink size={14} />
-            </a>
-            <p style={{ fontSize: 11, color: "#64748b" }}>Abre em outra aba — você pode voltar pra chamada quando terminar.</p>
-          </div>
-        ) : (
-          <p style={{ fontSize: 13, color: "#64748b" }}>Nenhum teste enviado nesta sessão ainda.</p>
         )}
       </div>
     </div>
@@ -1248,18 +550,17 @@ const BreakoutPanel: React.FC<{
   return (
     <div className={darkPanelShell}>
       <DarkPanelHeader title="Conversa privada" icon={<Shield size={16} />} onClose={onClose} />
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
-        <p style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>
+      <div className="flex-1 p-4 flex flex-col gap-2.5 overflow-y-auto">
+        <p className="text-[11px] text-slate-500 leading-[1.5]">
           Escolha com quem conversar em particular. Vocês dois vão pra uma sala separada; os demais continuam na sala principal. Dá pra voltar quando quiser.
         </p>
         {remoteParticipants.map(p => {
           let role: string | undefined;
           try { role = JSON.parse(p.metadata || '{}')?.role; } catch {}
           return (
-            <button key={p.identity} onClick={() => handleInvite(p)} disabled={!!creating}
-              style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, textAlign: "left", cursor: creating ? "not-allowed" : "pointer" }}>
-              {creating === p.identity ? <Loader2 size={16} color="#6366f1" style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} /> : <UserPlus size={16} color="#6366f1" style={{ flexShrink: 0 }} />}
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{p.name || p.identity}{role ? ` · ${role}` : ""}</span>
+            <button type="button" key={p.identity} onClick={() => handleInvite(p)} disabled={!!creating} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 disabled:cursor-not-allowed disabled:opacity-60">
+              {creating === p.identity ? <Loader2 size={16} className="text-primary-400 animate-spin shrink-0" /> : <UserPlus size={16} className="text-primary-400 shrink-0" />}
+              <span className="text-[13px] font-semibold text-slate-200">{p.name || p.identity}{role ? ` · ${role}` : ""}</span>
             </button>
           );
         })}
@@ -1269,6 +570,11 @@ const BreakoutPanel: React.FC<{
 };
 
 // ── Painel de agendamento de retorno ──────────────────────────────────────────
+const CUSTOM_END_TABS = [
+  { id: "count", label: "Por sessões" },
+  { id: "until", label: "Até uma data" },
+] as const;
+
 const ROOM_RECURRENCE_OPTIONS = [
   { label: 'Não repete', value: '', freq: '', interval: 1, count: 1 },
   { label: 'Semanal — 4 sessões', value: 'weekly-4', freq: 'WEEKLY', interval: 1, count: 4 },
@@ -1411,91 +717,77 @@ const SchedulePanel: React.FC<{ patientId: number; professionalId?: number | nul
     }
   };
 
-  const inputStyle: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#e2e8f0", fontSize: 13, outline: "none" };
-  const labelStyle: React.CSSProperties = { fontSize: 11, color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, display: "block" };
 
   return (
     <div className={darkPanelShell}>
       <DarkPanelHeader title="Agendar retorno" icon={<CalendarPlus size={16} />} onClose={onClose} />
 
-      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+      <div className="flex-1 p-4 flex flex-col gap-3.5 overflow-y-auto">
         {scheduled ? (
-          <div style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#4ade80" }}>Retorno agendado ✓</p>
-            <p style={{ fontSize: 13, color: "#cbd5e1" }}>{new Date(`${scheduled.date}T${scheduled.time}`).toLocaleDateString('pt-BR')} às {scheduled.time}</p>
-            <button onClick={() => setScheduled(null)} style={{ alignSelf: "flex-start", marginTop: 6, background: "none", border: "none", color: "#a5b4fc", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Agendar outra data</button>
+          <div className="bg-emerald-500/[0.12] border border-emerald-500/[0.3] rounded-lg p-3 flex flex-col gap-1">
+            <p className="text-[13px] font-semibold text-emerald-400">Retorno agendado ✓</p>
+            <p className="text-[13px] text-slate-300">{new Date(`${scheduled.date}T${scheduled.time}`).toLocaleDateString('pt-BR')} às {scheduled.time}</p>
+            <button type="button" onClick={() => setScheduled(null)} className="self-start mt-1.5 bg-transparent border-0 text-primary-300 text-xs font-semibold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 hover:bg-white/10">Agendar outra data</button>
           </div>
         ) : (
           <>
             <div>
-              <label style={labelStyle}>Data</label>
+              <label className={`${darkLabelClass} block`}>Data</label>
               <DatePicker value={date} onChange={value => { setDate(value || ''); setManualTime(false); }} min={localDateISO(new Date())} />
             </div>
             <div>
-              <label style={labelStyle}>Horários disponíveis</label>
+              <label className={`${darkLabelClass} block`}>Horários disponíveis</label>
               {loadingSlots ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#94a3b8', fontSize: 12 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Consultando agenda…</div>
+                <div className="flex items-center gap-[7px] text-slate-400 text-xs"><Loader2 size={14} className="animate-spin" /> Consultando agenda…</div>
               ) : availableSlots.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7 }}>
-                  {availableSlots.map(slot => <button key={slot} onClick={() => { setTime(slot); setManualTime(false); }} style={{ padding: '8px 4px', borderRadius: 9, border: `1px solid ${time === slot && !manualTime ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: time === slot && !manualTime ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{slot}</button>)}
+                <div className="grid grid-cols-3 gap-2">
+                  {availableSlots.map(slot => <button type="button" key={slot} onClick={() => { setTime(slot); setManualTime(false); }} aria-pressed={time === slot && !manualTime} className={`rounded-lg border py-2 text-xs font-medium text-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${time === slot && !manualTime ? "border-primary-500 bg-primary-600" : "border-white/10 bg-white/[0.04] hover:bg-white/10"}`}>{slot}</button>)}
                 </div>
               ) : (
-                <p style={{ fontSize: 12, color: '#f59e0b', lineHeight: 1.5 }}>Não há horários livres configurados nesta data.</p>
+                <p className="text-xs text-amber-500 leading-[1.5]">Não há horários livres configurados nesta data.</p>
               )}
-              <button onClick={() => { setManualTime(true); setTime(''); }} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, color: '#a5b4fc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ Criar horário fora da disponibilidade</button>
-              {manualTime && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginTop: 8 }} />}
+              <button type="button" onClick={() => { setManualTime(true); setTime(''); }} className="mt-[9px] bg-transparent border-0 p-0 text-primary-300 text-[11px] font-semibold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 hover:bg-white/10">+ Criar horário fora da disponibilidade</button>
+              {manualTime && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={`${darkFieldClass} mt-2`} />}
             </div>
             <div>
-              <label style={labelStyle}>Duração (minutos)</label>
-              <input type="number" min={10} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value) || 50)} style={inputStyle} />
+              <label className={`${darkLabelClass} block`}>Duração (minutos)</label>
+              <input type="number" min={10} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value) || 50)} className={darkFieldClass} />
             </div>
             <div>
-              <label style={labelStyle}>Repetição</label>
-              <select value={recurrencePreset} onChange={event => setRecurrencePreset(event.target.value)} style={inputStyle}>
-                {ROOM_RECURRENCE_OPTIONS.map(option => <option key={option.value || 'none'} value={option.value} style={{ color: '#111827' }}>{option.label}</option>)}
+              <label className={`${darkLabelClass} block`}>Repetição</label>
+              <select value={recurrencePreset} onChange={event => setRecurrencePreset(event.target.value)} className={darkFieldClass}>
+                {ROOM_RECURRENCE_OPTIONS.map(option => <option key={option.value || 'none'} value={option.value} className="text-[#111827]">{option.label}</option>)}
               </select>
             </div>
             {recurrencePreset === 'custom' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 11, borderRadius: 11, border: '1px solid rgba(99,102,241,.3)', background: 'rgba(99,102,241,.07)' }}>
+              <div className="flex flex-col gap-2.5 p-[11px] rounded-lg border border-primary-500/[.3] bg-primary-500/[.07]">
                 <div>
-                  <label style={labelStyle}>Frequência</label>
-                  <select value={customFrequency} onChange={event => setCustomFrequency(event.target.value)} style={inputStyle}>
-                    <option value="DAILY" style={{ color: '#111827' }}>Diariamente</option>
-                    <option value="WEEKLY" style={{ color: '#111827' }}>Semanalmente</option>
-                    <option value="TWICE_WEEKLY" style={{ color: '#111827' }}>2 vezes por semana</option>
-                    <option value="THREE_WEEKLY" style={{ color: '#111827' }}>3 vezes por semana</option>
-                    <option value="MONTHLY" style={{ color: '#111827' }}>Mensalmente</option>
+                  <label className={`${darkLabelClass} block`}>Frequência</label>
+                  <select value={customFrequency} onChange={event => setCustomFrequency(event.target.value)} className={darkFieldClass}>
+                    <option value="DAILY" className="text-[#111827]">Diariamente</option>
+                    <option value="WEEKLY" className="text-[#111827]">Semanalmente</option>
+                    <option value="TWICE_WEEKLY" className="text-[#111827]">2 vezes por semana</option>
+                    <option value="THREE_WEEKLY" className="text-[#111827]">3 vezes por semana</option>
+                    <option value="MONTHLY" className="text-[#111827]">Mensalmente</option>
                   </select>
                 </div>
                 {(customFrequency === 'DAILY' || customFrequency === 'WEEKLY' || customFrequency === 'MONTHLY') && (
                   <div>
-                    <label style={labelStyle}>Intervalo</label>
-                    <input type="number" min={1} max={52} value={customInterval} onChange={event => setCustomInterval(Math.max(1, Number(event.target.value) || 1))} style={inputStyle} />
-                    <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: 10 }}>Ex.: semanal com intervalo 2 = a cada duas semanas.</p>
+                    <label className={`${darkLabelClass} block`}>Intervalo</label>
+                    <input type="number" min={1} max={52} value={customInterval} onChange={event => setCustomInterval(Math.max(1, Number(event.target.value) || 1))} className={darkFieldClass} />
+                    <p className="mt-[5px] mx-0 mb-0 text-slate-500 text-[10px]">Ex.: semanal com intervalo 2 = a cada duas semanas.</p>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 7 }}>
-                  <button onClick={() => setCustomEndType('count')} style={{ flex: 1, padding: 8, borderRadius: 8, border: `1px solid ${customEndType === 'count' ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: customEndType === 'count' ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#fff', fontSize: 11, fontWeight: 700 }}>Por sessões</button>
-                  <button onClick={() => setCustomEndType('until')} style={{ flex: 1, padding: 8, borderRadius: 8, border: `1px solid ${customEndType === 'until' ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: customEndType === 'until' ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#fff', fontSize: 11, fontWeight: 700 }}>Até uma data</button>
-                </div>
+                <DarkTabs<"count" | "until"> label="Término da repetição" items={CUSTOM_END_TABS} value={customEndType} onChange={setCustomEndType} />
                 {customEndType === 'count' ? (
-                  <div><label style={labelStyle}>Quantidade de sessões</label><input type="number" min={2} max={365} value={customCount} onChange={event => setCustomCount(Math.max(2, Number(event.target.value) || 2))} style={inputStyle} /></div>
+                  <div><label className={`${darkLabelClass} block`}>Quantidade de sessões</label><input type="number" min={2} max={365} value={customCount} onChange={event => setCustomCount(Math.max(2, Number(event.target.value) || 2))} className={darkFieldClass} /></div>
                 ) : (
-                  <div><label style={labelStyle}>Repetir até</label><DatePicker value={customEndDate} onChange={value => setCustomEndDate(value || '')} min={date} /></div>
+                  <div><label className={`${darkLabelClass} block`}>Repetir até</label><DatePicker value={customEndDate} onChange={value => setCustomEndDate(value || '')} min={date} /></div>
                 )}
               </div>
             )}
-            <button
-              onClick={handleSchedule}
-              disabled={saving || !date || !time || (recurrencePreset === 'custom' && customEndType === 'until' && !customEndDate)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 14px", borderRadius: 10, border: "none", cursor: saving || !date || !time ? "not-allowed" : "pointer", background: saving || !date || !time ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700 }}
-            >
-              {saving ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <CalendarPlus size={16} />}
-              Agendar retorno
-            </button>
-            <button onClick={openFullAgenda} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(99,102,241,.45)', background: 'rgba(99,102,241,.1)', color: '#a5b4fc', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-              <ExternalLink size={14} /> Agenda completa · comandas e repetições
-            </button>
+            <DarkButton variant="primary" fullWidth onClick={handleSchedule} loading={saving} disabled={!date || !time || (recurrencePreset === 'custom' && customEndType === 'until' && !customEndDate)} iconLeft={<CalendarPlus size={14} />}>Agendar retorno</DarkButton>
+            <DarkButton fullWidth onClick={openFullAgenda} iconLeft={<ExternalLink size={14} />}>Agenda completa · comandas e repetições</DarkButton>
           </>
         )}
       </div>
@@ -1601,19 +893,12 @@ const WhiteboardPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
     <div className={darkPanelShell}>
       <DarkPanelHeader title="Quadro branco" icon={<PenTool size={16} />} onClose={onClose} />
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="flex items-center gap-2 py-2 px-3 border-b border-white/[0.06]">
         {WHITEBOARD_COLORS.map(c => (
-          <button key={c} onClick={() => { setColor(c); setEraser(false); }}
-            style={{ width: 20, height: 20, borderRadius: "50%", background: c, border: !eraser && color === c ? "2px solid #fff" : "2px solid transparent", cursor: "pointer", padding: 0 }} />
+          <button type="button" key={c} aria-label={`Cor ${c}`} aria-pressed={!eraser && color === c} onClick={() => { setColor(c); setEraser(false); }} className={`h-5 w-5 rounded-full border-2 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${!eraser && color === c ? "border-white" : "border-transparent"}`} style={{ background: c }} />
         ))}
-        <button onClick={() => setEraser(v => !v)} title="Borracha"
-          style={{ marginLeft: "auto", width: 28, height: 28, borderRadius: 8, border: "none", cursor: "pointer", background: eraser ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.08)", color: eraser ? "#a5b4fc" : "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Eraser size={14} />
-        </button>
-        <button onClick={handleClear} title="Limpar tudo"
-          style={{ width: 28, height: 28, borderRadius: 8, border: "none", cursor: "pointer", background: "rgba(255,255,255,0.08)", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Trash2 size={14} />
-        </button>
+        <DarkIconButton aria-label="Borracha" aria-pressed={eraser} title="Borracha" size="sm" onClick={() => setEraser(v => !v)} className={`ml-auto ${eraser ? "!bg-primary-500/30 !text-primary-200" : "!bg-white/10"}`}><Eraser size={14} /></DarkIconButton>
+        <DarkIconButton aria-label="Limpar quadro" title="Limpar tudo" size="sm" onClick={handleClear} className="!bg-white/10"><Trash2 size={14} /></DarkIconButton>
       </div>
       <canvas
         ref={canvasRef}
@@ -1621,7 +906,7 @@ const WhiteboardPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        style={{ flex: 1, width: "100%", background: "#fff", touchAction: "none", cursor: "crosshair" }}
+        className="flex-1 w-full bg-white" style={{ touchAction: "none", cursor: "crosshair" }}
       />
     </div>
   );
@@ -1647,7 +932,22 @@ const ParticipantVideo: React.FC<{
   const activeTrack = forceSource
     ? (forceSource === Track.Source.Camera ? camTrack : screenTrack)
     : (screenTrack || camTrack);
-  const isCamOn = !!activeTrack;
+  // Câmera desligada deixa o track "mudo" (ainda presente) — sem checar isso o tile fica preto.
+  const [, forceRender] = useState(0);
+  useEffect(() => {
+    const bump = () => forceRender(n => n + 1);
+    participant.on(ParticipantEvent.TrackMuted, bump);
+    participant.on(ParticipantEvent.TrackUnmuted, bump);
+    participant.on(ParticipantEvent.TrackPublished, bump);
+    participant.on(ParticipantEvent.TrackUnpublished, bump);
+    return () => {
+      participant.off(ParticipantEvent.TrackMuted, bump);
+      participant.off(ParticipantEvent.TrackUnmuted, bump);
+      participant.off(ParticipantEvent.TrackPublished, bump);
+      participant.off(ParticipantEvent.TrackUnpublished, bump);
+    };
+  }, [participant]);
+  const isCamOn = !!activeTrack && !activeTrack.publication?.isMuted;
   const initials = (participant.name || participant.identity)?.charAt(0).toUpperCase() || "?";
   const avatarSize = objectFit === "contain" ? 80 : 52;
 
@@ -1657,15 +957,17 @@ const ParticipantVideo: React.FC<{
   const shouldMirror = isLocal && isFrontCamera && activeTrack?.source === Track.Source.Camera;
 
   return (
-    <div style={{ position: "relative", overflow: "hidden", background: "#111827", ...style }}>
+    <div className="relative overflow-hidden bg-slate-900" style={style}>
       {isCamOn && activeTrack
         ? <VideoTrack trackRef={activeTrack} style={{ width: "100%", height: "100%", objectFit, transform: shouldMirror ? "scaleX(-1)" : undefined }} />
         : (
-          <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={{ width: avatarSize, height: avatarSize, borderRadius: "50%", background: isLocal ? "#4f46e5" : "#0284c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: avatarSize * 0.4, fontWeight: 800, color: "#fff" }}>
+          <div className="relative flex h-full w-full flex-col items-center justify-center gap-1.5 bg-gradient-to-b from-slate-800 to-slate-900 p-2 text-center">
+            <VideoOff size={objectFit === "contain" ? 56 : 32} className="absolute text-white/[0.06]" aria-hidden />
+            <div className="relative flex items-center justify-center rounded-full bg-primary-600 font-semibold text-white" style={{ width: avatarSize, height: avatarSize, fontSize: avatarSize * 0.4 }}>
               {initials}
             </div>
-            {objectFit !== "cover" && <span style={{ fontSize: 12, color: "#475569" }}>Câmera desligada</span>}
+            <span className="relative max-w-full truncate text-xs font-medium text-slate-200">{participant.name || participant.identity}{isLocal ? " (Você)" : ""}</span>
+            <span className="relative flex items-center gap-1 text-[11px] text-slate-400"><VideoOff size={12} /> Câmera desativada</span>
           </div>
         )
       }
@@ -1673,13 +975,13 @@ const ParticipantVideo: React.FC<{
         let role: string | undefined;
         try { role = JSON.parse(participant.metadata || '{}')?.role; } catch {}
         return (
-          <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "2px 8px", fontSize: 12, fontWeight: 600, color: "#fff", maxWidth: "80%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div className="absolute bottom-2 left-2 bg-black/[0.65] backdrop-blur-md rounded-md py-0.5 px-2 text-xs font-medium text-white max-w-[80%] overflow-hidden text-ellipsis whitespace-nowrap">
             {participant.name || participant.identity}{isLocal ? " (Você)" : ""}{role ? ` · ${role}` : ""}
           </div>
         );
       })()}
       {!participant.isMicrophoneEnabled && !hideName && (
-        <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(220,38,38,0.9)", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="absolute top-2 right-2 bg-red-600/[0.9] rounded-full w-6 h-6 flex items-center justify-center">
           <MicOff size={12} color="#fff" />
         </div>
       )}
@@ -1793,19 +1095,19 @@ const LiveKitChatPanel: React.FC<{
     <div className={darkPanelShell}>
       <DarkPanelHeader title="Chat" icon={<MessageSquare size={16} />} onClose={onClose} />
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5">
         {visibleMessages.length === 0 && (
-          <p style={{ textAlign: "center", fontSize: 12, color: "#334155", marginTop: 20 }}>Nenhuma mensagem ainda</p>
+          <p className="text-center text-xs text-slate-500 mt-5">Nenhuma mensagem ainda</p>
         )}
         {visibleMessages.map((msg) => {
           const isMe = msg.sender === localIdentity || msg.sender === participantName;
           return (
-            <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
-              {!isMe && <span style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>{msg.senderName || msg.sender}</span>}
-              <div style={{ maxWidth: "85%", padding: "8px 12px", borderRadius: isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px", background: isMe ? "#4f46e5" : "rgba(255,255,255,0.08)", color: "#e2e8f0", fontSize: 13, lineHeight: 1.5 }}>
+            <div key={msg.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+              {!isMe && <span className="text-[11px] text-slate-400 mb-[3px]">{msg.senderName || msg.sender}</span>}
+              <div className={`max-w-[85%] px-3 py-2 text-[13px] leading-normal text-slate-200 ${isMe ? "rounded-[16px_4px_16px_16px] bg-primary-600" : "rounded-[4px_16px_16px_16px] bg-white/10"}`}>
                 {msg.message}
               </div>
-              <span style={{ fontSize: 10, color: isMe ? "#818cf8" : "#334155", marginTop: 2 }}>
+              <span className={`mt-0.5 text-[11px] ${isMe ? "text-primary-400" : "text-slate-500"}`}>
                 {fmtTime(msg.timestamp)}{isMe ? " · Enviada" : ""}
               </span>
             </div>
@@ -1814,19 +1116,10 @@ const LiveKitChatPanel: React.FC<{
         <div ref={bottomRef} />
       </div>
 
-      {sendError && <p style={{ margin: "0 12px 8px", color: "#f87171", fontSize: 11 }}>{sendError}</p>}
-      <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", gap: 8 }}>
-        <input
-          type="text" value={newMessage}
-          onChange={e => setNewMessage(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void handleSend(); } }}
-          placeholder="Mensagem..."
-          style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 12px", color: "#fff", fontSize: 13, outline: "none" }}
-        />
-        <button onClick={() => { void handleSend(); }} disabled={!newMessage.trim() || isSending}
-          style={{ padding: 8, borderRadius: 10, background: newMessage.trim() ? "#4f46e5" : "rgba(255,255,255,0.05)", border: "none", cursor: newMessage.trim() ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-          <Send size={15} />
-        </button>
+      {sendError && <p className="mt-0 mx-3 mb-2 text-red-400 text-[11px]">{sendError}</p>}
+      <div className="p-3 border-t border-white/[0.08] flex gap-2">
+        <DarkInput aria-label="Mensagem" wrapperClassName="flex-1" type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void handleSend(); } }} placeholder="Mensagem..." />
+        <DarkIconButton aria-label="Enviar mensagem" variant="primary" size="md" onClick={() => { void handleSend(); }} disabled={!newMessage.trim() || isSending}><Send size={15} /></DarkIconButton>
       </div>
     </div>
   );
@@ -1946,50 +1239,46 @@ const SettingsPanel: React.FC<{
     try { await room.switchActiveDevice("audiooutput", deviceId); } catch {}
   };
 
-  const selStyle: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 8, padding: "8px 10px", color: "#e2e8f0", fontSize: 13, outline: "none", cursor: "pointer",
-  };
-  const labelStyle: React.CSSProperties = { fontSize: 11, color: "#94a3b8", fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase", marginBottom: 6 };
+  const selStyle = darkFieldClass;
 
   return (
     <div className={darkPanelShell}>
       <DarkPanelHeader title="Configurações" icon={<Settings size={16} />} onClose={onClose} />
-      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5">
         {(connectionQuality !== undefined || hasRemote) && (
-          <div style={{ padding: 12, borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", fontWeight: 800, letterSpacing: ".5px", textTransform: "uppercase" }}>Qualidade da chamada</p>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: hasRemote ? 6 : 0 }}>
-              <span style={{ fontSize: 12, color: "#cbd5e1" }}>Sua conexão</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: QUALITY_LABEL[connectionQuality ?? ConnectionQuality.Unknown].color, display: "flex", alignItems: "center", gap: 6 }}>
-                <Circle size={7} style={{ fill: "currentColor" }} /> {QUALITY_LABEL[connectionQuality ?? ConnectionQuality.Unknown].label}
+          <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+            <p className="mt-0 mx-0 mb-2.5 text-[11px] text-slate-400 font-semibold">Qualidade da chamada</p>
+            <div className={`flex items-center justify-between ${hasRemote ? "mb-1.5" : ""}`}>
+              <span className="text-xs text-slate-300">Sua conexão</span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: QUALITY_LABEL[connectionQuality ?? ConnectionQuality.Unknown].color }}>
+                <Circle size={7} className="fill-current" /> {QUALITY_LABEL[connectionQuality ?? ConnectionQuality.Unknown].label}
               </span>
             </div>
             {hasRemote && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 12, color: "#cbd5e1" }}>{isHost ? "Paciente" : "Profissional"}</span>
-                <span style={{ fontSize: 12, fontWeight: 800, color: QUALITY_LABEL[remoteConnectionQuality ?? ConnectionQuality.Unknown].color, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Circle size={7} style={{ fill: "currentColor" }} /> {QUALITY_LABEL[remoteConnectionQuality ?? ConnectionQuality.Unknown].label}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-300">{isHost ? "Paciente" : "Profissional"}</span>
+                <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: QUALITY_LABEL[remoteConnectionQuality ?? ConnectionQuality.Unknown].color }}>
+                  <Circle size={7} className="fill-current" /> {QUALITY_LABEL[remoteConnectionQuality ?? ConnectionQuality.Unknown].label}
                 </span>
               </div>
             )}
             {isHost && livekitRoomName && (
               <>
-                <button onClick={loadDiag} style={{ marginTop: 10, background: "none", border: "none", cursor: "pointer", color: "#818cf8", fontSize: 11, fontWeight: 700, padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
-                  <ChevronDown size={12} style={{ transform: diagOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} /> Detalhes técnicos
+                <button type="button" onClick={loadDiag} className="mt-2.5 bg-transparent border-0 cursor-pointer text-primary-400 text-[11px] font-semibold p-0 flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 hover:bg-white/10">
+                  <ChevronDown size={12} className={`transition-transform ${diagOpen ? "rotate-180" : ""}`} /> Detalhes técnicos
                 </button>
                 {diagOpen && (
-                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div className="mt-2 flex flex-col gap-1.5">
                     {diagLoading ? (
-                      <Loader2 size={14} color="#64748b" style={{ animation: "spin 1s linear infinite" }} />
+                      <Loader2 size={14} color="#64748b" className="animate-spin" />
                     ) : !diagData?.length ? (
-                      <p style={{ fontSize: 11, color: "#64748b" }}>Sem dados de participantes conectados.</p>
+                      <p className="text-[11px] text-slate-500">Sem dados de participantes conectados.</p>
                     ) : (
                       diagData.map((p: any) => (
-                        <div key={p.identity} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 8 }}>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: "#e2e8f0", margin: "0 0 4px" }}>{p.name || p.identity}</p>
+                        <div key={p.identity} className="bg-white/[0.03] rounded-lg p-2">
+                          <p className="text-[11px] font-semibold text-slate-200 mt-0 mx-0 mb-1">{p.name || p.identity}</p>
                           {(p.tracks || []).map((t: any) => (
-                            <p key={t.sid} style={{ fontSize: 10, color: "#64748b", margin: 0 }}>
+                            <p key={t.sid} className="text-[10px] text-slate-500 m-0">
                               {t.type === 1 ? "Vídeo" : t.type === 0 ? "Áudio" : "Dados"}
                               {t.width ? ` · ${t.width}x${t.height}` : ""}{t.muted ? " · mudo" : ""}
                             </p>
@@ -2003,50 +1292,50 @@ const SettingsPanel: React.FC<{
             )}
           </div>
         )}
-        <div style={{ padding: 12, borderRadius: 10, background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.22)" }}>
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: "#c7d2fe", fontWeight: 800, letterSpacing: ".5px", textTransform: "uppercase" }}>Teste de áudio e conexão</p>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: "#cbd5e1" }}>Microfone</span>
-            <div style={{ width: 120, height: 7, borderRadius: 99, overflow: "hidden", background: "rgba(255,255,255,.12)" }}>
-              <div style={{ width: `${micLevel}%`, height: "100%", transition: "width .08s", background: micLevel > 75 ? "#f59e0b" : "#22c55e" }} />
+        <div className="p-3 rounded-lg bg-primary-500/[0.10] border border-primary-500/[0.22]">
+          <p className="mt-0 mx-0 mb-2.5 text-[11px] text-[#c7d2fe] font-semibold">Teste de áudio e conexão</p>
+          <div className="flex items-center justify-between gap-2.5 mb-2">
+            <span className="text-xs text-slate-300">Microfone</span>
+            <div className="w-[120px] h-[7px] rounded-full overflow-hidden bg-white/[.12]">
+              <div className={`h-full transition-[width] duration-75 ${micLevel > 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${micLevel}%` }} />
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <span style={{ fontSize: 12, color: "#cbd5e1" }}>Latência</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: latencyMs === null ? "#94a3b8" : latencyMs > 250 ? "#fbbf24" : "#86efac" }}>
+          <div className="flex items-center justify-between gap-2.5">
+            <span className="text-xs text-slate-300">Latência</span>
+            <span className={`text-xs font-semibold ${latencyMs === null ? "text-slate-400" : latencyMs > 250 ? "text-amber-400" : "text-emerald-300"}`}>
               {latencyMs === null ? "Medindo…" : `${latencyMs} ms`}
             </span>
           </div>
-          <p style={{ margin: "8px 0 0", fontSize: 10, color: "#94a3b8", lineHeight: 1.4 }}>
+          <p className="mt-2 mx-0 mb-0 text-[10px] text-slate-400 leading-[1.4]">
             {latencyMs !== null && latencyMs > 250 ? "Latência alta: prefira Wi‑Fi estável ou aproximação do roteador." : "Fale para confirmar que a barra do microfone responde."}
           </p>
         </div>
         {cameras.length > 0 && (
           <div>
-            <p style={labelStyle}>Câmera</p>
-            <select value={selCam} onChange={e => applyCamera(e.target.value)} style={selStyle}>
+            <p className={darkLabelClass}>Câmera</p>
+            <select value={selCam} onChange={e => applyCamera(e.target.value)} className={selStyle}>
               {cameras.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Câmera " + d.deviceId.slice(0,6)}</option>)}
             </select>
           </div>
         )}
         {mics.length > 0 && (
           <div>
-            <p style={labelStyle}>Microfone</p>
-            <select value={selMic} onChange={e => applyMic(e.target.value)} style={selStyle}>
+            <p className={darkLabelClass}>Microfone</p>
+            <select value={selMic} onChange={e => applyMic(e.target.value)} className={selStyle}>
               {mics.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Microfone " + d.deviceId.slice(0,6)}</option>)}
             </select>
           </div>
         )}
         {speakers.length > 0 && (
           <div>
-            <p style={labelStyle}>Alto-falante</p>
-            <select value={selSpk} onChange={e => applySpk(e.target.value)} style={selStyle}>
+            <p className={darkLabelClass}>Alto-falante</p>
+            <select value={selSpk} onChange={e => applySpk(e.target.value)} className={selStyle}>
               {speakers.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Alto-falante " + d.deviceId.slice(0,6)}</option>)}
             </select>
           </div>
         )}
         {cameras.length === 0 && mics.length === 0 && (
-          <p style={{ fontSize: 13, color: "#475569", textAlign: "center", marginTop: 20 }}>Nenhum dispositivo encontrado.<br/>Verifique as permissões do navegador.</p>
+          <p className="text-[13px] text-slate-500 text-center mt-5">Nenhum dispositivo encontrado.<br/>Verifique as permissões do navegador.</p>
         )}
       </div>
     </div>
@@ -2110,6 +1399,12 @@ const RoomInner: React.FC<{
       return next;
     });
   }, []);
+  // Teste em aplicação compartilhado em tempo real (tópico 'test-session').
+  const testSession = useTestSession(room, localParticipant, isHost, remoteParticipants.length);
+  useEffect(() => {
+    // O paciente vê o teste assim que o profissional inicia, mesmo com o painel fechado.
+    if (!isHost && testSession.incomingStart > 0) setSidePanel('instrument');
+  }, [isHost, testSession.incomingStart]);
   const [patientId, setPatientId] = useState<number | null>(null);
   const [appointmentId, setAppointmentId] = useState<number | null>(null);
 
@@ -2574,6 +1869,67 @@ const RoomInner: React.FC<{
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Saída abrupta (fechar aba/janela, recarregar, perder a página) ───────────
+  // Sem clicar em Encerrar/Sair, nada pode ficar gravando: para os recorders,
+  // libera câmera/mic/tela, avisa o backend (fetch keepalive — sendBeacon não
+  // aceita o cabeçalho Authorization) e desconecta do LiveKit. Idempotente.
+  const abruptExitDoneRef = useRef(false);
+  useEffect(() => {
+    const KEEPALIVE_LIMIT = 60 * 1024; // navegadores limitam o corpo keepalive a ~64 KB
+    const shutdown = () => {
+      if (abruptExitDoneRef.current) return;
+      abruptExitDoneRef.current = true;
+      const recorders = [mediaRecorderRef.current, micOnlyRecorderRef.current];
+      const wasCapturing = recorders.some(r => r && r.state !== 'inactive');
+      let partial: Blob | null = null;
+      let partialMime = 'audio/webm';
+      try {
+        const mixed = mediaRecorderRef.current;
+        if (mixed && mixed.state !== 'inactive') {
+          partialMime = mixed.mimeType || partialMime;
+          partial = new Blob(audioChunksRef.current, { type: partialMime });
+        }
+      } catch {}
+      for (const r of recorders) {
+        try { if (r && r.state !== 'inactive') r.stop(); } catch {}
+        try { r?.stream.getTracks().forEach(t => t.stop()); } catch {}
+      }
+      try { localMicStreamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
+      try { micOnlyStreamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
+      try { recordingAudioCtxRef.current?.close(); } catch {}
+
+      if (isHost && wasCapturing) {
+        const token = getToken();
+        const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+        const sk = sessionKeyRef.current;
+        try {
+          // Salva o áudio parcial quando cabe no limite do keepalive.
+          if (partial && partial.size > 0 && partial.size <= KEEPALIVE_LIMIT && preferences.sessions?.saveAudioRecording) {
+            const fd = new FormData();
+            fd.append('audio', partial, `recording-${sk}.${partialMime.includes('ogg') ? 'ogg' : partialMime.includes('mp4') ? 'mp4' : 'webm'}`);
+            fd.append('speaker_role', 'host');
+            fd.append('speaker_name', participantName);
+            fd.append('duration_seconds', String(Math.round(elapsedTime)));
+            void fetch(`${API_BASE_URL}/virtual-rooms/${encodeURIComponent(roomId)}/sessions/${encodeURIComponent(sk)}/recordings`, { method: 'POST', body: fd, headers, keepalive: true }).catch(() => {});
+          }
+          // Fecha a sessão no backend (upsert — chamar duas vezes não gera erro).
+          void fetch(`${API_BASE_URL}/virtual-rooms/${encodeURIComponent(roomId)}/sessions/${encodeURIComponent(sk)}/end`, {
+            method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ duration_seconds: Math.round(elapsedTime) }), keepalive: true,
+          }).catch(() => {});
+        } catch {}
+      }
+      try { localParticipant.trackPublications.forEach(pub => { try { pub.track?.stop(); } catch {} }); } catch {}
+      try { void room.disconnect(); } catch {}
+    };
+    window.addEventListener('pagehide', shutdown);
+    window.addEventListener('beforeunload', shutdown);
+    return () => {
+      window.removeEventListener('pagehide', shutdown);
+      window.removeEventListener('beforeunload', shutdown);
+    };
+  }, [isHost, roomId, participantName, elapsedTime, room, localParticipant, preferences.sessions?.saveAudioRecording]);
+
   const micOn = isMicrophoneEnabled;
   const camOn = isCameraEnabled;
 
@@ -2862,25 +2218,17 @@ const RoomInner: React.FC<{
   const showPip = hasRemote;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#0d0f14", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden">
 
       {/* Notificação de entrada/saída */}
       {roomNotice && (
-        <div style={{
-          position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
-          zIndex: 9999, pointerEvents: "none",
-          background: roomNotice.type === 'leave' ? "rgba(245,158,11,0.15)" : "rgba(34,197,94,0.15)",
-          border: `1px solid ${roomNotice.type === 'leave' ? "rgba(245,158,11,0.4)" : "rgba(34,197,94,0.4)"}`,
-          color: roomNotice.type === 'leave' ? "#fcd34d" : "#86efac",
-          padding: "8px 20px", borderRadius: 12, fontSize: 13, fontWeight: 600,
-          whiteSpace: "nowrap", backdropFilter: "blur(8px)",
-        }}>
+        <div className={`pointer-events-none absolute left-1/2 top-4 z-[9999] -translate-x-1/2 whitespace-nowrap rounded-lg border px-5 py-2 text-[13px] font-medium backdrop-blur-md ${roomNotice.type === "leave" ? "border-amber-500/40 bg-amber-500/15 text-amber-300" : "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"}`}>
           {roomNotice.msg}
         </div>
       )}
 
       {/* Área de vídeo */}
-      <div style={{ flex: 1, position: "relative", minHeight: 0, background: "#0d0f14" }}>
+      <div className="flex-1 relative min-h-0 bg-slate-950">
 
         {/* Atendimento em grupo (2+ participantes remotos) — grade, sem PiP */}
         {remoteParticipants.length >= 2 ? (
@@ -2901,9 +2249,9 @@ const RoomInner: React.FC<{
               hideName
             />
             {/* Strip de câmeras no canto inferior direito */}
-            <div style={{ position: "absolute", bottom: 16, right: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="absolute bottom-4 right-4 flex flex-col gap-2">
               {/* Câmera local */}
-              <div style={{ width: 110, height: 80, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,255,255,0.2)", boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}>
+              <div className="w-[110px] h-[80px] rounded-lg overflow-hidden border-2 border-white/[0.2]">
                 <ParticipantVideo
                   participant={localParticipant}
                   isLocal={true}
@@ -2916,7 +2264,7 @@ const RoomInner: React.FC<{
               </div>
               {/* Câmera remota se houver */}
               {remoteParticipants.length > 0 && (
-                <div style={{ width: 110, height: 80, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,255,255,0.2)", boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}>
+                <div className="w-[110px] h-[80px] rounded-lg overflow-hidden border-2 border-white/[0.2]">
                   <ParticipantVideo
                     participant={remoteParticipants[0]}
                     isLocal={false}
@@ -2929,7 +2277,7 @@ const RoomInner: React.FC<{
               )}
             </div>
             {/* Badge "Tela sendo compartilhada" */}
-            <div style={{ position: "absolute", top: 50, left: "50%", transform: "translateX(-50%)", background: "rgba(99,102,241,0.9)", borderRadius: 20, padding: "4px 14px", fontSize: 12, color: "#fff", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="absolute top-[50px] left-[50%] -translate-x-1/2 bg-primary-500/[0.9] rounded-xl py-1 px-3.5 text-xs text-white font-medium flex items-center gap-1.5">
               <ScreenShare size={13} /> {screenSharer.name || screenSharer.identity} está compartilhando
             </div>
           </>
@@ -2948,14 +2296,7 @@ const RoomInner: React.FC<{
               <div
                 onClick={() => setPinned(p => p === "remote" ? "local" : "remote")}
                 title="Clique para trocar"
-                style={{
-                  position: "absolute", bottom: 16, right: 16,
-                  width: 120, height: 90,
-                  borderRadius: 12, overflow: "hidden",
-                  border: "2px solid rgba(255,255,255,0.25)",
-                  cursor: "pointer", boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                  transition: "transform .15s, border-color .15s",
-                }}
+                className="absolute bottom-4 right-4 w-[120px] h-[90px] rounded-lg overflow-hidden border-2 border-white/[0.25] cursor-pointer transition-colors"
                 onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#6366f1"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1.04)"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.25)"; (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
               >
@@ -2967,7 +2308,7 @@ const RoomInner: React.FC<{
                   objectFit="cover"
                   hideName
                 />
-                <div style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "2px 4px", display: "flex", alignItems: "center", gap: 3 }}>
+                <div className="absolute top-1 right-1 bg-black/[0.5] rounded-md py-0.5 px-1 flex items-center gap-[3px]">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
                 </div>
               </div>
@@ -2976,58 +2317,46 @@ const RoomInner: React.FC<{
         )}
 
         {/* Header flutuante */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)", pointerEvents: "none" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src={logoUrl} alt="Plaelo" style={{ height: 22, objectFit: "contain", opacity: 0.9, background: "#fff", borderRadius: 6, padding: 2 }} />
+        <div className="absolute top-0 left-0 right-0 py-2.5 px-4 flex items-center justify-between pointer-events-none" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
+          <div className="flex items-center gap-2">
+            <img src={logoUrl} alt="Plaelo" className="h-[22px] object-contain opacity-[0.9] bg-white rounded-md p-0.5" />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <Clock size={12} color="#6366f1" />
-            <span style={{ fontSize: 12, color: "#fff", fontFamily: "monospace", fontWeight: 700 }}>{formatTime(elapsedTime)}</span>
-            <span style={{ width: 1, height: 14, background: "rgba(255,255,255,0.2)", margin: "0 4px" }} />
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: hasRemote ? "#22c55e" : "#f59e0b" }} />
-            <span style={{ fontSize: 11, color: hasRemote ? "#86efac" : "#fcd34d" }}>{hasRemote ? "Conectado" : "Aguardando"}</span>
+          <div className="flex items-center gap-[5px]">
+            <Clock size={12} className="text-primary-400" />
+            <span className="text-xs text-white font-mono font-semibold">{formatTime(elapsedTime)}</span>
+            <span className="w-[1px] h-3.5 bg-white/[0.2] my-0 mx-1" />
+            <div className={`h-[7px] w-[7px] rounded-full ${hasRemote ? "bg-emerald-500" : "bg-amber-500"}`} />
+            <span className={`text-[11px] ${hasRemote ? "text-emerald-300" : "text-amber-300"}`}>{hasRemote ? "Conectado" : "Aguardando"}</span>
           </div>
         </div>
 
         {poorConnection && (
-          <div style={{ position: "absolute", top: 46, left: "50%", transform: "translateX(-50%)", zIndex: 5, maxWidth: "calc(100% - 32px)", padding: "7px 12px", borderRadius: 10, background: "rgba(180,83,9,0.92)", color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center" }}>
+          <div className="absolute top-[46px] left-[50%] -translate-x-1/2 z-[5] max-w-[calc(100%-32px)] py-[7px] px-3 rounded-lg bg-[rgba(180,83,9,0.92)] text-white text-xs font-semibold text-center">
             Conexão instável. Áudio ou vídeo podem oscilar; verifique sua internet.
           </div>
         )}
 
         {returnTo && (
-          <div style={{ position: "absolute", top: 46, right: 12, zIndex: 6 }}>
-            <button
-              onClick={() => navigate(`/sala/${returnTo}`)}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(99,102,241,0.4)", background: "rgba(30,33,48,0.92)", backdropFilter: "blur(8px)", color: "#a5b4fc", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-            >
-              ← Voltar à sala principal
-            </button>
+          <div className="absolute top-[46px] right-3 z-[6]">
+            <DarkButton variant="secondary" size="sm" onClick={() => navigate(`/sala/${returnTo}`)}>← Voltar à sala principal</DarkButton>
           </div>
         )}
 
         {breakoutInvite && (
-          <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "#1e2130", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 16, padding: "16px 20px", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", gap: 12, minWidth: 280, maxWidth: 340 }}>
-            <p style={{ fontSize: 13, color: "#e2e8f0", margin: 0 }}>
+          <div className="fixed top-5 left-[50%] -translate-x-1/2 z-[9999] bg-slate-800 border border-primary-500/[0.4] rounded-lg py-4 px-5 flex flex-col gap-3 min-w-[280px] max-w-[340px]">
+            <p className="text-[13px] text-slate-200 m-0">
               <strong>{breakoutInvite.fromName}</strong> quer conversar em particular com você por um momento.
             </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setBreakoutInvite(null)} style={{ flex: 1, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                Agora não
-              </button>
-              <button
-                onClick={() => navigate(`/sala/${breakoutInvite.roomCode}?returnTo=${encodeURIComponent(roomId)}`)}
-                style={{ flex: 1, height: 36, borderRadius: 10, background: "#4f46e5", border: "none", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-              >
-                Aceitar
-              </button>
+            <div className="flex gap-2">
+              <DarkButton fullWidth variant="secondary" onClick={() => setBreakoutInvite(null)}>Agora não</DarkButton>
+              <DarkButton fullWidth variant="primary" onClick={() => navigate(`/sala/${breakoutInvite.roomCode}?returnTo=${encodeURIComponent(roomId)}`)}>Aceitar</DarkButton>
             </div>
           </div>
         )}
 
         {/* Painel lateral */}
         {sidePanel && (
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" || sidePanel === "billing" || sidePanel === "whiteboard" ? "min(420px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" || sidePanel === "billing" || sidePanel === "whiteboard" || sidePanel === "instrument" ? "min(420px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
             {sidePanel === "chat"
               ? <LiveKitChatPanel
                   participantName={participantName}
@@ -3062,7 +2391,7 @@ const RoomInner: React.FC<{
               : sidePanel === "files"
               ? <FilesPanel patientId={patientId} isHost={isHost} participantName={participantName} onClose={() => setSidePanel(null)} />
               : sidePanel === "instrument"
-              ? <InstrumentPanel patientId={patientId} isHost={isHost} onClose={() => setSidePanel(null)} />
+              ? <InstrumentPanel patientId={patientId} isHost={isHost} ts={testSession} onClose={() => setSidePanel(null)} />
               : sidePanel === "breakout"
               ? <BreakoutPanel roomId={roomId} roomCode={roomCode} remoteParticipants={remoteParticipants} onClose={() => setSidePanel(null)} />
               : <InvitePanel roomId={roomId} roomCode={roomCode} patientId={patientId} onClose={() => setSidePanel(null)} />
@@ -3206,7 +2535,7 @@ const RoomInner: React.FC<{
       <ConnectionStateToast />
 
       {recordingError && (
-        <div role="alert" style={{ position: "fixed", right: 16, bottom: 96, zIndex: 30, maxWidth: 340, background: "rgba(185, 28, 28, 0.96)", color: "#fff", padding: "10px 14px", borderRadius: 10, fontSize: 12, fontWeight: 600 }}>
+        <div role="alert" className="fixed right-4 bottom-[96px] z-[30] max-w-[340px] bg-[rgba(185,28,28,0.96)] text-white py-2.5 px-3.5 rounded-lg text-xs font-medium">
           {recordingError}
         </div>
       )}
@@ -3215,7 +2544,8 @@ const RoomInner: React.FC<{
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @media(max-width:480px){ .hide-mobile{ display:none !important } }
-        .lk-button { all: unset !important; }
+        [data-lk-theme] .lk-button:not(.ui-button):not(.ui-icon-button) { all: unset !important; cursor: pointer; }
+        [data-lk-theme] .lk-button:focus-visible { outline: 2px solid rgb(var(--primary-500, 99 102 241)) !important; outline-offset: 2px; }
       `}</style>
     </div>
   );
@@ -3228,23 +2558,19 @@ const WaitingToastHost: React.FC<{
   onDeny: (id: string) => void;
   index?: number;
 }> = ({ entry, onApprove, onDeny, index = 0 }) => (
-  <div style={{ position: "fixed", top: 20 + index * 150, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "#1e2130", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 16, padding: "16px 20px", boxShadow: "0 16px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", gap: 12, minWidth: 280, maxWidth: 340 }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
+  <div className="fixed left-[50%] -translate-x-1/2 z-[9999] bg-slate-800 border border-primary-500/[0.4] rounded-lg py-4 px-5 flex flex-col gap-3 min-w-[280px] max-w-[340px]" style={{ top: 20 + index * 150 }}>
+    <div className="flex items-center gap-2.5">
+      <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-lg font-semibold text-white shrink-0">
         {entry.guest_name.charAt(0).toUpperCase()}
       </div>
       <div>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: 0 }}>{entry.guest_name}</p>
-        <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>quer entrar na sala</p>
+        <p className="text-[13px] font-semibold text-white m-0">{entry.guest_name}</p>
+        <p className="text-xs text-slate-400 m-0">quer entrar na sala</p>
       </div>
     </div>
-    <div style={{ display: "flex", gap: 8 }}>
-      <button onClick={() => onDeny(entry.id)} style={{ flex: 1, height: 36, borderRadius: 10, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-        Recusar
-      </button>
-      <button onClick={() => onApprove(entry.id)} style={{ flex: 1, height: 36, borderRadius: 10, background: "#4f46e5", border: "none", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-        Admitir
-      </button>
+    <div className="flex gap-2">
+      <DarkButton fullWidth variant="secondary" onClick={() => onDeny(entry.id)}>Recusar</DarkButton>
+      <DarkButton fullWidth variant="primary" onClick={() => onApprove(entry.id)}>Admitir</DarkButton>
     </div>
   </div>
 );
@@ -3383,102 +2709,74 @@ const EndSummaryScreen: React.FC<{
 
   const cardStyle: React.CSSProperties = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 18, display: "flex", flexDirection: "column", gap: 12 };
   const titleStyle: React.CSSProperties = { fontSize: 13, fontWeight: 800, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 8, margin: 0 };
-  const inputStyle: React.CSSProperties = { flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#e2e8f0", fontSize: 13, outline: "none" };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 16px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 520, display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.35)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center py-10 px-4" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div className="w-full max-w-[520px] flex flex-col gap-4">
+        <div className="text-center mb-2">
+          <div className="w-[56px] h-[56px] rounded-full bg-emerald-500/[0.15] border-2 border-emerald-500/[0.35] flex items-center justify-center" style={{ margin: "0 auto 14px" }}>
             <Check size={26} color="#4ade80" />
           </div>
-          <h1 style={{ fontSize: 20, fontWeight: 900, color: "#f1f5f9", margin: 0 }}>Atendimento finalizado</h1>
-          <p style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Videochamada encerrada. Confira o que falta antes de sair.</p>
+          <h1 className="text-xl font-semibold text-slate-100 m-0">Atendimento finalizado</h1>
+          <p className="text-[13px] text-slate-500 mt-1">Videochamada encerrada. Confira o que falta antes de sair.</p>
         </div>
 
         <div style={cardStyle}>
-          <p style={titleStyle}><NotebookPen size={16} color="#6366f1" /> Evolução</p>
-          <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6, maxHeight: 90, overflowY: "auto" }}>
+          <p style={titleStyle}><NotebookPen size={16} className="text-primary-400" /> Evolução</p>
+          <p className="text-xs text-slate-500 leading-[1.6] max-h-[90px] overflow-y-auto">
             {transcript ? transcript.slice(0, 400) + (transcript.length > 400 ? '…' : '') : 'Sem transcrição registrada nesta sessão.'}
           </p>
-          <button
-            onClick={() => navigate(`/prontuario?patient_id=${patientId}&new_session=1`)}
-            style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
-          >
-            Revisar e gerar evolução com Bia
-          </button>
+          <DarkButton variant="primary" size="sm" className="self-start" onClick={() => navigate(`/prontuario?patient_id=${patientId}&new_session=1`)}>Revisar e gerar evolução com Bia</DarkButton>
         </div>
 
         <div style={cardStyle}>
-          <p style={titleStyle}><CalendarPlus size={16} color="#6366f1" /> Próxima consulta</p>
+          <p style={titleStyle}><CalendarPlus size={16} className="text-primary-400" /> Próxima consulta</p>
           {scheduled ? (
-            <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>Retorno agendado ✓</p>
+            <p className="text-[13px] text-emerald-400 font-semibold">Retorno agendado ✓</p>
           ) : (
             <>
-              <input type="date" value={date} onChange={e => { setDate(e.target.value); setManualTime(false); }} style={inputStyle} />
+              <input type="date" value={date} onChange={e => { setDate(e.target.value); setManualTime(false); }} className={darkFieldClass} />
               <div>
                 {loadingSlots ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#94a3b8', fontSize: 12 }}>
-                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Consultando agenda…
+                  <div className="flex items-center gap-[7px] text-slate-400 text-xs">
+                    <Loader2 size={14} className="animate-spin" /> Consultando agenda…
                   </div>
                 ) : availableSlots.length > 0 ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7 }}>
+                  <div className="grid grid-cols-3 gap-2">
                     {availableSlots.map(slot => (
-                      <button
-                        key={slot}
-                        onClick={() => { setTime(slot); setManualTime(false); }}
-                        style={{ padding: '8px 4px', borderRadius: 9, border: `1px solid ${time === slot && !manualTime ? '#6366f1' : 'rgba(255,255,255,.1)'}`, background: time === slot && !manualTime ? '#4f46e5' : 'rgba(255,255,255,.04)', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        {slot}
-                      </button>
+                      <button type="button" key={slot} onClick={() => { setTime(slot); setManualTime(false); }} aria-pressed={time === slot && !manualTime} className={`rounded-lg border py-2 text-xs font-medium text-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${time === slot && !manualTime ? "border-primary-500 bg-primary-600" : "border-white/10 bg-white/[0.04] hover:bg-white/10"}`}>{slot}</button>
                     ))}
                   </div>
                 ) : (
-                  <p style={{ fontSize: 12, color: '#f59e0b', margin: 0 }}>Não há horários livres configurados nesta data.</p>
+                  <p className="text-xs text-amber-500 m-0">Não há horários livres configurados nesta data.</p>
                 )}
-                <button onClick={() => { setManualTime(true); setTime(''); }} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, color: '#a5b4fc', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                <button type="button" onClick={() => { setManualTime(true); setTime(''); }} className="mt-2 bg-transparent border-0 p-0 text-primary-300 text-[11px] font-semibold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 hover:bg-white/10">
                   + Criar horário fora da disponibilidade
                 </button>
-                {manualTime && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginTop: 8 }} />}
+                {manualTime && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={`${darkFieldClass} mt-2`} />}
               </div>
-              <button
-                onClick={handleSchedule}
-                disabled={scheduling || !date || !time}
-                style={{ padding: "9px 16px", borderRadius: 10, border: "none", cursor: scheduling || !date || !time ? "not-allowed" : "pointer", background: scheduling || !date || !time ? "rgba(99,102,241,0.25)" : "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
-              >
-                {scheduling ? 'Agendando…' : 'Agendar'}
-              </button>
+              <DarkButton variant="primary" onClick={handleSchedule} loading={scheduling} loadingText="Agendando…" disabled={!date || !time}>Agendar</DarkButton>
             </>
           )}
         </div>
 
         <div style={cardStyle}>
-          <p style={titleStyle}><Receipt size={16} color="#6366f1" /> Pagamento</p>
+          <p style={titleStyle}><Receipt size={16} className="text-primary-400" /> Pagamento</p>
           {comandas === null ? (
-            <Loader2 size={16} color="#64748b" style={{ animation: "spin 1s linear infinite" }} />
+            <Loader2 size={16} color="#64748b" className="animate-spin" />
           ) : !pendingComanda ? (
-            <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>Sem pendências</p>
+            <p className="text-[13px] text-emerald-400 font-semibold">Sem pendências</p>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <p style={{ fontSize: 13, color: "#fbbf24" }}>
+            <div className="flex items-center justify-between gap-2.5 flex-wrap">
+              <p className="text-[13px] text-amber-400">
                 Pendente: R$ {(Number(pendingComanda.total || 0) - Number(pendingComanda.paidValue ?? pendingComanda.paid_value ?? 0)).toFixed(2)}
               </p>
-              <button
-                onClick={() => setPaying(pendingComanda)}
-                style={{ padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700 }}
-              >
-                Cobrar agora
-              </button>
+              <DarkButton variant="primary" size="sm" onClick={() => setPaying(pendingComanda)}>Cobrar agora</DarkButton>
             </div>
           )}
         </div>
 
-        <button
-          onClick={onDone}
-          style={{ marginTop: 8, width: "100%", height: 48, borderRadius: 13, fontWeight: 800, fontSize: 14, color: "#fff", background: "linear-gradient(135deg, #6366f1, #4f46e5)", border: "none", cursor: "pointer" }}
-        >
-          Concluir atendimento
-        </button>
+        <DarkButton variant="primary" size="lg" fullWidth onClick={onDone} className="mt-2">Concluir atendimento</DarkButton>
       </div>
 
       {paying && (
@@ -3516,48 +2814,39 @@ const PatientPostCallScreen: React.FC<{ roomId: string; roomInfo?: RoomInfo }> =
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#080a0f", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 16px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 18, alignItems: "center", textAlign: "center" }}>
-        {roomInfo?.clinic_logo_url && <img src={roomInfo.clinic_logo_url} alt="" style={{ height: 32, background: "#fff", borderRadius: 8, padding: 4 }} />}
-        <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(34,197,94,0.15)", border: "2px solid rgba(34,197,94,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center py-6 px-4" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div className="w-full max-w-[420px] flex flex-col gap-[18px] items-center text-center">
+        {roomInfo?.clinic_logo_url && <img src={roomInfo.clinic_logo_url} alt="" className="h-8 bg-white rounded-lg p-1" />}
+        <div className="w-[60px] h-[60px] rounded-full bg-emerald-500/[0.15] border-2 border-emerald-500/[0.35] flex items-center justify-center">
           <Check size={28} color="#4ade80" />
         </div>
         <div>
-          <h1 style={{ fontSize: 19, fontWeight: 900, color: "#f1f5f9", margin: 0 }}>Consulta finalizada</h1>
-          <p style={{ fontSize: 13, color: "#64748b", marginTop: 6 }}>
+          <h1 className="text-[19px] font-semibold text-slate-100 m-0">Consulta finalizada</h1>
+          <p className="text-[13px] text-slate-500 mt-1.5">
             Obrigado{roomInfo?.host_name ? ` por sua sessão com ${roomInfo.host_name}` : ' pela sua presença'}.
           </p>
         </div>
 
-        <div style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg p-[18px] flex flex-col gap-3">
           {sent ? (
-            <p style={{ fontSize: 13, color: "#4ade80", fontWeight: 700 }}>Obrigado pela avaliação! ✓</p>
+            <p className="text-[13px] text-emerald-400 font-semibold">Obrigado pela avaliação! ✓</p>
           ) : (
             <>
-              <p style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700 }}>Como foi a qualidade da sua chamada?</p>
-              <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
+              <p className="text-xs text-slate-400 font-semibold">Como foi a qualidade da sua chamada?</p>
+              <div className="flex justify-center gap-1.5">
                 {[1, 2, 3, 4, 5].map(n => (
-                  <button key={n} onClick={() => submitFeedback(n)}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: n <= rating ? "#fbbf24" : "#334155", fontSize: 26, lineHeight: 1 }}>
-                    ★
-                  </button>
+                  <button type="button" key={n} aria-label={`${n} de 5`} onClick={() => submitFeedback(n)} className={`p-1 text-[26px] leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${n <= rating ? "text-amber-400" : "text-slate-600"}`}>★</button>
                 ))}
               </div>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Comentário (opcional)"
-                rows={2}
-                style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: 10, color: "#e2e8f0", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box" }}
-              />
+              <DarkTextarea aria-label="Comentário" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Comentário (opcional)" rows={2} />
             </>
           )}
         </div>
 
-        <a href="/portal" style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 12, background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+        <a href="/portal" className="flex items-center gap-2 py-[11px] px-5 rounded-lg bg-primary-500 text-white text-[13px] font-semibold no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
           Acessar Portal do Paciente <ExternalLink size={14} />
         </a>
-        <p style={{ fontSize: 11, color: "#475569" }}>Lá você acompanha próxima consulta, pagamentos e documentos enviados.</p>
+        <p className="text-[11px] text-slate-500">Lá você acompanha próxima consulta, pagamentos e documentos enviados.</p>
       </div>
     </div>
   );
@@ -3606,42 +2895,42 @@ const WaitingScreen: React.FC<{ guestName: string; onCancel: () => void; keepStr
   };
 
   return (
-  <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0d0f14", padding: 16 }}>
+  <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-4">
     {(roomInfo?.clinic_logo_url || roomInfo?.company_name) && (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
-        {roomInfo?.clinic_logo_url && <img src={roomInfo.clinic_logo_url} alt={roomInfo.company_name || ""} style={{ height: 24, objectFit: "contain", background: "#fff", borderRadius: 6, padding: 2 }} />}
-        {roomInfo?.company_name && <span style={{ fontSize: 13, fontWeight: 700, color: "#64748b" }}>{roomInfo.company_name}</span>}
+      <div className="flex items-center gap-2 mb-7">
+        {roomInfo?.clinic_logo_url && <img src={roomInfo.clinic_logo_url} alt={roomInfo.company_name || ""} className="h-6 object-contain bg-white rounded-md p-0.5" />}
+        {roomInfo?.company_name && <span className="text-[13px] font-semibold text-slate-500">{roomInfo.company_name}</span>}
       </div>
     )}
-    <div style={{ textAlign: "center", maxWidth: 360 }}>
-      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(99,102,241,0.15)", border: "2px solid rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", animation: "pulse 2s infinite" }}>
+    <div className="text-center max-w-[360px]">
+      <div className="w-[72px] h-[72px] rounded-full bg-primary-500/[0.15] border-2 border-primary-500/[0.3] flex items-center justify-center" style={{ margin: "0 auto 24px", animation: "pulse 2s infinite" }}>
         <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#818cf8" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
       </div>
-      <h2 style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 8 }}>Aguardando aprovação</h2>
-      <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.6, marginBottom: 12 }}>
-        Olá, <strong style={{ color: "#e2e8f0" }}>{guestName}</strong>!<br />
+      <h2 className="text-xl font-semibold text-white mb-2">Aguardando aprovação</h2>
+      <p className="text-sm text-slate-500 leading-[1.6] mb-3">
+        Olá, <strong className="text-slate-200">{guestName}</strong>!<br />
         {roomInfo?.waiting_room_message || `${roomInfo?.host_name ? `${roomInfo.host_name} foi notificado(a)` : "O profissional foi notificado"} da sua chegada. Aguarde um momento.`}
       </p>
-      <p style={{ fontSize: 12, color: "#475569", marginBottom: 20 }}>Tempo de espera: <strong style={{ color: "#94a3b8" }}>{waitLabel}</strong></p>
+      <p className="text-xs text-slate-500 mb-5">Tempo de espera: <strong className="text-slate-400">{waitLabel}</strong></p>
 
       {micTestLevel !== null ? (
-        <div style={{ width: 160, height: 7, borderRadius: 99, overflow: "hidden", background: "rgba(255,255,255,.12)", margin: "0 auto 20px" }}>
-          <div style={{ width: `${micTestLevel}%`, height: "100%", transition: "width .08s", background: micTestLevel > 75 ? "#f59e0b" : "#22c55e" }} />
+        <div className="w-[160px] h-[7px] rounded-full overflow-hidden bg-white/[.12]" style={{ margin: "0 auto 20px" }}>
+          <div className={`h-full transition-[width] duration-75 ${micTestLevel > 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${micTestLevel}%` }} />
         </div>
       ) : (
-        <button onClick={testAudioAgain} style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 auto 20px", background: "none", border: "none", cursor: "pointer", color: "#818cf8", fontSize: 12, fontWeight: 700 }}>
+        <button type="button" onClick={testAudioAgain} className="flex items-center gap-1.5 bg-transparent border-0 cursor-pointer text-primary-400 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 hover:bg-white/10" style={{ margin: "0 auto 20px" }}>
           <Mic size={13} /> Testar áudio novamente
         </button>
       )}
 
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 32 }}>
+      <div className="flex justify-center gap-1.5 mb-8">
         {[0, 1, 2].map(i => (
           <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "#4f46e5", animation: `bounce 1.2s ${i * 0.2}s infinite` }} />
         ))}
       </div>
-      <button onClick={onCancel} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 20px", color: "#64748b", fontSize: 13, cursor: "pointer" }}>
+      <DarkButton onClick={onCancel}>
         Cancelar
-      </button>
+      </DarkButton>
     </div>
     <style>{`
       @keyframes bounce { 0%,80%,100%{transform:scale(0.8);opacity:.5} 40%{transform:scale(1.2);opacity:1} }
