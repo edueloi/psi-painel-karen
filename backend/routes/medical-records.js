@@ -56,7 +56,8 @@ router.get('/', authMiddleware, checkPermission('view_medical_records'), async (
     let query = `
       SELECT r.id, r.patient_id, r.professional_id, r.record_type, r.title,
              r.status, r.ai_status, r.start_time, r.end_time, r.created_at, r.tags,
-             r.shared_with,
+             r.shared_with, r.appointment_type,
+             CASE WHEN r.record_type IN ('Evolucao','Avaliacao') THEN r.ai_organized_content ELSE NULL END AS ai_organized_content,
              LEFT(r.content, 300) as content,
              p.name as patient_name,
              u.name as professional_name
