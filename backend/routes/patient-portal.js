@@ -1279,8 +1279,9 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
       try { return typeof val === 'string' ? JSON.parse(val) : val; } catch { return null; }
     };
 
-    // Busca schedule do profissional. closed_dates e duration_minutes são opcionais:
-    // buscamos numa query tolerante para não quebrar se a coluna não existir em prod.
+    // Busca schedule do profissional. closed_dates é opcional: buscamos numa query tolerante
+    // para não quebrar se a coluna não existir. A duração da sessão não é coluna de users
+    // (users.duration_minutes nunca existiu), então segue o padrão de 50 min abaixo.
     const [users] = await db.query(
       `SELECT id, name, schedule FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
       [profId, tenant_id]
@@ -1291,13 +1292,12 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
     let durationMinutes = null;
     try {
       const [extra] = await db.query(
-        `SELECT closed_dates, duration_minutes FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+        `SELECT closed_dates FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
         [profId, tenant_id]
       );
       closedDates = parseJson(extra[0]?.closed_dates);
-      durationMinutes = extra[0]?.duration_minutes ?? null;
     } catch (e) {
-      console.error('[portal slots] colunas opcionais ausentes:', e.message);
+      console.error('[portal slots] coluna closed_dates ausente:', e.message);
     }
 
     const schedule = parseJson(users[0].schedule);
