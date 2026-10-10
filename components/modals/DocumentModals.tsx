@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ModalFooter, Button, Input, Select, Textarea, FormRow, Tabs } from '../UI';
 import { api } from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 import { Save, ArrowRight, ClipboardCheck, ClipboardList, FileText, FileSignature, Send } from 'lucide-react';
 
 interface Patient {
@@ -66,6 +67,7 @@ type DocTabId = typeof docTabs[number]['id'];
 export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional, onClose, onSaved }) => {
   const today = new Date().toISOString().split('T')[0];
   const [saving, setSaving] = useState(false);
+  const { pushToast } = useToast();
   const [form, setForm] = useState({
     tipo: 'Relatório Psicológico',
     finalidade: 'Clínico-Interno',
@@ -82,7 +84,7 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
     if (!form.conteudo.trim()) return;
     setSaving(true);
     try {
-      const title = `${form.tipo} — ${patient.full_name} — ${new Date(form.data_emissao).toLocaleDateString('pt-BR')}`;
+      const title = `${form.tipo} — ${patient.full_name} — ${new Date(form.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR')}`;
       const profLine = professional?.name
         ? `\nPROFISSIONAL: ${professional.name}${professional.crp ?` · CRP ${professional.crp}` : ''}${professional.specialty ? ` · ${professional.specialty}` : ''}`
         : '';
@@ -109,9 +111,10 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
         created_at: form.data_emissao,
       });
       onSaved();
+      pushToast('success', 'Relatório registrado', 'O documento foi salvo no prontuário do paciente.');
       onClose();
     } catch {
-      alert('Erro ao salvar relatório');
+      pushToast('error', 'Erro ao salvar relatório', 'Verifique a conexão e tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -119,7 +122,7 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
 
   const [tab, setTab] = useState<DocTabId>('dados');
   const trySave = () => {
-    if (!form.conteudo.trim()) { setTab('conteudo'); return; }
+    if (!form.conteudo.trim()) { setTab('conteudo'); pushToast('warning', 'Preencha o conteúdo', 'O conteúdo do relatório é obrigatório.'); return; }
     save();
   };
 
@@ -197,6 +200,7 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
 export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professional, onClose, onSaved }) => {
   const today = new Date().toISOString().split('T')[0];
   const [saving, setSaving] = useState(false);
+  const { pushToast } = useToast();
   const [form, setForm] = useState({
     especialidade: 'Psiquiatria',
     profissional_instituicao: '',
@@ -213,7 +217,7 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
     if (!form.motivo.trim()) return;
     setSaving(true);
     try {
-      const title = `Encaminhamento ${form.especialidade} — ${patient.full_name} — ${new Date(form.data).toLocaleDateString('pt-BR')}`;
+      const title = `Encaminhamento ${form.especialidade} — ${patient.full_name} — ${new Date(form.data + 'T12:00:00').toLocaleDateString('pt-BR')}`;
       const profLine = professional?.name
         ? `\nPROFISSIONAL SOLICITANTE: ${professional.name}${professional.crp ?` · CRP ${professional.crp}` : ''}${professional.specialty ? ` · ${professional.specialty}` : ''}`
         : '';
@@ -238,9 +242,10 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
         created_at: form.data,
       });
       onSaved();
+      pushToast('success', 'Encaminhamento registrado', 'O documento foi salvo no prontuário do paciente.');
       onClose();
     } catch {
-      alert('Erro ao salvar encaminhamento');
+      pushToast('error', 'Erro ao salvar encaminhamento', 'Verifique a conexão e tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -248,7 +253,7 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
 
   const [tab, setTab] = useState<DocTabId>('dados');
   const trySave = () => {
-    if (!form.motivo.trim()) { setTab('conteudo'); return; }
+    if (!form.motivo.trim()) { setTab('conteudo'); pushToast('warning', 'Preencha o motivo', 'O motivo do encaminhamento é obrigatório.'); return; }
     save();
   };
 
@@ -328,6 +333,7 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
 export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, onClose, onSaved }) => {
   const today = new Date().toISOString().split('T')[0];
   const [saving, setSaving] = useState(false);
+  const { pushToast } = useToast();
   const [form, setForm] = useState({
     tipo: 'Comparecimento',
     data_emissao: today,
@@ -345,7 +351,7 @@ export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, 
   const save = async () => {
     setSaving(true);
     try {
-      const dateStr = new Date(form.data_emissao).toLocaleDateString('pt-BR');
+      const dateStr = new Date(form.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR');
       const title = `Atestado de ${form.tipo} — ${patient.full_name} — ${dateStr}`;
 
       const profBlock = professional?.name ? [
@@ -368,7 +374,7 @@ export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, 
         `DATA DE EMISSÃO: ${dateStr}`,
         form.cid ? `CID-10: ${form.cid}` : '',
         form.finalidade ? `FINALIDADE: ${form.finalidade}` : '',
-        isAfastamento ? `PERÍODO DE AFASTAMENTO: ${new Date(form.afastamento_inicio).toLocaleDateString('pt-BR')} a ${new Date(form.afastamento_fim).toLocaleDateString('pt-BR')}` : '',
+        isAfastamento ? `PERÍODO DE AFASTAMENTO: ${new Date(form.afastamento_inicio + 'T12:00:00').toLocaleDateString('pt-BR')} a ${new Date(form.afastamento_fim + 'T12:00:00').toLocaleDateString('pt-BR')}` : '',
         isAfastamento && form.dias_afastamento ? `TOTAL DE DIAS: ${form.dias_afastamento} dia(s)` : '',
         form.observacoes ? `\nOBSERVAÇÕES:\n${form.observacoes}` : '',
         ...profBlock,
@@ -384,9 +390,10 @@ export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, 
         created_at: form.data_emissao,
       });
       onSaved();
+      pushToast('success', 'Atestado registrado', 'O documento foi salvo no prontuário do paciente.');
       onClose();
     } catch {
-      alert('Erro ao salvar atestado');
+      pushToast('error', 'Erro ao salvar atestado', 'Verifique a conexão e tente novamente.');
     } finally {
       setSaving(false);
     }
