@@ -1,4 +1,4 @@
-const CACHE_NAME = 'psiflux-v5';
+const CACHE_NAME = 'psiflux-v6';
 const STATIC_ASSETS = ['/', '/index.html', '/app_psiflux.png'];
 
 self.addEventListener('install', (event) => {
@@ -36,7 +36,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/sw.js' ||
     // manifest e ícones de instalação sempre da rede, senão o app instalado fica com o ícone antigo
     url.pathname.startsWith('/manifest') ||
-    /^\/(portal-)?(icon|apple-touch-icon)/.test(url.pathname)
+    /^\/(portal-)?(icon|apple-touch-icon)|^\/plaelo-v2/.test(url.pathname)
   ) {
     return;
   }
