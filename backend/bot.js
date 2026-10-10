@@ -85,6 +85,35 @@ app.post('/bot-api/conversations/:tenantId/send', async (req, res) => {
   }
 });
 
+// Envio de documento pela Central de Conversas. O histórico registra o anexo
+// como mensagem de saída e pausa o bot automático para evitar respostas cruzadas.
+app.post('/bot-api/conversations/:tenantId/send-document', async (req, res) => {
+  const { conversationId, phone, filePath, fileName, caption, mimeType, sentByUserId } = req.body;
+  if (!conversationId || !phone || !filePath || !fileName) {
+    return res.status(400).json({ error: 'conversationId, phone, filePath e fileName são obrigatórios' });
+  }
+  try {
+    const result = await wppService.sendDocument(req.params.tenantId, phone, filePath, fileName, caption, mimeType);
+    if (result !== true) {
+      return res.status(500).json({ error: typeof result === 'string' ? result : 'Falha no envio' });
+    }
+
+    const convService = require('./services/whatsappConversationService');
+    const body = `📎 ${fileName}${caption ? `\n${caption}` : ''}`;
+    const saved = await convService.insertMessage(conversationId, {
+      direction: 'out', body, sentByUserId: sentByUserId || null, status: 'sent',
+    });
+    await convService.touchConversation(conversationId, { previewText: body.slice(0, 180), direction: 'out' });
+    await convService.pauseBotFor(conversationId, 30);
+    convService.notifyBackend(req.params.tenantId, {
+      type: 'whatsapp_message', conversationId: Number(conversationId), direction: 'out', preview: body.slice(0, 180),
+    });
+    res.json({ success: true, message: saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/bot-api/document/:tenantId', async (req, res) => {
   const { phone, filePath, fileName, caption } = req.body;
   try {

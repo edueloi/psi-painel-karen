@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import {
   MessageCircle, Plus, Edit3, Trash2, Send, Variable, Copy, Check,
   Loader2, MessageSquare, Tag, Users, Sparkles, AlertTriangle, Inbox, User,
+  Search, Paperclip, FileText, RefreshCw, Wifi, WifiOff, ExternalLink,
 } from 'lucide-react';
 import {
   Alert, Button, ConfirmModal, ContentCard, EmptyState, IconButton, Modal, ModalFooter,
@@ -425,6 +426,268 @@ const InboxChat: React.FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+// ── Inbox WhatsApp vinculado ao paciente ─────────────────────────────────────
+const WhatsAppInbox: React.FC = () => {
+  const { pushToast } = useToast();
+  const [patients, setPatients] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [selected, setSelected] = useState<{ patient: any; conversation: any | null } | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'withConversation' | 'unread' | 'withoutPhone'>('all');
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [botStatus, setBotStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
+  const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [sendingDocumentId, setSendingDocumentId] = useState<number | null>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
+
+  const patientName = (patient: any) => patient?.name || patient?.full_name || 'Paciente';
+  const patientPhone = (patient: any) => patient?.whatsapp || patient?.phone || '';
+  const initials = (patient: any) => patientName(patient).split(/\s+/).slice(0, 2).map((part: string) => part[0] || '').join('').toUpperCase();
+
+  const loadInbox = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const [patientRows, conversationResult, status] = await Promise.all([
+        api.get<any[]>('/patients'),
+        api.get<any>('/whatsapp/conversations', { pageSize: '100' }),
+        api.get<any>('/whatsapp/status').catch(() => ({ status: 'unknown' })),
+      ]);
+      setPatients(Array.isArray(patientRows) ? patientRows : []);
+      setConversations(Array.isArray(conversationResult?.items) ? conversationResult.items : []);
+      setBotStatus(status?.status === 'connected' ? 'connected' : status?.status === 'disconnected' ? 'disconnected' : 'unknown');
+    } catch {
+      if (!silent) pushToast('error', 'Não foi possível carregar o Inbox do WhatsApp.');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [pushToast]);
+
+  useEffect(() => { loadInbox(); }, [loadInbox]);
+  useEffect(() => {
+    const timer = window.setInterval(() => loadInbox(true), INBOX_POLL);
+    return () => window.clearInterval(timer);
+  }, [loadInbox]);
+
+  const conversationForPatient = useCallback((patient: any) =>
+    conversations.find(conversation => String(conversation.patient_id) === String(patient.id)) || null,
+  [conversations]);
+
+  const rows = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase('pt-BR');
+    return patients
+      .map(patient => ({ patient, conversation: conversationForPatient(patient) }))
+      .filter(({ patient, conversation }) => {
+        const matchesSearch = !term || patientName(patient).toLocaleLowerCase('pt-BR').includes(term) || patientPhone(patient).replace(/\D/g, '').includes(term.replace(/\D/g, ''));
+        if (!matchesSearch) return false;
+        if (filter === 'withConversation') return !!conversation;
+        if (filter === 'unread') return Number(conversation?.unread_count || 0) > 0;
+        if (filter === 'withoutPhone') return !patientPhone(patient);
+        return true;
+      })
+      .sort((a, b) => {
+        const aDate = a.conversation?.last_message_at ? new Date(a.conversation.last_message_at).getTime() : 0;
+        const bDate = b.conversation?.last_message_at ? new Date(b.conversation.last_message_at).getTime() : 0;
+        return bDate - aDate || patientName(a.patient).localeCompare(patientName(b.patient), 'pt-BR');
+      });
+  }, [patients, conversationForPatient, search, filter]);
+
+  const loadMessages = useCallback(async (conversation: any, silent = false) => {
+    if (!conversation) return;
+    if (!silent) setLoadingMessages(true);
+    try {
+      const data = await api.get<any>(`/whatsapp/conversations/${conversation.id}/messages`);
+      setMessages(Array.isArray(data?.items) ? data.items : []);
+      setConversations(previous => previous.map(item => String(item.id) === String(conversation.id) ? { ...item, unread_count: 0 } : item));
+    } catch {
+      if (!silent) pushToast('error', 'Não foi possível carregar as mensagens.');
+    } finally {
+      if (!silent) setLoadingMessages(false);
+    }
+  }, [pushToast]);
+
+  useEffect(() => {
+    if (!selected?.conversation) { setMessages([]); return; }
+    loadMessages(selected.conversation);
+    const timer = window.setInterval(() => loadMessages(selected.conversation, true), INBOX_POLL);
+    return () => window.clearInterval(timer);
+  }, [selected?.conversation?.id, loadMessages]);
+
+  useEffect(() => {
+    messageListRef.current?.scrollTo({ top: messageListRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
+
+  const selectPatient = async (patient: any) => {
+    let conversation = conversationForPatient(patient);
+    if (!conversation && patientPhone(patient)) {
+      try {
+        conversation = await api.post<any>('/whatsapp/conversations', { contactRef: `patient:${patient.id}` });
+        setConversations(previous => [conversation, ...previous.filter(item => String(item.id) !== String(conversation.id))]);
+      } catch (error: any) {
+        pushToast('error', error?.message || 'Não foi possível abrir a conversa no WhatsApp.');
+        return;
+      }
+    }
+    setSelected({ patient, conversation });
+  };
+
+  const sendMessage = async () => {
+    if (!selected?.conversation || !text.trim() || sending) return;
+    const content = text.trim();
+    setText('');
+    setSending(true);
+    try {
+      await api.post(`/whatsapp/conversations/${selected.conversation.id}/messages`, { message: content });
+      await loadMessages(selected.conversation, true);
+      await loadInbox(true);
+    } catch (error: any) {
+      setText(content);
+      pushToast('error', error?.message || 'Não foi possível enviar pelo WhatsApp.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const openDocuments = async () => {
+    if (!selected?.conversation) return;
+    setIsDocumentsOpen(true);
+    setLoadingDocuments(true);
+    try {
+      const response = await api.get<any>(`/whatsapp/conversations/${selected.conversation.id}/documents`);
+      setDocuments(Array.isArray(response?.items) ? response.items : []);
+    } catch (error: any) {
+      pushToast('error', error?.message || 'Não foi possível carregar os documentos do paciente.');
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
+  const sendDocument = async (document: any) => {
+    if (!selected?.conversation) return;
+    setSendingDocumentId(document.id);
+    try {
+      await api.post(`/whatsapp/conversations/${selected.conversation.id}/documents/${document.id}`, {});
+      pushToast('success', 'Documento enviado pelo WhatsApp.');
+      setIsDocumentsOpen(false);
+      await loadMessages(selected.conversation, true);
+      await loadInbox(true);
+    } catch (error: any) {
+      pushToast('error', error?.message || 'Não foi possível enviar o documento.');
+    } finally {
+      setSendingDocumentId(null);
+    }
+  };
+
+  const filterOptions: Array<{ id: typeof filter; label: string }> = [
+    { id: 'all', label: 'Todos' },
+    { id: 'withConversation', label: 'Com conversa' },
+    { id: 'unread', label: 'Não lidos' },
+    { id: 'withoutPhone', label: 'Sem WhatsApp' },
+  ];
+
+  return (
+    <>
+      <div className="flex h-[calc(100vh-280px)] min-h-[520px] overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <aside className="flex w-72 shrink-0 flex-col border-r border-slate-200 xl:w-80">
+          <div className="space-y-2 border-b border-slate-100 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-800">Pacientes</p>
+                <p className="text-[11px] text-slate-400">WhatsApp vinculado ao cadastro</p>
+              </div>
+              <IconButton variant="ghost" size="sm" aria-label="Atualizar Inbox" title="Atualizar" onClick={() => loadInbox()}>
+                <RefreshCw size={14} />
+              </IconButton>
+            </div>
+            <div className="relative">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar paciente ou telefone..." className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none focus:border-primary-400" />
+            </div>
+            <div className="flex gap-1 overflow-x-auto pb-0.5">
+              {filterOptions.map(option => (
+                <button key={option.id} type="button" onClick={() => setFilter(option.id)} className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${filter === option.id ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-primary-200'}`}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex h-full items-center justify-center"><Loader2 size={18} className="animate-spin text-slate-400" /></div>
+            ) : rows.length === 0 ? (
+              <EmptyState icon={Users} title="Nenhum paciente encontrado" description="Ajuste a busca ou os filtros." />
+            ) : rows.map(({ patient, conversation }) => {
+              const active = selected?.patient?.id === patient.id;
+              const unread = Number(conversation?.unread_count || 0);
+              return (
+                <button key={patient.id} type="button" onClick={() => selectPatient(patient)} className={`flex w-full items-center gap-2.5 border-b border-slate-50 px-3 py-2.5 text-left transition-colors ${active ? 'bg-primary-50' : 'hover:bg-slate-50'}`}>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">{initials(patient)}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`truncate text-[13px] font-medium ${active ? 'text-primary-700' : 'text-slate-700'}`}>{patientName(patient)}</p>
+                    <p className="truncate text-[11px] text-slate-400">{patientPhone(patient) || 'Sem WhatsApp cadastrado'}</p>
+                    {conversation?.last_message_preview && <p className="mt-0.5 truncate text-[11px] text-slate-400">{conversation.last_message_preview}</p>}
+                  </div>
+                  {unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold text-white">{unread > 9 ? '9+' : unread}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        {!selected ? (
+          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><MessageCircle size={23} /></div>
+            <p className="text-sm font-semibold text-slate-700">Central de WhatsApp</p>
+            <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-500">Escolha um paciente cadastrado para iniciar ou continuar uma conversa pelo WhatsApp da clínica.</p>
+          </div>
+        ) : (
+          <section className="flex min-w-0 flex-1 flex-col">
+            <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">{initials(selected.patient)}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2"><p className="truncate text-sm font-semibold text-slate-800">{patientName(selected.patient)}</p>{botStatus === 'connected' ? <Wifi size={13} className="text-emerald-500" /> : <WifiOff size={13} className="text-amber-500" />}</div>
+                <p className="text-[11px] text-slate-400">{patientPhone(selected.patient) || 'Paciente sem WhatsApp cadastrado'}</p>
+              </div>
+              <a href={`/pacientes/${selected.patient.id}`} className="hidden items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 sm:flex"><ExternalLink size={12} /> Paciente</a>
+              <IconButton variant="outline" size="sm" aria-label="Enviar documento" title="Documentos do paciente" onClick={openDocuments} disabled={!selected.conversation}><Paperclip size={14} /></IconButton>
+            </header>
+
+            <div ref={messageListRef} className="flex-1 overflow-y-auto bg-slate-50/60 px-4 py-4">
+              {!selected.conversation ? (
+                <div className="flex h-full flex-col items-center justify-center text-center"><AlertTriangle size={24} className="mb-2 text-amber-400" /><p className="text-sm font-medium text-slate-600">WhatsApp não cadastrado</p><p className="mt-1 text-xs text-slate-400">Cadastre o número do paciente para iniciar a conversa.</p></div>
+              ) : loadingMessages ? (
+                <div className="flex h-full items-center justify-center"><Loader2 size={18} className="animate-spin text-slate-400" /></div>
+              ) : messages.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center"><MessageCircle size={25} className="mb-2 text-slate-200" /><p className="text-xs text-slate-400">Ainda não há mensagens. Envie a primeira pelo WhatsApp.</p></div>
+              ) : <div className="space-y-3">{messages.map(message => {
+                const outgoing = message.direction === 'out';
+                return <div key={message.id} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[74%] rounded-lg px-3 py-2 text-[13px] leading-relaxed ${outgoing ? 'rounded-br-sm bg-emerald-600 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-700'}`}><p className="whitespace-pre-wrap">{message.body}</p><p className={`mt-1 text-[10px] ${outgoing ? 'text-white/70 text-right' : 'text-slate-400'}`}>{fmtInboxTime(message.created_at)}</p></div></div>;
+              })}</div>}
+            </div>
+
+            <div className="border-t border-slate-200 bg-white p-3">
+              {botStatus !== 'connected' && <p className="mb-2 text-[11px] text-amber-600">Conecte o WhatsApp da clínica para enviar mensagens pelo Inbox.</p>}
+              <div className="flex items-end gap-2">
+                <Textarea wrapperClassName="flex-1" className="min-h-[40px] max-h-28 resize-none" rows={1} value={text} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} placeholder="Escreva uma mensagem no WhatsApp..." disabled={!selected.conversation || botStatus !== 'connected' || sending} />
+                <IconButton variant="primary" size="lg" aria-label="Enviar pelo WhatsApp" title="Enviar pelo WhatsApp" onClick={sendMessage} disabled={!selected.conversation || botStatus !== 'connected' || !text.trim() || sending} loading={sending}><Send size={15} /></IconButton>
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+
+      <Modal isOpen={isDocumentsOpen} onClose={() => setIsDocumentsOpen(false)} title="Enviar documento pelo WhatsApp" subtitle={selected ? `Arquivos vinculados a ${patientName(selected.patient)}` : undefined} size="lg">
+        {loadingDocuments ? <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-slate-400" /></div> : documents.length === 0 ? <EmptyState icon={FileText} title="Nenhum arquivo disponível" description="Anexe um documento ao paciente para compartilhá-lo por aqui." /> : <div className="space-y-2">{documents.map(document => <div key={document.id} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500"><FileText size={16} /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-medium text-slate-700">{document.title || document.file_name}</p><p className="text-[11px] text-slate-400">{document.category || 'Documento'} · {document.mime_type?.split('/').pop()?.toUpperCase() || 'ARQUIVO'}</p></div><Button size="sm" variant="success" iconLeft={<Send size={13} />} loading={sendingDocumentId === document.id} disabled={sendingDocumentId !== null} onClick={() => sendDocument(document)}>Enviar</Button></div>)}</div>}
+      </Modal>
+    </>
   );
 };
 
@@ -886,7 +1149,7 @@ export const Messages: React.FC = () => {
         <SectionTitle
           icon={MessageCircle}
           title="Mensagens"
-          description={pageTab === 'inbox' ? 'Chat com pacientes pelo portal' : 'Modelos inteligentes com variáveis dinâmicas'}
+          description={pageTab === 'inbox' ? 'Conversas e documentos pelo WhatsApp da clínica' : 'Modelos inteligentes com variáveis dinâmicas'}
           action={pageTab === 'templates' ? (
             <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => handleOpenModal()}>
               Nova Mensagem
@@ -901,7 +1164,7 @@ export const Messages: React.FC = () => {
           label="Seções de mensagens"
         >
           {/* ── Inbox ── */}
-          {pageTab === 'inbox' && <InboxChat />}
+          {pageTab === 'inbox' && <WhatsAppInbox />}
 
           {/* ── Templates ── */}
           {pageTab === 'templates' && (

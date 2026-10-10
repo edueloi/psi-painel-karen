@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const db = require('../db');
+const path = require('path');
+const fs = require('fs');
 const { authorize } = require('../middleware/auth');
 
 const BOT_URL = 'http://127.0.0.1:3014/bot-api';
@@ -161,14 +163,14 @@ router.post('/test', async (req, res) => {
   }
 });
 
-// ── Central de Conversas (bot master / super_admin) ─────────────────────────
-const requireSuperAdmin = (req, res, next) => {
-  if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Acesso negado' });
+// ── Central de Conversas da clínica ─────────────────────────────────────────
+const requireConversationAccess = (req, res, next) => {
+  if (!isTenantAdmin(req.user)) return res.status(403).json({ error: 'Acesso negado' });
   next();
 };
 
-// GET /whatsapp/conversations - Lista conversas do bot master, paginado
-router.get('/conversations', requireSuperAdmin, async (req, res) => {
+// GET /whatsapp/conversations - Lista conversas do WhatsApp da própria clínica
+router.get('/conversations', requireConversationAccess, async (req, res) => {
   const tenantId = req.user.tenant_id;
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize) || 30));
@@ -200,7 +202,7 @@ router.get('/conversations', requireSuperAdmin, async (req, res) => {
 });
 
 // GET /whatsapp/conversations/:id/messages - Histórico paginado por cursor
-router.get('/conversations/:id/messages', requireSuperAdmin, async (req, res) => {
+router.get('/conversations/:id/messages', requireConversationAccess, async (req, res) => {
   const tenantId = req.user.tenant_id;
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
   const before = req.query.before ? parseInt(req.query.before) : null;
@@ -235,7 +237,7 @@ router.get('/conversations/:id/messages', requireSuperAdmin, async (req, res) =>
 });
 
 // GET /whatsapp/contacts/search - Busca paciente/usuário cadastrado por nome ou telefone
-router.get('/contacts/search', requireSuperAdmin, async (req, res) => {
+router.get('/contacts/search', requireConversationAccess, async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (q.length < 2) return res.json({ items: [] });
 
@@ -244,16 +246,16 @@ router.get('/contacts/search', requireSuperAdmin, async (req, res) => {
     const [patients] = await db.query(
       `SELECT p.id, p.name, COALESCE(p.whatsapp, p.phone) AS phone, p.tenant_id, t.name AS tenant_name
        FROM patients p JOIN tenants t ON t.id = p.tenant_id
-       WHERE p.name LIKE ? OR p.whatsapp LIKE ? OR p.phone LIKE ?
+       WHERE p.tenant_id = ? AND (p.name LIKE ? OR p.whatsapp LIKE ? OR p.phone LIKE ?)
        LIMIT 20`,
-      [like, like, like]
+      [req.user.tenant_id, like, like, like]
     );
     const [users] = await db.query(
       `SELECT u.id, u.name, u.phone, u.tenant_id, t.name AS tenant_name
        FROM users u JOIN tenants t ON t.id = u.tenant_id
-       WHERE u.role IN ('admin', 'professional') AND (u.name LIKE ? OR u.phone LIKE ?)
+       WHERE u.tenant_id = ? AND u.role IN ('admin', 'professional') AND (u.name LIKE ? OR u.phone LIKE ?)
        LIMIT 20`,
-      [like, like]
+      [req.user.tenant_id, like, like]
     );
 
     const items = [
@@ -269,7 +271,7 @@ router.get('/contacts/search', requireSuperAdmin, async (req, res) => {
 });
 
 // POST /whatsapp/conversations - Cria/abre conversa (contato cadastrado ou telefone livre)
-router.post('/conversations', requireSuperAdmin, async (req, res) => {
+router.post('/conversations', requireConversationAccess, async (req, res) => {
   const tenantId = req.user.tenant_id;
   const { phone, contactRef } = req.body;
 
@@ -280,12 +282,12 @@ router.post('/conversations', requireSuperAdmin, async (req, res) => {
     if (contactRef) {
       const [kind, refId] = String(contactRef).split(':');
       if (kind === 'patient') {
-        const [[p]] = await db.query('SELECT name, whatsapp, phone FROM patients WHERE id = ?', [refId]);
+        const [[p]] = await db.query('SELECT id, name, whatsapp, phone FROM patients WHERE id = ? AND tenant_id = ?', [refId, tenantId]);
         if (!p) return res.status(404).json({ error: 'Paciente não encontrado' });
         rawPhone = p.whatsapp || p.phone;
         contactName = p.name;
       } else if (kind === 'user') {
-        const [[u]] = await db.query('SELECT name, phone FROM users WHERE id = ?', [refId]);
+        const [[u]] = await db.query('SELECT name, phone FROM users WHERE id = ? AND tenant_id = ?', [refId, tenantId]);
         if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
         rawPhone = u.phone;
         contactName = u.name;
@@ -315,7 +317,19 @@ router.post('/conversations', requireSuperAdmin, async (req, res) => {
       'SELECT * FROM whatsapp_conversations WHERE tenant_id = ? AND contact_phone = ?',
       [tenantId, phoneDigits]
     );
-    if (existing) return res.json(existing);
+    if (existing) {
+      if (contactRef?.startsWith('patient:')) {
+        await db.query(
+          `UPDATE whatsapp_conversations
+           SET patient_id = ?, contact_kind = 'patient', contact_name = ?, matched_tenant_id = ?
+           WHERE id = ? AND tenant_id = ?`,
+          [String(contactRef).split(':')[1], contactName, tenantId, existing.id, tenantId]
+        );
+        const [[updated]] = await db.query('SELECT * FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?', [existing.id, tenantId]);
+        return res.json(updated);
+      }
+      return res.json(existing);
+    }
 
     const conversation = await convService.upsertConversation(tenantId, {
       phoneDigits,
@@ -328,6 +342,14 @@ router.post('/conversations', requireSuperAdmin, async (req, res) => {
     // teria incrementado (direction 'out' não deveria contar como não lida, mas
     // como ainda não existe mensagem alguma, garante o estado inicial correto).
     await db.query('UPDATE whatsapp_conversations SET unread_count = 0, last_message_at = NOW() WHERE id = ?', [conversation.id]);
+    if (contactRef?.startsWith('patient:')) {
+      await db.query(
+        `UPDATE whatsapp_conversations
+         SET patient_id = ?, contact_kind = 'patient', contact_name = ?, matched_tenant_id = ?
+         WHERE id = ? AND tenant_id = ?`,
+        [String(contactRef).split(':')[1], contactName, tenantId, conversation.id, tenantId]
+      );
+    }
     const [[fresh]] = await db.query('SELECT * FROM whatsapp_conversations WHERE id = ?', [conversation.id]);
     res.status(201).json(fresh);
   } catch (err) {
@@ -337,7 +359,7 @@ router.post('/conversations', requireSuperAdmin, async (req, res) => {
 });
 
 // PATCH /whatsapp/conversations/:id - Edita nome do contato (útil para leads sem nome)
-router.patch('/conversations/:id', requireSuperAdmin, async (req, res) => {
+router.patch('/conversations/:id', requireConversationAccess, async (req, res) => {
   const tenantId = req.user.tenant_id;
   const { contact_name } = req.body;
   try {
@@ -353,7 +375,7 @@ router.patch('/conversations/:id', requireSuperAdmin, async (req, res) => {
 });
 
 // POST /whatsapp/conversations/:id/messages - Envia resposta manual numa conversa
-router.post('/conversations/:id/messages', requireSuperAdmin, async (req, res) => {
+router.post('/conversations/:id/messages', requireConversationAccess, async (req, res) => {
   const tenantId = req.user.tenant_id;
   const { message } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'Mensagem obrigatória' });
@@ -375,6 +397,71 @@ router.post('/conversations/:id/messages', requireSuperAdmin, async (req, res) =
   } catch (err) {
     console.error('[Conversations] Erro ao enviar mensagem:', err.message);
     res.status(500).json({ error: err.response?.data?.error || 'Erro ao enviar mensagem' });
+  }
+});
+
+// GET /whatsapp/conversations/:id/documents - anexos já vinculados ao paciente
+// da conversa. O tenant e o vínculo com o paciente são validados no servidor.
+router.get('/conversations/:id/documents', requireConversationAccess, async (req, res) => {
+  const tenantId = req.user.tenant_id;
+  try {
+    const [[conversation]] = await db.query(
+      'SELECT patient_id FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
+      [req.params.id, tenantId]
+    );
+    if (!conversation) return res.status(404).json({ error: 'Conversa não encontrada' });
+    if (!conversation.patient_id) return res.json({ items: [] });
+
+    const [rows] = await db.query(
+      `SELECT id, COALESCE(title, original_name, file_name, filename) AS title,
+              COALESCE(original_name, file_name, filename) AS file_name,
+              COALESCE(mime_type, file_type, 'application/octet-stream') AS mime_type,
+              category, created_at
+       FROM uploads
+       WHERE tenant_id = ? AND patient_id = ? AND filename IS NOT NULL AND filename <> ''
+       ORDER BY created_at DESC LIMIT 50`,
+      [tenantId, conversation.patient_id]
+    );
+    res.json({ items: rows });
+  } catch (err) {
+    console.error('[Conversations] Erro ao listar documentos:', err.message);
+    res.status(500).json({ error: 'Erro ao listar documentos do paciente' });
+  }
+});
+
+// POST /whatsapp/conversations/:id/documents/:uploadId - envia um anexo
+// previamente vinculado ao mesmo paciente da conversa.
+router.post('/conversations/:id/documents/:uploadId', requireConversationAccess, async (req, res) => {
+  const tenantId = req.user.tenant_id;
+  try {
+    const [[row]] = await db.query(
+      `SELECT c.id AS conversation_id, c.contact_phone, c.patient_id,
+              u.filename, COALESCE(u.original_name, u.file_name, u.filename) AS file_name,
+              COALESCE(u.mime_type, u.file_type, 'application/octet-stream') AS mime_type
+       FROM whatsapp_conversations c
+       JOIN uploads u ON u.patient_id = c.patient_id AND u.tenant_id = c.tenant_id
+       WHERE c.id = ? AND c.tenant_id = ? AND u.id = ?`,
+      [req.params.id, tenantId, req.params.uploadId]
+    );
+    if (!row?.patient_id) return res.status(404).json({ error: 'Documento ou conversa não encontrados' });
+
+    const filePath = path.join(__dirname, '../public/uploads', path.basename(row.filename));
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Arquivo não está mais disponível no servidor' });
+
+    const caption = String(req.body?.caption || '').trim().slice(0, 1000);
+    const response = await axios.post(`${BOT_URL}/conversations/${tenantId}/send-document`, {
+      conversationId: row.conversation_id,
+      phone: row.contact_phone,
+      filePath,
+      fileName: row.file_name,
+      caption,
+      mimeType: row.mime_type,
+      sentByUserId: req.user.id,
+    }, { timeout: 45000 });
+    res.json(response.data);
+  } catch (err) {
+    console.error('[Conversations] Erro ao enviar documento:', err.message);
+    res.status(500).json({ error: err.response?.data?.error || 'Erro ao enviar documento pelo WhatsApp' });
   }
 });
 

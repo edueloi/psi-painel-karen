@@ -734,7 +734,7 @@ class WhatsAppManager {
     }
   }
 
-  async sendDocument(tenantId, to, filePath, fileName, caption = '') {
+  async sendDocument(tenantId, to, filePath, fileName, caption = '', mimeType = 'application/pdf') {
     const data = this.getTenantData(tenantId);
     if (data.status !== 'connected' || !data.sock) return 'Erro ao enviar via WhatsApp: bot desconectado';
     if (!filePath || !fs.existsSync(filePath)) return 'Erro ao enviar via WhatsApp: arquivo não encontrado';
@@ -743,7 +743,7 @@ class WhatsAppManager {
       if (!formattedTo) return 'Erro ao enviar via WhatsApp: destino inválido';
       await data.sock.sendMessage(formattedTo, {
         document: { url: filePath },
-        mimetype: 'application/pdf',
+        mimetype: mimeType || 'application/octet-stream',
         fileName: fileName || 'nota-fiscal.pdf',
         caption: String(caption || ''),
       });
