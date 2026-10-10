@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Menu, Bell, Search, Settings, LogOut, User as UserIcon, ChevronDown, HelpCircle, Shield, Crown } from 'lucide-react';
+import { Menu, Bell, Search, Settings, LogOut, User as UserIcon, ChevronDown, HelpCircle, Shield, Crown, RefreshCw } from 'lucide-react';
 import { User } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -33,6 +33,23 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Celulares/PWA sem "puxar para atualizar": limpa o cache do app e recarrega a versão mais nova.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshApp = async () => {
+    setIsRefreshing(true);
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.update().catch(() => undefined)));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch { /* recarrega mesmo assim */ }
+    window.location.reload();
+  };
 
   const handleNavigate = (path: string) => {
       navigate(path);
@@ -133,6 +150,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick, onLogout }) => {
                     </button>
                     <button onClick={() => handleNavigate('/ajuda')} className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-slate-50 hover:text-primary-700 transition-colors">
                        <HelpCircle size={15} /> {t('topbar.help')}
+                    </button>
+                    <button onClick={refreshApp} disabled={isRefreshing} className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-slate-50 hover:text-primary-700 transition-colors disabled:opacity-60">
+                       <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? 'Atualizando...' : 'Atualizar aplicativo'}
                     </button>
                  </div>
 
