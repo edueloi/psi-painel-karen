@@ -35,7 +35,10 @@ const shortName = (full: string) => {
   const parts = full.trim().split(/\s+/);
   return parts.length > 1 ? `${parts[0]} ${parts[1].charAt(0)}.` : parts[0];
 };
-const nameOf = (a: Appointment) => (a.patient_name || a.patientName || a.patient_name_text || a.title || '').trim() || 'Paciente';
+const nameOf = (a: Appointment) => (a.patient_name || a.patientName || a.patient_name_text || '').trim() || 'Paciente';
+// Só sessões de paciente: reuniões, bloqueios e compromissos sem paciente não aparecem aqui.
+const isPatientSession = (a: Appointment) =>
+  (a.type === 'consulta' || !a.type) && !!(a.patient_id || a.patient_name || a.patientName || a.patient_name_text);
 const fmtHour = (h: number) => `${String(h).padStart(2, '0')}h`;
 
 interface MonthSlotsProps {
@@ -49,7 +52,7 @@ export const MonthSlots: React.FC<MonthSlotsProps> = ({ appointments, workSchedu
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const { months, byDay, openHoursFor, hasSchedule } = useMemo(() => {
-    const active = appointments.filter((a) => a.status !== 'cancelled' && a.start instanceof Date && !isNaN(a.start.getTime()));
+    const active = appointments.filter((a) => a.status !== 'cancelled' && a.start instanceof Date && !isNaN(a.start.getTime()) && isPatientSession(a));
     const byDayMap = new Map<string, Appointment[]>();
     for (const a of active) {
       const k = dayKeyOf(a.start);

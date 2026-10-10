@@ -127,7 +127,11 @@ const shortName = (full: string) => {
 };
 
 const patientNameOf = (a: Appointment) =>
-  (a.patient_name || a.patientName || a.patient_name_text || a.title || '').trim() || 'Paciente';
+  (a.patient_name || a.patientName || a.patient_name_text || '').trim() || 'Paciente';
+
+// Só conta sessão de paciente: reuniões, bloqueios e compromissos (sem paciente) não entram no controle.
+const isPatientSession = (a: Appointment) =>
+  (a.type === 'consulta' || !a.type) && !!(a.patient_id || a.patient_name || a.patientName || a.patient_name_text);
 
 const fmtHour = (h: number) => `${String(h).padStart(2, '0')}h`;
 
@@ -156,7 +160,7 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
     const totalWeeks = weeks + 1;
     const now = new Date();
 
-    const valid = appointments.filter((a) => a.status !== 'cancelled' && a.start instanceof Date && !isNaN(a.start.getTime()));
+    const valid = appointments.filter((a) => a.status !== 'cancelled' && a.start instanceof Date && !isNaN(a.start.getTime()) && isPatientSession(a));
 
     const slotWeeks = new Map<string, Set<number>>();
     const slotPatients = new Map<string, Map<string, { weeks: Set<number>; last: Date }>>();
@@ -170,11 +174,11 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       const hour = start.getHours();
       const dow = start.getDay();
       const key = `${dow}-${hour}`;
-      const isPatientSession = a.type === 'consulta' || !a.type;
+      const patientSession = true; // já filtrado em `valid`
       const name = patientNameOf(a);
 
       if (start >= windowEnd) {
-        if ((start.getTime() - now.getTime()) / (24 * 3600 * 1000) <= 42 && isPatientSession) {
+        if ((start.getTime() - now.getTime()) / (24 * 3600 * 1000) <= 42 && patientSession) {
           const list = slotUpcoming.get(key) ?? [];
           list.push({ name, date: start });
           slotUpcoming.set(key, list);
@@ -190,7 +194,7 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       dowsWithData.add(dow);
       hoursWithData.add(hour);
 
-      if (!isPatientSession) {
+      if (!patientSession) {
         const set = slotCommitments.get(key) ?? new Set<string>();
         set.add(a.title?.trim() || (a.type === 'bloqueio' ? 'Bloqueio' : 'Compromisso'));
         slotCommitments.set(key, set);
@@ -219,7 +223,8 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
     }
 
     const isDayOpen = (dow: number) => (hasSchedule ? !!dayConfig.get(dow)?.active : dow >= 1 && dow <= 5);
-    const dayList = WEEKDAYS.filter((d) => isDayOpen(d.dow) || dowsWithData.has(d.dow));
+    // com a agenda configurada, só os dias abertos nela; sem configuração, os dias úteis + os com atendimento
+    const dayList = WEEKDAYS.filter((d) => (hasSchedule ? isDayOpen(d.dow) : isDayOpen(d.dow) || dowsWithData.has(d.dow)));
 
     // faixa de horas: do menor início ao maior fim dos dias ABERTOS (+ horas onde existe atendimento fora do horário)
     let minHour = 24;
@@ -233,9 +238,11 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
         if (e !== null) maxHour = Math.max(maxHour, Math.ceil(e / 60) - 1);
       }
     }
-    for (const h of hoursWithData) {
-      minHour = Math.min(minHour, h);
-      maxHour = Math.max(maxHour, h);
+    if (!hasSchedule) {
+      for (const h of hoursWithData) {
+        minHour = Math.min(minHour, h);
+        maxHour = Math.max(maxHour, h);
+      }
     }
     if (minHour === 24 || maxHour === -1) {
       minHour = 8;
@@ -264,11 +271,16 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       });
     };
 
+    // só horas que estão abertas na agenda em algum dia (nada de intervalo/almoço nem horas fechadas)
+    const visibleHours = hasSchedule
+      ? hourList.filter((h) => dayList.some((d) => isOpenSlot(d.dow, h) && !isBreakSlot(d.dow, h)))
+      : hourList;
+
     const grid = new Map<string, SlotInfo>();
     const tally = { livre: 0, pouco: 0, eventual: 0, quinzenal: 0, semanal: 0 };
 
     for (const d of dayList) {
-      for (const h of hourList) {
+      for (const h of visibleHours) {
         const key = `${d.dow}-${h}`;
         const usage = (slotWeeks.get(key)?.size ?? 0) / totalWeeks;
         let kind: SlotKind;
@@ -283,8 +295,8 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
           .sort((a, b) => b.weeks - a.weeks);
         const upcoming = (slotUpcoming.get(key) ?? []).sort((a, b) => a.date.getTime() - b.date.getTime());
         const commitments = [...(slotCommitments.get(key) ?? [])];
-        const open = isOpenSlot(d.dow, h);
-        const onBreak = open && isBreakSlot(d.dow, h);
+        const open = isOpenSlot(d.dow, h) && !isBreakSlot(d.dow, h); // intervalo conta como fechado
+        const onBreak = false;
 
         grid.set(key, { open, onBreak, kind, usage, patients, upcoming, commitments });
         if (open && !onBreak && commitments.length === 0) tally[kind] += 1;
@@ -301,7 +313,7 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       .sort((a, b) => a.info.usage - b.info.usage || a.dow - b.dow || a.hour - b.hour)
       .slice(0, 10);
 
-    return { grid, hourList, dayList, tally, suggestions, hasSchedule };
+    return { grid, hourList: visibleHours, dayList, tally, suggestions, hasSchedule };
   }, [appointments, windowWeeks, workSchedule]);
 
   const { grid, hourList, dayList, tally, suggestions, hasSchedule } = data;
@@ -374,10 +386,6 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
             {KIND_META[k].label}
           </span>
         ))}
-        <span className="flex items-center gap-1.5 text-xs text-slate-700" title="Compromisso pessoal ou bloqueio nesse horário">
-          <span className="h-3 w-3 rounded-[3px] bg-slate-300" />
-          Compromisso / bloqueio
-        </span>
         <span className="flex items-center gap-1.5 text-xs text-slate-700" title="Agenda fechada neste horário">
           <span className="h-3 w-3 rounded-[3px] bg-slate-100 border border-slate-200" />
           Fechado
@@ -576,8 +584,8 @@ export const SlotControl: React.FC<SlotControlProps> = ({ appointments, workSche
       </div>
 
       <p className="text-[11px] leading-relaxed text-slate-500">
-        A grade segue os dias e horários abertos da sua agenda e usa os atendimentos das últimas semanas (cancelados não contam; bloqueios e compromissos
-        aparecem à parte). Passe o mouse em um horário para ver o resumo; clique para ver os detalhes e agendar. O ponto verde indica paciente já
+        A grade segue os dias e horários abertos da sua agenda e usa os atendimentos das últimas semanas (cancelados, reuniões e bloqueios sem paciente não
+        contam). Passe o mouse em um horário para ver o resumo; clique para ver os detalhes e agendar. O ponto verde indica paciente já
         agendado nas próximas semanas.
       </p>
     </div>
