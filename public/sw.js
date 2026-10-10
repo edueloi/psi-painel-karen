@@ -1,5 +1,5 @@
-const CACHE_NAME = 'psiflux-v4';
-const STATIC_ASSETS = ['/', '/index.html', '/app_psiflux.png', '/manifest.json'];
+const CACHE_NAME = 'psiflux-v5';
+const STATIC_ASSETS = ['/', '/index.html', '/app_psiflux.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -33,7 +33,10 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/node_modules/') ||
     url.pathname.startsWith('/sala/') ||
     url.pathname === '/sala' ||
-    url.pathname === '/sw.js'
+    url.pathname === '/sw.js' ||
+    // manifest e ícones de instalação sempre da rede, senão o app instalado fica com o ícone antigo
+    url.pathname.startsWith('/manifest') ||
+    /^\/(portal-)?(icon|apple-touch-icon)/.test(url.pathname)
   ) {
     return;
   }
