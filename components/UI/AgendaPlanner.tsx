@@ -681,7 +681,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                     <div
                       key={day.toISOString()}
                       className={cx(
-                        'flex min-w-[80px] flex-1 flex-col items-center justify-center border-r border-slate-100 px-1 gap-0.5',
+                        'flex min-w-[116px] sm:min-w-[80px] flex-1 flex-col items-center justify-center border-r border-slate-100 px-1 gap-0.5',
                         closedEntry
                           ? 'bg-rose-50/60'
                           : isToday
@@ -835,7 +835,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       <div
                         key={day.toISOString()}
                         className={cx(
-                          'relative min-w-[80px] flex-1 border-r border-slate-200 transition cursor-crosshair',
+                          'relative min-w-[116px] sm:min-w-[80px] flex-1 border-r border-slate-200 transition cursor-crosshair',
                           isWeekend && !isSameDay(day, new Date()) ? 'bg-slate-100' : 'bg-transparent'
                         )}
                         style={isSameDay(day, new Date()) ? { backgroundColor: 'color-mix(in srgb, var(--c-100) 35%, transparent)' } : undefined}
