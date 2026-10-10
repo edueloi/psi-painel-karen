@@ -176,6 +176,27 @@ const RECORDS_TABS = [
   { id: 'timeline', label: 'Timeline', icon: Clock },
   { id: 'analysis', label: 'Análise', icon: BarChart2 },
 ] as const;
+/** Abas do prontuário: no celular só a ativa mostra o texto e ela sempre fica visível na rolagem. */
+const RecordsTabsBar: React.FC<{ value: RecordsTabId; onChange: (v: RecordsTabId) => void }> = ({ value, onChange }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [value]);
+  const items = RECORDS_TABS.map(tb => ({
+    ...tb,
+    label: <span className={tb.id === value ? '' : 'hidden sm:inline'}>{tb.label}</span>,
+  }));
+  return (
+    <div ref={ref} className="min-w-0 [&_[role=tablist]]:snap-x [&_[role=tab]]:snap-center [&_[role=tab]]:px-3">
+      <Tabs<RecordsTabId> items={items} value={value} onChange={onChange} label="Seções do prontuário" />
+    </div>
+  );
+};
+const GRID_VIEW_TABS = [
+  { id: 'patients', label: 'Pacientes', icon: Users },
+  { id: 'records', label: 'Últimos Registros', icon: Activity },
+] as const;
 const TAB_RECORD_TYPE: Record<string, string> = { anamnesis: 'Anamnese', assessment: 'Avaliacao', plan: 'Plano', sessions: 'Evolucao' };
 type RecordsTabId = typeof RECORDS_TABS[number]['id'];
 
@@ -2027,31 +2048,32 @@ const SendAnamnesisModal: React.FC<{
     : null;
 
   return (
-    <PageWrapper>
-      <div className="space-y-4 pb-16 animate-fadeIn">
-        <SectionTitle
-          icon={ClipboardCheck}
-          title="Enviar Anamnese"
-          description={`Paciente: ${patient.full_name}`}
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14}/>} onClick={onClose}>Voltar</Button>
-              {!generatedLink && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleSend}
-                  disabled={loading || !title.trim()}
-                  loading={loading}
-                  iconLeft={<Send size={14} />}
-                >
-                  {loading ? 'Gerando link...' : 'Gerar link seguro'}
-                </Button>
-              )}
-            </div>
-          }
-        />
-        <ContentCard padding="lg">
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="xl"
+      mobileStyle="fullscreen"
+      title="Enviar Anamnese"
+      subtitle={`Paciente: ${patient.full_name}`}
+      footer={
+        <ModalFooter>
+          <Button variant="outline" size="md" onClick={onClose}>{generatedLink ? 'Fechar' : 'Cancelar'}</Button>
+          {!generatedLink && (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleSend}
+              disabled={loading || !title.trim()}
+              loading={loading}
+              iconLeft={<Send size={14} />}
+            >
+              {loading ? 'Gerando link...' : 'Gerar link seguro'}
+            </Button>
+          )}
+        </ModalFooter>
+      }
+    >
+      <div className="space-y-4">
       {generatedLink ? (
         /* ── LINK GERADO ── */
         <div className="space-y-3 animate-in fade-in duration-500">
@@ -2135,7 +2157,7 @@ const SendAnamnesisModal: React.FC<{
             {/* Tipo de formulário */}
             <div className="space-y-1">
               <span className="ds-label">Versão</span>
-              <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {([['full', 'Completa', '~15 min'], ['short', 'Rápida', '~5 min']] as const).map(([val, lab, time]) => (
                   <button
                     key={val}
@@ -2194,9 +2216,8 @@ const SendAnamnesisModal: React.FC<{
           </Alert>
         </div>
       )}
-        </ContentCard>
       </div>
-    </PageWrapper>
+    </Modal>
   );
 };
 
@@ -2540,6 +2561,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [shareModal, setShareModal] = useState<{ record: MedicalRecord } | null>(null);
   const [professionals, setProfessionals] = useState<{ id: string; name: string; email?: string }[]>([]);
   const [sendAnamnesisModal, setSendAnamnesisModal] = useState<{ record: MedicalRecord; patient: Patient } | null>(null);
+  // Rascunhos criados só para abrir o envio: se o envio for cancelado, são descartados.
+  const freshAnamnesisIds = useRef<Set<string>>(new Set());
   const [relatorioModal, setRelatorioModal] = useState<Patient | null>(null);
   const [encaminhamentoModal, setEncaminhamentoModal] = useState<Patient | null>(null);
   const [atestadoModal, setAtestadoModal] = useState<Patient | null>(null);
@@ -2780,6 +2803,22 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     if (type === 'Relatorio' && pat) { setRelatorioModal(pat); return; }
     if (type === 'Encaminhamento' && pat) { setEncaminhamentoModal(pat); return; }
     if (type === 'Atestado' && pat) { setAtestadoModal(pat); return; }
+    if (type === 'Anamnese') {
+      // Anamnese nova: cria o registro-rascunho e abre direto o envio ao paciente (sem editor em página).
+      if (!pat) { pushToast('error', 'Selecione o paciente para enviar a anamnese.'); return; }
+      try {
+        const created: any = await api.post('/medical-records', {
+          patient_id: pat.id, title: titleMap.Anamnese, record_type: 'Anamnese', status: 'Rascunho',
+          created_at: new Date().toISOString().slice(0, 10), tags: [], draft_content: '', content: '', attachments: [],
+        });
+        const rec = { ...(created?.record || created), patient_id: String(pat.id) } as MedicalRecord;
+        if (!rec.id) { pushToast('error', 'Não foi possível iniciar a anamnese.'); return; }
+        freshAnamnesisIds.current.add(String(rec.id));
+        setRecords(prev => prev.some(r => String(r.id) === String(rec.id)) ? prev : [rec, ...prev]);
+        setSendAnamnesisModal({ record: rec, patient: pat });
+      } catch (e: any) { pushToast('error', e?.response?.data?.error || 'Erro ao iniciar anamnese.'); }
+      return;
+    }
 
     setCurrentRecord({ patient_id: selectedPatientId || '', record_type: type, title: titleMap[type] || `Registro — ${today}` });
     setEditorMode('new');
@@ -3150,24 +3189,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     );
   }
 
-  if (sendAnamnesisModal) {
-    return (
-      <SendAnamnesisModal
-        record={sendAnamnesisModal.record}
-        patient={sendAnamnesisModal.patient}
-        user={user as any}
-        onClose={() => setSendAnamnesisModal(null)}
-        onSent={(sendData) => {
-          setAnamnesisSends(prev => {
-            const exists = prev.find(s => s.id === sendData.id);
-            return exists ? prev.map(s => s.id === sendData.id ? sendData : s) : [...prev, sendData];
-          });
-          pushToast('success', 'Anamnese enviada ao paciente com sucesso!');
-        }}
-      />
-    );
-  }
-
   return (
     <PageWrapper>
      <div className="space-y-4">
@@ -3212,26 +3233,29 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       />
 
       {view === 'patient' && (
-        <Tabs<RecordsTabId> items={RECORDS_TABS} value={activeTab} onChange={changeRecordsTab} label="Seções do prontuário" />
+        <RecordsTabsBar value={activeTab} onChange={changeRecordsTab} />
       )}
 
-      {/* Linha de Filtros de Tipo (Mobile Friendly) */}
+      {/* Busca (sozinha no mobile) → filtros de tipo */}
       {view === 'patient' && activeTab !== 'timeline' && activeTab !== 'analysis' && (
-        <FilterLine className="animate-fadeIn">
-          <FilterLineSection grow wrap>
-            <FilterLineItem grow minWidth={200}>
-              <FilterLineSearch value={historySearch} onChange={setHistorySearch} placeholder="Buscar nas evoluções e notas..." className="w-full sm:max-w-[280px]" />
-            </FilterLineItem>
+        <div className="space-y-3 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <FilterLineSearch value={historySearch} onChange={setHistorySearch} placeholder="Buscar nas evoluções e notas..." className="w-full sm:max-w-[280px]" />
             {TAB_RECORD_TYPE[activeTab] && (
-              <FilterLineItem fullOnMobile={false}>
-                <Button variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => handleSelectType(TAB_RECORD_TYPE[activeTab])}>
-                  {activeTab === 'sessions' ? 'Nova evolução' : activeTab === 'assessment' ? 'Nova avaliação' : activeTab === 'plan' ? 'Novo plano' : 'Nova anamnese'}
-                </Button>
-              </FilterLineItem>
+              <Button className="hidden sm:inline-flex" variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => handleSelectType(TAB_RECORD_TYPE[activeTab])}>
+                {activeTab === 'sessions' ? 'Nova evolução' : activeTab === 'assessment' ? 'Nova avaliação' : activeTab === 'plan' ? 'Novo plano' : 'Nova anamnese'}
+              </Button>
             )}
-            {activeTab === 'history' && (
-            <FilterLineItem fullOnMobile={false}>
-              <div className="overflow-x-auto no-scrollbar">
+          </div>
+          {activeTab === 'history' && (
+            <>
+              <div className="sm:hidden">
+                <Select aria-label="Tipo de registro" value={filterType || '__all__'} onChange={e => setFilterType(e.target.value === '__all__' ? '' : e.target.value)}>
+                  <option value="__all__">Tudo</option>
+                  {Object.entries(TYPE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </Select>
+              </div>
+              <div className="hidden sm:block overflow-x-auto no-scrollbar">
                 <FilterLineSegmented
                   value={filterType || '__all__'}
                   onChange={(v) => setFilterType(v === '__all__' ? '' : v)}
@@ -3241,10 +3265,14 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   ]}
                 />
               </div>
-            </FilterLineItem>
-            )}
-          </FilterLineSection>
-        </FilterLine>
+            </>
+          )}
+          {TAB_RECORD_TYPE[activeTab] && (
+            <Button className="w-full sm:hidden" variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => handleSelectType(TAB_RECORD_TYPE[activeTab])}>
+              {activeTab === 'sessions' ? 'Nova evolução' : activeTab === 'assessment' ? 'Nova avaliação' : activeTab === 'plan' ? 'Novo plano' : 'Nova anamnese'}
+            </Button>
+          )}
+        </div>
       )}
 
       {/* ─── GRID DE PACIENTES ─── */}
@@ -3290,6 +3318,22 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
       {view === 'grid' && (
         <div className="space-y-4">
+          {/* Busca sozinha → visão (Pacientes / Últimos registros) → resumo → lista */}
+          <div className="space-y-3">
+            <FilterLineSearch
+              value={search}
+              onChange={setSearch}
+              placeholder={showLatestRecords ? 'Buscar no histórico...' : 'Buscar paciente...'}
+              className="w-full sm:max-w-[280px]"
+            />
+            <Tabs<'patients' | 'records'>
+              items={GRID_VIEW_TABS}
+              value={showLatestRecords ? 'records' : 'patients'}
+              onChange={(v) => setShowLatestRecords(v === 'records')}
+              label="Visão do prontuário"
+            />
+          </div>
+
           {/* Stats Cards */}
           {stats && (
             <StatGrid cols={4}>
@@ -3304,30 +3348,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           <PanelCard
             title={showLatestRecords ? 'Últimos Registros' : 'Pacientes'}
             icon={showLatestRecords ? Activity : Users}
-            action={
-              <FilterLine className="border-0 shadow-none p-0">
-                <FilterLineSection>
-                  <FilterLineItem grow>
-                    <FilterLineSearch
-                      value={search}
-                      onChange={setSearch}
-                      placeholder={showLatestRecords ? 'Buscar no histórico...' : 'Buscar paciente...'}
-                      className="w-full sm:w-72"
-                    />
-                  </FilterLineItem>
-                  <FilterLineItem fullOnMobile={false}>
-                    <FilterLineSegmented
-                      value={showLatestRecords ? 'records' : 'patients'}
-                      onChange={(v) => setShowLatestRecords(v === 'records')}
-                      options={[
-                        { value: 'patients', label: 'Pacientes', icon: <Users size={12}/> },
-                        { value: 'records', label: 'Últimos Registros', icon: <Activity size={12}/> },
-                      ]}
-                    />
-                  </FilterLineItem>
-                </FilterLineSection>
-              </FilterLine>
-            }
           >
 
             {isLoading ? (
@@ -3473,7 +3493,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       {view === 'patient' && selectedPatient && (
         <div className="space-y-4">
           {/* Stats do paciente */}
-          <StatGrid cols={3}>
+          <StatGrid cols={3} className="!grid-cols-3">
             <StatCard title="Total" value={patientRecords.length} icon={Layers} color="info" delay={0} />
             <StatCard title="Aprovados" value={patientRecords.filter(r => r.status === 'Aprovado').length} icon={CheckCircle2} color="success" delay={0.05} />
             <StatCard title="Rascunhos" value={patientRecords.filter(r => r.status === 'Rascunho').length} icon={Edit3} color="warning" delay={0.1} />
@@ -3921,6 +3941,31 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             onExport={finishExport}
             onClose={() => setShowExportModal(false)}
         />
+      )}
+
+      {sendAnamnesisModal && (
+      <SendAnamnesisModal
+        record={sendAnamnesisModal.record}
+        patient={sendAnamnesisModal.patient}
+        user={user as any}
+        onClose={() => {
+          const id = String(sendAnamnesisModal.record.id);
+          setSendAnamnesisModal(null);
+          if (freshAnamnesisIds.current.delete(id)) {
+            api.delete(`/medical-records/${id}`)
+              .then(() => setRecords(prev => prev.filter(r => String(r.id) !== id)))
+              .catch(() => { /* mantém o rascunho se não for possível excluir */ });
+          }
+        }}
+        onSent={(sendData) => {
+          freshAnamnesisIds.current.delete(String(sendData.medical_record_id ?? sendAnamnesisModal.record.id));
+          setAnamnesisSends(prev => {
+            const exists = prev.find(s => s.id === sendData.id);
+            return exists ? prev.map(s => s.id === sendData.id ? sendData : s) : [...prev, sendData];
+          });
+          pushToast('success', 'Anamnese enviada ao paciente com sucesso!');
+        }}
+      />
       )}
 
       {/* Type Selector */}

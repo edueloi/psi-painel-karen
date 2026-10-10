@@ -227,7 +227,7 @@ export const Agenda: React.FC = () => {
 
   useEffect(() => {
     const measure = () => {
-      if (!stickyStats || !stickyNavRef.current) { setStickyNavOffset(0); return; }
+      if (!stickyStats || !stickyNavRef.current || window.innerWidth < 1024) { setStickyNavOffset(0); return; }
       setStickyNavOffset(getTopbarHeight() + stickyNavRef.current.offsetHeight);
     };
     // Mede imediatamente e após o próximo frame (para capturar após layout)
@@ -1798,17 +1798,17 @@ export const Agenda: React.FC = () => {
       </StatGrid>
 
       {/* FILTERS & NAVIGATION BAR — sticky apenas aqui */}
-      <div ref={stickyNavRef} className={stickyStats ? 'sticky top-12 z-30 -mx-3 px-3 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-sm shadow-slate-200/60' : ''}>
-      <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg border border-zinc-200 shadow-sm flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+      <div ref={stickyNavRef} className={stickyStats ? 'lg:sticky lg:top-12 lg:z-30 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 lg:bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-sm shadow-slate-200/60' : ''}>
+      <div className="bg-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg border border-zinc-200 shadow-sm flex flex-col lg:flex-row gap-2.5 lg:items-center lg:justify-between">
 
           {/* Linha 1: Navegação + label de data */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
               <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 shrink-0">
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(-1)}><ChevronLeft size={16}/></IconButton>
                   <Button variant="ghost" size="xs" onClick={() => setCurrentDate(new Date())}>Hoje</Button>
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(1)}><ChevronRight size={16}/></IconButton>
               </div>
-              <h2 className="text-sm font-semibold text-zinc-700 truncate max-w-[160px] sm:max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
+              <h2 className="text-sm font-semibold text-zinc-700 truncate min-w-0 flex-1 sm:flex-none sm:max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
               <DatePicker
                 value={currentDate.toISOString().slice(0, 10)}
                 onChange={(val) => val && handleDateChange(val)}
@@ -1816,45 +1816,25 @@ export const Agenda: React.FC = () => {
           </div>
 
           {/* Linha 2 mobile / mesma linha desktop: view switcher + filtros + botões */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
               {/* View switcher — só mostra views habilitadas nas preferências */}
               {(() => {
                 const enabledViews = preferences.agenda.enabledViews ?? ['day','week','month'];
                 const items = VIEW_TABS.filter(v => enabledViews.includes(v.id));
                 return enabledViews.length > 1 ? (
-                  <Tabs<typeof VIEW_TABS[number]['id']> items={items} value={view as any} onChange={(v) => setView(v as any)} label="Visão da agenda" className="shrink-0" />
+                  <Tabs<typeof VIEW_TABS[number]['id']> items={items} value={view as any} onChange={(v) => setView(v as any)} label="Visão da agenda" className="col-span-2 sm:col-span-1 shrink-0" />
                 ) : null;
               })()}
 
               {/* Filtros */}
-              <Select size="sm" aria-label="Filtrar por status" wrapperClassName="flex-1 sm:flex-none min-w-0 sm:w-36 !mb-0" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
+              <Select size="sm" aria-label="Filtrar por status" wrapperClassName="min-w-0 sm:w-36 !mb-0" value={filterStatus || ''} onChange={e => setFilterStatus(e.target.value || null)}>
                   <option value="">Status</option>
                   {Object.entries(statusMeta).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </Select>
-              <Select size="sm" aria-label="Filtrar por profissional" wrapperClassName="flex-1 sm:flex-none min-w-0 sm:w-40 !mb-0" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
+              <Select size="sm" aria-label="Filtrar por profissional" wrapperClassName="min-w-0 sm:w-40 !mb-0" value={filterProfessionalId || ''} onChange={e => setFilterProfessionalId(e.target.value || null)}>
                   <option value="">Profissional</option>
                   {professionals.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
               </Select>
-
-              {/* Botão fixar barra */}
-              <IconButton
-                variant={stickyStats ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => updatePreference('agenda', { stickyStats: !stickyStats })}
-                title={stickyStats ? 'Desafixar barra' : 'Fixar barra ao rolar'}
-              >
-                {stickyStats ? <Pin size={13} /> : <PinOff size={13} />}
-              </IconButton>
-
-              {/* Botão configurações da agenda */}
-              <IconButton
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/agenda/configuracoes')}
-                title="Minha agenda: horários, dias e feriados"
-              >
-                <Settings size={13} />
-              </IconButton>
           </div>
       </div>{/* end nav bar */}
       </div>{/* end sticky wrapper */}

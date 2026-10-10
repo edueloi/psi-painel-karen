@@ -233,7 +233,7 @@ export const Permissions: React.FC = () => {
                   onChange={setQuery}
                   placeholder="Buscar módulo ou grupo..."
                   aria-label="Buscar módulo ou grupo"
-                  className="max-w-[280px]"
+                  className="w-full sm:max-w-[280px]"
                 />
               </FilterLineSection>
             </FilterLine>

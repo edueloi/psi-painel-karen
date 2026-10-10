@@ -1051,7 +1051,7 @@ export const Services: React.FC = () => {
                 onChange={setSearchTerm}
                 placeholder={t('services.search')}
                 aria-label={t('services.search')}
-                className="max-w-[280px]"
+                className="w-full sm:max-w-[280px]"
               />
             </FilterLineItem>
           </FilterLineSection>

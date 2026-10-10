@@ -747,7 +747,7 @@ export const DocGenerator: React.FC = () => {
                         value={templateSearch}
                         onChange={setTemplateSearch}
                         placeholder="Buscar modelo..."
-                        className="max-w-[280px]"
+                        className="w-full sm:max-w-[280px]"
                       />
                       {visibleTemplates.length === 0 ? (
                         <EmptyState

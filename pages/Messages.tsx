@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import {
   MessageCircle, Plus, Edit3, Trash2, Send, Variable, Copy, Check,
   Loader2, MessageSquare, Tag, Users, Sparkles, AlertTriangle, Inbox, User,
-  Search, Paperclip, FileText, RefreshCw, Wifi, WifiOff, ExternalLink,
+  Search, ArrowLeft, Paperclip, FileText, RefreshCw, Wifi, WifiOff, ExternalLink,
 } from 'lucide-react';
 import {
   Alert, Button, ConfirmModal, ContentCard, EmptyState, IconButton, Modal, ModalFooter,
@@ -429,6 +429,14 @@ const InboxChat: React.FC = () => {
   );
 };
 
+const INBOX_FILTER_TABS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'withConversation', label: 'Com conversa' },
+  { id: 'unread', label: 'Não lidos' },
+  { id: 'withoutPhone', label: 'Sem WhatsApp' },
+] as const;
+type InboxFilter = (typeof INBOX_FILTER_TABS)[number]['id'];
+
 // ── Inbox WhatsApp vinculado ao paciente ─────────────────────────────────────
 const WhatsAppInbox: React.FC = () => {
   const { pushToast } = useToast();
@@ -437,7 +445,7 @@ const WhatsAppInbox: React.FC = () => {
   const [selected, setSelected] = useState<{ patient: any; conversation: any | null } | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'withConversation' | 'unread' | 'withoutPhone'>('all');
+  const [filter, setFilter] = useState<InboxFilter>('all');
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -448,6 +456,7 @@ const WhatsAppInbox: React.FC = () => {
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [sendingDocumentId, setSendingDocumentId] = useState<number | null>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const patientName = (patient: any) => patient?.name || patient?.full_name || 'Paciente';
   const patientPhone = (patient: any) => patient?.whatsapp || patient?.phone || '';
@@ -586,40 +595,52 @@ const WhatsAppInbox: React.FC = () => {
     }
   };
 
-  const filterOptions: Array<{ id: typeof filter; label: string }> = [
-    { id: 'all', label: 'Todos' },
-    { id: 'withConversation', label: 'Com conversa' },
-    { id: 'unread', label: 'Não lidos' },
-    { id: 'withoutPhone', label: 'Sem WhatsApp' },
-  ];
+  const messageCount = messages.length;
+  const resizeComposer = useCallback(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 104)}px`;
+  }, []);
+  useEffect(() => { resizeComposer(); }, [text, resizeComposer, selected]);
+
+  const fmtListTime = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toDateString() === new Date().toDateString()
+      ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
+  const composerDisabled = !selected?.conversation || botStatus !== 'connected' || sending;
 
   return (
     <>
-      <div className="flex h-[calc(100vh-280px)] min-h-[520px] overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <aside className="flex w-72 shrink-0 flex-col border-r border-slate-200 xl:w-80">
-          <div className="space-y-2 border-b border-slate-100 p-3">
+      <div className={`${selected
+        ? 'fixed inset-x-0 bottom-0 top-14 z-[90] bg-white lg:static lg:z-auto lg:h-[calc(100vh-280px)] lg:min-h-[520px] lg:rounded-lg lg:border lg:border-slate-200'
+        : 'h-[calc(100dvh-17rem)] min-h-[420px] rounded-lg border border-slate-200 bg-white lg:h-[calc(100vh-280px)] lg:min-h-[520px]'} flex overflow-hidden`}>
+        <aside className={`${selected ? 'hidden lg:flex' : 'flex'} w-full min-w-0 shrink-0 flex-col lg:w-[340px] lg:border-r lg:border-slate-200`}>
+          <div className="space-y-2 border-b border-slate-100 p-3 pb-0">
             <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold text-slate-800">Pacientes</p>
-                <p className="text-[11px] text-slate-400">WhatsApp vinculado ao cadastro</p>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-800">Pacientes</p>
+                <p className="truncate text-[11px] text-slate-500">WhatsApp vinculado ao cadastro</p>
               </div>
-              <IconButton variant="ghost" size="sm" aria-label="Atualizar Inbox" title="Atualizar" onClick={() => loadInbox()}>
+              <IconButton variant="outline" size="md" aria-label="Atualizar Inbox" title="Atualizar" onClick={() => loadInbox()}>
                 <RefreshCw size={14} />
               </IconButton>
             </div>
-            <div className="relative">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar paciente ou telefone..." className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none focus:border-primary-400" />
-            </div>
-            <div className="flex gap-1 overflow-x-auto pb-0.5">
-              {filterOptions.map(option => (
-                <button key={option.id} type="button" onClick={() => setFilter(option.id)} className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${filter === option.id ? 'border-primary-600 bg-primary-600 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-primary-200'}`}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <Input
+              iconLeft={<Search size={14} />}
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Buscar paciente ou telefone..."
+              aria-label="Buscar paciente ou telefone"
+            />
+            <Tabs<InboxFilter> items={INBOX_FILTER_TABS} value={filter} onChange={setFilter} label="Filtrar conversas" className="-mx-3 px-1" />
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {loading ? (
               <div className="flex h-full items-center justify-center"><Loader2 size={18} className="animate-spin text-slate-400" /></div>
             ) : rows.length === 0 ? (
@@ -628,14 +649,19 @@ const WhatsAppInbox: React.FC = () => {
               const active = selected?.patient?.id === patient.id;
               const unread = Number(conversation?.unread_count || 0);
               return (
-                <button key={patient.id} type="button" onClick={() => selectPatient(patient)} className={`flex w-full items-center gap-2.5 border-b border-slate-50 px-3 py-2.5 text-left transition-colors ${active ? 'bg-primary-50' : 'hover:bg-slate-50'}`}>
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">{initials(patient)}</div>
+                <button key={patient.id} type="button" onClick={() => selectPatient(patient)} className={`flex min-h-[60px] w-full items-center gap-3 border-b border-slate-100 px-3 py-2 text-left transition-colors ${active ? 'bg-primary-50' : 'hover:bg-slate-50 active:bg-slate-100'}`}>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-medium text-primary-700">{initials(patient)}</div>
                   <div className="min-w-0 flex-1">
-                    <p className={`truncate text-[13px] font-medium ${active ? 'text-primary-700' : 'text-slate-700'}`}>{patientName(patient)}</p>
-                    <p className="truncate text-[11px] text-slate-400">{patientPhone(patient) || 'Sem WhatsApp cadastrado'}</p>
-                    {conversation?.last_message_preview && <p className="mt-0.5 truncate text-[11px] text-slate-400">{conversation.last_message_preview}</p>}
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className={`truncate text-[13px] font-medium ${active ? 'text-primary-700' : 'text-slate-800'}`}>{patientName(patient)}</p>
+                      <span className={`shrink-0 text-[11px] ${unread > 0 ? 'font-medium text-primary-700' : 'text-slate-500'}`}>{fmtListTime(conversation?.last_message_at)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-[11px] text-slate-500">{conversation?.last_message_preview || patientPhone(patient) || 'Sem WhatsApp cadastrado'}</p>
+                      {unread > 0 && <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary-600 px-1 text-[11px] font-medium text-white">{unread > 9 ? '9+' : unread}</span>}
+                    </div>
+                    {conversation?.last_message_preview && patientPhone(patient) && <p className="truncate text-[11px] text-slate-400">{patientPhone(patient)}</p>}
                   </div>
-                  {unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold text-white">{unread > 9 ? '9+' : unread}</span>}
                 </button>
               );
             })}
@@ -643,41 +669,43 @@ const WhatsAppInbox: React.FC = () => {
         </aside>
 
         {!selected ? (
-          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><MessageCircle size={23} /></div>
-            <p className="text-sm font-semibold text-slate-700">Central de WhatsApp</p>
-            <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-500">Escolha um paciente cadastrado para iniciar ou continuar uma conversa pelo WhatsApp da clínica.</p>
+          <div className="hidden flex-1 flex-col items-center justify-center p-8 text-center lg:flex">
+            <EmptyState icon={MessageCircle} title="Central de WhatsApp" description="Escolha um paciente cadastrado para iniciar ou continuar uma conversa pelo WhatsApp da clínica." />
           </div>
         ) : (
-          <section className="flex min-w-0 flex-1 flex-col">
-            <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">{initials(selected.patient)}</div>
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-2 py-2 sm:px-3 lg:px-4">
+              <IconButton variant="ghost" size="lg" className="lg:hidden" aria-label="Voltar para a lista" title="Voltar" onClick={() => setSelected(null)}>
+                <ArrowLeft size={18} />
+              </IconButton>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-medium text-primary-700">{initials(selected.patient)}</div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2"><p className="truncate text-sm font-semibold text-slate-800">{patientName(selected.patient)}</p>{botStatus === 'connected' ? <Wifi size={13} className="text-emerald-500" /> : <WifiOff size={13} className="text-amber-500" />}</div>
-                <p className="text-[11px] text-slate-400">{patientPhone(selected.patient) || 'Paciente sem WhatsApp cadastrado'}</p>
+                <div className="flex items-center gap-2"><p className="truncate text-sm font-medium text-slate-800">{patientName(selected.patient)}</p>{botStatus === 'connected' ? <Wifi size={13} className="shrink-0 text-emerald-500" /> : <WifiOff size={13} className="shrink-0 text-amber-500" />}</div>
+                <p className="truncate text-[11px] text-slate-500">{patientPhone(selected.patient) || 'Paciente sem WhatsApp cadastrado'}</p>
               </div>
               <a href={`/pacientes/${selected.patient.id}`} className="hidden items-center gap-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 sm:flex"><ExternalLink size={12} /> Paciente</a>
-              <IconButton variant="outline" size="sm" aria-label="Enviar documento" title="Documentos do paciente" onClick={openDocuments} disabled={!selected.conversation}><Paperclip size={14} /></IconButton>
+              <IconButton variant="outline" size="md" aria-label="Enviar documento" title="Documentos do paciente" onClick={openDocuments} disabled={!selected.conversation}><Paperclip size={14} /></IconButton>
             </header>
 
-            <div ref={messageListRef} className="flex-1 overflow-y-auto bg-slate-50/60 px-4 py-4">
+            <div ref={messageListRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/60 px-3 py-3 sm:px-4">
               {!selected.conversation ? (
-                <div className="flex h-full flex-col items-center justify-center text-center"><AlertTriangle size={24} className="mb-2 text-amber-400" /><p className="text-sm font-medium text-slate-600">WhatsApp não cadastrado</p><p className="mt-1 text-xs text-slate-400">Cadastre o número do paciente para iniciar a conversa.</p></div>
+                <div className="flex h-full flex-col items-center justify-center text-center"><AlertTriangle size={24} className="mb-2 text-amber-400" /><p className="text-sm font-medium text-slate-600">WhatsApp não cadastrado</p><p className="mt-1 text-xs text-slate-500">Cadastre o número do paciente para iniciar a conversa.</p></div>
               ) : loadingMessages ? (
                 <div className="flex h-full items-center justify-center"><Loader2 size={18} className="animate-spin text-slate-400" /></div>
-              ) : messages.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center"><MessageCircle size={25} className="mb-2 text-slate-200" /><p className="text-xs text-slate-400">Ainda não há mensagens. Envie a primeira pelo WhatsApp.</p></div>
-              ) : <div className="space-y-3">{messages.map(message => {
+              ) : messageCount === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center"><MessageCircle size={25} className="mb-2 text-slate-300" /><p className="text-xs text-slate-500">Ainda não há mensagens. Envie a primeira pelo WhatsApp.</p></div>
+              ) : <div className="space-y-2">{messages.map(message => {
                 const outgoing = message.direction === 'out';
-                return <div key={message.id} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[74%] rounded-lg px-3 py-2 text-[13px] leading-relaxed ${outgoing ? 'rounded-br-sm bg-emerald-600 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-700'}`}><p className="whitespace-pre-wrap">{message.body}</p><p className={`mt-1 text-[10px] ${outgoing ? 'text-white/70 text-right' : 'text-slate-400'}`}>{fmtInboxTime(message.created_at)}</p></div></div>;
+                return <div key={message.id} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}><div className={`min-w-0 max-w-[80%] rounded-lg px-3 py-2 text-[13px] leading-relaxed lg:max-w-[70%] ${outgoing ? 'rounded-br-sm bg-emerald-600 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-700'}`}><p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.body}</p><p className={`mt-1 text-[11px] ${outgoing ? 'text-right text-white/80' : 'text-slate-500'}`}>{fmtInboxTime(message.created_at)}</p></div></div>;
               })}</div>}
             </div>
 
-            <div className="border-t border-slate-200 bg-white p-3">
-              {botStatus !== 'connected' && <p className="mb-2 text-[11px] text-amber-600">Conecte o WhatsApp da clínica para enviar mensagens pelo Inbox.</p>}
+            <div className="shrink-0 border-t border-slate-200 bg-white px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3">
+              {botStatus !== 'connected' && <p className="mb-2 px-1 text-[11px] text-amber-600">Conecte o WhatsApp da clínica para enviar mensagens pelo Inbox.</p>}
               <div className="flex items-end gap-2">
-                <Textarea wrapperClassName="flex-1" className="min-h-[40px] max-h-28 resize-none" rows={1} value={text} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} placeholder="Escreva uma mensagem no WhatsApp..." disabled={!selected.conversation || botStatus !== 'connected' || sending} />
-                <IconButton variant="primary" size="lg" aria-label="Enviar pelo WhatsApp" title="Enviar pelo WhatsApp" onClick={sendMessage} disabled={!selected.conversation || botStatus !== 'connected' || !text.trim() || sending} loading={sending}><Send size={15} /></IconButton>
+                <IconButton variant="outline" size="lg" className="lg:hidden" aria-label="Anexar documento" title="Anexar documento" onClick={openDocuments} disabled={!selected.conversation}><Paperclip size={16} /></IconButton>
+                <Textarea ref={composerRef} wrapperClassName="flex-1" className="max-h-[104px] min-h-[40px] resize-none overflow-y-auto py-2 text-base lg:text-sm" rows={1} value={text} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && window.matchMedia('(min-width: 1024px)').matches) { event.preventDefault(); sendMessage(); } }} placeholder="Escreva uma mensagem no WhatsApp..." aria-label="Mensagem para o paciente" disabled={composerDisabled} />
+                <IconButton variant="primary" size="lg" aria-label="Enviar pelo WhatsApp" title="Enviar pelo WhatsApp" onClick={sendMessage} disabled={composerDisabled || !text.trim()} loading={sending}><Send size={16} /></IconButton>
               </div>
             </div>
           </section>

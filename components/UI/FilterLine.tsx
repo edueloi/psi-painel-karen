@@ -232,16 +232,16 @@ export const FilterLineSelect: React.FC<FilterLineSelectProps> = ({
 export const FilterLineDateRange: React.FC<FilterLineDateRangeProps> = ({
   from, to, onFromChange, onToChange, fromLabel = 'De', toLabel = 'Até', className = '',
 }) => (
-  <div className={cx('flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3', className)}>
-    <div className="flex items-center gap-2">
+  <div className={cx('flex w-full items-center gap-2 sm:w-auto sm:gap-3', className)}>
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none sm:gap-2">
       <span className="text-[11px] font-medium tracking-normal text-zinc-400">{fromLabel}</span>
-      <div className="min-w-[140px]">
+      <div className="min-w-0 flex-1 sm:min-w-[140px] sm:flex-none">
         <DatePicker value={from} onChange={onFromChange} />
       </div>
     </div>
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none sm:gap-2">
       <span className="text-[11px] font-medium tracking-normal text-zinc-400">{toLabel}</span>
-      <div className="min-w-[140px]">
+      <div className="min-w-0 flex-1 sm:min-w-[140px] sm:flex-none">
         <DatePicker value={to} onChange={onToChange} />
       </div>
     </div>

@@ -1622,7 +1622,7 @@ export const Comandas: React.FC = () => {
                 onChange={setSearchTerm}
                 placeholder="Buscar paciente, descrição ou item..."
                 aria-label="Buscar comandas"
-                className="max-w-[280px]"
+                className="w-full sm:max-w-[280px]"
               />
             </FilterLineItem>
             <FilterLineItem>

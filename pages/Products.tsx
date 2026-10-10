@@ -391,7 +391,7 @@ export const Products: React.FC = () => {
                   onChange={setSearchTerm}
                   placeholder={t('products.search')}
                   aria-label={t('products.search')}
-                  className="max-w-[280px]"
+                  className="w-full sm:max-w-[280px]"
                 />
               </FilterLineSection>
 
