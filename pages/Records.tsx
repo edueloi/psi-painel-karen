@@ -96,6 +96,35 @@ const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : '�
 const fmtDateTime = (d: string) => d ? new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 const strip = (h: string) => (h || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+/** Reduz imagens antes do envio: até 1920px no maior lado e WebP qualidade 82%. */
+const optimizeImageForUpload = async (file: File): Promise<File> => {
+  if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) return file;
+  return new Promise(resolve => {
+    const image = new Image();
+    const sourceUrl = URL.createObjectURL(file);
+    const finish = (result = file) => { URL.revokeObjectURL(sourceUrl); resolve(result); };
+    image.onerror = () => finish();
+    image.onload = () => {
+      const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
+      const ratio = largestSide > 1920 ? 1920 / largestSide : 1;
+      const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+      const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) return finish();
+      context.drawImage(image, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        if (!blob) return finish();
+        const baseName = file.name.replace(/\.[^.]+$/, '') || 'imagem';
+        finish(new File([blob], `${baseName}-otimizada.webp`, { type: 'image/webp', lastModified: file.lastModified }));
+      }, 'image/webp', 0.82);
+    };
+    image.src = sourceUrl;
+  });
+};
+
 const mdToHtml = (md: string): string => {
   return md
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -1709,23 +1738,40 @@ const RecordEditor: React.FC<{
   );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    const file = e.target.files[0];
+    const selectedFiles = Array.from(e.target.files || []);
+    if (!selectedFiles.length) return;
+    const allowed = selectedFiles.filter(file => (
+      /^image\/(jpeg|png|webp)$/i.test(file.type)
+      || ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.oasis.opendocument.text'].includes(file.type)
+      || /\.(pdf|doc|docx|odt)$/i.test(file.name)
+    ));
+    if (!allowed.length) {
+      pushToast('error', 'Envie uma imagem JPG, PNG ou WebP, PDF ou documento do Word.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      if (patientId) fd.append('patient_id', patientId);
-      
-      const data = await api.post<any>('/uploads', fd);
-      
-      setAttachments(prev => [...prev, {
-        file_name: data.file_name,
-        file_url: data.file_url,
-        file_type: file.type,
-        file_size: file.size
-      }]);
-      pushToast('success', 'Arquivo anexado com sucesso!');
+      const uploaded: any[] = [];
+      let optimizedImages = 0;
+      for (const originalFile of allowed) {
+        const file = await optimizeImageForUpload(originalFile);
+        if (file !== originalFile) optimizedImages += 1;
+        const fd = new FormData();
+        fd.append('file', file);
+        if (patientId) fd.append('patient_id', patientId);
+        const data = await api.post<any>('/uploads', fd);
+        uploaded.push({
+          file_name: data.file_name,
+          file_url: data.file_url,
+          file_type: file.type,
+          file_size: file.size
+        });
+      }
+      setAttachments(prev => [...prev, ...uploaded]);
+      const imageHint = optimizedImages ? ` ${optimizedImages === 1 ? 'Imagem otimizada' : `${optimizedImages} imagens otimizadas`} para economizar espaço.` : '';
+      pushToast('success', `${uploaded.length === 1 ? 'Arquivo anexado' : `${uploaded.length} arquivos anexados`}.${imageHint}`);
+      if (allowed.length < selectedFiles.length) pushToast('info', 'Alguns arquivos foram ignorados: use JPG, PNG, WebP, PDF ou Word.');
     } catch (err: any) {
       pushToast('error', err?.response?.data?.error || 'Erro ao enviar arquivo');
     } finally {
@@ -2335,16 +2381,53 @@ const RecordEditor: React.FC<{
               ) : ((recordType === 'Avaliacao' || isAnamnese) && canUseAi ? (
                 <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillAssessmentWithAI}>{isAnamnese ? 'Gerar análise com IA' : 'Preencher com IA'}</Button>
               ) : undefined)}
-              sectionTop={id => (isEvolucao && id === 'sessao' ? (
-                <>
-                  {moodHint && <p className="flex items-start gap-1.5 text-[11px] text-slate-500"><Info size={12} className="mt-0.5 shrink-0" />{moodHint}</p>}
-                  <PendingCard
-                    previous={previousInfo?.info || null}
-                    rows={(Array.isArray(sValues.tarefas_retorno) ? sValues.tarefas_retorno : []) as FollowupRow[]}
-                    onChange={rows => handleStructuredChange('tarefas_retorno', rows)}
-                  />
-                </>
-              ) : null)}
+              sectionTop={id => {
+                if (isEvolucao && id === 'sessao') return (
+                  <>
+                    {moodHint && <p className="flex items-start gap-1.5 text-[11px] text-slate-500"><Info size={12} className="mt-0.5 shrink-0" />{moodHint}</p>}
+                    <PendingCard
+                      previous={previousInfo?.info || null}
+                      rows={(Array.isArray(sValues.tarefas_retorno) ? sValues.tarefas_retorno : []) as FollowupRow[]}
+                      onChange={rows => handleStructuredChange('tarefas_retorno', rows)}
+                    />
+                  </>
+                );
+                if (isEvolucao && id === 'tarefas') return (
+                  <div className="rounded-lg border border-dashed border-primary-200 bg-primary-50/40 p-3 space-y-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-slate-800">Arquivos relacionados às tarefas</p>
+                        <p className="text-[11px] text-slate-500">Imagem, PDF ou Word. Imagens são otimizadas antes do envio para ocupar menos espaço.</p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" iconLeft={<FileUp size={14} />} onClick={() => fileInputRef.current?.click()} loading={uploading} disabled={locked}>
+                        Anexar arquivos
+                      </Button>
+                      <input ref={fileInputRef} type="file" className="hidden" multiple accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.odt" onChange={handleFileUpload} />
+                    </div>
+                    {attachments.length > 0 ? (
+                      <div className="space-y-2">
+                        {attachments.map((att, idx) => {
+                          const image = att.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.file_name || '');
+                          const url = getStaticUrl(att.file_url || att.url);
+                          return (
+                            <div key={`${att.file_url || att.file_name}-${idx}`} className="flex min-w-0 items-center gap-2 rounded-md border border-slate-200 bg-white p-2">
+                              {image ? <img src={url} alt="Prévia do anexo" className="h-11 w-11 shrink-0 rounded object-cover border border-slate-200" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-primary-50"><FileText size={18} className="text-primary-600" /></div>}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-medium text-slate-700">{att.file_name || 'Arquivo anexado'}</p>
+                                <p className="text-[11px] text-slate-500">{att.file_size ? `${(att.file_size / 1024 / 1024).toFixed(2)} MB` : 'Arquivo da evolução'}</p>
+                              </div>
+                              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-600 hover:border-primary-300 hover:text-primary-700" title="Visualizar" aria-label="Visualizar anexo"><Eye size={14} /></a>
+                              <a href={url} download className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-600 hover:border-primary-300 hover:text-primary-700" title="Baixar" aria-label="Baixar anexo"><Download size={14} /></a>
+                              {!locked && <IconButton type="button" size="sm" variant="ghost" onClick={() => removeAttachment(idx)} aria-label="Remover anexo" title="Remover anexo" className="shrink-0 text-red-600 hover:bg-red-50"><Trash2 size={14} /></IconButton>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : <p className="text-[11px] text-slate-500">Nenhum arquivo anexado a esta evolução.</p>}
+                  </div>
+                );
+                return null;
+              }}
             />
             )}
           </div>
@@ -2523,7 +2606,7 @@ const RecordEditor: React.FC<{
               <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={() => fileInputRef.current?.click()} loading={uploading}>
                 Anexar Arquivo
               </Button>
-              <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+              <input type="file" className="hidden" ref={fileInputRef} multiple accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.odt" onChange={handleFileUpload} />
             </div>
 
             {attachments.length > 0 ? (
