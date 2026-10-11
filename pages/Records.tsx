@@ -2027,10 +2027,6 @@ const RecordEditor: React.FC<{
   const [fillDialog, setFillDialog] = useState<null | 'evolution' | 'assessment'>(null);
   const openFill = (kind: 'evolution' | 'assessment') => {
     if (!patientId) { pushToast('info', 'Selecione o paciente antes de usar a IA.'); setEditorSection('dados'); return; }
-    if (kind === 'assessment' && recordType === 'Anamnese' && !anamnesisAnswersForAi.trim()) {
-      pushToast('info', 'Preencha ao menos uma resposta da anamnese antes de gerar a análise com IA.');
-      return;
-    }
     const hasText = !!strip(draft) || !!String(sValues.relato || '').trim() || !!transcript.trim() || usedSources.length > 0;
     if (kind === 'evolution' && !hasText) {
       pushToast('info', 'Escreva o texto livre da sessão ou carregue a transcrição da sala virtual para a IA preencher os campos.');
