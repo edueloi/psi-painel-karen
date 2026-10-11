@@ -2003,8 +2003,21 @@ const RecordEditor: React.FC<{
   }, [sections]);
   // Campos do modelo em uso que a IA pode sugerir na Avaliação (o servidor valida a resposta contra esta lista).
   const aiFieldDefs = useMemo(() => sections.flatMap(sec => sec.fields
-    .filter(f => ['text', 'textarea', 'select', 'multi', 'rows', 'date', 'number'].includes(f.type))
-    .map(f => ({ key: f.key, label: f.label, type: f.type, options: f.options, columns: f.columns?.map(c => c.key), section: sec.label }))), [sections]);
+    // Na anamnese, a IA só produz a análise profissional. As respostas do formulário
+    // ficam intactas e servem como fonte explícita da sugestão.
+    .filter(f => isAnamnese ? !!f.aiOnly : ['text', 'textarea', 'select', 'multi', 'rows', 'date', 'number', 'scale'].includes(f.type))
+    .map(f => ({ key: f.key, label: f.label, type: f.type === 'scale' ? 'number' : f.type, options: f.options, columns: f.columns?.map(c => c.key), section: sec.label }))), [sections, isAnamnese]);
+  const anamnesisAnswersForAi = useMemo(() => {
+    if (!isAnamnese) return '';
+    const format = (value: any): string => {
+      if (Array.isArray(value)) return value.map(v => typeof v === 'object' ? Object.values(v).filter(Boolean).join(' — ') : String(v)).filter(Boolean).join('; ');
+      return typeof value === 'object' && value ? Object.values(value).filter(Boolean).join(' — ') : String(value ?? '').trim();
+    };
+    return sections.flatMap(section => section.fields
+      .filter(field => !field.aiOnly && hasValue(sValues[field.key]))
+      .map(field => `${field.label}: ${format(sValues[field.key])}`)
+    ).join('\n');
+  }, [isAnamnese, sections, sValues]);
   const [aiFillBusy, setAiFillBusy] = useState(false);
   const [aiPanel, setAiPanel] = useState<{ stamp: number; kind: 'evolution' | 'assessment'; suggestions: Record<string, any>; meta: Record<string, { fontes?: string[]; confianca?: string }>; reviewPoints: string[]; sources: string[] } | null>(null);
   const aiAppliedRef = useRef(false);
@@ -2013,6 +2026,10 @@ const RecordEditor: React.FC<{
   const [fillDialog, setFillDialog] = useState<null | 'evolution' | 'assessment'>(null);
   const openFill = (kind: 'evolution' | 'assessment') => {
     if (!patientId) { pushToast('info', 'Selecione o paciente antes de usar a IA.'); setEditorSection('dados'); return; }
+    if (kind === 'assessment' && isAnamnese && !anamnesisAnswersForAi.trim()) {
+      pushToast('info', 'Preencha ao menos uma resposta da anamnese antes de gerar a análise com IA.');
+      return;
+    }
     const hasText = !!strip(draft) || !!String(sValues.relato || '').trim() || !!transcript.trim() || usedSources.length > 0;
     if (kind === 'evolution' && !hasText) {
       pushToast('info', 'Escreva o texto livre da sessão ou carregue a transcrição da sala virtual para a IA preencher os campos.');
@@ -2026,8 +2043,13 @@ const RecordEditor: React.FC<{
   const runFill = async (selection: SourceGroupId[]) => {
     const kind = fillDialog;
     if (!kind) return;
-    const sel: SourceGroupId[] = usedSources.length && !selection.includes('texto_livre') ? [...selection, 'texto_livre'] : selection;
-    const source = strip(draft) ? draft : (kind === 'evolution' ? String(sValues.relato || '').trim() : '');
+    const generatingAnamnesisAnalysis = kind === 'assessment' && isAnamnese;
+    const sel: SourceGroupId[] = generatingAnamnesisAnalysis
+      ? Array.from(new Set([...selection, 'texto_livre'])) as SourceGroupId[]
+      : usedSources.length && !selection.includes('texto_livre') ? [...selection, 'texto_livre'] : selection;
+    const source = generatingAnamnesisAnalysis
+      ? anamnesisAnswersForAi
+      : strip(draft) ? draft : (kind === 'evolution' ? String(sValues.relato || '').trim() : '');
     setAiFillBusy(true);
     try {
       const common = { patient_id: patientId, record_id: recordIdRef.current || undefined, sources: sel, draft_content: source, transcript };
@@ -2252,7 +2274,7 @@ const RecordEditor: React.FC<{
             {isAnamnese ? (
               <ContentCard padding="md" className="space-y-1.5">
                 <h3 className="text-sm font-medium text-slate-900">Anamnese preenchida pelo profissional</h3>
-                <p className="text-[11px] leading-relaxed text-slate-500">Registre a entrevista clínica diretamente no prontuário. A coleta remota do paciente continua disponível na outra aba e complementa este registro.</p>
+                <p className="text-[11px] leading-relaxed text-slate-500">As perguntas abaixo são as mesmas do formulário remoto. Preencha durante a entrevista, mesmo sem enviar link ao paciente; depois, a IA pode sugerir a síntese clínica para sua revisão.</p>
               </ContentCard>
             ) : (
             <ContentCard padding="md">
@@ -2310,8 +2332,8 @@ const RecordEditor: React.FC<{
                   {canUseAi && <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillWithAI}>Preencher com IA</Button>}
                   <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} onClick={duplicateFromLast}>Duplicar da última sessão</Button>
                 </>
-              ) : (recordType === 'Avaliacao' && canUseAi ? (
-                <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillAssessmentWithAI}>Preencher com IA</Button>
+              ) : ((recordType === 'Avaliacao' || isAnamnese) && canUseAi ? (
+                <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillAssessmentWithAI}>{isAnamnese ? 'Gerar análise com IA' : 'Preencher com IA'}</Button>
               ) : undefined)}
               sectionTop={id => (isEvolucao && id === 'sessao' ? (
                 <>
@@ -2603,7 +2625,7 @@ const RecordEditor: React.FC<{
           reviewPoints={aiPanel.reviewPoints}
           suggestionMeta={aiPanel.meta}
           sourcesUsed={aiPanel.sources}
-          title={aiPanel.kind === 'assessment' ? 'Revisar avaliação sugerida pela IA' : 'Revisar sugestões da IA'}
+          title={aiPanel.kind === 'assessment' ? (isAnamnese ? 'Revisar análise da anamnese sugerida pela IA' : 'Revisar avaliação sugerida pela IA') : 'Revisar sugestões da IA'}
           onApply={applyAiPatch}
         />
       )}
@@ -2612,15 +2634,15 @@ const RecordEditor: React.FC<{
         <SourcesDialog
           isOpen
           onClose={() => setFillDialog(null)}
-          title={fillDialog === 'assessment' ? 'Montar avaliação clínica com IA' : 'Preencher a evolução com IA'}
+          title={fillDialog === 'assessment' ? (isAnamnese ? 'Gerar análise da anamnese com IA' : 'Montar avaliação clínica com IA') : 'Preencher a evolução com IA'}
           patientId={patientId}
           recordId={recordIdRef.current || undefined}
-          hasDraft={!!strip(draft) || (fillDialog === 'evolution' && !!String(sValues.relato || '').trim())}
+          hasDraft={!!strip(draft) || (fillDialog === 'evolution' && !!String(sValues.relato || '').trim()) || (isAnamnese && !!anamnesisAnswersForAi.trim())}
           hasTranscript={!!transcript.trim()}
           inUseLabels={usedSources.map(u => u.label)}
           inUseGroups={Array.from(new Set(usedSources.map(u => u.group)))}
           loading={aiFillBusy}
-          confirmLabel={fillDialog === 'assessment' ? 'Montar avaliação' : 'Gerar sugestões'}
+          confirmLabel={fillDialog === 'assessment' ? (isAnamnese ? 'Gerar análise' : 'Montar avaliação') : 'Gerar sugestões'}
           onConfirm={runFill}
         />
       )}

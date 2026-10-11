@@ -146,6 +146,32 @@ const GoalsField: React.FC<{ f: FieldDef; value: string[]; goals: string[]; onCh
   );
 };
 
+/** Escala idêntica à usada no formulário remoto de anamnese. */
+const ScaleField: React.FC<{ f: FieldDef; value: any; onChange: (v: number) => void }> = ({ f, value, onChange }) => {
+  const selected = Number(value) || 0;
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between gap-3 text-[11px] text-slate-500">
+        <span>{f.scaleMin || 'Muito baixo'}</span>
+        <span className="text-right">{f.scaleMax || 'Muito alto'}</span>
+      </div>
+      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+          <button
+            key={n}
+            type="button"
+            aria-pressed={selected === n}
+            onClick={() => onChange(n)}
+            className={`h-9 rounded-lg border text-xs font-medium transition-colors ${selected === n ? 'border-primary-600 bg-primary-600 text-white' : n <= selected ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-slate-200 bg-white text-slate-600 hover:border-primary-300'}`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 /** Retorno rápido por tarefa da sessão anterior: feita / parcial / não feita + comentário. */
 export const FollowupsEditor: React.FC<{ rows: FollowupRow[]; onChange: (rows: FollowupRow[]) => void; emptyHint?: string }> = ({ rows, onChange, emptyHint }) => {
   const list = Array.isArray(rows) ? rows : [];
@@ -238,6 +264,8 @@ const FieldRenderer: React.FC<{ f: FieldDef; value: any; onChange: (v: any) => v
       );
     case 'number':
       return <Input label={f.label} hint={f.hint} type="number" placeholder={f.placeholder} value={value ?? ''} onChange={e => onChange(e.target.value)} />;
+    case 'scale':
+      return <div className="space-y-1"><span className="text-xs font-medium text-slate-600">{f.label}</span><ScaleField f={f} value={value} onChange={onChange} /></div>;
     case 'date':
       return <Input label={f.label} hint={f.hint} type="date" value={value || ''} onChange={e => onChange(e.target.value)} />;
     default:
@@ -246,7 +274,7 @@ const FieldRenderer: React.FC<{ f: FieldDef; value: any; onChange: (v: any) => v
 };
 
 const RISK_ALERT_VALUES = ['Ideação ativa sem plano', 'Ideação com plano', 'Autolesão sem intenção suicida', 'Risco a terceiros'];
-const wideTypes = ['textarea', 'multi', 'rows', 'goals', 'followups'];
+const wideTypes = ['textarea', 'multi', 'rows', 'goals', 'followups', 'scale'];
 
 const StatusMark: React.FC<{ status: 'empty' | 'partial' | 'done' }> = ({ status }) => {
   if (status === 'done') return <Check size={12} className="shrink-0 text-emerald-600" aria-label="Seção completa" />;

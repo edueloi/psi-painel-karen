@@ -13,7 +13,7 @@ import {
 
 export type SpecialtyId = 'psicologia' | 'psiquiatria' | 'medicina' | 'outros';
 export type RecordKind = 'Evolucao' | 'Avaliacao' | 'Anamnese';
-export type FieldType = 'text' | 'textarea' | 'select' | 'multi' | 'date' | 'number' | 'rows' | 'goals' | 'followups';
+export type FieldType = 'text' | 'textarea' | 'select' | 'multi' | 'date' | 'number' | 'scale' | 'rows' | 'goals' | 'followups';
 
 export interface RowColumn { key: string; label: string; placeholder?: string }
 export interface FieldDef {
@@ -30,6 +30,11 @@ export interface FieldDef {
   /** Ocupa a linha inteira do grid. */
   full?: boolean;
   rows?: number;
+  /** Extremidades textuais de uma escala de 1 a 10. */
+  scaleMin?: string;
+  scaleMax?: string;
+  /** Campo destinado à síntese sugerida pela IA, não à repetição das respostas do formulário. */
+  aiOnly?: boolean;
   /** Campo exibido somente quando a função retorna true (ex.: detalhes de risco). */
   showIf?: (values: StructuredValues) => boolean;
   /** Campo principal da seção: define quando a seção conta como completa. */
@@ -120,6 +125,7 @@ const F = {
   text: (key: string, label: string, extra: Partial<FieldDef> = {}): FieldDef => ({ key, label, type: 'text', ...extra }),
   area: (key: string, label: string, extra: Partial<FieldDef> = {}): FieldDef => ({ key, label, type: 'textarea', full: true, ...extra }),
   select: (key: string, label: string, options: string[], extra: Partial<FieldDef> = {}): FieldDef => ({ key, label, type: 'select', options, ...extra }),
+  scale: (key: string, label: string, extra: Partial<FieldDef> = {}): FieldDef => ({ key, label, type: 'scale', full: true, ...extra }),
   multi: (key: string, label: string, options: string[], extra: Partial<FieldDef> = {}): FieldDef => ({ key, label, type: 'multi', options, full: true, ...extra }),
   rows: (key: string, label: string, columns: RowColumn[], extra: Partial<FieldDef> = {}): FieldDef => ({ key, label, type: 'rows', columns, full: true, ...extra }),
 };
@@ -146,58 +152,105 @@ const encaminhamentosSection = (): SectionDef => ({
 });
 
 /* ── Anamnese preenchida pelo profissional ────────────────────
-   A coleta remota continua disponível, mas não pode ser a única forma de
-   registrar a história clínica. Este roteiro é comum às especialidades e
-   deixa claro o que foi informado pelo paciente e o que foi observado pelo
-   profissional. */
+   Mantém as mesmas perguntas do formulário remoto. Assim, a profissional pode
+   preencher na entrevista, mesmo sem enviar link ao paciente. A seção final é
+   exclusivamente clínica e pode receber a síntese sugerida pela IA. */
 const ANAMNESIS_SECTIONS: SectionDef[] = [
   {
-    id: 'demanda', label: 'Demanda inicial', icon: MessageSquare,
-    description: 'Motivo da procura, contexto do encaminhamento e expectativas em relação ao atendimento.',
+    id: 'motivo_busca', label: 'Motivo da busca', icon: MessageSquare,
+    description: 'Mesmas perguntas da seção inicial do formulário enviado ao paciente.',
     fields: [
-      F.area('queixa_principal', 'Queixa principal / motivo da procura', { legacy: 'motivo_consulta', rows: 5, core: true, placeholder: 'Registre, sempre que possível, nas palavras do paciente.' }),
-      F.area('demanda_expectativas', 'Demanda e expectativas', { legacy: 'motivo_consulta', rows: 3 }),
-      F.text('encaminhador', 'Encaminhamento / como conheceu o serviço', { legacy: 'motivo_consulta' }),
-      F.area('inicio_curso', 'Início, curso e fatores associados à queixa', { legacy: 'contexto_relevante', rows: 4 }),
+      F.area('motivo_busca', 'O que te motivou a buscar atendimento psicológico agora?', { legacy: 'motivo_consulta', rows: 4, core: true, placeholder: 'Descreva com as palavras da pessoa atendida.' }),
+      F.area('queixa_principal', 'Qual é a principal dificuldade ou sofrimento que está enfrentando?', { legacy: 'motivo_consulta', rows: 4, core: true, placeholder: 'Pode ser uma situação, sentimento ou pensamento recorrente.' }),
+      F.text('tempo_sofrimento', 'Há quanto tempo está enfrentando essa situação?', { legacy: 'contexto_relevante', placeholder: 'Ex.: 3 meses, 1 ano, desde a infância.' }),
+      F.area('tentativas_anteriores', 'Já tentou lidar com isso de alguma forma? O que funcionou ou não funcionou?', { legacy: 'contexto_relevante', rows: 3 }),
     ],
   },
   {
-    id: 'historia', label: 'História de vida', icon: History,
-    description: 'Desenvolvimento, relações, escolaridade, trabalho e acontecimentos relevantes.',
+    id: 'historico_saude', label: 'História de saúde', icon: HeartPulse,
+    description: 'Tratamentos, medicamentos, condições de saúde e uso de substâncias.',
     fields: [
-      F.area('historia_pessoal', 'História pessoal e do desenvolvimento', { legacy: 'contexto_relevante', rows: 5, core: true }),
-      F.area('historia_familiar', 'História familiar e relacional', { legacy: 'contexto_relevante', rows: 4 }),
-      F.area('historia_social', 'Trabalho, estudos, rotina e rede de apoio', { legacy: 'contexto_relevante', rows: 4 }),
-      F.area('marcos_relevantes', 'Marcos e acontecimentos significativos', { legacy: 'contexto_relevante', rows: 4 }),
+      F.select('historico_tratamentos', 'Já fez algum acompanhamento psicológico ou psiquiátrico antes?', ['Sim', 'Não', 'Estou em tratamento atualmente'], { legacy: 'contexto_relevante', core: true }),
+      F.area('tratamentos_detalhes', 'Se sim, como foi essa experiência?', { legacy: 'contexto_relevante', rows: 3, placeholder: 'Quando foi, quanto tempo durou, como se sentiu.' }),
+      F.select('medicamentos', 'Faz uso de algum medicamento atualmente?', ['Sim', 'Não'], { legacy: 'contexto_relevante', core: true }),
+      F.text('medicamentos_quais', 'Se sim, quais medicamentos?', { legacy: 'contexto_relevante', placeholder: 'Nome e dose, se souber.' }),
+      F.area('historico_saude', 'Tem alguma condição de saúde física ou mental diagnosticada?', { legacy: 'contexto_relevante', rows: 3, placeholder: 'Doenças, diagnósticos, cirurgias relevantes.' }),
+      F.select('historico_familiar_mental', 'Tem histórico familiar de problemas de saúde mental?', ['Sim', 'Não', 'Não sei informar'], { legacy: 'contexto_relevante' }),
+      F.select('uso_substancias', 'Faz uso de álcool, tabaco ou outras substâncias?', ['Não', 'Raramente / socialmente', 'Com frequência', 'Uso diário'], { legacy: 'contexto_relevante', core: true }),
     ],
   },
   {
-    id: 'saude', label: 'Saúde e tratamentos', icon: HeartPulse,
-    description: 'Histórico de saúde física e mental, tratamentos e medicações informadas.',
+    id: 'historia_vida', label: 'História de vida', icon: History,
+    description: 'Infância, acontecimentos importantes e recursos pessoais.',
     fields: [
-      F.area('historia_saude', 'Saúde física e mental, diagnósticos e tratamentos prévios', { legacy: 'contexto_relevante', rows: 5, core: true }),
-      F.rows('medicacoes_uso', 'Medicações em uso', MEDS_COLS, { legacy: 'contexto_relevante', rowsAddLabel: 'Adicionar medicamento' }),
-      F.area('uso_substancias', 'Uso de álcool, tabaco e outras substâncias', { legacy: 'contexto_relevante', rows: 3 }),
-      F.area('sono_alimentacao', 'Sono, alimentação, energia e autocuidado', { legacy: 'contexto_relevante', rows: 3 }),
+      F.area('infancia', 'Como foi sua infância e adolescência de forma geral?', { legacy: 'contexto_relevante', rows: 4, placeholder: 'Aspectos marcantes, família, escola e amizades.' }),
+      F.area('eventos_traumaticos', 'Viveu algum evento difícil ou traumático importante para sua história?', { legacy: 'contexto_relevante', rows: 4, placeholder: 'Perdas, acidentes, separações, violência ou abuso, se a pessoa se sentir à vontade.' }),
+      F.area('pontos_fortes', 'Quais são suas maiores qualidades ou pontos fortes?', { legacy: 'observacoes_clinicas', rows: 3 }),
     ],
   },
   {
-    id: 'avaliacao_inicial', label: 'Observação inicial', icon: Brain,
-    description: 'Registre separadamente observações do profissional e hipóteses ainda em investigação.',
+    id: 'vida_atual', label: 'Vida atual', icon: Activity,
+    description: 'Sono, alimentação, atividades, trabalho/estudo e lazer.',
     fields: [
-      F.area('observacoes_iniciais', 'Observações clínicas iniciais', { legacy: 'observacoes_clinicas', rows: 5, core: true, placeholder: 'Aparência, contato, discurso, humor, comportamento e outros elementos observados.' }),
-      F.area('recursos_protecao', 'Recursos, fatores de proteção e potencialidades', { legacy: 'observacoes_clinicas', rows: 3 }),
-      F.area('hipoteses_iniciais', 'Hipóteses / pontos a investigar', { legacy: 'observacoes_clinicas', rows: 4, placeholder: 'Registre como hipótese, não como conclusão diagnóstica.' }),
+      F.scale('sono', 'Como está seu sono?', { legacy: 'contexto_relevante', scaleMin: 'Muito ruim', scaleMax: 'Excelente', core: true }),
+      F.area('sono_detalhes', 'Tem dificuldade para dormir, acorda durante a noite ou dorme em excesso?', { legacy: 'contexto_relevante', rows: 3 }),
+      F.scale('alimentacao', 'Como está sua alimentação?', { legacy: 'contexto_relevante', scaleMin: 'Muito ruim', scaleMax: 'Excelente', core: true }),
+      F.select('atividade_fisica', 'Pratica atividade física?', ['Regularmente', 'Às vezes', 'Raramente', 'Não pratico'], { legacy: 'contexto_relevante', core: true }),
+      F.select('trabalho_estudo', 'Está trabalhando ou estudando atualmente?', ['Trabalhando', 'Estudando', 'Trabalhando e estudando', 'Nenhum dos dois'], { legacy: 'contexto_relevante', core: true }),
+      F.area('satisfacao_trabalho', 'Como se sente em relação ao trabalho/estudo?', { legacy: 'contexto_relevante', rows: 3 }),
+      F.area('lazer', 'Tem atividades de lazer ou hobbies que trazem prazer?', { legacy: 'contexto_relevante', rows: 3 }),
     ],
   },
-  sharedSupport(),
   {
-    id: 'plano_inicial', label: 'Plano inicial', icon: Target,
-    description: 'Combinados, objetivos iniciais e próximos passos.',
+    id: 'relacionamentos', label: 'Relacionamentos', icon: MessageSquare,
+    description: 'Vida afetiva, família, conflitos e rede de apoio.',
     fields: [
-      F.area('objetivos_iniciais', 'Objetivos iniciais do acompanhamento', { legacy: 'plano_terapeutico', rows: 4, core: true }),
-      F.area('combinados_iniciais', 'Combinados e orientações iniciais', { legacy: 'plano_terapeutico', rows: 3 }),
-      F.area('proximos_passos', 'Próximos passos / necessidade de encaminhamento', { legacy: 'plano_terapeutico', rows: 3 }),
+      F.select('relacionamento_atual', 'Está em um relacionamento afetivo atualmente?', ['Sim, estável', 'Sim, com dificuldades', 'Não', 'Prefiro não informar'], { legacy: 'contexto_relevante', core: true }),
+      F.area('relacionamento_detalhes', 'Como é sua vida afetiva e amorosa de forma geral?', { legacy: 'contexto_relevante', rows: 3 }),
+      F.scale('apoio_social', 'Tem pessoas próximas com quem pode contar?', { legacy: 'contexto_relevante', scaleMin: 'Muito isolado(a)', scaleMax: 'Muita rede de apoio', core: true }),
+      F.area('relacoes_familiares', 'Como são suas relações familiares?', { legacy: 'contexto_relevante', rows: 3 }),
+      F.area('conflitos_interpessoais', 'Tem dificuldades em algum tipo de relacionamento específico?', { legacy: 'contexto_relevante', rows: 3 }),
+    ],
+  },
+  {
+    id: 'saude_emocional', label: 'Saúde emocional', icon: Brain,
+    description: 'Humor, ansiedade, pensamentos recorrentes, autoestima e bem-estar.',
+    fields: [
+      F.scale('humor_geral', 'Como descreveria seu humor na maior parte do tempo?', { legacy: 'observacoes_clinicas', scaleMin: 'Muito triste', scaleMax: 'Muito bem', core: true }),
+      F.select('ansiedade', 'Com que frequência sente ansiedade?', ['Raramente', 'Às vezes', 'Frequentemente', 'Quase sempre'], { legacy: 'observacoes_clinicas', core: true }),
+      F.area('ansiedade_situacoes', 'Em quais situações a ansiedade aparece com mais intensidade?', { legacy: 'observacoes_clinicas', rows: 3 }),
+      F.select('pensamentos_intrusivos', 'Tem pensamentos que incomodam ou ficam na mente repetidamente?', ['Não', 'Às vezes', 'Frequentemente', 'Sempre'], { legacy: 'observacoes_clinicas', core: true }),
+      F.area('pensamentos_descricao', 'Se sim, pode descrever brevemente o tipo de pensamento?', { legacy: 'observacoes_clinicas', rows: 3 }),
+      F.scale('autoestima', 'Como está sua autoestima e autoconfiança?', { legacy: 'observacoes_clinicas', scaleMin: 'Muito baixa', scaleMax: 'Muito alta', core: true }),
+      F.scale('bem_estar_geral', 'De forma geral, como avalia seu bem-estar hoje?', { legacy: 'observacoes_clinicas', scaleMin: '0 - Muito ruim', scaleMax: '10 - Ótimo', core: true }),
+    ],
+  },
+  {
+    id: 'crencas', label: 'Crenças e espiritualidade', icon: Lightbulb,
+    fields: [
+      F.select('espiritualidade', 'A espiritualidade ou religião tem algum papel importante em sua vida?', ['Sim, é muito importante', 'Um pouco', 'Não', 'Prefiro não informar'], { legacy: 'contexto_relevante' }),
+      F.area('crencas_limitantes', 'Existe alguma crença sobre si mesmo(a) que sente que limita você?', { legacy: 'observacoes_clinicas', rows: 3 }),
+    ],
+  },
+  {
+    id: 'objetivos', label: 'Objetivos terapêuticos', icon: Target,
+    fields: [
+      F.area('objetivos_terapia', 'O que espera alcançar com a terapia?', { legacy: 'plano_terapeutico', rows: 4, core: true }),
+      F.area('prioridade_terapia', 'Se pudesse mudar uma coisa em sua vida agora, o que seria?', { legacy: 'plano_terapeutico', rows: 3 }),
+      F.area('expectativa_processo', 'Qual é sua expectativa em relação ao processo terapêutico?', { legacy: 'plano_terapeutico', rows: 3 }),
+      F.select('urgencia', 'Existe alguma situação urgente ou de crise que precise de atenção imediata?', ['Não, estou estável', 'Sim, há algo urgente'], { legacy: 'observacao_complementar', core: true }),
+      F.area('urgencia_descricao', 'Se sim, pode descrever?', { legacy: 'observacao_complementar', rows: 3 }),
+    ],
+  },
+  {
+    id: 'analise_profissional', label: 'Análise profissional', icon: ClipboardList,
+    description: 'Campo clínico da profissional. A IA usa as respostas anteriores apenas para sugerir uma síntese que deve ser revisada.',
+    fields: [
+      F.area('observacoes_profissional', 'Observações clínicas da profissional', { legacy: 'observacoes_clinicas', rows: 4, placeholder: 'Observações da entrevista, contato, discurso, comportamento e contexto.' }),
+      F.area('sintese_inicial_ia', 'Síntese inicial sugerida pela IA', { legacy: 'observacoes_clinicas', rows: 5, aiOnly: true, placeholder: 'Use “Gerar análise com IA” e revise a sugestão antes de salvar.' }),
+      F.area('hipoteses_iniciais', 'Hipóteses / pontos a investigar', { legacy: 'observacoes_clinicas', rows: 4, aiOnly: true, placeholder: 'Hipóteses provisórias, sempre sujeitas à avaliação profissional.' }),
+      F.area('pontos_revisao_ia', 'Pontos que exigem confirmação', { legacy: 'observacao_complementar', rows: 3, aiOnly: true }),
+      F.area('conduta_inicial', 'Conduta, combinados e próximos passos', { legacy: 'plano_terapeutico', rows: 3 }),
     ],
   },
 ];
