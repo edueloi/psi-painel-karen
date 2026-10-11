@@ -15,7 +15,7 @@ import { FinancialTransaction, Patient } from '../types';
 import {
   Button, IconButton, ConfirmModal, Modal, ModalFooter, PageWrapper, SectionTitle,
   StatGrid, StatCard, PanelCard, ContentCard, FormRow, Tabs, Badge, EmptyState,
-  FilterLine, FilterLineSection, GridTable, usePagination, Input, Select, Textarea,
+  FilterLine, FilterLineSection, GridTable, usePagination, Input, Select, Textarea, Alert,
 } from '../components/UI';
 import type { Column } from '../components/UI';
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
@@ -23,6 +23,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
 import { AuraContabil } from '../components/AI/AuraContabil';
+import { ReceivablesPanel } from '../components/Finance/ReceivablesPanel';
+import { AccountsPanel } from '../components/Finance/AccountsPanel';
 
 const PAYMENT_METHODS = [
   { id: 'pix', label: 'Pix', Icon: Smartphone, color: 'bg-emerald-500' },
@@ -41,6 +43,8 @@ const formatCurrency = (value: number) => {
 const FINANCE_TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: PieChart },
   { id: 'daily', label: 'Fluxo diário', icon: ListIcon },
+  { id: 'receber', label: 'Contas a receber', icon: ArrowDownRight },
+  { id: 'pagar', label: 'Contas a pagar', icon: ArrowUpRight },
   { id: 'tax', label: 'Fiscal', icon: Calculator },
   { id: 'portal', label: 'Portal', icon: Inbox },
 ] as const;
@@ -64,7 +68,14 @@ export const Finance: React.FC = () => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { user, isAdmin, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<FinanceTab>('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = FINANCE_TABS.some(tab => tab.id === searchParams.get('aba')) ? (searchParams.get('aba') as FinanceTab) : 'dashboard';
+  const [activeTab, setActiveTabState] = useState<FinanceTab>(initialTab);
+  const setActiveTab = (tab: FinanceTab) => {
+    setActiveTabState(tab);
+    setSearchParams(tab === 'dashboard' ? {} : { aba: tab }, { replace: true });
+  };
+  const [dueSoon, setDueSoon] = useState<{ overdue_count: number; overdue_total: number; soon_count: number; soon_total: number } | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'year'>('month');
   
@@ -194,6 +205,12 @@ export const Finance: React.FC = () => {
 
   useEffect(() => {
     fetchPortalPayments();
+  }, []);
+
+  // Alerta de contas a pagar vencidas/próximas na Visão geral
+  useEffect(() => {
+    if (!hasPermission('view_financial_reports')) return;
+    api.get<any>('/finance/accounts/due-soon', { days: '7' }).then(setDueSoon).catch(() => setDueSoon(null));
   }, []);
 
   // Sincronização em tempo real: recarrega quando outro dispositivo/aba
@@ -563,6 +580,16 @@ export const Finance: React.FC = () => {
 
   const renderDashboard = () => (
     <div className="space-y-3">
+      {dueSoon && (dueSoon.overdue_count > 0 || dueSoon.soon_count > 0) && (
+        <Alert
+          variant={dueSoon.overdue_count > 0 ? 'error' : 'warning'}
+          title="Contas a pagar precisam de atenção"
+          action={<Button variant="outline" size="xs" onClick={() => setActiveTab('pagar')}>Ver contas a pagar</Button>}
+        >
+          {dueSoon.overdue_count > 0 && <span>{dueSoon.overdue_count} em atraso ({formatCurrency(dueSoon.overdue_total)}). </span>}
+          {dueSoon.soon_count > 0 && <span>{dueSoon.soon_count} vencendo nos próximos 7 dias ({formatCurrency(dueSoon.soon_total)}).</span>}
+        </Alert>
+      )}
       {/* Gráfico anual + formas de pagamento */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <PanelCard
@@ -827,7 +854,7 @@ export const Finance: React.FC = () => {
   const pendingPortalCount = portalPayments.filter(p => p.status === 'pending').length;
   const financeTabs = FINANCE_TABS.map(tab => ({
     ...tab,
-    label: tab.id === 'dashboard' ? t('finance.dashboard') : tab.id === 'daily' ? t('finance.daily') : tab.id === 'tax' ? t('finance.fiscal') : 'Portal',
+    label: tab.id === 'dashboard' ? t('finance.dashboard') : tab.id === 'daily' ? t('finance.daily') : tab.id === 'tax' ? t('finance.fiscal') : tab.id === 'portal' ? 'Portal' : tab.label,
     badge: tab.id === 'portal' && pendingPortalCount > 0 ? pendingPortalCount : undefined,
   }));
 
@@ -864,15 +891,17 @@ export const Finance: React.FC = () => {
           }
         />
 
+        {activeTab !== 'receber' && activeTab !== 'pagar' && (
         <StatGrid cols={3}>
           <StatCard title={t('finance.totalRevenue')} value={formatCurrency(summary.income)} icon={TrendingUp} color="success" />
           <StatCard title={t('finance.expenses')} value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" />
           <StatCard title={t('finance.netProfit')} value={formatCurrency(summary.balance)} icon={Wallet} color="info" />
         </StatGrid>
+        )}
 
         <Tabs<FinanceTab> items={financeTabs} value={activeTab} onChange={setActiveTab} label="Visões financeiras">
           <div className="space-y-3">
-            {activeTab !== 'portal' && (
+            {activeTab !== 'portal' && activeTab !== 'receber' && activeTab !== 'pagar' && (
               <FilterLine>
                 <FilterLineSection>
                   <IconButton
@@ -899,7 +928,11 @@ export const Finance: React.FC = () => {
               </FilterLine>
             )}
 
-            {isLoading && activeTab !== 'portal' ? (
+            {activeTab === 'receber' ? (
+              <ReceivablesPanel canManage={hasPermission('manage_payments')} patients={patients.map(p => ({ id: p.id, name: p.name || p.full_name }))} />
+            ) : activeTab === 'pagar' ? (
+              <AccountsPanel kind="payable" canManage={hasPermission('manage_payments')} />
+            ) : isLoading && activeTab !== 'portal' ? (
               <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
                 <Loader2 size={18} className="animate-spin" />Processando fluxo…
               </div>

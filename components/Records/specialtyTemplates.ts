@@ -70,6 +70,8 @@ export interface StructuredPayload {
   meta?: { duracao_min?: number; modalidade?: string; agendamento_id?: string };
   /** Campos preenchidos por IA e ainda não confirmados/editados pelo profissional. */
   ai_fields?: string[];
+  /** Origem (rótulos das fontes) de cada campo sugerido por IA. */
+  ai_sources?: Record<string, string[]>;
 }
 
 /* ── Opções reutilizáveis ─────────────────────────────── */

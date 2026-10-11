@@ -22,6 +22,8 @@ interface Props {
   /** Campos preenchidos por IA e ainda não confirmados/editados. */
   aiFields?: string[];
   onConfirmAi?: (key: string) => void;
+  /** Origem (rótulos das fontes) por campo sugerido por IA. */
+  aiSources?: Record<string, string[]>;
   /** Conteúdo extra exibido no topo de uma seção (ex.: pendências da última sessão). */
   sectionTop?: (sectionId: string) => React.ReactNode;
   /** Ações à direita da barra de progresso (ex.: Preencher com IA). */
@@ -253,7 +255,7 @@ const StatusMark: React.FC<{ status: 'empty' | 'partial' | 'done' }> = ({ status
 };
 
 /** Formulário por seções: menu lateral no desktop, Tabs no mobile. */
-export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, planGoals = [], label, aiFields = [], onConfirmAi, sectionTop, toolbar, showProgress = false }) => {
+export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, planGoals = [], label, aiFields = [], onConfirmAi, aiSources = {}, sectionTop, toolbar, showProgress = false }) => {
   const [activeId, setActiveId] = useState(sections[0]?.id);
   const index = Math.max(0, sections.findIndex(s => s.id === activeId));
   const section = sections[index] || sections[0];
@@ -284,7 +286,7 @@ export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, pl
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-                <span className="font-medium text-slate-700">Preenchimento da evolução</span>
+                <span className="font-medium text-slate-700">Preenchimento do registro</span>
                 <span className="tabular-nums text-slate-500">{progress}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Preenchimento da evolução">
@@ -347,6 +349,9 @@ export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, pl
                         </button>
                       )}
                     </div>
+                  )}
+                  {fromAi && (aiSources[f.key] || []).length > 0 && (
+                    <p className="mb-1 text-[11px] text-slate-500">Origem: {(aiSources[f.key] || []).join(', ')}</p>
                   )}
                   <FieldRenderer f={f} value={values[f.key]} onChange={v => onChange(f.key, v)} planGoals={planGoals} />
                 </div>

@@ -137,6 +137,8 @@ interface Props {
   appointmentId: string;
   onLinkAppointment: (id: string) => void;
   suggestedAppointment: AppointmentLite | null;
+  /** Quem criou e quem alterou por último (vem do histórico do registro). */
+  auditInfo?: { created_by?: string | null; created_at?: string | null; last_by?: string | null; last_at?: string | null } | null;
   /** Ícone do tipo (para o cartão de tipo travado). */
   typeIcon: React.ReactNode;
 }
@@ -152,6 +154,13 @@ export const SessionDataTab: React.FC<Props> = (p) => {
       <h3 className="flex items-center gap-2 text-sm font-medium text-slate-900">
         <CalendarClock size={14} className="text-primary-600" /> Identificação e metadados
       </h3>
+
+      {p.auditInfo && (p.auditInfo.created_at || p.auditInfo.last_at) && (
+        <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
+          <span>Criado por <strong className="font-medium text-slate-800">{p.auditInfo.created_by || '—'}</strong>{p.auditInfo.created_at ? ` em ${new Date(p.auditInfo.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+          <span>Última alteração por <strong className="font-medium text-slate-800">{p.auditInfo.last_by || '—'}</strong>{p.auditInfo.last_at ? ` em ${new Date(p.auditInfo.last_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+        </div>
+      )}
 
       {p.locked && (
         <Alert variant="warning" title="Data e horário bloqueados">

@@ -1,81 +1,56 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { PageWrapper, SectionTitle, ContentCard } from '../../components/UI/PageWrapper';
-import { PanelCard } from '../../components/UI/PanelCard';
 import { Tabs } from '../../components/UI/Tabs';
-import { Button, IconButton } from '../../components/UI/Button';
-import { Input, Textarea, Select } from '../../components/UI/Input';
-import { Badge } from '../../components/UI/Badge';
+import { Button } from '../../components/UI/Button';
+import { Alert } from '../../components/UI/Alert';
 import { EmptyState } from '../../components/UI/EmptyState';
-import { ArrowLeft } from 'lucide-react';
-import { Patient, SchemaMode, ImageryRescripting } from '../../types';
+import { Patient } from '../../types';
 import { ClinicalSidebar } from '../../components/Clinical/ClinicalSidebar';
-import { 
-  Puzzle, Plus, Trash2, Edit3, Save, RotateCcw, RefreshCcw, 
-  Layers, Ghost, Heart, Shield, Activity, Sparkles, AlertTriangle, 
-  CheckCircle2, ArrowRight, PenLine, ChevronRight, X, Loader2, Camera, User,
-  BrainCircuit, ClipboardList
+import {
+  ArrowLeft, Layers, Puzzle, Activity, Camera, LayoutDashboard, ClipboardList, BarChart3, TrendingUp, Link2, PlayCircle,
 } from 'lucide-react';
+import { inventoriesApi, type PatientInventories, type SchemaApplication } from './schema/api';
+import type { InstrumentId } from './schema/instruments';
+import { latestByInstrument, type PatientRef } from './schema/common';
+import { Conceptualization, useConcept } from './schema/Conceptualization';
+import { OverviewTab } from './schema/OverviewTab';
+import { InventoriesTab } from './schema/InventoriesTab';
+import { ResultsTab } from './schema/ResultsTab';
+import { EvolutionTab } from './schema/EvolutionTab';
+import { ApplyModal } from './schema/ApplyModal';
+import { SendLinkModal } from './schema/SendLinkModal';
 
-const SCHEMA_LIBRARY = [
-  'Abandono / Instabilidade', 'Desconfiança / Abuso', 'Privação Emocional', 'Defectividade / Vergonha',
-  'Isolamento Social', 'Dependência / Incompetência', 'Vulnerabilidade ao Dano', 'Emaranhamento',
-  'Fracasso', 'Arrogo / Grandiosidade', 'Autocontrole Insuficiente', 'Subjugação', 'Auto-sacrifício',
-  'Busca de Aprovação', 'Negativismo / Pessimismo', 'Inibição Emocional', 'Padrões Inflexíveis', 'Punição'
-];
+type SchemaTab = 'overview' | 'inventories' | 'results' | 'evolution' | 'concept';
 
-const DEFAULT_MODES: SchemaMode[] = [
-  { id: 'mv', name: 'Criança Vulnerável', group: 'child', active: false, intensity: 5 },
-  { id: 'mz', name: 'Criança Zangada', group: 'child', active: false, intensity: 5 },
-  { id: 'mi', name: 'Criança Impulsiva', group: 'child', active: false, intensity: 5 },
-  { id: 'mf', name: 'Criança Feliz', group: 'child', active: false, intensity: 5 },
-  { id: 'pp', name: 'Pais Punitivos', group: 'parent', active: false, intensity: 5 },
-  { id: 'pe', name: 'Pais Exigentes', group: 'parent', active: false, intensity: 5 },
-  { id: 'pd', name: 'Protetor Desligado', group: 'coping', active: false, intensity: 5 },
-  { id: 'sc', name: 'Supercompensador', group: 'coping', active: false, intensity: 5 },
-  { id: 'as', name: 'Adulto Saudável', group: 'healthy', active: false, intensity: 5 },
-];
-
-const groupBadge = (g: SchemaMode['group']) => {
-  switch (g) {
-    case 'child': return { cls: 'bg-rose-50 text-rose-600 ring-rose-100', icon: <Ghost size={10}/> };
-    case 'parent': return { cls: 'bg-slate-50 text-slate-600 ring-slate-100', icon: <User size={10}/> };
-    case 'coping': return { cls: 'bg-amber-50 text-amber-600 ring-amber-100', icon: <Shield size={10}/> };
-    case 'healthy': return { cls: 'bg-emerald-50 text-emerald-600 ring-emerald-100', icon: <Heart size={10}/> };
-    default: return { cls: 'bg-slate-50', icon: null };
-  }
-};
-
-type SchemaTab = 'modes' | 'imagery';
-
-const schemaTabs = [
-  { id: 'modes', label: 'Esquemas & Modos', icon: Puzzle },
-  { id: 'imagery', label: 'Ressignificação', icon: Camera },
-] as const;
+const POLL_MS = 30000;
 
 export const SchemaPage: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeSub, setActiveSub] = useState<SchemaTab>('modes');
-  
+  const [tab, setTab] = useState<SchemaTab>('overview');
+  const [conceptSub, setConceptSub] = useState<'modes' | 'imagery'>('modes');
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [patientSearch, setPatientSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
-  // Tools State
-  const [activeSchemas, setActiveSchemas] = useState<string[]>([]);
-  const [modes, setModes] = useState<SchemaMode[]>(DEFAULT_MODES);
-  const [imagery, setImagery] = useState<ImageryRescripting[]>([]);
+  const [inv, setInv] = useState<PatientInventories | null>(null);
+  const [invLoading, setInvLoading] = useState(false);
+  const [invError, setInvError] = useState<string | null>(null);
+  const [openApp, setOpenApp] = useState<SchemaApplication | null>(null);
+  const [sendOpen, setSendOpen] = useState<{ initial?: InstrumentId[] } | null>(null);
+  const [notice, setNotice] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Form States
-  const [newImagery, setNewImagery] = useState<Partial<ImageryRescripting>>({ emotionBefore: 5, emotionAfter: 2 });
+  const concept = useConcept(selectedPatientId);
 
-  const fetchData = async () => {
+  const fetchPatients = async () => {
     setIsLoading(true);
     try {
       const raw = await api.get<any[]>('/patients');
@@ -91,80 +66,79 @@ export const SchemaPage: React.FC = () => {
     }
   };
 
-  const loadSchemaData = async (patientId: string) => {
-    if (!patientId) return;
-    setIsLoading(true);
+  const loadInventories = useCallback(async (patientId: string, silent = false) => {
+    if (!silent) setInvLoading(true);
     try {
-      const resp = await api.get<any>(`/clinical-tools/${patientId}/schema/latest`);
-      setActiveSchemas(Array.isArray(resp?.active_schemas) ? resp.active_schemas : []);
-      if (Array.isArray(resp?.modes) && resp.modes.length > 0) {
-        setModes(resp.modes);
-      } else {
-        setModes(DEFAULT_MODES);
-      }
-
-      // Load imagery tool
-      const imgResp = await api.get<any>(`/clinical-tools/${patientId}/schema/imagery`);
-      setImagery(Array.isArray(imgResp?.data) ? imgResp.data : []);
-    } catch (e) {
-      console.error(e);
+      const data = await inventoriesApi.forPatient(patientId);
+      setInv(data); setInvError(null);
+    } catch (e: any) {
+      if (!silent) setInvError(e?.message || 'Erro ao carregar inventários.');
     } finally {
-      setIsLoading(false);
+      if (!silent) setInvLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchData();
+    fetchPatients();
     const pid = searchParams.get('patient_id');
-    const tab = searchParams.get('sub');
+    const sub = searchParams.get('sub');
+    const tabParam = searchParams.get('tab') as SchemaTab | null;
     if (pid) setSelectedPatientId(pid);
-    if (tab === 'imagery') setActiveSub('imagery');
+    if (sub === 'imagery') { setTab('concept'); setConceptSub('imagery'); }
+    else if (tabParam && ['overview', 'inventories', 'results', 'evolution', 'concept'].includes(tabParam)) setTab(tabParam);
   }, [searchParams]);
 
   useEffect(() => {
-    if (selectedPatientId) loadSchemaData(selectedPatientId);
-  }, [selectedPatientId]);
+    setInv(null); setInvError(null);
+    if (selectedPatientId) void loadInventories(selectedPatientId);
+  }, [selectedPatientId, loadInventories]);
+
+  // acompanha respostas do paciente enviadas pelo link (atualização silenciosa)
+  useEffect(() => {
+    if (!selectedPatientId) return;
+    const id = window.setInterval(() => { if (!document.hidden && !openApp) void loadInventories(selectedPatientId, true); }, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [selectedPatientId, openApp, loadInventories]);
+
+  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
 
   const selectedPatient = useMemo(() => patients.find(p => p.id === selectedPatientId), [patients, selectedPatientId]);
+  const patientRef: PatientRef | null = selectedPatient
+    ? { id: selectedPatient.id, name: selectedPatient.full_name, phone: selectedPatient.whatsapp || selectedPatient.phone }
+    : null;
 
-  const handleToggleSchema = (name: string) => {
-    setActiveSchemas(prev => prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]);
-  };
+  const notify = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
+    setNotice({ msg, type });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 6000);
+  }, []);
 
-  const handleUpdateMode = (id: string, patch: Partial<SchemaMode>) => {
-    setModes(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m));
-  };
+  const reload = useCallback(() => { if (selectedPatientId) void loadInventories(selectedPatientId); }, [selectedPatientId, loadInventories]);
 
-  const handleSaveSchemaState = async () => {
-    if (!selectedPatientId) return;
-    setSaving(true);
+  /** "Aplicar agora": retoma a aplicação aberta do instrumento (sem link) ou cria uma nova. */
+  const applyNow = async (id: InstrumentId) => {
+    if (!selectedPatientId || creating) return;
+    const existing = inv?.applications.find(a => a.instrument_id === id && a.status !== 'completed' && !a.link_id);
+    if (existing) { setOpenApp(existing); return; }
+    setCreating(true);
     try {
-      await api.post(`/clinical-tools/${selectedPatientId}/schema/snapshot`, {
-        active_schemas: activeSchemas,
-        modes: modes
-      });
-      loadSchemaData(selectedPatientId);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
+      const created = await inventoriesApi.create(selectedPatientId, id);
+      setOpenApp(created);
+      void loadInventories(selectedPatientId, true);
+    } catch (e: any) { notify(e?.message || 'Não foi possível iniciar o inventário.', 'error'); }
+    finally { setCreating(false); }
   };
 
-  const handleSaveImagery = async () => {
-    if (!selectedPatientId || !newImagery.originalScene) return;
-    setSaving(true);
-    try {
-      const newList = [...imagery, { id: Date.now().toString(), ...newImagery, createdAt: new Date().toISOString() }];
-      await api.put(`/clinical-tools/${selectedPatientId}/schema/imagery`, { data: newList });
-      setNewImagery({ emotionBefore: 5, emotionAfter: 2 });
-      setImagery(newList);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const latestDone = useMemo(() => latestByInstrument(inv?.applications || [], true), [inv]);
+  const openCount = (inv?.applications || []).filter(a => a.status !== 'completed').length;
+
+  const tabs = useMemo(() => [
+    { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
+    { id: 'inventories', label: 'Inventários', icon: ClipboardList, badge: openCount > 0 ? openCount : undefined },
+    { id: 'results', label: 'Resultados', icon: BarChart3 },
+    { id: 'evolution', label: 'Evolução', icon: TrendingUp },
+    { id: 'concept', label: 'Conceituação', icon: Puzzle },
+  ] as const, [openCount]);
 
   return (
     <PageWrapper>
@@ -178,10 +152,16 @@ export const SchemaPage: React.FC = () => {
         <SectionTitle
           icon={Layers}
           title="Terapia do Esquema"
-          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Conceitualização Clínica & Modos"}
+          description={selectedPatient ? `Paciente: ${selectedPatient.full_name}` : 'Inventários de Young, resultados e conceituação de caso'}
+          action={patientRef ? (
+            <>
+              <Button variant="outline" size="sm" iconLeft={<Link2 size={14} />} onClick={() => setSendOpen({})}>Enviar link</Button>
+              <Button variant="primary" size="sm" iconLeft={<PlayCircle size={14} />} onClick={() => setTab('inventories')}>Aplicar inventário</Button>
+            </>
+          ) : undefined}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_1fr]">
           <ClinicalSidebar
             patients={patients}
             selectedPatientId={selectedPatientId}
@@ -193,26 +173,24 @@ export const SchemaPage: React.FC = () => {
           />
 
           <div className="min-w-0 space-y-4">
-            {!selectedPatient ? (
+            {!selectedPatient || !patientRef ? (
               <div className="space-y-3">
                 <ContentCard>
                   <EmptyState
                     icon={Layers}
-                    title="Conceitualização Clínica do Esquema"
-                    description="Selecione um paciente para iniciar o mapeamento. Identifique esquemas desadaptativos, monitore a flutuação de modos e intervenha em traumas através da imagética."
+                    title="Terapia do Esquema"
+                    description="Selecione um paciente para aplicar os inventários de Young (YSQ-S3, Estilos Parentais, YAMI, YCI, YRAI e RNE), enviar o link para ele responder, ver resultados e acompanhar a evolução."
                   />
                 </ContentCard>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {[
-                    { title: 'Esquemas Iniciais', desc: 'Mapeamento de padrões desadaptativos precoces.', icon: <Puzzle size={14} /> },
-                    { title: 'Trabalho com Modos', desc: 'Identificação e gestão de estados emocionais.', icon: <Activity size={14} /> },
-                    { title: 'Imagética', desc: 'Ressignificação de cenas traumáticas na cena.', icon: <Camera size={14} /> }
+                    { title: 'Inventários', desc: 'Aplique na sessão ou envie um link para o paciente responder, inclusive aos poucos.', icon: <ClipboardList size={14} /> },
+                    { title: 'Resultados e evolução', desc: 'Esquemas ativados, modos, estilos parentais e comparação entre aplicações.', icon: <Activity size={14} /> },
+                    { title: 'Conceituação e imagética', desc: 'Esquemas, modos e ressignificação imagética do caso.', icon: <Camera size={14} /> },
                   ].map((feat, i) => (
                     <ContentCard key={i}>
                       <div className="flex items-start gap-3">
-                        <div className="w-7 h-7 rounded-md border border-primary-100 bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
-                          {feat.icon}
-                        </div>
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-primary-100 bg-primary-50 text-primary-700">{feat.icon}</div>
                         <div className="min-w-0">
                           <h3 className="text-sm font-medium text-slate-800">{feat.title}</h3>
                           <p className="text-[11px] text-slate-500">{feat.desc}</p>
@@ -223,164 +201,37 @@ export const SchemaPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <Tabs<SchemaTab> items={schemaTabs} value={activeSub} onChange={setActiveSub} label="Seções da Terapia do Esquema">
-                {activeSub === 'modes' && (
-                  <div className="space-y-3">
-                    <PanelCard
-                      title="Esquemas Ativos"
-                      icon={Puzzle}
-                      action={
-                        <Button variant="primary" size="sm" onClick={handleSaveSchemaState} loading={saving} iconLeft={<Save size={14} />}>
-                          Salvar Estado
-                        </Button>
-                      }
-                    >
-                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
-                        {SCHEMA_LIBRARY.map(s => {
-                          const on = activeSchemas.includes(s);
-                          return (
-                            <button
-                              key={s}
-                              type="button"
-                              aria-pressed={on}
-                              onClick={() => handleToggleSchema(s)}
-                              className={`px-3 py-2 min-h-[36px] rounded-lg text-xs font-medium text-left transition-colors border ${on ? 'bg-primary-600 text-white border-primary-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white hover:border-primary-200'}`}
-                            >
-                              {s}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </PanelCard>
-
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                      {modes.map(mode => {
-                        const badge = groupBadge(mode.group);
-                        return (
-                          <ContentCard key={mode.id} className={`relative ${mode.active ? 'ring-1 ring-primary-500' : ''}`}>
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${badge.cls}`}>
-                                    {badge.icon}
-                                  </div>
-                                  <h4 className="font-medium text-slate-800 text-sm truncate">{mode.name}</h4>
-                                  {!mode.active && <Badge color="default" size="sm">Modo Inativo</Badge>}
-                                </div>
-                                <IconButton
-                                  variant={mode.active ? 'primary' : 'outline'}
-                                  size="sm"
-                                  aria-label={mode.active ? 'Desativar modo' : 'Ativar modo'}
-                                  title={mode.active ? 'Desativar modo' : 'Ativar modo'}
-                                  onClick={() => handleUpdateMode(mode.id, { active: !mode.active })}
-                                >
-                                  <RefreshCcw size={14} />
-                                </IconButton>
-                              </div>
-
-                              <div className={`space-y-2 transition-opacity ${mode.active ? 'opacity-100' : 'opacity-50'}`}>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-medium text-slate-600">Intensidade do Modo</span>
-                                  <span className="font-medium text-slate-800 text-base">{mode.intensity || 0}/10</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="10"
-                                  aria-label={`Intensidade do modo ${mode.name}`}
-                                  className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-primary-600"
-                                  value={mode.intensity || 0}
-                                  onChange={e => handleUpdateMode(mode.id, { intensity: parseInt(e.target.value) })}
-                                />
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="h-1 bg-slate-100 rounded-full relative overflow-hidden"><div className="absolute top-0 left-0 h-full bg-rose-500" style={{ width: `${(mode.intensity / 10) * 100}%` }} /></div>
-                                  <div className="h-1 bg-slate-100 rounded-full relative overflow-hidden"><div className="absolute top-0 right-0 h-full bg-emerald-500" style={{ width: `${((10 - mode.intensity) / 10) * 100}%` }} /></div>
-                                </div>
-                              </div>
-                            </div>
-                          </ContentCard>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {activeSub === 'imagery' && (
-                  <div className="space-y-3">
-                    <PanelCard title="Ressignificação Imagética" description="Transforme cenas traumáticas ou gatilhos através da intervenção na cena imaginada." icon={Camera}>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <Textarea
-                          label="Cena Original (Gatilho)"
-                          rows={4}
-                          placeholder="Descreva a cena como ela ocorre..."
-                          value={newImagery.originalScene}
-                          onChange={e => setNewImagery({ ...newImagery, originalScene: e.target.value })}
-                        />
-                        <Textarea
-                          label="Cena Ressignificada"
-                          rows={4}
-                          placeholder="O Adulto Saudável intervém e..."
-                          value={newImagery.rescriptedScene}
-                          onChange={e => setNewImagery({ ...newImagery, rescriptedScene: e.target.value })}
-                        />
-                      </div>
-                      <div className="flex justify-end mt-3">
-                        <Button variant="primary" onClick={handleSaveImagery}>
-                          Gravar Ressignificação
-                        </Button>
-                      </div>
-                    </PanelCard>
-
-                    <PanelCard title="Linha do Tempo de Ressignificação" icon={Activity}>
-                      {imagery.length === 0 ? (
-                        <EmptyState icon={Camera} title="Nenhuma ressignificação imagética documentada." />
-                      ) : (
-                        <div className="space-y-3">
-                          {imagery.slice().reverse().map(img => (
-                            <div key={img.id} className="rounded-lg border border-slate-200 p-3 space-y-3">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <Badge color="default" size="sm">1</Badge>
-                                    <span className="text-xs font-medium text-slate-600">A Cena Imutável</span>
-                                  </div>
-                                  <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 italic">"{img.originalScene}"</p>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <Badge color="primary" size="sm">2</Badge>
-                                    <span className="text-xs font-medium text-primary-700">O Poder de Mudar</span>
-                                  </div>
-                                  <p className="text-xs font-medium text-slate-800 bg-primary-50/40 p-3 rounded-lg border border-primary-100">"{img.rescriptedScene}"</p>
-                                </div>
-                              </div>
-                              <div className="pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2 text-[11px] text-slate-500">
-                                <span>Data da Sessão: {new Date(img.createdAt || "").toLocaleDateString()}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="xs"
-                                  className="text-red-600 hover:text-red-700"
-                                  onClick={async () => {
-                                    const newList = imagery.filter(it => it.id !== img.id);
-                                    await api.put(`/clinical-tools/${selectedPatientId}/schema/imagery`, { data: newList });
-                                    setImagery(newList);
-                                  }}
-                                >
-                                  Remover Registro
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </PanelCard>
-                  </div>
-                )}
-              </Tabs>
+              <>
+                {notice && <Alert variant={notice.type === 'success' ? 'success' : 'error'}>{notice.msg}</Alert>}
+                <Tabs<SchemaTab> items={tabs} value={tab} onChange={setTab} label="Seções da Terapia do Esquema">
+                  {tab === 'overview' && (
+                    <OverviewTab inv={inv} concept={concept} onOpen={setOpenApp} goTo={setTab} onSendLink={() => setSendOpen({})} />
+                  )}
+                  {tab === 'inventories' && (
+                    <InventoriesTab inv={inv} loading={invLoading} error={invError} onReload={reload} onApply={applyNow} onOpen={setOpenApp}
+                      onSendLink={initial => setSendOpen({ initial })} onNotify={notify} />
+                  )}
+                  {tab === 'results' && (
+                    <ResultsTab patient={patientRef} inv={inv} onReload={reload} onNotify={notify} onGoInventories={() => setTab('inventories')} />
+                  )}
+                  {tab === 'evolution' && <EvolutionTab inv={inv} onGoInventories={() => setTab('inventories')} />}
+                  {tab === 'concept' && (
+                    <Conceptualization key={selectedPatientId} patientId={patientRef.id} state={concept} initialSub={conceptSub} latestYsq={latestDone.ysq} latestYami={latestDone.yami} />
+                  )}
+                </Tabs>
+              </>
             )}
           </div>
         </div>
       </div>
+
+      {openApp && patientRef && (
+        <ApplyModal key={openApp.id} application={openApp} patientName={patientRef.name} onClose={() => setOpenApp(null)} onChanged={reload} notify={notify} />
+      )}
+      {sendOpen && patientRef && (
+        <SendLinkModal patientId={patientRef.id} patientName={patientRef.name} patientPhone={patientRef.phone} initial={sendOpen.initial}
+          onClose={() => setSendOpen(null)} onCreated={reload} />
+      )}
     </PageWrapper>
   );
 };

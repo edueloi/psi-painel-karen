@@ -58,13 +58,18 @@ export const AiFillPanel: React.FC<{
   planGoals: string[];
   suggestions: Record<string, any>;
   reviewPoints: string[];
+  /** Por campo: rótulos das fontes de onde veio a sugestão e confiança da IA. */
+  suggestionMeta?: Record<string, { fontes?: string[]; confianca?: string }>;
+  /** Todas as fontes lidas pela IA nesta geração. */
+  sourcesUsed?: string[];
+  title?: string;
   /** Aplica os valores nos campos e os marca como "Sugerido por IA". */
   onApply: (patch: Record<string, any>) => void;
-}> = ({ isOpen, onClose, sections, values, planGoals, suggestions, reviewPoints, onApply }) => {
+}> = ({ isOpen, onClose, sections, values, planGoals, suggestions, reviewPoints, suggestionMeta = {}, sourcesUsed = [], title = 'Revisar sugestões da IA', onApply }) => {
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     sections.forEach(section => section.fields.forEach(field => {
-      if (field.type === 'followups' || field.type === 'rows') return;
+      if (field.type === 'followups') return;
       if (hasValue(suggestions[field.key])) out.push({ section, field, suggested: suggestions[field.key] });
     }));
     return out;
@@ -101,7 +106,7 @@ export const AiFillPanel: React.FC<{
       isOpen={isOpen}
       onClose={onClose}
       size="xl"
-      title={<span className="flex items-center gap-2"><Sparkles size={14} className="text-primary-600" /> Revisar sugestões da IA</span>}
+      title={<span className="flex items-center gap-2"><Sparkles size={14} className="text-primary-600" /> {title}</span>}
       subtitle="Nada é gravado até você aceitar. Campos já preenchidos só são substituídos com a sua confirmação."
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
@@ -116,6 +121,12 @@ export const AiFillPanel: React.FC<{
         <Alert variant="warning" title="Revise antes de aprovar">
           A IA apenas organiza o que está no texto da sessão e pode errar. Campos sem base no texto ficam vazios; riscos só aparecem quando mencionados.
         </Alert>
+        {sourcesUsed.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium text-slate-500">Fontes lidas:</span>
+            {sourcesUsed.map(l => <Badge key={l} color="default">{l}</Badge>)}
+          </div>
+        )}
         {reviewPoints.length > 0 && (
           <Alert variant="info" title="Pontos para revisão humana">
             <ul className="space-y-0.5">{reviewPoints.map((p, i) => <li key={i}>• {p}</li>)}</ul>
@@ -137,6 +148,8 @@ export const AiFillPanel: React.FC<{
                 <div key={key} className={`rounded-lg border p-2.5 ${decision === 'accepted' ? 'border-emerald-200 bg-emerald-50/40' : decision === 'ignored' ? 'border-slate-200 bg-slate-50 opacity-70' : 'border-slate-200 bg-white'}`}>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-slate-800">{r.field.label}</span>
+                    <Badge color="purple" icon={<Sparkles size={10} />}>Sugerido por IA</Badge>
+                    {suggestionMeta[key]?.confianca && <Badge color={suggestionMeta[key]?.confianca === 'alta' ? 'success' : suggestionMeta[key]?.confianca === 'media' ? 'info' : 'warning'}>Confiança {suggestionMeta[key]?.confianca === 'media' ? 'média' : suggestionMeta[key]?.confianca}</Badge>}
                     {filled && !decision && <Badge color="warning">Já preenchido</Badge>}
                     {decision === 'accepted' && <Badge color="success">Aplicado</Badge>}
                     {decision === 'ignored' && <Badge color="default">Ignorado</Badge>}
@@ -155,6 +168,12 @@ export const AiFillPanel: React.FC<{
                       )}
                     </div>
                   </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-slate-500">Fontes:</span>
+                    {(suggestionMeta[key]?.fontes || []).length > 0
+                      ? (suggestionMeta[key]?.fontes || []).map(l => <span key={l} className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600">{l}</span>)
+                      : <span className="text-[11px] text-amber-700">Origem não indicada: confira antes de aceitar</span>}
+                  </div>
                   {decision !== 'accepted' && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {confirming[key] ? (
@@ -166,7 +185,7 @@ export const AiFillPanel: React.FC<{
                       ) : (
                         <>
                           <Button size="xs" variant="primary" iconLeft={<Check size={14} />} onClick={() => (filled ? setConfirming(c => ({ ...c, [key]: true })) : accept(r))}>Aceitar</Button>
-                          <Button size="xs" variant="outline" iconLeft={<Pencil size={14} />} onClick={() => setEditing(e => ({ ...e, [key]: !e[key] }))}>{isEditing ? 'Concluir edição' : 'Editar'}</Button>
+                          {r.field.type !== 'rows' && <Button size="xs" variant="outline" iconLeft={<Pencil size={14} />} onClick={() => setEditing(e => ({ ...e, [key]: !e[key] }))}>{isEditing ? 'Concluir edição' : 'Editar'}</Button>}
                           {decision !== 'ignored' && <Button size="xs" variant="ghost" iconLeft={<X size={14} />} onClick={() => ignore(r)}>Ignorar</Button>}
                         </>
                       )}

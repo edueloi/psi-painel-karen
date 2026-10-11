@@ -9,6 +9,9 @@ const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+// Contas a receber (avulsas/pacientes) e a pagar — ver accounts.js (montado antes das rotas genéricas /:id)
+router.use('/accounts', require('./accounts'));
+
 // ── Auto-migrate financial_transactions ───────────────────────────────────────
 async function ensureFinanceColumns() {
   const cols = [

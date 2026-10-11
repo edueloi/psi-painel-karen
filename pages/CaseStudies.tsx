@@ -1,28 +1,10 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  BookOpen,
-  Calendar,
-  FileText,
-  History,
-  Layout,
-  MessageSquare,
-  MoreHorizontal,
-  Paperclip,
-  Plus,
-  Search,
-  Trash2,
-  Pencil,
-  ClipboardList,
-  Brain,
-  Rocket,
-  Wallet,
-  Zap,
-  Loader2
+  Archive, ArchiveRestore, ArrowLeft, ArrowRight, BookOpen, CalendarPlus, ChevronsLeftRight, Copy, ExternalLink,
+  FileText, Layout, List, Loader2, Palette, Pencil, Plus, Receipt, Stethoscope, Trash2, User,
 } from 'lucide-react';
-import { PageWrapper, SectionTitle, ContentCard, FormRow, StatGrid } from '../components/UI/PageWrapper';
+import { PageWrapper, SectionTitle, ContentCard, StatGrid } from '../components/UI/PageWrapper';
 import { Badge, ConfirmModal, EmptyState, ModalFooter, StatCard, Tabs } from '../components/UI';
 
 import { useLanguage } from '../contexts/LanguageContext';
@@ -30,1452 +12,1126 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { api } from '../services/api';
-import { Patient } from '../types';
 import { Modal } from '../components/UI/Modal';
-import { Button, IconButton } from '../components/UI/Button';
-import { Combobox } from '../components/UI/Combobox';
-import { Input, Select, Textarea } from '../components/UI/Input';
+import { Button } from '../components/UI/Button';
+import { Input, Select } from '../components/UI/Input';
 import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSearch, FilterLineViewToggle } from '../components/UI/FilterLine';
+import { FilterPopover } from '../components/UI/FilterPopover';
 import { GridTable } from '../components/UI/GridTable';
+import { ActionMenu, ActionMenuItem } from '../components/Boards/ActionMenu';
+import { BoardCardData, BoardCardView, fieldDisplay, isCardOverdue } from '../components/Boards/BoardCard';
+import { BoardCreateModal, BoardFormValue } from '../components/Boards/BoardCreateModal';
+import { CardForm, CardFormTab } from '../components/Boards/CardForm';
+import { LinkChips } from '../components/Boards/CardLinks';
+import { ColorPicker } from '../components/Boards/ColorPicker';
+import {
+  BoardTypeDef, CardDraft, CardLink, COLOR_PALETTE, PRIORITIES, emptyDraft, formatDate, formatMoney, getTypeDef,
+  iconForBoard, normalizePriority, resolveColor, tint,
+} from '../components/Boards/boardConfig';
 
 // --- Types ---
-interface Comment {
-  id: string;
-  author: string;
-  text: string;
-  createdAt: string;
-}
-
-interface Attachment {
-  id: string;
-  name: string;
-  type: 'image' | 'pdf' | 'doc';
-  url: string;
-  size: string;
-}
-
-interface CaseDetails {
-  complaint: string;
-  history: string;
-  hypothesis: string;
-  objectives: string;
-  interventions: string;
-  risk_level: string;
-  priority: string;
-  next_steps: string;
-  observations: string;
-}
-
-interface CaseCard {
-  id: string;
-  columnId: string;
-  patientId?: string;
-  patientName: string;
-  title: string;
-  description: string;
-  tags: string[];
-  details?: CaseDetails;
-  attachments: Attachment[];
-  comments: Comment[];
-  createdAt: string;
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  due_date?: string;
-  card_type?: string;
-  assignee?: string;
-  amount?: number;
-}
-
-interface CaseColumn {
+interface ColumnData {
   id: string;
   title: string;
   color: string;
-  cards: CaseCard[];
+  cards: BoardCardData[];
 }
 
-interface CaseBoard {
+interface BoardData {
   id: string;
   title: string;
   description: string;
   createdAt: string;
-  columns: CaseColumn[];
-  columnCount?: number;
-  cardCount?: number;
-  board_type?: string;
+  columns: ColumnData[];
+  columnCount: number;
+  cardCount: number;
+  board_type: string;
   color?: string;
+  icon?: string;
+  archived: boolean;
 }
 
-// --- Constants ---
-const COLUMN_COLORS = [
-  'bg-slate-400',
-  'bg-red-500',
-  'bg-orange-500',
-  'bg-amber-500',
-  'bg-emerald-500',
-  'bg-teal-500',
-  'bg-cyan-500',
-  'bg-blue-500',
-  'bg-indigo-500',
-  'bg-violet-500',
-  'bg-purple-500',
-  'bg-pink-500'
-];
+interface Filters { assignee: string; color: string; tag: string; patient: string; due: string }
+const FILTERS_EMPTY: Filters = { assignee: '', color: '', tag: '', patient: '', due: '' };
 
-const EMPTY_BOARDS: CaseBoard[] = [];
-
-const CARD_TABS = [
-  { id: 'geral', label: 'Geral', icon: FileText },
-  { id: 'clinico', label: 'Clínico', icon: Brain },
+const BOARD_VIEW_TABS = [
+  { id: 'quadro', label: 'Quadro', icon: Layout },
+  { id: 'lista', label: 'Lista', icon: List },
 ] as const;
 
-const DETAIL_TABS = [
-  { id: 'resumo', label: 'Resumo', icon: FileText },
-  { id: 'clinico', label: 'Dados clínicos', icon: Brain },
+const BOARDS_TABS = [
+  { id: 'ativos', label: 'Ativos', icon: BookOpen },
+  { id: 'arquivados', label: 'Arquivados', icon: Archive },
 ] as const;
+
+const parseJson = <T,>(value: any, fallback: T): T => {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value !== 'string') return value as T;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+};
+
+const parseTags = (value: any): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {
+      return value.split(',').map(v => v.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const mapCard = (card: any): BoardCardData => {
+  const details = parseJson<Record<string, any>>(card.details_json, {});
+  const dbPriority = card.priority && card.priority !== 'medium' ? card.priority : '';
+  return {
+    id: String(card.id),
+    columnId: String(card.column_id),
+    title: card.title || card.patient_name || 'Sem título',
+    patientId: card.patient_id ? String(card.patient_id) : undefined,
+    patientName: card.patient_name || '',
+    description: card.description || '',
+    tags: parseTags(card.tags_json),
+    color: card.color || '',
+    priority: normalizePriority(details.priority) || dbPriority,
+    due_date: card.due_date ? String(card.due_date).slice(0, 10) : undefined,
+    assignee: card.assignee || undefined,
+    amount: card.amount !== null && card.amount !== undefined && card.amount !== '' ? Number(card.amount) : undefined,
+    details: details && typeof details === 'object' ? details : {},
+    checklist: parseJson(card.checklist_json, []),
+    links: parseJson<CardLink[]>(card.links_json, []),
+    createdAt: card.created_at || new Date().toISOString(),
+  };
+};
+
+const mapSummary = (row: any): BoardData => ({
+  id: String(row.id),
+  title: row.title,
+  description: row.description || '',
+  createdAt: row.created_at || new Date().toISOString(),
+  columns: [],
+  columnCount: Number(row.column_count ?? 0),
+  cardCount: Number(row.card_count ?? 0),
+  board_type: row.board_type || 'geral',
+  color: row.color || undefined,
+  icon: row.icon || undefined,
+  archived: !!row.archived,
+});
+
+const mapDetail = (row: any): BoardData => {
+  const columns: ColumnData[] = (row.columns || []).map((c: any) => ({
+    id: String(c.id),
+    title: c.title,
+    color: resolveColor(c.color),
+    cards: (c.cards || []).map(mapCard),
+  }));
+  return {
+    ...mapSummary(row),
+    columns,
+    columnCount: columns.length,
+    cardCount: columns.reduce((sum, c) => sum + c.cards.length, 0),
+  };
+};
+
+const draftFromCard = (card: BoardCardData): CardDraft => ({
+  title: card.title,
+  description: card.description,
+  tags: card.tags.join(', '),
+  patientId: card.patientId || '',
+  patientName: card.patientName,
+  color: card.color,
+  priority: normalizePriority(card.priority),
+  assignee: card.assignee || '',
+  due_date: card.due_date || '',
+  amount: card.amount !== undefined ? String(card.amount) : '',
+  details: { ...card.details },
+  checklist: card.checklist,
+  links: card.links,
+});
+
+const formatHours = (minutes: number) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h${m ? ` ${m}min` : ''}` : `${m}min`;
+};
+
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const colorName = (hex: string) => COLOR_PALETTE.find(c => c.hex === hex)?.name || hex;
 
 export const CaseStudies: React.FC = () => {
   const { t } = useLanguage();
   const { pushToast } = useToast();
-  const { user: currentUser, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   const { preferences, updatePreference } = useUserPreferences();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // View State
-  const [currentView, setCurrentView] = useState<'grid' | 'list'>(preferences.caseStudies.viewMode);
-  const [boards, setBoards] = useState<CaseBoard[]>(EMPTY_BOARDS);
-  const [activeBoardId, setActiveBoardId] = useState<string | null>(() => searchParams.get('board'));
-  const [history, setHistory] = useState<{ msg: string; time: string }[]>([]);
-  const [boardSearch, setBoardSearch] = useState('');
-  const [cardSearch, setCardSearch] = useState('');
-  const [patients, setPatients] = useState<Patient[]>([]);
+  // Boards list
+  const [boards, setBoards] = useState<BoardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [boardSearch, setBoardSearch] = useState('');
+  const [boardsTab, setBoardsTab] = useState<typeof BOARDS_TABS[number]['id']>('ativos');
+  const [listView, setListView] = useState<'grid' | 'list'>(preferences.caseStudies.viewMode);
+
+  // Active board
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(() => searchParams.get('board'));
+  const [detail, setDetail] = useState<BoardData | null>(null);
   const [boardLoading, setBoardLoading] = useState(false);
-  const [isSavingCard, setIsSavingCard] = useState(false);
+  const [boardView, setBoardView] = useState<typeof BOARD_VIEW_TABS[number]['id']>('quadro');
+  const [cardSearch, setCardSearch] = useState('');
+  const [filters, setFilters] = useState<Filters>(FILTERS_EMPTY);
+  const [draftFilters, setDraftFilters] = useState<Filters>(FILTERS_EMPTY);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [draggedCard, setDraggedCard] = useState<{ id: string; from: string } | null>(null);
+  const [dropColumnId, setDropColumnId] = useState<string | null>(null);
 
-  // Drag & Drop
-  const [draggedCard, setDraggedCard] = useState<{ card: CaseCard; sourceColumnId: string } | null>(null);
-
-  // Modals & UI States
-  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  // Board modal
   const [isBoardModalOpen, setIsBoardModalOpen] = useState(false);
-  const [targetColumnId, setTargetColumnId] = useState<string>('');
-  const [isCardDetailOpen, setIsCardDetailOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<CaseCard | null>(null);
-  const [isEditingCard, setIsEditingCard] = useState(false);
-  const [cardTab, setCardTab] = useState<typeof CARD_TABS[number]['id']>('geral');
-  const [detailTab, setDetailTab] = useState<typeof DETAIL_TABS[number]['id']>('resumo');
+  const [editingBoard, setEditingBoard] = useState<BoardData | null>(null);
+  const [savingBoard, setSavingBoard] = useState(false);
 
-  // New Item States
-  const [newBoardTitle, setNewBoardTitle] = useState('');
-  const [newBoardTitleError, setNewBoardTitleError] = useState('');
-  const [newBoardDesc, setNewBoardDesc] = useState('');
-  const [newBoardType, setNewBoardType] = useState<string>('geral');
-  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
+  // Card modal
+  const [cardModal, setCardModal] = useState<{ card: BoardCardData | null; columnId: string } | null>(null);
+  const [draft, setDraft] = useState<CardDraft>(emptyDraft());
+  const [cardTab, setCardTab] = useState<CardFormTab>('geral');
+  const [applyToColumn, setApplyToColumn] = useState(false);
+  const [titleError, setTitleError] = useState('');
+  const [patientError, setPatientError] = useState('');
+  const [savingCard, setSavingCard] = useState(false);
+  const [patientOptions, setPatientOptions] = useState<{ value: string; label: string }[]>([]);
 
-  const [newCardTitle, setNewCardTitle] = useState('');
-  const [newCardPatientId, setNewCardPatientId] = useState('');
-  const [newCardDesc, setNewCardDesc] = useState('');
-  const [newCardTags, setNewCardTags] = useState('');
-  const [newCardPriority, setNewCardPriority] = useState<'low'|'medium'|'high'|'urgent'>('medium');
-  const [newCardDueDate, setNewCardDueDate] = useState('');
-  const [newCardType, setNewCardType] = useState('');
-  const [newCardAmount, setNewCardAmount] = useState('');
-  const [newCardAssignee, setNewCardAssignee] = useState('');
-  const [newCardDetails, setNewCardDetails] = useState<CaseDetails>({
-      complaint: '',
-      history: '',
-      hypothesis: '',
-      objectives: '',
-      interventions: '',
-      risk_level: '',
-      priority: '',
-      next_steps: '',
-      observations: ''
-  });
-  const [editCardPatientId, setEditCardPatientId] = useState('');
-  const [editCardPatientName, setEditCardPatientName] = useState('');
-  const [editCardDesc, setEditCardDesc] = useState('');
-  const [editCardTags, setEditCardTags] = useState('');
-  const [editCardDetails, setEditCardDetails] = useState<CaseDetails>({
-      complaint: '',
-      history: '',
-      hypothesis: '',
-      objectives: '',
-      interventions: '',
-      risk_level: '',
-      priority: '',
-      next_steps: '',
-      observations: ''
-  });
+  // Column modal
+  const [columnModal, setColumnModal] = useState<{ id: string | null; title: string; color: string } | null>(null);
 
-  // Column Management States
-  const [openColumnMenuId, setOpenColumnMenuId] = useState<string | null>(null);
-  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
-  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
-  const [editingColumnTitle, setEditingColumnTitle] = useState('');
-  const [editingColumnColor, setEditingColumnColor] = useState('bg-slate-400');
+  // Delete confirmation
+  const [deleteConfig, setDeleteConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
-  // Delete Confirmation Modal
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteModalConfig, setDeleteModalConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const activeBoard = detail && detail.id === activeBoardId ? detail : null;
+  const def: BoardTypeDef = getTypeDef(activeBoard?.board_type);
 
-  const openDeleteModal = (title: string, message: string, onConfirm: () => void) => {
-    setDeleteModalConfig({ title, message, onConfirm });
-    setIsDeleteModalOpen(true);
-  };
-
-  const activeBoard = boards.find(b => b.id === activeBoardId);
-  const getBoardColumnCount = (b: CaseBoard) => (b.columns && b.columns.length ? b.columns.length : b.columnCount || 0);
-  const getBoardCardCount = (b: CaseBoard) => {
-      if (b.columns && b.columns.length) {
-          return b.columns.reduce((sum, c) => sum + c.cards.length, 0);
-      }
-      return b.cardCount || 0;
-  };
-  const boardStats = useMemo(() => {
-      const boardCount = boards.length;
-      const columnCount = boards.reduce((sum, b) => sum + getBoardColumnCount(b), 0);
-      const cardCount = boards.reduce((sum, b) => sum + getBoardCardCount(b), 0);
-      return { boardCount, columnCount, cardCount };
-  }, [boards]);
-
-  const filteredBoards = useMemo(() => {
-      if (!boardSearch.trim()) return boards;
-      const q = boardSearch.toLowerCase();
-      return boards.filter(b => b.title.toLowerCase().includes(q) || (b.description || '').toLowerCase().includes(q));
-  }, [boards, boardSearch]);
-
-  const logActivity = (msg: string) => {
-      setHistory(prev => [{ msg, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...prev.slice(0, 9)]);
-  };
-
-  const resetCardForm = () => {
-      setNewCardTitle('');
-      setNewCardPatientId('');
-
-      setNewCardDesc('');
-      setNewCardTags('');
-      setNewCardPriority('medium');
-      setNewCardDueDate('');
-      setNewCardType('');
-      setNewCardAmount('');
-      setNewCardAssignee('');
-      setNewCardDetails({
-        complaint: '',
-        history: '',
-        hypothesis: '',
-        objectives: '',
-        interventions: '',
-        risk_level: '',
-        priority: '',
-        next_steps: '',
-        observations: ''
-      });
-  };
-
-  const parseTags = (value: any): string[] => {
-      if (!value) return [];
-      if (Array.isArray(value)) return value.filter(Boolean);
-      if (typeof value === 'string') {
-          try {
-              const parsed = JSON.parse(value);
-              if (Array.isArray(parsed)) return parsed.filter(Boolean);
-          } catch (e) {
-              return value.split(',').map(v => v.trim()).filter(Boolean);
-          }
-      }
-      return [];
-  };
-
-  const parseDetails = (value: any): CaseDetails => {
-      const empty = {
-        complaint: '',
-        history: '',
-        hypothesis: '',
-        objectives: '',
-        interventions: '',
-        risk_level: '',
-        priority: '',
-        next_steps: '',
-        observations: ''
-      };
-      if (!value) return empty;
-      if (typeof value === 'string') {
-          try {
-              const parsed = JSON.parse(value);
-              return { ...empty, ...(parsed || {}) };
-          } catch {
-              return empty;
-          }
-      }
-      if (typeof value === 'object') {
-          return { ...empty, ...(value || {}) };
-      }
-      return empty;
-  };
-
-  const mapBoardSummary = (row: any): CaseBoard => ({
-      id: String(row.id),
-      title: row.title,
-      description: row.description || '',
-      createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-      columns: [],
-      columnCount: row.column_count ?? 0,
-      cardCount: row.card_count ?? 0,
-      board_type: row.board_type || 'geral',
-      color: row.color || undefined,
-  });
-
-  const mapBoardDetail = (row: any): CaseBoard => {
-      const columns: CaseColumn[] = (row.columns || []).map((c: any) => ({
-          id: String(c.id),
-          title: c.title,
-          color: c.color || 'bg-slate-400',
-          cards: (c.cards || []).map((card: any): CaseCard => ({
-              id: String(card.id),
-              columnId: String(card.column_id),
-              patientId: card.patient_id ? String(card.patient_id) : undefined,
-              patientName: card.patient_name || '',
-              title: card.title || card.patient_name || 'Sem título',
-              description: card.description || '',
-              tags: parseTags(card.tags_json),
-              details: parseDetails(card.details_json),
-              attachments: [],
-              comments: [],
-              createdAt: card.created_at || new Date().toISOString(),
-              priority: card.priority || 'medium',
-              due_date: card.due_date || undefined,
-              card_type: card.card_type || undefined,
-              assignee: card.assignee || undefined,
-              amount: card.amount || undefined,
-          }))
-      }));
-
-      return {
-          id: String(row.id),
-          title: row.title,
-          description: row.description || '',
-          createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-          columns,
-          columnCount: columns.length,
-          cardCount: columns.reduce((sum, c) => sum + c.cards.length, 0)
-      };
-  };
-
+  // --- Loading ---
   const loadBoards = async () => {
-      setIsLoading(true);
-      try {
-          const data = await api.get<any[]>('/case-studies/boards');
-          setBoards(Array.isArray(data) ? data.map(mapBoardSummary) : []);
-      } catch (e) {
-          console.error(e);
-      } finally {
-          setIsLoading(false);
-      }
+    try {
+      const data = await api.get<any[]>('/case-studies/boards');
+      setBoards(Array.isArray(data) ? data.map(mapSummary) : []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const loadBoardDetail = async (boardId: string) => {
-      setBoardLoading(true);
-      try {
-          const data = await api.get<any>(`/case-studies/boards/${boardId}`);
-          const mapped = mapBoardDetail(data);
-          setBoards(prev => prev.map(b => (b.id === boardId ? mapped : b)));
-      } catch (e) {
-          console.error(e);
-      } finally {
-          setBoardLoading(false);
-      }
+  const loadBoardDetail = async (boardId: string, silent = false) => {
+    if (!silent) setBoardLoading(true);
+    try {
+      const data = await api.get<any>(`/case-studies/boards/${boardId}`);
+      setDetail(mapDetail(data));
+    } catch (e) {
+      console.error(e);
+      if (!silent) pushToast('error', 'Não foi possível carregar o quadro.');
+    } finally {
+      setBoardLoading(false);
+    }
   };
 
   const loadPatients = async () => {
-      try {
-          const data = await api.get<any[]>('/patients');
-          const normalized = Array.isArray(data) ? data.map((p: any) => ({
-              ...p,
-              full_name: p.full_name || p.name || '',
-              status: p.status === 'active' ? 'ativo' : p.status === 'inactive' ? 'inativo' : (p.status || ''),
-          })) : [];
-          setPatients(normalized as Patient[]);
-      } catch (e) {
-          console.error(e);
-      }
+    try {
+      const data = await api.get<any[]>('/patients');
+      const list = Array.isArray(data) ? data : [];
+      setPatientOptions(
+        list
+          .filter((p: any) => p.status === 'active' || p.status === 'ativo' || p.active === true || p.active === 1 || p.status === undefined)
+          .map((p: any) => ({ value: String(p.id), label: p.full_name || p.name || '' }))
+          .filter(o => o.label)
+      );
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => {
-      void loadBoards();
-      void loadPatients();
+    void loadBoards();
+    void loadPatients();
   }, []);
 
   useEffect(() => {
-      if (activeBoardId) {
-          void loadBoardDetail(activeBoardId);
-          setSearchParams({ board: activeBoardId }, { replace: true });
-      } else {
-          setSearchParams({}, { replace: true });
-      }
+    if (activeBoardId) {
+      void loadBoardDetail(activeBoardId);
+      setSearchParams({ board: activeBoardId }, { replace: true });
+    } else {
+      setDetail(null);
+      setSearchParams({}, { replace: true });
+    }
   }, [activeBoardId]);
-  // --- Board Logic ---
-  const handleAddBoard = async () => {
-      if (!newBoardTitle.trim()) {
-          setNewBoardTitleError('Nome do quadro é obrigatório');
-          return;
+
+  const backToBoards = () => {
+    setActiveBoardId(null);
+    setCardSearch('');
+    setFilters(FILTERS_EMPTY);
+    void loadBoards();
+  };
+
+  // --- Board actions ---
+  const openNewBoard = () => { setEditingBoard(null); setIsBoardModalOpen(true); };
+  const openEditBoard = (board: BoardData) => { setEditingBoard(board); setIsBoardModalOpen(true); };
+
+  const submitBoard = async (value: BoardFormValue) => {
+    setSavingBoard(true);
+    try {
+      if (editingBoard) {
+        await api.put(`/case-studies/boards/${editingBoard.id}`, {
+          title: value.title,
+          description: value.description || null,
+          color: value.color || null,
+          icon: value.icon || null,
+        });
+        pushToast('success', 'Quadro atualizado com sucesso!');
+        await loadBoards();
+        if (activeBoardId === editingBoard.id) await loadBoardDetail(editingBoard.id, true);
+      } else {
+        const created = await api.post<{ id: number }>('/case-studies/boards', {
+          title: value.title,
+          description: value.description || null,
+          board_type: value.board_type,
+          color: value.color || null,
+          icon: value.icon || null,
+          columns: value.columns,
+        });
+        pushToast('success', 'Quadro criado com sucesso!');
+        await loadBoards();
+        setActiveBoardId(String(created.id));
       }
-      setNewBoardTitleError('');
-      try {
-          if (editingBoardId) {
-              await api.put(`/case-studies/boards/${editingBoardId}`, {
-                  title: newBoardTitle.trim(),
-                  description: newBoardDesc.trim() || null
-              });
-              pushToast('success', 'Quadro atualizado com sucesso!');
-          } else {
-              const data = await api.post<{ id: number }>('/case-studies/boards', {
-                  title: newBoardTitle.trim(),
-                  description: newBoardDesc.trim() || null,
-                  board_type: newBoardType,
-              });
-              const boardId = String(data.id);
-              setActiveBoardId(boardId);
-              pushToast('success', 'Quadro criado com sucesso!');
-          }
-
-          await loadBoards();
-          setIsBoardModalOpen(false);
-          setNewBoardTitle('');
-          setNewBoardDesc('');
-          setNewBoardType('geral');
-          setEditingBoardId(null);
-      } catch (e) {
-          console.error(e);
-          pushToast('error', 'Erro ao salvar quadro.');
-      }
-  };
-
-  const openEditBoard = (e: React.MouseEvent, board: CaseBoard) => {
-      e.stopPropagation();
-      setEditingBoardId(board.id);
-      setNewBoardTitle(board.title);
-      setNewBoardTitleError('');
-      setNewBoardDesc(board.description || '');
-      setIsBoardModalOpen(true);
-  };
-
-  const handleDeleteBoard = (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      const board = boards.find(b => b.id === id);
-      openDeleteModal(
-          'Excluir Quadro',
-          `Tem certeza que deseja excluir o quadro "${board?.title || ''}"? Esta ação não pode ser desfeita.`,
-          async () => {
-              try {
-                  await api.delete(`/case-studies/boards/${id}`);
-                  setBoards(prev => prev.filter(b => b.id !== id));
-                  if (activeBoardId === id) setActiveBoardId(null);
-              } catch (err) {
-                  console.error(err);
-              }
-          }
-      );
-  };
-
-  // --- Column Logic ---
-  const handleAddColumn = async () => {
-      if (!activeBoardId) return;
-      const color = COLUMN_COLORS[Math.floor(Math.random() * COLUMN_COLORS.length)];
-      try {
-          const sortOrder = activeBoard ? activeBoard.columns.length : 0;
-          await api.post(`/case-studies/boards/${activeBoardId}/columns`, {
-              title: 'Nova Coluna',
-              color,
-              sort_order: sortOrder
-          });
-          await loadBoardDetail(activeBoardId);
-      } catch (e) {
-          console.error(e);
-      }
-  };
-
-  const deleteColumn = (columnId: string) => {
-      if (!activeBoardId) return;
-      const board = boards.find(b => b.id === activeBoardId);
-      const col = board?.columns.find(c => c.id === columnId);
-      setOpenColumnMenuId(null);
-
-      const hasCards = col && col.cards.length > 0;
-      const message = hasCards
-          ? `A coluna "${col?.title || ''}" contém ${col.cards.length} cartão(ões). Deseja excluí-la mesmo assim?`
-          : `Tem certeza que deseja excluir a coluna "${col?.title || ''}"?`;
-
-      openDeleteModal('Excluir Coluna', message, async () => {
-          try {
-              await api.delete(`/case-studies/boards/${activeBoardId}/columns/${columnId}`);
-              await loadBoardDetail(activeBoardId);
-          } catch (err) {
-              console.error(err);
-          }
-      });
-  };
-
-  const openEditColumn = (col: CaseColumn) => {
-      setEditingColumnId(col.id);
-      setEditingColumnTitle(col.title);
-      setEditingColumnColor(col.color || 'bg-slate-400');
-      setIsColumnModalOpen(true);
-      setOpenColumnMenuId(null);
-  };
-
-  const handleUpdateColumn = async () => {
-      if (!activeBoardId || !editingColumnId || !editingColumnTitle.trim()) return;
-      const board = boards.find(b => b.id === activeBoardId);
-      const col = board?.columns.find(c => c.id === editingColumnId);
-      const sortOrder = col ? board?.columns.indexOf(col) ?? 0 : 0;
-      try {
-          await api.put(`/case-studies/boards/${activeBoardId}/columns/${editingColumnId}`, {
-              title: editingColumnTitle.trim(),
-              color: editingColumnColor,
-              sort_order: sortOrder
-          });
-          await loadBoardDetail(activeBoardId);
-          setIsColumnModalOpen(false);
-      } catch (e) {
-          console.error(e);
-      }
-  };
-
-  // --- Card Logic ---
-  const handleDragStart = (e: React.DragEvent, card: CaseCard, sourceColumnId: string) => {
-      setDraggedCard({ card, sourceColumnId });
-      e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetColumnId: string) => {
-      e.preventDefault();
-      if (!draggedCard || !activeBoardId) return;
-
-      const { card, sourceColumnId } = draggedCard;
-      if (sourceColumnId === targetColumnId) return;
-
-      setBoards(prev => prev.map(b => {
-          if (b.id === activeBoardId) {
-              const sourceCol = b.columns.find(c => c.id === sourceColumnId);
-              const targetCol = b.columns.find(c => c.id === targetColumnId);
-
-              if (sourceCol && targetCol) {
-                  const newSourceCards = sourceCol.cards.filter(c => c.id !== card.id);
-                  const newTargetCards = [...targetCol.cards, card];
-
-                  logActivity(`${t('cases.moved')} "${card.patientName}" ${t('cases.from')} ${sourceCol.title} ${t('cases.to')} ${targetCol.title}`);
-
-                  const moved = {
-                      ...b,
-                      columns: b.columns.map(c => {
-                          if (c.id === sourceColumnId) return { ...c, cards: newSourceCards };
-                          if (c.id === targetColumnId) return { ...c, cards: newTargetCards };
-                          return c;
-                      })
-                  };
-                  return moved;
-              }
-          }
-          return b;
-      }));
-      setDraggedCard(null);
-
-      try {
-          const targetCol = activeBoard?.columns.find(c => c.id === targetColumnId);
-          const sortOrder = targetCol ? targetCol.cards.length : 0;
-          await api.patch(`/case-studies/cards/${card.id}/move`, {
-              column_id: targetColumnId,
-              sort_order: sortOrder
-          });
-      } catch (err) {
-          console.error(err);
-          await loadBoardDetail(activeBoardId);
-      }
-  };
-
-  const handleCreateCard = async () => {
-      if (!activeBoardId) return;
-      if (!newCardTitle.trim()) {
-          pushToast('error', 'Informe um título para o card.');
-          return;
-      }
-
-      const tags = newCardTags.split(',').map((tg: string) => tg.trim()).filter(Boolean);
-
-      setIsSavingCard(true);
-      try {
-          await api.post(`/case-studies/boards/${activeBoardId}/cards`, {
-              column_id: targetColumnId,
-              patient_id: newCardPatientId || null,
-              title: newCardTitle.trim(),
-              description: newCardDesc.trim() || null,
-              tags,
-              details: newCardDetails,
-              priority: newCardPriority,
-              due_date: newCardDueDate || null,
-              card_type: newCardType || null,
-              amount: newCardAmount ? parseFloat(newCardAmount) : null,
-              assignee: newCardAssignee.trim() || null,
-              sort_order: activeBoard?.columns.find(c => c.id === targetColumnId)?.cards.length || 0
-          });
-
-          await loadBoardDetail(activeBoardId);
-          logActivity(`Card criado: "${newCardTitle.trim()}"`);
-          pushToast('success', 'Card criado com sucesso!');
-          resetCardForm();
-          setIsCardModalOpen(false);
-      } catch (e) {
-          console.error(e);
-          pushToast('error', 'Erro ao criar card. Tente novamente.');
-      } finally {
-          setIsSavingCard(false);
-      }
-  };
-
-  const openCardDetail = (card: CaseCard) => {
-      setSelectedCard(card);
-      setEditCardPatientId(card.patientId || '');
-      setEditCardPatientName(card.patientId ? '' : card.patientName);
-      setEditCardDesc(card.description || '');
-      setEditCardTags(card.tags.join(', '));
-      setEditCardDetails(card.details || {
-        complaint: '',
-        history: '',
-        hypothesis: '',
-        objectives: '',
-        interventions: '',
-        risk_level: '',
-        priority: '',
-        next_steps: '',
-        observations: ''
-      });
-      setIsEditingCard(false);
-      setDetailTab('resumo');
-      setIsCardDetailOpen(true);
-  };
-
-  const handleDeleteCard = () => {
-      if (!selectedCard || !activeBoardId) return;
-      const card = selectedCard;
-      const boardId = activeBoardId;
-      openDeleteModal(
-          'Excluir Card',
-          `Tem certeza que deseja excluir "${card.patientName || card.title}"? Esta ação não pode ser desfeita.`,
-          async () => {
-              try {
-                  await api.delete(`/case-studies/cards/${card.id}`);
-                  await loadBoardDetail(boardId);
-                  logActivity(`Card excluído: "${card.patientName || card.title}"`);
-                  pushToast('success', 'Card excluído com sucesso!');
-                  setIsCardDetailOpen(false);
-                  setSelectedCard(null);
-                  setIsEditingCard(false);
-              } catch (err) {
-                  console.error(err);
-                  pushToast('error', 'Erro ao excluir card.');
-              }
-          }
-      );
-  };
-
-  const handleUpdateCard = async () => {
-      if (!selectedCard || !activeBoardId) return;
-      const patientName = editCardPatientName.trim();
-      const patientId = editCardPatientId || undefined;
-      if (!patientName && !patientId) return;
-      if (!editCardDesc.trim()) return;
-
-      const tags = editCardTags
-          .split(',')
-          .map(t => t.trim())
-          .filter(Boolean);
-
-      try {
-          await api.put(`/case-studies/cards/${selectedCard.id}`, {
-              column_id: selectedCard.columnId,
-              patient_id: patientId || null,
-              title: patientId ? null : patientName,
-              description: editCardDesc.trim(),
-              tags,
-              details: editCardDetails,
-              sort_order: 0
-          });
-          await loadBoardDetail(activeBoardId);
-          setIsEditingCard(false);
-          setIsCardDetailOpen(false);
-      } catch (e) {
-          console.error(e);
-      }
-  };
-
-  const patientOptions = patients
-      .filter((p: any) => p.status === 'ativo' || p.active === true || p.active === 1)
-      .map((p: any) => ({ value: String(p.id), label: p.full_name || p.name || '' }));
-
-  const closeBoardModal = () => {
       setIsBoardModalOpen(false);
-      setEditingBoardId(null);
-      setNewBoardTitle('');
-      setNewBoardTitleError('');
-      setNewBoardDesc('');
-      setNewBoardType('geral');
+      setEditingBoard(null);
+    } catch (e) {
+      console.error(e);
+      pushToast('error', 'Erro ao salvar quadro.');
+    } finally {
+      setSavingBoard(false);
+    }
   };
 
-  const closeCardModal = () => {
-      resetCardForm();
+  const duplicateBoard = async (board: BoardData) => {
+    try {
+      await api.post(`/case-studies/boards/${board.id}/duplicate`, { with_cards: false });
+      pushToast('success', 'Quadro duplicado (colunas copiadas, sem cartões).');
+      await loadBoards();
+    } catch (e) {
+      console.error(e);
+      pushToast('error', 'Erro ao duplicar quadro.');
+    }
+  };
+
+  const archiveBoard = async (board: BoardData, archived: boolean) => {
+    try {
+      await api.patch(`/case-studies/boards/${board.id}/archive`, { archived });
+      pushToast('success', archived ? 'Quadro arquivado.' : 'Quadro restaurado.');
+      if (archived && activeBoardId === board.id) setActiveBoardId(null);
+      await loadBoards();
+    } catch (e) {
+      console.error(e);
+      pushToast('error', 'Erro ao atualizar quadro.');
+    }
+  };
+
+  const deleteBoard = (board: BoardData) => {
+    setDeleteConfig({
+      title: 'Excluir quadro',
+      message: `Tem certeza que deseja excluir o quadro "${board.title}" e todos os seus cartões? Esta ação não pode ser desfeita. Se preferir guardar, use Arquivar.`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/case-studies/boards/${board.id}`);
+          setBoards(prev => prev.filter(b => b.id !== board.id));
+          if (activeBoardId === board.id) setActiveBoardId(null);
+          pushToast('success', 'Quadro excluído.');
+        } catch (err) {
+          console.error(err);
+          pushToast('error', 'Erro ao excluir quadro.');
+        }
+      },
+    });
+  };
+
+  const boardMenu = (board: BoardData): ActionMenuItem[] => [
+    { key: 'open', label: 'Abrir', icon: ExternalLink, onClick: () => setActiveBoardId(board.id) },
+    { key: 'edit', label: 'Editar', icon: Pencil, onClick: () => openEditBoard(board) },
+    { key: 'dup', label: 'Duplicar quadro', icon: Copy, onClick: () => duplicateBoard(board) },
+    board.archived
+      ? { key: 'arch', label: 'Restaurar', icon: ArchiveRestore, onClick: () => archiveBoard(board, false) }
+      : { key: 'arch', label: 'Arquivar', icon: Archive, onClick: () => archiveBoard(board, true) },
+    { key: 'del', label: 'Excluir', icon: Trash2, danger: true, separated: true, onClick: () => deleteBoard(board) },
+  ];
+
+  // --- Column actions ---
+  const saveColumn = async () => {
+    if (!activeBoardId || !columnModal || !columnModal.title.trim()) return;
+    try {
+      if (columnModal.id) {
+        await api.put(`/case-studies/boards/${activeBoardId}/columns/${columnModal.id}`, { title: columnModal.title.trim(), color: columnModal.color });
+      } else {
+        await api.post(`/case-studies/boards/${activeBoardId}/columns`, { title: columnModal.title.trim(), color: columnModal.color });
+      }
+      await loadBoardDetail(activeBoardId, true);
+      setColumnModal(null);
+    } catch (e) {
+      console.error(e);
+      pushToast('error', 'Erro ao salvar coluna.');
+    }
+  };
+
+  const deleteColumn = (col: ColumnData) => {
+    if (!activeBoardId) return;
+    const boardId = activeBoardId;
+    setDeleteConfig({
+      title: 'Excluir coluna',
+      message: col.cards.length > 0
+        ? `A coluna "${col.title}" contém ${col.cards.length} cartão(ões), que também serão excluídos. Deseja continuar?`
+        : `Tem certeza que deseja excluir a coluna "${col.title}"?`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/case-studies/boards/${boardId}/columns/${col.id}`);
+          await loadBoardDetail(boardId, true);
+        } catch (err) {
+          console.error(err);
+          pushToast('error', 'Erro ao excluir coluna.');
+        }
+      },
+    });
+  };
+
+  const moveColumn = async (colId: string, delta: number) => {
+    if (!activeBoard) return;
+    const ids = activeBoard.columns.map(c => c.id);
+    const from = ids.indexOf(colId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    setDetail(prev => prev && ({ ...prev, columns: ids.map(id => prev.columns.find(c => c.id === id)!) }));
+    try {
+      await api.put(`/case-studies/boards/${activeBoard.id}/columns-order`, { ids });
+    } catch (e) {
+      console.error(e);
+      await loadBoardDetail(activeBoard.id, true);
+    }
+  };
+
+  const toggleCollapsed = (colId: string) =>
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(colId)) next.delete(colId); else next.add(colId);
+      return next;
+    });
+
+  // --- Card actions ---
+  const openNewCard = (columnId: string) => {
+    setDraft(emptyDraft());
+    setCardTab('geral');
+    setApplyToColumn(false);
+    setTitleError('');
+    setPatientError('');
+    setCardModal({ card: null, columnId });
+  };
+
+  const openCard = (card: BoardCardData) => {
+    setDraft(draftFromCard(card));
+    setCardTab('geral');
+    setApplyToColumn(false);
+    setTitleError('');
+    setPatientError('');
+    setCardModal({ card, columnId: card.columnId });
+  };
+
+  const closeCardModal = () => { if (!savingCard) setCardModal(null); };
+
+  const buildPayload = () => {
+    const prio = draft.priority;
+    const prioLegacy = PRIORITIES.find(p => p.key === prio)?.legacy || '';
+    const details: Record<string, any> = { ...draft.details };
+    if (def.common.priority) details.priority = prioLegacy;
+    return {
+      patient_id: draft.patientId || null,
+      title: draft.title.trim() || draft.patientName,
+      description: draft.description.trim() || null,
+      tags: draft.tags.split(',').map(tg => tg.trim()).filter(Boolean),
+      details,
+      priority: prio || undefined,
+      due_date: draft.due_date || null,
+      assignee: draft.assignee.trim() || null,
+      amount: draft.amount !== '' && !Number.isNaN(parseFloat(draft.amount)) ? parseFloat(draft.amount) : null,
+      color: draft.color || null,
+      links: draft.links,
+      checklist: draft.checklist,
+      card_type: def.key,
+    };
+  };
+
+  const saveCard = async () => {
+    if (!activeBoardId || !cardModal) return;
+    if (def.patientRequired && !draft.patientId) {
+      setPatientError('Selecione o paciente deste caso.');
       setCardTab('geral');
-      setIsCardModalOpen(false);
+      return;
+    }
+    if (!draft.title.trim() && !draft.patientName) {
+      setTitleError('Informe um título.');
+      setCardTab('geral');
+      return;
+    }
+    setSavingCard(true);
+    try {
+      const payload = buildPayload();
+      if (cardModal.card) {
+        await api.put(`/case-studies/cards/${cardModal.card.id}`, payload);
+      } else {
+        const col = activeBoard?.columns.find(c => c.id === cardModal.columnId);
+        await api.post(`/case-studies/boards/${activeBoardId}/cards`, {
+          ...payload,
+          column_id: cardModal.columnId,
+          sort_order: col ? col.cards.length : 0,
+        });
+      }
+      if (applyToColumn && draft.color) {
+        await api.post(`/case-studies/boards/${activeBoardId}/columns/${cardModal.columnId}/apply-color`, { color: draft.color });
+      }
+      await loadBoardDetail(activeBoardId, true);
+      pushToast('success', cardModal.card ? 'Cartão atualizado!' : `${def.cardNoun.charAt(0).toUpperCase()}${def.cardNoun.slice(1)} criado!`);
+      setCardModal(null);
+    } catch (e) {
+      console.error(e);
+      pushToast('error', 'Erro ao salvar o cartão. Tente novamente.');
+    } finally {
+      setSavingCard(false);
+    }
   };
 
-  const isClinicalBoard = activeBoard?.board_type === 'clinico';
+  const deleteCard = (card: BoardCardData) => {
+    if (!activeBoardId) return;
+    const boardId = activeBoardId;
+    setDeleteConfig({
+      title: 'Excluir cartão',
+      message: `Tem certeza que deseja excluir "${card.title}"? Esta ação não pode ser desfeita.`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/case-studies/cards/${card.id}`);
+          await loadBoardDetail(boardId, true);
+          pushToast('success', 'Cartão excluído.');
+          setCardModal(null);
+        } catch (err) {
+          console.error(err);
+          pushToast('error', 'Erro ao excluir cartão.');
+        }
+      },
+    });
+  };
 
-  const cardFormContent = (
-    <>
-        {(!isClinicalBoard || cardTab === 'geral') && (
-          <div className="space-y-3">
-            {/* Título — comum a todos os tipos */}
-            <Input
-              label="Título *"
-              placeholder="Ex: Sessão de avaliação, Cobrança pendente, Entrega do relatório..."
-              value={newCardTitle}
-              onChange={(e) => setNewCardTitle(e.target.value)}
-            />
+  /** Move o cartão para outra coluna (arrastar e soltar ou menu "Mover para…"). */
+  const moveCardTo = async (cardId: string, fromColumnId: string, toColumnId: string) => {
+    if (!activeBoard || fromColumnId === toColumnId) return;
+    const from = activeBoard.columns.find(c => c.id === fromColumnId);
+    const to = activeBoard.columns.find(c => c.id === toColumnId);
+    const card = from?.cards.find(c => c.id === cardId);
+    if (!from || !to || !card) return;
+    const sortOrder = to.cards.length;
+    setDetail(prev => prev && ({
+      ...prev,
+      columns: prev.columns.map(c => {
+        if (c.id === fromColumnId) return { ...c, cards: c.cards.filter(x => x.id !== cardId) };
+        if (c.id === toColumnId) return { ...c, cards: [...c.cards, { ...card, columnId: toColumnId }] };
+        return c;
+      }),
+    }));
+    try {
+      await api.patch(`/case-studies/cards/${cardId}/move`, { column_id: toColumnId, sort_order: sortOrder });
+      // Sugestão (nunca automática): lançar no Livro Caixa ao concluir recebimento/pagamento.
+      if (def.key === 'financeiro' && /recebido|pago/i.test(to.title) && hasPermission('view_financial_reports')) {
+        pushToast('info', `Movido para "${to.title}"`, {
+          message: 'Quer registrar este valor no Livro Caixa? Nada é lançado sem a sua confirmação.',
+          duration: 12000,
+          details: (
+            <Button type="button" variant="outline" size="xs" onClick={() => navigate('/livro-caixa')}>Abrir Livro Caixa</Button>
+          ),
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      pushToast('error', 'Erro ao mover o cartão.');
+      if (activeBoardId) await loadBoardDetail(activeBoardId, true);
+    }
+  };
 
-            {/* Paciente — só faz sentido em quadros clínicos ou gerais da clínica */}
-            {activeBoard?.board_type !== 'projeto' && activeBoard?.board_type !== 'atividade' && (
-              <Combobox
-                label={`Paciente${isClinicalBoard ? ' *' : ' (opcional)'}`}
-                placeholder="Buscar paciente ativo..."
-                options={patientOptions}
-                value={newCardPatientId}
-                onChange={(val: any) => {
-                  setNewCardPatientId(String(val || ''));
-                }}
-                size="md"
-              />
-            )}
+  const handleDrop = (e: React.DragEvent, toColumnId: string) => {
+    e.preventDefault();
+    setDropColumnId(null);
+    if (!draggedCard) return;
+    const { id, from } = draggedCard;
+    setDraggedCard(null);
+    void moveCardTo(id, from, toColumnId);
+  };
 
-            <FormRow cols={2}>
-              {/* Responsável — projeto, financeiro e atividade */}
-              {(activeBoard?.board_type === 'projeto' || activeBoard?.board_type === 'financeiro' || activeBoard?.board_type === 'atividade') && (
-                <Input
-                  label="Responsável"
-                  placeholder="Quem vai executar/acompanhar..."
-                  value={newCardAssignee}
-                  onChange={(e) => setNewCardAssignee(e.target.value)}
-                />
-              )}
+  const cardMenu = (card: BoardCardData, col: ColumnData): ActionMenuItem[] => [
+    { key: 'open', label: 'Abrir', icon: ExternalLink, onClick: () => openCard(card) },
+    { key: 'h', label: 'Mover para…', heading: true, onClick: () => undefined },
+    ...(activeBoard?.columns || []).map(c => ({
+      key: `mv-${c.id}`, label: c.title, icon: ArrowRight, disabled: c.id === col.id, onClick: () => moveCardTo(card.id, col.id, c.id),
+    })),
+    { key: 'del', label: 'Excluir', icon: Trash2, danger: true, separated: true, onClick: () => deleteCard(card) },
+  ];
 
-              {/* Valor — só financeiro */}
-              {activeBoard?.board_type === 'financeiro' && (
-                <Input
-                  label="Valor (R$)"
-                  type="number"
-                  placeholder="0,00"
-                  value={newCardAmount}
-                  onChange={(e) => setNewCardAmount(e.target.value)}
-                />
-              )}
+  const columnMenu = (col: ColumnData, index: number, total: number): ActionMenuItem[] => [
+    { key: 'edit', label: 'Editar coluna', icon: Pencil, onClick: () => setColumnModal({ id: col.id, title: col.title, color: col.color }) },
+    { key: 'collapse', label: 'Recolher coluna', icon: ChevronsLeftRight, onClick: () => toggleCollapsed(col.id) },
+    { key: 'left', label: 'Mover para a esquerda', icon: ArrowLeft, disabled: index === 0, onClick: () => moveColumn(col.id, -1) },
+    { key: 'right', label: 'Mover para a direita', icon: ArrowRight, disabled: index === total - 1, onClick: () => moveColumn(col.id, 1) },
+    { key: 'del', label: 'Excluir coluna', icon: Trash2, danger: true, separated: true, onClick: () => deleteColumn(col) },
+  ];
 
-              {/* Prioridade + Data de entrega — comum a todos */}
-              <Select
-                label="Prioridade"
-                value={newCardDetails.priority}
-                onChange={(e) => setNewCardDetails(prev => ({ ...prev, priority: e.target.value }))}
-              >
-                <option value="">Selecione...</option>
-                <option value="Baixa">Baixa</option>
-                <option value="Media">Média</option>
-                <option value="Alta">Alta</option>
-                <option value="Urgente">Urgente</option>
-              </Select>
-              <Input
-                label="Data de entrega"
-                type="date"
-                value={newCardDueDate}
-                onChange={(e) => setNewCardDueDate(e.target.value)}
-              />
-            </FormRow>
+  // --- Filters ---
+  const allCards = useMemo(() => (activeBoard ? activeBoard.columns.flatMap(c => c.cards.map(card => ({ card, col: c }))) : []), [activeBoard]);
 
-            {/* Descrição */}
-            <Textarea
-              label={`Descrição${isClinicalBoard ? ' *' : ' (opcional)'}`}
-              rows={3}
-              placeholder={isClinicalBoard ? 'Resumo do caso, queixa principal, contexto...' : 'Detalhes adicionais...'}
-              value={newCardDesc}
-              onChange={(e) => setNewCardDesc(e.target.value)}
-            />
+  const filterOptions = useMemo(() => {
+    const assignees = new Set<string>();
+    const tags = new Set<string>();
+    const colors = new Set<string>();
+    const patients = new Map<string, string>();
+    allCards.forEach(({ card }) => {
+      if (card.assignee) assignees.add(card.assignee);
+      card.tags.forEach(tg => tags.add(tg));
+      if (card.color) colors.add(resolveColor(card.color));
+      if (card.patientId) patients.set(card.patientId, card.patientName);
+    });
+    return {
+      assignees: [...assignees].sort(),
+      tags: [...tags].sort(),
+      colors: [...colors],
+      patients: [...patients.entries()].sort((a, b) => a[1].localeCompare(b[1])),
+    };
+  }, [allCards]);
 
-            {/* Tags */}
-            <Input
-              label="Tags"
-              placeholder="TCC, Ansiedade, Luto... (separados por vírgula)"
-              value={newCardTags}
-              onChange={(e) => setNewCardTags(e.target.value)}
-            />
-          </div>
-        )}
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-        {/* Campos clínicos — só quadro do tipo Clínico */}
-        {isClinicalBoard && cardTab === 'clinico' && (
-          <div className="space-y-3">
-            <Select
-              label="Risco / Alerta"
-              value={newCardDetails.risk_level}
-              onChange={(e) => setNewCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
-            >
-              <option value="">Selecione...</option>
-              <option value="Baixo">Baixo</option>
-              <option value="Moderado">Moderado</option>
-              <option value="Alto">Alto</option>
-            </Select>
+  const matches = (card: BoardCardData, col: ColumnData) => {
+    if (cardSearch.trim()) {
+      const q = cardSearch.trim().toLowerCase();
+      const hay = [card.title, card.patientName, card.description, card.assignee || '', ...card.tags, ...Object.values(card.details).map(v => String(v ?? ''))].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (filters.assignee && card.assignee !== filters.assignee) return false;
+    if (filters.tag && !card.tags.includes(filters.tag)) return false;
+    if (filters.patient && card.patientId !== filters.patient) return false;
+    if (filters.color === 'none' && card.color) return false;
+    if (filters.color && filters.color !== 'none' && resolveColor(card.color, '') !== filters.color) return false;
+    if (filters.due === 'none' && card.due_date) return false;
+    if (filters.due === 'overdue' && !isCardOverdue(card, def, col.title)) return false;
+    if (filters.due === 'week') {
+      if (!card.due_date) return false;
+      const limit = new Date(); limit.setDate(limit.getDate() + 7);
+      const limitIso = `${limit.getFullYear()}-${String(limit.getMonth() + 1).padStart(2, '0')}-${String(limit.getDate()).padStart(2, '0')}`;
+      if (card.due_date < todayIso() || card.due_date > limitIso) return false;
+    }
+    return true;
+  };
 
-            <Textarea
-              label="Histórico Clínico"
-              rows={2}
-              placeholder="Diagnósticos anteriores, histórico familiar..."
-              value={newCardDetails.history}
-              onChange={(e) => setNewCardDetails(prev => ({ ...prev, history: e.target.value }))}
-            />
+  const filtersLabels: { key: keyof Filters; text: string }[] = [
+    filters.assignee && { key: 'assignee' as const, text: `Responsável: ${filters.assignee}` },
+    filters.tag && { key: 'tag' as const, text: `Etiqueta: ${filters.tag}` },
+    filters.patient && { key: 'patient' as const, text: `Paciente: ${filterOptions.patients.find(p => p[0] === filters.patient)?.[1] || ''}` },
+    filters.color && { key: 'color' as const, text: filters.color === 'none' ? 'Sem cor' : `Cor: ${colorName(filters.color)}` },
+    filters.due && { key: 'due' as const, text: { overdue: 'Atrasados', week: 'Próximos 7 dias', none: 'Sem prazo' }[filters.due] || '' },
+  ].filter(Boolean) as { key: keyof Filters; text: string }[];
 
-            <FormRow cols={2}>
-              <Textarea
-                label="Hipóteses"
-                rows={2}
-                placeholder="Hipóteses diagnósticas..."
-                value={newCardDetails.hypothesis}
-                onChange={(e) => setNewCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))}
-              />
-              <Textarea
-                label="Objetivos Terapêuticos"
-                rows={2}
-                placeholder="Metas e objetivos..."
-                value={newCardDetails.objectives}
-                onChange={(e) => setNewCardDetails(prev => ({ ...prev, objectives: e.target.value }))}
-              />
-            </FormRow>
-          </div>
-        )}
-    </>
-  );
+  // --- Derived: boards list ---
+  const visibleBoards = useMemo(() => {
+    const q = boardSearch.trim().toLowerCase();
+    return boards
+      .filter(b => (boardsTab === 'arquivados' ? b.archived : !b.archived))
+      .filter(b => !q || b.title.toLowerCase().includes(q) || (b.description || '').toLowerCase().includes(q));
+  }, [boards, boardSearch, boardsTab]);
 
+  const stats = useMemo(() => {
+    const active = boards.filter(b => !b.archived);
+    return {
+      boards: active.length,
+      cards: active.reduce((s, b) => s + b.cardCount, 0),
+      archived: boards.length - active.length,
+    };
+  }, [boards]);
+
+  // --- Quick actions (cartão aberto) ---
+  const quickActions = (card: BoardCardData) => {
+    const pid = draft.patientId;
+    const actions: { key: string; label: string; icon: React.ElementType; run: () => void }[] = [];
+    if (pid && hasPermission('view_patients')) {
+      actions.push({ key: 'patient', label: 'Abrir paciente', icon: User, run: () => navigate(`/pacientes/${pid}`) });
+    }
+    if (pid && def.links.includes('record') && hasPermission('view_medical_records')) {
+      actions.push({ key: 'prontuario', label: 'Abrir prontuário', icon: FileText, run: () => navigate(`/prontuario?patient_id=${pid}`) });
+    }
+    if (pid && def.actions.includes('record') && hasPermission('create_medical_record')) {
+      actions.push({ key: 'evolucao', label: 'Nova evolução', icon: Stethoscope, run: () => navigate(`/prontuario?patient_id=${pid}&new_session=1`) });
+    }
+    if (def.actions.includes('appointment') && hasPermission('create_appointment')) {
+      const when = String(draft.details.next_session || draft.details.event_at || draft.due_date || '').slice(0, 10) || todayIso();
+      const params = new URLSearchParams({ newAppointment: '1', date: `${when}T12:00:00` });
+      if (pid) params.set('patientId', pid);
+      actions.push({ key: 'agendar', label: 'Criar agendamento', icon: CalendarPlus, run: () => navigate(`/agenda?${params.toString()}`) });
+    }
+    if (def.actions.includes('comanda') && hasPermission('view_all_comandas')) {
+      actions.push({ key: 'comanda', label: 'Abrir comandas', icon: Receipt, run: () => navigate('/comandas') });
+    }
+    void card;
+    return actions;
+  };
+
+  // --- Render helpers ---
+  const BoardGlyph: React.FC<{ board: BoardData; size?: number }> = ({ board, size = 36 }) => {
+    const Icon = iconForBoard(board.icon, board.board_type);
+    return (
+      <span className="flex shrink-0 items-center justify-center rounded-lg text-white" style={{ width: size, height: size, backgroundColor: resolveColor(board.color, getTypeDef(board.board_type).color) }}>
+        <Icon size={Math.round(size * 0.45)} />
+      </span>
+    );
+  };
+
+  const columnTotal = (col: ColumnData, cards: BoardCardData[]) => {
+    if (def.total === 'money') {
+      const sum = cards.reduce((s, c) => s + (c.amount || 0), 0);
+      return cards.some(c => c.amount) ? formatMoney(sum) : '';
+    }
+    if (def.total === 'hours') {
+      const minutes = cards.reduce((s, c) => s + (Number(c.details.duration) || 0), 0);
+      return minutes > 0 ? formatHours(minutes) : '';
+    }
+    void col;
+    return '';
+  };
+
+  const filtersActive = activeFilterCount > 0 || !!cardSearch.trim();
+
+  // ─────────────────────────────── JSX ───────────────────────────────
   return (
     <PageWrapper>
       <div className="space-y-4">
-
-      {!activeBoardId ? (
-        <SectionTitle
-          icon={BookOpen}
-          title={t('cases.boards')}
-          description={`${boardStats.boardCount} quadros · ${boardStats.columnCount} colunas · ${boardStats.cardCount} casos`}
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>
-                Voltar
-              </Button>
-              <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => setIsBoardModalOpen(true)}>
-                {t('cases.newBoard')}
-              </Button>
-            </div>
-          }
-        />
-      ) : (
-        <SectionTitle
-          icon={BookOpen}
-          title={activeBoard?.title || ''}
-          description={activeBoard?.description || undefined}
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => setActiveBoardId(null)}>
-                Quadros
-              </Button>
-              <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={handleAddColumn}>
-                {t('cases.addColumn')}
-              </Button>
-            </div>
-          }
-        />
-      )}
-
-      {!activeBoardId ? (
-          <div className="space-y-4">
-              <StatGrid cols={3}>
-                  <StatCard title="Quadros" value={boardStats.boardCount} icon={Layout} color="default" />
-                  <StatCard title="Colunas" value={boardStats.columnCount} icon={BookOpen} color="info" />
-                  <StatCard title="Casos" value={boardStats.cardCount} icon={FileText} color="success" />
-              </StatGrid>
-
-              <FilterLine>
-                  <FilterLineSection grow>
-                      <FilterLineItem grow minWidth={200}>
-                          <FilterLineSearch
-                            value={boardSearch}
-                            onChange={setBoardSearch}
-                            placeholder="Buscar quadro por nome ou descrição"
-                            aria-label="Buscar quadro"
-                          />
-                      </FilterLineItem>
-                  </FilterLineSection>
-                  <FilterLineSection>
-                      <FilterLineItem>
-                          <FilterLineViewToggle
-                            value={currentView}
-                            onChange={(v) => {
-                                const mode = v as 'grid' | 'list';
-                                setCurrentView(mode);
-                                updatePreference('caseStudies', { viewMode: mode });
-                            }}
-                            gridValue="grid"
-                            listValue="list"
-                          />
-                      </FilterLineItem>
-                  </FilterLineSection>
-              </FilterLine>
-
-              {isLoading ? (
-                  <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
-                      <Loader2 size={18} className="animate-spin" />Carregando…
-                  </div>
-              ) : currentView === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                      {filteredBoards.map(board => (
-                          <div
-                            key={board.id}
-                            onClick={() => setActiveBoardId(board.id)}
-                            className="group bg-white rounded-lg border border-slate-200 hover:border-primary-200 transition-colors cursor-pointer relative overflow-hidden"
-                          >
-                              <div className="p-3 lg:p-4">
-                                  <div className="flex justify-between items-start mb-3">
-                                      <div className="w-9 h-9 rounded-lg bg-primary-50 text-primary-700 border border-primary-100 flex items-center justify-center font-medium text-sm">
-                                          {board.title.charAt(0).toUpperCase()}
-                                      </div>
-                                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                          <IconButton variant="ghost" size="xs" aria-label="Editar quadro" title="Editar" onClick={(e) => openEditBoard(e, board)}>
-                                            <Pencil size={14} />
-                                          </IconButton>
-                                          <IconButton variant="danger" size="xs" aria-label="Excluir quadro" title="Excluir" onClick={(e) => handleDeleteBoard(e, board.id)}>
-                                            <Trash2 size={14} />
-                                          </IconButton>
-                                      </div>
-
-                                  </div>
-                                  <h3 className="text-sm font-medium text-slate-800 mb-1 group-hover:text-primary-700 transition-colors truncate">{board.title}</h3>
-                                  <p className="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[2rem]">{board.description || 'Sem descrição'}</p>
-
-                                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 pt-3 border-t border-slate-100">
-                                      <div className="flex items-center gap-3">
-                                          <span className="flex items-center gap-1"><Layout size={12} /> {getBoardColumnCount(board)} col.</span>
-                                          <span className="flex items-center gap-1"><FileText size={12} /> {getBoardCardCount(board)} casos</span>
-                                      </div>
-                                      <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
-                                  </div>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              ) : (
-                  <ContentCard padding="none" className="overflow-hidden">
-                  <GridTable<CaseBoard>
-                    data={filteredBoards}
-                    keyExtractor={(b) => b.id}
-                    onRowClick={(b) => setActiveBoardId(b.id)}
-                    emptyMessage="Nenhum quadro encontrado"
-                    columns={[
-                      {
-                        header: 'Quadro',
-                        render: (board) => (
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary-700 border border-primary-100 flex items-center justify-center font-medium text-xs shrink-0">
-                              {board.title.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-medium text-slate-800 truncate">{board.title}</div>
-                              {board.description && <div className="text-[11px] text-slate-500 truncate max-w-[200px]">{board.description}</div>}
-                            </div>
-                          </div>
-                        ),
-                      },
-                      {
-                        header: 'Colunas',
-                        className: 'hidden sm:table-cell',
-                        headerClassName: 'hidden sm:table-cell',
-                        render: (board) => (
-                          <span className="flex items-center gap-1 text-xs text-slate-600"><Layout size={12} /> {getBoardColumnCount(board)}</span>
-                        ),
-                      },
-                      {
-                        header: 'Casos',
-                        className: 'hidden sm:table-cell',
-                        headerClassName: 'hidden sm:table-cell',
-                        render: (board) => (
-                          <span className="flex items-center gap-1 text-xs text-slate-600"><FileText size={12} /> {getBoardCardCount(board)}</span>
-                        ),
-                      },
-                      {
-                        header: 'Criado em',
-                        className: 'hidden md:table-cell',
-                        headerClassName: 'hidden md:table-cell',
-                        render: (board) => (
-                          <span className="text-xs text-slate-600 whitespace-nowrap">{new Date(board.createdAt).toLocaleDateString('pt-BR')}</span>
-                        ),
-                      },
-                      {
-                        header: '',
-                        className: 'text-right',
-                        render: (board) => (
-                          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                            <IconButton variant="ghost" size="xs" aria-label="Editar quadro" title="Editar" onClick={(e) => openEditBoard(e, board)}>
-                              <Pencil size={14} />
-                            </IconButton>
-                            <IconButton variant="danger" size="xs" aria-label="Excluir quadro" title="Excluir" onClick={(e) => handleDeleteBoard(e, board.id)}>
-                              <Trash2 size={14} />
-                            </IconButton>
-                          </div>
-                        ),
-                      },
-                    ]}
-                  />
-                  </ContentCard>
-              )}
-
-              {!isLoading && filteredBoards.length === 0 && (
-                  <ContentCard>
-                      <EmptyState icon={Layout} title="Nenhum quadro encontrado" description="Crie um novo quadro ou ajuste a busca." />
-                  </ContentCard>
-              )}
-          </div>
-      ) : (
-          <div className="space-y-3">
-              <FilterLine>
-                  <FilterLineSection grow>
-                      <FilterLineItem grow minWidth={200}>
-                          <FilterLineSearch
-                            value={cardSearch}
-                            onChange={setCardSearch}
-                            placeholder="Buscar caso ou tag..."
-                            aria-label="Buscar caso ou tag"
-                          />
-                      </FilterLineItem>
-                  </FilterLineSection>
-                  {history.length > 0 && (
-                      <FilterLineSection align="right">
-                          <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-[11px] text-slate-500">
-                              <History size={12} />
-                              <span className="font-medium">{history[0].time}:</span>
-                              <span className="truncate max-w-[200px]">{history[0].msg}</span>
-                          </div>
-                      </FilterLineSection>
-                  )}
-              </FilterLine>
-
-          <div className="overflow-x-auto">
-              <div className="flex gap-3 min-w-max pb-3" style={{ minHeight: 'calc(100vh - 260px)' }}>
-                  {boardLoading ? (
-                      <div role="status" className="flex items-center justify-center gap-2 text-slate-500 text-sm py-10 w-64">
-                          <Loader2 size={18} className="animate-spin" />Carregando…
-                      </div>
-                  ) : activeBoard?.columns.map(col => {
-                      const filtered = col.cards.filter(card => {
-                          if (!cardSearch.trim()) return true;
-                          const q = cardSearch.toLowerCase();
-                          return card.patientName.toLowerCase().includes(q)
-                              || card.description.toLowerCase().includes(q)
-                              || card.tags.some(tag => tag.toLowerCase().includes(q));
-                      });
-                      return (
-                          <div
-                            key={col.id}
-                            className="w-[268px] flex-shrink-0 flex flex-col bg-slate-50/80 rounded-lg border border-slate-200 max-h-full"
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, col.id)}
-                          >
-                              {/* Header da coluna */}
-                              <div className="px-3 py-2.5 flex items-center justify-between shrink-0 group/col-header border-b border-slate-200/70">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                      <div className={`w-2 h-2 rounded-full shrink-0 ${col.color}`} />
-                                      <span className="text-xs font-medium text-slate-600 truncate">{col.title}</span>
-                                      <span className="text-[11px] text-slate-500 shrink-0">{col.cards.length}</span>
-                                  </div>
-                                  <div className="relative shrink-0">
-                                      <IconButton
-                                        variant="ghost"
-                                        size="xs"
-                                        aria-label="Opções da coluna"
-                                        onClick={() => setOpenColumnMenuId(openColumnMenuId === col.id ? null : col.id)}
-                                      >
-                                          <MoreHorizontal size={14} />
-                                      </IconButton>
-                                      {openColumnMenuId === col.id && (
-                                          <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-sm border border-slate-200 p-1 z-20 w-32">
-                                              <button type="button" onClick={() => openEditColumn(col)} className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 rounded-md flex items-center gap-2">
-                                                  <FileText size={14} /> Editar
-                                              </button>
-                                              <button type="button" onClick={() => deleteColumn(col.id)} className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-md flex items-center gap-2">
-                                                  <Trash2 size={14} /> Excluir
-                                              </button>
-                                          </div>
-                                      )}
-                                  </div>
-                              </div>
-
-                              {/* Cards */}
-                              <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                                  {filtered.map(card => (
-                                      <div
-                                        key={card.id}
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, card, col.id)}
-                                        onClick={() => openCardDetail({ ...card, columnId: col.id })}
-                                        className="bg-white p-3 rounded-lg border border-slate-200 cursor-pointer hover:border-primary-200 transition-colors group/card"
-                                      >
-                                          {(card.tags.length > 0 || card.details?.priority || card.details?.risk_level) && (
-                                              <div className="flex flex-wrap gap-1 mb-2">
-                                                  {card.tags.map(tag => (
-                                                      <Badge key={tag} color="default" size="sm">{tag}</Badge>
-                                                  ))}
-                                                  {card.details?.priority && (
-                                                      <Badge color="primary" size="sm">{card.details.priority}</Badge>
-                                                  )}
-                                                  {card.details?.risk_level && (
-                                                      <Badge color="danger" size="sm">{card.details.risk_level}</Badge>
-                                                  )}
-                                              </div>
-                                          )}
-                                          <p className="font-medium text-slate-800 text-xs leading-snug mb-1 group-hover/card:text-primary-700 transition-colors">
-                                              {card.patientName}
-                                          </p>
-                                          {card.description && (
-                                              <p className="text-[11px] text-slate-500 line-clamp-2 mb-2">{card.description}</p>
-                                          )}
-                                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-1">
-                                              <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                                                  {card.attachments.length > 0 && (
-                                                      <span className="flex items-center gap-1"><Paperclip size={12} /> {card.attachments.length}</span>
-                                                  )}
-                                                  {card.comments.length > 0 && (
-                                                      <span className="flex items-center gap-1"><MessageSquare size={12} /> {card.comments.length}</span>
-                                                  )}
-                                              </div>
-                                              <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[11px] font-medium">
-                                                  {card.patientName.charAt(0).toUpperCase()}
-                                              </div>
-                                          </div>
-                                      </div>
-                                  ))}
-                                  {col.cards.length === 0 && (
-                                      <p className="text-center text-[11px] text-slate-500 py-8">Sem casos</p>
-                                  )}
-                                  {col.cards.length > 0 && cardSearch.trim() && filtered.length === 0 && (
-                                      <p className="text-center text-[11px] text-slate-500 py-8">Sem resultados</p>
-                                  )}
-                              </div>
-
-                              {/* Botão adicionar */}
-                              <div className="p-2 shrink-0">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    fullWidth
-                                    iconLeft={<Plus size={14} />}
-                                    onClick={() => { setTargetColumnId(col.id); setCardTab('geral'); setIsCardModalOpen(true); }}
-                                  >
-                                      {t('cases.newCard')}
-                                  </Button>
-                              </div>
-                          </div>
-                      );
-                  })}
+        {!activeBoardId ? (
+          <SectionTitle
+            icon={BookOpen}
+            title={t('cases.boards')}
+            description={`${stats.boards} quadros · ${stats.cards} cartões${stats.archived ? ` · ${stats.archived} arquivados` : ''}`}
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate('/caixa-ferramentas')}>Voltar</Button>
+                <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={openNewBoard}>{t('cases.newBoard')}</Button>
               </div>
-          </div>
-          </div>
-      )}
-
-      </div>
-
-      {/* --- MODAL: NEW BOARD --- */}
-      <Modal
-        isOpen={isBoardModalOpen}
-        onClose={closeBoardModal}
-        title={editingBoardId ? 'Editar Quadro' : 'Novo Quadro'}
-        size="md"
-        footer={
-          <ModalFooter align="between">
-            <Button variant="ghost" size="sm" onClick={closeBoardModal}>Cancelar</Button>
-            <Button variant="primary" size="sm" onClick={handleAddBoard}>{editingBoardId ? 'Salvar Alterações' : 'Criar Quadro'}</Button>
-          </ModalFooter>
-        }
-      >
-        <div className="space-y-3">
-          <Input
-            label="Nome do Quadro"
-            required
-            error={newBoardTitleError}
-            value={newBoardTitle}
-            onChange={(e) => { setNewBoardTitle(e.target.value); if (newBoardTitleError) setNewBoardTitleError(''); }}
-            placeholder="Ex: Acompanhamento Clínico, Projetos da Clínica..."
+            }
           />
-          {!editingBoardId && (
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Tipo de Quadro</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {([
-                  { value: 'geral',      label: 'Geral',       icon: ClipboardList, desc: 'A Fazer · Em Progresso · Concluído' },
-                  { value: 'clinico',    label: 'Clínico',     icon: Brain,         desc: 'Avaliação · Acompanhamento · Alta' },
-                  { value: 'projeto',    label: 'Projeto',     icon: Rocket,        desc: 'Backlog · Andamento · Revisão · Entregue' },
-                  { value: 'financeiro', label: 'Financeiro',  icon: Wallet,        desc: 'A Receber · Recebido · A Pagar · Pago' },
-                  { value: 'atividade',  label: 'Atividade',   icon: Zap,           desc: 'Planejado · Execução · Finalizado' },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setNewBoardType(opt.value)}
-                    aria-pressed={newBoardType === opt.value}
-                    className={`p-3 rounded-lg border text-left transition-colors ${newBoardType === opt.value ? 'border-primary-400 bg-primary-50' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
+        ) : (
+          <SectionTitle
+            icon={activeBoard ? iconForBoard(activeBoard.icon, activeBoard.board_type) : BookOpen}
+            title={activeBoard?.title || ''}
+            description={activeBoard ? `${def.label}${activeBoard.description ? ` · ${activeBoard.description}` : ''}` : undefined}
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={backToBoards}>Quadros</Button>
+                <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={() => setColumnModal({ id: null, title: '', color: '#94a3b8' })}>{t('cases.addColumn')}</Button>
+                {activeBoard && <ActionMenu size="sm" label="Ações do quadro" items={boardMenu(activeBoard)} />}
+              </div>
+            }
+          />
+        )}
+
+        {!activeBoardId ? (
+          <div className="space-y-4">
+            <StatGrid cols={3}>
+              <StatCard title="Quadros ativos" value={stats.boards} icon={Layout} color="default" />
+              <StatCard title="Cartões" value={stats.cards} icon={FileText} color="success" />
+              <StatCard title="Arquivados" value={stats.archived} icon={Archive} color="info" />
+            </StatGrid>
+
+            <Tabs<typeof BOARDS_TABS[number]['id']> items={BOARDS_TABS} value={boardsTab} onChange={setBoardsTab} label="Situação dos quadros" />
+
+            <FilterLine>
+              <FilterLineSection grow>
+                <FilterLineItem grow minWidth={200}>
+                  <FilterLineSearch value={boardSearch} onChange={setBoardSearch} placeholder="Buscar quadro por nome ou descrição" aria-label="Buscar quadro" />
+                </FilterLineItem>
+              </FilterLineSection>
+              <FilterLineSection>
+                <FilterLineItem>
+                  <FilterLineViewToggle
+                    value={listView}
+                    onChange={(v) => { const mode = v as 'grid' | 'list'; setListView(mode); updatePreference('caseStudies', { viewMode: mode }); }}
+                    gridValue="grid"
+                    listValue="list"
+                  />
+                </FilterLineItem>
+              </FilterLineSection>
+            </FilterLine>
+
+            {isLoading ? (
+              <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500"><Loader2 size={18} className="animate-spin" />Carregando…</div>
+            ) : visibleBoards.length === 0 ? (
+              <ContentCard>
+                <EmptyState
+                  icon={Layout}
+                  title={boards.length === 0 ? 'Nenhum quadro ainda' : boardsTab === 'arquivados' ? 'Nenhum quadro arquivado' : 'Nenhum quadro encontrado'}
+                  description={boards.length === 0 ? 'Crie o primeiro quadro a partir de um modelo: clínico, projeto, financeiro, funil de pacientes e mais.' : 'Ajuste a busca ou crie um novo quadro.'}
+                  action={<Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={openNewBoard}>{t('cases.newBoard')}</Button>}
+                />
+              </ContentCard>
+            ) : listView === 'grid' ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {visibleBoards.map(board => {
+                  const bDef = getTypeDef(board.board_type);
+                  const bColor = resolveColor(board.color, bDef.color);
+                  return (
+                    <div
+                      key={board.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setActiveBoardId(board.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') setActiveBoardId(board.id); }}
+                      aria-label={`Abrir quadro ${board.title}`}
+                      className="group cursor-pointer rounded-lg border border-slate-200 bg-white p-3 transition-colors hover:border-primary-300 focus-visible:outline-primary-500 lg:p-4"
+                      style={{ borderTopColor: bColor, borderTopWidth: 3, backgroundColor: board.archived ? undefined : tint(bColor, 0.04) }}
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <BoardGlyph board={board} />
+                        <ActionMenu label={`Ações do quadro ${board.title}`} items={boardMenu(board)} />
+                      </div>
+                      <h3 className="mb-1 truncate text-sm font-medium text-slate-800 group-hover:text-primary-700">{board.title}</h3>
+                      <p className="mb-3 line-clamp-2 min-h-[2rem] text-xs text-slate-500">{board.description || bDef.description}</p>
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+                        <Badge color="default" size="sm">{bDef.short}</Badge>
+                        <div className="flex items-center gap-3">
+                          <span>{board.columnCount} colunas</span>
+                          <span>{board.cardCount} {board.cardCount === 1 ? bDef.cardNoun : bDef.cardNounPlural}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <ContentCard padding="none" className="overflow-hidden">
+                <GridTable<BoardData>
+                  data={visibleBoards}
+                  keyExtractor={(b) => b.id}
+                  onRowClick={(b) => setActiveBoardId(b.id)}
+                  emptyMessage="Nenhum quadro encontrado"
+                  columns={[
+                    {
+                      header: 'Quadro',
+                      render: (board) => (
+                        <div className="flex items-center gap-3">
+                          <BoardGlyph board={board} size={32} />
+                          <div className="min-w-0">
+                            <div className="truncate text-xs font-medium text-slate-800">{board.title}</div>
+                            {board.description && <div className="truncate text-[11px] text-slate-500 sm:max-w-[260px]">{board.description}</div>}
+                          </div>
+                        </div>
+                      ),
+                    },
+                    { header: 'Modelo', className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell', render: (board) => <Badge color="default" size="sm">{getTypeDef(board.board_type).short}</Badge> },
+                    { header: 'Colunas', className: 'hidden md:table-cell', headerClassName: 'hidden md:table-cell', render: (board) => <span className="text-xs text-slate-600">{board.columnCount}</span> },
+                    { header: 'Cartões', className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell', render: (board) => <span className="text-xs text-slate-600">{board.cardCount}</span> },
+                    { header: 'Criado em', className: 'hidden md:table-cell', headerClassName: 'hidden md:table-cell', render: (board) => <span className="whitespace-nowrap text-xs text-slate-600">{new Date(board.createdAt).toLocaleDateString('pt-BR')}</span> },
+                    { header: '', className: 'text-right', render: (board) => <div className="flex justify-end"><ActionMenu label={`Ações do quadro ${board.title}`} items={boardMenu(board)} /></div> },
+                  ]}
+                />
+              </ContentCard>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <Tabs<typeof BOARD_VIEW_TABS[number]['id']> items={BOARD_VIEW_TABS} value={boardView} onChange={setBoardView} label="Visão do quadro" />
+
+            <FilterLine>
+              <FilterLineSection grow>
+                <FilterLineItem grow minWidth={200}>
+                  <FilterLineSearch value={cardSearch} onChange={setCardSearch} placeholder={`Buscar ${def.cardNoun}, paciente ou etiqueta...`} aria-label="Buscar cartões" />
+                </FilterLineItem>
+                <FilterLineItem>
+                  <FilterPopover
+                    activeCount={activeFilterCount}
+                    onOpen={() => setDraftFilters(filters)}
+                    onApply={() => setFilters(draftFilters)}
+                    onClear={() => { setFilters(FILTERS_EMPTY); setDraftFilters(FILTERS_EMPTY); }}
                   >
-                    <opt.icon size={16} className={`mb-1 ${newBoardType === opt.value ? 'text-primary-600' : 'text-slate-500'}`} />
-                    <div className={`text-xs font-medium ${newBoardType === opt.value ? 'text-primary-700' : 'text-slate-700'}`}>{opt.label}</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 leading-tight">{opt.desc}</div>
+                    <div className="space-y-3">
+                      <Select label="Responsável" value={draftFilters.assignee} onChange={(e) => setDraftFilters(p => ({ ...p, assignee: e.target.value }))}>
+                        <option value="">Todos</option>
+                        {filterOptions.assignees.map(a => <option key={a} value={a}>{a}</option>)}
+                      </Select>
+                      <Select label="Paciente" value={draftFilters.patient} onChange={(e) => setDraftFilters(p => ({ ...p, patient: e.target.value }))}>
+                        <option value="">Todos</option>
+                        {filterOptions.patients.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                      </Select>
+                      <Select label="Etiqueta" value={draftFilters.tag} onChange={(e) => setDraftFilters(p => ({ ...p, tag: e.target.value }))}>
+                        <option value="">Todas</option>
+                        {filterOptions.tags.map(tg => <option key={tg} value={tg}>{tg}</option>)}
+                      </Select>
+                      <Select label="Cor do cartão" value={draftFilters.color} onChange={(e) => setDraftFilters(p => ({ ...p, color: e.target.value }))}>
+                        <option value="">Todas</option>
+                        <option value="none">Sem cor</option>
+                        {filterOptions.colors.map(c => <option key={c} value={c}>{colorName(c)}</option>)}
+                      </Select>
+                      <Select label="Prazo" value={draftFilters.due} onChange={(e) => setDraftFilters(p => ({ ...p, due: e.target.value }))}>
+                        <option value="">Qualquer</option>
+                        <option value="overdue">Atrasados</option>
+                        <option value="week">Próximos 7 dias</option>
+                        <option value="none">Sem prazo</option>
+                      </Select>
+                    </div>
+                  </FilterPopover>
+                </FilterLineItem>
+              </FilterLineSection>
+            </FilterLine>
+
+            {filtersLabels.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {filtersLabels.map(f => (
+                  <button key={f.key} type="button" onClick={() => setFilters(p => ({ ...p, [f.key]: '' }))} aria-label={`Remover filtro ${f.text}`} className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] text-primary-700 hover:bg-primary-100">
+                    {f.text} <span aria-hidden="true">×</span>
                   </button>
                 ))}
+                <Button type="button" variant="ghost" size="xs" onClick={() => setFilters(FILTERS_EMPTY)}>Limpar filtros</Button>
               </div>
-            </div>
-          )}
-          <Textarea
-            label="Descrição (opcional)"
-            rows={2}
-            value={newBoardDesc}
-            onChange={(e) => setNewBoardDesc(e.target.value)}
-            placeholder="Objetivo e foco do quadro..."
-          />
-        </div>
-      </Modal>
+            )}
 
-      {/* --- MODAL: NEW CARD --- */}
+            {boardLoading || !activeBoard ? (
+              <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500"><Loader2 size={18} className="animate-spin" />Carregando…</div>
+            ) : activeBoard.columns.length === 0 ? (
+              <ContentCard>
+                <EmptyState icon={Layout} title="Este quadro não tem colunas" description="Crie a primeira coluna para começar a organizar os cartões." action={<Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => setColumnModal({ id: null, title: '', color: '#94a3b8' })}>{t('cases.addColumn')}</Button>} />
+              </ContentCard>
+            ) : boardView === 'quadro' ? (
+              <div className="-mx-1 overflow-x-auto px-1">
+                <div className="flex min-w-max items-start gap-3 pb-3" style={{ minHeight: 'calc(100vh - 320px)' }}>
+                  {activeBoard.columns.map((col, index) => {
+                    const cards = col.cards.filter(c => matches(c, col));
+                    const total = columnTotal(col, cards);
+                    const isCollapsed = collapsed.has(col.id);
+                    if (isCollapsed) {
+                      return (
+                        <button
+                          key={col.id}
+                          type="button"
+                          onClick={() => toggleCollapsed(col.id)}
+                          aria-label={`Expandir coluna ${col.title} (${cards.length})`}
+                          onDragOver={(e) => { e.preventDefault(); }}
+                          onDrop={(e) => handleDrop(e, col.id)}
+                          className="flex w-11 shrink-0 flex-col items-center gap-2 self-stretch rounded-lg border border-slate-200 bg-slate-50 py-3 text-slate-600 hover:border-slate-300"
+                          style={{ borderTopColor: col.color, borderTopWidth: 3 }}
+                        >
+                          <span className="rounded-full bg-white px-1.5 py-0.5 text-[11px] font-medium">{cards.length}</span>
+                          <span className="text-xs font-medium" style={{ writingMode: 'vertical-rl' }}>{col.title}</span>
+                        </button>
+                      );
+                    }
+                    return (
+                      <section
+                        key={col.id}
+                        aria-label={`Coluna ${col.title}`}
+                        className={`flex w-[284px] shrink-0 flex-col rounded-lg border bg-slate-50/80 ${dropColumnId === col.id ? 'border-primary-400 ring-2 ring-primary-200' : 'border-slate-200'}`}
+                        style={{ borderTopColor: col.color, borderTopWidth: 3 }}
+                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dropColumnId !== col.id) setDropColumnId(col.id); }}
+                        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropColumnId(null); }}
+                        onDrop={(e) => handleDrop(e, col.id)}
+                      >
+                        <header className="flex items-center justify-between gap-2 border-b border-slate-200/70 px-3 py-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-xs font-medium text-slate-700">{col.title}</span>
+                              <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[11px] text-slate-600">{cards.length}{filtersActive && cards.length !== col.cards.length ? `/${col.cards.length}` : ''}</span>
+                            </div>
+                            {total && <div className="text-[11px] text-slate-500">{total}</div>}
+                          </div>
+                          <ActionMenu label={`Opções da coluna ${col.title}`} items={columnMenu(col, index, activeBoard.columns.length)} />
+                        </header>
+
+                        <div className="max-h-[calc(100vh-340px)] min-h-[72px] space-y-2 overflow-y-auto p-2 custom-scrollbar">
+                          {cards.map(card => (
+                            <BoardCardView
+                              key={card.id}
+                              card={card}
+                              def={def}
+                              columnTitle={col.title}
+                              dragging={draggedCard?.id === card.id}
+                              onOpen={() => openCard(card)}
+                              onDragStart={(e) => { setDraggedCard({ id: card.id, from: col.id }); e.dataTransfer.effectAllowed = 'move'; }}
+                              onDragEnd={() => { setDraggedCard(null); setDropColumnId(null); }}
+                              menu={<ActionMenu label={`Ações de ${card.title}`} items={cardMenu(card, col)} />}
+                            />
+                          ))}
+                          {col.cards.length === 0 && <p className="py-6 text-center text-[11px] text-slate-500">Nenhum {def.cardNoun} aqui</p>}
+                          {col.cards.length > 0 && cards.length === 0 && <p className="py-6 text-center text-[11px] text-slate-500">Sem resultados para os filtros</p>}
+                        </div>
+
+                        <div className="p-2">
+                          <Button type="button" variant="ghost" size="sm" fullWidth iconLeft={<Plus size={14} />} onClick={() => openNewCard(col.id)}>
+                            {def.newCardLabel}
+                          </Button>
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <ContentCard padding="none" className="overflow-hidden">
+                <GridTable<{ card: BoardCardData; col: ColumnData }>
+                  data={allCards.filter(({ card, col }) => matches(card, col))}
+                  keyExtractor={({ card }) => card.id}
+                  onRowClick={({ card }) => openCard(card)}
+                  emptyMessage={filtersActive ? 'Nenhum cartão encontrado para os filtros' : `Nenhum ${def.cardNoun} ainda`}
+                  columns={[
+                    {
+                      header: 'Título',
+                      render: ({ card }) => (
+                        <div className="flex items-center gap-2">
+                          <span className="h-3 w-3 shrink-0 rounded-full border border-slate-300" style={{ backgroundColor: card.color ? resolveColor(card.color) : '#fff' }} />
+                          <div className="min-w-0">
+                            <div className="truncate text-xs font-medium text-slate-800">{card.title}</div>
+                            {card.patientName && card.patientName !== card.title && <div className="truncate text-[11px] text-slate-500">{card.patientName}</div>}
+                          </div>
+                        </div>
+                      ),
+                    },
+                    {
+                      header: 'Coluna',
+                      render: ({ col }) => (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: col.color }} />{col.title}</span>
+                      ),
+                    },
+                    ...(def.total === 'money' ? [{ header: 'Valor', className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell', render: ({ card }: { card: BoardCardData }) => <span className="text-xs text-slate-700">{card.amount !== undefined ? formatMoney(card.amount) : '-'}</span> }] : []),
+                    ...def.fields.filter(f => f.showOnCard && f.root !== 'amount' && f.root !== 'due_date').slice(0, 2).map(f => ({
+                      header: f.label, className: 'hidden lg:table-cell', headerClassName: 'hidden lg:table-cell',
+                      render: ({ card }: { card: BoardCardData }) => <span className="text-xs text-slate-600">{fieldDisplay(card, f) || '-'}</span>,
+                    })),
+                    {
+                      header: def.dueLabel, className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell',
+                      render: ({ card, col }) => {
+                        const late = isCardOverdue(card, def, col.title);
+                        return <span className={`whitespace-nowrap text-xs ${late ? 'font-medium text-red-700' : 'text-slate-600'}`}>{card.due_date ? formatDate(card.due_date) : '-'}{late ? ' (atrasado)' : ''}</span>;
+                      },
+                    },
+                    { header: def.assigneeLabel, className: 'hidden md:table-cell', headerClassName: 'hidden md:table-cell', render: ({ card }) => <span className="text-xs text-slate-600">{card.assignee || '-'}</span> },
+                    { header: '', className: 'text-right', render: ({ card, col }) => <div className="flex justify-end"><ActionMenu label={`Ações de ${card.title}`} items={cardMenu(card, col)} /></div> },
+                  ]}
+                />
+              </ContentCard>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* --- MODAL: NOVO / EDITAR QUADRO --- */}
+      <BoardCreateModal
+        isOpen={isBoardModalOpen}
+        onClose={() => { if (!savingBoard) { setIsBoardModalOpen(false); setEditingBoard(null); } }}
+        onSubmit={submitBoard}
+        saving={savingBoard}
+        editing={editingBoard ? { title: editingBoard.title, description: editingBoard.description, board_type: editingBoard.board_type, color: editingBoard.color, icon: editingBoard.icon } : null}
+      />
+
+      {/* --- MODAL: CARTÃO --- */}
       <Modal
-        isOpen={isCardModalOpen}
+        isOpen={!!cardModal}
         onClose={closeCardModal}
-        title={isClinicalBoard ? 'Novo Caso' : 'Novo Card'}
+        title={cardModal?.card ? cardModal.card.title : def.newCardLabel}
+        subtitle={cardModal ? `${def.label} · ${activeBoard?.columns.find(c => c.id === cardModal.columnId)?.title || ''}` : undefined}
         size="xl"
         mobileStyle="fullscreen"
         footer={
           <ModalFooter align="between">
-            <Button variant="ghost" size="sm" onClick={closeCardModal}>
-              Cancelar
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              loading={isSavingCard}
-              disabled={isSavingCard}
-              onClick={() => {
-                if (!newCardTitle.trim()) setCardTab('geral');
-                handleCreateCard();
-              }}
-            >
-              {isClinicalBoard ? 'Criar Caso' : 'Criar Card'}
-            </Button>
+            {cardModal?.card ? (
+              <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={() => deleteCard(cardModal.card!)} disabled={savingCard}>Excluir</Button>
+            ) : <span />}
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={closeCardModal} disabled={savingCard}>Cancelar</Button>
+              <Button variant="primary" size="sm" loading={savingCard} disabled={savingCard} onClick={saveCard}>{cardModal?.card ? 'Salvar' : 'Criar'}</Button>
+            </div>
           </ModalFooter>
         }
       >
-        {isClinicalBoard ? (
-          <Tabs<typeof CARD_TABS[number]['id']> items={CARD_TABS} value={cardTab} onChange={setCardTab} label="Seções do card">
-            {cardFormContent}
-          </Tabs>
-        ) : cardFormContent}
-      </Modal>
-
-      {/* --- MODAL: CARD DETAIL --- */}
-      <Modal
-        isOpen={isCardDetailOpen && !!selectedCard}
-        onClose={() => { setIsCardDetailOpen(false); setSelectedCard(null); setIsEditingCard(false); setDetailTab('resumo'); }}
-        title={selectedCard?.patientName || ''}
-        size="xl"
-        mobileStyle="fullscreen"
-        footer={isEditingCard ? (
-          <ModalFooter align="between">
-            <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleDeleteCard}>Excluir</Button>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsEditingCard(false)}>Cancelar</Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  if ((!editCardPatientName.trim() && !editCardPatientId) || !editCardDesc.trim()) setDetailTab('resumo');
-                  handleUpdateCard();
-                }}
-              >
-                Salvar
-              </Button>
-            </div>
-          </ModalFooter>
-        ) : (
-          <ModalFooter align="between">
-            <Button variant="danger" size="sm" iconLeft={<Trash2 size={14} />} onClick={handleDeleteCard}>Excluir</Button>
-            <Button variant="outline" size="sm" iconLeft={<Pencil size={14} />} onClick={() => setIsEditingCard(true)}>Editar</Button>
-          </ModalFooter>
-        )}
-      >
-        {selectedCard && (
-          <Tabs<typeof DETAIL_TABS[number]['id']> items={DETAIL_TABS} value={detailTab} onChange={setDetailTab} label="Seções do caso">
-            {isEditingCard ? (
-              detailTab === 'resumo' ? (
-                <div className="space-y-3">
-                  <Combobox
-                    label="Paciente"
-                    placeholder="Buscar paciente ativo..."
-                    options={patientOptions}
-                    value={editCardPatientId}
-                    onChange={(val: any, label?: string) => {
-                      setEditCardPatientId(String(val || ''));
-                      setEditCardPatientName(label || '');
-                    }}
-                    size="md"
-                  />
-                  <Textarea
-                    label="Resumo / Queixa principal"
-                    rows={4}
-                    value={editCardDesc}
-                    onChange={(e) => setEditCardDesc(e.target.value)}
-                  />
-                  <FormRow cols={2}>
-                    <Select
-                      label="Prioridade"
-                      value={editCardDetails.priority}
-                      onChange={(e) => setEditCardDetails(prev => ({ ...prev, priority: e.target.value }))}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Baixa">Baixa</option>
-                      <option value="Media">Média</option>
-                      <option value="Alta">Alta</option>
-                      <option value="Urgente">Urgente</option>
-                    </Select>
-                    <Select
-                      label="Risco / Alerta"
-                      value={editCardDetails.risk_level}
-                      onChange={(e) => setEditCardDetails(prev => ({ ...prev, risk_level: e.target.value }))}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Baixo">Baixo</option>
-                      <option value="Moderado">Moderado</option>
-                      <option value="Alto">Alto</option>
-                    </Select>
-                  </FormRow>
-                  <Input label="Tags" placeholder="TCC, Ansiedade... (separados por vírgula)" value={editCardTags} onChange={(e) => setEditCardTags(e.target.value)} />
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Textarea label="Histórico Clínico" rows={3} value={editCardDetails.history} onChange={(e) => setEditCardDetails(prev => ({ ...prev, history: e.target.value }))} />
-                  <FormRow cols={2}>
-                    <Textarea label="Hipóteses" rows={3} value={editCardDetails.hypothesis} onChange={(e) => setEditCardDetails(prev => ({ ...prev, hypothesis: e.target.value }))} />
-                    <Textarea label="Objetivos Terapêuticos" rows={3} value={editCardDetails.objectives} onChange={(e) => setEditCardDetails(prev => ({ ...prev, objectives: e.target.value }))} />
-                  </FormRow>
-                  <Textarea label="Intervenções Realizadas" rows={3} value={editCardDetails.interventions} onChange={(e) => setEditCardDetails(prev => ({ ...prev, interventions: e.target.value }))} />
-                  <Textarea label="Próximos Passos" rows={3} value={editCardDetails.next_steps} onChange={(e) => setEditCardDetails(prev => ({ ...prev, next_steps: e.target.value }))} />
-                  <Textarea label="Observações" rows={3} value={editCardDetails.observations} onChange={(e) => setEditCardDetails(prev => ({ ...prev, observations: e.target.value }))} />
-                </div>
-              )
-            ) : (
-              detailTab === 'resumo' ? (
-                <div className="space-y-3">
+        {cardModal && (
+          <div className="space-y-3">
+            {cardModal.card && (
+              <>
+                {quickActions(cardModal.card).length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {selectedCard.details?.priority && (
-                      <Badge color="primary">Prioridade: {selectedCard.details.priority}</Badge>
-                    )}
-                    {selectedCard.details?.risk_level && (
-                      <Badge color="danger">Risco: {selectedCard.details.risk_level}</Badge>
-                    )}
+                    {quickActions(cardModal.card).map(a => (
+                      <Button key={a.key} type="button" variant="outline" size="xs" iconLeft={<a.icon size={14} />} onClick={a.run}>{a.label}</Button>
+                    ))}
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <div className="text-xs font-medium text-slate-600 mb-1.5">Resumo / Queixa principal</div>
-                    <div className="text-xs text-slate-700 whitespace-pre-line">{selectedCard.description || 'Sem resumo.'}</div>
-                  </div>
-                  {selectedCard.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedCard.tags.map(tag => (
-                        <Badge key={tag} color="default" size="sm">{tag}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {[
-                    { label: 'Histórico Clínico', value: selectedCard.details?.history },
-                    { label: 'Hipóteses', value: selectedCard.details?.hypothesis },
-                    { label: 'Objetivos Terapêuticos', value: selectedCard.details?.objectives },
-                    { label: 'Intervenções Realizadas', value: selectedCard.details?.interventions },
-                    { label: 'Próximos Passos', value: selectedCard.details?.next_steps },
-                    { label: 'Observações', value: selectedCard.details?.observations },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="bg-white border border-slate-200 rounded-lg p-3">
-                      <div className="text-xs font-medium text-slate-600 mb-1.5">{label}</div>
-                      <div className="text-xs text-slate-700 whitespace-pre-line">{value || '-'}</div>
-                    </div>
-                  ))}
-                </div>
-              )
+                )}
+                {(draft.patientId || draft.links.length > 0) && (
+                  <LinkChips
+                    patientId={draft.patientId}
+                    links={[...(draft.patientId ? [{ type: 'patient' as const, id: draft.patientId, label: draft.patientName || 'Paciente' }] : []), ...draft.links]}
+                  />
+                )}
+                <p className="text-[11px] text-slate-500">As ações acima abrem outro módulo; salve antes para não perder alterações.</p>
+              </>
             )}
-          </Tabs>
+            <CardForm
+              def={def}
+              draft={draft}
+              onChange={(patch) => { setDraft(prev => ({ ...prev, ...patch })); if (patch.title !== undefined) setTitleError(''); if (patch.patientId) setPatientError(''); }}
+              patientOptions={patientOptions}
+              tab={cardTab}
+              onTab={setCardTab}
+              titleError={titleError}
+              patientError={patientError}
+              applyToColumn={applyToColumn}
+              onApplyToColumn={setApplyToColumn}
+            />
+          </div>
         )}
       </Modal>
 
-      {/* --- MODAL: DELETE CONFIRMATION --- */}
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title={deleteModalConfig?.title || 'Excluir'}
-        message={deleteModalConfig?.message || ''}
-        confirmLabel="Excluir"
-        variant="danger"
-        onConfirm={() => {
-          deleteModalConfig?.onConfirm();
-          setIsDeleteModalOpen(false);
-        }}
-      />
-
-      {/* --- MODAL: EDIT COLUMN --- */}
+      {/* --- MODAL: COLUNA --- */}
       <Modal
-        isOpen={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        title="Editar Coluna"
+        isOpen={!!columnModal}
+        onClose={() => setColumnModal(null)}
+        title={columnModal?.id ? 'Editar coluna' : 'Nova coluna'}
         size="sm"
         footer={
           <ModalFooter align="between">
-            <Button variant="ghost" size="sm" onClick={() => setIsColumnModalOpen(false)}>Cancelar</Button>
-            <Button variant="primary" size="sm" onClick={handleUpdateColumn}>Salvar</Button>
+            <Button variant="ghost" size="sm" onClick={() => setColumnModal(null)}>Cancelar</Button>
+            <Button variant="primary" size="sm" disabled={!columnModal?.title.trim()} onClick={saveColumn}>Salvar</Button>
           </ModalFooter>
         }
       >
-        <div className="space-y-3">
-          <Input
-            label="Nome"
-            value={editingColumnTitle}
-            onChange={(e) => setEditingColumnTitle(e.target.value)}
-          />
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-600">Cor</label>
-            <div className="flex flex-wrap gap-2">
-              {COLUMN_COLORS.map(color => (
-                <button
-                  key={color}
-                  type="button"
-                  aria-label={`Cor ${color.replace('bg-', '')}`}
-                  aria-pressed={editingColumnColor === color}
-                  onClick={() => setEditingColumnColor(color)}
-                  className={`w-7 h-7 rounded-full ${color} border-2 ${editingColumnColor === color ? 'border-slate-900' : 'border-transparent'}`}
-                />
-              ))}
-            </div>
+        {columnModal && (
+          <div className="space-y-3">
+            <Input label="Nome" required value={columnModal.title} onChange={(e) => setColumnModal(prev => prev && ({ ...prev, title: e.target.value }))} />
+            <ColorPicker label="Cor da coluna" value={columnModal.color} onChange={(hex) => setColumnModal(prev => prev && ({ ...prev, color: hex || '#94a3b8' }))} />
+            <p className="flex items-center gap-1.5 text-[11px] text-slate-500"><Palette size={12} />A cor de cada cartão é escolhida dentro do cartão.</p>
           </div>
-        </div>
+        )}
       </Modal>
+
+      {/* --- CONFIRMAR EXCLUSÃO --- */}
+      <ConfirmModal
+        isOpen={!!deleteConfig}
+        onClose={() => setDeleteConfig(null)}
+        title={deleteConfig?.title || 'Excluir'}
+        message={deleteConfig?.message || ''}
+        confirmLabel="Excluir"
+        variant="danger"
+        onConfirm={() => {
+          const cfg = deleteConfig;
+          setDeleteConfig(null);
+          cfg?.onConfirm();
+        }}
+      />
     </PageWrapper>
   );
 };

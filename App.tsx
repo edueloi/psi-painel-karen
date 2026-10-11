@@ -74,6 +74,7 @@ import { SNAPIVPage } from '@/pages/clinical-tools/SNAPIVProfessional';
 import { MCHATPublic } from '@/pages/external/MCHATPublic';
 import { MCHATPage } from '@/pages/clinical-tools/MCHATProfessional';
 import { AnamnesisPublic } from '@/pages/external/AnamnesisPublic';
+import { SchemaInventoryPublic } from '@/pages/external/SchemaInventoryPublic';
 import { RegistrationUpdatePublic } from '@/pages/external/RegistrationUpdatePublic';
 import { ContractPublic } from '@/pages/external/ContractPublic';
 import { Records } from './pages/Records';
@@ -443,6 +444,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/f/snap-iv" element={<SNAPIVPublic />} />
       <Route path="/f/m-chat-r" element={<MCHATPublic />} />
       <Route path="/f/anamnese" element={<AnamnesisPublic />} />
+      <Route path="/f/inventarios-esquemas" element={<SchemaInventoryPublic />} />
       <Route path="/f/cadastro" element={<RegistrationUpdatePublic />} />
       <Route path="/f/contrato" element={<ContractPublic />} />
       <Route path="/f/:hash" element={<ExternalForm />} />

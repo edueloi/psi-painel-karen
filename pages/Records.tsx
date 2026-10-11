@@ -33,6 +33,8 @@ import {
 import { StructuredForm, type FollowupRow } from '../components/Records/StructuredForm';
 import { SessionDataTab, localDateStr, localTimeStr, fmtIsoDate, diffMinutes, minToTime, timeToMin, DEFAULT_TAG_SUGGESTIONS, FORMATOS, type AppointmentLite } from '../components/Records/SessionDataTab';
 import { AiFillPanel } from '../components/Records/AiFillPanel';
+import { SourcesDialog, type SourceGroupId } from '../components/Records/SourcesDialog';
+import { HistoryPanel, type HistorySnapshot } from '../components/Records/HistoryPanel';
 import { PendingCard, type PreviousSession } from '../components/Records/PendingCard';
 import { StructuredReadView } from '../components/Records/StructuredReadView';
 import { SessionTimeline } from '../components/Records/SessionTimeline';
@@ -851,11 +853,24 @@ const ShareModal: React.FC<{
 /* ─────────────────────────────────────────────────────────────
    LINKED TOOLS SECTION (Para Avaliação do Caso)
  ───────────────────────────────────────────────────────────── */
+/** Texto do DISC a partir dos escores (a análise anterior da Bia, se houver, vai junto). */
+const discSourceText = (item: any) => {
+  const sc = item.data?.scores || {};
+  const lines = ['Perfil comportamental DISC (escores brutos):', 'Dominância (D): ' + (sc.D ?? 0), 'Influência (I): ' + (sc.I ?? 0), 'Estabilidade (S): ' + (sc.S ?? 0), 'Conformidade (C): ' + (sc.C ?? 0)];
+  if (item.score != null) lines.push('Pontuação total: ' + item.score);
+  if (item.auroraAnalysis) lines.push('', 'Análise anterior da Bia IA:', String(item.auroraAnalysis));
+  return lines.join(String.fromCharCode(10));
+};
+
 const LinkedToolsSection: React.FC<{ 
   patientId: string; 
   onSelectSource?: (item: any) => void;
   variant?: 'full' | 'sidebar';
-}> = ({ patientId, onSelectSource, variant = 'full' }) => {
+  /** Fontes já trazidas para o texto livre (Em uso). */
+  usedIds?: string[];
+  /** Monta a avaliação clínica com IA a partir das fontes em uso. */
+  onBuildAssessment?: () => void;
+}> = ({ patientId, onSelectSource, variant = 'full', usedIds = [], onBuildAssessment }) => {
   const { pushToast } = useToast();
   const [tools, setTools] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -982,49 +997,38 @@ const LinkedToolsSection: React.FC<{
 
   const categories = Array.from(new Set(tools.map(t => t.category)));
 
-  const handleSelectSource = (item: any) => {
-    if (!onSelectSource) return;
-    
-    let content = `### FONTE: ${item.name.toUpperCase()} (${fmtDate(item.date)})\n`;
-    
-    if (item.type === 'anamnese') {
-      content += `[Informações desta anamnese integrada ao caso. Paciente relatou histórico e contexto relevante.]\n`;
-    } else if (item.type === 'form_response') {
-      // Formulários respondidos (PHQ-9, GAD-7, etc.)
-      if (item.score != null) content += `Pontuação Total: ${item.score}\n`;
-      if (item.data?.answers) {
-        content += `Respostas do formulário registradas e disponíveis para análise.\n`;
-      }
-    } else if (item.type === 'disc') {
-      // Avaliação DISC
-      const s = item.data?.scores || {};
-      content += `Perfil DISC: D(${s.D || 0}), I(${s.I || 0}), S(${s.S || 0}), C(${s.C || 0})\n`;
-      if (item.auroraAnalysis) content += `Análise Bia IA já disponível.\n`;
-    } else if (item.data) {
-       if (item.type === 'dass-21') {
-         if (Array.isArray(item.data)) {
-           const last = item.data[item.data.length - 1];
-           const s = last?.scores || last?.score || {};
-           content += `Última Pontuação: Depressão(${s.depression || 0}), Ansiedade(${s.anxiety || 0}), Estresse(${s.stress || 0})\n`;
-           if (item.data.length > 1) content += `Nota: Existem ${item.data.length} aplicações disponíveis para comparação longitudinal.\n`;
-         } else {
-           const s = item.data.scores || item.data.score || {};
-           content += `Pontuação: Depressão(${s.depression || 0}), Ansiedade(${s.anxiety || 0}), Estresse(${s.stress || 0})\n`;
-         }
-       } else if (item.type.includes('beck')) {
-          const score = item.data.score || item.data.total_score || '—';
-          content += `Resultado: Pontuação de ${score}.\n`;
-       } else {
-          // Ferramentas genéricas da Caixa de Ferramentas
-          const dataStr = JSON.stringify(item.data);
-          if (dataStr.length < 500) content += `Dados: ${dataStr}\n`;
-          else content += `Dados disponíveis para análise (${Object.keys(item.data).length} campos).\n`;
-       }
-    }
-    
-    content += `[Análise Clínica: Descreva aqui como este instrumento apoia sua formulação clínica do caso...]`;
-    onSelectSource({ ...item, summary: content });
+  const [loadingUse, setLoadingUse] = useState<string | null>(null);
+  const fetchFullText = async (item: any): Promise<string> => {
+    if (item.type === 'disc') return discSourceText(item);
+    const kind = item.type === 'anamnese' ? 'anamnese' : item.type === 'form_response' ? 'form_response' : 'tool';
+    const r = await api.post<any>('/medical-records/source-text', { patient_id: patientId, type: kind, id: item.rawId });
+    return String(r?.text || '').trim();
   };
+  const NL = String.fromCharCode(10);
+  const useSource = async (item: any, silent = false) => {
+    if (!onSelectSource || usedIds.includes(item.id)) return;
+    setLoadingUse(item.id);
+    try {
+      const body = await fetchFullText(item);
+      if (!body) { if (!silent) pushToast('info', 'Esta fonte não tem conteúdo preenchido para trazer.'); return; }
+      onSelectSource({ ...item, summary: '### FONTE: ' + item.name + ' (' + fmtDate(item.date) + ')' + NL + body });
+    } catch (e: any) {
+      pushToast('error', e?.message || 'Não foi possível carregar o conteúdo completo desta fonte.');
+    } finally { setLoadingUse(null); }
+  };
+  const useAllSources = async () => {
+    for (const item of filtered) { if (!usedIds.includes(item.id)) await useSource(item, true); }
+  };
+  const [viewText, setViewText] = useState('');
+  const [viewLoading, setViewLoading] = useState(false);
+  useEffect(() => {
+    if (!viewing) { setViewText(''); return; }
+    let alive = true;
+    setViewLoading(true);
+    fetchFullText(viewing).then(t => { if (alive) setViewText(t || 'Sem conteúdo preenchido.'); }).catch(() => { if (alive) setViewText('Não foi possível carregar o conteúdo.'); }).finally(() => { if (alive) setViewLoading(false); });
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewing]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -1160,6 +1164,9 @@ const LinkedToolsSection: React.FC<{
           </div>
         </div>
         
+        {isSidebar && onSelectSource && filtered.length > 0 && (
+          <Button size="sm" variant="outline" iconLeft={<CheckCheck size={14} />} onClick={useAllSources} disabled={filtered.every(f => usedIds.includes(f.id))}>Usar todas as fontes</Button>
+        )}
         <div className={`flex gap-2 ${isSidebar ? 'flex-col' : ''}`}>
           <div className="flex-1">
             <Input
@@ -1238,9 +1245,13 @@ const LinkedToolsSection: React.FC<{
                       <CheckCheck size={14} />
                     </IconButton>
                   )}
-                  <Button size="sm" variant="success" className="flex-1" onClick={() => handleSelectSource(item)}>
-                    Usar Fonte
-                  </Button>
+                  {usedIds.includes(item.id) ? (
+                    <Button size="sm" variant="outline" className="flex-1" disabled iconLeft={<CheckCircle2 size={14} />}>Em uso</Button>
+                  ) : (
+                    <Button size="sm" variant="success" className="flex-1" loading={loadingUse === item.id} onClick={() => useSource(item)}>
+                      Usar Fonte
+                    </Button>
+                  )}
                   {hasHistory && (
                     <IconButton size="sm" variant="outline" onClick={() => setComparing(item.id)} title="Análise Longitudinal" aria-label="Análise Longitudinal">
                       <BarChart2 size={14} />
@@ -1272,6 +1283,11 @@ const LinkedToolsSection: React.FC<{
              onClick={() => setShowSynthesisModal(true)}
           >
              <Brain size={14} /> Gerar Análise de Caso (IA)
+          </Button>
+        )}
+        {isSidebar && onBuildAssessment && (
+          <Button variant="primary" size="sm" className="w-full" iconLeft={<Sparkles size={14} />} onClick={onBuildAssessment}>
+            Montar avaliação clínica{usedIds.length ? ' (' + usedIds.length + ' fonte' + (usedIds.length > 1 ? 's' : '') + ' em uso)' : ''}
           </Button>
         )}
       </div>
@@ -1376,28 +1392,10 @@ const LinkedToolsSection: React.FC<{
                     <FileText size={14} className="text-primary-500"/> Conteúdo do Registro
                  </h4>
                  
-                 {viewing.type === 'anamnese' ? (
-                   <div className="space-y-3">
-                     {(() => {
-                        try {
-                           const res = JSON.parse(viewing.responses || '{}');
-                           return Object.entries(res).map(([k, v]: [string, any]) => (
-                             <div key={k} className="p-4 bg-white rounded-lg border border-slate-100 shadow-sm">
-                               <p className="text-[11px] font-semibold text-primary-500 mb-1">{ANAMNESIS_FIELD_LABELS[k] || k}</p>
-                               <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap">{String(v)}</p>
-                             </div>
-                           ));
-                        } catch {
-                           return <p className="text-xs text-slate-400 italic">Erro ao carregar respostas.</p>;
-                        }
-                     })()}
-                   </div>
+                 {viewLoading ? (
+                   <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-primary-500" /></div>
                  ) : (
-                   <div className="p-5 bg-white rounded-lg border border-slate-100 shadow-sm overflow-x-auto">
-                      <pre className="text-xs text-slate-700 font-mono leading-relaxed">
-                        {JSON.stringify(viewing.data, null, 2)}
-                      </pre>
-                   </div>
+                   <p className="whitespace-pre-wrap break-words rounded-lg border border-slate-100 bg-white p-4 text-[13px] leading-relaxed text-slate-700">{viewText}</p>
                  )}
               </div>
            </div>
@@ -1410,8 +1408,8 @@ const LinkedToolsSection: React.FC<{
   );
 };
 
-type EditorSection = 'dados' | 'estrutura' | 'conteudo' | 'restrito' | 'anexos';
-type EditorTabId = 'dados' | 'estrutura' | 'rascunho' | 'revisao' | 'restrito' | 'anexos';
+type EditorSection = 'dados' | 'estrutura' | 'conteudo' | 'restrito' | 'anexos' | 'historico';
+type EditorTabId = 'dados' | 'estrutura' | 'rascunho' | 'revisao' | 'restrito' | 'anexos' | 'historico';
 const EDITOR_TABS = [
   { id: 'dados', label: 'Dados', icon: User },
   { id: 'estrutura', label: 'Registro', icon: ClipboardList },
@@ -1419,6 +1417,7 @@ const EDITOR_TABS = [
   { id: 'revisao', label: 'Revisão IA', icon: Sparkles },
   { id: 'restrito', label: 'Restrito', icon: Shield },
   { id: 'anexos', label: 'Anexos', icon: Layers },
+  { id: 'historico', label: 'Histórico', icon: History },
 ] as const;
 const RecordEditor: React.FC<{
   record: Partial<MedicalRecord> | null; mode: 'new' | 'edit';
@@ -1479,6 +1478,19 @@ const RecordEditor: React.FC<{
   const [reviewPoints, setReviewPoints] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Histórico: evento da próxima gravação (IA aplicada / restaurado), restauração pendente e dados de autoria.
+  const historyEventRef = useRef<'ia' | 'restaurado' | null>(null);
+  const restoredFromRef = useRef<number | null>(null);
+  const [restorePending, setRestorePending] = useState<number | null>(null);
+  const [historyTick, setHistoryTick] = useState(0);
+  const [auditInfo, setAuditInfo] = useState<{ created_by?: string | null; created_at?: string | null; last_by?: string | null; last_at?: string | null } | null>(null);
+  useEffect(() => {
+    if (!recordIdRef.current) return;
+    let alive = true;
+    api.get<any>(`/medical-records/${recordIdRef.current}/history`, { light: '1' }).then(r => { if (alive) setAuditInfo(r?.meta || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [historyTick, record?.id]);
+
 
   // Plano Terapêutico — estado isolado quando recordType === 'Plano'
   const [theraPlan, setTheraPlan] = useState<TheraPlan>(() => {
@@ -1526,6 +1538,7 @@ const RecordEditor: React.FC<{
   const sValuesRef = useRef(sValues);
   sValuesRef.current = sValues;
   const [aiFields, setAiFields] = useState<string[]>(initialStructured?.ai_fields || []);
+  const [aiSources, setAiSources] = useState<Record<string, string[]>>(initialStructured?.ai_sources || {});
   const [sessionNumber, setSessionNumber] = useState<string>(
     initialStructured?.values?.sessao_numero
       ? String(initialStructured.values.sessao_numero)
@@ -1765,6 +1778,7 @@ const RecordEditor: React.FC<{
           resumo: recordType === 'Evolucao' ? buildResumo(values) : undefined,
           meta: { duracao_min: dur > 0 ? dur : undefined, modalidade, agendamento_id: appointmentId || undefined },
           ai_fields: aiFields.length ? aiFields : undefined,
+          ai_sources: aiFields.length ? Object.fromEntries(aiFields.filter(k => aiSources[k]?.length).map(k => [k, aiSources[k]])) : undefined,
         };
       }
       const keys = Object.keys(base);
@@ -1792,13 +1806,22 @@ const RecordEditor: React.FC<{
   };
 
   // Grava sem fechar o editor; o primeiro salvamento de um registro novo guarda o id para os próximos.
-  const persist = async (st: string) => {
-    const body = buildBody(st);
+  const persist = async (st: string, opts: { autosave?: boolean } = {}) => {
+    const body = {
+      ...buildBody(st),
+      autosave: !!opts.autosave,
+      history_event: historyEventRef.current || undefined,
+      restored_from: restoredFromRef.current || undefined,
+    };
     if (recordIdRef.current) { await api.put(`/medical-records/${recordIdRef.current}`, body); }
     else {
       const created = await api.post<any>('/medical-records', body);
       if (created?.id) recordIdRef.current = String(created.id);
     }
+    historyEventRef.current = null;
+    restoredFromRef.current = null;
+    setRestorePending(null);
+    setHistoryTick(t => t + 1);
   };
 
   const save = async (newStatus?: string) => {
@@ -1819,16 +1842,16 @@ const RecordEditor: React.FC<{
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [autosaving, setAutosaving] = useState(false);
   useEffect(() => {
-    if (!isStructured || !patientId || saving || currentSig === lastSigRef.current) return;
+    if (!isStructured || !patientId || saving || restorePending || currentSig === lastSigRef.current) return;
     if (!(hasAnyValue(sValues) || draft.trim() || privateNotes.trim())) return;
     const sig = currentSig;
     const t = setTimeout(async () => {
       setAutosaving(true);
-      try { await persist(status); lastSigRef.current = sig; setSavedAt(new Date()); } catch { /* tenta de novo na próxima alteração */ }
+      try { await persist(status, { autosave: true }); lastSigRef.current = sig; setSavedAt(new Date()); } catch { /* tenta de novo na próxima alteração */ }
       finally { setAutosaving(false); }
     }, 15000);
     return () => clearTimeout(t);
-  }, [currentSig, status, patientId, isStructured, saving]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentSig, status, patientId, isStructured, saving, restorePending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ctrl+S salva o rascunho sem sair do editor
   const saveNow = async () => {
@@ -1858,6 +1881,7 @@ const RecordEditor: React.FC<{
       ? (theraPlan.summary || theraPlan.approach || theraPlan.goals?.length)
       : (draft.trim() || privateNotes.trim() || (isStructured && hasAnyValue(sValues)));
     const isApproved = status === 'Aprovado';
+    if (restorePending) { if (recordIdRef.current) onSave(); onClose(); return; }
     if (!patientId || !hasContent || isApproved) {
       if (recordIdRef.current) onSave();
       onClose();
@@ -1936,41 +1960,104 @@ const RecordEditor: React.FC<{
     sections.forEach(s => s.fields.forEach(f => { if ((f.type === 'multi' || f.type === 'select') && f.options) o[f.key] = f.options; }));
     return o;
   }, [sections]);
+  // Campos do modelo em uso que a IA pode sugerir na Avaliação (o servidor valida a resposta contra esta lista).
+  const aiFieldDefs = useMemo(() => sections.flatMap(sec => sec.fields
+    .filter(f => ['text', 'textarea', 'select', 'multi', 'rows', 'date', 'number'].includes(f.type))
+    .map(f => ({ key: f.key, label: f.label, type: f.type, options: f.options, columns: f.columns?.map(c => c.key), section: sec.label }))), [sections]);
   const [aiFillBusy, setAiFillBusy] = useState(false);
-  const [aiPanel, setAiPanel] = useState<{ stamp: number; suggestions: Record<string, any>; reviewPoints: string[] } | null>(null);
+  const [aiPanel, setAiPanel] = useState<{ stamp: number; kind: 'evolution' | 'assessment'; suggestions: Record<string, any>; meta: Record<string, { fontes?: string[]; confianca?: string }>; reviewPoints: string[]; sources: string[] } | null>(null);
   const aiAppliedRef = useRef(false);
-  const fillWithAI = async () => {
-    const source = draft.trim() || String(sValues.relato || '').trim();
-    if (!source && !transcript.trim()) {
+  // Fontes trazidas do painel lateral para o texto livre ("Em uso"): são exatamente as que a IA lê a partir do texto livre.
+  const [usedSources, setUsedSources] = useState<{ id: string; label: string; group: SourceGroupId }[]>([]);
+  const [fillDialog, setFillDialog] = useState<null | 'evolution' | 'assessment'>(null);
+  const openFill = (kind: 'evolution' | 'assessment') => {
+    if (!patientId) { pushToast('info', 'Selecione o paciente antes de usar a IA.'); setEditorSection('dados'); return; }
+    const hasText = !!strip(draft) || !!String(sValues.relato || '').trim() || !!transcript.trim() || usedSources.length > 0;
+    if (kind === 'evolution' && !hasText) {
       pushToast('info', 'Escreva o texto livre da sessão ou carregue a transcrição da sala virtual para a IA preencher os campos.');
       setEditorSection('conteudo'); setStep('draft');
       return;
     }
+    setFillDialog(kind);
+  };
+  const fillWithAI = () => openFill('evolution');
+  const fillAssessmentWithAI = () => openFill('assessment');
+  const runFill = async (selection: SourceGroupId[]) => {
+    const kind = fillDialog;
+    if (!kind) return;
+    const sel: SourceGroupId[] = usedSources.length && !selection.includes('texto_livre') ? [...selection, 'texto_livre'] : selection;
+    const source = strip(draft) ? draft : (kind === 'evolution' ? String(sValues.relato || '').trim() : '');
     setAiFillBusy(true);
     try {
-      const resp = await api.post<any>('/medical-records/fill-evolution', {
-        draft_content: source,
-        transcript,
-        options: aiOptions,
-        goals: planGoals,
-        previous: previousInfo ? { proxima: previousInfo.info.proxima, tarefas: previousInfo.info.tarefas.join('; ') } : undefined,
-      });
+      const common = { patient_id: patientId, record_id: recordIdRef.current || undefined, sources: sel, draft_content: source, transcript };
+      const resp = kind === 'evolution'
+        ? await api.post<any>('/medical-records/fill-evolution', {
+          ...common,
+          options: aiOptions,
+          goals: planGoals,
+          previous: previousInfo ? { proxima: previousInfo.info.proxima, tarefas: previousInfo.info.tarefas.join('; ') } : undefined,
+        })
+        : await api.post<any>('/medical-records/fill-assessment', { ...common, specialty, fields: aiFieldDefs });
       const suggestions = resp?.suggestions || {};
-      if (!Object.keys(suggestions).length) { pushToast('info', 'A IA não encontrou informações suficientes no texto para sugerir campos.'); return; }
+      if (!Object.keys(suggestions).length) { pushToast('info', 'A IA não encontrou informações suficientes nas fontes selecionadas para sugerir campos.'); return; }
       aiAppliedRef.current = false;
-      setAiPanel({ stamp: Date.now(), suggestions, reviewPoints: resp?.review_points || [] });
+      setFillDialog(null);
+      setAiPanel({
+        stamp: Date.now(), kind, suggestions, meta: resp?.suggestion_meta || {}, reviewPoints: resp?.review_points || [],
+        sources: (resp?.sources || []).map((s: any) => s.label),
+      });
     } catch (e: any) {
       pushToast('error', e?.message || 'A IA está indisponível agora. O que você digitou foi mantido; tente novamente em instantes.');
     } finally { setAiFillBusy(false); }
   };
   const applyAiPatch = (patch: Record<string, any>) => {
     aiAppliedRef.current = true;
+    historyEventRef.current = 'ia';
     setSValues(prev => ({ ...prev, ...patch }));
     setAiFields(prev => Array.from(new Set([...prev, ...Object.keys(patch)])));
+    const meta = aiPanel?.meta || {};
+    setAiSources(prev => {
+      const next = { ...prev };
+      Object.keys(patch).forEach(k => { if (meta[k]?.fontes?.length) next[k] = meta[k].fontes as string[]; });
+      return next;
+    });
   };
   const closeAiPanel = () => {
     setAiPanel(null);
     if (aiAppliedRef.current) { setEditorSection('estrutura'); pushToast('info', 'Campos aplicados. Revise antes de aprovar.'); }
+  };
+
+  /* ── Histórico: restaurar uma versão como alteração pendente (não salva sozinho) ───────── */
+  const restoreSnapshot = (snap: HistorySnapshot, versionNo: number) => {
+    if (locked) return;
+    if (snap.title) setTitle(snap.title);
+    setDraft(snap.draft_content || '');
+    setTags(Array.isArray(snap.tags) ? snap.tags : []);
+    if (snap.created_at) setSessionDate(snap.created_at);
+    setStartTime(hhmm(snap.start_time));
+    setEndTime(hhmm(snap.end_time));
+    if (snap.appointment_type && FORMATOS.some(f => f.value === snap.appointment_type)) setFormato(snap.appointment_type);
+    setAppointmentId(snap.appointment_id || '');
+    let ai: any = null;
+    try { ai = snap.ai_organized_content ? JSON.parse(snap.ai_organized_content) : null; } catch { ai = null; }
+    if (recordType === 'Plano') {
+      if (ai) setTheraPlan(ai as TheraPlan);
+    } else if (ai && ai._estruturado) {
+      const { _estruturado, ...legacy } = ai;
+      if (_estruturado.template && SPECIALTY_TEMPLATES[_estruturado.template as SpecialtyId]) setSpecialty(_estruturado.template as SpecialtyId);
+      setSValues(_estruturado.values || {});
+      setAiFields([]); setAiSources({});
+      setOrganized(Object.keys(legacy).length ? legacy : null);
+      if (_estruturado.values?.sessao_numero) setSessionNumber(String(_estruturado.values.sessao_numero));
+    } else if (ai) {
+      setOrganized(ai);
+    }
+    restoredFromRef.current = versionNo;
+    historyEventRef.current = 'restaurado';
+    setRestorePending(versionNo);
+    setEditorSection(isStructured ? 'estrutura' : 'conteudo');
+    setStep('draft');
+    pushToast('info', `Versão ${versionNo} carregada no editor. Salve para confirmar a restauração.`);
   };
 
   /* ── Duplicar da última sessão (nunca copia o relato) ───────── */
@@ -2007,8 +2094,8 @@ const RecordEditor: React.FC<{
   const isAnamnese = recordType === 'Anamnese';
   const editorTabs = EDITOR_TABS
     .filter(t => {
-      if (isPlano) return t.id === 'dados' || t.id === 'rascunho';
-      if (isAnamnese) return t.id === 'dados' || t.id === 'rascunho';
+      if (isPlano) return t.id === 'dados' || t.id === 'rascunho' || t.id === 'historico';
+      if (isAnamnese) return t.id === 'dados' || t.id === 'rascunho' || t.id === 'historico';
       if (t.id === 'estrutura') return isStructured;
       if (t.id === 'anexos') return recordType === 'Evolucao' || recordType === 'Avaliacao';
       return true;
@@ -2050,6 +2137,11 @@ const RecordEditor: React.FC<{
           }
         />
 
+        {restorePending && (
+          <Alert variant="warning" title={`Restauração da versão ${restorePending} pendente`}>
+            Os valores dessa versão estão no editor, mas ainda não foram salvos. Clique em Salvar rascunho para confirmar; se sair sem salvar, a restauração é descartada.
+          </Alert>
+        )}
         <Tabs<EditorTabId> items={editorTabs} value={editorTab} onChange={changeEditorTab} label="Seções do registro" />
 
         {/* Dados / Identificação */}
@@ -2109,6 +2201,7 @@ const RecordEditor: React.FC<{
             appointmentId={appointmentId}
             onLinkAppointment={linkAppointment}
             suggestedAppointment={suggestedAppointment}
+            auditInfo={mode === 'edit' || recordIdRef.current ? auditInfo : null}
           />
         ))}
 
@@ -2147,12 +2240,15 @@ const RecordEditor: React.FC<{
               showProgress
               aiFields={aiFields}
               onConfirmAi={confirmAiField}
+              aiSources={aiSources}
               toolbar={isEvolucao ? (
                 <>
                   {canUseAi && <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillWithAI}>Preencher com IA</Button>}
                   <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} onClick={duplicateFromLast}>Duplicar da última sessão</Button>
                 </>
-              ) : undefined}
+              ) : (canUseAi ? (
+                <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillAssessmentWithAI}>Preencher com IA</Button>
+              ) : undefined)}
               sectionTop={id => (isEvolucao && id === 'sessao' ? (
                 <>
                   {moodHint && <p className="flex items-start gap-1.5 text-[11px] text-slate-500"><Info size={12} className="mt-0.5 shrink-0" />{moodHint}</p>}
@@ -2169,16 +2265,21 @@ const RecordEditor: React.FC<{
 
         {/* Conteúdo — Plano / Anamnese / Rascunho / Revisão IA */}
         {editorSection === 'conteudo' && (
-          <div className={recordType === 'Avaliacao' ? 'flex flex-col lg:flex-row gap-3' : 'w-full min-w-0'}>
+          <div className={(recordType === 'Avaliacao' || recordType === 'Evolucao') && step === 'draft' ? 'flex flex-col lg:flex-row gap-3' : 'w-full min-w-0'}>
             {/* COLUNA ESQUERDA - FONTES (Apenas para Avaliação) */}
-            {recordType === 'Avaliacao' && patientId && (
+            {(recordType === 'Avaliacao' || recordType === 'Evolucao') && step === 'draft' && patientId && (
               <div className="lg:w-80 xl:w-96 shrink-0 animate-slideRightFade">
                 <LinkedToolsSection
                   patientId={patientId}
                   variant="sidebar"
+                  usedIds={usedSources.map(u => u.id)}
+                  onBuildAssessment={recordType === 'Avaliacao' && canUseAi ? () => openFill('assessment') : undefined}
                   onSelectSource={(item: any) => {
                     setDraft((prev) => prev + '<br><br>' + mdToHtml(item.summary));
-                    pushToast('info', `${item.name} integrado.`);
+                    if (item.id && item.type) {
+                      setUsedSources(prev => (prev.some(u => u.id === item.id) ? prev : [...prev, { id: item.id, label: `${item.name} ${fmtDate(item.date)}`, group: (item.type === 'anamnese' ? 'anamnese' : 'instrumentos') as SourceGroupId }]));
+                    }
+                    pushToast('info', `${item.name} trazida completa para o texto livre.`);
                   }}
                 />
               </div>
@@ -2258,6 +2359,20 @@ const RecordEditor: React.FC<{
                             {aiFillBusy ? 'Lendo a sessão...' : 'Preencher com IA'}
                           </Button>
                           <p className="text-[11px] text-slate-500">Revise antes de aprovar: a IA não inventa conteúdo e os riscos só são sugeridos se estiverem no texto.</p>
+                        </div>
+                      )}
+                      {recordType === 'Avaliacao' && canUseAi && (
+                        <div className="space-y-2 rounded-lg border border-primary-100 bg-primary-50/40 p-3">
+                          <div>
+                            <h4 className="flex items-center gap-2 text-sm font-medium text-slate-900"><Sparkles size={14} className="text-primary-600" /> Montar a avaliação clínica com IA</h4>
+                            <p className="mt-0.5 text-[11px] text-slate-500">
+                              Use as fontes do painel ao lado (Usar Fonte traz o conteúdo completo para o texto livre) e escolha o que a IA pode ler. Ela sugere as seções da aba Avaliação clínica, cita a origem de cada campo e você revisa antes de aplicar.
+                              {usedSources.length > 0 ? ` Em uso: ${usedSources.map(u => u.label).join(', ')}.` : ''}
+                            </p>
+                          </div>
+                          <Button onClick={fillAssessmentWithAI} loading={aiFillBusy} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14} />}>
+                            {aiFillBusy ? 'Lendo as fontes...' : 'Montar avaliação clínica com IA'}
+                          </Button>
                         </div>
                       )}
                       <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant={isEvolucao && canUseAi ? 'outline' : 'primary'} size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
@@ -2355,6 +2470,17 @@ const RecordEditor: React.FC<{
             )}
           </ContentCard>
         )}
+
+        {/* Histórico de alterações */}
+        {editorSection === 'historico' && (
+          <HistoryPanel
+            recordId={recordIdRef.current}
+            kind={(recordType === 'Avaliacao' ? 'Avaliacao' : 'Evolucao') as RecordKind}
+            locked={locked}
+            onRestore={restoreSnapshot}
+            refreshKey={historyTick}
+          />
+        )}
       </div>
 
       {/* Rodapé fixo de ações */}
@@ -2398,7 +2524,27 @@ const RecordEditor: React.FC<{
           planGoals={planGoals}
           suggestions={aiPanel.suggestions}
           reviewPoints={aiPanel.reviewPoints}
+          suggestionMeta={aiPanel.meta}
+          sourcesUsed={aiPanel.sources}
+          title={aiPanel.kind === 'assessment' ? 'Revisar avaliação sugerida pela IA' : 'Revisar sugestões da IA'}
           onApply={applyAiPatch}
+        />
+      )}
+
+      {fillDialog && (
+        <SourcesDialog
+          isOpen
+          onClose={() => setFillDialog(null)}
+          title={fillDialog === 'assessment' ? 'Montar avaliação clínica com IA' : 'Preencher a evolução com IA'}
+          patientId={patientId}
+          recordId={recordIdRef.current || undefined}
+          hasDraft={!!strip(draft) || (fillDialog === 'evolution' && !!String(sValues.relato || '').trim())}
+          hasTranscript={!!transcript.trim()}
+          inUseLabels={usedSources.map(u => u.label)}
+          inUseGroups={Array.from(new Set(usedSources.map(u => u.group)))}
+          loading={aiFillBusy}
+          confirmLabel={fillDialog === 'assessment' ? 'Montar avaliação' : 'Gerar sugestões'}
+          onConfirm={runFill}
         />
       )}
 
