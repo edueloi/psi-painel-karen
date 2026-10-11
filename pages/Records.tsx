@@ -1514,7 +1514,7 @@ const RecordEditor: React.FC<{
   }, []);
 
   const [showApproveModal, setShowApproveModal] = useState(false);
-  const isStructured = recordType === 'Evolucao' || recordType === 'Avaliacao';
+  const isStructured = recordType === 'Evolucao' || recordType === 'Avaliacao' || recordType === 'Anamnese';
   const detectedSpecialty = useMemo(() => detectSpecialty(authUser as any), [authUser]);
   const [specialty, setSpecialty] = useState<SpecialtyId>(initialStructured?.template || detectedSpecialty || DEFAULT_SPECIALTY);
   const isEvolucao = recordType === 'Evolucao';
@@ -1560,7 +1560,8 @@ const RecordEditor: React.FC<{
   );
   const [numberTouched, setNumberTouched] = useState(!!initialStructured?.values?.sessao_numero);
   const [planGoals, setPlanGoals] = useState<string[]>([]);
-  const sections = useMemo(() => getSections(specialty, (recordType === 'Avaliacao' ? 'Avaliacao' : 'Evolucao') as RecordKind), [specialty, recordType]);
+  const structuredKind = (recordType === 'Avaliacao' || recordType === 'Anamnese' ? recordType : 'Evolucao') as RecordKind;
+  const sections = useMemo(() => getSections(specialty, structuredKind), [specialty, structuredKind]);
   const handleStructuredChange = useCallback((key: string, value: any) => {
     setSValues(prev => ({ ...prev, [key]: value }));
     setAiFields(prev => (prev.includes(key) ? prev.filter(k => k !== key) : prev));
@@ -2135,7 +2136,7 @@ const RecordEditor: React.FC<{
   const editorTabs = EDITOR_TABS
     .filter(t => {
       if (isPlano) return t.id === 'dados' || t.id === 'rascunho' || t.id === 'historico';
-      if (isAnamnese) return t.id === 'dados' || t.id === 'rascunho' || t.id === 'historico';
+      if (isAnamnese) return t.id === 'dados' || t.id === 'estrutura' || t.id === 'rascunho' || t.id === 'historico';
       if (t.id === 'estrutura') return isStructured;
       if (t.id === 'anexos') return recordType === 'Evolucao' || recordType === 'Avaliacao';
       return true;
@@ -2143,7 +2144,7 @@ const RecordEditor: React.FC<{
     .map(t => ({
       ...t,
       label: t.id === 'estrutura'
-        ? (recordType === 'Avaliacao' ? 'Avaliação clínica' : absent ? (isFaltaOc(ocorrencia) ? 'Falta' : 'Ocorrência') : 'Evolução da sessão')
+        ? (isAnamnese ? 'Preenchimento profissional' : recordType === 'Avaliacao' ? 'Avaliação clínica' : absent ? (isFaltaOc(ocorrencia) ? 'Falta' : 'Ocorrência') : 'Evolução da sessão')
         : t.id === 'rascunho' ? (isPlano ? 'Plano' : isAnamnese ? 'Coleta remota' : isStructured ? 'Texto livre / IA' : 'Rascunho') : t.label,
       disabled: t.id === 'revisao' && !organized,
     }));
@@ -2245,9 +2246,15 @@ const RecordEditor: React.FC<{
           />
         ))}
 
-        {/* Registro estruturado por especialidade — Evolução / Avaliação */}
+        {/* Registro estruturado — Anamnese, Evolução e Avaliação */}
         {editorSection === 'estrutura' && isStructured && (
           <div className="space-y-3 animate-fadeIn">
+            {isAnamnese ? (
+              <ContentCard padding="md" className="space-y-1.5">
+                <h3 className="text-sm font-medium text-slate-900">Anamnese preenchida pelo profissional</h3>
+                <p className="text-[11px] leading-relaxed text-slate-500">Registre a entrevista clínica diretamente no prontuário. A coleta remota do paciente continua disponível na outra aba e complementa este registro.</p>
+              </ContentCard>
+            ) : (
             <ContentCard padding="md">
               <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Select
@@ -2265,6 +2272,7 @@ const RecordEditor: React.FC<{
                 </p>
               </div>
             </ContentCard>
+            )}
             {isLegacyRecord && (
               <Alert variant="info">
                 Este registro foi criado no modelo anterior. O conteúdo original está em <strong>Texto livre / IA</strong> e continua sendo salvo; preencha as seções abaixo para estruturá-lo.
@@ -2292,7 +2300,7 @@ const RecordEditor: React.FC<{
               values={sValues}
               onChange={handleStructuredChange}
               planGoals={planGoals}
-              label={recordType === 'Avaliacao' ? 'Seções da avaliação' : 'Seções da evolução'}
+              label={isAnamnese ? 'Seções da anamnese' : recordType === 'Avaliacao' ? 'Seções da avaliação' : 'Seções da evolução'}
               showProgress
               aiFields={aiFields}
               onConfirmAi={confirmAiField}
@@ -2302,7 +2310,7 @@ const RecordEditor: React.FC<{
                   {canUseAi && <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillWithAI}>Preencher com IA</Button>}
                   <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} onClick={duplicateFromLast}>Duplicar da última sessão</Button>
                 </>
-              ) : (canUseAi ? (
+              ) : (recordType === 'Avaliacao' && canUseAi ? (
                 <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillAssessmentWithAI}>Preencher com IA</Button>
               ) : undefined)}
               sectionTop={id => (isEvolucao && id === 'sessao' ? (
@@ -2363,6 +2371,7 @@ const RecordEditor: React.FC<{
                         icon={ClipboardCheck}
                         title="Coleta de Dados (Remota)"
                         description="Para este tipo de registro, o histórico é coletado diretamente com o paciente através de um formulário seguro e sigiloso."
+                        action={<Button variant="primary" size="sm" iconLeft={<Edit3 size={14} />} onClick={() => setEditorSection('estrutura')}>Preencher manualmente</Button>}
                       />
                       {record?.id && (
                         <div className="pt-3 animate-slideUpFade">
@@ -2543,7 +2552,7 @@ const RecordEditor: React.FC<{
         {editorSection === 'historico' && (
           <HistoryPanel
             recordId={recordIdRef.current}
-            kind={(recordType === 'Avaliacao' ? 'Avaliacao' : 'Evolucao') as RecordKind}
+            kind={structuredKind}
             locked={locked}
             onRestore={restoreSnapshot}
             refreshKey={historyTick}

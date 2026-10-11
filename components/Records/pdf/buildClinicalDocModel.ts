@@ -129,7 +129,13 @@ function absenceBlocks(values: StructuredValues): Block[] {
 function recordBody(r: ExportRecord): Block[] {
   const org = safeJson(r.ai_organized_content);
   const st = parseStructured(r.ai_organized_content);
-  const kind: RecordKind | null = st?.kind === 'Avaliacao' ? 'Avaliacao' : st?.kind === 'Evolucao' ? 'Evolucao' : null;
+  const kind: RecordKind | null = st?.kind === 'Avaliacao'
+    ? 'Avaliacao'
+    : st?.kind === 'Evolucao'
+      ? 'Evolucao'
+      : st?.kind === 'Anamnese'
+        ? 'Anamnese'
+        : null;
   if (st && kind) {
     const blocks = [...(kind === 'Evolucao' ? absenceBlocks(st.values || {}) : []), ...structuredBlocks(getSections((st.template || 'psicologia') as SpecialtyId, kind), st.values || {})];
     if (blocks.length) return blocks;
@@ -181,7 +187,7 @@ function restrictedBlocks(r: ExportRecord): Block[] {
 /** Resumo curto em linguagem corrida para o Resumo Clínico. */
 function legacyOf(r: ExportRecord): Record<string, string> {
   const st = parseStructured(r.ai_organized_content);
-  if (st && (st.kind === 'Avaliacao' || st.kind === 'Evolucao')) {
+  if (st && (st.kind === 'Avaliacao' || st.kind === 'Evolucao' || st.kind === 'Anamnese')) {
     return compileLegacy(getSections((st.template || 'psicologia') as SpecialtyId, st.kind), st.values || {}) as Record<string, string>;
   }
   const org = safeJson(r.ai_organized_content) || {};

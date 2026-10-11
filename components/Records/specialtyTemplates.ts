@@ -12,7 +12,7 @@ import {
 ═══════════════════════════════════════════════════════════════ */
 
 export type SpecialtyId = 'psicologia' | 'psiquiatria' | 'medicina' | 'outros';
-export type RecordKind = 'Evolucao' | 'Avaliacao';
+export type RecordKind = 'Evolucao' | 'Avaliacao' | 'Anamnese';
 export type FieldType = 'text' | 'textarea' | 'select' | 'multi' | 'date' | 'number' | 'rows' | 'goals' | 'followups';
 
 export interface RowColumn { key: string; label: string; placeholder?: string }
@@ -144,6 +144,63 @@ const encaminhamentosSection = (): SectionDef => ({
     F.area('encaminhamentos_obs', 'Justificativa e observações', { rows: 3, legacy: 'encaminhamentos' }),
   ],
 });
+
+/* ── Anamnese preenchida pelo profissional ────────────────────
+   A coleta remota continua disponível, mas não pode ser a única forma de
+   registrar a história clínica. Este roteiro é comum às especialidades e
+   deixa claro o que foi informado pelo paciente e o que foi observado pelo
+   profissional. */
+const ANAMNESIS_SECTIONS: SectionDef[] = [
+  {
+    id: 'demanda', label: 'Demanda inicial', icon: MessageSquare,
+    description: 'Motivo da procura, contexto do encaminhamento e expectativas em relação ao atendimento.',
+    fields: [
+      F.area('queixa_principal', 'Queixa principal / motivo da procura', { legacy: 'motivo_consulta', rows: 5, core: true, placeholder: 'Registre, sempre que possível, nas palavras do paciente.' }),
+      F.area('demanda_expectativas', 'Demanda e expectativas', { legacy: 'motivo_consulta', rows: 3 }),
+      F.text('encaminhador', 'Encaminhamento / como conheceu o serviço', { legacy: 'motivo_consulta' }),
+      F.area('inicio_curso', 'Início, curso e fatores associados à queixa', { legacy: 'contexto_relevante', rows: 4 }),
+    ],
+  },
+  {
+    id: 'historia', label: 'História de vida', icon: History,
+    description: 'Desenvolvimento, relações, escolaridade, trabalho e acontecimentos relevantes.',
+    fields: [
+      F.area('historia_pessoal', 'História pessoal e do desenvolvimento', { legacy: 'contexto_relevante', rows: 5, core: true }),
+      F.area('historia_familiar', 'História familiar e relacional', { legacy: 'contexto_relevante', rows: 4 }),
+      F.area('historia_social', 'Trabalho, estudos, rotina e rede de apoio', { legacy: 'contexto_relevante', rows: 4 }),
+      F.area('marcos_relevantes', 'Marcos e acontecimentos significativos', { legacy: 'contexto_relevante', rows: 4 }),
+    ],
+  },
+  {
+    id: 'saude', label: 'Saúde e tratamentos', icon: HeartPulse,
+    description: 'Histórico de saúde física e mental, tratamentos e medicações informadas.',
+    fields: [
+      F.area('historia_saude', 'Saúde física e mental, diagnósticos e tratamentos prévios', { legacy: 'contexto_relevante', rows: 5, core: true }),
+      F.rows('medicacoes_uso', 'Medicações em uso', MEDS_COLS, { legacy: 'contexto_relevante', rowsAddLabel: 'Adicionar medicamento' }),
+      F.area('uso_substancias', 'Uso de álcool, tabaco e outras substâncias', { legacy: 'contexto_relevante', rows: 3 }),
+      F.area('sono_alimentacao', 'Sono, alimentação, energia e autocuidado', { legacy: 'contexto_relevante', rows: 3 }),
+    ],
+  },
+  {
+    id: 'avaliacao_inicial', label: 'Observação inicial', icon: Brain,
+    description: 'Registre separadamente observações do profissional e hipóteses ainda em investigação.',
+    fields: [
+      F.area('observacoes_iniciais', 'Observações clínicas iniciais', { legacy: 'observacoes_clinicas', rows: 5, core: true, placeholder: 'Aparência, contato, discurso, humor, comportamento e outros elementos observados.' }),
+      F.area('recursos_protecao', 'Recursos, fatores de proteção e potencialidades', { legacy: 'observacoes_clinicas', rows: 3 }),
+      F.area('hipoteses_iniciais', 'Hipóteses / pontos a investigar', { legacy: 'observacoes_clinicas', rows: 4, placeholder: 'Registre como hipótese, não como conclusão diagnóstica.' }),
+    ],
+  },
+  sharedSupport(),
+  {
+    id: 'plano_inicial', label: 'Plano inicial', icon: Target,
+    description: 'Combinados, objetivos iniciais e próximos passos.',
+    fields: [
+      F.area('objetivos_iniciais', 'Objetivos iniciais do acompanhamento', { legacy: 'plano_terapeutico', rows: 4, core: true }),
+      F.area('combinados_iniciais', 'Combinados e orientações iniciais', { legacy: 'plano_terapeutico', rows: 3 }),
+      F.area('proximos_passos', 'Próximos passos / necessidade de encaminhamento', { legacy: 'plano_terapeutico', rows: 3 }),
+    ],
+  },
+];
 
 /* ── Evolução de sessão (psicologia): seções completas ─────────── */
 export const RISCO_TRIAGEM = [
@@ -653,8 +710,10 @@ export const SPECIALTY_OPTIONS: { value: SpecialtyId; label: string }[] =
 /** Modelo usado quando não há especialidade definida (comportamento anterior). */
 export const DEFAULT_SPECIALTY: SpecialtyId = 'psicologia';
 
-export const getSections = (spec: SpecialtyId, kind: RecordKind): SectionDef[] =>
-  (SPECIALTY_TEMPLATES[spec] || SPECIALTY_TEMPLATES[DEFAULT_SPECIALTY])[kind === 'Avaliacao' ? 'evaluation' : 'evolution'];
+export const getSections = (spec: SpecialtyId, kind: RecordKind): SectionDef[] => {
+  if (kind === 'Anamnese') return ANAMNESIS_SECTIONS;
+  return (SPECIALTY_TEMPLATES[spec] || SPECIALTY_TEMPLATES[DEFAULT_SPECIALTY])[kind === 'Avaliacao' ? 'evaluation' : 'evolution'];
+};
 
 /* ── Detecção da especialidade do profissional ─────────── */
 const norm = (s?: string | null) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
