@@ -291,6 +291,7 @@ const TermsAcceptanceGate: React.FC<{ children: React.ReactNode }> = ({ children
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: string[]; requiredPermission?: string; requiredCapability?: 'does_psychotherapy' }> = ({ children, allowedRoles, requiredPermission, requiredCapability }) => {
   const { isAuthenticated, user, isAdmin, hasPermission } = useAuth();
+  const location = useLocation();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
@@ -313,7 +314,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   return (
     <SubscriptionAccessGate afterContent={
       <>
-        {user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && <AuroraAssistant />}
+        {/* A Bia fica disponível pelo botão flutuante somente no Dashboard, onde não cobre ações clínicas. */}
+        {location.pathname === '/dashboard' && user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && <AuroraAssistant />}
         {user && <OnboardingController userId={user.id} userName={user.name || ''} />}
       </>
     }>
