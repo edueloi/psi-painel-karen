@@ -3,14 +3,14 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Calendar, FileText, BrainCircuit, ClipboardList, FolderOpen,
   Boxes, StickyNote, MapPin, Shield, Phone, Mail, User, Edit2,
-  Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink,
+  Loader2, Download, Trash2, FileUp, TrendingUp, ExternalLink, Eye,
   ChevronRight, History, Activity, Link2, Copy, Check, X, Clock, Smartphone,
   CheckSquare, Plus, Flag, Tag, AlarmClock, MessageCircle, Send,
   Heart, BookOpen, Dumbbell, Smile,
   FileSignature, PauseCircle, PlayCircle, Image as ImageIcon, Paperclip,
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { api, getStaticUrl } from '../services/api';
+import { api, fetchAuthenticatedFile, getStaticUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Patient } from '../types';
 import { PatientHistoryDrawer } from '../components/Patient/PatientHistoryDrawer';
@@ -892,6 +892,10 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
   const [uploading, setUploading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleUpload = async (file: File) => {
@@ -918,6 +922,53 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
     setDeleteTarget(null);
     onRefresh();
   };
+
+  const releasePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+  };
+
+  const handleDownload = async (doc: any) => {
+    setDownloadingId(String(doc.id));
+    try {
+      const { blob, filename } = await fetchAuthenticatedFile(`/uploads/${doc.id}/file?download=1`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || doc.file_name || doc.title || 'arquivo';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('Download error:', error);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const canPreview = (doc: any) => {
+    const mime = String(doc.mime_type || '').toLowerCase();
+    const name = String(doc.file_name || doc.title || '').toLowerCase();
+    return doc.type === 'pdf' || doc.type === 'image' || mime.startsWith('image/') || /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
+  };
+
+  const handlePreview = async (doc: any) => {
+    releasePreview();
+    setPreviewDoc(doc);
+    if (!canPreview(doc)) return;
+    setPreviewLoading(true);
+    try {
+      const { blob } = await fetchAuthenticatedFile(`/uploads/${doc.id}/file`);
+      setPreviewUrl(URL.createObjectURL(blob));
+    } catch (error) {
+      console.error('Preview error:', error);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   if (loading) return <TabLoader />;
 
@@ -958,16 +1009,14 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {doc.file_url && (
-                  <a
-                    href={getStaticUrl(doc.file_url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-primary-50 hover:text-primary-600 transition-colors"
-                    title="Baixar"
-                    aria-label="Baixar documento"
-                  >
-                    <Download size={14} />
-                  </a>
+                  <>
+                    <IconButton type="button" variant="ghost" size="sm" onClick={() => handlePreview(doc)} title="Visualizar" aria-label="Visualizar documento">
+                      <Eye size={14} />
+                    </IconButton>
+                    <IconButton type="button" variant="ghost" size="sm" onClick={() => handleDownload(doc)} loading={downloadingId === String(doc.id)} title="Baixar" aria-label="Baixar documento">
+                      <Download size={14} />
+                    </IconButton>
+                  </>
                 )}
                 <IconButton
                   type="button"
@@ -997,6 +1046,26 @@ const TabDocumentos: React.FC<{ documents: any[]; loading: boolean; patientId: s
         onClose={() => setDeleteTarget(null)}
         variant="danger"
       />
+      <Modal
+        isOpen={!!previewDoc}
+        onClose={() => { releasePreview(); setPreviewDoc(null); }}
+        title={previewDoc?.title || previewDoc?.file_name || 'Visualizar arquivo'}
+        size="xl"
+        footer={<ModalFooter align="right">
+          {previewDoc && <Button type="button" variant="primary" size="sm" iconLeft={<Download size={14} />} loading={downloadingId === String(previewDoc.id)} onClick={() => handleDownload(previewDoc)}>Baixar</Button>}
+          <Button type="button" variant="outline" size="sm" onClick={() => { releasePreview(); setPreviewDoc(null); }}>Fechar</Button>
+        </ModalFooter>}
+      >
+        {previewLoading ? (
+          <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="animate-spin" size={18} />Carregando arquivo…</div>
+        ) : previewDoc && previewUrl && previewDoc.type === 'pdf' ? (
+          <iframe title={`Pré-visualização de ${previewDoc.title || previewDoc.file_name}`} src={previewUrl} className="h-[70vh] w-full rounded-lg border border-slate-200 bg-white" />
+        ) : previewDoc && previewUrl ? (
+          <div className="flex min-h-64 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-4"><img src={previewUrl} alt={previewDoc.title || previewDoc.file_name} className="max-h-[65vh] max-w-full rounded object-contain" /></div>
+        ) : (
+          <p className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">A pré-visualização segura está disponível para PDF e imagens. Baixe arquivos Word, planilhas e outros formatos para abrir no aplicativo adequado.</p>
+        )}
+      </Modal>
     </div>
   );
 };
