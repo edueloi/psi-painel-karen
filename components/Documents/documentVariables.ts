@@ -198,6 +198,34 @@ export function extractVariables(html: string): string[] {
   return [...set];
 }
 
+/** Variáveis que podem ficar em branco sem bloquear a emissão. */
+export const OPTIONAL_VARIABLES = new Set(['time_start', 'time_end', 'period']);
+
+const V = (names: string) => String.raw`\{{2,3}\s*(?:${names})\s*\}{2,3}`;
+const TIME_START = V('time_start|hora_inicio|horario_inicio');
+const TIME_END = V('time_end|hora_fim|horario_fim');
+const PERIOD_VAR = V('period|periodo');
+
+/**
+ * Remove do texto as frases de horário/período quando não há valor:
+ *  - ', no período de {{time_start}} às {{time_end}}' e 'no horário das {{time_start}} às {{time_end}}' (com os dois vazios);
+ *  - linhas inteiras como 'Horário: {{time_start}} - {{time_end}}';
+ *  - ', no período de {{period}}' / 'pelo período de ____' (período vazio).
+ */
+function dropEmptyOptionalClauses(src: string, get: (k: string) => string): string {
+  let out = src;
+  if (!get('time_start') && !get('time_end')) {
+    out = out.replace(new RegExp(String.raw`[,;]?\s*(?:no\s+|em\s+)?(?:per[ií]odo|hor[áa]rio)\s+(?:de|das|entre)?\s*${TIME_START}\s*(?:às|as|a|até|e|-|–)\s*${TIME_END}`, 'gi'), '');
+    out = out.replace(new RegExp(String.raw`^[^\n<]*${TIME_START}[^\n<]*${TIME_END}[^\n<]*\n?`, 'gim'), '');
+  }
+  if (!get('period')) {
+    out = out.replace(new RegExp(String.raw`[,;]?\s*(?:no\s+|pelo\s+)?per[ií]odo\s+de\s*${PERIOD_VAR}`, 'gi'), '');
+    // 'período de ______' (linha em branco do modelo, sem variável)
+    out = out.replace(/[,;]?[ 	]*(?:no[ 	]+|pelo[ 	]+)?per[ií]odo[ 	]+de[ 	]*_{3,}/gi, '');
+  }
+  return out;
+}
+
 export interface ApplyResult { html: string; missing: string[] }
 
 /**
@@ -211,17 +239,24 @@ export function applyTemplateVariables(html: string, values: Record<string, stri
     return v === undefined || v === null ? '' : String(v).trim();
   };
   let out = unwrapEditorChips(html || '');
+  // Horário e período são OPCIONAIS: sem valor, a frase correspondente some do documento (não bloqueia a emissão).
+  out = dropEmptyOptionalClauses(out, get);
   out = out.replace(new RegExp(VAR_RE.source, 'g'), (_m, name: string) => {
     const key = canonicalVariable(name);
     const v = get(key);
-    if (!v) { missing.add(key); return BLANK; }
+    if (!v) {
+      if (OPTIONAL_VARIABLES.has(key)) return '____';
+      missing.add(key);
+      return BLANK;
+    }
     return escapeHtml(v);
   });
   out = out.replace(new RegExp(PERIOD_BLANK_RE.source, 'gi'), (_m, pre: string) => {
     const v = get('period');
-    if (!v) { missing.add('period'); return `${pre}${BLANK}`; }
+    if (!v) return '';
     return `${pre}${escapeHtml(v)}`;
   });
+  out = out.replace(/[ 	]+([.,;:])/g, '$1');
   // rede de segurança: nenhuma chave dupla/tripla pode sobrar
   out = out.replace(/\{{2,}[^{}<>]{0,60}\}{2,}/g, BLANK);
   return { html: out, missing: [...missing] };

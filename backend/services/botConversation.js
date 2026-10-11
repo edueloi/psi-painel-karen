@@ -11,6 +11,7 @@
  */
 
 const db = require('../db');
+const { findClosedDay, blockedIntervals } = require('../utils/closedDates');
 
 // ---------------------------------------------------------------------------
 // IA — Interpretação de Intenção (Aurora)
@@ -1452,6 +1453,23 @@ async function handleHorarios_Data(tenantId, message, session, text) {
       return;
     }
 
+    // Férias/feriados/folgas (closed_dates): dia inteiro fechado ou intervalos parciais
+    let closedRaw = null;
+    try {
+      const [cdRows] = await db.query(`SELECT closed_dates FROM users WHERE id = ? LIMIT 1`, [prof.id]);
+      closedRaw = cdRows[0]?.closed_dates || null;
+    } catch (e) { /* coluna ausente: segue sem bloqueios */ }
+    const closedEntry = findClosedDay(closedRaw, dateISO);
+    if (closedEntry) {
+      session.step = 'prof_menu';
+      await sendMessage(tenantId, message.from,
+        `⏰ *Horários disponíveis em ${text}:*\n\nDia bloqueado${closedEntry.label ? ' (' + closedEntry.label + ')' : ''}. Sem atendimento nesse dia.`
+      );
+      await sendMessage(tenantId, message.from, menuProfissional(prof.name));
+      return;
+    }
+    const partialBlocks = blockedIntervals(closedRaw, dateISO);
+
     // Busca appointments do dia
     const [aptRows] = await db.query(
       `SELECT start_time, end_time, status
@@ -1484,7 +1502,9 @@ async function handleHorarios_Data(tenantId, message, session, text) {
         }
       }
 
-      msg += `${slot} ${ocupado ? '❌ (ocupado)' : '✅'}\n`;
+      const slotMin = slotH * 60 + (slotM || 0);
+      const bloqueado = partialBlocks.some(b => slotMin < b.end && slotMin + 50 > b.start);
+      msg += `${slot} ${bloqueado ? '⛔ (bloqueado)' : ocupado ? '❌ (ocupado)' : '✅'}\n`;
     }
 
     session.step = 'prof_menu';

@@ -2,7 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { Button, IconButton } from '../UI/Button';
-import { Input, Textarea } from '../UI/Input';
+import './room-fields.css';
 import { Modal } from '../UI/Modal';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,20 +41,59 @@ export const DarkIconButton = React.forwardRef<HTMLButtonElement, IconProps>(
 );
 DarkIconButton.displayName = 'DarkIconButton';
 
-const darkField =
-  '!bg-white/5 !border-white/10 !text-slate-100 placeholder:!text-slate-500 focus:!border-primary-500 focus:!bg-white/5 focus:!ring-primary-500/20';
+// Campos escuros próprios (classe .room-field em room-fields.css). O Input do UI tem um
+// contêiner bg-white que não recebe className, por isso o texto claro ficava ilegível.
+export const darkFieldClass = 'room-field';
 
-export const DarkInput = React.forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(
-  ({ className, labelClassName, ...props }, ref) => (
-    <Input ref={ref} className={cn(darkField, className)} labelClassName={cn('!text-slate-300', labelClassName)} {...props} />
-  )
+type DarkInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> & {
+  label?: string; hint?: string; error?: string;
+  iconLeft?: React.ReactNode; iconRight?: React.ReactNode;
+  wrapperClassName?: string; labelClassName?: string;
+};
+
+export const DarkInput = React.forwardRef<HTMLInputElement, DarkInputProps>(
+  ({ className, labelClassName, wrapperClassName, label, hint, error, iconLeft, iconRight, id, ...props }, ref) => {
+    const generatedId = React.useId();
+    const inputId = id ?? generatedId;
+    return (
+      <div className={cn('flex min-w-0 flex-col gap-1.5', wrapperClassName)}>
+        {label && <label htmlFor={inputId} className={cn('text-xs font-medium text-slate-300', labelClassName)}>{label}</label>}
+        <div className="relative flex items-center">
+          {iconLeft && <span className="pointer-events-none absolute left-3 flex text-slate-400">{iconLeft}</span>}
+          <input
+            ref={ref}
+            id={inputId}
+            aria-invalid={error ? true : undefined}
+            className={cn('room-field', iconLeft && '!pl-9', iconRight && '!pr-9', className)}
+            {...props}
+          />
+          {iconRight && <span className="absolute right-3 flex text-slate-400">{iconRight}</span>}
+        </div>
+        {error && <p className="text-[11px] font-medium text-red-400">{error}</p>}
+        {hint && !error && <p className="text-[11px] leading-snug text-slate-400">{hint}</p>}
+      </div>
+    );
+  }
 );
 DarkInput.displayName = 'DarkInput';
 
-export const DarkTextarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<typeof Textarea>>(
-  ({ className, labelClassName, ...props }, ref) => (
-    <Textarea ref={ref} className={cn(darkField, '!text-[13px] !font-normal', className)} labelClassName={cn('!text-slate-300', labelClassName)} {...props} />
-  )
+type DarkTextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  label?: string; hint?: string; error?: string; wrapperClassName?: string; labelClassName?: string;
+};
+
+export const DarkTextarea = React.forwardRef<HTMLTextAreaElement, DarkTextareaProps>(
+  ({ className, labelClassName, wrapperClassName, label, hint, error, id, ...props }, ref) => {
+    const generatedId = React.useId();
+    const inputId = id ?? generatedId;
+    return (
+      <div className={cn('flex min-w-0 flex-col gap-1.5', wrapperClassName)}>
+        {label && <label htmlFor={inputId} className={cn('text-xs font-medium text-slate-300', labelClassName)}>{label}</label>}
+        <textarea ref={ref} id={inputId} aria-invalid={error ? true : undefined} className={cn('room-field', className)} {...props} />
+        {error && <p className="text-[11px] font-medium text-red-400">{error}</p>}
+        {hint && !error && <p className="text-[11px] leading-snug text-slate-400">{hint}</p>}
+      </div>
+    );
+  }
 );
 DarkTextarea.displayName = 'DarkTextarea';
 
@@ -144,6 +183,5 @@ export function DarkTabs<T extends string>({ items, value, onChange, label, clas
 }
 
 // Classes reutilizáveis para campos nativos (select/input/label/cartão) dentro dos painéis escuros.
-export const darkFieldClass = 'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-[13px] text-slate-100 outline-none placeholder:text-slate-500 focus:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30';
 export const darkLabelClass = 'mb-1.5 text-xs font-medium text-slate-300';
 export const darkCardClass = 'rounded-lg border border-white/10 bg-white/[0.04] p-3';

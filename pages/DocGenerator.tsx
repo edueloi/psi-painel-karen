@@ -1,3 +1,4 @@
+import { maskCpfCnpj, maskTime, maskCurrency, maskDateRange, maskByFieldName } from '../components/UI/masks';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getStaticUrl } from '../services/api';
@@ -800,7 +801,8 @@ export const DocGenerator: React.FC = () => {
                           label="CPF do paciente"
                           placeholder={patient?.cpf || patient?.cpf_cnpj || '000.000.000-00'}
                           value={patientCpfManual}
-                          onChange={e => setPatientCpfManual(e.target.value)}
+                          onChange={e => setPatientCpfManual(maskCpfCnpj(e.target.value))}
+                          inputMode="numeric"
                           hint={patient?.cpf || patient?.cpf_cnpj ? 'Vazio usa o CPF do cadastro.' : undefined}
                           error={fieldError('patient_cpf')}
                         />
@@ -809,19 +811,21 @@ export const DocGenerator: React.FC = () => {
                         <FormRow cols={2}>
                           {uses('time_start') && (
                             <Input
-                              label="Horário de início"
+                              label="Horário de início (opcional)"
                               placeholder="08:00"
                               value={timeStart}
-                              onChange={e => setTimeStart(e.target.value)}
+                              onChange={e => setTimeStart(maskTime(e.target.value))}
+                              inputMode="numeric"
                               error={fieldError('time_start')}
                             />
                           )}
                           {uses('time_end') && (
                             <Input
-                              label="Horário de fim"
+                              label="Horário de fim (opcional)"
                               placeholder="09:00"
                               value={timeEnd}
-                              onChange={e => setTimeEnd(e.target.value)}
+                              onChange={e => setTimeEnd(maskTime(e.target.value))}
+                              inputMode="numeric"
                               error={fieldError('time_end')}
                             />
                           )}
@@ -833,7 +837,8 @@ export const DocGenerator: React.FC = () => {
                             label="Valor (R$)"
                             placeholder="0,00"
                             value={amount}
-                            onChange={e => setAmount(e.target.value)}
+                            onChange={e => setAmount(maskCurrency(e.target.value))}
+                            inputMode="numeric"
                             error={fieldError('amount')}
                           />
                           <Input
@@ -848,10 +853,11 @@ export const DocGenerator: React.FC = () => {
                       )}
                       {uses('period') && (
                         <Input
-                          label="Período"
+                          label="Período (opcional)"
                           placeholder="Ex: 01/09/2026 a 30/09/2026"
                           value={period}
-                          onChange={e => setPeriod(e.target.value)}
+                          onChange={e => setPeriod(maskDateRange(e.target.value))}
+                          inputMode="numeric"
                           error={fieldError('period')}
                         />
                       )}
@@ -871,7 +877,8 @@ export const DocGenerator: React.FC = () => {
                               key={k}
                               label={labelOfVariable(k).replace(/^./, c => c.toUpperCase())}
                               value={extraValues[k] || ''}
-                              onChange={e => setExtraValues(prev => ({ ...prev, [k]: e.target.value }))}
+                              onChange={e => { const mask = maskByFieldName(k); setExtraValues(prev => ({ ...prev, [k]: mask ? mask(e.target.value) : e.target.value })); }}
+                              inputMode={maskByFieldName(k) ? 'numeric' : undefined}
                               error={fieldError(k)}
                             />
                           ))}

@@ -9,13 +9,13 @@ export const DeviceSelect: React.FC<{
   const selected = devices.find(d => d.deviceId === value);
   return (
     <div className="relative">
-      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400">{icon} {label}</p>
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-300">{icon} {label}</p>
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen(v => !v)}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-[13px] text-slate-100 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+        className="flex h-11 min-[900px]:h-9 w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-[13px] text-slate-100 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
       >
         <span className="flex-1 truncate text-left">{selected?.label || "Padrão do sistema"}</span>
         <ChevronDown size={14} className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -29,7 +29,7 @@ export const DeviceSelect: React.FC<{
               role="option"
               aria-selected={d.deviceId === value}
               onClick={() => { onChange(d.deviceId); setOpen(false); }}
-              className={`w-full px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-white/10 ${d.deviceId === value ? "bg-primary-500/20 text-primary-200" : "text-slate-300"}`}
+              className={`w-full min-h-[44px] px-3 py-2.5 text-left text-sm transition-colors hover:bg-white/10 ${d.deviceId === value ? "bg-primary-500/20 text-primary-200" : "text-slate-300"}`}
             >
               {d.label || `Dispositivo ${d.deviceId.slice(0, 8)}`}
             </button>

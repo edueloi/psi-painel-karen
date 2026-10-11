@@ -18,6 +18,7 @@ import {
   Package,
   MapPin,
 } from 'lucide-react';
+import { ClosedEntry, blockedIntervals, findClosedDay } from '../../src/lib/closedDates';
 
 const cx = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(' ');
@@ -92,7 +93,8 @@ export interface AgendaPlannerProps {
   hideStats?: boolean;
   workSchedule?: WorkScheduleDay[];
   skippedHours?: number[];
-  closedDates?: { date: string; label: string }[];
+  /** closed_dates do perfil: dia inteiro (sem allDay=false) ou bloqueio parcial (from/to). */
+  closedDates?: ClosedEntry[];
   stickyHeaderTop?: number;
 }
 
@@ -715,7 +717,8 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                     String(day.getMonth() + 1).padStart(2, '0'),
                     String(day.getDate()).padStart(2, '0'),
                   ].join('-');
-                  const closedEntry = closedDates.find(c => c.date === dayIso);
+                  const closedEntry = findClosedDay(closedDates, dayIso);
+                  const headerPartials = closedEntry ? [] : blockedIntervals(closedDates, dayIso);
                   return (
                     <div
                       key={day.toISOString()}
@@ -753,6 +756,15 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                       {closedEntry && (
                         <span className="rounded-full bg-rose-100 px-1.5 py-px text-[10px] font-semibold text-rose-500 leading-tight max-w-full truncate">
                           {closedEntry.label || 'Fechado'}
+                        </span>
+                      )}
+                      {headerPartials.length > 0 && (
+                        <span
+                          className="flex max-w-full items-center gap-1 rounded-full bg-rose-50 px-1.5 py-px text-[10px] font-medium text-rose-500 leading-tight"
+                          title={headerPartials.map(b => `${b.from}–${b.to}${b.label ? ' · ' + b.label : ''}`).join(' | ')}
+                        >
+                          <Clock size={9} className="shrink-0" />
+                          <span className="truncate">{headerPartials[0].label || 'Horário bloqueado'}</span>
                         </span>
                       )}
                     </div>
@@ -878,8 +890,10 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                         String(day.getMonth() + 1).padStart(2, '0'),
                         String(day.getDate()).padStart(2, '0'),
                       ].join('-');
-                      const isClosed = closedDates.some(c => c.date === dayIso2);
-                      const closedLabel = closedDates.find(c => c.date === dayIso2)?.label || 'Fechado';
+                      const closedDayEntry = findClosedDay(closedDates, dayIso2);
+                      const isClosed = !!closedDayEntry;
+                      const closedLabel = closedDayEntry?.label || 'Fechado';
+                      const partialBlocks = isClosed ? [] : blockedIntervals(closedDates, dayIso2);
                       const schedStartMinutes = schedDay?.active ? parseInt(schedDay.start.split(':')[0]) * 60 + parseInt(schedDay.start.split(':')[1]) : null;
                       const schedEndMinutes = schedDay?.active ? parseInt(schedDay.end.split(':')[0]) * 60 + parseInt(schedDay.end.split(':')[1]) : null;
 
@@ -945,6 +959,33 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                             </span>
                           </div>
                         )}
+                        {/* bloqueios parciais (allDay=false): faixa hachurada sobre o intervalo, sem bloquear cliques */}
+                        {partialBlocks.map(b => {
+                          if (b.end <= startHour * 60) return null;
+                          const top = b.start <= startHour * 60 ? 0 : minutesToTop(b.start, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT);
+                          const bottom = minutesToTop(b.end, startHour, hourHeight, skippedHours, COLLAPSE_HEIGHT);
+                          const height = Math.min(gridHeight, bottom) - Math.max(0, top);
+                          if (height <= 0) return null;
+                          return (
+                            <div
+                              key={`${b.from}-${b.to}`}
+                              className="pointer-events-none absolute left-0 right-0 z-[4] border-y border-dashed border-rose-200"
+                              style={{
+                                top: Math.max(0, top),
+                                height,
+                                background: 'repeating-linear-gradient(135deg, rgba(251,113,133,0.10) 0 6px, rgba(148,163,184,0.16) 6px 12px)',
+                              }}
+                            >
+                              <span
+                                className="pointer-events-auto absolute left-1 top-1 flex max-w-[calc(100%-8px)] items-center gap-1 rounded bg-white/85 px-1.5 py-0.5 text-[10px] font-medium text-rose-500"
+                                title={`${b.label || 'Horário bloqueado'} · ${b.from}–${b.to}`}
+                              >
+                                <Ban size={9} className="shrink-0" />
+                                <span className="truncate">{b.label || 'Bloqueado'}</span>
+                              </span>
+                            </div>
+                          );
+                        })}
                         {/* overlay horário fora do expediente */}
                         {!isClosed && workSchedule && schedInactive && (
                           <div className="pointer-events-none absolute inset-0 z-[3]" style={{ background: 'rgba(148,163,184,0.13)' }} />

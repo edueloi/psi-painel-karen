@@ -61,6 +61,8 @@ type ScheduleDay = {
 type ClosedDate = {
   date: string;
   label: string;
+  // Campos extras do modelo novo (tipo, período, horário parcial...) preservados ao salvar o perfil.
+  [extra: string]: any;
 };
 
 type ClosedDatePreset = ClosedDate & {
@@ -360,6 +362,7 @@ export const Profile: React.FC = () => {
                 closedDatesData
                   .filter((item: any) => item && item.date)
                   .map((item: any) => ({
+                    ...item,
                     date: String(item.date),
                     label: String(item.label || 'Folga'),
                   }))

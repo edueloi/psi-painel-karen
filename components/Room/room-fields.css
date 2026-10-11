@@ -1,0 +1,50 @@
+/* Campos de formulário da sala de vídeo (tema escuro). Contraste AA:
+   texto branco sobre slate-950 translúcido, placeholder slate-400, foco primary-400. */
+.room-field {
+  color-scheme: dark;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background-color: rgb(2 6 23 / 0.7);
+  color: #fff;
+  caret-color: #fff;
+  font-size: 16px; /* >=16px evita zoom do iOS ao focar */
+  font-weight: 400;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+textarea.room-field { padding: 10px 12px; min-height: 72px; resize: vertical; }
+.room-field::placeholder { color: #94a3b8; opacity: 1; }
+.room-field:hover { border-color: #475569; }
+.room-field:focus,
+.room-field:focus-visible {
+  border-color: #a78bfa; /* fallback */
+  border-color: var(--c-400, #9670f9);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-400, #9670f9) 35%, transparent);
+  background-color: rgb(2 6 23 / 0.85);
+  color: #fff;
+  outline: none;
+}
+.room-field:disabled { opacity: 0.55; cursor: not-allowed; }
+.room-field::selection { background: var(--c-500, #6d42f5); color: #fff; }
+.room-field option, .room-field optgroup { background-color: #0f172a; color: #fff; }
+/* Autofill do navegador: sem fundo branco/amarelo e com texto claro */
+.room-field:-webkit-autofill,
+.room-field:-webkit-autofill:hover,
+.room-field:-webkit-autofill:focus,
+.room-field:-webkit-autofill:active {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px #0f172a inset;
+  box-shadow: 0 0 0 1000px #0f172a inset;
+  transition: background-color 9999s ease-out 0s;
+}
+.room-field[aria-invalid='true'] { border-color: #f87171; }
+@media (min-width: 640px) and (min-height: 600px) and (pointer: fine) {
+  .room-field { min-height: 36px; font-size: 13px; }
+}

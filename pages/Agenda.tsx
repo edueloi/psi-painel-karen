@@ -33,6 +33,7 @@ import { AgendaSettings } from './AgendaSettings';
 import { Switch } from '../components/UI/Switch';
 import { StatCard } from '../components/UI/StatCard';
 import { IconButton } from '../components/UI/Button';
+import { findBlock, parseClosedDates } from '../src/lib/closedDates';
 
 type ComandaTab = 'avulsa' | 'pacote';
 type ViewMode = 'kanban' | 'list';
@@ -375,9 +376,7 @@ export const Agenda: React.FC = () => {
   const profileClosedDates = useMemo(() => {
     const raw = profileData?.closed_dates;
     if (!raw) return [];
-    const parsed = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : raw;
-    if (!Array.isArray(parsed)) return [];
-    return parsed as { date: string; label: string }[];
+    return parseClosedDates(raw);
   }, [profileData]);
 
   const startHour = useMemo(() => {
@@ -1529,8 +1528,22 @@ export const Agenda: React.FC = () => {
       ? new Date(new Date(startUTC).getTime() + Number(formData.duration_minutes) * 60000).toISOString()
       : null;
 
+    // Aviso (não impede): dia/horário bloqueado em Férias e folgas. O profissional pode forçar.
+    let forceBlocked = false;
+    if ((!formData.id || dateChanged) && formData.type !== 'pessoal' && formData.type !== 'bloqueio' && typeof formData.appointment_date === 'string') {
+      const [dPart, tPart = '00:00'] = formData.appointment_date.split('T');
+      const startMin = Number(tPart.slice(0, 2)) * 60 + Number(tPart.slice(3, 5));
+      const block = findBlock(profileClosedDates, dPart, startMin, startMin + (Number(formData.duration_minutes) || 50));
+      if (block) {
+        const what = block.allDay ? 'está bloqueado' : `está bloqueado das ${block.from} às ${block.to}`;
+        if (!window.confirm(`Esse dia/horário ${what}${block.label ? ` (${block.label})` : ''} em Férias e folgas. Deseja agendar mesmo assim?`)) return;
+        forceBlocked = true;
+      }
+    }
+
     const payload = {
         ...formData,
+        ...(forceBlocked ? { force_blocked: true } : {}),
         start_time: dateChanged ? startUTC : null,
         end_time:   endUTC,   // sempre envia end_time correto (duração pode ter mudado sem mudar o horário)
         professional_id: formData.psychologist_id || formData.professional_id,

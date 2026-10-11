@@ -9,6 +9,7 @@ const qrcode = require('qrcode');
 const { generateShareToken } = require('../utils/shareToken');
 const { checkPermission } = require('../middleware/auth');
 const { ensureStatements } = require('../utils/schemaMigrate');
+const { sanitizeClosedDates } = require('../utils/closedDates');
 
 // Add extra profile columns if they don't exist (safe migration)
 const ensureColumns = async () => {
@@ -112,7 +113,9 @@ router.put('/me/schedule', async (req, res) => {
   try {
     const { schedule, closed_dates } = req.body;
     if (!Array.isArray(schedule) || !Array.isArray(closed_dates)) return res.status(400).json({ error: 'Agenda inválida.' });
-    await db.query('UPDATE users SET schedule = ?, closed_dates = ? WHERE id = ?', [JSON.stringify(schedule), JSON.stringify(closed_dates), req.user.id]);
+    const cleaned = sanitizeClosedDates(closed_dates);
+    if (cleaned.errors.length) return res.status(400).json({ error: cleaned.errors[0] });
+    await db.query('UPDATE users SET schedule = ?, closed_dates = ? WHERE id = ?', [JSON.stringify(schedule), JSON.stringify(cleaned.items), req.user.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Erro ao salvar agenda.' }); }
 });
@@ -162,7 +165,7 @@ router.put('/me', async (req, res) => {
         name, email, phone, effectiveCrp, specialty, company_name || null, address || null, bio || null,
         avatar_url, clinic_logo_url || null, cover_url || null,
         Array.isArray(schedule) ? JSON.stringify(schedule) : null,
-        Array.isArray(closed_dates) ? JSON.stringify(closed_dates) : null,
+        Array.isArray(closed_dates) ? JSON.stringify(sanitizeClosedDates(closed_dates).items) : null,
         public_slug || null,
         social_links ? JSON.stringify(social_links) : null,
         public_profile_enabled || false,

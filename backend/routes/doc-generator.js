@@ -1,7 +1,95 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { authorize } = require('../middleware/auth');
+const { authorize, checkPermission } = require('../middleware/auth');
+const { ensureStatements } = require('../utils/schemaMigrate');
+const { getFrontendUrl } = require('../utils/publicUrl');
+const integrity = require('../utils/documentIntegrity');
+
+// ── Esquema: documentos emitidos, arquivos (PDF), entregas e trilha de acesso (somente inserção) ──
+ensureStatements([
+  `CREATE TABLE IF NOT EXISTS doc_instances (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    patient_id INT NULL,
+    template_id INT NULL,
+    title VARCHAR(255) NOT NULL,
+    rendered_html LONGTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tenant (tenant_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  'ALTER TABLE doc_instances ADD COLUMN doc_type VARCHAR(50) NULL',
+  'ALTER TABLE doc_instances ADD COLUMN content_hash CHAR(64) NULL',
+  'ALTER TABLE doc_instances ADD COLUMN pdf_hash CHAR(64) NULL',
+  'ALTER TABLE doc_instances ADD COLUMN version INT NOT NULL DEFAULT 1',
+  'ALTER TABLE doc_instances ADD COLUMN replaces_id INT NULL',
+  'ALTER TABLE doc_instances ADD COLUMN issuer_id INT NULL',
+  'ALTER TABLE doc_instances ADD COLUMN issuer_name VARCHAR(255) NULL',
+  "ALTER TABLE doc_instances ADD COLUMN signature_mode VARCHAR(20) NOT NULL DEFAULT 'none'",
+  'ALTER TABLE doc_instances ADD COLUMN meta_json LONGTEXT NULL',
+  'ALTER TABLE doc_instances ADD COLUMN signed_file_hash CHAR(64) NULL',
+  'ALTER TABLE doc_instances ADD COLUMN signed_file_size INT NULL',
+  'ALTER TABLE doc_instances ADD COLUMN signed_attached_at DATETIME NULL',
+  'ALTER TABLE doc_instances ADD COLUMN signed_attached_by INT NULL',
+  'ALTER TABLE doc_instances ADD COLUMN archived_at DATETIME NULL',
+  'ALTER TABLE doc_instances ADD COLUMN archived_by INT NULL',
+  `CREATE TABLE IF NOT EXISTS doc_instance_files (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    doc_instance_id INT NOT NULL,
+    kind VARCHAR(20) NOT NULL,
+    file_name VARCHAR(255) NULL,
+    mime_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
+    size_bytes INT NOT NULL,
+    sha256 CHAR(64) NOT NULL,
+    data LONGBLOB NOT NULL,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_doc_file (tenant_id, doc_instance_id, kind)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS document_deliveries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    doc_instance_id INT NOT NULL,
+    patient_id INT NULL,
+    channel VARCHAR(20) NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NULL,
+    first_viewed_at DATETIME NULL,
+    last_viewed_at DATETIME NULL,
+    view_count INT NOT NULL DEFAULT 0,
+    first_downloaded_at DATETIME NULL,
+    download_count INT NOT NULL DEFAULT 0,
+    last_ip_hash VARCHAR(40) NULL,
+    last_ua VARCHAR(120) NULL,
+    UNIQUE KEY uq_delivery_token (token_hash),
+    INDEX idx_delivery_doc (tenant_id, doc_instance_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS document_delivery_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    delivery_id INT NOT NULL,
+    doc_instance_id INT NOT NULL,
+    event_type VARCHAR(20) NOT NULL,
+    ip_hash VARCHAR(40) NULL,
+    ua VARCHAR(120) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_delivery_event (tenant_id, delivery_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+], 'doc-generator');
+
+// Emissão/entrega de documentos: permissões existentes do projeto (qualquer uma das duas)
+const anyOf = (...keys) => async (req, res, next) => {
+  for (const key of keys) {
+    let ok = false;
+    await checkPermission(key)(req, { status: () => ({ json: () => {} }) }, () => { ok = true; });
+    if (ok) return next();
+  }
+  res.status(403).json({ error: 'Sem permissão para esta ação' });
+};
+const canIssue = anyOf('manage_documents', 'view_medical_records');
 
 // GET /doc-generator/doc-categories
 router.get('/doc-categories', async (req, res) => {

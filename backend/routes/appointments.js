@@ -5,6 +5,7 @@ const multer = require('multer');
 const ExcelJS = require('exceljs');
 const xlsx = require('xlsx');
 const db = require('../db');
+const { findBlock } = require('../utils/closedDates');
 const { sendMail, templates } = require('../services/emailService');
 const { sendPushToPatient } = require('../services/pushService');
 
@@ -610,18 +611,26 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
                 const apptDate = currentStart;
                 const dateStr = apptDate.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
 
-                // 1) Verificar se a data está na lista de datas fechadas
+                // 1) Verificar bloqueios: dia inteiro ou intervalo de horário (allDay=false, from/to)
                 if (Array.isArray(profClosedDates) && profClosedDates.length > 0) {
-                    const blocked = profClosedDates.find(d => d.date === dateStr);
-                    if (blocked) {
+                    const hhmmToMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+                    const sHHMM = apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' });
+                    const eHHMM = currentEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' });
+                    const startMin = hhmmToMin(sHHMM);
+                    const endMin = eHHMM > sHHMM ? hhmmToMin(eHHMM) : 24 * 60;
+                    const blocked = findBlock(profClosedDates, dateStr, startMin, endMin);
+                    // force_blocked: o profissional confirmou no aviso da Agenda agendar mesmo assim (somente a 1ª data)
+                    if (blocked && !(req.body.force_blocked === true && i === 0)) {
                         if (freq) {
-                            // Recorrência: pula silenciosamente o dia bloqueado
-                            console.log(`[schedule] Pulando ${dateStr} — data bloqueada: ${blocked.label || 'folga'}`);
+                            // Recorrência: pula silenciosamente o dia/horário bloqueado
+                            console.log(`[schedule] Pulando ${dateStr} — bloqueado: ${blocked.label || 'folga'}`);
                             continue;
                         }
                         return res.status(422).json({
                             error: 'blocked_date',
-                            message: `O profissional está indisponível em ${dateStr}${blocked.label ? ' (' + blocked.label + ')' : ''}.`,
+                            message: blocked.allDay
+                                ? `O profissional está indisponível em ${dateStr}${blocked.label ? ' (' + blocked.label + ')' : ''}.`
+                                : `O profissional está indisponível em ${dateStr} das ${blocked.from} às ${blocked.to}${blocked.label ? ' (' + blocked.label + ')' : ''}.`,
                         });
                     }
                 }

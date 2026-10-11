@@ -72,7 +72,7 @@ export const Lobby: React.FC<{
   const startPreview = useCallback(async (audioId?: string, videoId?: string, facing?: "user" | "environment") => {
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     if (!navigator.mediaDevices?.getUserMedia) {
-      setDeviceError("Este navegador não tem suporte a câmera/microfone. Use uma versão recente de Chrome, Firefox, Edge ou Safari, acessando por HTTPS.");
+      setDeviceError("Este navegador não tem suporte a câmera/microfone. Use Chrome, Firefox, Edge ou Safari atualizados, via HTTPS.");
       return;
     }
     // "exact" força falha explícita se o dispositivo não tiver a câmera pedida,
@@ -112,7 +112,7 @@ export const Lobby: React.FC<{
       }
       const name = err?.name || '';
       const msg = name === 'NotAllowedError'
-        ? 'Permissão de câmera/microfone negada. Verifique as permissões do site nas configurações do navegador e recarregue a página.'
+        ? 'Permissão negada. Toque no cadeado ao lado do endereço, libere câmera e microfone e tente novamente.'
         : name === 'NotFoundError'
         ? 'Nenhuma câmera ou microfone foi encontrado neste dispositivo.'
         : name === 'NotReadableError'
@@ -165,10 +165,10 @@ export const Lobby: React.FC<{
     const previewBtn = (off: boolean) =>
       `!h-11 !w-11 !rounded-full !border-transparent backdrop-blur-md ${off ? "!bg-red-600/85 !text-white hover:!bg-red-600" : "!bg-white/15 !text-white hover:!bg-white/25"}`;
     return (
-      <div className="flex min-h-screen flex-col overflow-hidden bg-slate-950">
+      <div className="flex min-h-[100dvh] flex-col bg-slate-950">
 
         {/* Barra superior */}
-        <div className="relative z-10 flex shrink-0 items-center justify-between px-4 py-4 sm:px-7">
+        <div className="relative z-10 flex shrink-0 items-center justify-between px-4 py-3 sm:px-7 sm:py-4">
           <img src={logoUrl} alt="Plaelo" className="h-8 rounded-lg bg-white object-contain p-[3px] opacity-90" />
           <DarkBadge tone="success" className="!px-3 !py-1.5 !text-xs">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Sala pronta
@@ -176,17 +176,18 @@ export const Lobby: React.FC<{
         </div>
 
         {/* Corpo principal */}
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-4 pb-5 md:flex-row md:gap-7 md:px-7 md:pb-7">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-4 pb-0 min-[900px]:flex-row min-[900px]:gap-7 min-[900px]:px-7 min-[900px]:pb-7">
 
           {/* ── Câmera grande ── */}
-          <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/10 md:aspect-[16/10] md:w-[min(520px,55vw)]">
+          <div className="relative h-[32dvh] max-h-[260px] min-h-[150px] w-full shrink-0 overflow-hidden rounded-xl bg-slate-900 ring-1 ring-white/10 sm:max-h-[320px] min-[900px]:aspect-[16/10] min-[900px]:h-auto min-[900px]:max-h-none min-[900px]:min-h-0 min-[900px]:w-[min(520px,55vw)]">
             <video ref={videoRef} autoPlay muted playsInline
               className="h-full w-full -scale-x-100 object-cover" style={{ display: camOn && !deviceError ? "block" : "none" }} />
             {deviceError ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 p-6 text-center">
-                <Shield size={36} className="text-red-400" />
-                <span className="max-w-xs text-[13px] font-medium text-red-300">{deviceError}</span>
-                <span className="text-xs text-slate-500">Você ainda pode entrar na sala sem câmera/microfone.</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-y-auto p-3 text-center">
+                <Shield size={24} className="shrink-0 text-red-400" />
+                <span className="max-w-xs text-xs font-medium leading-snug text-red-300">{deviceError}</span>
+                <DarkButton size="sm" onClick={() => startPreview(selectedAudio || undefined, selectedVideo || undefined)}>Tentar novamente</DarkButton>
+                <span className="text-[11px] text-slate-400">Você ainda pode entrar sem câmera/microfone.</span>
               </div>
             ) : !camOn && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3.5">
@@ -197,7 +198,7 @@ export const Lobby: React.FC<{
               </div>
             )}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 to-transparent" />
-            <div className="absolute bottom-[60px] left-4 rounded-lg bg-black/65 px-3 py-1 text-[13px] font-medium text-slate-100 backdrop-blur-md">
+            <div className="absolute bottom-[60px] left-3 max-w-[60%] truncate rounded-lg bg-black/65 px-3 py-1 text-[13px] font-medium text-slate-100 backdrop-blur-md">
               {displayName}
             </div>
             {/* Controles mic/cam */}
@@ -217,7 +218,7 @@ export const Lobby: React.FC<{
           </div>
 
           {/* ── Painel direito ── */}
-          <div className="flex w-full flex-col gap-3 md:w-[min(340px,38vw)] md:shrink-0">
+          <div className="flex w-full flex-col gap-3 min-[900px]:w-[min(340px,38vw)] min-[900px]:shrink-0">
 
             {/* Título */}
             <div>
@@ -282,14 +283,15 @@ export const Lobby: React.FC<{
               </div>
             )}
 
-            {/* Botão iniciar */}
-            <DarkButton variant="primary" size="lg" fullWidth onClick={onJoin} disabled={!canJoin} loading={joining} loadingText="Conectando..." iconLeft={<Video size={16} />} className="!h-11 !text-sm">
-              Iniciar sessão
-            </DarkButton>
-
-            <div className="flex items-center justify-center gap-1.5">
-              <Shield size={11} className="text-slate-600" />
-              <span className="text-[11px] text-slate-600">Conexão segura e criptografada</span>
+            {/* Botão iniciar (fixo no rodapé no celular) */}
+            <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-1.5 border-t border-white/10 bg-slate-950/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur min-[900px]:static min-[900px]:mx-0 min-[900px]:border-0 min-[900px]:bg-transparent min-[900px]:p-0">
+              <DarkButton variant="primary" size="lg" fullWidth onClick={onJoin} disabled={!canJoin} loading={joining} loadingText="Conectando..." iconLeft={<Video size={16} />} className="!h-11 !text-sm">
+                Iniciar sessão
+              </DarkButton>
+              <div className="flex items-center justify-center gap-1.5">
+                <Shield size={11} className="text-slate-500" />
+                <span className="text-[11px] text-slate-400">Conexão segura e criptografada</span>
+              </div>
             </div>
           </div>
         </div>
@@ -301,23 +303,24 @@ export const Lobby: React.FC<{
   const guestPreviewBtn = (off: boolean) =>
     `!h-11 !w-11 !rounded-full !border-transparent backdrop-blur-md ${off ? "!bg-red-600/90 !text-white hover:!bg-red-600" : "!bg-white/20 !text-white hover:!bg-white/30"}`;
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 pb-6 pt-3">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-slate-950 px-0 pb-0 pt-2 min-[900px]:px-4 min-[900px]:pb-6 min-[900px]:pt-3">
 
-      <div className="mb-3 sm:mb-4">
-        <img src={roomInfo.clinic_logo_url || logoUrl} alt={roomInfo.company_name || "Plaelo"} className="h-7 rounded-lg bg-white object-contain p-[3px] opacity-90" />
+      <div className="mb-2 min-[900px]:mb-4">
+        <img src={roomInfo.clinic_logo_url || logoUrl} alt={roomInfo.company_name || "Plaelo"} className="h-6 min-[900px]:h-7 rounded-lg bg-white object-contain p-[3px] opacity-90" />
       </div>
 
-      <div className="grid w-full max-w-[760px] grid-cols-1 overflow-hidden rounded-xl border border-white/10 bg-slate-900 sm:grid-cols-2">
+      <div className="grid w-full max-w-[820px] flex-1 grid-cols-1 content-start border-white/10 bg-slate-900 min-[900px]:flex-none min-[900px]:grid-cols-2 min-[900px]:overflow-hidden min-[900px]:rounded-xl min-[900px]:border">
 
         {/* ── Câmera ── */}
-        <div className="relative flex h-[180px] flex-col bg-slate-950 sm:h-auto sm:min-h-[320px]">
+        <div className="relative flex h-[30dvh] max-h-[240px] min-h-[150px] flex-col bg-slate-950 min-[900px]:h-auto min-[900px]:max-h-none min-[900px]:min-h-[360px]">
           <video ref={videoRef} autoPlay muted playsInline
             className="h-full w-full flex-1 -scale-x-100 object-cover" style={{ display: camOn && !deviceError ? "block" : "none" }} />
           {deviceError ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-slate-950 p-5 text-center">
-              <Shield size={30} className="text-red-400" />
-              <span className="max-w-[260px] text-xs font-medium text-red-300">{deviceError}</span>
-              <span className="text-[11px] text-slate-500">Você ainda pode entrar na sala sem câmera/microfone.</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 overflow-y-auto bg-slate-950 p-3 text-center">
+              <Shield size={24} className="shrink-0 text-red-400" />
+              <span className="max-w-[280px] text-xs font-medium leading-snug text-red-300">{deviceError}</span>
+              <DarkButton size="sm" onClick={() => startPreview(selectedAudio || undefined, selectedVideo || undefined)}>Tentar novamente</DarkButton>
+              <span className="text-[11px] text-slate-400">Você ainda pode entrar sem câmera/microfone.</span>
             </div>
           ) : !camOn && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950">
@@ -328,7 +331,7 @@ export const Lobby: React.FC<{
             </div>
           )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/80 to-transparent" />
-          <div className="absolute bottom-14 left-3 rounded-md bg-black/70 px-2.5 py-[3px] text-xs font-medium text-slate-100 backdrop-blur-md">
+          <div className="absolute bottom-14 left-3 max-w-[60%] truncate rounded-md bg-black/70 px-2.5 py-[3px] text-xs font-medium text-slate-100 backdrop-blur-md">
             {displayName}
           </div>
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-2.5 sm:bottom-3">
@@ -347,10 +350,10 @@ export const Lobby: React.FC<{
         </div>
 
         {/* ── Formulário guest ── */}
-        <div className="flex flex-col sm:max-h-[90vh] sm:overflow-y-auto">
-          <div className="border-b border-white/10 px-5 pb-4 pt-5">
+        <div className="flex min-w-0 flex-col min-[900px]:max-h-[min(90dvh,640px)] min-[900px]:overflow-y-auto">
+          <div className="border-b border-white/10 px-4 pb-3 pt-4 min-[900px]:px-5 min-[900px]:pb-4 min-[900px]:pt-5">
             {(roomInfo.host_name || roomInfo.company_name) && (
-              <DarkCard className="mb-4 flex items-center gap-3 !p-2.5">
+              <DarkCard className="mb-3 flex items-center gap-3 !p-2">
                 {roomInfo.avatar_url
                   ? <img src={roomInfo.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
                   : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-base font-semibold text-white">{(roomInfo.host_name || "P").charAt(0).toUpperCase()}</div>
@@ -371,10 +374,10 @@ export const Lobby: React.FC<{
               </DarkBadge>
             )}
             <h1 className="text-lg font-medium text-slate-100">Entrar na consulta</h1>
-            <p className="mt-1 text-xs text-slate-500">Informe seu nome para aguardar aprovação</p>
+            <p className="mt-1 text-xs text-slate-400">Informe seu nome para aguardar aprovação</p>
           </div>
 
-          <div className="flex flex-1 flex-col gap-3.5 px-5 py-4">
+          <div className="flex flex-1 flex-col gap-3.5 px-4 py-4 min-[900px]:px-5">
             <DarkInput
               label="Seu nome completo"
               type="text"
@@ -398,7 +401,7 @@ export const Lobby: React.FC<{
 
             {(videoDevices.length > 0 || audioDevices.length > 0 || audioOutDevices.length > 0) && (
               <div>
-                <DarkButton variant="ghost" size="sm" aria-expanded={guestDevicesOpen} onClick={() => setGuestDevicesOpen(v => !v)}
+                <DarkButton variant="ghost" size="sm" className="!h-11 min-[900px]:!h-8" aria-expanded={guestDevicesOpen} onClick={() => setGuestDevicesOpen(v => !v)}
                   iconLeft={<Settings size={13} />} iconRight={<ChevronDown size={13} className={`transition-transform ${guestDevicesOpen ? "rotate-180" : ""}`} />}>
                   Configurar dispositivos
                 </DarkButton>
@@ -410,14 +413,14 @@ export const Lobby: React.FC<{
               </div>
             )}
 
-            <label className="flex cursor-pointer items-start gap-2.5">
+            <label className="-mx-1 flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-1 py-1">
               <input
                 type="checkbox"
                 checked={consentAccepted}
                 onChange={(e) => setConsentAccepted(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-primary-600"
+                className="h-5 w-5 shrink-0 accent-primary-600"
               />
-              <span className="text-xs leading-relaxed text-slate-400">
+              <span className="text-xs leading-relaxed text-slate-300">
                 Li e concordo com os{" "}
                 <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer" className="text-primary-300 underline">termos de atendimento online</a>
                 {" "}e a{" "}
@@ -432,13 +435,13 @@ export const Lobby: React.FC<{
             )}
           </div>
 
-          <div className="border-t border-white/10 px-5 pb-5 pt-4">
+          <div className="sticky bottom-0 z-10 border-t border-white/10 bg-slate-900 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 min-[900px]:px-5 min-[900px]:pt-4">
             <DarkButton variant="primary" size="lg" fullWidth onClick={onJoin} disabled={!canJoin} loading={joining} loadingText="Conectando..." className="!h-11 !text-sm">
               Solicitar entrada
             </DarkButton>
-            <div className="mt-2.5 flex items-center justify-center gap-1.5">
-              <Shield size={11} className="text-slate-600" />
-              <span className="text-[11px] text-slate-600">Conexão segura e criptografada</span>
+            <div className="mt-2 flex items-center justify-center gap-1.5">
+              <Shield size={11} className="text-slate-500" />
+              <span className="text-[11px] text-slate-400">Conexão segura e criptografada</span>
             </div>
           </div>
         </div>

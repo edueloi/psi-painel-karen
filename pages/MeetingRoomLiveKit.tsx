@@ -345,7 +345,7 @@ const SignaturePanel: React.FC<{ patientId: number; onClose: () => void }> = ({ 
             <div>
               <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">Modalidade</label>
               <select value={contractType} onChange={(e) => setContractType(e.target.value as 'online' | 'presencial')}
-                className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg py-2 px-2.5 text-slate-200 text-[13px] outline-none">
+                className={darkFieldClass}>
                 <option value="online">Atendimento online</option>
                 <option value="presencial">Atendimento presencial</option>
               </select>
@@ -2356,7 +2356,7 @@ const RoomInner: React.FC<{
 
         {/* Painel lateral */}
         {sidePanel && (
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: sidePanel === "patient" || sidePanel === "billing" || sidePanel === "whiteboard" || sidePanel === "instrument" ? "min(420px, 100%)" : "min(320px, 100%)", zIndex: 10 }}>
+          <div className={`w-full ${sidePanel === "patient" || sidePanel === "billing" || sidePanel === "whiteboard" || sidePanel === "instrument" ? "sm:w-[420px]" : "sm:w-[320px]"}`} style={{ position: "absolute", top: 0, right: 0, bottom: 0, maxWidth: "100%", zIndex: 10 }}>
             {sidePanel === "chat"
               ? <LiveKitChatPanel
                   participantName={participantName}

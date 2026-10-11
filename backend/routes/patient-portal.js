@@ -9,6 +9,7 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { checkPermission } = require('../middleware/auth');
 const { getPortalUrl } = require('../utils/publicUrl');
+const { isDayClosed, blockedIntervals, findBlock, parseClosed } = require('../utils/closedDates');
 
 // ─── Fuso de Brasília (UTC-3) ─────────────────────────────────────────────────
 // O servidor roda em UTC. Para agendamentos do portal usamos o horário civil de
@@ -1343,9 +1344,10 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
       });
     }
 
-    // Dia bloqueado (feriado/férias) → sem horários
-    const isClosed = Array.isArray(closedDates) && closedDates.some(c => c && (c.date === date || c === date));
-    if (isClosed) return res.json({ slots: [], date, day_key: dayKey });
+    // Dia inteiro bloqueado (feriado/férias) → sem horários
+    if (isDayClosed(closedDates, date)) return res.json({ slots: [], date, day_key: dayKey });
+    // Bloqueios parciais (allDay=false, from/to) removem só os horários que intersectam o intervalo
+    const partialBlocks = blockedIntervals(closedDates, date);
 
     // Normaliza a config do dia (suporta { active, start, end, breaks } e variações)
     const active = dayConfig && (dayConfig.active !== false) && (dayConfig.enabled !== false);
@@ -1376,7 +1378,8 @@ router.get('/professionals/:id/slots', portalAuth, async (req, res) => {
     for (let t = dayStart; t + duration <= dayEnd; t += STEP) {
       const slotEnd = t + duration;
       const overlapsBreak = breaks.some(b => t < b.end && slotEnd > b.start);
-      if (!overlapsBreak) baseSlots.push(t);
+      const overlapsBlock = partialBlocks.some(b => t < b.end && slotEnd > b.start);
+      if (!overlapsBreak && !overlapsBlock) baseSlots.push(t);
     }
 
     if (baseSlots.length === 0) return res.json({ slots: [], date, day_key: dayKey, duration });
@@ -1580,6 +1583,30 @@ router.post('/appointments', portalAuth, async (req, res) => {
         const [h2, min2] = cd.time.split(':').map(Number);
         return { yyyy: y2, mm: m2, dd: d2, h: h2, min: min2 };
       });
+    }
+
+    // Respeita férias/feriados/bloqueios de horário do profissional (dia inteiro ou intervalo)
+    try {
+      const [cdRows] = await db.query(
+        `SELECT closed_dates FROM users WHERE id = ? AND tenant_id = ? LIMIT 1`,
+        [professional_id, tenant_id]
+      );
+      const closedList = parseClosed(cdRows[0]?.closed_dates);
+      if (closedList.length) {
+        for (const o of occurrences) {
+          const iso = `${o.yyyy}-${String(o.mm).padStart(2, '0')}-${String(o.dd).padStart(2, '0')}`;
+          const startMin = o.h * 60 + o.min;
+          if (findBlock(closedList, iso, startMin, startMin + duration)) {
+            return res.status(409).json({
+              error: occurrences.length > 1
+                ? `O profissional não atende em ${String(o.dd).padStart(2, '0')}/${String(o.mm).padStart(2, '0')}. Escolha outra data/horário.`
+                : 'Este horário não está mais disponível.',
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[portal appointments] closed_dates:', e.message);
     }
 
     // Verifica conflito de cada ocorrência antes de criar qualquer coisa
