@@ -23,6 +23,29 @@ export const getStaticUrl = (path?: string) => {
   return `${apiUrl}${cleanPath}`;
 };
 
+/**
+ * Arquivos clínicos não devem depender de um link aberto em nova aba: esse tipo
+ * de navegação não envia o token Bearer e pode cair no middleware de autenticação.
+ * Baixamos o blob com a sessão atual e deixamos a tela decidir se baixa ou exibe.
+ */
+export async function fetchAuthenticatedFile(endpoint: string): Promise<{ blob: Blob; filename: string | null }> {
+  const token = getToken();
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    const data = await parseResponseBody(response);
+    throw new Error(data?.error || data?.message || 'Não foi possível acessar o arquivo.');
+  }
+
+  const disposition = response.headers.get('content-disposition') || '';
+  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const quotedName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+  const filename = encodedName ? decodeURIComponent(encodedName) : (quotedName || null);
+  return { blob: await response.blob(), filename };
+}
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>;
 }

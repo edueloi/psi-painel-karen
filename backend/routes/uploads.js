@@ -217,13 +217,53 @@ router.get('/', async (req, res) => {
         file_url: u.url || u.file_url,
         date: u.created_at,
         size: (u.size || u.file_size) ? ((u.size || u.file_size) / 1024 / 1024).toFixed(2) + ' MB' : '0 MB',
-        type: (u.mime_type || u.file_type)?.includes('pdf') ? 'pdf' : (u.mime_type || u.file_type)?.includes('image') ? 'image' : 'doc',
+        mime_type: u.mime_type || u.file_type || '',
+        type: (u.mime_type || u.file_type)?.includes('pdf') ? 'pdf'
+          : (u.mime_type || u.file_type)?.includes('image') ? 'image'
+          : (u.mime_type || u.file_type)?.includes('spreadsheet') || (u.mime_type || u.file_type)?.includes('excel') || (u.mime_type || u.file_type)?.includes('csv') ? 'sheet'
+          : (u.mime_type || u.file_type)?.includes('word') || (u.mime_type || u.file_type)?.includes('document') ? 'docx'
+          : 'doc',
         category: u.category || 'Geral'
     }));
     res.json(mapped);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar uploads' });
+  }
+});
+
+// GET /uploads/:id/file — entrega autenticada para download e pré-visualização.
+// Não use um <a href> direto: ele não inclui o Bearer token e pode receber a
+// resposta "Token não fornecido" quando o arquivo não é resolvido pelo static.
+router.get('/:id/file', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT filename, original_name, file_name, file_url, url, mime_type, file_type
+       FROM uploads WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [req.params.id, req.user.tenant_id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Arquivo não encontrado ou sem permissão de acesso.' });
+
+    const file = rows[0];
+    const url = String(file.url || file.file_url || '');
+    const storedName = path.basename(String(file.filename || url.split('/').pop() || ''));
+    if (!storedName || storedName === '.' || storedName === '/') {
+      return res.status(404).json({ error: 'Arquivo físico não disponível.' });
+    }
+
+    const filePath = path.join(UPLOAD_DIR, storedName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Arquivo físico não encontrado. Ele pode ter sido removido do servidor.' });
+    }
+
+    const originalName = String(file.original_name || file.file_name || storedName).replace(/[\r\n"]/g, '_');
+    const inline = req.query.download !== '1';
+    res.setHeader('Content-Type', file.mime_type || file.file_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${originalName}"; filename*=UTF-8''${encodeURIComponent(originalName)}`);
+    return res.sendFile(filePath);
+  } catch (err) {
+    console.error('[uploads/file] Erro ao entregar arquivo:', err);
+    return res.status(500).json({ error: 'Erro ao acessar o arquivo.' });
   }
 });
 

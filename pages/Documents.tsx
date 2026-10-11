@@ -1,13 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MOCK_DOCUMENTS, DOCUMENT_CATEGORIES } from '../constants';
-import { api, getStaticUrl } from '../services/api';
+import { api, fetchAuthenticatedFile } from '../services/api';
 import { Document } from '../types';
 import {
   FileText, FileImage, FileSpreadsheet, File, Download, Trash2,
   Plus, CloudUpload, X, FolderOpen, HardDrive, Clock,
   Edit3, Check,
   Film, Music, FileCode, AlignLeft, Presentation,
+  Eye, Loader2,
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../contexts/ToastContext';
@@ -35,6 +36,10 @@ export const Documents: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filterPatientId] = useState<string | null>(searchParams.get('patient_id'));
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [fileActionId, setFileActionId] = useState<string | null>(null);
 
   // Date filter
   const [filterDateFrom, setFilterDateFrom] = useState<string | null>(null);
@@ -83,18 +88,54 @@ export const Documents: React.FC = () => {
     return num;
   };
 
-  const handleDownload = (doc: Document) => {
-    const fileUrl = (doc as any).file_url;
-    if (!fileUrl) return;
-    const fullUrl = getStaticUrl(fileUrl);
-    const link = document.createElement('a');
-    link.href = fullUrl;
-    link.download = (doc as any).file_name || doc.title;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const getDownloadName = (doc: Document, serverName?: string | null) => serverName || (doc as any).file_name || doc.title || 'arquivo';
+
+  const releasePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
   };
+
+  const handleDownload = async (doc: Document) => {
+    setFileActionId(String(doc.id));
+    try {
+      const { blob, filename } = await fetchAuthenticatedFile(`/uploads/${doc.id}/file?download=1`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = getDownloadName(doc, filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err: any) {
+      pushToast('error', 'Download indisponível', err?.message || 'Não foi possível baixar o arquivo.');
+    } finally {
+      setFileActionId(null);
+    }
+  };
+
+  const canPreview = (doc: Document) => {
+    const mime = String((doc as any).mime_type || '').toLowerCase();
+    const name = String((doc as any).file_name || doc.title || '').toLowerCase();
+    return doc.type === 'pdf' || doc.type === 'image' || mime.startsWith('image/') || /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
+  };
+
+  const handlePreview = async (doc: Document) => {
+    releasePreview();
+    setPreviewDoc(doc);
+    if (!canPreview(doc)) return;
+    setPreviewLoading(true);
+    try {
+      const { blob } = await fetchAuthenticatedFile(`/uploads/${doc.id}/file`);
+      setPreviewUrl(URL.createObjectURL(blob));
+    } catch (err: any) {
+      pushToast('error', 'Visualização indisponível', err?.message || 'Não foi possível abrir o arquivo.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
@@ -332,7 +373,8 @@ export const Documents: React.FC = () => {
                         {getFileIcon(doc.type, 18)}
                       </div>
                       <div className="flex gap-1">
-                        <IconButton variant="ghost" size="xs" aria-label="Baixar" title="Baixar" onClick={() => handleDownload(doc)}><Download size={14} /></IconButton>
+                        <IconButton variant="ghost" size="xs" aria-label="Visualizar" title="Visualizar" onClick={() => handlePreview(doc)}><Eye size={14} /></IconButton>
+                        <IconButton variant="ghost" size="xs" aria-label="Baixar" title="Baixar" loading={fileActionId === String(doc.id)} onClick={() => handleDownload(doc)}><Download size={14} /></IconButton>
                         <IconButton variant="ghost" size="xs" aria-label="Excluir" title="Excluir" className="text-red-500 hover:text-red-600" onClick={() => setDeleteConfirmId(doc.id)}><Trash2 size={14} /></IconButton>
                       </div>
                     </div>
@@ -401,7 +443,8 @@ export const Documents: React.FC = () => {
                   headerClassName: 'text-right',
                   render: (doc) => (
                     <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-                      <IconButton variant="ghost" size="sm" aria-label="Baixar" title="Baixar" onClick={() => handleDownload(doc)}><Download size={14} /></IconButton>
+                      <IconButton variant="ghost" size="sm" aria-label="Visualizar" title="Visualizar" onClick={() => handlePreview(doc)}><Eye size={14} /></IconButton>
+                      <IconButton variant="ghost" size="sm" aria-label="Baixar" title="Baixar" loading={fileActionId === String(doc.id)} onClick={() => handleDownload(doc)}><Download size={14} /></IconButton>
                       <IconButton variant="ghost" size="sm" aria-label="Excluir" title="Excluir" className="text-red-500 hover:text-red-600" onClick={() => setDeleteConfirmId(doc.id)}><Trash2 size={14} /></IconButton>
                     </div>
                   ),
@@ -427,6 +470,30 @@ export const Documents: React.FC = () => {
             : t('documents.delete_desc')
         }
       />
+
+      <Modal
+        isOpen={!!previewDoc}
+        onClose={() => { releasePreview(); setPreviewDoc(null); }}
+        title={previewDoc?.title || 'Visualizar arquivo'}
+        subtitle={previewDoc ? `${previewDoc.type.toUpperCase()} · ${previewDoc.size}` : undefined}
+        size="xl"
+        footer={<ModalFooter align="right">
+          {previewDoc && <Button variant="primary" size="sm" iconLeft={<Download size={14} />} loading={fileActionId === String(previewDoc.id)} onClick={() => handleDownload(previewDoc)}>Baixar</Button>}
+          <Button variant="outline" size="sm" onClick={() => { releasePreview(); setPreviewDoc(null); }}>Fechar</Button>
+        </ModalFooter>}
+      >
+        {previewLoading ? (
+          <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="animate-spin" size={18} />Carregando arquivo…</div>
+        ) : previewDoc && previewUrl && previewDoc.type === 'pdf' ? (
+          <iframe title={`Pré-visualização de ${previewDoc.title}`} src={previewUrl} className="h-[70vh] w-full rounded-lg border border-slate-200 bg-white" />
+        ) : previewDoc && previewUrl ? (
+          <div className="flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-4"><img src={previewUrl} alt={previewDoc.title} className="max-h-[65vh] max-w-full rounded object-contain" /></div>
+        ) : (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+            A pré-visualização segura está disponível para PDF e imagens. Arquivos Word, planilhas e outros formatos devem ser baixados para abertura no aplicativo adequado.
+          </div>
+        )}
+      </Modal>
 
       {/* MODAL: UPLOAD */}
       <Modal
