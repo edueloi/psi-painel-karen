@@ -1792,11 +1792,29 @@ export const Agenda: React.FC = () => {
       {pageTab === 'agenda' && (<>
 
       {/* STATS BAR — sempre visível, não faz parte do sticky */}
-      <StatGrid cols={3}>
-        <StatCard title="Sessões" value={stats.todayCount} icon={CalendarRange} color="info" />
-        <StatCard title="Confirm." value={stats.confirmedCount} icon={UserCheck} color="success" />
-        <StatCard title="Online" value={stats.onlineCount} icon={Video} color="warning" />
-      </StatGrid>
+      {/* Celular: os 3 indicadores numa linha só, compactos */}
+      <div className="grid grid-cols-3 gap-2 sm:hidden">
+        {[
+          { title: 'Sessões', value: stats.todayCount, Icon: CalendarRange, tone: 'bg-sky-50 text-sky-600 border-sky-100' },
+          { title: 'Confirm.', value: stats.confirmedCount, Icon: UserCheck, tone: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+          { title: 'Online', value: stats.onlineCount, Icon: Video, tone: 'bg-amber-50 text-amber-600 border-amber-100' },
+        ].map(({ title, value, Icon, tone }) => (
+          <div key={title} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2.5 py-2 min-w-0">
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${tone}`}><Icon size={13} /></span>
+            <span className="min-w-0 leading-tight">
+              <span className="block text-[11px] text-slate-500 truncate">{title}</span>
+              <span className="block text-sm font-semibold text-slate-900">{value}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="hidden sm:block">
+        <StatGrid cols={3}>
+          <StatCard title="Sessões" value={stats.todayCount} icon={CalendarRange} color="info" />
+          <StatCard title="Confirm." value={stats.confirmedCount} icon={UserCheck} color="success" />
+          <StatCard title="Online" value={stats.onlineCount} icon={Video} color="warning" />
+        </StatGrid>
+      </div>
 
       {/* FILTERS & NAVIGATION BAR — sticky apenas aqui */}
       <div ref={stickyNavRef} className={stickyStats ? 'lg:sticky lg:top-12 lg:z-30 lg:-mx-6 lg:px-6 xl:-mx-8 xl:px-8 lg:bg-slate-50/95 backdrop-blur-md pt-2 pb-3 shadow-sm shadow-slate-200/60' : ''}>
@@ -1804,16 +1822,21 @@ export const Agenda: React.FC = () => {
 
           {/* Linha 1: Navegação + label de data */}
           <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
+              <div className="flex w-full items-center gap-2 sm:w-auto sm:contents">
               <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 shrink-0">
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(-1)}><ChevronLeft size={16}/></IconButton>
                   <Button variant="ghost" size="xs" onClick={() => setCurrentDate(new Date())}>Hoje</Button>
                   <IconButton variant="ghost" size="sm" onClick={() => handleNavigate(1)}><ChevronRight size={16}/></IconButton>
               </div>
-              <h2 className="text-sm font-semibold text-zinc-700 truncate min-w-0 flex-1 sm:flex-none sm:max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
-              <DatePicker
-                value={currentDate.toISOString().slice(0, 10)}
-                onChange={(val) => val && handleDateChange(val)}
-              />
+              <h2 className="hidden sm:block text-sm font-semibold text-zinc-700 truncate min-w-0 sm:max-w-[200px] lg:max-w-[260px]">{getRangeLabel()}</h2>
+              <div className="min-w-0 flex-1 sm:flex-none">
+                <DatePicker
+                  value={currentDate.toISOString().slice(0, 10)}
+                  onChange={(val) => val && handleDateChange(val)}
+                />
+              </div>
+              </div>
+              <h2 className="w-full text-center text-sm font-semibold text-zinc-700 sm:hidden">{getRangeLabel()}</h2>
           </div>
 
           {/* Linha 2 mobile / mesma linha desktop: view switcher + filtros + botões */}
@@ -1823,7 +1846,7 @@ export const Agenda: React.FC = () => {
                 const enabledViews = preferences.agenda.enabledViews ?? ['day','week','month'];
                 const items = VIEW_TABS.filter(v => enabledViews.includes(v.id));
                 return enabledViews.length > 1 ? (
-                  <Tabs<typeof VIEW_TABS[number]['id']> items={items} value={view as any} onChange={(v) => setView(v as any)} label="Visão da agenda" className="col-span-2 sm:col-span-1 shrink-0" />
+                  <Tabs<typeof VIEW_TABS[number]['id']> items={items} value={view as any} onChange={(v) => setView(v as any)} label="Visão da agenda" className="col-span-2 sm:col-span-1 shrink-0 [&>[role=tablist]]:justify-center sm:[&>[role=tablist]]:justify-start" />
                 ) : null;
               })()}
 
