@@ -42,7 +42,9 @@ import { DatePicker } from '../components/UI/DatePicker';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 import { jsPDF } from 'jspdf';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { renderClinicalPdf, loadLogoImage, type ClinicInfo, type ProfessionalInfo } from '../components/Records/pdf/clinicalDocument';
+import { buildClinicalDocModel, type ExportMood, type ExportInstrument, type ExportAttachment, type ExportAnamnesisSend } from '../components/Records/pdf/buildClinicalDocModel';
+import { buildClinicalDocxBlob } from '../components/Records/pdf/clinicalDocx';
 import { saveAs } from 'file-saver';
 
 /* ── Types ─────────────────────────────────────────── */
@@ -265,10 +267,10 @@ const ExportModal: React.FC<{
   const [mode, setMode] = useState<ExportMode>('standard');
 
   const OPTIONS = [
-    { id: 'standard', title: 'Resumo Clínico Padrão', desc: 'Informações essenciais para continuidade do cuidado.' },
-    { id: 'full', title: 'Prontuário Completo', desc: 'Ficha cadastral, evoluções e notas de sessão, humor por sessão, plano terapêutico, documentos, encaminhamentos, instrumentos e anexos (sem campo restrito).' },
-    { id: 'no_restricted', title: 'Versão Compartilhada', desc: 'Apenas os campos públicos/compartilhados.' },
-    { id: 'restricted_only', title: 'Anotações Restritas', desc: 'Apenas o campo restrito (uso interno autorizado).' },
+    { id: 'standard', title: 'Resumo Clínico', desc: '1 a 2 páginas: queixa, hipóteses, plano atual, últimas evoluções e conduta.' },
+    { id: 'full', title: 'Prontuário Completo', desc: 'Documento longo com capa e sumário: cadastro, anamnese, avaliações, plano, todas as sessões, instrumentos, documentos, anexos e linha do tempo. Não inclui o campo restrito.' },
+    { id: 'no_restricted', title: 'Versão Compartilhada', desc: 'Mesmo formato do prontuário completo, só com campos públicos/compartilhados, e faixa de versão compartilhada.' },
+    { id: 'restricted_only', title: 'Anotações Restritas', desc: 'Apenas o campo restrito, com selo RESTRITO no cabeçalho (uso interno autorizado).' },
   ];
 
   return (
@@ -2834,305 +2836,108 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     } catch (e) { pushToast('error', 'Erro ao carregar registro'); }
   };
 
-  // Reúne tudo do paciente que não vem na lista de registros: ficha cadastral, humor por sessão,
-  // instrumentos aplicados, anexos dos registros e documentos enviados. Falha parcial nunca bloqueia a exportação.
-  const collectExportExtras = async (): Promise<{ head: { title: string; lines: string[] }[]; tail: { title: string; lines: string[] }[] }> => {
-    const head: { title: string; lines: string[] }[] = [];
-    const tail: { title: string; lines: string[] }[] = [];
-    if (!selectedPatientId) return { head, tail };
+  // Reúne o que não vem na lista de registros: ficha cadastral, perfil/clínica, humor por sessão, instrumentos aplicados,
+  // anamneses respondidas, anexos dos registros e documentos enviados. Falha parcial nunca bloqueia a exportação.
+  const collectExportData = async () => {
+    const empty = { patientFull: null as any, profile: null as any, moods: [] as ExportMood[], instruments: [] as ExportInstrument[], attachments: [] as ExportAttachment[], anamnesisSends: [] as ExportAnamnesisSend[] };
+    if (!selectedPatientId) return empty;
     const pid = selectedPatientId;
-    const [pat, moods, templates, uploads] = await Promise.all([
+    const [pat, profile, moods, templates, uploads, sends] = await Promise.all([
       api.get<any>(`/patients/${pid}`).catch(() => null),
+      api.get<any>('/profile/me').catch(() => null),
       api.get<any[]>(`/patients/${pid}/mood-logs`).catch(() => []),
       api.get<any[]>('/neuro-assessments').catch(() => []),
       api.get<any[]>('/documents', { patient_id: pid }).catch(() => []),
+      api.get<any[]>(`/anamnesis-send?patient_id=${pid}`).catch(() => []),
     ]);
 
-    if (pat) {
-      const F: [string, string][] = [
-        ['email', 'E-mail'], ['phone', 'Telefone'], ['phone2', 'Telefone 2'], ['whatsapp', 'WhatsApp'], ['rg', 'RG'], ['gender', 'Gênero'],
-        ['marital_status', 'Estado civil'], ['education', 'Escolaridade'], ['profession', 'Profissão'], ['nationality', 'Nacionalidade'],
-        ['naturality', 'Naturalidade'], ['children_count', 'Filhos'], ['spouse_name', 'Cônjuge'], ['family_contact', 'Contato familiar'],
-        ['emergency_contact', 'Contato de emergência'], ['address', 'Endereço'], ['city', 'Cidade'], ['state', 'Estado'], ['zip_code', 'CEP'],
-        ['responsible_name', 'Responsável'], ['responsible_phone', 'Telefone do responsável'], ['health_plan', 'Convênio / plano'],
-        ['diagnosis', 'Diagnóstico'], ['notes', 'Observações cadastrais'], ['status', 'Situação'],
-      ];
-      const lines = F.map(([k, label]) => (pat[k] !== undefined && pat[k] !== null && String(pat[k]).trim() !== '') ? label + ': ' + (typeof pat[k] === 'string' ? strip(pat[k]) : String(pat[k])) : '').filter(Boolean);
-      if (lines.length) head.push({ title: 'Dados Cadastrais', lines });
-    }
+    const moodList: ExportMood[] = (Array.isArray(moods) ? moods : []).map((m: any) => ({ date: m.recorded_at || m.created_at, score: m.mood_score, emotions: m.emotions, note: m.note }));
 
-    if (Array.isArray(moods) && moods.length) {
-      tail.push({
-        title: 'Humor por Sessão',
-        lines: moods.map((m: any) => {
-          const d = m.recorded_at || m.created_at;
-          const emo = m.emotions ? (Array.isArray(m.emotions) ? m.emotions.join(', ') : String(m.emotions).replace(/[\[\]"]/g, '')) : '';
-          return (d ? new Date(d).toLocaleDateString('pt-BR') : '—') + ' — nota ' + m.mood_score + '/5' + (emo ? ' — ' + emo : '') + (m.note ? ' — ' + m.note : '');
-        }),
-      });
-    }
-
+    const instruments: ExportInstrument[] = [];
     if (Array.isArray(templates) && templates.length) {
-      const lines: string[] = [];
       await Promise.all(templates.map(async (tpl: any) => {
         const res = await api.get<any[]>(`/neuro-assessments/${tpl.id}/results`, { patient_id: pid }).catch(() => []);
         (res || []).forEach((r: any) => {
           const labels: Record<string, string> = {};
           (tpl.fields || []).forEach((f: any) => { labels[f.id] = f.label; });
-          const data = Object.entries(r.data || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)
-            .map(([k, v]) => (labels[k] || k.replace(/_/g, ' ')) + ': ' + String(v)).join(' | ');
-          lines.push(tpl.name + ' — ' + (r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : '—') + (data ? ' — ' + data : ''));
+          const fields = Object.entries(r.data || {}).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+            .map(([k, v]) => ({ label: labels[k] || k.replace(/_/g, ' '), value: String(v) }));
+          instruments.push({ name: tpl.name, date: r.created_at, fields });
         });
       }));
-      if (lines.length) tail.push({ title: 'Instrumentos Aplicados', lines });
+      instruments.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
     }
 
-    const attLines: string[] = [];
+    const attachments: ExportAttachment[] = [];
     await Promise.all(patientRecords.map(async (r) => {
       let atts = r.attachments;
       if (!atts) {
         const full = await api.get<MedicalRecord>(`/medical-records/${r.id}`).catch(() => null);
         atts = full?.attachments || [];
       }
-      (atts || []).forEach((a: any) => attLines.push((a.file_name || 'Arquivo') + ' (registro: ' + r.title + ')'));
+      (atts || []).forEach((a: any) => attachments.push({ name: a.file_name || 'Arquivo', detail: `Registro: ${r.title}` }));
     }));
-    (Array.isArray(uploads) ? uploads : []).forEach((u: any) => attLines.push((u.file_name || u.name || u.original_name || 'Arquivo') + (u.created_at ? ' — enviado em ' + new Date(u.created_at).toLocaleDateString('pt-BR') : '')));
-    if (attLines.length) tail.push({ title: 'Anexos e Documentos', lines: attLines });
+    (Array.isArray(uploads) ? uploads : []).forEach((u: any) => attachments.push({ name: u.file_name || u.name || u.original_name || 'Arquivo', detail: u.created_at ? `Enviado em ${fmtDate(u.created_at)}` : '' }));
 
-    return { head, tail };
+    const anamnesisSends: ExportAnamnesisSend[] = (Array.isArray(sends) ? sends : []).filter((s: any) => s.status === 'answered' && s.responses).map((s: any) => {
+      let resp: any = s.responses;
+      if (typeof resp === 'string') { try { resp = JSON.parse(resp); } catch { resp = {}; } }
+      return { title: s.title, date: s.completed_at || s.created_at, responses: resp && typeof resp === 'object' ? resp : {} };
+    });
+
+    return { patientFull: pat, profile, moods: moodList, instruments, attachments, anamnesisSends };
   };
 
   const finishExport = async (mode: ExportMode, format: 'pdf' | 'word') => {
     if (!selectedPatient) return;
     setIsLoading(true);
     try {
-        const extras = mode === 'restricted_only' ? { head: [] as { title: string; lines: string[] }[], tail: [] as { title: string; lines: string[] }[] } : await collectExportExtras();
-        const systemName = 'Plaelo — Sistema de Prontuário Informatizado';
-        const profName = user?.name || 'Profissional';
-        const profCRP = (user as any)?.crp || 'Não informado';
-        const patName = selectedPatient.full_name;
-        const patCPF = selectedPatient.cpf || 'Não informado';
-        const patBirth = selectedPatient.birth_date ? new Date(selectedPatient.birth_date).toLocaleDateString('pt-BR') : 'Não informado';
-        const exportDate = new Date().toLocaleString('pt-BR');
+        // Anotações restritas não levam extras (mesma regra de antes); só o perfil é lido para o cabeçalho.
+        const data = mode === 'restricted_only'
+          ? { patientFull: null as any, profile: await api.get<any>('/profile/me').catch(() => null), moods: [] as ExportMood[], instruments: [] as ExportInstrument[], attachments: [] as ExportAttachment[], anamnesisSends: [] as ExportAnamnesisSend[] }
+          : await collectExportData();
+        // Clínica e profissional: GET /profile/me; o contexto de auth cobre campos ausentes
+        const pf: any = data.profile || {};
+        const u: any = user || {};
+        const pick = (...vals: any[]) => { for (const v of vals) { if (v !== undefined && v !== null && String(v).trim() !== '' && String(v) !== 'undefined' && String(v) !== 'null') return String(v).trim(); } return ''; };
+        const fmtDoc = (s: string) => { const d = s.replace(/\D/g, ''); if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'); if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4'); return s; };
+        const profName = pick(pf.name, u.name) || 'Profissional';
+        const regLabel = pick(pf.registry_label) || 'CRP';
+        const regNum = pick(pf.registry_number, pf.crp, u.crp);
+        const registry = regNum ? (regNum.toUpperCase().startsWith(regLabel.toUpperCase()) ? regNum : `${regLabel} ${regNum}`) : '';
+        const addrParts = [pick(pf.address, u.address), [pick(pf.city), pick(pf.state)].filter(Boolean).join(' - '), pick(pf.zip_code) && `CEP ${pick(pf.zip_code)}`].filter(Boolean);
+        const logoPath = pick(pf.clinic_logo_url, pf.clinicLogoUrl, u.clinicLogoUrl);
+        const logo = logoPath ? await loadLogoImage(getStaticUrl(logoPath)) : null;
+        const clinic: ClinicInfo = {
+          name: pick(pf.company_name, u.companyName, pf.name, u.name) || 'Clínica',
+          legalName: pick(pf.legal_name, pf.razao_social, pf.corporate_name),
+          cnpj: pick(pf.cnpj) ? fmtDoc(pick(pf.cnpj)) : '',
+          phone: pick(pf.phone, u.phone),
+          email: pick(pf.email, u.email),
+          address: addrParts.join(', '),
+          website: pick(pf.website, pf.site),
+          logo,
+        };
+        const professional: ProfessionalInfo = { name: profName, registry, specialty: pick(pf.area_name, pf.specialty, u.specialty, u.areaName) };
+        const fullPat: Record<string, any> = data.patientFull || {};
+        const patientMerged: any = { ...selectedPatient, ...Object.fromEntries(Object.entries(fullPat).filter(([, v]) => v !== null && v !== undefined && v !== '')) };
+        const exportRecords = patientRecords.map(r => ({
+          id: String(r.id), title: r.title, record_type: r.record_type, status: r.status, content: r.content, draft_content: r.draft_content,
+          ai_organized_content: r.ai_organized_content, restricted_content: r.restricted_content, appointment_type: r.appointment_type,
+          start_time: r.start_time, end_time: r.end_time, created_at: r.created_at, tags: r.tags, professional_name: r.professional_name,
+        }));
+        const model = buildClinicalDocModel({
+          mode, clinic, professional, patient: patientMerged, records: exportRecords,
+          moods: data.moods, instruments: data.instruments, attachments: data.attachments, anamnesisSends: data.anamnesisSends,
+          anamnesisLabels: ANAMNESIS_FIELD_LABELS, typeLabels: TYPE_LABELS,
+        });
+        const modeFile: Record<ExportMode, string> = { standard: 'Resumo_Clinico', full: 'Prontuario_Completo', no_restricted: 'Prontuario_Compartilhado', restricted_only: 'Anotacoes_Restritas' };
+        const baseName = `${selectedPatient.full_name.replace(/[^\p{L}\p{N}]+/gu, '_')}_${modeFile[mode]}`;
 
         if (format === 'pdf') {
-            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-            const W = 210; const MARGIN = 18;
-            const CONTENT_W = W - MARGIN * 2;
-
-            // ── Cover banner ──────────────────────────────────────
-            doc.setFillColor(79, 70, 229);
-            doc.rect(0, 0, W, 46, 'F');
-            // Subtle light strip
-            doc.setFillColor(99, 91, 255);
-            doc.rect(0, 36, W, 10, 'F');
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9); doc.setTextColor(200, 195, 255);
-            doc.text(systemName, MARGIN, 14);
-            doc.setFontSize(18); doc.setTextColor(255, 255, 255);
-            doc.text('Prontuário Clínico', MARGIN, 27);
-            doc.setFontSize(9); doc.setTextColor(220, 218, 255);
-            doc.text(`Gerado em: ${exportDate}`, MARGIN, 40);
-
-            // ── Patient info box ───────────────────────────────────
-            let y = 56;
-            doc.setFillColor(248, 248, 255);
-            doc.roundedRect(MARGIN, y, CONTENT_W, 28, 4, 4, 'F');
-            doc.setDrawColor(210, 207, 255);
-            doc.roundedRect(MARGIN, y, CONTENT_W, 28, 4, 4, 'S');
-
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(100, 90, 220);
-            doc.text('PACIENTE', MARGIN + 5, y + 7);
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30, 27, 75);
-            doc.text(patName, MARGIN + 5, y + 15);
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
-            doc.text(`CPF: ${patCPF} | Nascimento: ${patBirth}`, MARGIN + 5, y + 22);
-
-            // ── Professional info ──────────────────────────────────
-            y += 34;
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
-            doc.text(`Profissional Responsável: ${profName} | CRP: ${profCRP}`, MARGIN, y);
-            y += 5;
-            doc.setDrawColor(226, 232, 240); doc.line(MARGIN, y, W - MARGIN, y);
-            y += 8;
-
-            // Mode label
-            const modeLabels: Record<ExportMode, string> = {
-              standard: 'Resumo Clínico Padrão',
-              full: 'Prontuário Completo',
-              no_restricted: 'Versão Compartilhada (sem campo restrito)',
-              restricted_only: 'Anotações Restritas',
-            };
-            doc.setFillColor(243, 244, 246); doc.roundedRect(MARGIN, y, CONTENT_W, 8, 2, 2, 'F');
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
-            doc.text(`Modalidade de exportação: ${modeLabels[mode]}`, MARGIN + 4, y + 5.5);
-            y += 14;
-
-            // ── Records ───────────────────────────────────────────
-            const addPage = () => { doc.addPage(); y = 20; };
-
-            const drawSection = (s: { title: string; lines: string[] }) => {
-                if (y > 255) addPage();
-                doc.setFillColor(238, 242, 255);
-                doc.roundedRect(MARGIN, y, CONTENT_W, 9, 3, 3, 'F');
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(55, 48, 163);
-                doc.text(s.title, MARGIN + 5, y + 6.2);
-                y += 13;
-                doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(51, 65, 85);
-                s.lines.forEach(line => {
-                    doc.splitTextToSize(line, CONTENT_W - 6).forEach((l: string) => {
-                        if (y > 275) addPage();
-                        doc.text(l, MARGIN + 3, y); y += 4.5;
-                    });
-                    y += 1;
-                });
-                y += 4;
-            };
-            extras.head.forEach(drawSection);
-
-            patientRecords.forEach((r, idx) => {
-                // Record header pill
-                if (y > 255) addPage();
-                const headerH = 14;
-                doc.setFillColor(238, 242, 255);
-                doc.roundedRect(MARGIN, y, CONTENT_W, headerH, 3, 3, 'F');
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(55, 48, 163);
-                doc.text(`${idx + 1}. ${r.title}`, MARGIN + 5, y + 9);
-                doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
-                doc.text(`${fmtDate(r.created_at)}   ${r.start_time || ''}${r.end_time ? ` – ${r.end_time}` : ''}   ${TYPE_LABELS[r.record_type] || r.record_type}   ${r.status}`, W - MARGIN - 5, y + 9, { align: 'right' });
-                y += headerH + 4;
-
-                // Tags
-                if (r.tags && r.tags.length > 0) {
-                    doc.setFontSize(7); doc.setTextColor(99, 91, 255);
-                    doc.text('Tags:' + r.tags.join(', '), MARGIN + 3, y);
-                    y += 5;
-                }
-
-                const FIELD_LABELS: Record<string, string> = {
-                    motivo_consulta: 'Motivo da Consulta',
-                    contexto_relevante: 'Contexto Relevante',
-                    observacoes_clinicas: 'Observações Clínicas',
-                    intervencoes_realizadas: 'Intervenções Realizadas',
-                    evolucao_resposta: 'Evolução / Resposta',
-                    plano_terapeutico: 'Plano Terapêutico',
-                    encaminhamentos: 'Encaminhamentos',
-                    observacao_complementar: 'Observação Complementar',
-                };
-
-                if (mode !== 'restricted_only') {
-                    // Try organized fields first
-                    let organized: any = null;
-                    if (r.ai_organized_content) { try { organized = JSON.parse(r.ai_organized_content); } catch {} }
-
-                    if (organized) {
-                        Object.entries(FIELD_LABELS).forEach(([key, label]) => {
-                            const val = organized[key];
-                            if (!val) return;
-                            if (y > 258) addPage();
-                            doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(79, 70, 229);
-                            doc.text(label.toUpperCase(), MARGIN + 3, y);
-                            y += 4;
-                            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(30, 41, 59);
-                            const lines = doc.splitTextToSize(String(val), CONTENT_W - 6);
-                            lines.forEach((line: string) => {
-                                if (y > 275) addPage();
-                                doc.text(line, MARGIN + 3, y); y += 4.5;
-                            });
-                            y += 2;
-                        });
-                    } else {
-                        const content = strip(r.content || r.draft_content || '');
-                        if (content) {
-                            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(51, 65, 85);
-                            const lines = doc.splitTextToSize(content, CONTENT_W - 6);
-                            lines.forEach((line: string) => {
-                                if (y > 275) addPage();
-                                doc.text(line, MARGIN + 3, y); y += 4.5;
-                            });
-                        }
-                    }
-                }
-
-                // Restricted content
-                if (r.restricted_content && (mode === 'full' || mode === 'restricted_only')) {
-                    if (y > 255) addPage();
-                    doc.setFillColor(255, 241, 242); doc.roundedRect(MARGIN + 2, y, CONTENT_W - 4, 6, 2, 2, 'F');
-                    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(190, 18, 60);
-                    doc.text('CAMPO RESTRITO — USO EXCLUSIVO', MARGIN + 5, y + 4.5);
-                    y += 9;
-                    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(136, 19, 55);
-                    const rlines = doc.splitTextToSize(r.restricted_content, CONTENT_W - 6);
-                    rlines.forEach((line: string) => {
-                        if (y > 275) addPage();
-                        doc.text(line, MARGIN + 3, y); y += 4.5;
-                    });
-                }
-
-                // Separator
-                y += 4;
-                if (y < 270) { doc.setDrawColor(226, 232, 240); doc.line(MARGIN, y, W - MARGIN, y); y += 6; }
-            });
-
-            extras.tail.forEach(drawSection);
-
-            // Footer on each page
-            const totalPages = (doc as any).internal.getNumberOfPages();
-            for (let pg = 1; pg <= totalPages; pg++) {
-                doc.setPage(pg);
-                doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(180);
-                doc.text(`${systemName}  |  Pág. ${pg} de ${totalPages}  |  ${exportDate}`, W / 2, 292, { align: 'center' });
-            }
-
-            doc.save(`${patName.replace(/\s+/g, '_')}_Prontuario.pdf`);
+          renderClinicalPdf(model).save(`${baseName}.pdf`);
         } else {
-            // ── Word export ────────────────────────────────────────
-            const children: any[] = [
-                new Paragraph({ text: systemName, heading: HeadingLevel.HEADING_3 }),
-                new Paragraph({ text: `Prontuário Clínico — ${patName}`, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
-                new Paragraph({ children: [new TextRun({ text: `Paciente: ${patName} CPF: ${patCPF} Nascimento: ${patBirth}`, bold: false })], spacing: { after: 100 } }),
-                new Paragraph({ children: [new TextRun({ text: `Profissional: ${profName} CRP: ${profCRP}`, bold: false })], spacing: { after: 100 } }),
-                new Paragraph({ children: [new TextRun({ text: `Gerado em: ${exportDate}`, italics: true, color: '888888' })], spacing: { after: 400 } }),
-            ];
-
-            const addSection = (s: { title: string; lines: string[] }) => {
-                children.push(new Paragraph({ text: s.title, heading: HeadingLevel.HEADING_2 }));
-                s.lines.forEach(l => children.push(new Paragraph({ text: l, spacing: { after: 80 } })));
-                children.push(new Paragraph({ text: '', spacing: { after: 200 } }));
-            };
-            extras.head.forEach(addSection);
-
-            patientRecords.forEach((r, idx) => {
-                children.push(new Paragraph({ text: `${idx + 1}. ${r.title}`, heading: HeadingLevel.HEADING_2 }));
-                children.push(new Paragraph({ children: [new TextRun({ text: `Data: ${fmtDate(r.created_at)} | Tipo: ${TYPE_LABELS[r.record_type] || r.record_type} | Status: ${r.status}`, color: '666666', size: 18 })], spacing: { after: 100 } }));
-
-                if (mode !== 'restricted_only') {
-                    let organized: any = null;
-                    if (r.ai_organized_content) { try { organized = JSON.parse(r.ai_organized_content); } catch {} }
-                    if (organized) {
-                        const LABELS: Record<string, string> = { motivo_consulta: 'Motivo da Consulta', contexto_relevante: 'Contexto Relevante', observacoes_clinicas: 'Observações Clínicas', intervencoes_realizadas: 'Intervenções Realizadas', evolucao_resposta: 'Evolução / Resposta', plano_terapeutico: 'Plano Terapêutico', encaminhamentos: 'Encaminhamentos', observacao_complementar: 'Observação Complementar' };
-                        Object.entries(LABELS).forEach(([k, label]) => {
-                            if (!organized[k]) return;
-                            children.push(new Paragraph({ children: [new TextRun({ text: label, bold: true, color: '4F46E5' })], spacing: { before: 120, after: 40 } }));
-                            children.push(new Paragraph({ text: organized[k], spacing: { after: 100 } }));
-                        });
-                    } else {
-                        children.push(new Paragraph({ text: strip(r.content || r.draft_content || ''), spacing: { after: 200 } }));
-                    }
-                }
-                if (r.restricted_content && (mode === 'full' || mode === 'restricted_only')) {
-                    children.push(new Paragraph({ children: [new TextRun({ text: 'CAMPO RESTRITO — USO EXCLUSIVO', bold: true, color: 'BE123C' })], spacing: { before: 200, after: 60 } }));
-                    children.push(new Paragraph({ text: r.restricted_content, spacing: { after: 200 } }));
-                }
-                children.push(new Paragraph({ text: '─────────────────────────────────────────────', spacing: { after: 200 } }));
-            });
-
-            extras.tail.forEach(addSection);
-
-            const docx = new Document({ sections: [{ children }] });
-            const blob = await Packer.toBlob(docx);
-            saveAs(blob, `${patName.replace(/\s+/g, '_')}_Prontuario.docx`);
+          saveAs(await buildClinicalDocxBlob(model), `${baseName}.docx`);
         }
 
         // Registra a exportação no audit log (compliance CFP)
