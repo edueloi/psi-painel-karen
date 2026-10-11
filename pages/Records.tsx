@@ -2001,11 +2001,12 @@ const RecordEditor: React.FC<{
     sections.forEach(s => s.fields.forEach(f => { if ((f.type === 'multi' || f.type === 'select') && f.options) o[f.key] = f.options; }));
     return o;
   }, [sections]);
-  // Campos do modelo em uso que a IA pode sugerir na Avaliação (o servidor valida a resposta contra esta lista).
+  // Campos do modelo em uso que a IA pode sugerir. Na anamnese, as fontes escolhidas
+  // (avaliações, evoluções, formulário e entrevista) podem completar ou atualizar o
+  // próprio questionário; observação e conduta continuam sendo decisão profissional.
   const aiFieldDefs = useMemo(() => sections.flatMap(sec => sec.fields
-    // Na anamnese, a IA só produz a análise profissional. As respostas do formulário
-    // ficam intactas e servem como fonte explícita da sugestão.
-    .filter(f => recordType === 'Anamnese' ? !!f.aiOnly : ['text', 'textarea', 'select', 'multi', 'rows', 'date', 'number', 'scale'].includes(f.type))
+    .filter(f => ['text', 'textarea', 'select', 'multi', 'rows', 'date', 'number', 'scale'].includes(f.type))
+    .filter(f => recordType !== 'Anamnese' || !['observacoes_profissional', 'conduta_inicial'].includes(f.key))
     .map(f => ({ key: f.key, label: f.label, type: f.type === 'scale' ? 'number' : f.type, options: f.options, columns: f.columns?.map(c => c.key), section: sec.label }))), [sections, recordType]);
   const anamnesisAnswersForAi = useMemo(() => {
     if (recordType !== 'Anamnese') return '';
@@ -2274,7 +2275,7 @@ const RecordEditor: React.FC<{
             {isAnamnese ? (
               <ContentCard padding="md" className="space-y-1.5">
                 <h3 className="text-sm font-medium text-slate-900">Anamnese preenchida pelo profissional</h3>
-                <p className="text-[11px] leading-relaxed text-slate-500">As perguntas abaixo são as mesmas do formulário remoto. Preencha durante a entrevista, mesmo sem enviar link ao paciente; depois, a IA pode sugerir a síntese clínica para sua revisão.</p>
+                <p className="text-[11px] leading-relaxed text-slate-500">As perguntas abaixo são as mesmas do formulário remoto. Preencha durante a entrevista, mesmo sem enviar link ao paciente; a IA pode usar Avaliações, Evoluções, respostas do paciente e a entrevista para sugerir ou atualizar campos, sempre para sua revisão.</p>
               </ContentCard>
             ) : (
             <ContentCard padding="md">
