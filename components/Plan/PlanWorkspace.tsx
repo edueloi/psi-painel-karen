@@ -14,7 +14,7 @@ import { ObjectivesSection, OverviewSection, StrategiesSection } from './Section
 import { DischargeSection, NotesSection, ParticipationSection, ReviewsSection } from './SectionsC';
 import { AIPanel, SummaryPanel } from './Panels';
 import { HistoryModal } from './HistoryModal';
-import { suggestFromSession, suggestionsFromAI, stripHtml, type PlanSuggestion, type SessionContext } from './suggestions';
+import { buildPlanDraftFromAI, suggestFromSession, stripHtml, type PlanSuggestion, type SessionContext } from './suggestions';
 import type { SessionRef } from './fields';
 
 export interface PlanEditorProps {
@@ -146,13 +146,23 @@ export const PlanWorkspace: React.FC<PlanEditorProps> = ({
     if (!patientId) return;
     setAiLoading(true); setAiError('');
     try {
-      const resp = await api.post<{ suggestion?: Record<string, unknown> }>('/therapeutic-plans/ai-suggest', {
+      const resp = await api.post<{ suggestion?: Record<string, any>; sources_used?: Array<{ record_type?: string }> }>('/therapeutic-plans/ai-suggest', {
         patient_id: patientId, approach: plan.approach || 'TCC', current_plan: { summary: v2.overview.general_objective },
       });
-      const list = resp?.suggestion ? suggestionsFromAI(v2, resp.suggestion) : [];
-      mergeSuggestions(list);
+      if (!resp?.suggestion) {
+        pushToast('info', 'A IA não trouxe informações suficientes para montar o rascunho.');
+        return;
+      }
+      const originByType: Record<string, string> = {
+        Anamnese: 'anamnese', Avaliacao: 'avaliacao', Evolucao: 'sessoes',
+      };
+      const originList = (resp.sources_used?.length ? resp.sources_used : sources)
+        .map(source => originByType[String(source.record_type || '')])
+        .filter((origin): origin is string => !!origin);
+      patch(current => buildPlanDraftFromAI(current, resp.suggestion as Record<string, any>, originList));
+      setSuggestions([]);
       setAnalyzed(sources.length);
-      pushToast('info', list.length ? 'Sugestões geradas. Revise cada uma antes de aceitar.' : 'A IA não trouxe nada novo.');
+      pushToast('success', 'Rascunho do plano preenchido a partir dos registros. Revise os campos e salve quando estiver pronto.');
     } catch (e: any) {
       setAiError(e?.response?.data?.error || e?.message || 'Não foi possível gerar sugestões agora.');
     } finally { setAiLoading(false); }

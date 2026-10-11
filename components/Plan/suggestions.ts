@@ -12,7 +12,7 @@
  * entregue o resultado ao `TherapeuticPlanEditor` pela prop `sessionContext`.
  */
 import {
-  FOCUS_AREAS, STRATEGY_LABEL, newBarrier, newObjective, newStrategy, newTask, uid,
+  BARRIER_TYPES, FOCUS_AREAS, STRATEGY_LABEL, STRATEGY_TYPES, newBarrier, newIndicator, newObjective, newStrategy, newTask, todayISO, uid,
   type PlanV2, type SectionId,
 } from './model';
 
@@ -194,6 +194,143 @@ export function suggestionsFromAI(v2: PlanV2, s: Record<string, any>): PlanSugge
     });
   });
   return out;
+}
+
+/**
+ * Converte a proposta estruturada da IA em um rascunho editável do plano.
+ * Não cria revisões nem declara resultados/alta/consentimento que não estejam
+ * explícitos nas fontes. O rascunho só é persistido quando a profissional salva.
+ */
+export function buildPlanDraftFromAI(v2: PlanV2, raw: Record<string, any>, sourceOrigins: string[]): PlanV2 {
+  const text = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+  const list = (value: unknown): Record<string, any>[] => Array.isArray(value)
+    ? value.filter((item): item is Record<string, any> => !!item && typeof item === 'object') : [];
+  const allowed = (value: unknown, options: { value: string }[]) => {
+    const candidate = text(value);
+    return options.some(option => option.value === candidate) ? candidate : '';
+  };
+  const unique = (values: string[]) => [...new Set(values.filter(Boolean))];
+  const append = (current: string, incoming: string) => {
+    if (!incoming || current.includes(incoming)) return current;
+    return current ? `${current}\n\n${incoming}` : incoming;
+  };
+
+  const inputGoals = list(raw.goals);
+  const objectives = [...v2.objectives];
+  // Os índices enviados pela IA se referem à ordem de `goals`, não aos
+  // objetivos que já estavam no plano antes da geração.
+  const goalIdByIndex: string[] = [];
+  inputGoals.forEach((goal, index) => {
+    const description = text(goal.description);
+    if (!description) return;
+    const existingIndex = objectives.findIndex(objective => sameText(objective.description, description));
+    if (existingIndex >= 0) {
+      goalIdByIndex[index] = objectives[existingIndex].id;
+      return;
+    }
+    const objective = newObjective(description, {
+      area: allowed(goal.area, FOCUS_AREAS),
+      priority: allowed(goal.priority, [{ value: 'alta' }, { value: 'media' }, { value: 'baixa' }]) as 'alta' | 'media' | 'baixa' | '',
+      indicators: text(goal.progress_indicators),
+      criterion: text(goal.completion_criterion),
+    });
+    objectives.push(objective);
+    goalIdByIndex[index] = objective.id;
+  });
+  const objectiveIdAt = (value: unknown) => {
+    const index = typeof value === 'number' ? value : Number(value);
+    return Number.isInteger(index) && index >= 0 ? goalIdByIndex[index] || '' : '';
+  };
+
+  const strategies = [...v2.strategies];
+  list(raw.interventions).forEach(item => {
+    const rationale = text(item.rationale || item.description || item.name);
+    const type = allowed(item.type, STRATEGY_TYPES) || 'outras';
+    const typeOther = type === 'outras' ? text(item.type_other || item.name || item.type) : '';
+    if (!rationale && !typeOther) return;
+    if (strategies.some(strategy => strategy.type === type && sameText(strategy.rationale || strategy.type_other, rationale || typeOther))) return;
+    strategies.push(newStrategy({ type, type_other: typeOther, objective_id: objectiveIdAt(item.goal_index), rationale }));
+  });
+
+  const tasks = [...v2.tasks];
+  list(raw.tasks).forEach(item => {
+    const activity = text(item.activity || item.description);
+    if (!activity || tasks.some(task => sameText(task.activity, activity))) return;
+    tasks.push(newTask({ activity, objective_id: objectiveIdAt(item.objective_index), instructions: text(item.instructions), due: text(item.due) }));
+  });
+
+  const indicators = [...v2.indicators];
+  list(raw.indicators).forEach(item => {
+    const name = text(item.name);
+    if (!name || indicators.some(indicator => sameText(indicator.name, name))) return;
+    const kind = text(item.kind);
+    indicators.push(newIndicator({
+      name, kind: kind === 'qualitativo' || kind === 'quantitativo' ? kind : '', objective_id: objectiveIdAt(item.objective_index),
+      definition: text(item.definition), method: text(item.method), baseline: text(item.baseline), unit: text(item.unit), source: text(item.source),
+    }));
+  });
+
+  const barriers = [...v2.barriers];
+  list(raw.barriers).forEach(item => {
+    const context = text(item.context || item.description);
+    const type = allowed(item.type, BARRIER_TYPES) || 'outras';
+    const other = type === 'outras' ? text(item.other || item.type) : '';
+    if (!context && !other) return;
+    if (barriers.some(barrier => barrier.type === type && sameText(barrier.context || barrier.other, context || other))) return;
+    barriers.push(newBarrier({ type, other, context, strategy: text(item.strategy) }));
+  });
+
+  const destination = raw.destination && typeof raw.destination === 'object' ? raw.destination : {};
+  const currentState = raw.current_state && typeof raw.current_state === 'object' ? raw.current_state : {};
+  const discharge = raw.discharge && typeof raw.discharge === 'object' ? raw.discharge : {};
+  const participation = raw.participation && typeof raw.participation === 'object' ? raw.participation : {};
+  const focusAreas = unique([...v2.overview.focus_areas, ...list(raw.focus_areas).map(item => text(item.value)), ...(Array.isArray(raw.focus_areas) ? raw.focus_areas.map(text) : [])])
+    .filter(area => FOCUS_AREAS.some(option => option.value === area));
+  const priorities = [...v2.overview.priorities];
+  list(raw.priorities).concat(list(raw.needs)).forEach(item => {
+    const priority = text(item.text || item.title || item.description);
+    if (priority && !priorities.some(existing => sameText(existing.text, priority))) priorities.push({ id: uid(), text: priority });
+  });
+  const noteParts = [text(raw.summary), text(raw.current_focus), text(raw.notes), text(currentState.main_complaint), text(currentState.main_difficulties), text(raw.approach_specific?.conceptualization)]
+    .filter(Boolean);
+
+  return {
+    ...v2,
+    overview: {
+      ...v2.overview,
+      general_objective: text(destination.general_objective || raw.summary) || v2.overview.general_objective,
+      status: v2.overview.status || 'planejamento',
+      start_date: v2.overview.start_date || todayISO(),
+      focus_areas: focusAreas,
+      focus_other: text(raw.focus_other) || v2.overview.focus_other,
+      priorities,
+      rationale: append(v2.overview.rationale, text(raw.rationale || destination.progress_criteria)),
+    },
+    objectives, strategies, tasks, indicators, barriers,
+    barriers_notes: append(v2.barriers_notes, text(raw.barriers_notes)),
+    discharge: {
+      ...v2.discharge,
+      criteria: text(discharge.criteria) || v2.discharge.criteria,
+      remaining: text(discharge.remaining) || v2.discharge.remaining,
+      relapse_prevention: text(discharge.relapse_prevention) || v2.discharge.relapse_prevention,
+      continuity: text(discharge.continuity) || v2.discharge.continuity,
+      referrals: text(discharge.referrals) || v2.discharge.referrals,
+      // "achieved" só é aceito quando existe dado explícito da fonte.
+      achieved: text(discharge.achieved) || v2.discharge.achieved,
+    },
+    participation: {
+      ...v2.participation,
+      discussed: text(participation.discussed) || v2.participation.discussed,
+      preferences: text(participation.preferences) || v2.participation.preferences,
+      agreements: text(participation.agreements) || v2.participation.agreements,
+      divergences: text(participation.divergences) || v2.participation.divergences,
+      perceived_barriers: text(participation.perceived_barriers) || v2.participation.perceived_barriers,
+      adjustments: text(participation.adjustments) || v2.participation.adjustments,
+    },
+    notes: noteParts.reduce(append, v2.notes),
+    origins: unique([...v2.origins, ...sourceOrigins]),
+    marks: { ...v2.marks, reviews: v2.reviews.length ? v2.marks.reviews : 'nao_avaliado' },
+  };
 }
 
 /* ───────────── Vínculo sessão ↔ plano (helper para o registro de sessão) ───────────── */

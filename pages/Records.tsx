@@ -1446,7 +1446,10 @@ const RecordEditor: React.FC<{
   const [existsInfo, setExistsInfo] = useState<{ id?: string; message: string } | null>(null);
   const [showClinical, setShowClinical] = useState(false);
   const [step, setStep] = useState<'draft' | 'ai_result' | 'approve'>(
-    record?.ai_organized_content && !initialStructured ? 'ai_result' : 'draft'
+    // O Plano Terapêutico possui um editor próprio. Planos antigos também podem
+    // ter conteúdo organizado sem o marcador v2; ainda assim devem abrir no
+    // editor atual, que faz a migração preservando os dados.
+    record?.record_type !== 'Plano' && record?.ai_organized_content && !initialStructured ? 'ai_result' : 'draft'
   );
   const hhmm = (t?: string | null) => (t || '').slice(0, 5);
   const recordDay = (r?: { created_at?: string } | null) => {

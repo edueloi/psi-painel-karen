@@ -64,11 +64,11 @@ export const AIPanel: React.FC<{
   onDismiss: (s: PlanSuggestion) => void;
   error?: string;
 }> = ({ suggestions, loading, canAnalyze, analyzedCount, onAnalyze, onGenerateAI, onApply, onDismiss, error }) => (
-  <PanelCard title="Assistente IA" icon={Sparkles} description="Sugestões a partir dos registros do prontuário. Você decide o que entra no plano."
+  <PanelCard title="Assistente IA" icon={Sparkles} description="A IA monta um rascunho a partir dos registros do prontuário; revise antes de salvar."
     action={
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="xs" variant="outline" onClick={onAnalyze} disabled={!canAnalyze || loading}>Analisar sessões</Button>
-        <Button type="button" size="xs" loading={loading} onClick={onGenerateAI} disabled={!canAnalyze}>Gerar com IA</Button>
+        <Button type="button" size="xs" loading={loading} onClick={onGenerateAI} disabled={!canAnalyze}>Gerar e preencher</Button>
       </div>
     } contentClassName="space-y-2">
     {error && <Alert variant="error">{error}</Alert>}
@@ -77,7 +77,7 @@ export const AIPanel: React.FC<{
       <EmptyState title="Nenhuma sugestão pendente" description={`${analyzedCount} registro(s) analisado(s). Nada novo identificado para o plano.`} />
     )}
     {analyzedCount === null && suggestions.length === 0 && canAnalyze && (
-      <p className="text-xs text-slate-500">Use “Analisar sessões” para uma checagem local por palavras-chave ou “Gerar com IA” para uma proposta mais completa. Sugestões são hipóteses de trabalho, não conclusões.</p>
+      <p className="text-xs text-slate-500">Use “Analisar sessões” para uma checagem local por palavras-chave ou “Gerar e preencher” para criar um rascunho completo. O rascunho não é salvo automaticamente e deve ser revisado.</p>
     )}
     <div className="space-y-2">
       {suggestions.map(s => <SuggestionCard key={s.id} s={s} onApply={onApply} onDismiss={onDismiss} />)}

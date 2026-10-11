@@ -3,6 +3,28 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+// Resume conteúdo estruturado sem expor chaves técnicas ou perder respostas
+// preenchidas no formulário (as quais muitas vezes não ficam em `content`).
+function structuredText(raw) {
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    const values = [];
+    const visit = (value, depth = 0) => {
+      if (depth > 3 || values.length >= 24 || value == null) return;
+      if (typeof value === 'string' && value.trim()) values.push(value.trim());
+      else if (Array.isArray(value)) value.forEach(item => visit(item, depth + 1));
+      else if (typeof value === 'object') Object.entries(value).forEach(([key, item]) => {
+        if (!['id', 'created_at', 'updated_at', 'versions', 'meta'].includes(key)) visit(item, depth + 1);
+      });
+    };
+    visit(parsed);
+    return values.join(' | ').slice(0, 1800);
+  } catch {
+    return '';
+  }
+}
+
 /* ─────────────────────────────────────────────────────────
    GET /therapeutic-plans/patient/:patient_id/sources
    Retorna fontes de dados do paciente para alimentar o plano
@@ -62,71 +84,31 @@ router.post('/ai-suggest', authMiddleware, async (req, res) => {
     );
 
     const sourceSummary = records.map(r => {
-      let extra = '';
-      if (r.ai_organized_content) {
-        try {
-          const obj = JSON.parse(r.ai_organized_content);
-          extra = Object.values(obj).filter(v => typeof v === 'string').slice(0, 3).join(' | ');
-        } catch {}
-      }
-      return `[${r.record_type} - ${r.title} - ${r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : ''}]\n${r.content_preview || extra}`;
+      const parts = [r.content_preview, structuredText(r.ai_organized_content)].filter(Boolean);
+      return `[${r.record_type} - ${r.title} - ${r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : ''}]\n${parts.join('\n')}`;
     }).join('\n\n');
 
-    const prompt = `Você é um assistente clínico especializado em psicologia. Com base nas informações do paciente abaixo, gere um rascunho estruturado de Plano Terapêutico usando a abordagem ${approach}.
+    const prompt = `Você é um assistente clínico de apoio a psicólogas. Gere SOMENTE um rascunho editável de plano terapêutico pela abordagem ${approach}, com base exclusivamente nos registros abaixo.
 
 REGISTROS DO PACIENTE:
 ${sourceSummary || 'Sem registros disponíveis ainda.'}
 
-Responda APENAS com JSON válido, sem markdown, sem explicações, no seguinte formato:
+Regras obrigatórias: não faça diagnóstico, não invente fatos, riscos, resultados, adesão, alta, consentimento ou fala do paciente. Quando a informação não estiver nos registros, use string vazia ou array vazio. Não inclua identificadores pessoais. Revisões não devem ser criadas. Alta e participação só podem ser preenchidas se constarem expressamente nas fontes.
+
+Responda APENAS JSON válido, sem markdown:
 {
-  "summary": "Resumo clínico em 2-3 frases do momento atual",
-  "current_focus": "Foco terapêutico principal em 1 frase",
-  "priority_level": "alta",
-  "current_state": {
-    "main_complaint": "...",
-    "main_difficulties": "...",
-    "symptoms": "...",
-    "functional_impairment": "...",
-    "emotional_patterns": "...",
-    "cognitive_patterns": "...",
-    "behavioral_patterns": "...",
-    "risks": "...",
-    "maintenance_factors": "...",
-    "existing_resources": "...",
-    "protection_factors": "...",
-    "patient_perception": "...",
-    "clinical_perception": "..."
-  },
-  "destination": {
-    "general_objective": "...",
-    "patient_changes": "...",
-    "clinical_changes": "...",
-    "expected_results": "...",
-    "functional_improvement": "...",
-    "progress_criteria": "..."
-  },
-  "needs": [
-    { "title": "...", "description": "...", "priority": "alta", "urgency": "normal", "functional_impact": "...", "status": "nao_iniciado", "source": "avaliacao" }
-  ],
-  "goals": [
-    { "description": "...", "timeframe": "curto", "priority": "alta", "status": "nao_iniciado", "progress_indicators": "...", "completion_criterion": "...", "progress_note": "" }
-  ],
-  "phases": [
-    { "title": "Acolhimento e Avaliação", "description": "...", "goals": "...", "status": "atual", "order": 1 },
-    { "title": "Intervenção Principal", "description": "...", "goals": "...", "status": "nao_iniciada", "order": 2 },
-    { "title": "Consolidação e Alta", "description": "...", "goals": "...", "status": "nao_iniciada", "order": 3 }
-  ],
-  "approach_specific": {
-    "conceptualization": "...",
-    "main_focus": "...",
-    "precipitants": "...",
-    "predisposing": "...",
-    "maintaining": "...",
-    "protective": "...",
-    "behavioral_goals": "...",
-    "cognitive_goals": "...",
-    "emotional_goals": "..."
-  }
+  "summary":"síntese breve baseada nas fontes", "current_focus":"", "rationale":"",
+  "focus_areas":["ansiedade|autoestima|regulacao_emocional|autoconhecimento|relacionamentos|trabalho_estudos|habitos_rotina|tomada_decisoes|outro"],
+  "priorities":[{"text":"prioridade terapêutica"}],
+  "current_state":{"main_complaint":"","main_difficulties":""},
+  "destination":{"general_objective":"","progress_criteria":""},
+  "goals":[{"description":"","area":"uma área de foco","priority":"alta|media|baixa","progress_indicators":"","completion_criterion":""}],
+  "interventions":[{"type":"psicoeducacao|automonitoramento|registro_pensamentos|reestruturacao_cognitiva|experimentos_comportamentais|exposicao_gradual|treino_habilidades|resolucao_problemas|regulacao_emocional|esquemas|outras","type_other":"","goal_index":0,"rationale":""}],
+  "tasks":[{"activity":"","objective_index":0,"instructions":"","due":"AAAA-MM-DD ou vazio"}],
+  "indicators":[{"name":"","kind":"qualitativo|quantitativo","objective_index":0,"definition":"","method":"","baseline":"","unit":"","source":""}],
+  "barriers":[{"type":"adesao|rotina|financeiras_logisticas|sintomas_persistentes|compreensao|estressores|ambiente|outras","other":"","context":"","strategy":""}],
+  "barriers_notes":"", "discharge":{"criteria":"","achieved":"","remaining":"","relapse_prevention":"","continuity":"","referrals":""},
+  "participation":{"discussed":"","preferences":"","agreements":"","divergences":"","perceived_barriers":"","adjustments":""}, "notes":""
 }`;
 
     let suggestion = null;
@@ -134,7 +116,7 @@ Responda APENAS com JSON válido, sem markdown, sem explicações, no seguinte f
       const aiResp = await fetch(`http://localhost:${process.env.PORT || 3013}/api/ai/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': req.headers.authorization },
-        body: JSON.stringify({ prompt, max_tokens: 2500 })
+        body: JSON.stringify({ prompt, max_tokens: 3500 })
       });
       if (aiResp.ok) {
         const aiData = await aiResp.json();
@@ -154,7 +136,12 @@ Responda APENAS com JSON válido, sem markdown, sem explicações, no seguinte f
     if (Array.isArray(suggestion.goals)) suggestion.goals = suggestion.goals.map(g => ({ ...g, id: uid() }));
     if (Array.isArray(suggestion.phases)) suggestion.phases = suggestion.phases.map(p => ({ ...p, id: uid() }));
 
-    res.json({ suggestion });
+    res.json({
+      suggestion,
+      // O cliente usa somente o tipo para marcar as origens que realmente
+      // participaram do rascunho; não devolve conteúdo clínico duplicado.
+      sources_used: records.map(record => ({ record_type: record.record_type })),
+    });
   } catch (err) {
     console.error('[therapeutic-plans/ai-suggest]', err);
     res.status(500).json({ error: 'Erro ao gerar sugestão: ' + err.message });
