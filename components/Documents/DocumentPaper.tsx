@@ -107,7 +107,7 @@ export const DocumentPaper: React.FC<{ model: DocumentModel; className?: string 
             {sig && (
               <div style={{ fontFamily: SERIF, textAlign: 'center', marginTop: 38, breakInside: 'avoid' }}>
                 <div style={{ fontSize: 14.7 }}>{model.place ? `${clean(model.place)}, ` : ''}{longDatePt(model.docDate)}.</div>
-                <div style={{ position: 'relative', height: 64, marginTop: 0 }}>
+                <div style={{ position: 'relative', height: 52, marginTop: 0 }}>
                   {model.signatureImage && (() => {
                     const b = signatureBox(model.signatureImage);
                     return <img src={model.signatureImage.dataUrl} alt="Assinatura" style={{ position: 'absolute', left: '50%', bottom: 4, transform: 'translateX(-50%)', width: b.w * 3.78, height: b.h * 3.78 }} />;

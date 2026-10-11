@@ -546,15 +546,15 @@ export function renderClinicalPdf(m: ClinicalDocModel): jsPDF {
     paragraph(CONFIDENTIALITY_TERM, 0, 'normal', 9.5, 4.4);
   }
   const sigImg = m.signatureImage !== undefined ? m.signatureImage : autoSignatureSync();
-  ensure(sigImg ? 58 : 46);
+  ensure(sigImg ? 52 : 46);
   y += 8;
   setBody('normal', 10.5);
   doc.text(`Emitido em ${fmtLongDateBR(emitted)}.`, PW / 2, y, { align: 'center' });
-  y += sigImg ? 22 : 20;
+  y += sigImg ? 16 : 20;
   if (sigImg) {
     const r = sigImg.width / sigImg.height;
-    let ih = 18; let iw = ih * r;
-    if (iw > 70) { iw = 70; ih = iw / r; }
+    let ih = 11; let iw = ih * r;
+    if (iw > 52) { iw = 52; ih = iw / r; }
     try { doc.addImage(sigImg.dataUrl, 'PNG', PW / 2 - iw / 2, y - 1.2 - ih, iw, ih, undefined, 'FAST'); } catch { /* imagem inválida: segue sem */ }
   }
   doc.setDrawColor(...INK); doc.setLineWidth(0.3);

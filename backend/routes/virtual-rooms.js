@@ -197,6 +197,46 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /virtual-rooms/upcoming-appointments
+// A Agenda é a fonte de verdade dos próximos atendimentos. Não use somente
+// virtual_rooms aqui: uma consulta válida pode já ter link externo ou ainda
+// não ter uma sala interna criada.
+router.get('/upcoming-appointments', async (req, res) => {
+  try {
+    await withSchema();
+    const [appointments] = await db.query(
+      `SELECT a.id AS appointment_id,
+              a.title, a.start_time, a.end_time, a.status, a.type, a.modality,
+              a.meeting_url, a.patient_id, a.professional_id,
+              p.name AS patient_name,
+              COALESCE(NULLIF(TRIM(p.whatsapp), ''), NULLIF(TRIM(p.phone), '')) AS patient_phone,
+              r.id AS room_id, r.code AS room_code, r.provider AS room_provider,
+              r.link AS room_link
+       FROM appointments a
+       INNER JOIN patients p ON p.id = a.patient_id AND p.tenant_id = a.tenant_id
+       LEFT JOIN virtual_rooms r ON r.id = (
+         SELECT MAX(r2.id)
+         FROM virtual_rooms r2
+         WHERE r2.tenant_id = a.tenant_id AND r2.appointment_id = a.id
+       )
+       WHERE a.tenant_id = ?
+         AND a.start_time >= UTC_TIMESTAMP()
+         AND a.status IN ('scheduled', 'confirmed')
+         AND (
+           a.type = 'consulta'
+           OR (a.type = 'pessoal' AND COALESCE(NULLIF(TRIM(p.whatsapp), ''), NULLIF(TRIM(p.phone), '')) IS NOT NULL)
+         )
+       ORDER BY a.start_time ASC
+       LIMIT 100`,
+      [req.user.tenant_id]
+    );
+    res.json(appointments);
+  } catch (err) {
+    console.error('[VirtualRooms] Erro ao buscar próximos atendimentos:', err);
+    res.status(500).json({ error: 'Erro ao buscar próximos atendimentos' });
+  }
+});
+
 // GET /virtual-rooms/history — todas as sessões do tenant (DEVE vir antes de /:id)
 router.get('/history', async (req, res) => {
   try {

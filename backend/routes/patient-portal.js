@@ -1798,15 +1798,32 @@ router.get('/documents', portalAuth, async (req, res) => {
   try {
     const { patient_id, tenant_id } = req.portalSession;
 
-    // Documentos gerados (atestados, declarações, receitas)
-    const [docs] = await db.query(
-      `SELECT id, title, rendered_html, created_at, 'document' AS source_type,
-              signature_mode, (pdf_hash IS NOT NULL OR signed_file_hash IS NOT NULL) AS has_file
-       FROM doc_instances
-       WHERE patient_id = ? AND tenant_id = ?
-       ORDER BY created_at DESC LIMIT 50`,
+    // Documentos emitidos e LIBERADOS ao paciente: só os que o profissional enviou pelo canal "portal"
+    // (document_deliveries.channel = 'portal'), do próprio paciente/tenant e não arquivados.
+    // Nunca devolve hashes nem tokens; o HTML só vai quando não existe PDF guardado.
+    const [docRows] = await db.query(
+      `SELECT d.id, d.title, d.rendered_html, d.created_at, d.version, d.signature_mode, d.doc_type,
+              (d.pdf_hash IS NOT NULL OR d.signed_file_hash IS NOT NULL) AS has_file,
+              (SELECT MAX(x.created_at) FROM document_deliveries x
+                WHERE x.doc_instance_id = d.id AND x.tenant_id = d.tenant_id AND x.channel = 'portal') AS released_at,
+              (SELECT x.first_viewed_at FROM document_deliveries x
+                WHERE x.doc_instance_id = d.id AND x.tenant_id = d.tenant_id AND x.patient_id = d.patient_id
+                  AND x.channel = 'portal'
+                ORDER BY x.id DESC LIMIT 1) AS first_viewed_at
+         FROM doc_instances d
+        WHERE d.patient_id = ? AND d.tenant_id = ? AND d.archived_at IS NULL
+          AND EXISTS (SELECT 1 FROM document_deliveries x WHERE x.doc_instance_id = d.id AND x.tenant_id = d.tenant_id
+                       AND x.patient_id = d.patient_id AND x.channel = 'portal')
+        ORDER BY d.created_at DESC LIMIT 50`,
       [patient_id, tenant_id]
     ).catch(() => [[]]);
+    const integrity = require('../utils/documentIntegrity');
+    const docs = docRows.map(d => ({
+      id: d.id, title: d.title, created_at: d.created_at, released_at: d.released_at, version: d.version || 1,
+      doc_type: d.doc_type || null, signature_mode: d.signature_mode || 'none', source_type: 'document',
+      has_file: !!d.has_file, viewed: !!d.first_viewed_at,
+      rendered_html: d.has_file ? null : integrity.sanitizeHtml(d.rendered_html),
+    }));
 
     // Uploads/arquivos enviados ao paciente
     const [uploads] = await db.query(
@@ -1830,6 +1847,20 @@ router.get('/documents', portalAuth, async (req, res) => {
   }
 });
 
+// Entrega "portal" criada pelo profissional (envio ao portal) para o documento do paciente da sessão;
+// documentos não liberados, arquivados ou de outro paciente/tenant não têm entrega => 404.
+async function findPortalDelivery(tenantId, patientId, docId) {
+  const [rows] = await db.query(
+    `SELECT x.* FROM document_deliveries x
+       JOIN doc_instances d ON d.id = x.doc_instance_id AND d.tenant_id = x.tenant_id
+      WHERE x.tenant_id = ? AND x.doc_instance_id = ? AND x.patient_id = ? AND d.patient_id = ?
+        AND x.channel = 'portal' AND d.archived_at IS NULL
+  ORDER BY x.id DESC LIMIT 1`,
+    [tenantId, docId, patientId, patientId]
+  );
+  return rows[0] || null;
+}
+
 // Protocolo de recebimento no portal: mesma trilha da página pública (canal "portal").
 // POST /patient-portal/documents/:id/view — registra a visualização do documento pelo paciente
 router.post('/documents/:id/view', portalAuth, async (req, res) => {
@@ -1837,10 +1868,9 @@ router.post('/documents/:id/view', portalAuth, async (req, res) => {
     const { patient_id, tenant_id } = req.portalSession;
     const docId = parseInt(req.params.id, 10);
     if (!docId) return res.status(400).json({ error: 'Documento inválido.' });
-    const [docs] = await db.query('SELECT id FROM doc_instances WHERE id = ? AND patient_id = ? AND tenant_id = ? LIMIT 1', [docId, patient_id, tenant_id]);
-    if (!docs.length) return res.status(404).json({ error: 'Documento não encontrado.' });
-    const { ensurePortalDelivery, recordDeliveryEvent } = require('../utils/documentDeliveryLog');
-    const delivery = await ensurePortalDelivery(tenant_id, patient_id, docId);
+    const delivery = await findPortalDelivery(tenant_id, patient_id, docId);
+    if (!delivery) return res.status(404).json({ error: 'Documento não encontrado.' });
+    const { recordDeliveryEvent } = require('../utils/documentDeliveryLog');
     await recordDeliveryEvent(delivery, 'view', req.ip, req.get('user-agent'));
     res.json({ ok: true });
   } catch (e) {
@@ -1855,6 +1885,8 @@ router.get('/documents/:id/file', portalAuth, async (req, res) => {
     const { patient_id, tenant_id } = req.portalSession;
     const docId = parseInt(req.params.id, 10);
     if (!docId) return res.status(400).json({ error: 'Documento inválido.' });
+    const delivery = await findPortalDelivery(tenant_id, patient_id, docId);
+    if (!delivery) return res.status(404).json({ error: 'Documento não encontrado.' });
     const [docs] = await db.query('SELECT id, title, signed_file_hash FROM doc_instances WHERE id = ? AND patient_id = ? AND tenant_id = ? LIMIT 1', [docId, patient_id, tenant_id]);
     if (!docs.length) return res.status(404).json({ error: 'Documento não encontrado.' });
     const kind = docs[0].signed_file_hash ? 'signed_external' : 'generated';
@@ -1864,8 +1896,7 @@ router.get('/documents/:id/file', portalAuth, async (req, res) => {
     );
     if (!files.length) return res.status(404).json({ error: 'Este documento não possui arquivo PDF.' });
     if (req.query.download === '1') {
-      const { ensurePortalDelivery, recordDeliveryEvent } = require('../utils/documentDeliveryLog');
-      const delivery = await ensurePortalDelivery(tenant_id, patient_id, docId);
+      const { recordDeliveryEvent } = require('../utils/documentDeliveryLog');
       await recordDeliveryEvent(delivery, 'download', req.ip, req.get('user-agent'));
     }
     const safeName = String(docs[0].title || 'documento').replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'documento';

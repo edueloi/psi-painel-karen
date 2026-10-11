@@ -96,6 +96,25 @@ type RecordingEntry = {
   created_at: string;
 };
 
+type UpcomingAppointment = {
+  appointment_id: number;
+  title?: string | null;
+  start_time: string;
+  end_time?: string | null;
+  status: 'scheduled' | 'confirmed';
+  type: 'consulta' | 'pessoal';
+  modality?: string | null;
+  meeting_url?: string | null;
+  patient_id: number;
+  professional_id?: number | null;
+  patient_name: string;
+  patient_phone?: string | null;
+  room_id?: number | null;
+  room_code?: string | null;
+  room_provider?: VirtualRoom['provider'] | null;
+  room_link?: string | null;
+};
+
 const _normalizeAudioMimeType = (mimeType?: string) => {
   const normalized = (mimeType || '').toLowerCase();
   if (normalized.includes('webm')) return 'audio/webm';
@@ -120,14 +139,17 @@ export const VirtualRooms: React.FC = () => {
   const { success: toastSuccess, error: toastError } = useToast();
 
   const [rooms, setRooms] = useState<VirtualRoom[]>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [professionals, setProfessionals] = useState<User[]>([]);
   const [meetingCode, setMeetingCode] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedAppointmentId, setCopiedAppointmentId] = useState<number | null>(null);
   const [roomSearch, setRoomSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
+  const [creatingAppointmentRoomId, setCreatingAppointmentRoomId] = useState<number | null>(null);
   const [createdRoom, setCreatedRoom] = useState<VirtualRoom | null>(null);
   const [isCreatingInstant, setIsCreatingInstant] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<VirtualRoom | null>(null);
@@ -176,12 +198,14 @@ export const VirtualRooms: React.FC = () => {
   const fetchRooms = async () => {
     setIsLoading(true);
     try {
-      const [data, pts, pros] = await Promise.all([
+      const [data, appointments, pts, pros] = await Promise.all([
         api.get<VirtualRoom[]>('/virtual-rooms'),
+        api.get<UpcomingAppointment[]>('/virtual-rooms/upcoming-appointments'),
         api.get<Patient[]>('/patients'),
         api.get<User[]>('/users'),
       ]);
       setRooms(data);
+      setUpcomingAppointments(appointments || []);
       setPatients((pts || []).map((p: any) => ({ ...p, full_name: p.full_name || p.name || 'Sem nome' })));
       setProfessionals((pros || []).filter((professional) => professional.role !== 'secretario'));
     } catch (error) {
@@ -481,12 +505,15 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const upcomingRooms = useMemo(() => {
-    const now = new Date();
-    return rooms
-      .filter((room) => room.scheduled_start && new Date(room.scheduled_start) >= now)
-      .filter(matchesQuery)
-      .sort((a, b) => new Date(a.scheduled_start!).getTime() - new Date(b.scheduled_start!).getTime());
-  }, [rooms, roomSearch]);
+    const query = roomSearch.trim().toLowerCase();
+    return upcomingAppointments
+      .filter((appointment) => {
+        if (!query) return true;
+        return [appointment.title, appointment.patient_name, appointment.type]
+          .some((value) => String(value || '').toLowerCase().includes(query));
+      })
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  }, [upcomingAppointments, roomSearch]);
 
   const persistentRooms = useMemo(
     // Salas instantâneas (provider "interno", criadas pelo botão "Sala Instantânea")
@@ -683,6 +710,36 @@ export const VirtualRooms: React.FC = () => {
     }
   };
 
+  const handleCreateRoomForAppointment = async (appointment: UpcomingAppointment) => {
+    setCreatingAppointmentRoomId(appointment.appointment_id);
+    const code = generateCode();
+    try {
+      const room = await api.post<VirtualRoom>('/virtual-rooms', {
+        code,
+        title: appointment.title?.trim() || `Sessão: ${appointment.patient_name}`,
+        description: `Sala vinculada ao agendamento de ${appointment.patient_name}.`,
+        scheduled_start: appointment.start_time,
+        scheduled_end: appointment.end_time || null,
+        patient_id: appointment.patient_id,
+        professional_id: appointment.professional_id || null,
+        appointment_id: appointment.appointment_id,
+        provider: 'interno',
+      });
+      const roomCode = room?.code || code;
+      setUpcomingAppointments((previous) => previous.map((item) => (
+        item.appointment_id === appointment.appointment_id
+          ? { ...item, room_id: room?.id || null, room_code: roomCode, room_provider: 'interno', room_link: room?.link || null }
+          : item
+      )));
+      if (room?.id) setRooms((previous) => [room, ...previous]);
+      toastSuccess('Sala criada', 'A sala foi vinculada ao paciente e ao agendamento.');
+    } catch (error: any) {
+      toastError('Não foi possível criar a sala', error?.message || 'Tente novamente.');
+    } finally {
+      setCreatingAppointmentRoomId(null);
+    }
+  };
+
   const handleJoinByCode = (event: React.FormEvent) => {
     event.preventDefault();
     if (meetingCode.trim()) {
@@ -714,6 +771,46 @@ export const VirtualRooms: React.FC = () => {
     const company = user?.companyName || user?.name || 'seu profissional';
     const message = `*Prepare-se, sua sessão já vai começar com ${company}!* 🌿\n\nPara um melhor aproveitamento da sua consulta:\n📍 Procure um local calmo, iluminado e privado.\n🎧 Use fones de ouvido para sua privacidade e melhor som.\n🛜 Verifique se sua conexão de internet está estável.\n\nAcesse sua sala virtual pelo link abaixo:\n${shareUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const getUpcomingMeetingUrl = (appointment: UpcomingAppointment) => {
+    if (appointment.room_code) return `${getPublicBaseUrl()}/sala/${appointment.room_code}`;
+    return appointment.meeting_url || appointment.room_link || '';
+  };
+
+  const handleCopyUpcomingLink = async (appointment: UpcomingAppointment) => {
+    const url = getUpcomingMeetingUrl(appointment);
+    if (!url) {
+      toastError('Sala não disponível', 'Este atendimento ainda não possui um link de sala virtual.');
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopiedAppointmentId(appointment.appointment_id);
+    setTimeout(() => setCopiedAppointmentId(null), 2000);
+  };
+
+  const openUpcomingWhatsApp = (appointment: UpcomingAppointment) => {
+    const url = getUpcomingMeetingUrl(appointment);
+    const rawPhone = String(appointment.patient_phone || '').replace(/\D/g, '');
+    if (!url || !rawPhone) {
+      toastError('Envio indisponível', !rawPhone
+        ? 'O paciente não possui telefone ou WhatsApp cadastrado.'
+        : 'Este atendimento ainda não possui um link de sala virtual.');
+      return;
+    }
+    const phone = rawPhone.length <= 11 ? `55${rawPhone}` : rawPhone;
+    const company = user?.companyName || user?.name || 'seu profissional';
+    const message = `Olá, ${appointment.patient_name}! Sua sessão com ${company} está agendada.\n\nAcesse sua sala virtual pelo link:\n${url}`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const openUpcomingMeeting = (appointment: UpcomingAppointment) => {
+    const url = getUpcomingMeetingUrl(appointment);
+    if (!url) {
+      toastError('Sala não disponível', 'Cadastre ou gere o link da sala virtual na Agenda para entrar neste atendimento.');
+      return;
+    }
+    window.open(url, '_blank');
   };
 
   const renderCopyButton = (room: VirtualRoom) => (
@@ -923,15 +1020,18 @@ export const VirtualRooms: React.FC = () => {
                         }
                       />
                     ) : (
-                      upcomingRooms.map((room) => {
-                        const start = room.scheduled_start ? new Date(room.scheduled_start) : null;
-                        const end = room.scheduled_end ? new Date(room.scheduled_end) : null;
+                      upcomingRooms.map((appointment) => {
+                        const start = appointment.start_time ? new Date(appointment.start_time) : null;
+                        const end = appointment.end_time ? new Date(appointment.end_time) : null;
                         const dayNum = start ? start.getDate() : '--';
                         const monthStr = start ? start.toLocaleString('pt-BR', { month: 'short' }).replace('.', '') : '--';
                         const timeStr = start ? start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
                         const endTimeStr = end ? end.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+                        const hasMeetingUrl = !!getUpcomingMeetingUrl(appointment);
+                        const canSendWhatsApp = hasMeetingUrl && !!appointment.patient_phone;
+                        const title = appointment.title?.trim() || `Sessão: ${appointment.patient_name}`;
                         return (
-                          <div key={room.id} className="flex flex-col gap-3 px-3 py-3 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center">
+                          <div key={appointment.appointment_id} className="flex flex-col gap-3 px-3 py-3 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center">
                             {/* Date badge */}
                             <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-primary-100 bg-primary-50">
                               <span className="text-[11px] text-primary-600">{monthStr}</span>
@@ -945,19 +1045,46 @@ export const VirtualRooms: React.FC = () => {
                                   {timeStr}{endTimeStr ? ` – ${endTimeStr}` : ''}
                                 </span>
                               </div>
-                              <p className="truncate text-[13px] font-medium text-slate-800">{room.title || 'Sessão sem título'}</p>
-                              {room.description && (
-                                <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">{room.description}</p>
-                              )}
+                              <p className="truncate text-[13px] font-medium text-slate-800">{title}</p>
+                              <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">
+                                {appointment.patient_name}
+                                {appointment.status === 'confirmed' ? ' · Confirmado' : ' · Agendado'}
+                                {!hasMeetingUrl ? ' · Sem link de sala' : ''}
+                              </p>
                             </div>
 
                             <div className="flex shrink-0 items-center gap-1.5">
-                              {renderCopyButton(room)}
-                              <IconButton variant="success" size="sm" aria-label="Compartilhar no WhatsApp" title="WhatsApp" onClick={() => openWhatsAppShare(room)}>
+                              <IconButton
+                                variant="outline"
+                                size="sm"
+                                aria-label="Copiar link"
+                                title={hasMeetingUrl ? 'Copiar link' : 'Este atendimento ainda não possui link de sala'}
+                                disabled={!hasMeetingUrl}
+                                onClick={() => handleCopyUpcomingLink(appointment)}
+                                className={copiedAppointmentId === appointment.appointment_id ? 'border-emerald-400 bg-emerald-50 text-emerald-600' : undefined}
+                              >
+                                {copiedAppointmentId === appointment.appointment_id ? <Check size={14} /> : <Copy size={14} />}
+                              </IconButton>
+                              <IconButton
+                                variant="success"
+                                size="sm"
+                                aria-label="Enviar no WhatsApp"
+                                title={canSendWhatsApp ? 'Enviar no WhatsApp' : !appointment.patient_phone ? 'Paciente sem telefone ou WhatsApp cadastrado' : 'Este atendimento ainda não possui link de sala'}
+                                disabled={!canSendWhatsApp}
+                                onClick={() => openUpcomingWhatsApp(appointment)}
+                              >
                                 <Send size={14} />
                               </IconButton>
-                              <Button variant="primary" size="sm" iconLeft={<Play size={14} />} onClick={() => window.open(`/sala/${room.code}`, '_blank')}>
-                                Entrar
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                iconLeft={hasMeetingUrl ? <Play size={14} /> : <Plus size={14} />}
+                                loading={creatingAppointmentRoomId === appointment.appointment_id}
+                                disabled={creatingAppointmentRoomId !== null && creatingAppointmentRoomId !== appointment.appointment_id}
+                                title={hasMeetingUrl ? 'Entrar na sala' : 'Criar e vincular sala ao agendamento'}
+                                onClick={() => hasMeetingUrl ? openUpcomingMeeting(appointment) : handleCreateRoomForAppointment(appointment)}
+                              >
+                                {hasMeetingUrl ? 'Entrar' : 'Criar sala'}
                               </Button>
                             </div>
                           </div>

@@ -3,6 +3,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const bcrypt = require('bcryptjs');
+const fs = require('fs/promises');
+const path = require('path');
+const pdfParse = require('pdf-parse');
+const JSZip = require('jszip');
 const sources = require('../utils/clinicalSources');
 const history = require('../utils/recordHistory');
 const absences = require('../utils/absenceRecords');
@@ -321,12 +325,17 @@ async function organizerContext(req, patientId, recordId, selection) {
   }
 }
 
-async function organizeDraft(req, { draft_content, patient_id, record_id, sources: sel }) {
+async function organizeDraft(req, { draft_content, patient_id, record_id, sources: sel, record_type }) {
   const draft = sources.clipText(sources.htmlToText(draft_content), 14000, true);
   const ctx = await organizerContext(req, patient_id, record_id, parseSelection(sel));
+  const recordGuide = {
+    Anamnese: 'Tipo selecionado: ANAMNESE. Organize história, contexto, queixa e objetivos; não trate informações históricas como fatos de uma sessão atual.',
+    Avaliacao: 'Tipo selecionado: AVALIAÇÃO CLÍNICA. Diferencie relato, observação e hipótese provisória; não feche diagnóstico.',
+    Evolucao: 'Tipo selecionado: EVOLUÇÃO DE ATENDIMENTO. Descreva somente o que o material informa sobre esta data; não atribua fatos antigos à sessão atual.',
+  }[record_type] || 'Tipo selecionado: REGISTRO CLÍNICO. Preserve as datas e diferencie relato de observação.';
   const raw = await callAi(req, {
     system: AI_SYSTEM_PROMPT,
-    prompt: `${ctx.context ? `Contexto do paciente (fontes de apoio, NÃO fazem parte da sessão atual):\n${ctx.context}\n\n` : ''}Rascunho da sessão:\n${draft}`,
+    prompt: `${recordGuide}\n\n${ctx.context ? `Contexto do paciente (fontes de apoio, NÃO fazem parte da sessão atual):\n${ctx.context}\n\n` : ''}Rascunho importado ou da sessão:\n${draft}`,
     max_tokens: 2000, temperature: 0.2,
   });
   const parsed = parseAiJson(raw);
@@ -335,14 +344,77 @@ async function organizeDraft(req, { draft_content, patient_id, record_id, source
 }
 
 /* ──────────────────────────────────────────────────────────
+   Importação de PDF/DOCX já anexado ao paciente.
+   O upload original é feito primeiro pela rota /uploads e continua nos
+   Documentos do paciente. Esta rota lê somente arquivo do mesmo tenant/paciente
+   e devolve texto para revisão — não cria, aprova nem sobrescreve prontuário.
+────────────────────────────────────────────────────────── */
+const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
+const IMPORT_TEXT_MAX = 16000;
+const clipImportText = (text) => String(text || '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, IMPORT_TEXT_MAX);
+const decodeXml = (text) => String(text || '')
+  .replace(/<w:tab[^>]*\/?>(?:<\/w:tab>)?/gi, '\t')
+  .replace(/<w:(?:br|cr)[^>]*\/?>(?:<\/w:(?:br|cr)>)?/gi, '\n')
+  .replace(/<\/w:p>/gi, '\n')
+  .replace(/<[^>]+>/g, '')
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+async function readImportedText(filePath, ext) {
+  const data = await fs.readFile(filePath);
+  if (data.length > IMPORT_MAX_BYTES) {
+    const err = new Error('O arquivo para leitura deve ter no máximo 10 MB.'); err.status = 400; throw err;
+  }
+  if (ext === '.pdf') {
+    const parsed = await pdfParse(data);
+    return clipImportText(parsed && parsed.text);
+  }
+  if (ext === '.docx') {
+    const zip = await JSZip.loadAsync(data);
+    const documentXml = zip.file('word/document.xml');
+    if (!documentXml) { const err = new Error('O DOCX não contém o documento principal.'); err.status = 400; throw err; }
+    return clipImportText(decodeXml(await documentXml.async('string')));
+  }
+  const err = new Error('Formato não suportado. Envie um PDF ou DOCX.'); err.status = 400; throw err;
+}
+
+router.post('/import-file-text', authMiddleware, checkPermission('create_medical_record'), async (req, res) => {
+  try {
+    const { patient_id, upload_id } = req.body || {};
+    if (!patient_id || !upload_id) return res.status(400).json({ error: 'Paciente e arquivo são obrigatórios.' });
+    const [[patient]] = await db.query('SELECT id FROM patients WHERE id = ? AND tenant_id = ?', [patient_id, req.user.tenant_id]);
+    if (!patient) return res.status(404).json({ error: 'Paciente não encontrado nesta clínica.' });
+    const [[upload]] = await db.query(
+      'SELECT id, patient_id, filename, original_name, file_name, mime_type, file_type, size, file_size FROM uploads WHERE id = ? AND tenant_id = ? AND patient_id = ? LIMIT 1',
+      [upload_id, req.user.tenant_id, patient_id]
+    );
+    if (!upload || !upload.filename) return res.status(404).json({ error: 'Arquivo importado não foi encontrado para este paciente.' });
+    const originalName = String(upload.original_name || upload.file_name || upload.filename);
+    const ext = path.extname(originalName).toLowerCase();
+    if (!['.pdf', '.docx'].includes(ext)) return res.status(400).json({ error: 'A leitura aceita somente PDF ou DOCX.' });
+    const safeFile = path.basename(String(upload.filename));
+    const uploadDir = path.resolve(__dirname, '../public/uploads');
+    const filePath = path.resolve(uploadDir, safeFile);
+    if (!filePath.startsWith(`${uploadDir}${path.sep}`)) return res.status(400).json({ error: 'Arquivo inválido.' });
+    const text = await readImportedText(filePath, ext);
+    if (!text) return res.status(422).json({ error: 'Não foi possível extrair texto. Se o PDF for uma imagem escaneada, transcreva ou cole o conteúdo no registro.' });
+    res.json({ text, truncated: text.length >= IMPORT_TEXT_MAX, file_name: originalName });
+  } catch (err) {
+    if (err && err.status) return res.status(err.status).json({ error: err.message });
+    if (err && err.code === 'ENOENT') return res.status(404).json({ error: 'O arquivo não está mais disponível no servidor.' });
+    console.error('[medical-records] importação de arquivo:', err.message);
+    res.status(500).json({ error: 'Não foi possível ler o arquivo importado.' });
+  }
+});
+
+/* ──────────────────────────────────────────────────────────
    POST /medical-records/organize-ai — organizar WITHOUT existing record
    (usado para novos registros ainda não salvos)
 ────────────────────────────────────────────────────────── */
 router.post('/organize-ai', authMiddleware, checkPermission('access_ai_features'), async (req, res) => {
   try {
-    const { draft_content, patient_id, sources: sel } = req.body || {};
+    const { draft_content, patient_id, sources: sel, record_type } = req.body || {};
     if (!sources.htmlToText(draft_content)) return res.status(400).json({ error: 'Rascunho vazio' });
-    const { organized, used } = await organizeDraft(req, { draft_content, patient_id, sources: sel });
+    const { organized, used } = await organizeDraft(req, { draft_content, patient_id, sources: sel, record_type });
     res.json({ organized, ai_status: 'organized', review_points: organized.pontos_revisao, sources: used });
   } catch (err) { AI_ERR(res, err, 'Erro ao organizar com IA'); }
 });

@@ -28,7 +28,7 @@ import {
   History, BookOpen, Filter, Share2, Users, Send, Copy, ExternalLink,
   ClipboardCheck, RefreshCw, MessageSquare, Brain, CheckCheck,
   LinkIcon, Bell, Info, TrendingUp, CalendarDays,
-  Settings, ClipboardList
+  Settings, ClipboardList, FileUp
 } from 'lucide-react';
 import { StructuredForm, type FollowupRow } from '../components/Records/StructuredForm';
 import { SessionDataTab, localDateStr, localTimeStr, fmtIsoDate, diffMinutes, minToTime, timeToMin, DEFAULT_TAG_SUGGESTIONS, FORMATOS, type AppointmentLite } from '../components/Records/SessionDataTab';
@@ -41,6 +41,7 @@ import { PendingCard, type PreviousSession } from '../components/Records/Pending
 import { StructuredReadView } from '../components/Records/StructuredReadView';
 import { SessionTimeline } from '../components/Records/SessionTimeline';
 import { AssessmentPanel } from '../components/Records/AssessmentPanel';
+import { ImportClinicalFileModal, type ImportedClinicalFile } from '../components/Records/ImportClinicalFileModal';
 import {
   SPECIALTY_TEMPLATES, SPECIALTY_OPTIONS, DEFAULT_SPECIALTY, detectSpecialty, getSections, parseStructured,
   compileLegacy, hasAnyValue, hasValue, buildResumo, humorFromScore, splitTasks, sectionStatus, RISCO_TRIAGEM,
@@ -1743,6 +1744,7 @@ const RecordEditor: React.FC<{
           if (record.ai_status === 'organized') { const { _estruturado, ...legacy } = parsed; setOrganized(legacy); }
         } else {
           setOrganized(parsed);
+          setReviewPoints(Array.isArray(parsed?.pontos_revisao) ? parsed.pontos_revisao : []);
         }
       } catch {}
     }
@@ -3208,6 +3210,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [editorMode, setEditorMode] = useState<'new' | 'edit'>('new');
   const [currentRecord, setCurrentRecord] = useState<Partial<MedicalRecord> | null>(null);
   const [typeSelectorOpen, setTypeSelectorOpen] = useState(false);
+  const [importClinicalOpen, setImportClinicalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restrictedModal, setRestrictedModal] = useState<{recordId: string; content?: string} | null>(null);
   const [showPwModal, setShowPwModal] = useState<{ type: string; recordId: string } | null>(null);
@@ -3554,6 +3557,34 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     setEditorOpen(true);
   };
 
+  const openImportedClinicalFile = (data: ImportedClinicalFile) => {
+    const titles: Record<string, string> = {
+      Anamnese: `Anamnese importada — ${selectedPatient?.full_name || ''}`.trim(),
+      Avaliacao: `Avaliação importada — ${fmtDayStr(data.date)}`,
+      Evolucao: `Evolução importada — ${fmtDayStr(data.date)}`,
+    };
+    const organized = { ...(data.organized || {}) } as Record<string, any>;
+    // A IA nunca preenche automaticamente o campo restrito a partir de uma
+    // importação. O texto original continua disponível para a profissional
+    // revisar e decidir manualmente o que deve ficar restrito.
+    delete organized.conteudo_restrito;
+    setImportClinicalOpen(false);
+    setCurrentRecord({
+      patient_id: selectedPatientId || '',
+      record_type: data.recordType,
+      title: titles[data.recordType],
+      created_at: `${data.date}T12:00:00`,
+      status: 'Rascunho',
+      ai_status: 'organized',
+      draft_content: data.draft,
+      restricted_content: '',
+      ai_organized_content: JSON.stringify({ ...organized, pontos_revisao: data.reviewPoints }),
+      attachments: [data.attachment],
+    } as any);
+    setEditorMode('new');
+    setEditorOpen(true);
+  };
+
   const openEdit = async (id: string, extra: { reassess?: boolean; section?: string } = {}) => {
     try {
       const data = await api.get<MedicalRecord>(`/medical-records/${id}`);
@@ -3770,6 +3801,10 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
                 <Button variant="outline" size="sm" iconLeft={<Download size={14}/>} onClick={exportPDF}>
                   <span className="hidden sm:inline">PDF</span>
+                </Button>
+
+                <Button variant="outline" size="sm" iconLeft={<FileUp size={14}/>} onClick={() => setImportClinicalOpen(true)}>
+                  <span className="hidden sm:inline">Importar arquivo</span>
                 </Button>
 
                 <Button variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={openNew}>
@@ -4529,6 +4564,15 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       </Modal>
 
       {/* Export Modal */}
+      {importClinicalOpen && selectedPatient && selectedPatientId && (
+        <ImportClinicalFileModal
+          patientId={selectedPatientId}
+          patientName={selectedPatient.full_name}
+          onClose={() => setImportClinicalOpen(false)}
+          onPrepared={openImportedClinicalFile}
+        />
+      )}
+
       {showExportModal && (
         <ExportModal
             patient={selectedPatient}

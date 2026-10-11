@@ -2631,24 +2631,112 @@ function ProfileTab({ patient, onLogout, onPatientUpdate, showToast }: {
 }
 
 // ─── Tab: Documentos ─────────────────────────────────────────────────────────
+const PORTAL_SEAL: Record<string, { label: string; color: "success" | "info" } | undefined> = {
+  external: { label: "Assinado digitalmente", color: "success" },
+  simple: { label: "Assinatura eletrônica", color: "info" },
+};
+
+async function portalFileBlob(id: number, download: boolean): Promise<Blob> {
+  const res = await fetch(`${API_BASE_URL}/patient-portal/documents/${id}/file${download ? "?download=1" : ""}`, {
+    headers: { "X-Portal-Token": getSession()?.token || "" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || "Não foi possível abrir o documento.");
+  }
+  return res.blob();
+}
+
 function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) {
   const [viewDoc, setViewDoc] = useState<any | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [viewError, setViewError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [viewedIds, setViewedIds] = useState<number[]>([]);
+  const [receiptLogged, setReceiptLogged] = useState(false);
+  const viewRequest = useRef(0);
   const allItems = [
     ...data.documents.map(d => ({ ...d, kind: "doc" })),
     ...data.uploads.map(u => ({ ...u, kind: "upload" })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+
+  // Abrir = registra a visualização (protocolo de recebimento) e carrega o PDF inline sem contar download.
+  const openDoc = async (item: any) => {
+    const request = ++viewRequest.current;
+    setViewDoc(item); setViewError(""); setPdfUrl(null); setReceiptLogged(!!item.viewed);
+    try {
+      await portalFetch(`/documents/${item.id}/view`, { method: "POST", body: "{}" });
+      if (request !== viewRequest.current) return;
+      setViewedIds(v => (v.includes(item.id) ? v : [...v, item.id]));
+      setReceiptLogged(true);
+    } catch {
+      if (request === viewRequest.current) setViewError("Não foi possível registrar a confirmação de recebimento agora.");
+    }
+    if (item.has_file) {
+      try {
+        const url = URL.createObjectURL(await portalFileBlob(item.id, false));
+        if (request === viewRequest.current) setPdfUrl(url);
+        else URL.revokeObjectURL(url);
+      } catch (e: any) {
+        if (request === viewRequest.current) setViewError(e?.message || "Não foi possível abrir o documento.");
+      }
+    }
+  };
+  const closeDoc = () => { viewRequest.current += 1; setViewDoc(null); setPdfUrl(null); setViewError(""); setReceiptLogged(false); };
+
+  const saveName = (t: string) => `${String(t || "documento").replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "").slice(0, 80) || "documento"}.pdf`;
+  const downloadDoc = async (item: any) => {
+    setBusy(true);
+    try {
+      const url = URL.createObjectURL(await portalFileBlob(item.id, true));
+      const a = document.createElement("a");
+      a.href = url; a.download = saveName(item.title); document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setViewedIds(v => (v.includes(item.id) ? v : [...v, item.id]));
+    } catch (e: any) { setViewError(e?.message || "Não foi possível baixar o documento."); }
+    finally { setBusy(false); }
+  };
+
   if (viewDoc) {
+    const seal = PORTAL_SEAL[viewDoc.signature_mode];
     return (
-      <div>
-        <Button variant="ghost" size="sm" onClick={() => setViewDoc(null)} iconLeft={<ArrowLeft size={14} />} className="mb-3">
+      <div className="space-y-3">
+        <Button variant="ghost" size="sm" onClick={closeDoc} iconLeft={<ArrowLeft size={14} />}>
           Voltar
         </Button>
-        <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4">
-          <h3 className="text-sm font-medium text-slate-900 mb-1">{viewDoc.title || "Documento"}</h3>
-          <p className="text-xs text-slate-500 mb-4">{fmtDate(viewDoc.created_at)}</p>
-          <div className="prose prose-sm max-w-none text-slate-700 border-t border-slate-100 pt-4"
-            dangerouslySetInnerHTML={{ __html: viewDoc.rendered_html || "<p>Sem conteúdo.</p>" }} />
+        <div className="bg-white rounded-lg border border-slate-200 p-3 lg:p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-slate-900">{viewDoc.title || "Documento"}</h3>
+              <p className="text-xs text-slate-500">Emitido em {fmtDate(viewDoc.created_at)}{viewDoc.version > 1 ? ` · versão ${viewDoc.version}` : ""}</p>
+            </div>
+            {seal && <Badge color={seal.color} size="sm">{seal.label}</Badge>}
+          </div>
+          {viewError && <Alert variant="error">{viewError}</Alert>}
+          {viewDoc.has_file ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" size="sm" iconLeft={<Download size={14} />} loading={busy} onClick={() => downloadDoc(viewDoc)}>Baixar PDF</Button>
+                {pdfUrl && (
+                  <a href={pdfUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                    <ExternalLink size={14} /> Abrir em nova aba
+                  </a>
+                )}
+              </div>
+              {pdfUrl ? (
+                <iframe src={pdfUrl} title={viewDoc.title || "Documento"} className="h-[70vh] w-full rounded-md border border-slate-200 bg-slate-50" />
+              ) : !viewError ? (
+                <div role="status" className="flex items-center justify-center gap-2 py-8 text-xs text-slate-500"><Loader2 size={16} className="animate-spin" /> Carregando...</div>
+              ) : null}
+              <p className="text-[11px] text-slate-500">Se o documento não aparecer acima, use "Abrir em nova aba" ou "Baixar PDF". {receiptLogged ? "O seu acesso foi registrado como confirmação de recebimento." : "A confirmação de recebimento ainda não pôde ser registrada."}</p>
+            </>
+          ) : (
+            <div className="prose prose-sm max-w-none text-slate-700 border-t border-slate-100 pt-4"
+              dangerouslySetInnerHTML={{ __html: viewDoc.rendered_html || "<p>Sem conteúdo.</p>" }} />
+          )}
         </div>
       </div>
     );
@@ -2673,10 +2761,16 @@ function DocumentsTab({ data }: { data: { documents: any[]; uploads: any[] } }) 
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-slate-700 truncate">{item.title || "Documento"}</p>
-              <p className="text-xs text-slate-500">{fmtDate(item.created_at)}</p>
+              <p className="text-xs text-slate-500">{item.kind === "doc" ? "Emitido em " : ""}{fmtDate(item.created_at)}</p>
+              {item.kind === "doc" && (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  {PORTAL_SEAL[item.signature_mode] && <Badge color={PORTAL_SEAL[item.signature_mode]!.color} size="sm">{PORTAL_SEAL[item.signature_mode]!.label}</Badge>}
+                  {!(item.viewed || viewedIds.includes(item.id)) && <Badge color="warning" size="sm">Novo</Badge>}
+                </div>
+              )}
             </div>
             {item.kind === "doc" ? (
-              <Button variant="outline" size="sm" onClick={() => setViewDoc(item)} iconLeft={<Eye size={14} />} className="shrink-0">
+              <Button variant="outline" size="sm" onClick={() => openDoc(item)} iconLeft={<Eye size={14} />} className="shrink-0">
                 Ver
               </Button>
             ) : item.file_url && !item.file_url.startsWith("data:") ? (
