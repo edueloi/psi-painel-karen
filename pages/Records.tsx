@@ -30,13 +30,17 @@ import {
   LinkIcon, Bell, Info, TrendingUp, CalendarDays,
   Settings, ClipboardList
 } from 'lucide-react';
-import { StructuredForm } from '../components/Records/StructuredForm';
+import { StructuredForm, type FollowupRow } from '../components/Records/StructuredForm';
+import { SessionDataTab, localDateStr, localTimeStr, fmtIsoDate, diffMinutes, minToTime, timeToMin, DEFAULT_TAG_SUGGESTIONS, FORMATOS, type AppointmentLite } from '../components/Records/SessionDataTab';
+import { AiFillPanel } from '../components/Records/AiFillPanel';
+import { PendingCard, type PreviousSession } from '../components/Records/PendingCard';
 import { StructuredReadView } from '../components/Records/StructuredReadView';
 import { SessionTimeline } from '../components/Records/SessionTimeline';
 import { AssessmentPanel } from '../components/Records/AssessmentPanel';
 import {
   SPECIALTY_TEMPLATES, SPECIALTY_OPTIONS, DEFAULT_SPECIALTY, detectSpecialty, getSections, parseStructured,
-  compileLegacy, hasAnyValue, type SpecialtyId, type RecordKind, type StructuredValues,
+  compileLegacy, hasAnyValue, hasValue, buildResumo, humorFromScore, splitTasks, sectionStatus, RISCO_TRIAGEM,
+  type SpecialtyId, type RecordKind, type StructuredValues,
 } from '../components/Records/specialtyTemplates';
 import { DatePicker } from '../components/UI/DatePicker';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
@@ -56,7 +60,7 @@ interface MedicalRecord {
   restricted_content?: string; is_restricted?: boolean; appointment_type?: string;
   start_time?: string; end_time?: string; created_at: string; updated_at?: string;
   tags?: string[]; patient_name?: string; version_count?: number; approved_at?: string;
-  attachments?: any[];
+  attachments?: any[]; appointment_id?: string;
 }
 interface Stats { total: number; thisMonth: number; approved: number; drafts: number; byType: any[]; byMonth: any[]; topPatients: any[]; }
 
@@ -1424,23 +1428,47 @@ const RecordEditor: React.FC<{
   anamnesisSends: any[];
   planRecordId?: string;
   nextSessionNumber?: number;
-}> = ({ record, mode, patients, selectedPatientId, onSave, onClose, onExport, anamnesisSends, planRecordId, nextSessionNumber }) => {
+  patientRecords?: MedicalRecord[];
+}> = ({ record, mode, patients, selectedPatientId, onSave, onClose, onExport, anamnesisSends, planRecordId, nextSessionNumber, patientRecords = [] }) => {
   const { pushToast } = useToast();
-  const { user: authUser } = useAuth();
+  const { user: authUser, hasPermission } = useAuth();
+  const canUseAi = hasPermission('access_ai_features');
   const initialStructured = useMemo(() => parseStructured(record?.ai_organized_content), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Id do registro em edição: nasce no primeiro salvamento (rascunho automático) e evita duplicar registros novos.
+  const recordIdRef = useRef<string | null>(record?.id ? String(record.id) : null);
   const [step, setStep] = useState<'draft' | 'ai_result' | 'approve'>(
     record?.ai_organized_content && !initialStructured ? 'ai_result' : 'draft'
   );
+  const hhmm = (t?: string | null) => (t || '').slice(0, 5);
+  const recordDay = (r?: { created_at?: string } | null) => {
+    if (!r?.created_at) return '';
+    const d = new Date(r.created_at);
+    return isNaN(d.getTime()) ? String(r.created_at).split('T')[0] : localDateStr(d);
+  };
   const [patientId, setPatientId] = useState(record?.patient_id || selectedPatientId || '');
   const [title, setTitle] = useState(record?.title || `Evolução — ${new Date().toLocaleDateString('pt-BR')}`);
   const [recordType, setRecordType] = useState(record?.record_type || 'Evolucao');
   const typeLocked = mode === 'new' && !!record?.record_type;
-  const [appointmentType, setAppointmentType] = useState(record?.appointment_type || 'individual');
-  const [sessionDate, setSessionDate] = useState(record?.created_at ? record.created_at.split('T')[0] : new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState(record?.start_time || (mode === 'new' ? new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''));
-  const [endTime, setEndTime] = useState(record?.end_time || '');
+  const legacyAppointmentType = record?.appointment_type || 'individual';
+  const [formato, setFormato] = useState<string>(FORMATOS.some(f => f.value === legacyAppointmentType) ? legacyAppointmentType : 'individual');
+  const [modalidade, setModalidade] = useState<string>(
+    initialStructured?.meta?.modalidade || (['online', 'presencial'].includes(legacyAppointmentType) ? legacyAppointmentType : 'presencial')
+  );
+  const [sessionDate, setSessionDate] = useState(recordDay(record) || localDateStr(new Date()));
+  const [startTime, setStartTime] = useState(hhmm(record?.start_time) || (mode === 'new' ? localTimeStr(new Date()) : ''));
+  const initialDuration: number | null = initialStructured?.meta?.duracao_min
+    ?? diffMinutes(hhmm(record?.start_time), hhmm(record?.end_time))
+    ?? (mode === 'new' && !record?.end_time ? 50 : null);
+  const [durationMin, setDurationMin] = useState(initialDuration ? String(initialDuration) : '');
+  const [endTime, setEndTime] = useState(() => {
+    if (record?.end_time) return hhmm(record.end_time);
+    const s = timeToMin(hhmm(record?.start_time) || (mode === 'new' ? localTimeStr(new Date()) : ''));
+    return mode === 'new' && s !== null && initialDuration ? minToTime(s + initialDuration) : '';
+  });
+  const [appointmentId, setAppointmentId] = useState<string>(String((record as any)?.appointment_id || initialStructured?.meta?.agendamento_id || ''));
   const [status, setStatus] = useState(record?.status || 'Rascunho');
-  const [tags, setTags] = useState((record?.tags || []).join(', '));
+  const [tags, setTags] = useState<string[]>(Array.isArray(record?.tags) ? (record!.tags as string[]) : []);
+  const locked = status === 'Aprovado' || status === 'Finalizado';
   const [attachments, setAttachments] = useState<any[]>(record?.attachments || []);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1467,14 +1495,174 @@ const RecordEditor: React.FC<{
   const isStructured = recordType === 'Evolucao' || recordType === 'Avaliacao';
   const detectedSpecialty = useMemo(() => detectSpecialty(authUser as any), [authUser]);
   const [specialty, setSpecialty] = useState<SpecialtyId>(initialStructured?.template || detectedSpecialty || DEFAULT_SPECIALTY);
-  const [sValues, setSValues] = useState<StructuredValues>(initialStructured?.values || {});
+  const isEvolucao = recordType === 'Evolucao';
+
+  // Sessão anterior do paciente (a evolução imediatamente anterior a esta) — base das pendências e da duplicação.
+  const previousInfo = useMemo(() => {
+    const currentDay = record?.created_at ? new Date(record.created_at).getTime() : Date.now();
+    const prev = patientRecords
+      .filter(r => r.record_type === 'Evolucao' && String(r.id) !== String(record?.id || '') && (mode === 'new' || new Date(r.created_at).getTime() <= currentDay))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    const st = prev ? parseStructured(prev.ai_organized_content) : null;
+    if (!prev || !st) return null;
+    const v = st.values || {};
+    const info: PreviousSession = {
+      numero: v.sessao_numero ? String(v.sessao_numero) : undefined,
+      data: fmtDate(prev.created_at),
+      proxima: String(v.proxima || '').trim(),
+      tarefas: splitTasks(v.tarefas),
+    };
+    return { info, values: v as StructuredValues };
+  }, [patientRecords, record?.id, record?.created_at, mode]);
+
+  const [sValues, setSValues] = useState<StructuredValues>(() => {
+    if (initialStructured?.values) return initialStructured.values;
+    // Nova evolução: já traz as tarefas da sessão anterior para o profissional registrar o retorno.
+    if (mode === 'new' && (record?.record_type || 'Evolucao') === 'Evolucao' && previousInfo?.info.tarefas.length) {
+      return { tarefas_retorno: previousInfo.info.tarefas.map(tarefa => ({ tarefa })) };
+    }
+    return {};
+  });
+  const sValuesRef = useRef(sValues);
+  sValuesRef.current = sValues;
+  const [aiFields, setAiFields] = useState<string[]>(initialStructured?.ai_fields || []);
   const [sessionNumber, setSessionNumber] = useState<string>(
-    initialStructured?.values?.sessao_numero ? String(initialStructured.values.sessao_numero) : (mode === 'new' && nextSessionNumber ? String(nextSessionNumber) : '')
+    initialStructured?.values?.sessao_numero
+      ? String(initialStructured.values.sessao_numero)
+      : (recordType === 'Evolucao'
+        ? String(patientRecords.filter(r => r.record_type === 'Evolucao' && String(r.id) !== String(record?.id || '') && recordDay(r) <= sessionDate).length + 1 || nextSessionNumber || '')
+        : '')
   );
+  const [numberTouched, setNumberTouched] = useState(!!initialStructured?.values?.sessao_numero);
   const [planGoals, setPlanGoals] = useState<string[]>([]);
   const sections = useMemo(() => getSections(specialty, (recordType === 'Avaliacao' ? 'Avaliacao' : 'Evolucao') as RecordKind), [specialty, recordType]);
-  const setStructuredValue = useCallback((key: string, value: any) => setSValues(prev => ({ ...prev, [key]: value })), []);
-  const isLegacyRecord = isStructured && !initialStructured && !!(record?.id && (record.ai_organized_content || record.draft_content || record.content));
+  const handleStructuredChange = useCallback((key: string, value: any) => {
+    setSValues(prev => ({ ...prev, [key]: value }));
+    setAiFields(prev => (prev.includes(key) ? prev.filter(k => k !== key) : prev));
+  }, []);
+  const confirmAiField = useCallback((key: string) => setAiFields(prev => prev.filter(k => k !== key)), []);
+  // Aviso de "modelo anterior" só para registros antigos já salvos (os novos sempre nascem estruturados).
+  const isLegacyRecord = isStructured && mode === 'edit' && !initialStructured && !!(record?.id && (record.ai_organized_content || record.draft_content || record.content));
+
+  // Sugestão de nº da sessão: posição cronológica entre as evoluções do paciente até a data escolhida.
+  const suggestNumberFor = useCallback((day: string) => {
+    const before = patientRecords.filter(r => r.record_type === 'Evolucao' && String(r.id) !== String(recordIdRef.current || '') && recordDay(r) <= day).length;
+    return before + 1;
+  }, [patientRecords]); // eslint-disable-line react-hooks/exhaustive-deps
+  const suggestedNumber = useMemo(() => suggestNumberFor(sessionDate), [suggestNumberFor, sessionDate]);
+
+  // Título automático segue a data enquanto o profissional não personalizar.
+  const typeWord = isEvolucao ? 'Evolução' : (TYPE_LABELS[recordType] || 'Registro');
+  const autoTitle = `${typeWord} — ${fmtIsoDate(sessionDate)}`;
+  const isAutoTitle = (t: string) => /^[^—]{2,40} — \d{2}\/\d{2}\/\d{4}( \(v\d+\))?$/.test(t.trim());
+  const changeDate = (day: string) => {
+    setSessionDate(day);
+    if (day && isAutoTitle(title)) setTitle(`${typeWord} — ${fmtIsoDate(day)}`);
+    if (day && !numberTouched) setSessionNumber(String(suggestNumberFor(day)));
+  };
+
+  // Horário: editar início/fim recalcula a duração; editar a duração recalcula o fim.
+  const changeStart = (v: string) => {
+    setStartTime(v);
+    const s = timeToMin(v);
+    if (s === null) return;
+    const d = endTime ? diffMinutes(v, endTime) : null;
+    if (d !== null) setDurationMin(String(d));
+    else if (Number(durationMin) > 0) setEndTime(minToTime(s + Number(durationMin)));
+  };
+  const changeEnd = (v: string) => {
+    setEndTime(v);
+    const d = diffMinutes(startTime, v);
+    if (d !== null) setDurationMin(String(d));
+  };
+  const changeDuration = (v: string) => {
+    setDurationMin(v);
+    const n = Number(v);
+    const s = timeToMin(startTime);
+    if (n > 0 && s !== null) setEndTime(minToTime(s + n));
+  };
+
+  // Agendamentos do paciente (para vincular e sugerir)
+  const [appointments, setAppointments] = useState<AppointmentLite[]>([]);
+  useEffect(() => {
+    if (!patientId || !isStructured) { setAppointments([]); return; }
+    let alive = true;
+    api.get<any[]>('/appointments', { patient_id: String(patientId) }).then(rows => {
+      if (!alive) return;
+      const list: AppointmentLite[] = (Array.isArray(rows) ? rows : [])
+        .filter(a => a?.start_time && !/cancel/i.test(String(a.status || '')))
+        .map(a => {
+          const raw = String(a.start_time).replace(' ', 'T');
+          const start = new Date(/[zZ]$|[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw}Z`);
+          const day = localDateStr(start);
+          return {
+            id: String(a.id), start, durationMin: Number(a.duration_minutes) || 50, modality: a.modality,
+            label: `${fmtIsoDate(day).slice(0, 5)} ${localTimeStr(start)} · ${a.title || a.service_name || 'Atendimento'}`,
+          };
+        })
+        .filter(a => !isNaN(a.start.getTime()));
+      setAppointments(list);
+    }).catch(() => { if (alive) setAppointments([]); });
+    return () => { alive = false; };
+  }, [patientId, isStructured]);
+  const appointmentOptions = useMemo(() => {
+    const base = new Date(`${sessionDate || localDateStr(new Date())}T12:00:00`).getTime();
+    const win = 30 * 24 * 3600 * 1000;
+    const list = appointments.filter(a => Math.abs(a.start.getTime() - base) <= win || a.id === appointmentId);
+    return list.sort((a, b) => Math.abs(a.start.getTime() - base) - Math.abs(b.start.getTime() - base));
+  }, [appointments, sessionDate, appointmentId]);
+  const suggestedAppointment = useMemo(() => {
+    if (appointmentId) return null;
+    const sameDay = appointments.filter(a => localDateStr(a.start) === sessionDate);
+    if (!sameDay.length) return null;
+    const now = Date.now();
+    return sameDay.sort((a, b) => Math.abs(a.start.getTime() - now) - Math.abs(b.start.getTime() - now))[0];
+  }, [appointments, appointmentId, sessionDate]);
+
+  // Humor do dia vindo do diário de humor do paciente (mesmo agendamento)
+  const [moodHint, setMoodHint] = useState('');
+  const applyMoodFromAppointment = useCallback(async (aptId: string) => {
+    if (!patientId || !aptId || !isEvolucao) return;
+    try {
+      const logs = await api.get<any[]>(`/patients/${patientId}/mood-logs`, { appointment_id: String(aptId) });
+      const humor = humorFromScore(Array.isArray(logs) ? logs[0]?.mood_score : null);
+      if (humor && !hasValue(sValuesRef.current.humor)) {
+        setSValues(prev => (hasValue(prev.humor) ? prev : { ...prev, humor }));
+        setMoodHint(`Humor preenchido a partir do registro do paciente neste atendimento (${humor}). Ajuste se necessário.`);
+      }
+    } catch { /* sem diário de humor: segue manual */ }
+  }, [patientId, isEvolucao]);
+  const moodAutoRef = useRef(false);
+  useEffect(() => {
+    if (mode !== 'new' || moodAutoRef.current || !suggestedAppointment) return;
+    moodAutoRef.current = true;
+    applyMoodFromAppointment(suggestedAppointment.id);
+  }, [mode, suggestedAppointment, applyMoodFromAppointment]);
+
+  const linkAppointment = (id: string) => {
+    setAppointmentId(id);
+    if (!id) return;
+    const a = appointments.find(x => x.id === id);
+    if (!a) return;
+    const day = localDateStr(a.start);
+    const t = localTimeStr(a.start);
+    const s = timeToMin(t);
+    setSessionDate(day);
+    if (isAutoTitle(title)) setTitle(`${typeWord} — ${fmtIsoDate(day)}`);
+    setStartTime(t);
+    setDurationMin(String(a.durationMin));
+    if (s !== null) setEndTime(minToTime(s + a.durationMin));
+    if (a.modality === 'online' || a.modality === 'presencial') setModalidade(a.modality);
+    if (isEvolucao) { setSessionNumber(String(suggestNumberFor(day))); setNumberTouched(false); }
+    applyMoodFromAppointment(id);
+    pushToast('success', 'Dados preenchidos com o agendamento.');
+  };
+
+  const tagSuggestions = useMemo(() => {
+    const used = new Set<string>();
+    patientRecords.forEach(r => (Array.isArray(r.tags) ? r.tags : []).forEach(t => used.add(String(t))));
+    return [...Array.from(used), ...DEFAULT_TAG_SUGGESTIONS];
+  }, [patientRecords]);
 
   useEffect(() => {
     if (!isStructured || !planRecordId) return;
@@ -1566,11 +1754,18 @@ const RecordEditor: React.FC<{
       content = 'Plano Terapêutico — ' + theraPlan.approach + ' | ' + (theraPlan.summary || '');
     } else {
       const base: Record<string, any> = organized ? { ...organized } : {};
-      if (isStructured && hasAnyValue(sValues)) {
+      if (isStructured) {
         const values: StructuredValues = { ...sValues };
         if (recordType === 'Evolucao' && sessionNumber.trim()) values.sessao_numero = sessionNumber.trim();
+        else delete values.sessao_numero;
         Object.assign(base, compileLegacy(sections, values));
-        base._estruturado = { v: 1, kind: recordType, template: specialty, values, updated_at: new Date().toISOString() };
+        const dur = Number(durationMin);
+        base._estruturado = {
+          v: 1, kind: recordType, template: specialty, values, updated_at: new Date().toISOString(),
+          resumo: recordType === 'Evolucao' ? buildResumo(values) : undefined,
+          meta: { duracao_min: dur > 0 ? dur : undefined, modalidade, agendamento_id: appointmentId || undefined },
+          ai_fields: aiFields.length ? aiFields : undefined,
+        };
       }
       const keys = Object.keys(base);
       aiContent = keys.length ? JSON.stringify(base) : null;
@@ -1581,12 +1776,13 @@ const RecordEditor: React.FC<{
       patient_id: patientId,
       title,
       record_type: recordType,
-      appointment_type: appointmentType,
+      appointment_type: formato,
+      appointment_id: appointmentId || undefined,
       created_at: sessionDate,
       start_time: startTime,
       end_time: endTime,
       status: st,
-      tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+      tags,
       draft_content: recordType === 'Plano' ? (theraPlan.summary || '') : draft,
       restricted_content: privateNotes,
       ai_organized_content: aiContent,
@@ -1595,21 +1791,66 @@ const RecordEditor: React.FC<{
     };
   };
 
+  // Grava sem fechar o editor; o primeiro salvamento de um registro novo guarda o id para os próximos.
+  const persist = async (st: string) => {
+    const body = buildBody(st);
+    if (recordIdRef.current) { await api.put(`/medical-records/${recordIdRef.current}`, body); }
+    else {
+      const created = await api.post<any>('/medical-records', body);
+      if (created?.id) recordIdRef.current = String(created.id);
+    }
+  };
+
   const save = async (newStatus?: string) => {
     if (!patientId) { setEditorSection('dados'); pushToast('error', 'Selecione o paciente.'); return; }
     setSaving(true);
     try {
-      const body = buildBody(newStatus || status);
-
-      if (record?.id) { await api.put(`/medical-records/${record.id}`, body); }
-      else { await api.post('/medical-records', body); }
-
+      await persist(newStatus || status);
       pushToast('success', 'Registro salvo com sucesso!');
       onSave(); onClose();
     } catch (e: any) {
-      pushToast('error', e?.response?.data?.error || 'Erro ao salvar registro');
+      pushToast('error', e?.message || 'Erro ao salvar registro');
     } finally { setSaving(false); }
   };
+
+  // Rascunho automático: grava 15s depois da última alteração e mostra "Salvo às hh:mm".
+  const currentSig = JSON.stringify([patientId, title, recordType, formato, modalidade, sessionDate, startTime, endTime, durationMin, sessionNumber, tags, draft, privateNotes, sValues, aiFields, attachments, organized, appointmentId]);
+  const lastSigRef = useRef(currentSig);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [autosaving, setAutosaving] = useState(false);
+  useEffect(() => {
+    if (!isStructured || !patientId || saving || currentSig === lastSigRef.current) return;
+    if (!(hasAnyValue(sValues) || draft.trim() || privateNotes.trim())) return;
+    const sig = currentSig;
+    const t = setTimeout(async () => {
+      setAutosaving(true);
+      try { await persist(status); lastSigRef.current = sig; setSavedAt(new Date()); } catch { /* tenta de novo na próxima alteração */ }
+      finally { setAutosaving(false); }
+    }, 15000);
+    return () => clearTimeout(t);
+  }, [currentSig, status, patientId, isStructured, saving]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ctrl+S salva o rascunho sem sair do editor
+  const saveNow = async () => {
+    if (!patientId) { setEditorSection('dados'); pushToast('error', 'Selecione o paciente.'); return; }
+    setAutosaving(true);
+    try {
+      await persist(status);
+      lastSigRef.current = currentSig;
+      setSavedAt(new Date());
+      pushToast('success', 'Rascunho salvo.');
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao salvar rascunho'); }
+    finally { setAutosaving(false); }
+  };
+  const saveNowRef = useRef(saveNow);
+  saveNowRef.current = saveNow;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveNowRef.current(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Ao fechar sem salvar: salva automaticamente como rascunho se houver conteúdo
   const handleClose = async () => {
@@ -1617,22 +1858,138 @@ const RecordEditor: React.FC<{
       ? (theraPlan.summary || theraPlan.approach || theraPlan.goals?.length)
       : (draft.trim() || privateNotes.trim() || (isStructured && hasAnyValue(sValues)));
     const isApproved = status === 'Aprovado';
-    if (!patientId || !hasContent || isApproved) { onClose(); return; }
+    if (!patientId || !hasContent || isApproved) {
+      if (recordIdRef.current) onSave();
+      onClose();
+      return;
+    }
     try {
-      const body = buildBody('Rascunho');
-      if (record?.id) { await api.put(`/medical-records/${record.id}`, body); }
-      else { await api.post('/medical-records', body); }
+      await persist(status === 'Aprovado' ? status : 'Rascunho');
       pushToast('info', 'Rascunho salvo automaticamente.');
       onSave();
     } catch { /* silencioso */ }
     onClose();
   };
 
+  const [showRiskWarn, setShowRiskWarn] = useState(false);
+  // Validação leve antes de aprovar: data, relato ou ao menos uma seção; avisa se o risco não foi avaliado.
+  const requestApprove = () => {
+    if (!sessionDate) { setEditorSection('dados'); pushToast('error', 'Informe a data da sessão antes de aprovar.'); return; }
+    if (isStructured) {
+      const anySection = sections.some(s => sectionStatus(s, sValues) !== 'empty');
+      if (!hasValue(sValues.relato) && !anySection && !draft.trim()) {
+        setEditorSection('estrutura');
+        pushToast('error', 'Preencha o relato ou ao menos uma seção antes de aprovar.');
+        return;
+      }
+      const hasTriage = sections.some(s => s.fields.some(f => f.key === 'risco_ideacao'));
+      if (hasTriage && RISCO_TRIAGEM.every(r => !sValues[`risco_${r.key}`])) { setShowRiskWarn(true); return; }
+    }
+    setShowApproveModal(true);
+  };
+
   const approve = async (pw: string) => {
-    if (!record?.id) { await save('Aprovado'); return; }
-    await api.post(`/medical-records/${record.id}/approve`, { password: pw });
+    if (!patientId) { setEditorSection('dados'); throw new Error('Selecione o paciente.'); }
+    // Garante que a versão aprovada contém tudo o que está na tela.
+    await persist(recordIdRef.current ? status : 'Rascunho');
+    await api.post(`/medical-records/${recordIdRef.current}/approve`, { password: pw });
     pushToast('success', 'Registro aprovado!');
     onSave(); onClose();
+  };
+
+  /* ── IA: preencher os campos da evolução ───────────────────── */
+  const [transcript, setTranscript] = useState('');
+  const [transcriptLabel, setTranscriptLabel] = useState('');
+  const [roomSessions, setRoomSessions] = useState<any[]>([]);
+  const [roomSessionId, setRoomSessionId] = useState('');
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+  useEffect(() => {
+    if (!isEvolucao || !canUseAi || !patientId) { setRoomSessions([]); return; }
+    let alive = true;
+    const name = patients.find(p => String(p.id) === String(patientId))?.full_name;
+    api.get<any[]>('/virtual-rooms/history').then(rows => {
+      if (!alive) return;
+      setRoomSessions((Array.isArray(rows) ? rows : []).filter(r =>
+        Number(r.transcript_count) > 0 && (String(r.patient_id || '') === String(patientId) || (!!name && r.patient_name === name))
+      ));
+    }).catch(() => { if (alive) setRoomSessions([]); });
+    return () => { alive = false; };
+  }, [isEvolucao, canUseAi, patientId, patients]);
+  const roomSessionLabel = (r: any) => `${r.display_title || r.room_title || 'Sala virtual'} · ${r.started_at ? fmtDateTime(r.started_at) : fmtDate(r.created_at)} · ${r.transcript_count} falas`;
+  const loadTranscript = async () => {
+    const rs = roomSessions.find(r => String(r.id) === roomSessionId);
+    if (!rs) return;
+    setTranscriptLoading(true);
+    try {
+      const lines = await api.get<any[]>(`/virtual-rooms/${rs.room_id}/sessions/${rs.session_key}/transcript`);
+      const text = (Array.isArray(lines) ? lines : []).map(l => `${l.speaker_name || (l.speaker_role === 'guest' ? 'Paciente' : 'Profissional')}: ${l.text}`).join('\n');
+      if (!text.trim()) { pushToast('info', 'Essa sessão não tem transcrição disponível.'); return; }
+      setTranscript(text);
+      setTranscriptLabel(roomSessionLabel(rs));
+      pushToast('success', 'Transcrição carregada. Use "Preencher com IA" para extrair os campos.');
+    } catch (e: any) { pushToast('error', e?.message || 'Não foi possível carregar a transcrição.'); }
+    finally { setTranscriptLoading(false); }
+  };
+
+  const aiOptions = useMemo(() => {
+    const o: Record<string, string[]> = {};
+    sections.forEach(s => s.fields.forEach(f => { if ((f.type === 'multi' || f.type === 'select') && f.options) o[f.key] = f.options; }));
+    return o;
+  }, [sections]);
+  const [aiFillBusy, setAiFillBusy] = useState(false);
+  const [aiPanel, setAiPanel] = useState<{ stamp: number; suggestions: Record<string, any>; reviewPoints: string[] } | null>(null);
+  const aiAppliedRef = useRef(false);
+  const fillWithAI = async () => {
+    const source = draft.trim() || String(sValues.relato || '').trim();
+    if (!source && !transcript.trim()) {
+      pushToast('info', 'Escreva o texto livre da sessão ou carregue a transcrição da sala virtual para a IA preencher os campos.');
+      setEditorSection('conteudo'); setStep('draft');
+      return;
+    }
+    setAiFillBusy(true);
+    try {
+      const resp = await api.post<any>('/medical-records/fill-evolution', {
+        draft_content: source,
+        transcript,
+        options: aiOptions,
+        goals: planGoals,
+        previous: previousInfo ? { proxima: previousInfo.info.proxima, tarefas: previousInfo.info.tarefas.join('; ') } : undefined,
+      });
+      const suggestions = resp?.suggestions || {};
+      if (!Object.keys(suggestions).length) { pushToast('info', 'A IA não encontrou informações suficientes no texto para sugerir campos.'); return; }
+      aiAppliedRef.current = false;
+      setAiPanel({ stamp: Date.now(), suggestions, reviewPoints: resp?.review_points || [] });
+    } catch (e: any) {
+      pushToast('error', e?.message || 'A IA está indisponível agora. O que você digitou foi mantido; tente novamente em instantes.');
+    } finally { setAiFillBusy(false); }
+  };
+  const applyAiPatch = (patch: Record<string, any>) => {
+    aiAppliedRef.current = true;
+    setSValues(prev => ({ ...prev, ...patch }));
+    setAiFields(prev => Array.from(new Set([...prev, ...Object.keys(patch)])));
+  };
+  const closeAiPanel = () => {
+    setAiPanel(null);
+    if (aiAppliedRef.current) { setEditorSection('estrutura'); pushToast('info', 'Campos aplicados. Revise antes de aprovar.'); }
+  };
+
+  /* ── Duplicar da última sessão (nunca copia o relato) ───────── */
+  const [dupPatch, setDupPatch] = useState<Record<string, any> | null>(null);
+  const applyDup = (patch: Record<string, any>) => {
+    setSValues(prev => ({ ...prev, ...patch }));
+    setAiFields(prev => prev.filter(k => !(k in patch)));
+    setDupPatch(null);
+    pushToast('success', 'Intervenções e tarefas copiadas da última sessão. O relato não é copiado.');
+  };
+  const duplicateFromLast = () => {
+    if (!previousInfo) { pushToast('info', 'Não há sessão anterior deste paciente para duplicar.'); return; }
+    const keys = ['abordagem', 'intervencoes', 'tecnica', 'intervencoes_obs', 'objetivos', 'tarefas'];
+    const available = new Set(sections.flatMap(s => s.fields.map(f => f.key)));
+    const patch: Record<string, any> = {};
+    keys.forEach(k => { if (available.has(k) && hasValue(previousInfo.values[k])) patch[k] = previousInfo.values[k]; });
+    if (!Object.keys(patch).length) { pushToast('info', 'A sessão anterior não tem intervenções ou tarefas para copiar.'); return; }
+    if (Object.keys(patch).some(k => hasValue(sValues[k]))) { setDupPatch(patch); return; }
+    applyDup(patch);
   };
 
   const ORGANIZED_FIELDS = [
@@ -1696,69 +2053,64 @@ const RecordEditor: React.FC<{
         <Tabs<EditorTabId> items={editorTabs} value={editorTab} onChange={changeEditorTab} label="Seções do registro" />
 
         {/* Dados / Identificação */}
-        {editorSection === 'dados' && (
+        {editorSection === 'dados' && (isPlano ? (
           <ContentCard padding="md" className="space-y-3">
             <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
               <User size={14} className="text-primary-600" /> Identificação e Metadados
             </h3>
-            {isPlano ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                <Input label="Título" value={title} onChange={e => setTitle(e.target.value)} />
-                <Input label="Data" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} />
-                {!typeLocked && (
-                  <Select label="Paciente" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
-                    <option value="">Selecione...</option>
-                    {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                  </Select>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              <Input label="Título" value={title} onChange={e => setTitle(e.target.value)} />
+              <Input label="Data" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} />
+              {!typeLocked && (
                 <Select label="Paciente" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
                   <option value="">Selecione...</option>
                   {patients.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                 </Select>
-                <Input label="Data" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} disabled={mode === 'edit'} />
-                <Input label="Título" value={title} onChange={e => setTitle(e.target.value)} />
-                {typeLocked ? (
-                  <div className="flex flex-col gap-1">
-                    <span className="ds-label">Tipo de Registro</span>
-                    <div className="h-[34px] px-2.5 rounded-lg bg-primary-50 border border-primary-100 text-[13px] font-medium text-primary-700 flex items-center gap-2">
-                      {(() => { const TI = TYPE_ICONS[recordType] || FileText; return <TI size={14} />; })()}
-                      {TYPE_LABELS[recordType] || recordType}
-                    </div>
-                  </div>
-                ) : (
-                  <Select label="Tipo de Registro" value={recordType} onChange={e => setRecordType(e.target.value)} disabled={mode === 'edit'}>
-                    {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </Select>
-                )}
-                <Select label="Modalidade" value={appointmentType} onChange={e => setAppointmentType(e.target.value)}>
-                  {['individual','casal','familiar','grupo','online','presencial'].map(a => <option key={a}>{a}</option>)}
-                </Select>
-                <Input label="Início" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} disabled={mode === 'edit'} />
-                <Input label="Fim" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
-                {recordType === 'Evolucao' && (
-                  <>
-                    <Input label="Nº da sessão" type="number" min={1} value={sessionNumber} onChange={e => setSessionNumber(e.target.value)} hint="Sugerido pela ordem das sessões." />
-                    <Input
-                      label="Duração"
-                      readOnly
-                      value={(() => {
-                        if (!startTime || !endTime) return '';
-                        const [h1, m1] = startTime.split(':').map(Number); const [h2, m2] = endTime.split(':').map(Number);
-                        const mins = (h2 * 60 + m2) - (h1 * 60 + m1);
-                        return mins > 0 ? `${mins} min` : '';
-                      })()}
-                      placeholder="Calculada pelo início e fim"
-                    />
-                  </>
-                )}
-                <Input label="Tags (vírgula)" placeholder="ansiedade, fobia..." value={tags} onChange={e => setTags(e.target.value)} />
-              </div>
-            )}
+              )}
+            </div>
           </ContentCard>
-        )}
+        ) : (
+          <SessionDataTab
+            recordType={recordType}
+            typeLocked={typeLocked}
+            typeLabel={TYPE_LABELS[recordType] || recordType}
+            typeOptions={Object.entries(TYPE_LABELS)}
+            onRecordTypeChange={setRecordType}
+            typeIcon={(() => { const TI = TYPE_ICONS[recordType] || FileText; return <TI size={14} />; })()}
+            mode={mode}
+            patients={patients}
+            patientId={patientId}
+            onPatientChange={setPatientId}
+            title={title}
+            onTitleChange={setTitle}
+            autoTitle={autoTitle}
+            sessionDate={sessionDate}
+            onDateChange={changeDate}
+            startTime={startTime}
+            endTime={endTime}
+            durationMin={durationMin}
+            onStartChange={changeStart}
+            onEndChange={changeEnd}
+            onDurationChange={changeDuration}
+            formato={formato}
+            onFormatoChange={setFormato}
+            modalidade={modalidade}
+            onModalidadeChange={setModalidade}
+            showSessionNumber={isEvolucao}
+            sessionNumber={sessionNumber}
+            suggestedNumber={suggestedNumber}
+            onSessionNumberChange={v => { setSessionNumber(v); setNumberTouched(true); }}
+            tags={tags}
+            onTagsChange={setTags}
+            tagSuggestions={tagSuggestions}
+            locked={locked}
+            lockReason="Este registro já foi aprovado e é um documento clínico: data, horário e duração ficam travados para preservar a integridade do prontuário. Os demais dados continuam editáveis."
+            appointments={appointmentOptions}
+            appointmentId={appointmentId}
+            onLinkAppointment={linkAppointment}
+            suggestedAppointment={suggestedAppointment}
+          />
+        ))}
 
         {/* Registro estruturado por especialidade — Evolução / Avaliação */}
         {editorSection === 'estrutura' && isStructured && (
@@ -1789,9 +2141,28 @@ const RecordEditor: React.FC<{
               key={`${recordType}-${specialty}`}
               sections={sections}
               values={sValues}
-              onChange={setStructuredValue}
+              onChange={handleStructuredChange}
               planGoals={planGoals}
               label={recordType === 'Avaliacao' ? 'Seções da avaliação' : 'Seções da evolução'}
+              showProgress
+              aiFields={aiFields}
+              onConfirmAi={confirmAiField}
+              toolbar={isEvolucao ? (
+                <>
+                  {canUseAi && <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillWithAI}>Preencher com IA</Button>}
+                  <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} onClick={duplicateFromLast}>Duplicar da última sessão</Button>
+                </>
+              ) : undefined}
+              sectionTop={id => (isEvolucao && id === 'sessao' ? (
+                <>
+                  {moodHint && <p className="flex items-start gap-1.5 text-[11px] text-slate-500"><Info size={12} className="mt-0.5 shrink-0" />{moodHint}</p>}
+                  <PendingCard
+                    previous={previousInfo?.info || null}
+                    rows={(Array.isArray(sValues.tarefas_retorno) ? sValues.tarefas_retorno : []) as FollowupRow[]}
+                    onChange={rows => handleStructuredChange('tarefas_retorno', rows)}
+                  />
+                </>
+              ) : null)}
             />
           </div>
         )}
@@ -1859,7 +2230,37 @@ const RecordEditor: React.FC<{
                         placeholder="Escreva tudo o que aconteceu na sessão..."
                         minHeight={recordType === 'Avaliacao' ? 550 : 400}
                       />
-                      <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
+                      {isEvolucao && canUseAi && (
+                        <div className="space-y-3 rounded-lg border border-primary-100 bg-primary-50/40 p-3">
+                          <div>
+                            <h4 className="flex items-center gap-2 text-sm font-medium text-slate-900"><Sparkles size={14} className="text-primary-600" /> Preencher a evolução com IA</h4>
+                            <p className="mt-0.5 text-[11px] text-slate-500">A IA lê o texto acima (e a transcrição, se carregada) e sugere os campos da aba Evolução da sessão. Você revisa campo a campo antes de aplicar.</p>
+                          </div>
+                          {roomSessions.length > 0 && (
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                              <Select wrapperClassName="flex-1" label="Transcrição da sala virtual" value={roomSessionId} onChange={e => setRoomSessionId(e.target.value)}>
+                                <option value="">Selecione uma sessão com transcrição...</option>
+                                {roomSessions.map(r => <option key={r.id} value={String(r.id)}>{roomSessionLabel(r)}</option>)}
+                              </Select>
+                              <Button variant="outline" size="sm" loading={transcriptLoading} disabled={!roomSessionId} onClick={loadTranscript}>Carregar transcrição</Button>
+                            </div>
+                          )}
+                          {transcript && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-600">
+                              <span className="min-w-0 break-words">Transcrição carregada: {transcriptLabel} ({transcript.length.toLocaleString('pt-BR')} caracteres). Ela é usada só para a IA e não é salva no registro.</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                <Button size="xs" variant="outline" onClick={() => { setDraft(prev => (prev ? `${prev}\n\n` : '') + transcript); pushToast('info', 'Transcrição inserida no texto livre.'); }}>Inserir no texto livre</Button>
+                                <Button size="xs" variant="ghost" onClick={() => { setTranscript(''); setTranscriptLabel(''); }}>Remover</Button>
+                              </div>
+                            </div>
+                          )}
+                          <Button onClick={fillWithAI} loading={aiFillBusy} disabled={!draft.trim() && !transcript.trim() && !hasValue(sValues.relato)} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
+                            {aiFillBusy ? 'Lendo a sessão...' : 'Preencher com IA'}
+                          </Button>
+                          <p className="text-[11px] text-slate-500">Revise antes de aprovar: a IA não inventa conteúdo e os riscos só são sugeridos se estiverem no texto.</p>
+                        </div>
+                      )}
+                      <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant={isEvolucao && canUseAi ? 'outline' : 'primary'} size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
                         {aiLoading ? 'Organizando conteúdo...' : 'Organizar com Inteligência Artificial'}
                       </Button>
                     </ContentCard>
@@ -1959,7 +2360,13 @@ const RecordEditor: React.FC<{
       {/* Rodapé fixo de ações */}
       <div className="sticky bottom-0 z-20 -mx-3 mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5 xl:-mx-6 xl:px-6">
         <span className="text-[11px] text-slate-500">
-          {status === 'Aprovado' ? 'Registro aprovado.' : 'Ao voltar com conteúdo preenchido, o registro é salvo como rascunho.'}
+          {status === 'Aprovado'
+            ? 'Registro aprovado.'
+            : autosaving
+              ? 'Salvando rascunho...'
+              : savedAt
+                ? `Salvo às ${savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · Ctrl+S salva o rascunho`
+                : isStructured ? 'O rascunho é salvo automaticamente · Ctrl+S salva agora' : 'Ao voltar com conteúdo preenchido, o registro é salvo como rascunho.'}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           {isPlano ? (
@@ -1967,7 +2374,7 @@ const RecordEditor: React.FC<{
           ) : (
             <>
               <Button onClick={() => save()} loading={saving} variant={isAnamnese ? 'primary' : 'outline'} size="sm" iconLeft={<Save size={14}/>}>Salvar rascunho</Button>
-              {!isAnamnese && <Button onClick={() => setShowApproveModal(true)} variant="success" size="sm" iconLeft={<CheckCircle2 size={14}/>}>Aprovar</Button>}
+              {!isAnamnese && <Button onClick={requestApprove} variant="success" size="sm" iconLeft={<CheckCircle2 size={14}/>}>Aprovar</Button>}
             </>
           )}
         </div>
@@ -1980,6 +2387,40 @@ const RecordEditor: React.FC<{
           onClose={() => setShowApproveModal(false)}
         />
       )}
+
+      {aiPanel && (
+        <AiFillPanel
+          key={aiPanel.stamp}
+          isOpen
+          onClose={closeAiPanel}
+          sections={sections}
+          values={sValues}
+          planGoals={planGoals}
+          suggestions={aiPanel.suggestions}
+          reviewPoints={aiPanel.reviewPoints}
+          onApply={applyAiPatch}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={showRiskWarn}
+        onClose={() => setShowRiskWarn(false)}
+        onConfirm={() => { setShowRiskWarn(false); setShowApproveModal(true); }}
+        title="Risco não avaliado"
+        message="A triagem de risco (ideação suicida, autolesão, heteroagressão e vulnerabilidade) está como Não avaliado. Deseja aprovar mesmo assim?"
+        confirmLabel="Aprovar mesmo assim"
+        cancelLabel="Voltar e avaliar"
+        variant="primary"
+      />
+      <ConfirmModal
+        isOpen={!!dupPatch}
+        onClose={() => setDupPatch(null)}
+        onConfirm={() => dupPatch && applyDup(dupPatch)}
+        title="Duplicar da última sessão"
+        message="Alguns campos de intervenção ou tarefas já estão preenchidos e serão substituídos pelos da última sessão. O relato nunca é copiado. Continuar?"
+        confirmLabel="Substituir"
+        variant="primary"
+      />
     </PageWrapper>
   );
 };
@@ -2990,6 +3431,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         anamnesisSends={anamnesisSends}
         planRecordId={patientRecords.find(r => r.record_type === 'Plano')?.id}
         nextSessionNumber={patientRecords.filter(r => r.record_type === 'Evolucao').length + 1}
+        patientRecords={patientRecords}
       />
     );
   }

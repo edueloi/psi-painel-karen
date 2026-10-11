@@ -124,8 +124,38 @@ function recordBody(r: ExportRecord): Block[] {
     LEGACY_FIELDS.forEach(([k, label]) => { if (has(org[k]) && typeof org[k] !== 'object') blocks.push({ t: 'field', label, text: String(org[k]) }); });
     if (blocks.length) return blocks;
   }
-  const c = text(r.content || r.draft_content || '');
-  return c ? [{ t: 'p', text: c }] : [];
+  return markdownBlocks(r.content || r.draft_content || '');
+}
+
+/** Rótulos amigáveis das perguntas de anamnese (preenchido por buildClinicalDocModel). */
+let exportLabels: Record<string, string> = {};
+const humanizeKey = (k: string) => {
+  const raw = (exportLabels[k] || k).replace(/_/g, ' ').trim();
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : raw;
+};
+
+/**
+ * Conteúdo salvo como markdown (ex.: respostas de anamnese convertidas em texto) vira blocos de documento:
+ * '**chave**: valor' → pares rótulo/valor com nome legível; '#' e '---' deixam de aparecer como símbolos.
+ */
+function markdownBlocks(raw: string): Block[] {
+  const src = String(raw || '').split('\r\n').join('\n').trim();
+  if (!src) return [];
+  const pairRe = /\*\*([^*\n]+?)\*\*\s*:?\s*([^*]*?)(?=\s*\*\*|$)/g;
+  const pairs: { label: string; value: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pairRe.exec(src))) {
+    const label = m[1].replace(/:\s*$/, '').trim();
+    const value = m[2].replace(/\s*---\s*$/, '').replace(/\s+/g, ' ').trim();
+    if (label) pairs.push({ label: humanizeKey(label), value: value || 'Não informado' });
+  }
+  const stripped = (x: string) => x.replace(/^#{1,6}\s*/gm, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^\s*-{3,}\s*$/gm, '').trim();
+  if (pairs.length >= 2) {
+    // texto antes do primeiro par (título repetido) é descartado; o registro já tem o próprio título
+    return [{ t: 'kv', pairs: pairs.map(p => ({ ...p, full: p.value.length > 60 })) }];
+  }
+  const clean1 = text(stripped(src));
+  return clean1 ? [{ t: 'p', text: clean1 }] : [];
 }
 
 function restrictedBlocks(r: ExportRecord): Block[] {
@@ -264,6 +294,7 @@ const CADASTRAL: [string, string, boolean?][] = [
 
 /* ───────────── Montagem ───────────── */
 export function buildClinicalDocModel(inp: ExportInput): ClinicalDocModel {
+  exportLabels = inp.anamnesisLabels || {};
   const { mode, patient, typeLabels } = inp;
   const emitted = inp.emittedAt || new Date();
   const includeRestricted = mode === 'restricted_only';
@@ -405,7 +436,7 @@ export function buildClinicalDocModel(inp: ExportInput): ClinicalDocModel {
     });
     inp.anamnesisSends.forEach(s => {
       const rows = Object.entries(s.responses || {}).filter(([, v]) => has(Array.isArray(v) ? v.join('') : v))
-        .map(([k, v]) => [inp.anamnesisLabels[k] || k.replace(/_/g, ' '), Array.isArray(v) ? v.join(', ') : typeof v === 'number' ? `${v}/10` : String(v)]);
+        .map(([k, v]) => [inp.anamnesisLabels[k] || humanizeKey(k), Array.isArray(v) ? v.join(', ') : typeof v === 'number' ? `${v}/10` : String(v)]);
       if (!rows.length) return;
       blocks.push({ t: 'h3', text: s.title || 'Anamnese respondida pelo paciente', meta: s.date ? `Respondida em ${fmtD(s.date)}` : '' });
       blocks.push({ t: 'table', head: ['Pergunta', 'Resposta'], rows, widths: [3, 5] });

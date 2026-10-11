@@ -3,7 +3,7 @@ import { Calendar, Clock, ClipboardCheck, Plus } from 'lucide-react';
 import { Badge } from '../UI/Badge';
 import { Button } from '../UI/Button';
 import { EmptyState } from '../UI/EmptyState';
-import { HUMOR_COLOR, parseStructured } from './specialtyTemplates';
+import { HUMOR_COLOR, RISCO_TRIAGEM, parseStructured, buildResumo } from './specialtyTemplates';
 
 export interface SessionRecord {
   id: string;
@@ -40,9 +40,11 @@ export const SessionTimeline: React.FC<{
       const s = parseStructured(r.ai_organized_content);
       const v = s?.values || {};
       const numero = v.sessao_numero ? String(v.sessao_numero) : String(total - i);
-      const resumo = (v.tema || v.relato || strip(r.content || r.draft_content || '')) as string;
+      const resumo = (s?.resumo || buildResumo(v) || v.tema || v.relato || strip(r.content || r.draft_content || '')) as string;
+      const riscos = RISCO_TRIAGEM.filter(x => v[`risco_${x.key}`] === 'Presente').map(x => x.label.split(' (')[0]);
+      const duracao = s?.meta?.duracao_min;
       const intervencoes: string[] = Array.isArray(v.intervencoes) ? v.intervencoes : [];
-      return { r, numero, humor: v.humor as string | undefined, tema: v.tema as string | undefined, resumo: strip(resumo), intervencoes, estruturado: !!s };
+      return { r, numero, humor: v.humor as string | undefined, tema: v.tema as string | undefined, resumo: strip(resumo), intervencoes, riscos, duracao, estruturado: !!s };
     });
   }, [records]);
 
@@ -59,7 +61,7 @@ export const SessionTimeline: React.FC<{
 
   return (
     <ol className="relative space-y-3">
-      {items.map(({ r, numero, humor, tema, resumo, intervencoes }) => (
+      {items.map(({ r, numero, humor, tema, resumo, intervencoes, riscos, duracao }) => (
         <li key={r.id} className="relative flex gap-3">
           <div className="flex w-9 shrink-0 flex-col items-center">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-xs font-medium text-primary-700" title={`Sessão ${numero}`}>
@@ -73,7 +75,7 @@ export const SessionTimeline: React.FC<{
                 <p className="truncate text-sm font-medium text-slate-900 hover:text-primary-700">{tema || r.title}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
                   <span className="inline-flex items-center gap-1"><Calendar size={11} /> Sessão {numero} · {fmtDate(r.created_at)}</span>
-                  {r.start_time && <span className="inline-flex items-center gap-1"><Clock size={11} /> {r.start_time}{r.end_time ? ` – ${r.end_time}` : ''}</span>}
+                  {r.start_time && <span className="inline-flex items-center gap-1"><Clock size={11} /> {r.start_time}{r.end_time ? ` – ${r.end_time}` : ''}{duracao ? ` (${duracao} min)` : ''}</span>}
                 </p>
               </button>
               <div className="flex shrink-0 flex-wrap items-center gap-1">{renderActions(r)}</div>
@@ -81,6 +83,7 @@ export const SessionTimeline: React.FC<{
             <div className="mt-2 flex flex-wrap gap-1.5">
               {r.appointment_type && <Badge color="default">{r.appointment_type}</Badge>}
               {humor && <Badge color={HUMOR_COLOR[humor] || 'default'} dot>Humor: {humor}</Badge>}
+              {riscos.length > 0 && <Badge color="danger" dot>Risco: {riscos.join(', ')}</Badge>}
               <Badge color={STATUS_COLOR[r.status] || 'default'}>{r.status}</Badge>
             </div>
             {resumo && <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-600">{resumo}</p>}

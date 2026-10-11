@@ -249,6 +249,120 @@ router.post('/organize-ai', authMiddleware, async (req, res) => {
 });
 
 /* ──────────────────────────────────────────────────────────
+   POST /medical-records/fill-evolution — IA propõe os campos estruturados da evolução
+   NÃO grava nada: devolve apenas sugestões para o profissional revisar no painel.
+   Body: { draft_content, transcript, patient_context, options: {campo: [opções]}, goals: [], previous: {proxima, tarefas} }
+────────────────────────────────────────────────────────── */
+const EVOLUTION_AI_SYSTEM = `Você é uma assistente de documentação clínica de psicologia. A partir do texto bruto da sessão (anotações e/ou transcrição), proponha o preenchimento dos campos de uma evolução de sessão.
+Regras obrigatórias:
+- NÃO invente nada. Se uma informação não aparece no texto, devolva "" (texto), [] (lista) ou null (risco).
+- Não emita diagnóstico nem hipótese diagnóstica que não tenha sido dita pelo profissional.
+- Riscos (ideação suicida, autolesão, heteroagressão, vulnerabilidade): use "presente" SOMENTE se o texto menciona; "sem_indicios" SOMENTE se o texto afirma explicitamente a ausência; caso contrário null.
+- Linguagem técnica, clara, objetiva e sucinta; diferencie relato do paciente de observação do profissional.
+- Para campos com lista de opções, use SOMENTE itens exatamente iguais aos fornecidos.
+- Não inclua dados de identificação além do necessário.
+Retorne SOMENTE um JSON válido com a estrutura:
+{
+  "tema": "", "humor": "", "relato": "",
+  "afeto": [], "aparencia": [], "pensamento": [], "sono_energia": [], "queixas_novas": "",
+  "intervencoes": [], "tecnica": "", "objetivos": [],
+  "resposta": "", "adesao": "", "avancos": "",
+  "tarefas": "", "proxima": "", "proxima_foco": "", "observacoes": "",
+  "riscos": {
+    "ideacao": {"status": null, "detalhe": ""},
+    "autolesao": {"status": null, "detalhe": ""},
+    "heteroagressao": {"status": null, "detalhe": ""},
+    "vulnerabilidade": {"status": null, "detalhe": ""}
+  },
+  "pontos_revisao": []
+}`;
+
+const clipText = (v, n) => String(v || '').slice(0, n);
+const pickFrom = (list, allowed) => {
+  if (!Array.isArray(list) || !Array.isArray(allowed)) return [];
+  const map = new Map(allowed.map(a => [String(a).toLowerCase(), String(a)]));
+  const out = [];
+  list.forEach(v => { const hit = map.get(String(v || '').trim().toLowerCase()); if (hit && !out.includes(hit)) out.push(hit); });
+  return out;
+};
+
+router.post('/fill-evolution', authMiddleware, checkPermission('access_ai_features'), async (req, res) => {
+  try {
+    const { draft_content, transcript, patient_context, options, goals, previous } = req.body || {};
+    const source = [
+      transcript ? `TRANSCRIÇÃO DA SESSÃO:\n${clipText(transcript, 14000)}` : '',
+      draft_content ? `ANOTAÇÕES DO PROFISSIONAL:\n${clipText(draft_content, 8000)}` : '',
+    ].filter(Boolean).join('\n\n');
+    if (!source.trim()) return res.status(400).json({ error: 'Informe o texto livre ou a transcrição da sessão.' });
+
+    const opts = options && typeof options === 'object' ? options : {};
+    const goalList = Array.isArray(goals) ? goals.map(g => clipText(g, 300)).filter(Boolean).slice(0, 30) : [];
+    const optLines = Object.keys(opts).filter(k => Array.isArray(opts[k]))
+      .map(k => `- ${k}: ${opts[k].map(o => `"${clipText(o, 80)}"`).join(', ')}`).join('\n');
+    const prompt = [
+      `Contexto do paciente: ${clipText(patient_context, 500) || 'Não informado'}`,
+      optLines ? `Opções permitidas por campo:\n${optLines}` : '',
+      goalList.length ? `Objetivos ativos do plano terapêutico (use itens exatamente iguais em "objetivos"):\n${goalList.map(g => `- ${g}`).join('\n')}` : '',
+      previous && (previous.proxima || previous.tarefas) ? `Sessão anterior — plano: ${clipText(previous.proxima, 500)} | tarefas: ${clipText(previous.tarefas, 500)}` : '',
+      source,
+    ].filter(Boolean).join('\n\n');
+
+    const unavailable = 'A IA está indisponível no momento. Seus dados foram mantidos; tente novamente em instantes.';
+    let raw = '';
+    try {
+      const aiResp = await fetch(`http://localhost:${process.env.PORT || 3013}/api/ai/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': req.headers.authorization },
+        body: JSON.stringify({ system: EVOLUTION_AI_SYSTEM, prompt, max_tokens: 2500, temperature: 0.2 })
+      });
+      if (!aiResp.ok) return res.status(502).json({ error: unavailable });
+      const aiData = await aiResp.json();
+      raw = aiData.text || aiData.content || aiData.result || '';
+    } catch (e) {
+      console.warn('[fill-evolution] IA indisponível:', e.message);
+      return res.status(502).json({ error: unavailable });
+    }
+
+    const m = String(raw).match(/\{[\s\S]*\}/);
+    let parsed = null;
+    try { parsed = m ? JSON.parse(m[0]) : null; } catch { parsed = null; }
+    if (!parsed || typeof parsed !== 'object') return res.status(502).json({ error: 'A IA devolveu uma resposta inesperada. Tente novamente.' });
+
+    const s = {};
+    ['tema', 'relato', 'queixas_novas', 'tecnica', 'resposta', 'avancos', 'tarefas', 'proxima', 'proxima_foco', 'observacoes'].forEach(k => {
+      const v = clipText(parsed[k], 4000).trim();
+      if (v) s[k] = v;
+    });
+    ['humor', 'adesao'].forEach(k => {
+      const v = pickFrom([parsed[k]], opts[k])[0];
+      if (v) s[k] = v;
+    });
+    ['afeto', 'aparencia', 'pensamento', 'sono_energia', 'intervencoes'].forEach(k => {
+      const v = pickFrom(parsed[k], opts[k]);
+      if (v.length) s[k] = v;
+    });
+    const g = pickFrom(parsed.objetivos, goalList);
+    if (g.length) s.objetivos = g;
+    const risks = parsed.riscos && typeof parsed.riscos === 'object' ? parsed.riscos : {};
+    ['ideacao', 'autolesao', 'heteroagressao', 'vulnerabilidade'].forEach(k => {
+      const r = risks[k];
+      const st = r && typeof r === 'object' ? String(r.status || '').toLowerCase() : '';
+      if (st === 'presente') {
+        s[`risco_${k}`] = 'Presente';
+        const d = clipText(r.detalhe, 1000).trim();
+        if (d) s[`risco_${k}_detalhe`] = d;
+      } else if (st === 'sem_indicios') s[`risco_${k}`] = 'Sem indícios';
+    });
+
+    const reviewPoints = Array.isArray(parsed.pontos_revisao) ? parsed.pontos_revisao.map(p => clipText(p, 300)).filter(Boolean).slice(0, 8) : [];
+    res.json({ suggestions: s, review_points: reviewPoints });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao preencher com IA' });
+  }
+});
+
+/* ──────────────────────────────────────────────────────────
    POST /medical-records/log-export — registrar exportação no audit
    Chamado pelo frontend após gerar PDF/Word (geração é client-side)
 ────────────────────────────────────────────────────────── */
@@ -324,8 +438,10 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
       record_type, title, status, tags, start_time, end_time,
       appointment_type, attachments,
       draft_content, // rascunho bruto antes da IA
-      ai_organized_content, ai_status
+      ai_organized_content, ai_status, created_at
     } = req.body;
+    // Data da sessão informada pelo profissional (YYYY-MM-DD); fixa ao meio-dia para não "virar" de dia por fuso.
+    const sessionCreatedAt = /^\d{4}-\d{2}-\d{2}/.test(String(created_at || '')) ? `${String(created_at).slice(0, 10)} 12:00:00` : null;
 
     if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
 
@@ -346,14 +462,14 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
        (tenant_id, patient_id, professional_id, appointment_id,
         content, restricted_content, draft_content, ai_organized_content,
         record_type, title, status, ai_status, tags,
-        start_time, end_time, appointment_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        start_time, end_time, appointment_type, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
       [
         req.user.tenant_id, patient_id, req.user.id, appointment_id || null,
         content || null, restricted_content || null, draft_content || null, ai_organized_content || null,
         record_type || 'Evolucao', title || null,
         status || 'Rascunho', ai_status || 'pending', tagsStr,
-        start_time || null, end_time || null, appointment_type || 'individual'
+        start_time || null, end_time || null, appointment_type || 'individual', sessionCreatedAt
       ]
     );
 
@@ -392,8 +508,16 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
     const {
       content, restricted_content, draft_content, ai_organized_content,
       record_type, title, status, ai_status, tags,
-      start_time, end_time, appointment_type, attachments
+      start_time, end_time, appointment_type, attachments,
+      created_at, appointment_id
     } = req.body;
+    const sessionDate = /^\d{4}-\d{2}-\d{2}/.test(String(created_at || '')) ? String(created_at).slice(0, 10) : null;
+
+    // Vínculo com agendamento: precisa pertencer à mesma clínica
+    if (appointment_id) {
+      const [[apt]] = await db.query('SELECT id FROM appointments WHERE id = ? AND tenant_id = ?', [appointment_id, req.user.tenant_id]);
+      if (!apt) return res.status(403).json({ error: 'Agendamento não pertence a esta clínica.' });
+    }
 
     const [existing] = await db.query(
       'SELECT id, version_count FROM medical_records WHERE id = ? AND tenant_id = ?',
@@ -406,6 +530,8 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
 
     await db.query(
       `UPDATE medical_records SET
+        created_at = IF(status IN ('Aprovado', 'Finalizado') OR ? IS NULL OR DATE(created_at) = ?, created_at, CONCAT(?, ' 12:00:00')),
+        appointment_id = COALESCE(?, appointment_id),
         content = COALESCE(?, content),
         restricted_content = COALESCE(?, restricted_content),
         draft_content = COALESCE(?, draft_content),
@@ -422,6 +548,7 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
         updated_at = NOW()
        WHERE id = ?`,
       [
+        sessionDate, sessionDate, sessionDate, appointment_id || null,
         content ?? null, restricted_content ?? null, draft_content ?? null, ai_organized_content ?? null,
         record_type ?? null, title ?? null,
         status ?? null, ai_status ?? null, tagsStr ?? null,

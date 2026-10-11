@@ -13,7 +13,7 @@ import {
 
 export type SpecialtyId = 'psicologia' | 'psiquiatria' | 'medicina' | 'outros';
 export type RecordKind = 'Evolucao' | 'Avaliacao';
-export type FieldType = 'text' | 'textarea' | 'select' | 'multi' | 'date' | 'number' | 'rows' | 'goals';
+export type FieldType = 'text' | 'textarea' | 'select' | 'multi' | 'date' | 'number' | 'rows' | 'goals' | 'followups';
 
 export interface RowColumn { key: string; label: string; placeholder?: string }
 export interface FieldDef {
@@ -30,6 +30,12 @@ export interface FieldDef {
   /** Ocupa a linha inteira do grid. */
   full?: boolean;
   rows?: number;
+  /** Campo exibido somente quando a função retorna true (ex.: detalhes de risco). */
+  showIf?: (values: StructuredValues) => boolean;
+  /** Campo principal da seção: define quando a seção conta como completa. */
+  core?: boolean;
+  /** Texto da opção vazia em selects (ex.: "Não avaliado"). */
+  emptyLabel?: string;
 }
 export interface SectionDef {
   id: string;
@@ -58,6 +64,12 @@ export interface StructuredPayload {
   template: SpecialtyId;
   values: StructuredValues;
   updated_at: string;
+  /** Resumo de 1 parágrafo gerado a partir dos campos (sem IA), usado na lista/timeline. */
+  resumo?: string;
+  /** Metadados da sessão que não têm coluna própria. */
+  meta?: { duracao_min?: number; modalidade?: string; agendamento_id?: string };
+  /** Campos preenchidos por IA e ainda não confirmados/editados pelo profissional. */
+  ai_fields?: string[];
 }
 
 /* ── Opções reutilizáveis ─────────────────────────────── */
@@ -123,6 +135,103 @@ const encaminhamentosSection = (): SectionDef => ({
     F.area('encaminhamentos_obs', 'Justificativa e observações', { rows: 3, legacy: 'encaminhamentos' }),
   ],
 });
+
+/* ── Evolução de sessão (psicologia): seções completas ─────────── */
+export const RISCO_TRIAGEM = [
+  { key: 'ideacao', label: 'Ideação suicida' },
+  { key: 'autolesao', label: 'Autolesão' },
+  { key: 'heteroagressao', label: 'Heteroagressão' },
+  { key: 'vulnerabilidade', label: 'Vulnerabilidade (violência, abuso, negligência, desamparo)' },
+] as const;
+const RISCO_TRIAGEM_OPTIONS = ['Sem indícios', 'Presente'];
+export const FOLLOWUP_STATUS = ['Feita', 'Parcial', 'Não feita'] as const;
+export const ABORDAGENS = [
+  'TCC', 'Psicanálise', 'Humanista / ACP', 'Gestalt-terapia', 'ACT', 'Terapia sistêmica', 'Terapia do esquema', 'DBT', 'Psicodrama', 'Integrativa',
+];
+const anyRiskPresent = (v: StructuredValues) => RISCO_TRIAGEM.some(r => v[`risco_${r.key}`] === 'Presente');
+
+function psicologiaEvolution(): SectionDef[] {
+  return [
+    {
+      id: 'sessao', label: 'Sessão', icon: MessageSquare,
+      description: 'Tema trabalhado, humor e relato do paciente.',
+      fields: [
+        F.text('tema', 'Tema da sessão', { legacy: 'motivo_consulta', placeholder: 'Ex.: conflito no trabalho, luto...', core: true }),
+        F.select('humor', 'Humor no início da sessão', [...HUMOR_OPTIONS], { core: true }),
+        F.area('relato', 'Relato e conteúdo da sessão', { legacy: 'contexto_relevante', rows: 7, placeholder: 'O que foi trazido e o que aconteceu na sessão.', core: true }),
+      ],
+    },
+    {
+      id: 'estado', label: 'Estado clínico', icon: HeartPulse,
+      description: 'Observações do profissional durante a sessão. Marque só o que foi observado.',
+      fields: [
+        F.multi('afeto', 'Afeto / humor observado', ['Eutímico', 'Ansioso', 'Deprimido', 'Irritável', 'Lábil', 'Embotado', 'Expansivo', 'Apático', 'Choroso', 'Angustiado'], { legacy: 'observacoes_clinicas', core: true }),
+        F.multi('aparencia', 'Aparência e comportamento', ['Cuidada', 'Descuidada', 'Colaborativo', 'Participativo', 'Retraído', 'Inquieto / agitado', 'Lentificado', 'Defensivo', 'Emocionado'], { legacy: 'observacoes_clinicas' }),
+        F.multi('pensamento', 'Pensamento', ['Organizado', 'Coerente', 'Acelerado', 'Lentificado', 'Ruminativo', 'Desorganizado', 'Pensamentos intrusivos', 'Ideias de culpa', 'Ideias de desvalia', 'Preocupações excessivas'], { legacy: 'observacoes_clinicas' }),
+        F.multi('sono_energia', 'Sono, apetite e energia', ['Sono preservado', 'Insônia', 'Sono excessivo', 'Apetite preservado', 'Apetite reduzido', 'Apetite aumentado', 'Energia preservada', 'Energia reduzida', 'Fadiga'], { legacy: 'observacoes_clinicas' }),
+        F.area('queixas_novas', 'Queixas novas desde a última sessão', { legacy: 'observacoes_clinicas', rows: 3 }),
+        F.area('estado_obs', 'Complemento do estado clínico', { legacy: 'observacoes_clinicas', rows: 3 }),
+      ],
+    },
+    {
+      id: 'intervencoes', label: 'Intervenções', icon: Wrench,
+      description: 'O que foi feito na sessão e a qual objetivo do plano se relaciona.',
+      fields: [
+        F.multi('abordagem', 'Abordagem', ABORDAGENS, { legacy: 'intervencoes_realizadas' }),
+        F.multi('intervencoes', 'Intervenções realizadas', [
+          'Psicoeducação', 'Escuta e acolhimento', 'Validação emocional', 'Reestruturação cognitiva', 'Registro de pensamentos', 'Ativação comportamental',
+          'Exposição', 'Treino de habilidades', 'Role-play', 'Técnica de relaxamento/respiração', 'Mindfulness', 'Interpretação',
+          'Associação livre', 'Manejo de crise', 'Prevenção de recaída', 'Orientação a familiares',
+        ], { legacy: 'intervencoes_realizadas', core: true }),
+        F.text('tecnica', 'Técnica específica (livre)', { legacy: 'intervencoes_realizadas', placeholder: 'Ex.: cadeira vazia, linha da vida...', full: true }),
+        F.area('intervencoes_obs', 'Detalhes das intervenções', { legacy: 'intervencoes_realizadas', rows: 3 }),
+        { key: 'objetivos', label: 'Objetivo do plano relacionado', type: 'goals', full: true, legacy: 'plano_terapeutico' },
+      ],
+    },
+    {
+      id: 'resposta', label: 'Resposta e engajamento', icon: TrendingUp,
+      fields: [
+        F.area('resposta', 'Resposta do paciente às intervenções', { legacy: 'evolucao_resposta', rows: 4, core: true }),
+        F.select('adesao', 'Engajamento / adesão', ADESAO_OPTIONS, { core: true }),
+        F.area('avancos', 'Avanços e insights observados', { legacy: 'evolucao_resposta', rows: 3 }),
+      ],
+    },
+    {
+      id: 'tarefas', label: 'Tarefas', icon: ListChecks,
+      description: 'Retorno das tarefas da sessão anterior e novas combinadas.',
+      fields: [
+        { key: 'tarefas_retorno', label: 'Retorno das tarefas anteriores', type: 'followups', full: true, legacy: 'evolucao_resposta' },
+        F.area('tarefas', 'Novas tarefas combinadas', { legacy: 'plano_terapeutico', rows: 3, core: true }),
+      ],
+    },
+    {
+      id: 'plano', label: 'Plano e próxima sessão', icon: Target,
+      fields: [
+        F.area('proxima', 'Plano para a próxima sessão', { legacy: 'plano_terapeutico', rows: 3, core: true }),
+        F.text('proxima_foco', 'Foco sugerido', { legacy: 'plano_terapeutico', placeholder: 'Ex.: retomar exposição gradual' }),
+        { key: 'proxima_data', label: 'Data sugerida', type: 'date', legacy: 'plano_terapeutico' },
+      ],
+    },
+    {
+      id: 'risco', label: 'Risco e segurança', icon: ShieldAlert,
+      description: 'Triagem de risco: marque conforme o que foi avaliado. "Não avaliado" significa que o tema não foi abordado.',
+      fields: [
+        ...RISCO_TRIAGEM.flatMap(r => ([
+          F.select(`risco_${r.key}`, r.label, RISCO_TRIAGEM_OPTIONS, { legacy: 'observacoes_clinicas', emptyLabel: 'Não avaliado', core: true }),
+          F.text(`risco_${r.key}_detalhe`, `${r.label}: detalhes`, { legacy: 'observacoes_clinicas', full: true, showIf: (v: StructuredValues) => v[`risco_${r.key}`] === 'Presente', placeholder: 'Descreva o que foi relatado/observado.' }),
+        ])),
+        F.select('risco_suicida', 'Risco (registro do modelo anterior)', RISCO_OPTIONS, { showIf: (v: StructuredValues) => isFilled(v.risco_suicida) }),
+        F.area('risco_obs', 'Conduta e plano de segurança', { legacy: 'observacoes_clinicas', rows: 3, showIf: (v: StructuredValues) => anyRiskPresent(v) || isFilled(v.risco_obs) }),
+      ],
+    },
+    {
+      id: 'observacoes', label: 'Observações', icon: ClipboardList,
+      fields: [
+        F.area('observacoes', 'Observações clínicas', { legacy: 'observacao_complementar', rows: 4, core: true }),
+      ],
+    },
+  ];
+}
 
 /* ══════════════ PSICOLOGIA (padrão) ══════════════ */
 const PSICOLOGIA: SpecialtyTemplate = {
@@ -196,51 +305,7 @@ const PSICOLOGIA: SpecialtyTemplate = {
     },
     encaminhamentosSection(),
   ],
-  evolution: [
-    {
-      id: 'sessao', label: 'Sessão', icon: MessageSquare,
-      description: 'Tema trabalhado e relato do paciente.',
-      fields: [
-        F.text('tema', 'Tema da sessão', { legacy: 'motivo_consulta', placeholder: 'Ex.: conflito no trabalho, luto...' }),
-        F.select('humor', 'Humor no início da sessão', [...HUMOR_OPTIONS]),
-        F.area('relato', 'Relato e conteúdo da sessão', { legacy: 'contexto_relevante', rows: 7, placeholder: 'O que foi trazido e o que aconteceu na sessão.' }),
-      ],
-    },
-    {
-      id: 'intervencoes', label: 'Intervenções', icon: Wrench,
-      fields: [
-        F.multi('intervencoes', 'Intervenções realizadas', [
-          'Psicoeducação', 'Escuta e acolhimento', 'Reestruturação cognitiva', 'Ativação comportamental', 'Exposição',
-          'Treino de habilidades', 'Técnica de relaxamento/respiração', 'Mindfulness', 'Interpretação', 'Manejo de crise',
-          'Orientação a familiares',
-        ], { legacy: 'intervencoes_realizadas' }),
-        F.area('intervencoes_obs', 'Detalhes das intervenções', { legacy: 'intervencoes_realizadas', rows: 3 }),
-      ],
-    },
-    {
-      id: 'resposta', label: 'Resposta', icon: TrendingUp,
-      fields: [
-        F.area('resposta', 'Resposta do paciente às intervenções', { legacy: 'evolucao_resposta', rows: 4 }),
-        F.select('adesao', 'Engajamento / adesão', ADESAO_OPTIONS),
-      ],
-    },
-    {
-      id: 'plano', label: 'Plano e tarefas', icon: ListChecks,
-      fields: [
-        { key: 'objetivos', label: 'Objetivos do plano trabalhados', type: 'goals', full: true, legacy: 'plano_terapeutico' },
-        F.area('tarefas', 'Tarefas combinadas', { legacy: 'plano_terapeutico', rows: 3 }),
-        F.area('proxima', 'Plano para a próxima sessão', { legacy: 'plano_terapeutico', rows: 3 }),
-      ],
-    },
-    {
-      id: 'risco', label: 'Risco e observações', icon: ShieldAlert,
-      fields: [
-        F.select('risco_suicida', 'Risco', RISCO_OPTIONS),
-        F.area('risco_obs', 'Conduta frente ao risco', { legacy: 'observacoes_clinicas', rows: 3 }),
-        F.area('observacoes', 'Observações clínicas', { legacy: 'observacao_complementar', rows: 3 }),
-      ],
-    },
-  ],
+  evolution: psicologiaEvolution(),
 };
 
 /* ══════════════ PSIQUIATRIA ══════════════ */
@@ -611,7 +676,11 @@ const isFilled = (v: any): boolean => {
   if (v === null || v === undefined) return false;
   if (typeof v === 'string') return v.trim() !== '';
   if (Array.isArray(v)) return v.some(isFilled);
-  if (typeof v === 'object') return Object.values(v).some(isFilled);
+  if (typeof v === 'object') {
+    // Linha de retorno de tarefa: o texto da tarefa vem pré-carregado, só conta quando há retorno.
+    if ('tarefa' in v) return isFilled((v as any).status) || isFilled((v as any).comentario);
+    return Object.values(v).some(isFilled);
+  }
   return true;
 };
 export const hasValue = isFilled;
@@ -620,6 +689,12 @@ export const hasAnyValue = (values: StructuredValues | null | undefined) => !!va
 export function fieldToText(f: FieldDef, v: any): string {
   if (!isFilled(v)) return '';
   if (f.type === 'multi' || f.type === 'goals') return (v as string[]).filter(Boolean).join(', ');
+  if (f.type === 'followups') {
+    return (v as { tarefa?: string; status?: string; comentario?: string }[])
+      .filter(isFilled)
+      .map(r => `${r.tarefa || 'Tarefa'}: ${[r.status, r.comentario].filter(Boolean).join(' — ')}`)
+      .join('\n');
+  }
   if (f.type === 'rows') {
     return (v as Record<string, string>[])
       .filter(isFilled)
@@ -644,6 +719,57 @@ export function compileLegacy(sections: SectionDef[], values: StructuredValues):
     out[k] = items.length === 1 ? items[0].text : items.map(i => `${i.label}: ${i.text}`).join('\n');
   });
   return out;
+}
+
+/* ── Progresso por seção ───────────────────────────────── */
+export type SectionStatus = 'empty' | 'partial' | 'done';
+const visibleFields = (s: SectionDef, values: StructuredValues) => s.fields.filter(f => !f.showIf || f.showIf(values));
+export function sectionStatus(s: SectionDef, values: StructuredValues): SectionStatus {
+  const vis = visibleFields(s, values);
+  const core = vis.filter(f => f.core);
+  const base = core.length ? core : vis;
+  const any = vis.some(f => isFilled(values[f.key]));
+  if (!any) return 'empty';
+  return base.every(f => isFilled(values[f.key])) ? 'done' : 'partial';
+}
+/** 0–100: seção completa vale 1, parcial 0,5. */
+export function overallProgress(sections: SectionDef[], values: StructuredValues): number {
+  if (!sections.length) return 0;
+  const pts = sections.reduce((acc, s) => {
+    const st = sectionStatus(s, values);
+    return acc + (st === 'done' ? 1 : st === 'partial' ? 0.5 : 0);
+  }, 0);
+  return Math.round((pts / sections.length) * 100);
+}
+
+/** Converte a nota 1–5 do diário de humor no rótulo de humor da evolução. */
+export const humorFromScore = (score?: number | string | null): string => {
+  const n = Math.round(Number(score));
+  return n >= 1 && n <= 5 ? HUMOR_OPTIONS[n - 1] : '';
+};
+
+/** Separa um texto de tarefas (uma por linha, ;, • ou -) em itens. */
+export const splitTasks = (text?: string | null): string[] =>
+  String(text || '').split(/\r?\n|;|•/).map(t => t.replace(/^\s*[-*\d.)]+\s+/, '').trim()).filter(Boolean);
+
+/** Resumo de 1 parágrafo montado só com os campos preenchidos (sem IA). */
+export function buildResumo(values: StructuredValues): string {
+  const list = (v: any) => (Array.isArray(v) ? v.filter(Boolean) : []);
+  const parts: string[] = [];
+  const clip = (t: string, n: number) => { const s = t.replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n).replace(/[\s,;:.-]+\S*$/, '') + '…' : s; };
+  const sent = (t: string) => (/[.!?…]$/.test(t) ? t : `${t}.`);
+  if (values.tema) parts.push(sent(`Tema: ${clip(String(values.tema), 90)}`));
+  if (values.humor) parts.push(`Humor inicial ${String(values.humor).toLowerCase()}.`);
+  if (values.relato) parts.push(sent(clip(String(values.relato), 220)));
+  const estado = [...list(values.afeto), ...list(values.aparencia)].slice(0, 4);
+  if (estado.length) parts.push(`Observado: ${estado.join(', ').toLowerCase()}.`);
+  const intervs = list(values.intervencoes);
+  if (intervs.length) parts.push(`Intervenções: ${intervs.slice(0, 4).join(', ').toLowerCase()}${intervs.length > 4 ? ` e outras ${intervs.length - 4}` : ''}.`);
+  if (values.resposta) parts.push(sent(`Resposta: ${clip(String(values.resposta), 120)}`));
+  const presentes = RISCO_TRIAGEM.filter(r => values[`risco_${r.key}`] === 'Presente').map(r => r.label.split(' (')[0].toLowerCase());
+  if (presentes.length) parts.push(`Atenção ao risco: ${presentes.join(', ')}.`);
+  if (values.proxima) parts.push(sent(`Próxima sessão: ${clip(String(values.proxima), 110)}`));
+  return parts.join(' ').trim();
 }
 
 export function parseStructured(raw?: string | null): StructuredPayload | null {
