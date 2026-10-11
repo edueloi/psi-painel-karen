@@ -106,6 +106,7 @@ export const api: Api = {
           || (rawPreview ? `Erro ${response.status}: resposta nao-JSON do servidor (${rawPreview})` : `Erro ${response.status}: ${response.statusText}`);
         const err: any = new Error(message);
         err.status = response.status;
+        err.data = data;
         if (data?.conflict) {
           err.conflict = true;
           err.conflict_id = data.conflict_id;

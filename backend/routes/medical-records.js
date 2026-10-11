@@ -5,6 +5,7 @@ const db = require('../db');
 const bcrypt = require('bcryptjs');
 const sources = require('../utils/clinicalSources');
 const history = require('../utils/recordHistory');
+const absences = require('../utils/absenceRecords');
 
 /* ──────────────────────────────────────────────────────────
    HELPERS
@@ -67,6 +68,29 @@ const parseJson = (val) => {
   try { return JSON.parse(val); } catch { return []; }
 };
 
+
+/* Registro vivo: Anamnese, Avaliação e Plano são únicos por paciente; Evolução é uma por data de sessão. */
+const UNIQUE_TYPES = ['Anamnese', 'Avaliacao', 'Plano'];
+const TYPE_PT = { Anamnese: 'anamnese', Avaliacao: 'avaliação clínica', Plano: 'plano terapêutico', Evolucao: 'evolução' };
+const fmtBr = (ymd) => String(ymd || '').slice(0, 10).split('-').reverse().join('/');
+/** Procura registro do mesmo tipo (e data, para Evolução). Devolve { exists, visible } — visible respeita canSeeRecord. */
+async function findLiveRecord(user, { patientId, type, day = null, excludeId = null }) {
+  const params = [user.tenant_id, patientId, type];
+  let q = 'SELECT id, professional_id, shared_with, created_at FROM medical_records WHERE tenant_id = ? AND patient_id = ? AND record_type = ?';
+  if (day) { q += ' AND DATE(created_at) = ?'; params.push(day); }
+  if (excludeId) { q += ' AND id <> ?'; params.push(excludeId); }
+  q += ' ORDER BY created_at DESC, id DESC';
+  const [rows] = await db.query(q, params);
+  if (!rows.length) return { exists: false, visible: null };
+  return { exists: true, visible: rows.find((r) => sources.canSeeRecord(user, r)) || null };
+}
+const recordExistsResponse = (res, type, found, day) => {
+  const label = TYPE_PT[type] || 'registro';
+  const base = type === 'Evolucao' && day ? `Já existe uma evolução em ${fmtBr(day)} para este paciente.` : `Já existe ${type === 'Avaliacao' || type === 'Plano' ? 'um' : 'uma'} ${label} para este paciente.`;
+  if (found.visible) return res.status(409).json({ error: `${base} Abrindo o registro atual.`, code: 'RECORD_EXISTS', existing_id: found.visible.id });
+  return res.status(409).json({ error: 'Já existe um registro deste tipo para o paciente, com outro profissional responsável.', code: 'RECORD_EXISTS' });
+};
+
 /* ──────────────────────────────────────────────────────────
    GET /medical-records
    Suporta filtros: patient_id, professional_id, status, date_from, date_to, record_type
@@ -101,7 +125,7 @@ router.get('/', authMiddleware, checkPermission('view_medical_records'), async (
     let query = `
       SELECT r.id, r.patient_id, r.professional_id, r.record_type, r.title,
              r.status, r.ai_status, r.start_time, r.end_time, r.created_at, r.tags,
-             r.shared_with, r.appointment_type,
+             r.shared_with, r.appointment_type, r.updated_at, r.appointment_id,
              CASE WHEN r.record_type IN ('Evolucao','Avaliacao') THEN r.ai_organized_content ELSE NULL END AS ai_organized_content,
              LEFT(r.content, 300) as content,
              p.name as patient_name,
@@ -421,6 +445,8 @@ router.post('/fill-evolution', authMiddleware, checkPermission('access_ai_featur
       const v = clipText(typeof parsed[k] === 'string' ? parsed[k] : '', 4000).trim();
       if (v) s[k] = v;
     });
+    const HUMOR_LEGACY = { 'muito mal': 'Negativo', mal: 'Negativo', neutro: 'Neutro', bem: 'Positivo', 'muito bem': 'Positivo' };
+    if (typeof parsed.humor === 'string' && HUMOR_LEGACY[parsed.humor.trim().toLowerCase()]) parsed.humor = HUMOR_LEGACY[parsed.humor.trim().toLowerCase()];
     ['humor', 'adesao'].forEach(k => {
       const v = pickFrom([parsed[k]], opts[k])[0];
       if (v) s[k] = v;
@@ -638,6 +664,30 @@ router.post('/log-export', authMiddleware, async (req, res) => {
 /* ──────────────────────────────────────────────────────────
    GET /medical-records/:id — registro completo
 ────────────────────────────────────────────────────────── */
+/* Sessões sem evolução (por data) e faltas ainda sem registro — usado pela aba Sessões. */
+router.get('/pending-sessions', authMiddleware, checkPermission('view_medical_records'), async (req, res) => {
+  try {
+    if (!req.query.patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
+    const [[pat]] = await db.query('SELECT id FROM patients WHERE id = ? AND tenant_id = ?', [req.query.patient_id, req.user.tenant_id]);
+    if (!pat) return res.status(403).json({ error: 'Paciente não encontrado ou acesso negado nesta clínica.' });
+    res.json(await absences.pendingByDate(req.user, req.query.patient_id));
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar sessões pendentes' }); }
+});
+
+/* Backfill sob demanda: cria as evoluções de falta de agendamentos passados sem evolução na data. */
+router.post('/absences/backfill', authMiddleware, checkPermission('create_medical_record'), async (req, res) => {
+  try {
+    const { patient_id } = req.body || {};
+    if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
+    const [[pat]] = await db.query('SELECT id FROM patients WHERE id = ? AND tenant_id = ?', [patient_id, req.user.tenant_id]);
+    if (!pat) return res.status(403).json({ error: 'Paciente não encontrado ou acesso negado nesta clínica.' });
+    const { absences: list } = await absences.pendingByDate(req.user, patient_id);
+    let created = 0;
+    for (const a of list) { const r = await absences.ensureAbsenceRecord(req.user.tenant_id, a.id); if (r.action === 'created') created++; }
+    res.json({ created, total: list.length });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao gerar registros das faltas' }); }
+});
+
 router.get('/:id', authMiddleware, checkPermission('view_medical_records'), async (req, res) => {
   try {
 
@@ -694,7 +744,7 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
       ai_organized_content, ai_status, created_at
     } = req.body;
     // Data da sessão informada pelo profissional (YYYY-MM-DD); fixa ao meio-dia para não "virar" de dia por fuso.
-    const sessionCreatedAt = /^\d{4}-\d{2}-\d{2}/.test(String(created_at || '')) ? `${String(created_at).slice(0, 10)} 12:00:00` : null;
+    let sessionCreatedAt = /^\d{4}-\d{2}-\d{2}/.test(String(created_at || '')) ? `${String(created_at).slice(0, 10)} 12:00:00` : null;
 
     if (!patient_id) return res.status(400).json({ error: 'Paciente é obrigatório' });
 
@@ -706,6 +756,22 @@ router.post('/', authMiddleware, checkPermission('create_medical_record'), async
     if (appointment_id) {
        const [[apt]] = await db.query('SELECT id FROM appointments WHERE id = ? AND tenant_id = ?', [appointment_id, req.user.tenant_id]);
        if (!apt) return res.status(403).json({ error: 'Agendamento não pertence a esta clínica.' });
+    }
+
+    // Registro vivo: não cria duplicado — devolve o existente (409 RECORD_EXISTS + existing_id).
+    const rType = record_type || 'Evolucao';
+    if (UNIQUE_TYPES.includes(rType)) {
+      const found = await findLiveRecord(req.user, { patientId: patient_id, type: rType });
+      if (found.exists) return recordExistsResponse(res, rType, found);
+    } else if (rType === 'Evolucao') {
+      // Uma evolução por data de consulta; o agendamento (se houver) define a data.
+      if (appointment_id) {
+        const [[apt]] = await db.query('SELECT DATE_FORMAT(start_time, "%Y-%m-%d") AS d FROM appointments WHERE id = ? AND tenant_id = ?', [appointment_id, req.user.tenant_id]);
+        if (apt && apt.d) sessionCreatedAt = `${apt.d} 12:00:00`;
+      }
+      const day = sessionCreatedAt ? sessionCreatedAt.slice(0, 10) : new Date().toLocaleDateString('en-CA');
+      const found = await findLiveRecord(req.user, { patientId: patient_id, type: 'Evolucao', day });
+      if (found.exists) return recordExistsResponse(res, 'Evolucao', found, day);
     }
 
     const tagsStr = tags ? JSON.stringify(Array.isArray(tags) ? tags : []) : null;
@@ -764,7 +830,7 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
       record_type, title, status, ai_status, tags,
       start_time, end_time, appointment_type, attachments,
       created_at, appointment_id,
-      autosave, history_event, restored_from
+      autosave, history_event, restored_from, history_note
     } = req.body;
     const sessionDate = /^\d{4}-\d{2}-\d{2}/.test(String(created_at || '')) ? String(created_at).slice(0, 10) : null;
 
@@ -783,6 +849,21 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
     // Restaurar versão só vale para registros ainda não aprovados/finalizados.
     if (history_event === 'restaurado' && isLocked(existing[0])) {
       return res.status(409).json({ error: 'Registros aprovados não podem ser restaurados a partir do histórico.' });
+    }
+
+    // Evolução: uma por data de consulta — mudar a data não pode colidir com outra evolução do paciente.
+    if (existing[0].record_type === 'Evolucao' && sessionDate && !isLocked(existing[0])) {
+      const [[cur]] = await db.query('SELECT DATE_FORMAT(created_at, "%Y-%m-%d") AS d FROM medical_records WHERE id = ?', [req.params.id]);
+      if (cur && cur.d !== sessionDate) {
+        const found = await findLiveRecord(req.user, { patientId: existing[0].patient_id, type: 'Evolucao', day: sessionDate, excludeId: req.params.id });
+        if (found.exists) return recordExistsResponse(res, 'Evolucao', found, sessionDate);
+      }
+    }
+
+    // Reavaliação: a avaliação existente passa a ter a data de hoje como referência (mesmo se já estava aprovada;
+    // a versão anterior permanece no histórico).
+    if (history_event === 'reavaliacao' && existing[0].record_type === 'Avaliacao' && sessionDate) {
+      await db.query("UPDATE medical_records SET created_at = CONCAT(?, ' 12:00:00') WHERE id = ? AND tenant_id = ?", [sessionDate, req.params.id, req.user.tenant_id]);
     }
 
     const tagsStr = tags ? JSON.stringify(Array.isArray(tags) ? tags : []) : undefined;
@@ -838,10 +919,11 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
 
     await logAudit(req.params.id, req.user.id, req.user.tenant_id, 'updated', { status, ai_status });
     await history.recordVersion(req.user, Number(req.params.id), {
-      event: ['restaurado', 'ia'].includes(history_event) ? history_event : 'editado',
-      autosave: autosave === true,
+      event: ['restaurado', 'ia', 'reavaliacao'].includes(history_event) ? history_event : 'editado',
+      autosave: autosave === true && history_event !== 'reavaliacao',
       beforeRow: existing[0],
-      summaryExtra: restored_from ? `Restaurado da versão ${Number(restored_from) || ''}`.trim() : undefined,
+      summaryExtra: restored_from ? `Restaurado da versão ${Number(restored_from) || ''}`.trim()
+        : (history_event === 'reavaliacao' && history_note ? String(history_note).slice(0, 300) : undefined),
     });
 
     const [updated] = await db.query(

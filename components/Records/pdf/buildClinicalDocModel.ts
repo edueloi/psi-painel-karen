@@ -110,13 +110,28 @@ function structuredBlocks(sections: SectionDef[], values: StructuredValues): Blo
   return out;
 }
 
+/** Ocorrência de falta (uma evolução por data): mostra ocorrência e motivo antes do conteúdo clínico, se houver. */
+const ABSENCE_FIELDS: [string, string][] = [
+  ['ocorrencia', 'Ocorrência'], ['falta_motivo', 'Motivo da falta'], ['falta_motivo_texto', 'Complemento do motivo'], ['falta_avisou', 'Avisou antes?'],
+  ['falta_avisou_quando', 'Quando avisou'], ['falta_contato', 'Contato realizado pela clínica'], ['falta_contato_obs', 'Observação do contato'],
+  ['falta_reposicao', 'Reposição / remarcação sugerida'], ['falta_cobrar', 'Cobrar a sessão?'], ['falta_obs', 'Observação clínica da falta'],
+];
+function absenceBlocks(values: StructuredValues): Block[] {
+  const oc = String(values?.ocorrencia || '');
+  if (!oc || oc === 'Sessão realizada') return [];
+  const out: Block[] = [{ t: 'sub', text: oc.startsWith('Falta') ? 'Falta' : 'Ocorrência da sessão' }];
+  ABSENCE_FIELDS.forEach(([k, label]) => { if (has(values[k])) out.push({ t: 'field', label, text: String(values[k]) }); });
+  if (oc.startsWith('Falta') && !has(values.falta_motivo)) out.push({ t: 'field', label: 'Motivo da falta', text: 'Não informado (pendente de preenchimento)' });
+  return out;
+}
+
 /** Corpo de um registro (estruturado, legado ou texto livre). */
 function recordBody(r: ExportRecord): Block[] {
   const org = safeJson(r.ai_organized_content);
   const st = parseStructured(r.ai_organized_content);
   const kind: RecordKind | null = st?.kind === 'Avaliacao' ? 'Avaliacao' : st?.kind === 'Evolucao' ? 'Evolucao' : null;
   if (st && kind) {
-    const blocks = structuredBlocks(getSections((st.template || 'psicologia') as SpecialtyId, kind), st.values || {});
+    const blocks = [...(kind === 'Evolucao' ? absenceBlocks(st.values || {}) : []), ...structuredBlocks(getSections((st.template || 'psicologia') as SpecialtyId, kind), st.values || {})];
     if (blocks.length) return blocks;
   }
   if (org) {

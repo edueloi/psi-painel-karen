@@ -7,7 +7,7 @@ import { Alert } from '../UI/Alert';
 import { Badge } from '../UI/Badge';
 import { ContentCard } from '../UI/PageWrapper';
 import {
-  type FieldDef, type SectionDef, type StructuredValues, sectionStatus, overallProgress, FOLLOWUP_STATUS, RISCO_TRIAGEM,
+  type FieldDef, type SectionDef, type StructuredValues, sectionStatus, overallProgress, FOLLOWUP_STATUS, RISCO_TRIAGEM, normalizeHumor,
 } from './specialtyTemplates';
 
 export interface FollowupRow { tarefa: string; status?: string; comentario?: string }
@@ -218,7 +218,7 @@ const FieldRenderer: React.FC<{ f: FieldDef; value: any; onChange: (v: any) => v
       return <Textarea label={f.label} hint={f.hint} rows={f.rows || 4} placeholder={f.placeholder} value={value || ''} onChange={e => onChange(e.target.value)} />;
     case 'select':
       return (
-        <Select label={f.label} hint={f.hint} value={value || ''} onChange={e => onChange(e.target.value)}>
+        <Select label={f.label} hint={f.hint} value={(f.key === 'humor' ? normalizeHumor(value) : value) || ''} onChange={e => onChange(e.target.value)}>
           <option value="">{f.emptyLabel || 'Selecione...'}</option>
           {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
         </Select>

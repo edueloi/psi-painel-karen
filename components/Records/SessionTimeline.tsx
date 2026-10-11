@@ -3,7 +3,9 @@ import { Calendar, Clock, ClipboardCheck, Plus } from 'lucide-react';
 import { Badge } from '../UI/Badge';
 import { Button } from '../UI/Button';
 import { EmptyState } from '../UI/EmptyState';
-import { HUMOR_COLOR, RISCO_TRIAGEM, parseStructured, buildResumo } from './specialtyTemplates';
+import { dayOfStamp, faltaPending, ocorrenciaOf, isAbsenceOc, occurrenceBadgeLabel } from './liveRecords';
+import { PreviousRecordsNotice } from './LiveRecordPanels';
+import { HUMOR_COLOR, normalizeHumor, RISCO_TRIAGEM, parseStructured, buildResumo } from './specialtyTemplates';
 
 export interface SessionRecord {
   id: string;
@@ -32,7 +34,19 @@ export const SessionTimeline: React.FC<{
   onNew: () => void;
   renderActions: (r: SessionRecord) => React.ReactNode;
   emptyFiltered?: boolean;
-}> = ({ records, onOpen, onNew, renderActions, emptyFiltered }) => {
+  onFillMotive?: (r: SessionRecord) => void;
+}> = ({ records: allRecords, onOpen, onNew, renderActions, emptyFiltered, onFillMotive }) => {
+  // Uma evolução por data de consulta: duplicadas antigas da mesma data ficam agrupadas sob a mais recente.
+  const { records, extrasByDay } = useMemo(() => {
+    const seen = new Set<string>();
+    const primaries: SessionRecord[] = [];
+    const extras: Record<string, SessionRecord[]> = {};
+    allRecords.forEach(r => {
+      const day = dayOfStamp(r.created_at) || r.id;
+      if (seen.has(day)) { (extras[day] = extras[day] || []).push(r); } else { seen.add(day); primaries.push(r); }
+    });
+    return { records: primaries, extrasByDay: extras };
+  }, [allRecords]);
   // Número da sessão = posição cronológica (a lista chega ordenada do mais novo ao mais antigo).
   const items = useMemo(() => {
     const total = records.length;
@@ -44,7 +58,8 @@ export const SessionTimeline: React.FC<{
       const riscos = RISCO_TRIAGEM.filter(x => v[`risco_${x.key}`] === 'Presente').map(x => x.label.split(' (')[0]);
       const duracao = s?.meta?.duracao_min;
       const intervencoes: string[] = Array.isArray(v.intervencoes) ? v.intervencoes : [];
-      return { r, numero, humor: v.humor as string | undefined, tema: v.tema as string | undefined, resumo: strip(resumo), intervencoes, riscos, duracao, estruturado: !!s };
+      const oc = ocorrenciaOf(r.ai_organized_content);
+      return { r, oc, pendente: faltaPending(r.ai_organized_content), numero, humor: normalizeHumor(v.humor) || undefined, tema: v.tema as string | undefined, resumo: strip(resumo), intervencoes, riscos, duracao, estruturado: !!s };
     });
   }, [records]);
 
@@ -54,14 +69,14 @@ export const SessionTimeline: React.FC<{
         icon={ClipboardCheck}
         title={emptyFiltered ? 'Nenhuma sessão encontrada' : 'Nenhuma sessão registrada'}
         description={emptyFiltered ? 'Ajuste a busca para ver outras sessões.' : 'Registre a evolução de cada sessão para acompanhar o processo do paciente.'}
-        action={!emptyFiltered ? <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={onNew}>Registrar sessão</Button> : undefined}
+        action={!emptyFiltered ? <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={onNew}>Nova evolução</Button> : undefined}
       />
     );
   }
 
   return (
     <ol className="relative space-y-3">
-      {items.map(({ r, numero, humor, tema, resumo, intervencoes, riscos, duracao }) => (
+      {items.map(({ r, oc, pendente, numero, humor, tema, resumo, intervencoes, riscos, duracao }) => (
         <li key={r.id} className="relative flex gap-3">
           <div className="flex w-9 shrink-0 flex-col items-center">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-xs font-medium text-primary-700" title={`Sessão ${numero}`}>
@@ -81,11 +96,19 @@ export const SessionTimeline: React.FC<{
               <div className="flex shrink-0 flex-wrap items-center gap-1">{renderActions(r)}</div>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
+              {isAbsenceOc(oc) && <Badge color="warning">{occurrenceBadgeLabel(oc)}</Badge>}
+              {pendente && <Badge color="danger" dot>Motivo da falta pendente</Badge>}
               {r.appointment_type && <Badge color="default">{r.appointment_type}</Badge>}
               {humor && <Badge color={HUMOR_COLOR[humor] || 'default'} dot>Humor: {humor}</Badge>}
               {riscos.length > 0 && <Badge color="danger" dot>Risco: {riscos.join(', ')}</Badge>}
               <Badge color={STATUS_COLOR[r.status] || 'default'}>{r.status}</Badge>
             </div>
+            {pendente && onFillMotive && (
+              <div className="mt-2"><Button variant="outline" size="xs" onClick={() => onFillMotive(r)}>Preencher motivo</Button></div>
+            )}
+            {extrasByDay[dayOfStamp(r.created_at)]?.length ? (
+              <div className="mt-2"><PreviousRecordsNotice records={extrasByDay[dayOfStamp(r.created_at)] as any} onOpen={(id) => onOpen({ id } as SessionRecord)} noun="de evolução nesta data" /></div>
+            ) : null}
             {resumo && <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-600">{resumo}</p>}
             {intervencoes.length > 0 && (
               <p className="mt-2 text-[11px] text-slate-500">

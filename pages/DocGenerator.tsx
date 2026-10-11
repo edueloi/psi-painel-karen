@@ -25,7 +25,8 @@ import {
   History,
   MapPin,
   Stethoscope,
-  Eye
+  Eye,
+  Download
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Combobox } from '../components/UI/Combobox';
@@ -34,6 +35,12 @@ import {
   Alert, Badge, Button, ConfirmModal, DatePicker, EmptyState, FilterLineSearch, FormRow, IconButton,
   Input, Modal, ModalFooter, PageWrapper, PanelCard, SectionTitle, Select, Tabs
 } from '../components/UI';
+import { DocumentPaper } from '../components/Documents/DocumentPaper';
+import { renderDocumentPdf, printPdf, pdfFileName } from '../components/Documents/renderDocumentPdf';
+import { buildDocumentModel, buildStoredHtml, buildVariableValues } from '../components/Documents/buildDocument';
+import { buildIdentity, loadLogoCached, withRegistryLabel } from '../components/Documents/clinicIdentity';
+import { amountToWords, applyTemplateVariables, extractCityUf, extractVariables, joinCityUf, labelOfVariable, parseIsoDate, VARIABLE_LABELS } from '../components/Documents/documentVariables';
+import type { LogoImage } from '../components/Records/pdf/clinicalDocument';
 
 type DocCategory = {
   id: string;
@@ -65,21 +72,6 @@ const docTabs = [
   { id: 'timbrado', label: 'Papel timbrado', icon: ImageIcon },
 ] as const;
 
-const monthNames = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-];
-
-const formatDate = (value: string) => {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-};
-
 export const DocGenerator: React.FC = () => {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
@@ -96,6 +88,14 @@ export const DocGenerator: React.FC = () => {
   const [timeEnd, setTimeEnd] = useState(searchParams.get('time_end') || '');
   const [serviceName, setServiceName] = useState(searchParams.get('service_name') || '');
   const [amount, setAmount] = useState(searchParams.get('amount') || '');
+  const [period, setPeriod] = useState(searchParams.get('period') || '');
+  const [patientCpfManual, setPatientCpfManual] = useState('');
+  const [extraValues, setExtraValues] = useState<Record<string, string>>({});
+  const [profile, setProfile] = useState<any>(null);
+  const [headerLogoImg, setHeaderLogoImg] = useState<LogoImage | null>(null);
+  const [footerLogoImg, setFooterLogoImg] = useState<LogoImage | null>(null);
+  const [showErrors, setShowErrors] = useState(false);
+  const [emitting, setEmitting] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
   const [footerLogoUrl, setFooterLogoUrl] = useState('');
 
@@ -121,9 +121,7 @@ export const DocGenerator: React.FC = () => {
   const [amountText, setAmountText] = useState('');
 
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isRendering, setIsRendering] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
@@ -187,12 +185,13 @@ export const DocGenerator: React.FC = () => {
       })));
 
       if (profileData) {
+          setProfile(profileData);
           setProfessionalData({
               name: profileData.name || '',
               crp: profileData.crp || '',
               specialty: profileData.specialty || '',
               clinicLogo: profileData.clinic_logo_url || '',
-              city: (profileData.address || '').split(',').pop()?.trim() || '',
+              city: extractCityUf(profileData.address, profileData.city, profileData.state).city,
               clinicName: profileData.company_name || '',
               phone: profileData.phone || '',
               address: profileData.address || '',
@@ -200,7 +199,8 @@ export const DocGenerator: React.FC = () => {
           });
           setProfessionalName(profileData.name || '');
           setProfessionalCrp(profileData.crp || '');
-          if (!city) setCity((profileData.address || '').split(',').pop()?.trim() || '');
+          // local do documento = cidade/UF do endereço (nunca o CEP)
+          setCity(prev => prev || (() => { const l = extractCityUf(profileData.address, profileData.city, profileData.state); return joinCityUf(l.city, l.state); })());
           if (profileData.clinic_logo_url) setLogoUrl(getStaticUrl(profileData.clinic_logo_url));
       }
 
@@ -287,10 +287,10 @@ export const DocGenerator: React.FC = () => {
     [uploads]
   );
 
-  const hasTag = (tag: string) => {
-    if (!selectedTemplate) return true; // Mostrar todos se nenhum template selecionado
-    return selectedTemplate.template_body.includes(`{{${tag}}}`);
-  };
+  // variáveis usadas pelo modelo (aliases e {{{ }}} tratados); sem modelo selecionado mostra os campos básicos
+  const usedVars = useMemo(() => new Set(selectedTemplate ? extractVariables(selectedTemplate.template_body) : []), [selectedTemplate]);
+  const uses = (key: string) => !selectedTemplate || usedVars.has(key);
+  const extraKeys = useMemo(() => [...usedVars].filter(k => !(k in VARIABLE_LABELS)), [usedVars]);
 
   const uploadImage = async (file: File, target: 'header' | 'footer') => {
     setUploadingTarget(target);
@@ -323,115 +323,73 @@ export const DocGenerator: React.FC = () => {
     await uploadImage(file, target);
   };
 
-  const buildData = () => {
-    const name = patient?.name || patient?.full_name || patientName.trim();
-    const d = new Date(docDate);
-    return {
-      patient_name: name,
-      patient_cpf: patient?.cpf || patient?.cpf_cnpj || '',
-      patient_address: patient?.address || '',
-      patient_age: patient?.birth_date ? (new Date().getFullYear() - new Date(patient.birth_date).getFullYear()) : '',
-      professional_name: professionalName.trim(),
-      professional_crp: professionalCrp.trim(),
-      date: formatDate(docDate),
-      time_start: timeStart,
-      time_end: timeEnd,
-      service_name: serviceName.trim(),
-      amount: amount.trim(),
-      amount_text: amountText.trim(),
-      city: city.trim(),
-      year: Number.isNaN(d.getTime()) ? '' : String(d.getFullYear()),
-      month_name: Number.isNaN(d.getTime()) ? '' : monthNames[d.getMonth()] || '',
-      header_logo_url: logoUrl || '',
-      footer_logo_url: footerLogoUrl || '',
-      signature_name: selectedTemplate?.signature_name || professionalName,
-      signature_crp: selectedTemplate?.signature_crp || professionalCrp
-    };
-  };
+  const areaRegistry = selectedArea === 'psicologia' ? 'CRP' : selectedArea === 'medicina' ? 'CRM' : selectedArea === 'psicopedagogia' ? 'ABPp' : selectedArea === 'enfermagem' ? 'COREN' : 'CREFITO';
 
-  const buildHtml = (body: string) => {
-    const hLogo = logoUrl || '';
-    const fLogo = footerLogoUrl || '';
-    const sName = selectedTemplate?.signature_name || professionalName;
-    const sCrp = selectedTemplate?.signature_crp || professionalCrp;
-
-    return `
-      <style>
-        span[contenteditable="false"] { 
-          background: transparent !important; 
-          color: inherit !important; 
-          border: none !important; 
-          padding: 0 !important; 
-          margin: 0 !important; 
-          font-size: inherit !important; 
-          font-weight: inherit !important;
-          display: inline !important;
-          vertical-align: baseline !important;
-        }
-        span[contenteditable="false"] svg { display: none !important; }
-      </style>
-      <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px 60px; line-height: 1.5; background: white; min-height: 29.7cm; width: 21cm; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.05); position: relative; box-sizing: border-box; display: flex; flex-direction: column;">
-        
-        <!-- HEADER: CLINIC STYLE -->
-        <div style="display: flex; align-items: center; margin-bottom: 50px; border-bottom: 3px solid #6366f1; padding-bottom: 30px;">
-           ${hLogo ? `<div style="flex-shrink: 0; margin-right: 35px; display: flex; align-items: center; justify-content: center; width: 120px; height: 120px; background: #f8fafc; border-radius: 20px;"><img src="${hLogo}" style="max-height: 100px; max-width: 100px; object-fit: contain;" /></div>` : ''}
-           
-           <div style="flex: 1; ${hLogo ? 'border-left: 1px solid #e2e8f0; padding-left: 35px;' : ''} display: flex; flex-direction: column; justify-content: center;">
-              <h1 style="margin: 0; font-size: 18pt; font-weight: 900; color: #0f172a; letter-spacing: -0.02em; line-height: 1.1;">${professionalData.name}</h1>
-              <p style="margin: 6px 0; font-size: 10pt; font-weight: 700; color: #6366f1; text-transform: ; letter-spacing: 0.15em;">${professionalData.specialty || 'Profissional'} <span style="margin: 0 8px; color: #cbd5e1; font-weight: 300;">|</span> CRP ${professionalData.crp || ''}</p>
-              
-              <div style="margin-top: 12px; font-size: 8.5pt; color: #64748b; line-height: 1.6; font-weight: 500;">
-                ${professionalData.address ? `<div style="display: flex; align-items: center; gap: 6px;">${professionalData.address}</div>` : ''}
-                <div style="display: flex; gap: 15px; margin-top: 2px;">
-                  ${professionalData.phone ? `<span><b>Tel:</b> ${professionalData.phone}</span>` : ''}
-                  ${professionalData.email ? `<span><b>Email:</b> ${professionalData.email}</span>` : ''}
-                </div>
-              </div>
-           </div>
-        </div>
-
-        <div style="flex: 1; font-size: 11.5pt; text-align: justify; color: #334155; letter-spacing: -0.01em;">
-          <div class="document-content">${body}</div>
-        </div>
-
-        <div style="margin-top: 60px; display: flex; flex-direction: column; align-items: center; text-align: center; page-break-inside: avoid;">
-            <div style="width: 240px; border-top: 1px solid #cbd5e1; margin-bottom: 10px;"></div>
-            <p style="font-weight: 800; margin: 0; font-size: 10pt; color: #0f172a; text-transform: ; letter-spacing: 0.05em;">${sName}</p>
-            <p style="margin: 0; font-size: 8.5pt; color: #64748b; font-weight: 600;">${selectedArea.toUpperCase()}: ${sCrp}</p>
-        </div>
-
-        ${fLogo ? `<div style="margin-top: 40px; text-align: center;"><img src="${fLogo}" style="max-height: 60px; max-width: 80%; object-fit: contain;" /></div>` : ''}
-      </div>
-    `;
-  };
-
-  const renderPreview = async () => {
-    if (!selectedTemplateId) {
-      setPreviewHtml('');
-      return;
-    }
-    setIsRendering(true);
-    try {
-      const data = buildData();
-      const response = await api.post<any>(`/doc-generator/doc-templates/${selectedTemplateId}/render`, {
-        patient_id: selectedPatientId || null,
-        data
-      });
-      const body = response.rendered_html || '';
-      setPreviewHtml(buildHtml(body));
-    } catch (e) {
-      console.error(e);
-      setPreviewHtml('');
-    } finally {
-      setIsRendering(false);
-    }
-  };
-
+  // logos do papel timbrado (cabeçalho padrão = logo da clínica) carregadas para o PDF
   useEffect(() => {
-    renderPreview();
-  }, [
-    selectedTemplateId, selectedPatientId, patientName, professionalName, professionalCrp, docDate, timeStart, timeEnd, serviceName, amount, logoUrl, footerLogoUrl
-  ]);
+    let alive = true;
+    loadLogoCached(logoUrl).then(l => { if (alive) setHeaderLogoImg(l); });
+    return () => { alive = false; };
+  }, [logoUrl]);
+  useEffect(() => {
+    let alive = true;
+    loadLogoCached(footerLogoUrl).then(l => { if (alive) setFooterLogoImg(l); });
+    return () => { alive = false; };
+  }, [footerLogoUrl]);
+
+  const identity = useMemo(() => {
+    const idt = buildIdentity(profile || { name: professionalName, crp: professionalCrp }, headerLogoImg);
+    idt.clinic.logo = headerLogoImg;
+    return idt;
+  }, [profile, headerLogoImg, professionalName, professionalCrp]);
+
+  const effectivePatientName = (patient?.name || patient?.full_name || patientName.trim() || '').trim();
+  const effectiveCpf = (patientCpfManual.trim() || patient?.cpf || patient?.cpf_cnpj || '').trim();
+  const docDateObj = parseIsoDate(docDate) || new Date();
+  const professionalRegistry = withRegistryLabel(areaRegistry, professionalCrp.trim());
+  const signatureName = (selectedTemplate?.signature_name || '').trim() || professionalName.trim();
+  const signatureRegistry = withRegistryLabel(areaRegistry, (selectedTemplate?.signature_crp || '').trim() || professionalCrp.trim());
+
+  // documento = modelo + variáveis (nunca deixa {{ }} no texto; o que faltar fica em `missing`)
+  const doc = useMemo(() => {
+    if (!selectedTemplate) return null;
+    const cityLoc = extractCityUf(city);
+    const values = buildVariableValues({
+      patientName: effectivePatientName,
+      patientCpf: effectiveCpf,
+      patientAddress: patient?.address || '',
+      patientAge: patient?.birth_date ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear() : '',
+      professionalName: professionalName.trim(),
+      professionalRegistry: professionalCrp.trim(),
+      docDate: docDateObj,
+      timeStart, timeEnd, amount, amountText, period, serviceName,
+      city: city.trim(), state: cityLoc.state, cityUf: city.trim(),
+      clinic: identity.clinic,
+      signatureName, signatureRegistry: (selectedTemplate.signature_crp || professionalCrp).trim(),
+      extras: extraValues,
+    });
+    const applied = applyTemplateVariables(selectedTemplate.template_body, values);
+    const missing = [...applied.missing];
+    if (!effectivePatientName && !missing.includes('patient_name')) missing.unshift('patient_name');
+    const model = buildDocumentModel({
+      title: selectedTemplate.title,
+      docType: selectedTemplate.doc_type,
+      bodyHtml: applied.html,
+      clinic: identity.clinic,
+      professional: { ...identity.professional, name: professionalName.trim() || identity.professional.name, registry: professionalRegistry || identity.professional.registry },
+      patient: { name: effectivePatientName, cpf: effectiveCpf, birth: patient?.birth_date ? parseIsoDate(String(patient.birth_date).slice(0, 10))?.toLocaleDateString('pt-BR') : '' },
+      docDate: docDateObj,
+      place: city.trim(),
+      signatureName,
+      signatureRegistry,
+      footerLogo: footerLogoImg,
+    });
+    return { model, missing };
+  }, [selectedTemplate, effectivePatientName, effectiveCpf, patient, professionalName, professionalCrp, professionalRegistry, docDate, timeStart, timeEnd, amount, amountText, period, serviceName, city, identity, signatureName, signatureRegistry, extraValues, footerLogoImg]);
+
+  const missing = doc?.missing || [];
+  const missingLabels = missing.map(labelOfVariable).join(', ');
+  const fieldError = (...keys: string[]) => (showErrors && keys.some(k => missing.includes(k)) ? 'Obrigatório' : undefined);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -518,52 +476,35 @@ export const DocGenerator: React.FC = () => {
     }
   };
 
-  const handleGeneratePdf = async () => {
-    if (!selectedTemplateId) return;
-    const data = buildData();
-    if (!data.patient_name) return;
-
+  const emitDocument = async (mode: 'print' | 'download') => {
+    if (!selectedTemplateId || !doc || emitting) return;
+    if (doc.missing.length) {
+      setShowErrors(true);
+      setActiveTab('dados');
+      pushToast('error', `Preencha: ${missingLabels}`);
+      return;
+    }
+    setEmitting(true);
     try {
-      const response = await api.post<any>(`/doc-generator/doc-templates/${selectedTemplateId}/render`, {
-        patient_id: selectedPatientId || null,
-        data
-      });
-      const body = response.rendered_html || '';
-      const html = buildHtml(body);
+      const model = { ...doc.model, emittedAt: new Date() };
+      const pdf = renderDocumentPdf(model);
 
-      // Save to instance history
+      // histórico (mesmo registro de antes; agora com o HTML sóbrio do documento)
       await api.post('/doc-generator/doc-instances', {
         template_id: selectedTemplateId,
         patient_id: selectedPatientId || null,
         title: selectedTemplate?.title || 'Documento',
-        rendered_html: html
+        rendered_html: buildStoredHtml(model)
       });
-
       pushToast('success', 'Documento gerado e salvo no histórico!');
 
-      const win = window.open('', '_blank');
-      if (!win) return;
-      win.document.write(`
-        <!doctype html>
-        <html>
-          <head>
-            <title>${selectedTemplate?.title || 'Documento'}</title>
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-            <style>
-              @page { size: A4; margin: 0; }
-              body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; }
-              .page { position: relative; width: 210mm; height: 297mm; box-sizing: border-box; }
-            </style>
-          </head>
-          <body><div class="page">${html}</div></body>
-        </html>
-      `);
-      win.document.close();
-      win.focus();
-      setTimeout(() => win.print(), 500);
+      if (mode === 'download') pdf.save(pdfFileName(model.title, effectivePatientName));
+      else printPdf(pdf);
     } catch (e) {
       console.error(e);
       pushToast('error', 'Erro ao gerar ou salvar o documento.');
+    } finally {
+      setEmitting(false);
     }
   };
 
@@ -582,8 +523,6 @@ export const DocGenerator: React.FC = () => {
     }
   };
 
-  const areaRegistry = selectedArea === 'psicologia' ? 'CRP' : selectedArea === 'medicina' ? 'CRM' : selectedArea === 'psicopedagogia' ? 'ABPp' : selectedArea === 'enfermagem' ? 'COREN' : 'CREFITO';
-
   const categoryNameOf = (id?: string | null) => categories.find(c => String(c.id) === String(id || ''))?.name || '';
 
   const visibleTemplates = useMemo(() => {
@@ -596,10 +535,7 @@ export const DocGenerator: React.FC = () => {
     );
   }, [filteredTemplates, templateSearch, categories]);
 
-  const openPreview = async () => {
-    await renderPreview();
-    setIsPreviewModalOpen(true);
-  };
+  const openPreview = () => setIsPreviewModalOpen(true);
 
   const renderUploadBox = (
     label: string,
@@ -682,16 +618,26 @@ export const DocGenerator: React.FC = () => {
               </Button>
               <Button
                 onClick={openPreview}
-                disabled={!selectedTemplateId || isRendering}
+                disabled={!doc}
                 variant="outline"
                 size="sm"
-                iconLeft={isRendering ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+                iconLeft={<Eye size={14} />}
               >
                 Visualizar
               </Button>
               <Button
-                onClick={handleGeneratePdf}
-                disabled={!previewHtml || !selectedTemplateId || isRendering}
+                onClick={() => emitDocument('download')}
+                disabled={!doc || emitting}
+                variant="outline"
+                size="sm"
+                iconLeft={<Download size={14} />}
+              >
+                Baixar PDF
+              </Button>
+              <Button
+                onClick={() => emitDocument('print')}
+                disabled={!doc || emitting}
+                loading={emitting}
                 variant="primary"
                 size="sm"
                 iconLeft={<Printer size={14} />}
@@ -841,55 +787,95 @@ export const DocGenerator: React.FC = () => {
                           <DatePicker value={docDate} onChange={v => setDocDate(v || '')} />
                         </div>
                         <Input
-                          label="Cidade"
-                          placeholder="Cidade"
+                          label="Local (cidade/UF)"
+                          placeholder="Ex: Tatuí/SP"
                           value={city}
                           onChange={e => setCity(e.target.value)}
+                          hint="Impresso antes da data, no fim do documento."
+                          error={fieldError('city', 'city_uf')}
                         />
                       </FormRow>
-                      {(hasTag('time_start') || hasTag('time_end')) && (
+                      {uses('patient_cpf') && (
+                        <Input
+                          label="CPF do paciente"
+                          placeholder={patient?.cpf || patient?.cpf_cnpj || '000.000.000-00'}
+                          value={patientCpfManual}
+                          onChange={e => setPatientCpfManual(e.target.value)}
+                          hint={patient?.cpf || patient?.cpf_cnpj ? 'Vazio usa o CPF do cadastro.' : undefined}
+                          error={fieldError('patient_cpf')}
+                        />
+                      )}
+                      {(uses('time_start') || uses('time_end')) && (
                         <FormRow cols={2}>
-                          {hasTag('time_start') && (
+                          {uses('time_start') && (
                             <Input
                               label="Horário de início"
                               placeholder="08:00"
                               value={timeStart}
                               onChange={e => setTimeStart(e.target.value)}
+                              error={fieldError('time_start')}
                             />
                           )}
-                          {hasTag('time_end') && (
+                          {uses('time_end') && (
                             <Input
                               label="Horário de fim"
                               placeholder="09:00"
                               value={timeEnd}
                               onChange={e => setTimeEnd(e.target.value)}
+                              error={fieldError('time_end')}
                             />
                           )}
                         </FormRow>
                       )}
-                      {hasTag('amount') && (
+                      {(uses('amount') || uses('amount_text')) && (
                         <FormRow cols={2}>
                           <Input
                             label="Valor (R$)"
                             placeholder="0,00"
                             value={amount}
                             onChange={e => setAmount(e.target.value)}
+                            error={fieldError('amount')}
                           />
                           <Input
                             label="Valor por extenso"
-                            placeholder="Cento e vinte reais"
+                            placeholder={amountToWords(amount) || 'Preenchido automaticamente pelo valor'}
                             value={amountText}
                             onChange={e => setAmountText(e.target.value)}
+                            hint="Vazio gera automaticamente (reais e centavos)."
+                            error={fieldError('amount_text')}
                           />
                         </FormRow>
                       )}
-                      {hasTag('service_name') && (
+                      {uses('period') && (
+                        <Input
+                          label="Período"
+                          placeholder="Ex: 01/09/2026 a 30/09/2026"
+                          value={period}
+                          onChange={e => setPeriod(e.target.value)}
+                          error={fieldError('period')}
+                        />
+                      )}
+                      {uses('service_name') && (
                         <Input
                           label="Serviço / finalidade"
                           placeholder="Ex: Consulta de Psicopedagogia"
                           value={serviceName}
                           onChange={e => setServiceName(e.target.value)}
+                          error={fieldError('service_name')}
                         />
+                      )}
+                      {extraKeys.length > 0 && (
+                        <FormRow cols={2}>
+                          {extraKeys.map(k => (
+                            <Input
+                              key={k}
+                              label={labelOfVariable(k).replace(/^./, c => c.toUpperCase())}
+                              value={extraValues[k] || ''}
+                              onChange={e => setExtraValues(prev => ({ ...prev, [k]: e.target.value }))}
+                              error={fieldError(k)}
+                            />
+                          ))}
+                        </FormRow>
                       )}
                     </div>
                   </PanelCard>
@@ -901,12 +887,14 @@ export const DocGenerator: React.FC = () => {
                         leftIcon={<Briefcase size={14} />}
                         value={professionalName}
                         onChange={e => setProfessionalName(e.target.value)}
+                        error={fieldError('professional_name', 'signature_name')}
                       />
                       <Input
                         label={`Registro (${areaRegistry})`}
                         leftIcon={<CheckCircle2 size={14} />}
                         value={professionalCrp}
                         onChange={e => setProfessionalCrp(e.target.value)}
+                        error={fieldError('professional_crp', 'signature_crp')}
                       />
                     </FormRow>
                   </PanelCard>
@@ -939,23 +927,24 @@ export const DocGenerator: React.FC = () => {
               description={selectedTemplate?.title}
               icon={Eye}
               action={
-                <Button variant="outline" size="xs" onClick={openPreview} disabled={!selectedTemplateId || isRendering}>
+                <Button variant="outline" size="xs" onClick={openPreview} disabled={!doc}>
                   Ampliar
                 </Button>
               }
             >
-              {!selectedTemplateId ? (
+              {!doc ? (
                 <EmptyState icon={FileText} title="Selecione um modelo" description="Escolha um modelo na aba Modelo para ver o documento." />
-              ) : isRendering && !previewHtml ? (
-                <div role="status" className="flex items-center justify-center gap-2 py-10 text-xs text-slate-500">
-                  <Loader2 size={16} className="animate-spin" /> Renderizando...
-                </div>
-              ) : previewHtml ? (
-                <div className="max-h-[640px] overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-2">
-                  <div style={{ zoom: 0.55 }} className="preview-content" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                </div>
               ) : (
-                <EmptyState icon={FileText} title="Não foi possível renderizar" description="Confira os dados e tente novamente." />
+                <div className="space-y-3">
+                  {missing.length > 0 && (
+                    <Alert variant="warning">
+                      Preencha: {missingLabels}. O documento só pode ser impresso ou baixado depois disso.
+                    </Alert>
+                  )}
+                  <div className="max-h-[640px] overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-2">
+                    <DocumentPaper model={doc.model} />
+                  </div>
+                </div>
               )}
             </PanelCard>
           </div>
@@ -981,21 +970,17 @@ export const DocGenerator: React.FC = () => {
         footer={
           <ModalFooter>
             <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Fechar</Button>
-            <Button variant="primary" iconLeft={<Printer size={14} />} onClick={handleGeneratePdf} disabled={!previewHtml || isRendering}>Imprimir</Button>
+            <Button variant="outline" iconLeft={<Download size={14} />} onClick={() => emitDocument('download')} disabled={!doc || emitting}>Baixar PDF</Button>
+            <Button variant="primary" iconLeft={<Printer size={14} />} onClick={() => emitDocument('print')} disabled={!doc || emitting} loading={emitting}>Imprimir</Button>
           </ModalFooter>
         }
       >
-        <div className="flex flex-col items-center overflow-x-auto rounded-lg bg-slate-100 p-3">
-          <div className="mb-3 flex w-full max-w-[210mm] items-center gap-2 text-xs text-slate-600">
-            <span className={`h-2 w-2 rounded-full ${previewHtml ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-            {isRendering ? 'Renderizando...' : previewHtml ? 'Pré-visualização digital' : 'Erro na renderização'}
-          </div>
-          <div className="w-full max-w-[210mm] bg-white">
-            {previewHtml ? (
-              <div className="preview-content w-full" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-            ) : (
-              <EmptyState icon={FileText} title="Documento vazio" />
-            )}
+        <div className="space-y-3">
+          {missing.length > 0 && (
+            <Alert variant="warning">Preencha: {missingLabels}. Volte à aba Dados do documento para completar.</Alert>
+          )}
+          <div className="max-h-[70vh] overflow-auto rounded-lg bg-slate-100 p-2 sm:p-3">
+            {doc ? <DocumentPaper model={doc.model} /> : <EmptyState icon={FileText} title="Documento vazio" />}
           </div>
         </div>
       </Modal>

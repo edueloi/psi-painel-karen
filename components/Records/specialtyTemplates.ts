@@ -67,7 +67,7 @@ export interface StructuredPayload {
   /** Resumo de 1 parágrafo gerado a partir dos campos (sem IA), usado na lista/timeline. */
   resumo?: string;
   /** Metadados da sessão que não têm coluna própria. */
-  meta?: { duracao_min?: number; modalidade?: string; agendamento_id?: string };
+  meta?: { duracao_min?: number; modalidade?: string; agendamento_id?: string; ocorrencia?: string; falta_pendente?: boolean; proxima_reavaliacao?: string };
   /** Campos preenchidos por IA e ainda não confirmados/editados pelo profissional. */
   ai_fields?: string[];
   /** Origem (rótulos das fontes) de cada campo sugerido por IA. */
@@ -75,9 +75,16 @@ export interface StructuredPayload {
 }
 
 /* ── Opções reutilizáveis ─────────────────────────────── */
-export const HUMOR_OPTIONS = ['Muito mal', 'Mal', 'Neutro', 'Bem', 'Muito bem'] as const;
+export const HUMOR_OPTIONS = ['Positivo', 'Neutro', 'Negativo', 'Oscilante/misto', 'Não avaliado'] as const;
+/** Valores antigos (escala de 5 pontos) são só traduzidos na leitura; o registro salvo não é reescrito. */
+const HUMOR_LEGACY: Record<string, string> = { 'muito mal': 'Negativo', 'mal': 'Negativo', 'neutro': 'Neutro', 'bem': 'Positivo', 'muito bem': 'Positivo', 'muito_mal': 'Negativo', 'muito_bem': 'Positivo' };
+export const normalizeHumor = (v: any): string => {
+  const raw = String(v ?? '').trim();
+  if (!raw) return '';
+  return HUMOR_LEGACY[raw.toLowerCase()] || raw;
+};
 export const HUMOR_COLOR: Record<string, 'danger' | 'warning' | 'default' | 'info' | 'success'> = {
-  'Muito mal': 'danger', 'Mal': 'warning', 'Neutro': 'default', 'Bem': 'info', 'Muito bem': 'success',
+  'Positivo': 'success', 'Neutro': 'default', 'Negativo': 'warning', 'Oscilante/misto': 'info', 'Não avaliado': 'default',
 };
 export const MODALIDADES = ['individual', 'casal', 'familiar', 'grupo', 'online', 'presencial'];
 
@@ -690,6 +697,7 @@ export const hasAnyValue = (values: StructuredValues | null | undefined) => !!va
 
 export function fieldToText(f: FieldDef, v: any): string {
   if (!isFilled(v)) return '';
+  if (f.key === 'humor') return normalizeHumor(v);
   if (f.type === 'multi' || f.type === 'goals') return (v as string[]).filter(Boolean).join(', ');
   if (f.type === 'followups') {
     return (v as { tarefa?: string; status?: string; comentario?: string }[])
@@ -747,7 +755,8 @@ export function overallProgress(sections: SectionDef[], values: StructuredValues
 /** Converte a nota 1–5 do diário de humor no rótulo de humor da evolução. */
 export const humorFromScore = (score?: number | string | null): string => {
   const n = Math.round(Number(score));
-  return n >= 1 && n <= 5 ? HUMOR_OPTIONS[n - 1] : '';
+  if (!(n >= 1 && n <= 5)) return '';
+  return n <= 2 ? 'Negativo' : n === 3 ? 'Neutro' : 'Positivo';
 };
 
 /** Separa um texto de tarefas (uma por linha, ;, • ou -) em itens. */
@@ -761,7 +770,7 @@ export function buildResumo(values: StructuredValues): string {
   const clip = (t: string, n: number) => { const s = t.replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n).replace(/[\s,;:.-]+\S*$/, '') + '…' : s; };
   const sent = (t: string) => (/[.!?…]$/.test(t) ? t : `${t}.`);
   if (values.tema) parts.push(sent(`Tema: ${clip(String(values.tema), 90)}`));
-  if (values.humor) parts.push(`Humor inicial ${String(values.humor).toLowerCase()}.`);
+  if (values.humor) parts.push(`Humor inicial ${normalizeHumor(values.humor).toLowerCase()}.`);
   if (values.relato) parts.push(sent(clip(String(values.relato), 220)));
   const estado = [...list(values.afeto), ...list(values.aparencia)].slice(0, 4);
   if (estado.length) parts.push(`Observado: ${estado.join(', ').toLowerCase()}.`);

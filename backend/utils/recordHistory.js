@@ -32,7 +32,7 @@ const ready = ensureStatements([
 ], 'medical-record-history');
 
 const COALESCE_MS = 5 * 60 * 1000;
-const EVENTS = ['criado', 'editado', 'aprovado', 'restaurado', 'ia', 'inicial'];
+const EVENTS = ['criado', 'editado', 'aprovado', 'restaurado', 'ia', 'inicial', 'reavaliacao'];
 const SIMPLE_KEYS = [
   ['title', 'Título'], ['status', 'Status'], ['tags', 'Marcadores'], ['created_at', 'Data da sessão'],
   ['start_time', 'Início'], ['end_time', 'Fim'], ['appointment_type', 'Formato'], ['appointment_id', 'Agendamento vinculado'],
@@ -139,6 +139,7 @@ function summarize(event, changes, extra) {
   const rest = labels.length > 4 ? ` e mais ${labels.length - 4}` : '';
   const body = labels.length ? `Alterou: ${head}${rest}` : 'Sem alteração de campos';
   if (event === 'restaurado') return `${extra || 'Restaurado de versão anterior'}. ${body}`.slice(0, 500);
+  if (event === 'reavaliacao') return `Reavaliação${extra ? ` — ${extra}` : ''}. ${body}`.slice(0, 500);
   if (event === 'ia') return `IA aplicada. ${body}`.slice(0, 500);
   return body.slice(0, 500);
 }

@@ -35,6 +35,8 @@ import { SessionDataTab, localDateStr, localTimeStr, fmtIsoDate, diffMinutes, mi
 import { AiFillPanel } from '../components/Records/AiFillPanel';
 import { SourcesDialog, type SourceGroupId } from '../components/Records/SourcesDialog';
 import { HistoryPanel, type HistorySnapshot } from '../components/Records/HistoryPanel';
+import { AnamnesisLivePanel, PlanLivePanel, FaltaForm, OcorrenciaSelect, SessionsAlerts } from '../components/Records/LiveRecordPanels';
+import { dayOfStamp, localToday, fmtDay as fmtDayStr, faltaPending, ocorrenciaOf, isAbsenceOc, isFaltaOc } from '../components/Records/liveRecords';
 import { PendingCard, type PreviousSession } from '../components/Records/PendingCard';
 import { StructuredReadView } from '../components/Records/StructuredReadView';
 import { SessionTimeline } from '../components/Records/SessionTimeline';
@@ -390,7 +392,8 @@ const RecordTypeSelector: React.FC<{
   onSelect: (type: string) => void;
   onClose: () => void;
   patientName?: string;
-}> = ({ onSelect, onClose, patientName }) => (
+  existing?: Record<string, string>;
+}> = ({ onSelect, onClose, patientName, existing = {} }) => (
   <Modal isOpen onClose={onClose} title="Novo Registro Clínico" subtitle={patientName} size="2xl">
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {TYPE_DEFINITIONS.map(t => {
@@ -405,8 +408,8 @@ const RecordTypeSelector: React.FC<{
             <TypeIcon size={16} />
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-[13px] text-slate-800">{t.label}</p>
-            <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">{t.description}</p>
+            <p className="font-medium text-[13px] text-slate-800">{existing[t.key] || t.label}</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">{existing[t.key] ? 'Já existe para este paciente: abre o registro atual para atualizar (sem criar outro).' : t.description}</p>
           </div>
         </button>
         );
@@ -1428,13 +1431,19 @@ const RecordEditor: React.FC<{
   planRecordId?: string;
   nextSessionNumber?: number;
   patientRecords?: MedicalRecord[];
-}> = ({ record, mode, patients, selectedPatientId, onSave, onClose, onExport, anamnesisSends, planRecordId, nextSessionNumber, patientRecords = [] }) => {
+  onExists?: (id: string) => void;
+}> = ({ record, mode, patients, selectedPatientId, onSave, onClose, onExport, anamnesisSends, planRecordId, nextSessionNumber, patientRecords = [], onExists }) => {
   const { pushToast } = useToast();
   const { user: authUser, hasPermission } = useAuth();
   const canUseAi = hasPermission('access_ai_features');
   const initialStructured = useMemo(() => parseStructured(record?.ai_organized_content), []); // eslint-disable-line react-hooks/exhaustive-deps
   // Id do registro em edição: nasce no primeiro salvamento (rascunho automático) e evita duplicar registros novos.
   const recordIdRef = useRef<string | null>(record?.id ? String(record.id) : null);
+  // Reavaliação: reabre a MESMA avaliação (data de hoje) e grava uma versão 'reavaliacao' no histórico ao salvar.
+  const reassess = !!(record as any)?.__reassess;
+  const [reassessNote, setReassessNote] = useState('');
+  const [existsInfo, setExistsInfo] = useState<{ id?: string; message: string } | null>(null);
+  const [showClinical, setShowClinical] = useState(false);
   const [step, setStep] = useState<'draft' | 'ai_result' | 'approve'>(
     record?.ai_organized_content && !initialStructured ? 'ai_result' : 'draft'
   );
@@ -1453,7 +1462,7 @@ const RecordEditor: React.FC<{
   const [modalidade, setModalidade] = useState<string>(
     initialStructured?.meta?.modalidade || (['online', 'presencial'].includes(legacyAppointmentType) ? legacyAppointmentType : 'presencial')
   );
-  const [sessionDate, setSessionDate] = useState(recordDay(record) || localDateStr(new Date()));
+  const [sessionDate, setSessionDate] = useState(reassess ? localDateStr(new Date()) : (recordDay(record) || localDateStr(new Date())));
   const [startTime, setStartTime] = useState(hhmm(record?.start_time) || (mode === 'new' ? localTimeStr(new Date()) : ''));
   const initialDuration: number | null = initialStructured?.meta?.duracao_min
     ?? diffMinutes(hhmm(record?.start_time), hhmm(record?.end_time))
@@ -1465,7 +1474,7 @@ const RecordEditor: React.FC<{
     return mode === 'new' && s !== null && initialDuration ? minToTime(s + initialDuration) : '';
   });
   const [appointmentId, setAppointmentId] = useState<string>(String((record as any)?.appointment_id || initialStructured?.meta?.agendamento_id || ''));
-  const [status, setStatus] = useState(record?.status || 'Rascunho');
+  const [status, setStatus] = useState(reassess ? 'Rascunho' : (record?.status || 'Rascunho'));
   const [tags, setTags] = useState<string[]>(Array.isArray(record?.tags) ? (record!.tags as string[]) : []);
   const locked = status === 'Aprovado' || status === 'Finalizado';
   const [attachments, setAttachments] = useState<any[]>(record?.attachments || []);
@@ -1479,7 +1488,7 @@ const RecordEditor: React.FC<{
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   // Histórico: evento da próxima gravação (IA aplicada / restaurado), restauração pendente e dados de autoria.
-  const historyEventRef = useRef<'ia' | 'restaurado' | null>(null);
+  const historyEventRef = useRef<'ia' | 'restaurado' | 'reavaliacao' | null>(reassess ? 'reavaliacao' : null);
   const restoredFromRef = useRef<number | null>(null);
   const [restorePending, setRestorePending] = useState<number | null>(null);
   const [historyTick, setHistoryTick] = useState(0);
@@ -1537,6 +1546,8 @@ const RecordEditor: React.FC<{
   });
   const sValuesRef = useRef(sValues);
   sValuesRef.current = sValues;
+  const ocorrencia = String(sValues.ocorrencia || 'Sessão realizada');
+  const absent = isEvolucao && isAbsenceOc(ocorrencia);
   const [aiFields, setAiFields] = useState<string[]>(initialStructured?.ai_fields || []);
   const [aiSources, setAiSources] = useState<Record<string, string[]>>(initialStructured?.ai_sources || {});
   const [sessionNumber, setSessionNumber] = useState<string>(
@@ -1688,7 +1699,8 @@ const RecordEditor: React.FC<{
   }, [isStructured, planRecordId]);
 
   const [editorSection, setEditorSection] = useState<EditorSection>(
-    isStructured && (mode === 'edit' || !!patientId) ? 'estrutura' : (mode === 'new' ? 'dados' : 'conteudo')
+    ((record as any)?.__section as EditorSection | undefined)
+    || (isStructured && (mode === 'edit' || !!patientId) ? 'estrutura' : (mode === 'new' ? 'dados' : 'conteudo'))
   );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1776,7 +1788,12 @@ const RecordEditor: React.FC<{
         base._estruturado = {
           v: 1, kind: recordType, template: specialty, values, updated_at: new Date().toISOString(),
           resumo: recordType === 'Evolucao' ? buildResumo(values) : undefined,
-          meta: { duracao_min: dur > 0 ? dur : undefined, modalidade, agendamento_id: appointmentId || undefined },
+          meta: {
+            duracao_min: dur > 0 ? dur : undefined, modalidade, agendamento_id: appointmentId || undefined,
+            proxima_reavaliacao: recordType === 'Avaliacao' && !reassess ? (initialStructured?.meta as any)?.proxima_reavaliacao : undefined,
+            ocorrencia: recordType === 'Evolucao' && isAbsenceOc(String(values.ocorrencia || '')) ? String(values.ocorrencia) : undefined,
+            falta_pendente: recordType === 'Evolucao' && isFaltaOc(String(values.ocorrencia || '')) && !String(values.falta_motivo || '').trim() ? true : undefined,
+          },
           ai_fields: aiFields.length ? aiFields : undefined,
           ai_sources: aiFields.length ? Object.fromEntries(aiFields.filter(k => aiSources[k]?.length).map(k => [k, aiSources[k]])) : undefined,
         };
@@ -1785,6 +1802,12 @@ const RecordEditor: React.FC<{
       aiContent = keys.length ? JSON.stringify(base) : null;
       const joined = keys.filter(k => k !== '_estruturado').map(k => base[k]).join('\n\n');
       content = keys.length ? (joined || draft) : draft;
+      if (recordType === 'Evolucao' && isAbsenceOc(String(sValues.ocorrencia || ''))) {
+        const oc = String(sValues.ocorrencia);
+        const motivo = String(sValues.falta_motivo || '').trim();
+        const head = isFaltaOc(oc) ? `${oc}${motivo ? ` — motivo: ${motivo}` : ' — motivo pendente'}` : oc;
+        content = [head, String(sValues.falta_motivo_texto || '').trim(), String(sValues.falta_obs || '').trim(), content].filter(Boolean).join('\n\n');
+      }
     }
     return {
       patient_id: patientId,
@@ -1812,11 +1835,20 @@ const RecordEditor: React.FC<{
       autosave: !!opts.autosave,
       history_event: historyEventRef.current || undefined,
       restored_from: restoredFromRef.current || undefined,
+      history_note: historyEventRef.current === 'reavaliacao' && reassessNote.trim() ? reassessNote.trim() : undefined,
     };
-    if (recordIdRef.current) { await api.put(`/medical-records/${recordIdRef.current}`, body); }
-    else {
-      const created = await api.post<any>('/medical-records', body);
-      if (created?.id) recordIdRef.current = String(created.id);
+    try {
+      if (recordIdRef.current) { await api.put(`/medical-records/${recordIdRef.current}`, body); }
+      else {
+        const created = await api.post<any>('/medical-records', body);
+        if (created?.id) recordIdRef.current = String(created.id);
+      }
+    } catch (e: any) {
+      // Registro vivo: já existe um registro único/da mesma data — oferece abrir o atual (sem perder o que foi digitado).
+      if (e?.status === 409 && e?.data?.code === 'RECORD_EXISTS' && !opts.autosave) {
+        setExistsInfo({ id: e.data.existing_id ? String(e.data.existing_id) : undefined, message: e.data.error || e.message });
+      }
+      throw e;
     }
     historyEventRef.current = null;
     restoredFromRef.current = null;
@@ -1881,6 +1913,7 @@ const RecordEditor: React.FC<{
       ? (theraPlan.summary || theraPlan.approach || theraPlan.goals?.length)
       : (draft.trim() || privateNotes.trim() || (isStructured && hasAnyValue(sValues)));
     const isApproved = status === 'Aprovado';
+    if (reassess && currentSig === lastSigRef.current) { if (recordIdRef.current) onSave(); onClose(); return; }
     if (restorePending) { if (recordIdRef.current) onSave(); onClose(); return; }
     if (!patientId || !hasContent || isApproved) {
       if (recordIdRef.current) onSave();
@@ -1899,6 +1932,11 @@ const RecordEditor: React.FC<{
   // Validação leve antes de aprovar: data, relato ou ao menos uma seção; avisa se o risco não foi avaliado.
   const requestApprove = () => {
     if (!sessionDate) { setEditorSection('dados'); pushToast('error', 'Informe a data da sessão antes de aprovar.'); return; }
+    if (absent) {
+      if (isFaltaOc(ocorrencia) && !String(sValues.falta_motivo || '').trim()) { setEditorSection('estrutura'); pushToast('error', 'Preencha o motivo da falta antes de aprovar.'); return; }
+      setShowApproveModal(true);
+      return;
+    }
     if (isStructured) {
       const anySection = sections.some(s => sectionStatus(s, sValues) !== 'empty');
       if (!hasValue(sValues.relato) && !anySection && !draft.trim()) {
@@ -2103,7 +2141,7 @@ const RecordEditor: React.FC<{
     .map(t => ({
       ...t,
       label: t.id === 'estrutura'
-        ? (recordType === 'Avaliacao' ? 'Avaliação clínica' : 'Evolução da sessão')
+        ? (recordType === 'Avaliacao' ? 'Avaliação clínica' : absent ? (isFaltaOc(ocorrencia) ? 'Falta' : 'Ocorrência') : 'Evolução da sessão')
         : t.id === 'rascunho' ? (isPlano ? 'Plano' : isAnamnese ? 'Coleta remota' : isStructured ? 'Texto livre / IA' : 'Rascunho') : t.label,
       disabled: t.id === 'revisao' && !organized,
     }));
@@ -2120,7 +2158,7 @@ const RecordEditor: React.FC<{
     : isAnamnese
       ? (mode === 'new' ? 'Nova Anamnese' : 'Editar Anamnese')
       : recordType === 'Avaliacao'
-        ? (mode === 'new' ? 'Nova Avaliação Clínica' : 'Editar Avaliação')
+        ? (reassess ? 'Reavaliação Clínica' : mode === 'new' ? 'Nova Avaliação Clínica' : 'Editar Avaliação')
         : (mode === 'new' ? 'Nova Evolução Clínica' : 'Editar Registro');
 
   return (
@@ -2230,6 +2268,22 @@ const RecordEditor: React.FC<{
                 Este registro foi criado no modelo anterior. O conteúdo original está em <strong>Texto livre / IA</strong> e continua sendo salvo; preencha as seções abaixo para estruturá-lo.
               </Alert>
             )}
+            {reassess && (
+              <ContentCard padding="md" className="space-y-2">
+                <Alert variant="info">Você está reavaliando a avaliação existente: ao salvar, a versão anterior fica no histórico e a data de referência passa a ser {fmtDayStr(sessionDate)}. A próxima reavaliação é prevista para 6 meses depois.</Alert>
+                <Input label="Motivo da reavaliação (opcional)" value={reassessNote} onChange={e => setReassessNote(e.target.value)} />
+              </ContentCard>
+            )}
+            {isEvolucao && (
+              <ContentCard padding="md">
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <OcorrenciaSelect value={ocorrencia} onChange={v => handleStructuredChange('ocorrencia', v)} disabled={locked} />
+                  {absent && <Button variant="outline" size="sm" onClick={() => setShowClinical(v => !v)}>{showClinical ? 'Ocultar registro clínico' : 'Registro clínico da sessão (opcional)'}</Button>}
+                </div>
+              </ContentCard>
+            )}
+            {absent && <FaltaForm values={sValues} onChange={handleStructuredChange} disabled={locked} />}
+            {(!absent || showClinical) && (
             <StructuredForm
               key={`${recordType}-${specialty}`}
               sections={sections}
@@ -2260,6 +2314,7 @@ const RecordEditor: React.FC<{
                 </>
               ) : null)}
             />
+            )}
           </div>
         )}
 
@@ -2470,6 +2525,17 @@ const RecordEditor: React.FC<{
             )}
           </ContentCard>
         )}
+
+        <ConfirmModal
+          isOpen={!!existsInfo}
+          onClose={() => setExistsInfo(null)}
+          onConfirm={() => { const id = existsInfo?.id; setExistsInfo(null); if (id && onExists) { pushToast('info', 'Já existe — abrindo o registro atual.'); onExists(id); } }}
+          title="Já existe um registro"
+          message={`${existsInfo?.message || ''}${existsInfo?.id ? ' Se abrir o registro atual, o que foi digitado aqui e ainda não foi salvo não será aplicado.' : ''}`}
+          confirmLabel={existsInfo?.id ? 'Abrir registro atual' : 'Entendi'}
+          cancelLabel="Continuar editando"
+          variant="primary"
+        />
 
         {/* Histórico de alterações */}
         {editorSection === 'historico' && (
@@ -3159,6 +3225,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [anamnesisSends, setAnamnesisSends] = useState<any[]>([]);
   const [cancelAnamnesisModal, setCancelAnamnesisModal] = useState<{ sendId: number; patientName: string } | null>(null);
   const sessionHandoffOpenedRef = useRef(false);
+  const [pendingSessions, setPendingSessions] = useState<{ sessions: any[]; absences: any[] }>({ sessions: [], absences: [] });
+  const [backfillConfirm, setBackfillConfirm] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
 
   useEffect(() => {
     fetchAll(); 
@@ -3192,16 +3261,31 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     } catch {}
     setSelectedPatientId(patientId);
     setView('patient');
-    setCurrentRecord({
-      patient_id: patientId,
-      record_type: 'Evolucao',
-      title: `Evolução de sessão — ${new Date().toLocaleDateString('pt-BR')}`,
-      draft_content: draft,
-      status: 'Rascunho',
-    });
-    setEditorMode('new');
-    setEditorOpen(true);
     setSearchParams({ patient_id: patientId }, { replace: true });
+    (async () => {
+      // Uma evolução por data: se já existe a de hoje, abre a existente e acrescenta a transcrição ao rascunho.
+      try {
+        const list = await api.get<any[]>('/medical-records', { patient_id: patientId, record_type: 'Evolucao' });
+        const ex = (list || []).find(r => dayOfStamp(r.created_at) === localToday());
+        if (ex) {
+          const full = await api.get<MedicalRecord>(`/medical-records/${ex.id}`);
+          pushToast('info', 'Já existe uma evolução de hoje — abrindo o registro atual para atualizar.');
+          setCurrentRecord({ ...full, id: String(full.id), tags: full.tags || [], draft_content: draft ? [strip(full.draft_content || ''), draft].filter(Boolean).join('\n\n') : full.draft_content });
+          setEditorMode('edit');
+          setEditorOpen(true);
+          return;
+        }
+      } catch { /* segue para nova evolução; o servidor também impede duplicidade */ }
+      setCurrentRecord({
+        patient_id: patientId,
+        record_type: 'Evolucao',
+        title: `Evolução — ${new Date().toLocaleDateString('pt-BR')}`,
+        draft_content: draft,
+        status: 'Rascunho',
+      });
+      setEditorMode('new');
+      setEditorOpen(true);
+    })();
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
@@ -3281,6 +3365,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         patient_id: String(r.patient_id),
         tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [] 
       })));
+      api.get<any>('/medical-records/pending-sessions', { patient_id: pid }).then(r => setPendingSessions({ sessions: r?.sessions || [], absences: r?.absences || [] })).catch(() => {});
       // Carrega envios de anamnese para mostrar status/botão correto
       api.get<any[]>('/anamnesis-send', { patient_id: pid })
         .then(sends => setAnamnesisSends(sends || []))
@@ -3378,49 +3463,128 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     setTypeSelectorOpen(true);
   };
 
-  const handleSelectType = async (type: string) => {
-    const today = new Date().toLocaleDateString('pt-BR');
+  /* Registro vivo por paciente: Anamnese/Avaliação/Plano únicos; Evolução uma por data de consulta. */
+  const liveCurrent = (t: string) => patientRecords.find(r => r.record_type === t) || null;
+  const liveOlder = (t: string) => patientRecords.filter(r => r.record_type === t).slice(1);
+  const evoOnDay = (day: string) => patientRecords.find(r => r.record_type === 'Evolucao' && dayOfStamp(r.created_at) === day) || null;
+  const pendingMotiveCount = patientRecords.filter(r => r.record_type === 'Evolucao' && faltaPending(r.ai_organized_content)).length;
+  const sessionsWithout = pendingSessions.sessions.filter(x => !evoOnDay(x.day));
+  const absencesWithout = pendingSessions.absences.filter(x => !evoOnDay(x.day));
+  const tabActionLabel = activeTab === 'sessions'
+    ? (evoOnDay(localToday()) ? 'Atualizar evolução de hoje' : 'Nova evolução')
+    : activeTab === 'assessment' ? (liveCurrent('Avaliacao') ? 'Reavaliar' : 'Criar avaliação')
+    : activeTab === 'plan' ? (liveCurrent('Plano') ? 'Abrir plano' : 'Criar plano terapêutico')
+    : (liveCurrent('Anamnese') ? 'Abrir anamnese' : 'Nova anamnese');
+  const runTabAction = () => handleSelectType(TAB_RECORD_TYPE[activeTab], { reassess: activeTab === 'assessment' });
+  // 409 RECORD_EXISTS do servidor: informa e abre o registro existente.
+  const handleExists = async (e: any): Promise<boolean> => {
+    if (e?.status === 409 && e?.data?.code === 'RECORD_EXISTS') {
+      if (e.data.existing_id) { pushToast('info', 'Já existe — abrindo o registro atual.'); await openEdit(String(e.data.existing_id)); }
+      else pushToast('info', e.data.error || 'Já existe um registro deste tipo para o paciente.');
+      return true;
+    }
+    return false;
+  };
+
+  const createAnamnesisDraftAndSend = async () => {
     const pat = patients.find((p: Patient) => String(p.id) === String(selectedPatientId));
-    const titleMap: Record<string, string> = {
-      Evolucao: `Evolução — ${today}`,
-      Anamnese: pat ? `Anamnese — ${pat.full_name}` : `Anamnese — ${today}`,
-      Avaliacao: `Avaliação — ${today}`,
-      Plano: pat ? `Plano Terapêutico — ${pat.full_name}` : `Plano Terapêutico — ${today}`,
-    };
+    if (!pat) { pushToast('error', 'Selecione o paciente para enviar a anamnese.'); return; }
+    const existing = liveCurrent('Anamnese');
+    if (existing) { setSendAnamnesisModal({ record: existing as MedicalRecord, patient: pat }); return; }
+    try {
+      const created: any = await api.post('/medical-records', {
+        patient_id: pat.id, title: `Anamnese — ${pat.full_name}`, record_type: 'Anamnese', status: 'Rascunho',
+        created_at: new Date().toISOString().slice(0, 10), tags: [], draft_content: '', content: '', attachments: [],
+      });
+      const rec = { ...(created?.record || created), patient_id: String(pat.id) } as MedicalRecord;
+      if (!rec.id) { pushToast('error', 'Não foi possível iniciar a anamnese.'); return; }
+      freshAnamnesisIds.current.add(String(rec.id));
+      setRecords(prev => prev.some(r => String(r.id) === String(rec.id)) ? prev : [rec, ...prev]);
+      setSendAnamnesisModal({ record: rec, patient: pat });
+    } catch (e: any) {
+      if (e?.status === 409 && e?.data?.existing_id) {
+        pushToast('info', 'Já existe — usando a anamnese atual do paciente.');
+        if (selectedPatientId) await fetchRecords(selectedPatientId);
+        try { const full = await api.get<MedicalRecord>(`/medical-records/${e.data.existing_id}`); setSendAnamnesisModal({ record: { ...full, id: String(full.id), patient_id: String(full.patient_id) }, patient: pat }); } catch { /* ignora */ }
+        return;
+      }
+      if (await handleExists(e)) return;
+      pushToast('error', e?.message || 'Erro ao iniciar anamnese.');
+    }
+  };
+
+  const handleSelectType = async (type: string, opts: { reassess?: boolean; day?: string; appointment?: { id: number | string; start_hm?: string; end_hm?: string } } = {}) => {
+    const pat = patients.find((p: Patient) => String(p.id) === String(selectedPatientId));
     setTypeSelectorOpen(false);
 
     if (type === 'Relatorio' && pat) { setRelatorioModal(pat); return; }
     if (type === 'Encaminhamento' && pat) { setEncaminhamentoModal(pat); return; }
     if (type === 'Atestado' && pat) { setAtestadoModal(pat); return; }
-    if (type === 'Anamnese') {
-      // Anamnese nova: cria o registro-rascunho e abre direto o envio ao paciente (sem editor em página).
-      if (!pat) { pushToast('error', 'Selecione o paciente para enviar a anamnese.'); return; }
-      try {
-        const created: any = await api.post('/medical-records', {
-          patient_id: pat.id, title: titleMap.Anamnese, record_type: 'Anamnese', status: 'Rascunho',
-          created_at: new Date().toISOString().slice(0, 10), tags: [], draft_content: '', content: '', attachments: [],
-        });
-        const rec = { ...(created?.record || created), patient_id: String(pat.id) } as MedicalRecord;
-        if (!rec.id) { pushToast('error', 'Não foi possível iniciar a anamnese.'); return; }
-        freshAnamnesisIds.current.add(String(rec.id));
-        setRecords(prev => prev.some(r => String(r.id) === String(rec.id)) ? prev : [rec, ...prev]);
-        setSendAnamnesisModal({ record: rec, patient: pat });
-      } catch (e: any) { pushToast('error', e?.response?.data?.error || 'Erro ao iniciar anamnese.'); }
+
+    // Registros únicos: abre o existente em vez de criar outro.
+    if (type === 'Anamnese' || type === 'Avaliacao' || type === 'Plano') {
+      const existing = liveCurrent(type);
+      if (existing) { await openEdit(existing.id, { reassess: type === 'Avaliacao' && !!opts.reassess }); return; }
+    }
+    const today = new Date().toLocaleDateString('pt-BR');
+    const titleMap: Record<string, string> = {
+      Anamnese: pat ? `Anamnese — ${pat.full_name}` : `Anamnese — ${today}`,
+      Avaliacao: `Avaliação — ${today}`,
+      Plano: pat ? `Plano Terapêutico — ${pat.full_name}` : `Plano Terapêutico — ${today}`,
+    };
+    if (type === 'Evolucao') {
+      const day = opts.day || localToday();
+      const existing = evoOnDay(day);
+      if (existing) {
+        pushToast('info', `Já existe uma evolução em ${fmtDayStr(day)} — abrindo para atualizar.`);
+        await openEdit(existing.id);
+        return;
+      }
+      setCurrentRecord({
+        patient_id: selectedPatientId || '', record_type: 'Evolucao', title: `Evolução — ${fmtDayStr(day)}`,
+        created_at: `${day}T12:00:00`,
+        ...(opts.appointment ? { appointment_id: String(opts.appointment.id), start_time: opts.appointment.start_hm, end_time: opts.appointment.end_hm } : {}),
+      } as any);
+      setEditorMode('new');
+      setEditorOpen(true);
       return;
     }
-
     setCurrentRecord({ patient_id: selectedPatientId || '', record_type: type, title: titleMap[type] || `Registro — ${today}` });
     setEditorMode('new');
     setEditorOpen(true);
   };
 
-  const openEdit = async (id: string) => {
+  const openEdit = async (id: string, extra: { reassess?: boolean; section?: string } = {}) => {
     try {
       const data = await api.get<MedicalRecord>(`/medical-records/${id}`);
-      setCurrentRecord({ ...data, id: String(data.id), tags: data.tags || [] });
+      setCurrentRecord({ ...data, id: String(data.id), tags: data.tags || [], ...(extra.reassess ? { __reassess: true } : {}), ...(extra.section ? { __section: extra.section } : {}) } as any);
       setEditorMode('edit');
       setEditorOpen(true);
     } catch (e) { pushToast('error', 'Erro ao carregar registro'); }
+  };
+
+  const runBackfill = async () => {
+    if (!selectedPatientId) return;
+    setBackfilling(true);
+    try {
+      const r = await api.post<any>('/medical-records/absences/backfill', { patient_id: selectedPatientId });
+      pushToast('success', r?.created ? `${r.created} registro(s) de falta gerado(s).` : 'Nenhum registro novo foi necessário.');
+      await fetchRecords(selectedPatientId);
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao gerar registros das faltas'); }
+    finally { setBackfilling(false); setBackfillConfirm(false); }
+  };
+
+  const saveReassessDue = async (id: string, due: string) => {
+    try {
+      const full = await api.get<any>(`/medical-records/${id}`);
+      let o: any = {};
+      try { o = JSON.parse(full.ai_organized_content || '{}') || {}; } catch { o = {}; }
+      if (o._estruturado) o._estruturado.meta = { ...(o._estruturado.meta || {}), proxima_reavaliacao: due };
+      else o._proxima_reavaliacao = due;
+      await api.put(`/medical-records/${id}`, { ai_organized_content: JSON.stringify(o) });
+      pushToast('success', 'Próxima reavaliação atualizada.');
+      if (selectedPatientId) await fetchRecords(selectedPatientId);
+    } catch (e: any) { pushToast('error', e?.message || 'Erro ao atualizar a data'); throw e; }
   };
 
   // Reúne o que não vem na lista de registros: ficha cadastral, perfil/clínica, humor por sessão, instrumentos aplicados,
@@ -3569,6 +3733,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   if (editorOpen) {
     return (
       <RecordEditor
+        key={String(currentRecord?.id ?? 'new')}
+        onExists={(id) => { setEditorOpen(false); openEdit(id); }}
         record={currentRecord} mode={editorMode}
         patients={patients} selectedPatientId={selectedPatientId}
         onSave={() => selectedPatientId && fetchRecords(selectedPatientId)}
@@ -3635,8 +3801,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           <div className="flex items-center gap-2">
             <FilterLineSearch value={historySearch} onChange={setHistorySearch} placeholder="Buscar nas evoluções e notas..." className="w-full sm:max-w-[280px]" />
             {TAB_RECORD_TYPE[activeTab] && (
-              <Button className="hidden sm:inline-flex" variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => handleSelectType(TAB_RECORD_TYPE[activeTab])}>
-                {activeTab === 'sessions' ? 'Nova evolução' : activeTab === 'assessment' ? 'Nova avaliação' : activeTab === 'plan' ? 'Novo plano' : 'Nova anamnese'}
+              <Button className="hidden sm:inline-flex" variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={runTabAction}>
+                {tabActionLabel}
               </Button>
             )}
           </div>
@@ -3661,8 +3827,8 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
             </>
           )}
           {TAB_RECORD_TYPE[activeTab] && (
-            <Button className="w-full sm:hidden" variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={() => handleSelectType(TAB_RECORD_TYPE[activeTab])}>
-              {activeTab === 'sessions' ? 'Nova evolução' : activeTab === 'assessment' ? 'Nova avaliação' : activeTab === 'plan' ? 'Novo plano' : 'Nova anamnese'}
+            <Button className="w-full sm:hidden" variant="primary" size="sm" iconLeft={<Plus size={14}/>} onClick={runTabAction}>
+              {tabActionLabel}
             </Button>
           )}
         </div>
@@ -3896,13 +4062,24 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           {/* Sessoes e evolucao: linha do tempo */}
           {activeTab === 'sessions' && (
             <div className="animate-fadeIn">
-              <SessionTimeline
-                records={tabRecords as any}
-                emptyFiltered={patientRecords.some(r => r.record_type === 'Evolucao')}
-                onOpen={(r) => openViewer(r)}
-                onNew={() => handleSelectType('Evolucao')}
-                renderActions={(r) => renderRecordActions(r)}
-              />
+              <div className="space-y-3">
+                <SessionsAlerts
+                  pendingMotive={pendingMotiveCount}
+                  sessionsWithout={sessionsWithout}
+                  absencesWithout={absencesWithout.length}
+                  backfilling={backfilling}
+                  onRegister={(x) => handleSelectType('Evolucao', { day: x.day, appointment: x })}
+                  onBackfill={() => setBackfillConfirm(true)}
+                />
+                <SessionTimeline
+                  records={tabRecords as any}
+                  emptyFiltered={patientRecords.some(r => r.record_type === 'Evolucao')}
+                  onOpen={(r) => openViewer(r)}
+                  onNew={() => handleSelectType('Evolucao')}
+                  renderActions={(r) => renderRecordActions(r)}
+                  onFillMotive={(r) => openEdit(r.id, { section: 'estrutura' })}
+                />
+              </div>
             </div>
           )}
 
@@ -3910,24 +4087,49 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
           {activeTab === 'assessment' && (
             <div className="animate-fadeIn">
               <AssessmentPanel
-                records={tabRecords as any}
+                records={patientRecords.filter(r => r.record_type === 'Avaliacao') as any}
                 fetchFull={async (id) => { try { return await api.get<any>(`/medical-records/${id}`); } catch { return null; } }}
                 onNew={() => handleSelectType('Avaliacao')}
                 onEdit={(id) => openEdit(id)}
-                onNewVersion={(base) => {
-                  const today = new Date().toLocaleDateString('pt-BR');
-                  const n = patientRecords.filter(r => r.record_type === 'Avaliacao').length + 1;
-                  setCurrentRecord({ patient_id: selectedPatientId || '', record_type: 'Avaliacao', title: `Avaliação — ${today} (v${n})`, ai_organized_content: base.ai_organized_content });
-                  setEditorMode('new');
-                  setEditorOpen(true);
-                }}
+                onReassess={(id) => openEdit(id, { reassess: true })}
+                onSaveDue={saveReassessDue}
+                onOpenOlder={(id) => openEdit(id)}
                 extraActions={(r) => renderRecordActions(r, {})}
               />
             </div>
           )}
 
           {/* Registros / Anamnese / Plano terapeutico: lista */}
-          {(activeTab === 'history' || activeTab === 'anamnesis' || activeTab === 'plan') && (
+          {activeTab === 'anamnesis' && (
+            <div className="animate-fadeIn">
+              <AnamnesisLivePanel
+                current={liveCurrent('Anamnese') as any}
+                older={liveOlder('Anamnese') as any}
+                sends={anamnesisSends}
+                onUpdate={(id) => openEdit(id)}
+                onHistory={(id) => openEdit(id, { section: 'historico' })}
+                onSend={(r) => selectedPatient && setSendAnamnesisModal({ record: r as any, patient: selectedPatient })}
+                onFillNow={() => handleSelectType('Anamnese')}
+                onStartSend={createAnamnesisDraftAndSend}
+                onViewResponses={(sendId) => setAnamnesisResponseModal({ sendId, patientName: selectedPatient?.full_name || '' })}
+                onOpenOlder={(id) => openEdit(id)}
+                extraActions={(r) => renderRecordActions(r, {})}
+              />
+            </div>
+          )}
+          {activeTab === 'plan' && (
+            <div className="animate-fadeIn">
+              <PlanLivePanel
+                current={liveCurrent('Plano') as any}
+                older={liveOlder('Plano') as any}
+                onOpen={(id) => openEdit(id)}
+                onHistory={(id) => openEdit(id, { section: 'historico' })}
+                onCreate={() => handleSelectType('Plano')}
+                extraActions={(r) => renderRecordActions(r, {})}
+              />
+            </div>
+          )}
+          {activeTab === 'history' && (
             <div className="animate-fadeIn">
               {activeTab !== 'history' && tabRecords.length === 0 && !historySearch.trim() ? (
                 <EmptyState
@@ -4361,10 +4563,27 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       />
       )}
 
+      <ConfirmModal
+        isOpen={backfillConfirm}
+        onClose={() => setBackfillConfirm(false)}
+        onConfirm={runBackfill}
+        title="Gerar registros das faltas pendentes"
+        message={`Serão criadas ${absencesWithout.length} evolução(ões) de falta (uma por data, em rascunho, com motivo pendente) para agendamentos passados sem evolução na data. Nada existente será alterado ou apagado.`}
+        confirmLabel="Gerar registros"
+        variant="primary"
+        loading={backfilling}
+      />
+
       {/* Type Selector */}
       {typeSelectorOpen && (
         <RecordTypeSelector
-          onSelect={handleSelectType}
+          onSelect={(t) => handleSelectType(t)}
+          existing={{
+            Anamnese: liveCurrent('Anamnese') ? 'Abrir anamnese' : '',
+            Avaliacao: liveCurrent('Avaliacao') ? 'Atualizar avaliação' : '',
+            Plano: liveCurrent('Plano') ? 'Abrir plano' : '',
+            Evolucao: evoOnDay(localToday()) ? 'Atualizar evolução de hoje' : '',
+          }}
           onClose={() => setTypeSelectorOpen(false)}
           patientName={patients.find((p: Patient) => String(p.id) === String(selectedPatientId))?.full_name}
         />

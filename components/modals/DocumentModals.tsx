@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Modal, ModalFooter, Button, Input, Select, Textarea, FormRow, Tabs } from '../UI';
 import { api } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
-import { Save, ArrowRight, ClipboardCheck, ClipboardList, FileText, FileSignature, Send } from 'lucide-react';
+import { Save, ArrowRight, ClipboardCheck, ClipboardList, FileText, FileSignature, Send, Download } from 'lucide-react';
+import { downloadModalPdf, sectionBlocks, type ModalPdfSpec } from '../Documents/modalPdf';
+import { textToBlocks } from '../Documents/htmlToBlocks';
 
 interface Patient {
   id: string;
@@ -60,6 +62,22 @@ const docTabs = [
   { id: 'conteudo', label: 'Conteúdo', icon: FileText },
 ] as const;
 type DocTabId = typeof docTabs[number]['id'];
+
+/** Baixar PDF (mesma estrutura do prontuário: cabeçalho/rodapé institucionais, título, identificação, assinatura). */
+const usePdfDownload = () => {
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const { pushToast } = useToast();
+  const run = async (spec: ModalPdfSpec) => {
+    if (pdfLoading) return;
+    setPdfLoading(true);
+    try { await downloadModalPdf(spec); }
+    catch { pushToast('error', 'Erro ao gerar o PDF', 'Tente novamente.'); }
+    finally { setPdfLoading(false); }
+  };
+  return { pdfLoading, run };
+};
+
+const ptDate = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR');
 
 /* ════════════════════════════════════════════════════
    RELATÓRIO
@@ -121,9 +139,24 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
   };
 
   const [tab, setTab] = useState<DocTabId>('dados');
+  const { pdfLoading, run: runPdf } = usePdfDownload();
   const trySave = () => {
     if (!form.conteudo.trim()) { setTab('conteudo'); pushToast('warning', 'Preencha o conteúdo', 'O conteúdo do relatório é obrigatório.'); return; }
     save();
+  };
+  const tryPdf = () => {
+    if (!form.conteudo.trim()) { setTab('conteudo'); pushToast('warning', 'Preencha o conteúdo', 'O conteúdo do relatório é obrigatório.'); return; }
+    runPdf({
+      title: form.tipo, docType: 'laudo', patient, date: form.data_emissao, professional,
+      identification: [
+        { label: 'Paciente', value: patient.full_name, full: !patient.cpf },
+        ...(patient.cpf ? [{ label: 'CPF', value: patient.cpf }] : []),
+        ...(form.destinatario ? [{ label: 'Destinatário', value: form.destinatario, full: true }] : []),
+        { label: 'Finalidade', value: form.finalidade },
+        ...(form.cid ? [{ label: 'CID-10', value: form.cid }] : []),
+      ],
+      blocks: [...textToBlocks(form.conteudo), ...sectionBlocks('Conclusão', form.conclusao)],
+    });
   };
 
   return (
@@ -136,9 +169,14 @@ export const RelatorioModal: React.FC<DocModalProps> = ({ patient, professional,
       footer={
         <ModalFooter align="between">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button onClick={trySave} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<Save size={14} />}>
-            Salvar relatório
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button onClick={tryPdf} loading={pdfLoading} disabled={pdfLoading || saving} variant="outline" size="sm" iconLeft={<Download size={14} />}>
+              Baixar PDF
+            </Button>
+            <Button onClick={trySave} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<Save size={14} />}>
+              Salvar relatório
+            </Button>
+          </div>
         </ModalFooter>
       }
     >
@@ -252,9 +290,27 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
   };
 
   const [tab, setTab] = useState<DocTabId>('dados');
+  const { pdfLoading, run: runPdf } = usePdfDownload();
   const trySave = () => {
     if (!form.motivo.trim()) { setTab('conteudo'); pushToast('warning', 'Preencha o motivo', 'O motivo do encaminhamento é obrigatório.'); return; }
     save();
+  };
+  const tryPdf = () => {
+    if (!form.motivo.trim()) { setTab('conteudo'); pushToast('warning', 'Preencha o motivo', 'O motivo do encaminhamento é obrigatório.'); return; }
+    runPdf({
+      title: 'Encaminhamento', docType: 'encaminhamento', patient, date: form.data, professional,
+      identification: [
+        { label: 'Paciente', value: patient.full_name, full: !patient.cpf },
+        ...(patient.cpf ? [{ label: 'CPF', value: patient.cpf }] : []),
+        { label: 'Destino', value: [form.especialidade, form.profissional_instituicao].filter(Boolean).join(' - '), full: true },
+        { label: 'Urgência', value: form.urgencia },
+      ],
+      blocks: [
+        ...sectionBlocks('Motivo do encaminhamento', form.motivo),
+        ...sectionBlocks('Informações clínicas relevantes', form.informacoes_clinicas),
+        ...sectionBlocks('Recomendações', form.recomendacoes),
+      ],
+    });
   };
 
   return (
@@ -267,9 +323,14 @@ export const EncaminhamentoModal: React.FC<DocModalProps> = ({ patient, professi
       footer={
         <ModalFooter align="between">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button onClick={trySave} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<ArrowRight size={14} />}>
-            Registrar encaminhamento
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button onClick={tryPdf} loading={pdfLoading} disabled={pdfLoading || saving} variant="outline" size="sm" iconLeft={<Download size={14} />}>
+              Baixar PDF
+            </Button>
+            <Button onClick={trySave} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<ArrowRight size={14} />}>
+              Registrar encaminhamento
+            </Button>
+          </div>
         </ModalFooter>
       }
     >
@@ -347,6 +408,24 @@ export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, 
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
   const isAfastamento = form.tipo === 'Afastamento';
+  const { pdfLoading, run: runPdf } = usePdfDownload();
+  const tryPdf = () => {
+    const lines = [
+      `Atesto, para os devidos fins, que o(a) paciente ${patient.full_name}${patient.cpf ? `, CPF ${patient.cpf}` : ''}, esteve sob meus cuidados profissionais${form.tipo === 'Comparecimento' ? ', tendo comparecido ao atendimento na data de emissão deste documento' : ''}.`,
+      isAfastamento ? `Recomenda-se o afastamento de suas atividades no período de ${ptDate(form.afastamento_inicio)} a ${ptDate(form.afastamento_fim)}${form.dias_afastamento ? `, totalizando ${form.dias_afastamento} dia(s)` : ''}.` : '',
+      form.finalidade ? `Finalidade: ${form.finalidade}.` : '',
+      form.cid ? `CID-10: ${form.cid}.` : '',
+      form.observacoes ? `Observações: ${form.observacoes}` : '',
+    ].filter(Boolean).join('\n\n');
+    runPdf({
+      title: `Atestado de ${form.tipo}`, docType: 'atestado', patient, date: form.data_emissao, professional,
+      identification: [
+        { label: 'Paciente', value: patient.full_name, full: !patient.cpf },
+        ...(patient.cpf ? [{ label: 'CPF', value: patient.cpf }] : []),
+      ],
+      blocks: textToBlocks(lines),
+    });
+  };
 
   const save = async () => {
     setSaving(true);
@@ -409,9 +488,14 @@ export const AtestadoModal: React.FC<DocModalProps> = ({ patient, professional, 
       footer={
         <ModalFooter align="between">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button onClick={save} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<ClipboardCheck size={14} />}>
-            Emitir atestado
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button onClick={tryPdf} loading={pdfLoading} disabled={pdfLoading || saving} variant="outline" size="sm" iconLeft={<Download size={14} />}>
+              Baixar PDF
+            </Button>
+            <Button onClick={save} loading={saving} disabled={saving} variant="primary" size="sm" iconLeft={<ClipboardCheck size={14} />}>
+              Emitir atestado
+            </Button>
+          </div>
         </ModalFooter>
       }
     >

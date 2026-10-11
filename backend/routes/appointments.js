@@ -1101,6 +1101,9 @@ router.put('/:id/status', checkPermission('confirm_appointment'), async (req, re
     }
 
     res.json(updated[0]);
+
+    // Falta (no_show/falta_justificada) gera/marca a evolução da data (uma por data de consulta).
+    if (['no_show', 'falta_justificada'].includes(dbStatus)) require('../utils/absenceRecords').ensureAbsenceRecord(req.user.tenant_id, req.params.id).catch(() => {});
     require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'appointment.updated', data: updated[0] });
   } catch (err) {
     console.error('Erro ao atualizar status:', err);
@@ -1503,6 +1506,8 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
     );
 
     res.json(updated[0]);
+
+    if (['no_show', 'falta_justificada'].includes(dbStatus)) require('../utils/absenceRecords').ensureAbsenceRecord(req.user.tenant_id, req.params.id).catch(() => {});
     require('../services/realtimeService').broadcast(req.user.tenant_id, { type: 'appointment.updated', data: updated[0] });
   } catch (err) {
     console.error('Erro ao atualizar agendamento:', err.message, err.sql || '', 'Body:', JSON.stringify(req.body).slice(0, 500));

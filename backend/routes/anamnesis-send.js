@@ -5,6 +5,8 @@ const { authMiddleware } = require('../middleware/auth');
 const crypto = require('crypto');
 const notificationService = require('../services/notificationService');
 const { getFrontendUrl } = require('../utils/publicUrl');
+const sources = require('../utils/clinicalSources');
+const history = require('../utils/recordHistory');
 
 /* ─────────────────────────────────────────────────────────────
    HELPERS
@@ -497,6 +499,28 @@ router.post('/:id/to-record', authMiddleware, async (req, res) => {
     }).join('\n\n');
 
     const draftContent = `# Anamnese — ${send.title}\n\n**Paciente:** ${send.patient_name}\n**Respondido em:** ${new Date(response.submitted_at).toLocaleDateString('pt-BR')}\n\n---\n\n${answerLines}\n\n---\n*Este conteúdo é resposta bruta do paciente e deve ser revisado pela profissional antes de ser incorporado ao prontuário oficial.*`;
+
+    // Anamnese é única por paciente: se já existe, a resposta atualiza o registro vivo (a versão anterior fica no histórico).
+    const [existingAn] = await db.query(
+      "SELECT * FROM medical_records WHERE tenant_id = ? AND patient_id = ? AND record_type = 'Anamnese' ORDER BY created_at DESC, id DESC",
+      [req.user.tenant_id, send.patient_id]
+    );
+    const visibleAn = existingAn.find((r) => sources.canSeeRecord(req.user, r));
+    if (visibleAn) {
+      await db.query(
+        "UPDATE medical_records SET draft_content = ?, status = 'Rascunho', ai_status = 'pending', updated_at = NOW() WHERE id = ? AND tenant_id = ?",
+        [draftContent, visibleAn.id, req.user.tenant_id]
+      );
+      await history.recordVersion(req.user, Number(visibleAn.id), { event: 'editado', beforeRow: visibleAn, summaryExtra: 'Respostas do paciente recebidas' });
+      await db.query(
+        'UPDATE anamnesis_patient_responses SET saved_to_record_id = ?, review_status = ? WHERE send_id = ?',
+        [visibleAn.id, 'approved', req.params.id]
+      );
+      return res.json({ ok: true, record_id: visibleAn.id, updated_existing: true });
+    }
+    if (existingAn.length) {
+      return res.status(409).json({ error: 'Já existe um registro deste tipo para o paciente, com outro profissional responsável.', code: 'RECORD_EXISTS' });
+    }
 
     // Criar prontuário como Rascunho
     const [result] = await db.query(

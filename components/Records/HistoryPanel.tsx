@@ -18,8 +18,8 @@ interface VersionRow {
   id: number; version_no: number; saved_by_name?: string | null; saved_at: string; event: string; status?: string | null;
   summary?: string | null; changes: { key: string; label: string }[];
 }
-const EVENT_LABEL: Record<string, string> = { criado: 'Criado', editado: 'Editado', aprovado: 'Aprovado', restaurado: 'Restaurado', ia: 'IA aplicada', inicial: 'Versão inicial' };
-const EVENT_COLOR: Record<string, 'success' | 'info' | 'purple' | 'warning' | 'default'> = { criado: 'info', editado: 'default', aprovado: 'success', restaurado: 'warning', ia: 'purple', inicial: 'default' };
+const EVENT_LABEL: Record<string, string> = { criado: 'Criado', editado: 'Editado', aprovado: 'Aprovado', restaurado: 'Restaurado', ia: 'IA aplicada', inicial: 'Versão inicial', reavaliacao: 'Reavaliação' };
+const EVENT_COLOR: Record<string, 'success' | 'info' | 'purple' | 'warning' | 'default'> = { criado: 'info', editado: 'default', aprovado: 'success', restaurado: 'warning', ia: 'purple', inicial: 'default', reavaliacao: 'info' };
 const STATUS_COLOR: Record<string, 'warning' | 'info' | 'purple' | 'success' | 'default'> = { Rascunho: 'warning', Organizado: 'info', Revisado: 'purple', Aprovado: 'success', Finalizado: 'info' };
 const LEGACY_LABELS: Record<string, string> = {
   motivo_consulta: 'Motivo da consulta / tema central', contexto_relevante: 'Contexto relevante', observacoes_clinicas: 'Observações clínicas',

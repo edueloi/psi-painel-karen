@@ -2,6 +2,16 @@
 // Usado no servidor para compilar registros em texto (fontes da IA) e resumir alterações do histórico.
 // Gerado a partir dos modelos; campos novos sem rótulo aparecem com a própria chave (nunca quebram).
 module.exports = {
+  "ocorrencia": "Ocorrência da sessão",
+  "falta_motivo": "Motivo da falta",
+  "falta_motivo_texto": "Complemento do motivo",
+  "falta_avisou": "Avisou antes?",
+  "falta_avisou_quando": "Quando avisou",
+  "falta_contato": "Contato realizado pela clínica",
+  "falta_contato_obs": "Observação do contato",
+  "falta_reposicao": "Reposição / remarcação sugerida",
+  "falta_cobrar": "Cobrar a sessão?",
+  "falta_obs": "Observação clínica da falta",
   "risco_suicida": "Risco suicida / autolesão",
   "risco_terceiros": "Risco a terceiros",
   "risco_fatores": "Fatores de risco e proteção",
