@@ -2005,10 +2005,10 @@ const RecordEditor: React.FC<{
   const aiFieldDefs = useMemo(() => sections.flatMap(sec => sec.fields
     // Na anamnese, a IA só produz a análise profissional. As respostas do formulário
     // ficam intactas e servem como fonte explícita da sugestão.
-    .filter(f => isAnamnese ? !!f.aiOnly : ['text', 'textarea', 'select', 'multi', 'rows', 'date', 'number', 'scale'].includes(f.type))
-    .map(f => ({ key: f.key, label: f.label, type: f.type === 'scale' ? 'number' : f.type, options: f.options, columns: f.columns?.map(c => c.key), section: sec.label }))), [sections, isAnamnese]);
+    .filter(f => recordType === 'Anamnese' ? !!f.aiOnly : ['text', 'textarea', 'select', 'multi', 'rows', 'date', 'number', 'scale'].includes(f.type))
+    .map(f => ({ key: f.key, label: f.label, type: f.type === 'scale' ? 'number' : f.type, options: f.options, columns: f.columns?.map(c => c.key), section: sec.label }))), [sections, recordType]);
   const anamnesisAnswersForAi = useMemo(() => {
-    if (!isAnamnese) return '';
+    if (recordType !== 'Anamnese') return '';
     const format = (value: any): string => {
       if (Array.isArray(value)) return value.map(v => typeof v === 'object' ? Object.values(v).filter(Boolean).join(' — ') : String(v)).filter(Boolean).join('; ');
       return typeof value === 'object' && value ? Object.values(value).filter(Boolean).join(' — ') : String(value ?? '').trim();
@@ -2017,7 +2017,7 @@ const RecordEditor: React.FC<{
       .filter(field => !field.aiOnly && hasValue(sValues[field.key]))
       .map(field => `${field.label}: ${format(sValues[field.key])}`)
     ).join('\n');
-  }, [isAnamnese, sections, sValues]);
+  }, [recordType, sections, sValues]);
   const [aiFillBusy, setAiFillBusy] = useState(false);
   const [aiPanel, setAiPanel] = useState<{ stamp: number; kind: 'evolution' | 'assessment'; suggestions: Record<string, any>; meta: Record<string, { fontes?: string[]; confianca?: string }>; reviewPoints: string[]; sources: string[] } | null>(null);
   const aiAppliedRef = useRef(false);
@@ -2026,7 +2026,7 @@ const RecordEditor: React.FC<{
   const [fillDialog, setFillDialog] = useState<null | 'evolution' | 'assessment'>(null);
   const openFill = (kind: 'evolution' | 'assessment') => {
     if (!patientId) { pushToast('info', 'Selecione o paciente antes de usar a IA.'); setEditorSection('dados'); return; }
-    if (kind === 'assessment' && isAnamnese && !anamnesisAnswersForAi.trim()) {
+    if (kind === 'assessment' && recordType === 'Anamnese' && !anamnesisAnswersForAi.trim()) {
       pushToast('info', 'Preencha ao menos uma resposta da anamnese antes de gerar a análise com IA.');
       return;
     }
@@ -2043,7 +2043,7 @@ const RecordEditor: React.FC<{
   const runFill = async (selection: SourceGroupId[]) => {
     const kind = fillDialog;
     if (!kind) return;
-    const generatingAnamnesisAnalysis = kind === 'assessment' && isAnamnese;
+    const generatingAnamnesisAnalysis = kind === 'assessment' && recordType === 'Anamnese';
     const sel: SourceGroupId[] = generatingAnamnesisAnalysis
       ? Array.from(new Set([...selection, 'texto_livre'])) as SourceGroupId[]
       : usedSources.length && !selection.includes('texto_livre') ? [...selection, 'texto_livre'] : selection;
