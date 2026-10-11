@@ -4,7 +4,7 @@ export type Language = 'pt' | 'en' | 'es';
 export const translations = {
   pt: {
     // Navegação
-    'nav.dashboard': 'Dashboard',
+    'nav.dashboard': 'Visão geral',
     'nav.agenda': 'Agenda',
     'nav.comandas': 'Comandas',
     'nav.mySite': 'Meu Site',
@@ -918,7 +918,7 @@ export const translations = {
     'documents.keep_file': 'Manter Arquivo',
 
     // Sidebar & Topbar
-    'menu.dashboard': 'Dashboard',
+    'menu.dashboard': 'Visão geral',
     'menu.patients': 'Pacientes',
     'menu.agenda': 'Agenda',
     'menu.finance': 'Financeiro',
@@ -948,7 +948,7 @@ export const translations = {
     'meeting.resultCalculated': 'Result',
     'meeting.sendTest': 'Send test',
     // Navegação
-    'nav.dashboard': 'Dashboard',
+    'nav.dashboard': 'Overview',
     'nav.agenda': 'Schedule',
     'nav.comandas': 'Receipts',
     'nav.mySite': 'My Site',
@@ -1732,7 +1732,7 @@ export const translations = {
     'documents.keep_file': 'Keep File',
 
     // Sidebar & Topbar
-    'menu.dashboard': 'Dashboard',
+    'menu.dashboard': 'Overview',
     'menu.patients': 'Patients',
     'menu.agenda': 'Schedule',
     'menu.finance': 'Finance',
@@ -1763,7 +1763,7 @@ export const translations = {
     'meeting.resultCalculated': 'Resultado',
     'meeting.sendTest': 'Enviar test',
     // Navegação
-    'nav.dashboard': 'Panel',
+    'nav.dashboard': 'Vista general',
     'nav.agenda': 'Agenda',
     'nav.comandas': 'Recibos',
     'nav.mySite': 'Mi Sitio',
@@ -2516,7 +2516,7 @@ export const translations = {
     'rooms.joinRoom': 'Entrar en la Sala',
 
     // Sidebar & Topbar
-    'menu.dashboard': 'Panel',
+    'menu.dashboard': 'Vista general',
     'menu.patients': 'Pacientes',
     'menu.agenda': 'Agenda',
     'menu.finance': 'Finanzas',

@@ -69,7 +69,7 @@ export const Professionals: React.FC = () => {
       category: 'Recursos Iniciais',
       icon: <Layout size={16} />,
       permissions: [
-        { key: 'view_dashboard', label: 'Ver Dashboard', description: 'Acessar métricas e resumo na tela inicial' },
+        { key: 'view_dashboard', label: 'Ver visão geral', description: 'Acessar métricas e resumo na tela inicial' },
         { key: 'view_performance_reports', label: 'Desempenho e Clientes', description: 'Acessar módulo de performance e melhores clientes' },
         { key: 'view_boarding_notices', label: 'Ver Murais e Avisos', description: 'Ler painel de informativos da clínica' },
         { key: 'manage_boarding_notices', label: 'Gerenciar Informes', description: 'Publicar e remover textos de avisos' },

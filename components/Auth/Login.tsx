@@ -108,7 +108,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate('/visao-geral', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -171,7 +171,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       }
 
       login(res.token, remember);
-      navigate('/dashboard');
+      navigate('/visao-geral');
     } catch (err: any) {
       const message = (err.message || '').toLowerCase();
 
@@ -210,7 +210,7 @@ export const Login: React.FC<{ onLogin: () => void }> = () => {
       }
 
       login(res.token, remember);
-      navigate('/dashboard');
+      navigate('/visao-geral');
     } catch (err: any) {
       setError(err.message || 'Código 2FA inválido ou expirado.');
     } finally {

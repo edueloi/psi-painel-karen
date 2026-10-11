@@ -188,7 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
               visibleSections.map((section) => {
                 const isCollapsed = collapsed[section.title];
                 const hasActiveItem = section.items.some((item: any) =>
-                  item.path === '/dashboard' ? location.pathname === '/dashboard' : location.pathname.startsWith(item.path)
+                  item.path === '/visao-geral' ? location.pathname === '/visao-geral' : location.pathname.startsWith(item.path)
                 );
 
                 return (
@@ -221,8 +221,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLogout }) =
                     {!isCollapsed && (
                       <div className="mt-0.5 space-y-0.5">
                         {section.items.map((item: any) => {
-                          const isActive = item.path === '/dashboard'
-                            ? location.pathname === '/dashboard'
+                          const isActive = item.path === '/visao-geral'
+                            ? location.pathname === '/visao-geral'
                             : location.pathname.startsWith(item.path);
 
                           return (

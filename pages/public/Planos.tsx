@@ -77,7 +77,7 @@ export const Planos: React.FC = () => {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const ANNUAL_DISCOUNT = 0.2;
 
-  const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+  const go = () => navigate(isAuthenticated ? '/visao-geral' : '/login');
 
   useSEO({
     title: 'Planos e Preços — Plaelo',

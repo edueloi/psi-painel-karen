@@ -127,7 +127,7 @@ const GUIDES_CONTENT: Record<string, any> = {
   'Financeiro Avançado': {
     steps: [
       { t: 'Gestão de Comandas', d: 'Toda sessão gera uma comanda. Resolva o pagamento e a evolução no mesmo lugar.' },
-      { t: 'Fluxo de Caixa', d: 'Acompanhe entradas e saídas e veja seu lucro real no Dashboard.' },
+      { t: 'Fluxo de Caixa', d: 'Acompanhe entradas e saídas e veja seu lucro real na Visão geral.' },
       { t: 'Emissão de Notas', d: 'Configure o módulo fiscal para emitir notas automaticamente ao finalizar um pagamento.' },
       { t: 'Relatórios Contábeis', d: 'Exporte tudo em Excel ou PDF no final do mês para seu contador.' }
     ],

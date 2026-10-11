@@ -41,7 +41,7 @@ const formatCurrency = (value: number) => {
 };
 
 const FINANCE_TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: PieChart },
+  { id: 'dashboard', label: 'Visão geral', icon: PieChart },
   { id: 'daily', label: 'Fluxo diário', icon: ListIcon },
   { id: 'receber', label: 'Contas a receber', icon: ArrowDownRight },
   { id: 'pagar', label: 'Contas a pagar', icon: ArrowUpRight },

@@ -32,7 +32,7 @@ type AccessLevel = 'total' | 'edit' | 'own' | 'view' | 'limited' | 'none';
 // e os grupos espelham o NAV_SECTIONS do menu (constants.tsx)
 const MODULES = [
   // Geral
-  { key: 'view_dashboard',          label: 'Dashboard',                         Icon: Boxes,         group: 'Geral' },
+  { key: 'view_dashboard',          label: 'Visão geral',                       Icon: Boxes,         group: 'Geral' },
   // Clínico
   { key: 'view_patients',           label: 'Pacientes',                         Icon: Users,         group: 'Clínico' },
   { key: 'view_medical_records',    label: 'Prontuário & Estudos de Caso',       Icon: FileText,      group: 'Clínico' },

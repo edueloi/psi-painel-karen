@@ -8,7 +8,7 @@ export const NAV_SECTIONS = [
     title: 'nav.group.general',
     icon: <LayoutDashboard size={13}/>,
     items: [
-      { label: 'nav.dashboard', path: '/dashboard', icon: <Boxes size={18} />, requiredPermission: 'view_dashboard' },
+      { label: 'nav.dashboard', path: '/visao-geral', icon: <Boxes size={18} />, requiredPermission: 'view_dashboard' },
     ]
   },
   {

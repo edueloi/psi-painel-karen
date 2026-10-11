@@ -90,7 +90,7 @@ const CHART_COLORS = ['var(--c-600)', '#10b981', '#f59e0b', '#3b82f6', '#ec4899'
 const initials = (name: string) => name?.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
 
 const NAV_TABS = [
-  { id: 'dashboard',     label: 'Dashboard',            icon: LayoutDashboard },
+  { id: 'dashboard',     label: 'Visão geral',          icon: LayoutDashboard },
   { id: 'clients',       label: 'Parceiros',            icon: Building2 },
   { id: 'team',          label: 'Equipe',               icon: Users },
   { id: 'permissions',   label: 'Permissões',           icon: Lock },

@@ -121,7 +121,7 @@ const FAQ_ITEMS = [
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+  const go = () => navigate(isAuthenticated ? '/visao-geral' : '/login');
 
   const [activeTab, setActiveTab] =
     useState<typeof RESOURCE_TABS[number]['key']>('agenda');

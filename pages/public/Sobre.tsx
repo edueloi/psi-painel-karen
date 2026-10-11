@@ -83,7 +83,7 @@ export const Sobre: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
-  const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+  const go = () => navigate(isAuthenticated ? '/visao-geral' : '/login');
 
   useSEO({
     title: 'Sobre — Plaelo',

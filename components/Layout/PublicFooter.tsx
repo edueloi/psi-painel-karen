@@ -8,7 +8,7 @@ import { Logo } from './PublicNavbar';
 export const PublicFooter: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+  const go = () => navigate(isAuthenticated ? '/visao-geral' : '/login');
 
   return (
     <footer className="footer-dark footer-premium">

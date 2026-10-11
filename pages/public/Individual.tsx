@@ -33,7 +33,7 @@ const HUB_FEATURES = [
 export const Individual: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const go = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+  const go = () => navigate(isAuthenticated ? '/visao-geral' : '/login');
 
   useSEO({
     title: 'Plaelo para Psicólogos Individuais',

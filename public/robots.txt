@@ -12,7 +12,7 @@ Allow: /api/sitemap-professionals.xml
 
 Disallow: /login
 Disallow: /cadastro
-Disallow: /dashboard
+Disallow: /visao-geral
 Disallow: /pacientes
 Disallow: /agenda
 Disallow: /financeiro

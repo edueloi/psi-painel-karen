@@ -25,7 +25,7 @@ export const PublicNavbar: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Login/dashboard vivem só em painel.<dominio> (token em localStorage é
+  // Login/visão geral vivem só em painel.<dominio> (token em localStorage é
   // isolado por domínio) — navegação real de browser, não SPA, evita cair
   // no /login deste domínio e ter que ser redirecionado de novo depois.
   // Dois domínios convivem hoje (psiflux.com.br legado + plaelo.com.br novo),
@@ -38,7 +38,7 @@ export const PublicNavbar: React.FC = () => {
   };
   const go = () => {
     setMenuOpen(false);
-    const path = isAuthenticated ? '/dashboard' : '/login';
+    const path = isAuthenticated ? '/visao-geral' : '/login';
     // Só força ir pro domínio painel em produção — em localhost/dev isso
     // mandaria o desenvolvedor pra produção sem querer.
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';

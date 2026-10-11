@@ -247,7 +247,7 @@ const SubscriptionAccessGate: React.FC<{ children: React.ReactNode; afterContent
 
   if (wasRestrictedRef.current && location.pathname === '/assinatura') {
     wasRestrictedRef.current = false;
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/visao-geral" replace />;
   }
 
   return <TermsAcceptanceGate>{children}{afterContent}</TermsAcceptanceGate>;
@@ -298,24 +298,24 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   if (user?.role === 'super_admin') return <Navigate to="/painel-master" replace />;
 
   if (allowedRoles && user && !allowedRoles.includes(user.role) && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/visao-geral" replace />;
   }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/visao-geral" replace />;
   }
 
   // Bloqueia acesso direto por URL a conteúdo específico de uma área de atuação
   // (ex: psicoterapia) para quem não tem essa capacidade — admin sempre passa.
   if (requiredCapability === 'does_psychotherapy' && !isAdmin && !user?.doesPsychotherapy) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/visao-geral" replace />;
   }
 
   return (
     <SubscriptionAccessGate afterContent={
       <>
-        {/* A Bia fica disponível pelo botão flutuante somente no Dashboard, onde não cobre ações clínicas. */}
-        {location.pathname === '/dashboard' && user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && <AuroraAssistant />}
+        {/* A Bia fica disponível pelo botão flutuante somente na Visão geral, onde não cobre ações clínicas. */}
+        {location.pathname === '/visao-geral' && user?.plan_features?.includes('aurora_ai') && hasPermission('access_ai_features') && <AuroraAssistant />}
         {user && <OnboardingController userId={user.id} userName={user.name || ''} />}
       </>
     }>
@@ -328,7 +328,7 @@ const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const { isAuthenticated, user } = useAuth();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role !== 'super_admin') return <Navigate to="/dashboard" replace />;
+  if (user?.role !== 'super_admin') return <Navigate to="/visao-geral" replace />;
 
   return <>{children}</>;
 };
@@ -430,7 +430,7 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
-      <Route path="/" element={IS_PAINEL_HOST ? <Navigate to="/dashboard" replace /> : <Home />} />
+      <Route path="/" element={IS_PAINEL_HOST ? <Navigate to="/visao-geral" replace /> : <Home />} />
       <Route path="/individual" element={<Individual />} />
       <Route path="/funcionalidades" element={<Funcionalidades />} />
       <Route path="/planos" element={<Planos />} />
@@ -473,7 +473,9 @@ const AppRoutes: React.FC = () => {
       />
 
       {/* Rotas comuns da clinica */}
-      <Route path="/dashboard" element={<ProtectedRoute requiredPermission="view_dashboard"><Dashboard /></ProtectedRoute>} />
+      <Route path="/visao-geral" element={<ProtectedRoute requiredPermission="view_dashboard"><Dashboard /></ProtectedRoute>} />
+      {/* Endereço anterior: redireciona links/favoritos sem duplicar a tela. */}
+      <Route path="/dashboard" element={<Navigate to="/visao-geral" replace />} />
       <Route path="/pacientes" element={<ProtectedRoute requiredPermission="view_patients"><Patients /></ProtectedRoute>} />
       <Route path="/pacientes/novo" element={<ProtectedRoute requiredPermission="create_patient"><PatientFormPage /></ProtectedRoute>} />
       <Route path="/pacientes/:id/editar" element={<ProtectedRoute requiredPermission="edit_patient"><PatientFormPage /></ProtectedRoute>} />
@@ -553,7 +555,7 @@ const AppRoutes: React.FC = () => {
 
       {/* Redirecionamento de legado */}
       <Route path="/meeting/:id" element={<RedirectToSala />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/visao-geral" replace />} />
     </Routes>
   );
 };
