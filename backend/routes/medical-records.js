@@ -651,6 +651,7 @@ router.get('/:id', authMiddleware, checkPermission('view_medical_records'), asyn
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
     const record = rows[0];
+    if (!sources.canSeeRecord(req.user, record)) return res.status(403).json({ error: 'Você não tem acesso a este registro.' });
 
     const [attachments] = await db.query(
       'SELECT id, file_name, file_url, file_type, file_size FROM medical_record_attachments WHERE record_id = ?',
@@ -778,6 +779,7 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
       [req.params.id, req.user.tenant_id]
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
+    if (!sources.canSeeRecord(req.user, existing[0])) return res.status(403).json({ error: 'Você não tem acesso a este registro.' });
     // Restaurar versão só vale para registros ainda não aprovados/finalizados.
     if (history_event === 'restaurado' && isLocked(existing[0])) {
       return res.status(409).json({ error: 'Registros aprovados não podem ser restaurados a partir do histórico.' });
@@ -875,6 +877,9 @@ router.post('/:id/approve', authMiddleware, async (req, res) => {
 
     const [existing] = await db.query('SELECT * FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
     if (existing.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
+    if (!sources.isAdminRole(req.user) && String(existing[0].professional_id) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'Somente o profissional responsável (ou um administrador) pode aprovar este registro.' });
+    }
 
     await db.query(
       'UPDATE medical_records SET status = ?, approved_by = ?, approved_at = NOW() WHERE id = ?',
@@ -970,6 +975,9 @@ router.post('/:id/restricted', authMiddleware, async (req, res) => {
 ────────────────────────────────────────────────────────── */
 router.get('/:id/audit', authMiddleware, async (req, res) => {
   try {
+    const [[auditRec]] = await db.query('SELECT id, professional_id, shared_with FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    if (!auditRec) return res.status(404).json({ error: 'Prontuário não encontrado' });
+    if (!sources.canSeeRecord(req.user, auditRec)) return res.status(403).json({ error: 'Você não tem acesso a este registro.' });
     const [audit] = await db.query(
       `SELECT a.*, u.name as user_name FROM medical_record_audit a
        LEFT JOIN users u ON u.id = a.user_id
@@ -1046,8 +1054,11 @@ router.get('/:id/history/:versionId', authMiddleware, checkPermission('view_medi
 router.delete('/:id', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
   try {
     // SEGURANÇA: Verificar existência e posse primeiro
-    const [[record]] = await db.query('SELECT id FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    const [[record]] = await db.query('SELECT id, professional_id FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
     if (!record) return res.status(404).json({ error: 'Prontuário não encontrado' });
+    if (!sources.isAdminRole(req.user) && String(record.professional_id) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'Somente o profissional responsável (ou um administrador) pode excluir este registro.' });
+    }
 
     // Só deleta dependentes se o registro for dele
     await db.query('DELETE FROM medical_record_attachments WHERE record_id = ?', [req.params.id]);
