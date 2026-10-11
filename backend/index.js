@@ -79,6 +79,8 @@ function mountApiRoutes(prefix = '') {
   app.use(`${prefix}/forms`, formsRoutes);
   app.use(`${prefix}/disc`, discRoutes);
   app.use(`${prefix}/public-profile`, require('./routes/public-profile'));
+  // Entrega pública de documento por token (protocolo de recebimento); sem login, com limite de requisições.
+  app.use(`${prefix}/public/documents`, require('./routes/public-documents'));
   // Inventários de Esquemas: /public/:token sem login; as demais rotas se autenticam individualmente (authMiddleware).
   app.use(`${prefix}/schema-inventories`, require('./routes/schema-inventories'));
   app.use(prefix, require('./routes/sitemap'));

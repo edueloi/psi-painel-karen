@@ -65,6 +65,20 @@ function validateCidAuthorization(input) {
   return { ok: true, cid, basis };
 }
 
+const MAX_SIGNATURE_BYTES = 400 * 1024;
+/** Assinatura: somente PNG (data URL), até ~400 KB, dimensões plausíveis. Retorna { ok, error?, bytes? }. */
+function validateSignatureDataUrl(v) {
+  if (typeof v !== 'string' || !v.startsWith('data:image/png;base64,')) return { ok: false, error: 'A assinatura deve ser uma imagem PNG.' };
+  const b64 = v.slice('data:image/png;base64,'.length);
+  if (b64.length > Math.ceil(MAX_SIGNATURE_BYTES * 4 / 3) + 8 || !/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) return { ok: false, error: 'Imagem de assinatura inválida ou maior que 400 KB.' };
+  const buf = Buffer.from(b64, 'base64');
+  if (buf.length > MAX_SIGNATURE_BYTES) return { ok: false, error: 'A assinatura excede 400 KB.' };
+  if (buf.length < 24 || buf.slice(0, 8).toString('hex') !== '89504e470d0a1a0a') return { ok: false, error: 'Arquivo de assinatura inválido.' };
+  const w = buf.readUInt32BE(16); const h = buf.readUInt32BE(20);
+  if (w < 20 || h < 10 || w > 3000 || h > 1500) return { ok: false, error: 'Dimensões da assinatura fora do permitido.' };
+  return { ok: true, bytes: buf.length, width: w, height: h };
+}
+
 /** Sanitiza HTML guardado (defesa em profundidade para exibir na página pública). */
 function sanitizeHtml(html) {
   return String(html || '')
@@ -77,5 +91,5 @@ function sanitizeHtml(html) {
 module.exports = {
   RETENTION_YEARS, MAX_PDF_BYTES, DEFAULT_TOKEN_DAYS, MAX_TOKEN_DAYS,
   sha256, newDeliveryToken, isValidTokenFormat, hashToken, tokenExpiry, isExpired,
-  hashIp, summarizeUa, retentionUntil, isRetained, decodePdfBase64, validateCidAuthorization, sanitizeHtml,
+  hashIp, summarizeUa, retentionUntil, isRetained, decodePdfBase64, validateCidAuthorization, validateSignatureDataUrl, MAX_SIGNATURE_BYTES, sanitizeHtml,
 };

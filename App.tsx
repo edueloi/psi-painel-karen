@@ -77,6 +77,7 @@ import { AnamnesisPublic } from '@/pages/external/AnamnesisPublic';
 import { SchemaInventoryPublic } from '@/pages/external/SchemaInventoryPublic';
 import { RegistrationUpdatePublic } from '@/pages/external/RegistrationUpdatePublic';
 import { ContractPublic } from '@/pages/external/ContractPublic';
+import { DocumentoPublico } from '@/pages/external/DocumentoPublico';
 import { Records } from './pages/Records';
 import { CaseStudies } from './pages/CaseStudies';
 import { Documents } from './pages/Documents';
@@ -447,6 +448,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/f/inventarios-esquemas" element={<SchemaInventoryPublic />} />
       <Route path="/f/cadastro" element={<RegistrationUpdatePublic />} />
       <Route path="/f/contrato" element={<ContractPublic />} />
+      <Route path="/documento/:token" element={<DocumentoPublico />} />
       <Route path="/f/:hash" element={<ExternalForm />} />
       <Route path="/p/:slug" element={<PublicProfile />} />
       <Route path="/encontrar-profissional" element={<PsychologistDirectory />} />

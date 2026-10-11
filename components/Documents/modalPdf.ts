@@ -1,7 +1,7 @@
 /** PDF dos modais de documento do prontuário (Relatório, Encaminhamento, Atestado) na estrutura padrão. */
-import { fetchIdentity, buildIdentity, withRegistryLabel } from './clinicIdentity';
+import { fetchIdentity, buildIdentity, hasRegistry, REGISTRY_REQUIRED_MESSAGE, withRegistryLabel } from './clinicIdentity';
 import { buildDocumentModel } from './buildDocument';
-import { renderDocumentPdf, pdfFileName } from './renderDocumentPdf';
+import { renderDocumentPdf, pdfFileName, type DocumentModel } from './renderDocumentPdf';
 import { textToBlocks, type DocBlock } from './htmlToBlocks';
 import { parseIsoDate } from './documentVariables';
 
@@ -16,12 +16,15 @@ export interface ModalPdfSpec {
   professional?: ModalPdfProfessional;
   identification?: { label: string; value: string; full?: boolean }[];
   blocks: DocBlock[];
+  /** "Incluir minha assinatura": omitido = preferência do perfil; false = nunca; true = se houver imagem. */
+  includeSignature?: boolean;
 }
 
 export const sectionBlocks = (heading: string, text: string): DocBlock[] =>
   text.trim() ? [{ t: 'heading', runs: [{ text: heading }], align: 'left' }, ...textToBlocks(text)] : [];
 
-export async function downloadModalPdf(spec: ModalPdfSpec): Promise<void> {
+/** Monta o modelo do documento com identidade do perfil, registro obrigatório e assinatura opcional. */
+export async function prepareModalModel(spec: ModalPdfSpec): Promise<DocumentModel> {
   let identity;
   try { identity = await fetchIdentity(); } catch {
     // sem perfil: usa o que o modal conhece do profissional
@@ -35,15 +38,23 @@ export async function downloadModalPdf(spec: ModalPdfSpec): Promise<void> {
     registry: identity.professional.registry || withRegistryLabel('CRP', p.crp || ''),
     specialty: identity.professional.specialty || p.specialty || '',
   };
+  if (!hasRegistry(identity.registryNumber || p.crp)) throw new Error(REGISTRY_REQUIRED_MESSAGE);
+  const sig = identity.signature;
+  const useSig = !!sig?.image && (spec.includeSignature === undefined ? sig.auto : spec.includeSignature);
   const birth = parseIsoDate(spec.patient.birth_date ? String(spec.patient.birth_date).slice(0, 10) : '');
   const docDate = parseIsoDate(spec.date) || new Date();
-  const model = buildDocumentModel({
+  return buildDocumentModel({
     title: spec.title, docType: spec.docType,
     blocks: spec.blocks,
     clinic: identity.clinic, professional,
     patient: { name: spec.patient.full_name, cpf: spec.patient.cpf, birth: birth ? birth.toLocaleDateString('pt-BR') : '' },
     identification: spec.identification, showIdentification: true,
     docDate, place: identity.cityUf, emittedAt: new Date(),
+    signatureImage: useSig ? sig!.image : null,
   });
+}
+
+export async function downloadModalPdf(spec: ModalPdfSpec): Promise<void> {
+  const model = await prepareModalModel(spec);
   renderDocumentPdf(model).save(pdfFileName(model.title, spec.patient.full_name));
 }

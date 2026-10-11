@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SECRECY_NOTICE, fmtDateTimeBR, clean } from '../Records/pdf/clinicalDocument';
-import { renderDocumentPdf, type DocumentModel } from './renderDocumentPdf';
+import { renderDocumentPdf, signatureBox, type DocumentModel } from './renderDocumentPdf';
 import { blocksToHtml } from './buildDocument';
 import { longDatePt } from './documentVariables';
 
@@ -107,10 +107,21 @@ export const DocumentPaper: React.FC<{ model: DocumentModel; className?: string 
             {sig && (
               <div style={{ fontFamily: SERIF, textAlign: 'center', marginTop: 38, breakInside: 'avoid' }}>
                 <div style={{ fontSize: 14.7 }}>{model.place ? `${clean(model.place)}, ` : ''}{longDatePt(model.docDate)}.</div>
-                <div style={{ width: 300, borderTop: `1px solid ${INK}`, margin: '64px auto 6px' }} />
+                <div style={{ position: 'relative', height: 64, marginTop: 0 }}>
+                  {model.signatureImage && (() => {
+                    const b = signatureBox(model.signatureImage);
+                    return <img src={model.signatureImage.dataUrl} alt="Assinatura" style={{ position: 'absolute', left: '50%', bottom: 4, transform: 'translateX(-50%)', width: b.w * 3.78, height: b.h * 3.78 }} />;
+                  })()}
+                </div>
+                <div style={{ width: 300, borderTop: `1px solid ${INK}`, margin: '0 auto 6px' }} />
                 <div style={{ fontWeight: 700, fontSize: 14.7 }}>{clean(sig.name) || profName}</div>
                 {clean(sigReg) && <div style={{ fontSize: 12.7 }}>{clean(sigReg)}</div>}
                 {clean(sigSpec) && <div style={{ fontSize: 12.7 }}>{clean(sigSpec)}</div>}
+                {model.signatureImage && (
+                  <div style={{ fontFamily: SANS, fontSize: 9, color: GREY, marginTop: 4 }}>
+                    Documento assinado eletronicamente por {clean(sig.name) || profName} em {fmtDateTimeBR(model.signedAt || model.emittedAt)}
+                  </div>
+                )}
               </div>
             )}
           </div>

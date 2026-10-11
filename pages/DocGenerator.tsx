@@ -1,6 +1,6 @@
 import { maskCpfCnpj, maskTime, maskCurrency, maskDateRange, maskByFieldName } from '../components/UI/masks';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api, getStaticUrl } from '../services/api';
 import { Patient } from '../types';
 import {
@@ -27,19 +27,31 @@ import {
   MapPin,
   Stethoscope,
   Eye,
-  Download
+  Download,
+  FileCheck2,
+  ShieldCheck,
+  PenLine
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Combobox } from '../components/UI/Combobox';
 import { RichTextEditor } from '../components/UI/RichTextEditor';
 import {
   Alert, Badge, Button, ConfirmModal, DatePicker, EmptyState, FilterLineSearch, FormRow, IconButton,
-  Input, Modal, ModalFooter, PageWrapper, PanelCard, SectionTitle, Select, Tabs
+  Input, Modal, ModalFooter, PageWrapper, PanelCard, SectionTitle, Select, Switch, Tabs, Textarea
 } from '../components/UI';
 import { DocumentPaper } from '../components/Documents/DocumentPaper';
 import { renderDocumentPdf, printPdf, pdfFileName } from '../components/Documents/renderDocumentPdf';
 import { buildDocumentModel, buildStoredHtml, buildVariableValues } from '../components/Documents/buildDocument';
-import { buildIdentity, loadLogoCached, withRegistryLabel } from '../components/Documents/clinicIdentity';
+import { buildIdentity, hasRegistry, loadLogoCached, REGISTRY_REQUIRED_MESSAGE, withRegistryLabel } from '../components/Documents/clinicIdentity';
+import { loadSignature, type SignatureInfo } from '../components/Documents/signatureStore';
+import { issueDocument } from '../components/Documents/issueDocument';
+import { DocumentDeliveryPanel, type IssuedDoc } from '../components/Documents/DocumentDeliveryPanel';
+import { IssuedDocumentsPanel } from '../components/Documents/IssuedDocumentsPanel';
+import {
+  atestadoErrors, atestadoMeta, buildAtestadoText, CID_BASIS_LABEL, emptyAtestado, isAtestadoType, REQUESTERS,
+  type AtestadoFields, type CidBasis, type Requester,
+} from '../components/Documents/atestado';
+import { textToBlocks } from '../components/Documents/htmlToBlocks';
 import { amountToWords, applyTemplateVariables, extractCityUf, extractVariables, joinCityUf, labelOfVariable, parseIsoDate, VARIABLE_LABELS } from '../components/Documents/documentVariables';
 import type { LogoImage } from '../components/Records/pdf/clinicalDocument';
 
@@ -71,7 +83,10 @@ const docTabs = [
   { id: 'modelo', label: 'Modelo', icon: FileText },
   { id: 'dados', label: 'Dados do documento', icon: User },
   { id: 'timbrado', label: 'Papel timbrado', icon: ImageIcon },
+  { id: 'emitidos', label: 'Documentos emitidos', icon: FileCheck2 },
 ] as const;
+
+const FINALIDADES_ATESTADO = ['Justificar falta', 'Comprovar comparecimento', 'Comprovar aptidão', 'Afastamento de atividades'] as const;
 
 export const DocGenerator: React.FC = () => {
   const { t } = useLanguage();
@@ -97,6 +112,14 @@ export const DocGenerator: React.FC = () => {
   const [footerLogoImg, setFooterLogoImg] = useState<LogoImage | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const [emitting, setEmitting] = useState(false);
+  // assinatura eletrônica simples, atestado estruturado e documentos emitidos
+  const [sigInfo, setSigInfo] = useState<SignatureInfo | null>(null);
+  const [includeSignature, setIncludeSignature] = useState(true);
+  const [atest, setAtest] = useState<AtestadoFields>(emptyAtestado());
+  const [atestCustomText, setAtestCustomText] = useState<string | null>(null);
+  const [replacesId, setReplacesId] = useState<number | null>(null);
+  const [issuedId, setIssuedId] = useState<number | null>(null);
+  const [issuedRefresh, setIssuedRefresh] = useState(0);
   const [logoUrl, setLogoUrl] = useState('');
   const [footerLogoUrl, setFooterLogoUrl] = useState('');
 
@@ -228,6 +251,13 @@ export const DocGenerator: React.FC = () => {
     fetchData();
   }, []);
 
+  // assinatura do perfil: o interruptor do documento começa com a preferência do perfil
+  useEffect(() => {
+    let alive = true;
+    loadSignature(true).then(info => { if (!alive) return; setSigInfo(info); setIncludeSignature(info.auto && !!info.image); });
+    return () => { alive = false; };
+  }, []);
+
   const patient = useMemo(
     () => patients.find(p => String(p.id) === selectedPatientId),
     [patients, selectedPatientId]
@@ -351,6 +381,21 @@ export const DocGenerator: React.FC = () => {
   const signatureName = (selectedTemplate?.signature_name || '').trim() || professionalName.trim();
   const signatureRegistry = withRegistryLabel(areaRegistry, (selectedTemplate?.signature_crp || '').trim() || professionalCrp.trim());
 
+  const isAtestado = !!selectedTemplate && isAtestadoType(selectedTemplate.doc_type, selectedTemplate.title);
+  const norm = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  // a imagem é do usuário logado: não é inserida (nem duplicada) quando o signatário do documento é outra pessoa
+  const signerIsMe = !!norm(signatureName) && norm(signatureName) === norm(String(profile?.name || ''));
+  const sigImage = includeSignature && sigInfo?.image && signerIsMe ? sigInfo.image : null;
+  const registryMissing = !hasRegistry((selectedTemplate?.signature_crp || '').trim() || professionalCrp);
+  const atestCtx = useMemo(() => ({
+    patientName: effectivePatientName, patientCpf: effectiveCpf, professionalName: professionalName.trim(),
+    professionalRegistry: professionalRegistry, docDate: docDateObj,
+  }), [effectivePatientName, effectiveCpf, professionalName, professionalRegistry, docDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  const atestAutoText = useMemo(() => buildAtestadoText(atest, atestCtx), [atest, atestCtx]);
+  const atestFinalText = atestCustomText ?? atestAutoText;
+  const atestErrs = useMemo(() => (isAtestado ? atestadoErrors(atest, atestCtx) : []), [isAtestado, atest, atestCtx]);
+  const setAt = (patch: Partial<AtestadoFields>) => setAtest(prev => ({ ...prev, ...patch }));
+
   // documento = modelo + variáveis (nunca deixa {{ }} no texto; o que faltar fica em `missing`)
   const doc = useMemo(() => {
     if (!selectedTemplate) return null;
@@ -370,12 +415,14 @@ export const DocGenerator: React.FC = () => {
       extras: extraValues,
     });
     const applied = applyTemplateVariables(selectedTemplate.template_body, values);
-    const missing = [...applied.missing];
-    if (!effectivePatientName && !missing.includes('patient_name')) missing.unshift('patient_name');
+    // atestado estruturado: o corpo vem dos campos (texto final editável); pendências ficam em atestErrs
+    const missing = isAtestado ? [] : [...applied.missing];
+    if (!isAtestado && !effectivePatientName && !missing.includes('patient_name')) missing.unshift('patient_name');
     const model = buildDocumentModel({
       title: selectedTemplate.title,
       docType: selectedTemplate.doc_type,
-      bodyHtml: applied.html,
+      ...(isAtestado ? { blocks: textToBlocks(atestFinalText) } : { bodyHtml: applied.html }),
+      signatureImage: sigImage,
       clinic: identity.clinic,
       professional: { ...identity.professional, name: professionalName.trim() || identity.professional.name, registry: professionalRegistry || identity.professional.registry },
       patient: { name: effectivePatientName, cpf: effectiveCpf, birth: patient?.birth_date ? parseIsoDate(String(patient.birth_date).slice(0, 10))?.toLocaleDateString('pt-BR') : '' },
@@ -386,7 +433,7 @@ export const DocGenerator: React.FC = () => {
       footerLogo: footerLogoImg,
     });
     return { model, missing };
-  }, [selectedTemplate, effectivePatientName, effectiveCpf, patient, professionalName, professionalCrp, professionalRegistry, docDate, timeStart, timeEnd, amount, amountText, period, serviceName, city, identity, signatureName, signatureRegistry, extraValues, footerLogoImg]);
+  }, [selectedTemplate, effectivePatientName, effectiveCpf, patient, professionalName, professionalCrp, professionalRegistry, docDate, timeStart, timeEnd, amount, amountText, period, serviceName, city, identity, signatureName, signatureRegistry, extraValues, footerLogoImg, isAtestado, atestFinalText, sigImage]);
 
   const missing = doc?.missing || [];
   const missingLabels = missing.map(labelOfVariable).join(', ');
@@ -479,6 +526,17 @@ export const DocGenerator: React.FC = () => {
 
   const emitDocument = async (mode: 'print' | 'download') => {
     if (!selectedTemplateId || !doc || emitting) return;
+    if (registryMissing) {
+      setActiveTab('dados');
+      pushToast('error', REGISTRY_REQUIRED_MESSAGE);
+      return;
+    }
+    if (atestErrs.length) {
+      setShowErrors(true);
+      setActiveTab('dados');
+      pushToast('error', atestErrs[0]);
+      return;
+    }
     if (doc.missing.length) {
       setShowErrors(true);
       setActiveTab('dados');
@@ -487,26 +545,37 @@ export const DocGenerator: React.FC = () => {
     }
     setEmitting(true);
     try {
-      const model = { ...doc.model, emittedAt: new Date() };
-      const pdf = renderDocumentPdf(model);
-
-      // histórico (mesmo registro de antes; agora com o HTML sóbrio do documento)
-      await api.post('/doc-generator/doc-instances', {
-        template_id: selectedTemplateId,
-        patient_id: selectedPatientId || null,
-        title: selectedTemplate?.title || 'Documento',
-        rendered_html: buildStoredHtml(model)
+      // congela conteúdo + PDF no servidor (hash SHA-256); sem rota de edição depois de emitido
+      const issued = await issueDocument({
+        model: { ...doc.model, emittedAt: new Date() },
+        templateId: selectedTemplateId,
+        patientId: selectedPatientId || null,
+        docType: selectedTemplate?.doc_type || null,
+        replacesId,
+        meta: isAtestado ? atestadoMeta(atest) : undefined,
       });
-      pushToast('success', 'Documento gerado e salvo no histórico!');
+      setReplacesId(null);
+      setIssuedRefresh(n => n + 1);
+      pushToast('success', 'Documento emitido e guardado no histórico!');
 
-      if (mode === 'download') pdf.save(pdfFileName(model.title, effectivePatientName));
-      else printPdf(pdf);
-    } catch (e) {
+      if (mode === 'download') issued.pdf.save(pdfFileName(doc.model.title, effectivePatientName));
+      else printPdf(issued.pdf);
+      setIssuedId(issued.id);
+    } catch (e: any) {
       console.error(e);
-      pushToast('error', 'Erro ao gerar ou salvar o documento.');
+      pushToast('error', e?.message || 'Erro ao gerar ou salvar o documento.');
     } finally {
       setEmitting(false);
     }
+  };
+
+  // documento emitido não é editável: corrigir = nova versão (a anterior é mantida)
+  const startNewVersion = (d: IssuedDoc) => {
+    setReplacesId(d.id);
+    if (d.patient_id) setSelectedPatientId(String(d.patient_id));
+    setIssuedId(null);
+    setActiveTab('modelo');
+    pushToast('success', `A próxima emissão substituirá o documento nº ${d.id} (ele será mantido).`);
   };
 
   const handleSeedDefaults = async () => {
@@ -654,7 +723,7 @@ export const DocGenerator: React.FC = () => {
             <Loader2 size={18} className="animate-spin" /> Carregando...
           </div>
         ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className={`grid grid-cols-1 gap-4 ${activeTab === 'emitidos' ? '' : 'xl:grid-cols-2'}`}>
           {/* Coluna esquerda: formulário em abas */}
           <div className="min-w-0">
             <Tabs<typeof docTabs[number]['id']> items={docTabs} value={activeTab} onChange={setActiveTab} label="Configuração do documento">
@@ -887,6 +956,111 @@ export const DocGenerator: React.FC = () => {
                     </div>
                   </PanelCard>
 
+                  {replacesId && (
+                    <Alert variant="info" action={<Button variant="outline" size="xs" onClick={() => setReplacesId(null)}>Cancelar</Button>}>
+                      Esta emissão será uma nova versão que substitui o documento nº {replacesId}. O anterior é mantido.
+                    </Alert>
+                  )}
+
+                  {isAtestado && (
+                    <PanelCard title="Atestado psicológico" description="Conforme Resolução CFP nº 06/2019" icon={FileText}>
+                      <div className="space-y-3">
+                        <FormRow cols={2}>
+                          <Select
+                            label="Solicitante do documento"
+                            value={atest.requester}
+                            onChange={e => setAt({ requester: e.target.value as Requester })}
+                            options={REQUESTERS.map(r => ({ value: r, label: r === 'Paciente' ? 'Paciente (o próprio)' : r }))}
+                          />
+                          {atest.requester !== 'Paciente' && (
+                            <Input
+                              label={`Nome (${atest.requester})`}
+                              value={atest.requesterName}
+                              onChange={e => setAt({ requesterName: e.target.value })}
+                              placeholder={atest.requester === 'Outro' ? 'Especifique quem solicitou' : `Nome da ${atest.requester === 'Justiça' ? 'vara/órgão' : atest.requester.toLowerCase()}`}
+                              error={showErrors && !atest.requesterName.trim() ? 'Obrigatório' : undefined}
+                            />
+                          )}
+                        </FormRow>
+                        <div className="space-y-1.5">
+                          <Input
+                            label="Finalidade"
+                            value={atest.purpose}
+                            onChange={e => setAt({ purpose: e.target.value })}
+                            placeholder="Ex: justificar falta, comprovar aptidão..."
+                            error={showErrors && !atest.purpose.trim() ? 'Obrigatório' : undefined}
+                          />
+                          <div className="flex flex-wrap gap-1.5">
+                            {FINALIDADES_ATESTADO.map(f => (
+                              <Button key={f} variant="outline" size="xs" onClick={() => setAt({ purpose: f })}>{f}</Button>
+                            ))}
+                          </div>
+                        </div>
+                        <Textarea
+                          label="Conclusão (fato psicológico constatado)"
+                          rows={3}
+                          value={atest.conclusion}
+                          onChange={e => setAt({ conclusion: e.target.value })}
+                          placeholder="Descreva o fato psicológico constatado, sem detalhar o conteúdo das sessões."
+                          error={showErrors && !atest.conclusion.trim() ? 'Obrigatório' : undefined}
+                        />
+                        <FormRow cols={3}>
+                          <Input label="Período de afastamento (opcional)" placeholder="01/09/2026 a 03/09/2026" value={atest.period} onChange={e => setAt({ period: maskDateRange(e.target.value) })} inputMode="numeric" />
+                          <Input label="Horário de início (opcional)" placeholder="08:00" value={atest.timeStart} onChange={e => setAt({ timeStart: maskTime(e.target.value) })} inputMode="numeric" />
+                          <Input label="Horário de fim (opcional)" placeholder="09:00" value={atest.timeEnd} onChange={e => setAt({ timeEnd: maskTime(e.target.value) })} inputMode="numeric" />
+                        </FormRow>
+
+                        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                          <Switch
+                            checked={atest.includeCid}
+                            onCheckedChange={v => setAt({ includeCid: v, ...(v ? {} : { cid: '', cidAuthorized: false }) })}
+                            label="Informar CID/DSM"
+                            description="Desligado por padrão: o atestado não informa diagnóstico."
+                          />
+                          <p className="text-[11px] text-slate-500">O CID/DSM só pode constar com autorização formal do paciente ou quando houver dever legal.</p>
+                          {atest.includeCid && (
+                            <div className="space-y-2">
+                              <FormRow cols={2}>
+                                <Input label="Código CID/DSM" value={atest.cid} onChange={e => setAt({ cid: e.target.value })} placeholder="Ex: F41.1" error={showErrors && !atest.cid.trim() ? 'Obrigatório' : undefined} />
+                                <Select
+                                  label="Fundamento"
+                                  value={atest.cidBasis}
+                                  onChange={e => setAt({ cidBasis: e.target.value as CidBasis })}
+                                  options={(Object.keys(CID_BASIS_LABEL) as CidBasis[]).map(k => ({ value: k, label: CID_BASIS_LABEL[k] }))}
+                                />
+                              </FormRow>
+                              <label className="flex items-start gap-2 text-xs text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 h-4 w-4 accent-primary-600"
+                                  checked={atest.cidAuthorized}
+                                  onChange={e => setAt({ cidAuthorized: e.target.checked })}
+                                />
+                                <span>O paciente autorizou formalmente a informação do CID/DSM ou há dever legal. *</span>
+                              </label>
+                              {showErrors && atest.includeCid && !atest.cidAuthorized && (
+                                <p role="alert" className="text-[11px] text-red-600">Sem este aceite o atestado não é emitido com CID/DSM.</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Textarea
+                            label="Texto do atestado (edição livre)"
+                            rows={9}
+                            value={atestFinalText}
+                            onChange={e => setAtestCustomText(e.target.value)}
+                            hint="Gerado a partir dos campos acima. Se você editar o texto, ele deixa de acompanhar os campos até restaurar."
+                          />
+                          {atestCustomText !== null && (
+                            <Button variant="outline" size="xs" onClick={() => setAtestCustomText(null)}>Restaurar texto gerado</Button>
+                          )}
+                        </div>
+                      </div>
+                    </PanelCard>
+                  )}
+
                   <PanelCard title="Identidade profissional" icon={Briefcase}>
                     <FormRow cols={2}>
                       <Input
@@ -904,8 +1078,43 @@ export const DocGenerator: React.FC = () => {
                         error={fieldError('professional_crp', 'signature_crp')}
                       />
                     </FormRow>
+                    {registryMissing && (
+                      <Alert variant="warning" className="mt-3" action={<Link to="/perfil"><Button variant="outline" size="xs">Abrir perfil</Button></Link>}>
+                        {REGISTRY_REQUIRED_MESSAGE} Nome completo e registro profissional (ex.: CRP 06/172315) são obrigatórios no campo de assinatura.
+                      </Alert>
+                    )}
+                  </PanelCard>
+
+                  <PanelCard title="Assinatura" icon={PenLine}>
+                    <div className="space-y-3">
+                      {sigInfo?.image ? (
+                        <>
+                          <Switch
+                            checked={includeSignature && signerIsMe}
+                            onCheckedChange={setIncludeSignature}
+                            disabled={!signerIsMe}
+                            label="Incluir minha assinatura"
+                            description={signerIsMe ? 'Imagem sobre a linha de assinatura, com nome, registro e a data/hora da assinatura eletrônica.' : 'O signatário deste documento não é você: a sua imagem não é inserida.'}
+                          />
+                          <p className="text-[11px] text-slate-500">Assinatura eletrônica simples (imagem). Para validade jurídica plena, assine o PDF com ICP-Brasil ou Gov.br e use "Enviar PDF assinado" na ficha do documento emitido.</p>
+                        </>
+                      ) : (
+                        <Alert variant="info" action={<Link to="/perfil?tab=assinatura"><Button variant="outline" size="xs" iconLeft={<PenLine size={14} />}>Criar minha assinatura</Button></Link>}>
+                          Você ainda não criou sua assinatura digital. Crie em Perfil, aba Assinatura, para inseri-la automaticamente nos documentos.
+                        </Alert>
+                      )}
+                    </div>
                   </PanelCard>
                 </div>
+              )}
+
+              {activeTab === 'emitidos' && (
+                <IssuedDocumentsPanel
+                  patientId={selectedPatientId || null}
+                  refreshKey={issuedRefresh}
+                  patientPhone={patient?.whatsapp || patient?.phone}
+                  onNewVersion={startNewVersion}
+                />
               )}
 
               {activeTab === 'timbrado' && (
@@ -928,7 +1137,7 @@ export const DocGenerator: React.FC = () => {
           </div>
 
           {/* Coluna direita: pré-visualização */}
-          <div className="min-w-0">
+          <div className={`min-w-0 ${activeTab === 'emitidos' ? 'hidden' : ''}`}>
             <PanelCard
               title="Pré-visualização"
               description={selectedTemplate?.title}
@@ -948,6 +1157,12 @@ export const DocGenerator: React.FC = () => {
                       Preencha: {missingLabels}. O documento só pode ser impresso ou baixado depois disso.
                     </Alert>
                   )}
+                  {atestErrs.length > 0 && (
+                    <Alert variant="warning" title="Pendências do atestado">
+                      {atestErrs.join(' ')}
+                    </Alert>
+                  )}
+                  {registryMissing && <Alert variant="warning">{REGISTRY_REQUIRED_MESSAGE}</Alert>}
                   <div className="max-h-[640px] overflow-auto rounded-lg border border-slate-200 bg-slate-100 p-2">
                     <DocumentPaper model={doc.model} />
                   </div>
@@ -990,6 +1205,19 @@ export const DocGenerator: React.FC = () => {
             {doc ? <DocumentPaper model={doc.model} /> : <EmptyState icon={FileText} title="Documento vazio" />}
           </div>
         </div>
+      </Modal>
+
+      {/* Documento emitido: envio, protocolo e PDF assinado */}
+      <Modal
+        isOpen={issuedId !== null}
+        onClose={() => setIssuedId(null)}
+        title="Documento emitido"
+        size="lg"
+        footer={<ModalFooter><Button variant="outline" onClick={() => setIssuedId(null)}>Fechar</Button></ModalFooter>}
+      >
+        {issuedId !== null && (
+          <DocumentDeliveryPanel docId={issuedId} patientPhone={patient?.whatsapp || patient?.phone} onChanged={() => setIssuedRefresh(n => n + 1)} onNewVersion={startNewVersion} />
+        )}
       </Modal>
 
       {/* Categorias */}

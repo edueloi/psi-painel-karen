@@ -36,6 +36,10 @@ const ensureColumns = async () => {
     "ALTER TABLE users ADD COLUMN cpf VARCHAR(20) NULL",
     "ALTER TABLE users ADD COLUMN cnpj VARCHAR(20) NULL",
     "ALTER TABLE users ADD COLUMN waiting_room_message VARCHAR(500) NULL",
+    // Assinatura eletrônica simples (imagem PNG em data URL). Dado sensível: nunca vai para /uploads-static nem para /profile/me.
+    "ALTER TABLE users ADD COLUMN signature_image MEDIUMTEXT NULL",
+    "ALTER TABLE users ADD COLUMN signature_updated_at DATETIME NULL",
+    "ALTER TABLE users ADD COLUMN signature_auto TINYINT(1) NOT NULL DEFAULT 1",
   ];
   await ensureStatements(extras, 'profile');
 };
@@ -105,6 +109,58 @@ router.get('/me', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar perfil' });
+  }
+});
+
+// ── Minha assinatura (imagem) — somente o próprio usuário; não aparece em /me nem em logs ──
+// GET /profile/signature
+router.get('/signature', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT signature_image, signature_updated_at, signature_auto FROM users WHERE id = ? AND tenant_id = ? LIMIT 1', [req.user.id, req.user.tenant_id]);
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const has = !!(u.signature_image && String(u.signature_image).startsWith('data:image/png;base64,'));
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({
+      has_signature: has,
+      signature_image: has ? u.signature_image : null,
+      signature_updated_at: has ? u.signature_updated_at : null,
+      signature_auto: u.signature_auto === null || u.signature_auto === undefined ? true : !!u.signature_auto,
+    });
+  } catch (err) {
+    console.error('[profile] assinatura (leitura):', err.message);
+    res.status(500).json({ error: 'Erro ao buscar assinatura' });
+  }
+});
+
+// PUT /profile/signature { signature_image?: dataURL PNG, signature_auto?: boolean }
+router.put('/signature', async (req, res) => {
+  try {
+    const { signature_image, signature_auto } = req.body || {};
+    const { validateSignatureDataUrl } = require('../utils/documentIntegrity');
+    if (signature_image !== undefined) {
+      const v = validateSignatureDataUrl(signature_image);
+      if (!v.ok) return res.status(400).json({ error: v.error });
+      await db.query('UPDATE users SET signature_image = ?, signature_updated_at = NOW() WHERE id = ? AND tenant_id = ?', [signature_image, req.user.id, req.user.tenant_id]);
+    }
+    if (signature_auto !== undefined) {
+      await db.query('UPDATE users SET signature_auto = ? WHERE id = ? AND tenant_id = ?', [signature_auto ? 1 : 0, req.user.id, req.user.tenant_id]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[profile] assinatura (gravação):', err.message);
+    res.status(500).json({ error: 'Erro ao salvar assinatura' });
+  }
+});
+
+// DELETE /profile/signature
+router.delete('/signature', async (req, res) => {
+  try {
+    await db.query('UPDATE users SET signature_image = NULL, signature_updated_at = NULL WHERE id = ? AND tenant_id = ?', [req.user.id, req.user.tenant_id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[profile] assinatura (exclusão):', err.message);
+    res.status(500).json({ error: 'Erro ao excluir assinatura' });
   }
 });
 

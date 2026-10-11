@@ -5,6 +5,8 @@
  * (ver buildClinicalDocModel.ts) e devolve um jsPDF.
  */
 import { jsPDF } from 'jspdf';
+import type { SignatureImage } from '../../Documents/signatureImage';
+import { autoSignatureSync } from '../../Documents/signatureStore';
 
 /* ───────────── Modelo ───────────── */
 export type Block =
@@ -57,6 +59,11 @@ export interface ClinicalDocModel {
   /** Termo de sigilo antes da assinatura. */
   confidentialityTerm: boolean;
   sections: DocSection[];
+  /**
+   * Assinatura eletrônica simples (imagem) acima da linha de assinatura. Omitido = usa a assinatura do perfil quando a
+   * opção "inserir automaticamente" estiver ligada; null = não inserir. Sem rubrica nas outras páginas e sem carimbo.
+   */
+  signatureImage?: SignatureImage | null;
 }
 
 /* ───────────── Texto ───────────── */
@@ -538,11 +545,18 @@ export function renderClinicalPdf(m: ClinicalDocModel): jsPDF {
     doc.setDrawColor(...LINE); doc.setLineWidth(0.15); doc.line(M, y, PW - M, y); y += LH;
     paragraph(CONFIDENTIALITY_TERM, 0, 'normal', 9.5, 4.4);
   }
-  ensure(46);
+  const sigImg = m.signatureImage !== undefined ? m.signatureImage : autoSignatureSync();
+  ensure(sigImg ? 58 : 46);
   y += 8;
   setBody('normal', 10.5);
   doc.text(`Emitido em ${fmtLongDateBR(emitted)}.`, PW / 2, y, { align: 'center' });
-  y += 20;
+  y += sigImg ? 22 : 20;
+  if (sigImg) {
+    const r = sigImg.width / sigImg.height;
+    let ih = 18; let iw = ih * r;
+    if (iw > 70) { iw = 70; ih = iw / r; }
+    try { doc.addImage(sigImg.dataUrl, 'PNG', PW / 2 - iw / 2, y - 1.2 - ih, iw, ih, undefined, 'FAST'); } catch { /* imagem inválida: segue sem */ }
+  }
   doc.setDrawColor(...INK); doc.setLineWidth(0.3);
   doc.line(PW / 2 - 40, y, PW / 2 + 40, y);
   y += 4.6;
@@ -550,6 +564,10 @@ export function renderClinicalPdf(m: ClinicalDocModel): jsPDF {
   setBody('normal', 9.5);
   if (m.professional.registry) { doc.text(clean(m.professional.registry), PW / 2, y, { align: 'center' }); y += 4.2; }
   if (m.professional.specialty) { doc.text(clean(m.professional.specialty), PW / 2, y, { align: 'center' }); y += 4.2; }
+  if (sigImg) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...GREY);
+    doc.text(doc.splitTextToSize(`Documento assinado eletronicamente por ${profName} em ${fmtDateTimeBR(emitted)}`, CW)[0], PW / 2, y + 1, { align: 'center' });
+  }
 
   /* ── Sumário (agora com as páginas) ── */
   if (tocPage) {

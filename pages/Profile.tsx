@@ -32,7 +32,9 @@ import {
   Sparkles,
   ArrowLeft,
   Check,
+  PenLine,
 } from 'lucide-react';
+import { SignatureSettings } from '../components/Documents/SignatureSettings';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Calendar as AvailabilityCalendar } from '../components/UI/Calendar';
@@ -154,10 +156,11 @@ const buildHolidayPresets = (year: number): ClosedDatePreset[] => [
   { date: year + '-12-25', label: 'Natal', buttonLabel: 'Natal ' + year },
 ];
 
-type ProfileTab = 'info' | 'schedule' | 'closed' | 'clinic' | 'external' | 'content' | 'blocks' | 'faq' | 'theme';
+type ProfileTab = 'info' | 'assinatura' | 'schedule' | 'closed' | 'clinic' | 'external' | 'content' | 'blocks' | 'faq' | 'theme';
 
 const PROFILE_TABS = [
   { id: 'info', label: 'Dados pessoais', icon: User },
+  { id: 'assinatura', label: 'Assinatura', icon: PenLine },
   { id: 'schedule', label: 'Minha agenda', icon: CalendarIcon },
   { id: 'closed', label: 'Bloqueios', icon: Lock },
   { id: 'clinic', label: 'Clínica', icon: Building2 },
@@ -246,7 +249,7 @@ export const Profile: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ProfileTab>(() => {
     if (isMySiteRoute) return 'external';
     const tab = new URLSearchParams(window.location.search).get('tab');
-    return tab === 'schedule' ? 'schedule' : tab === 'external' ? 'external' : 'info';
+    return tab === 'schedule' ? 'schedule' : tab === 'external' ? 'external' : tab === 'assinatura' ? 'assinatura' : 'info';
   });
 
   // Aurora profile builder
@@ -840,6 +843,8 @@ Gere o seguinte JSON:
               </PanelCard>
             </div>
           )}
+
+          {activeTab === 'assinatura' && <SignatureSettings professionalName={user.name} />}
 
           {activeTab === 'schedule' && (
             <div className="space-y-3">

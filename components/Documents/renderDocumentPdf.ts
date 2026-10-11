@@ -14,6 +14,7 @@ import {
 } from '../Records/pdf/clinicalDocument';
 import type { DocBlock, Run } from './htmlToBlocks';
 import { longDatePt } from './documentVariables';
+import type { SignatureImage } from './signatureImage';
 
 export interface DocumentModel {
   title: string;
@@ -34,6 +35,20 @@ export interface DocumentModel {
   signature?: { name?: string; registry?: string; specialty?: string } | false;
   /** Logo opcional no rodapé (papel timbrado). */
   footerLogo?: LogoImage | null;
+  /** Assinatura eletrônica simples (imagem PNG): desenhada ACIMA da linha de assinatura. Sem rubrica nas demais páginas e sem carimbo. */
+  signatureImage?: SignatureImage | null;
+  /** Momento da assinatura eletrônica (linha pequena sob o registro). Padrão: emittedAt. */
+  signedAt?: Date | null;
+}
+
+/** Altura máxima da imagem de assinatura (mm) e largura máxima. */
+export const SIGNATURE_MAX_H_MM = 18;
+export const SIGNATURE_MAX_W_MM = 70;
+export function signatureBox(img: { width: number; height: number }): { w: number; h: number } {
+  const r = img.width / img.height;
+  let h = SIGNATURE_MAX_H_MM; let w = h * r;
+  if (w > SIGNATURE_MAX_W_MM) { w = SIGNATURE_MAX_W_MM; h = w / r; }
+  return { w, h };
 }
 
 const PW = 210; const PH = 297; const M = 20; const CW = PW - M * 2;
@@ -270,12 +285,17 @@ export function renderDocumentPdf(m: DocumentModel): jsPDF {
   /* ── Local, data e assinatura ── */
   if (m.signature !== false) {
     const sig = m.signature || {};
-    ensure(54);
+    ensure(m.signatureImage ? 62 : 54);
     y += 8;
     setBody();
     const dateLine = `${m.place ? `${clean(m.place)}, ` : ''}${longDatePt(m.docDate)}.`;
     doc.text(dateLine, PW / 2, y, { align: 'center' });
-    y += 20;
+    y += m.signatureImage ? 22 : 20;
+    // assinatura eletrônica simples: imagem centralizada logo acima da linha (proporção preservada)
+    if (m.signatureImage) {
+      const b = signatureBox(m.signatureImage);
+      try { doc.addImage(m.signatureImage.dataUrl, 'PNG', PW / 2 - b.w / 2, y - 1.2 - b.h, b.w, b.h, undefined, 'FAST'); } catch { /* imagem inválida: segue sem */ }
+    }
     doc.setDrawColor(...INK); doc.setLineWidth(0.3);
     doc.line(PW / 2 - 40, y, PW / 2 + 40, y);
     y += 4.6;
@@ -285,6 +305,12 @@ export function renderDocumentPdf(m: DocumentModel): jsPDF {
     if (reg) { doc.text(reg, PW / 2, y, { align: 'center' }); y += 4.2; }
     const spec = clean(sig.specialty !== undefined ? sig.specialty : m.professional.specialty);
     if (spec) { doc.text(spec, PW / 2, y, { align: 'center' }); y += 4.2; }
+    if (m.signatureImage) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...GREY);
+      const who = clean(sig.name) || profName;
+      const line = `Documento assinado eletronicamente por ${who} em ${fmtDateTimeBR(m.signedAt || m.emittedAt)}`;
+      (doc.splitTextToSize(line, CW) as string[]).forEach(l => { doc.text(l, PW / 2, y + 1, { align: 'center' }); y += 3.2; });
+    }
   }
 
   /* ── Cabeçalho e rodapé em todas as páginas ── */

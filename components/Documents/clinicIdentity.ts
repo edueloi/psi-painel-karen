@@ -5,6 +5,7 @@
 import { api, getStaticUrl } from '../../services/api';
 import { loadLogoImage, type ClinicInfo, type ProfessionalInfo, type LogoImage } from '../Records/pdf/clinicalDocument';
 import { extractCityUf, joinCityUf } from './documentVariables';
+import { loadSignature, type SignatureInfo } from './signatureStore';
 
 export interface Identity {
   clinic: ClinicInfo;
@@ -15,6 +16,8 @@ export interface Identity {
   cityUf: string;
   registryLabel: string;
   registryNumber: string;
+  /** Assinatura (imagem) do usuário e preferência de inserção automática. Só preenchida por fetchIdentity. */
+  signature?: SignatureInfo;
 }
 
 const pick = (...vals: any[]) => {
@@ -70,8 +73,14 @@ export function buildIdentity(profile: any, logo: LogoImage | null): Identity {
 
 /** Busca o perfil e monta a identidade (logo opcional sobrescreve a da clínica). */
 export async function fetchIdentity(logoOverrideUrl?: string | null): Promise<Identity> {
-  const profile = await api.get<any>('/profile/me');
+  const [profile, signature] = await Promise.all([api.get<any>('/profile/me'), loadSignature().catch(() => undefined)]);
   const logoPath = logoOverrideUrl || pick(profile?.clinic_logo_url, profile?.clinicLogoUrl);
   const logo = logoPath ? await loadLogoCached(logoPath.startsWith('data:') || /^https?:/i.test(logoPath) ? logoPath : getStaticUrl(logoPath)) : null;
-  return buildIdentity(profile, logo);
+  const idt = buildIdentity(profile, logo);
+  if (signature) idt.signature = signature;
+  return idt;
 }
+
+/** Registro profissional obrigatório nos documentos: sem ele a emissão é bloqueada. */
+export const REGISTRY_REQUIRED_MESSAGE = 'Cadastre seu CRP no perfil para emitir documentos.';
+export const hasRegistry = (registryNumber: string | undefined | null) => !!String(registryNumber || '').replace(/[^0-9A-Za-z]/g, '');

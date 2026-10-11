@@ -1800,7 +1800,8 @@ router.get('/documents', portalAuth, async (req, res) => {
 
     // Documentos gerados (atestados, declarações, receitas)
     const [docs] = await db.query(
-      `SELECT id, title, rendered_html, created_at, 'document' AS source_type
+      `SELECT id, title, rendered_html, created_at, 'document' AS source_type,
+              signature_mode, (pdf_hash IS NOT NULL OR signed_file_hash IS NOT NULL) AS has_file
        FROM doc_instances
        WHERE patient_id = ? AND tenant_id = ?
        ORDER BY created_at DESC LIMIT 50`,
@@ -1825,6 +1826,55 @@ router.get('/documents', portalAuth, async (req, res) => {
     res.json({ documents: docs, uploads });
   } catch (e) {
     console.error('[portal documents]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// Protocolo de recebimento no portal: mesma trilha da página pública (canal "portal").
+// POST /patient-portal/documents/:id/view — registra a visualização do documento pelo paciente
+router.post('/documents/:id/view', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const docId = parseInt(req.params.id, 10);
+    if (!docId) return res.status(400).json({ error: 'Documento inválido.' });
+    const [docs] = await db.query('SELECT id FROM doc_instances WHERE id = ? AND patient_id = ? AND tenant_id = ? LIMIT 1', [docId, patient_id, tenant_id]);
+    if (!docs.length) return res.status(404).json({ error: 'Documento não encontrado.' });
+    const { ensurePortalDelivery, recordDeliveryEvent } = require('../utils/documentDeliveryLog');
+    const delivery = await ensurePortalDelivery(tenant_id, patient_id, docId);
+    await recordDeliveryEvent(delivery, 'view', req.ip, req.get('user-agent'));
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[portal documents view]', e?.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// GET /patient-portal/documents/:id/file — PDF oficial do documento (registra o download)
+router.get('/documents/:id/file', portalAuth, async (req, res) => {
+  try {
+    const { patient_id, tenant_id } = req.portalSession;
+    const docId = parseInt(req.params.id, 10);
+    if (!docId) return res.status(400).json({ error: 'Documento inválido.' });
+    const [docs] = await db.query('SELECT id, title, signed_file_hash FROM doc_instances WHERE id = ? AND patient_id = ? AND tenant_id = ? LIMIT 1', [docId, patient_id, tenant_id]);
+    if (!docs.length) return res.status(404).json({ error: 'Documento não encontrado.' });
+    const kind = docs[0].signed_file_hash ? 'signed_external' : 'generated';
+    const [files] = await db.query(
+      'SELECT data FROM doc_instance_files WHERE doc_instance_id = ? AND tenant_id = ? AND kind = ? ORDER BY id DESC LIMIT 1',
+      [docId, tenant_id, kind]
+    );
+    if (!files.length) return res.status(404).json({ error: 'Este documento não possui arquivo PDF.' });
+    if (req.query.download === '1') {
+      const { ensurePortalDelivery, recordDeliveryEvent } = require('../utils/documentDeliveryLog');
+      const delivery = await ensurePortalDelivery(tenant_id, patient_id, docId);
+      await recordDeliveryEvent(delivery, 'download', req.ip, req.get('user-agent'));
+    }
+    const safeName = String(docs[0].title || 'documento').replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'documento';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${req.query.download === '1' ? 'attachment' : 'inline'}; filename="${safeName}.pdf"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(files[0].data);
+  } catch (e) {
+    console.error('[portal documents file]', e?.message);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });

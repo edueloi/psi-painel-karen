@@ -1,6 +1,8 @@
 /** Monta o DocumentModel (PDF/pré-visualização) a partir de um modelo do emissor já com variáveis substituídas. */
 import type { ClinicInfo, ProfessionalInfo, LogoImage } from '../Records/pdf/clinicalDocument';
-import type { DocumentModel } from './renderDocumentPdf';
+import { signatureBox, type DocumentModel } from './renderDocumentPdf';
+import type { SignatureImage } from './signatureImage';
+import { fmtDateTimeBR } from '../Records/pdf/clinicalDocument';
 import { htmlToBlocks, stripTrailingClosing, type DocBlock, type Run } from './htmlToBlocks';
 import {
   amountToWords, formatMoney, longDatePt, monthNamePt, parseMoney, shortDatePt,
@@ -88,6 +90,9 @@ export interface BuildDocumentInput {
   footerLogo?: LogoImage | null;
   /** Força mostrar/ocultar a tabela de identificação (padrão: depende do tipo). */
   showIdentification?: boolean;
+  /** Assinatura eletrônica simples (imagem) a inserir acima da linha de assinatura. */
+  signatureImage?: SignatureImage | null;
+  signedAt?: Date | null;
 }
 
 export function buildDocumentModel(i: BuildDocumentInput): DocumentModel {
@@ -112,6 +117,8 @@ export function buildDocumentModel(i: BuildDocumentInput): DocumentModel {
     blocks, place: i.place, docDate: i.docDate, emittedAt: i.emittedAt || new Date(),
     signature: { name: i.signatureName || undefined, registry: i.signatureRegistry || undefined },
     footerLogo: i.footerLogo || null,
+    signatureImage: i.signatureImage || null,
+    signedAt: i.signatureImage ? (i.signedAt || i.emittedAt || new Date()) : null,
   };
 }
 
@@ -142,8 +149,12 @@ export function buildStoredHtml(model: DocumentModel): string {
     `<h2 style="text-align:center;font-size:15pt;margin:0 0 14px;">${esc(model.title.toUpperCase())}</h2>` +
     `<div>${bodyHtml}</div>` +
     `<p style="text-align:center;margin-top:28px;">${place}${esc(longDatePt(model.docDate))}.</p>` +
-    `<div style="text-align:center;margin-top:36px;"><div style="width:240px;border-top:1px solid #141414;margin:0 auto 6px;"></div>` +
+    `<div style="text-align:center;margin-top:36px;">` +
+    (model.signatureImage ? (() => { const b = signatureBox(model.signatureImage); return `<img src="${model.signatureImage.dataUrl}" alt="Assinatura" style="display:block;margin:0 auto -4px;width:${Math.round(b.w * 3.78)}px;height:${Math.round(b.h * 3.78)}px;"/>`; })() : '') +
+    `<div style="width:240px;border-top:1px solid #141414;margin:0 auto 6px;"></div>` +
     `<strong>${esc((sig && sig.name) || model.professional.name)}</strong>` +
     `${reg ? `<br/><span style="font-size:9.5pt;">${esc(reg)}</span>` : ''}` +
-    `${model.professional.specialty ? `<br/><span style="font-size:9.5pt;">${esc(model.professional.specialty)}</span>` : ''}</div></div>`;
+    `${model.professional.specialty ? `<br/><span style="font-size:9.5pt;">${esc(model.professional.specialty)}</span>` : ''}` +
+    (model.signatureImage ? `<br/><span style="font-family:Helvetica,Arial,sans-serif;font-size:7.5pt;color:#5f5f5f;">Documento assinado eletronicamente por ${esc((sig && sig.name) || model.professional.name)} em ${esc(fmtDateTimeBR(model.signedAt || model.emittedAt))}</span>` : '') +
+    `</div></div>`;
 }
