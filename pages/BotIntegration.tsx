@@ -3,7 +3,7 @@ import {
   Smartphone, CheckCircle2, AlertCircle, Clock, Calendar,
   Gift, Loader2, Save, Send, Wifi, WifiOff, Zap,
   MessageSquare, DollarSign, Bell, RefreshCw, X,
-  History, User, Eye, Video
+  History, User, Eye, Video, RotateCcw
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -307,6 +307,7 @@ export const BotIntegration: React.FC = () => {
   const [queue, setQueue]                 = useState<any[]>([]);
   const [queueLoading, setQueueLoading]   = useState(false);
   const [selectedMsg, setSelectedMsg]     = useState<any | null>(null);
+  const [retryingNotificationId, setRetryingNotificationId] = useState<number | null>(null);
   const [filterStatus, setFilterStatus]   = useState<string>('');
   const [filterDate, setFilterDate]       = useState<string>('');
   const [activeTab, setActiveTab]         = useState<BotTab>('conexao');
@@ -340,6 +341,20 @@ export const BotIntegration: React.FC = () => {
       setQueue([]);
     } finally {
       setQueueLoading(false);
+    }
+  };
+
+  const handleRetryNotification = async (item: any) => {
+    setRetryingNotificationId(item.id);
+    try {
+      await api.post(`/notifications/queue/${item.id}/retry`, {});
+      setSelectedMsg(null);
+      pushToast('success', 'Mensagem colocada novamente na fila para envio.');
+      await fetchQueue(filterStatus, filterDate);
+    } catch (error: any) {
+      pushToast('error', error.message || 'Não foi possível reenviar a mensagem.');
+    } finally {
+      setRetryingNotificationId(null);
     }
   };
 
@@ -835,6 +850,12 @@ export const BotIntegration: React.FC = () => {
                   : item.status === 'pending' ? 'Aguardando...' : '—';
                 const phone = item.recipient_phone || '—';
                 const name = item.patient_name || null;
+                const digits = String(phone).replace(/\D/g, '');
+                const isBrazilian = /^(?:55)?\d{10,11}$/.test(digits);
+                const needsInternationalPrefix = item.status === 'error'
+                  && !!phone
+                  && !String(phone).trim().startsWith('+')
+                  && !isBrazilian;
 
                 return (
                   <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-white hover:border-slate-200 transition-all">
@@ -853,6 +874,12 @@ export const BotIntegration: React.FC = () => {
                           <Clock size={10} /> {sentAt}
                         </span>
                       </div>
+                      {item.status === 'error' && item.last_error && (
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-red-600 line-clamp-2">
+                          {item.last_error}
+                          {needsInternationalPrefix && ' Para contatos de fora do Brasil, revise o cadastro com o DDI: +código do país + número.'}
+                        </p>
+                      )}
                     </div>
                     <IconButton
                       variant="ghost"
@@ -880,7 +907,20 @@ export const BotIntegration: React.FC = () => {
         onClose={() => setSelectedMsg(null)}
         title="Conteúdo da mensagem"
         size="md"
-        footer={<ModalFooter align="right"><Button variant="outline" size="sm" onClick={() => setSelectedMsg(null)}>Fechar</Button></ModalFooter>}
+        footer={<ModalFooter align="right">
+          {selectedMsg?.status === 'error' && /bot (desconectado|não conectado)|bot disconnected/i.test(selectedMsg.last_error || '') && (
+            <Button
+              variant="primary"
+              size="sm"
+              iconLeft={<RotateCcw size={14} />}
+              loading={retryingNotificationId === selectedMsg.id}
+              onClick={() => handleRetryNotification(selectedMsg)}
+            >
+              Tentar novamente
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setSelectedMsg(null)}>Fechar</Button>
+        </ModalFooter>}
       >
         {selectedMsg && (
           <div className="space-y-3">
@@ -897,6 +937,11 @@ export const BotIntegration: React.FC = () => {
               <div className="space-y-1">
                 <p className="text-xs font-medium text-red-500">Erro</p>
                 <p className="text-xs text-red-600 bg-red-50 rounded-lg p-3">{selectedMsg.last_error}</p>
+                {selectedMsg.status === 'error' && !String(selectedMsg.recipient_phone || '').trim().startsWith('+') && !/^(?:55)?\d{10,11}$/.test(String(selectedMsg.recipient_phone || '').replace(/\D/g, '')) && (
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-3">
+                    Este telefone não parece brasileiro e está sem DDI. No cadastro do paciente, selecione o país correto: o sistema salvará o número como +DDI+número para os próximos envios.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -914,12 +959,19 @@ const TestSendPanel: React.FC = () => {
   const [sending, setSending] = useState(false);
 
   const handleTest = async () => {
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length < 10) { pushToast('error', 'Informe um telefone válido (DDD + número).'); return; }
+    const rawPhone = phone.trim();
+    const digits = rawPhone.replace(/\D/g, '');
+    const isInternational = rawPhone.startsWith('+');
+    const validBrazilian = /^(?:55)?\d{10,11}$/.test(digits);
+    const validInternational = isInternational && digits.length >= 7 && digits.length <= 15;
+    if (!validBrazilian && !validInternational) {
+      pushToast('error', 'Use (DDD) 99999-9999 para Brasil ou +DDI número para outro país.');
+      return;
+    }
     if (!message.trim()) { pushToast('error', 'Informe uma mensagem.'); return; }
     setSending(true);
     try {
-      await api.post('/whatsapp/test', { phone: cleaned, message });
+      await api.post('/whatsapp/test', { phone: isInternational ? `+${digits}` : digits, message });
       pushToast('success', 'Mensagem de teste enviada com sucesso!');
     } catch (e: any) {
       pushToast('error', e.message || 'Erro ao enviar mensagem de teste.');
@@ -931,11 +983,11 @@ const TestSendPanel: React.FC = () => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <Input
-        label="Telefone (com DDD)"
+        label="Telefone"
         type="tel"
         value={phone}
         onChange={e => setPhone(e.target.value)}
-        placeholder="11999998888"
+        placeholder="(11) 99999-8888 ou +1 650 439 5482"
         leftIcon={<Smartphone size={14} />}
       />
       <Input
