@@ -1509,7 +1509,10 @@ const RecordEditor: React.FC<{
   const [appointmentId, setAppointmentId] = useState<string>(String((record as any)?.appointment_id || initialStructured?.meta?.agendamento_id || ''));
   const [status, setStatus] = useState(reassess ? 'Rascunho' : (record?.status || 'Rascunho'));
   const [tags, setTags] = useState<string[]>(Array.isArray(record?.tags) ? (record!.tags as string[]) : []);
-  const locked = status === 'Aprovado' || status === 'Finalizado';
+  const approvedRecord = status === 'Aprovado' || status === 'Finalizado';
+  const [approvedEditUnlocked, setApprovedEditUnlocked] = useState(false);
+  const [showUnlockEditModal, setShowUnlockEditModal] = useState(false);
+  const locked = approvedRecord && !approvedEditUnlocked;
   const [attachments, setAttachments] = useState<any[]>(record?.attachments || []);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1542,8 +1545,9 @@ const RecordEditor: React.FC<{
     return { ...EMPTY_PLAN };
   });
   const handleTheraPlanChange = useCallback((updater: TheraPlan | ((p: TheraPlan) => TheraPlan)) => {
+    if (locked) return;
     setTheraPlan((prev: TheraPlan) => typeof updater === 'function' ? updater(prev) : updater);
-  }, []);
+  }, [locked]);
 
   const [showApproveModal, setShowApproveModal] = useState(false);
   const isStructured = recordType === 'Evolucao' || recordType === 'Avaliacao' || recordType === 'Anamnese';
@@ -1595,9 +1599,10 @@ const RecordEditor: React.FC<{
   const structuredKind = (recordType === 'Avaliacao' || recordType === 'Anamnese' ? recordType : 'Evolucao') as RecordKind;
   const sections = useMemo(() => getSections(specialty, structuredKind), [specialty, structuredKind]);
   const handleStructuredChange = useCallback((key: string, value: any) => {
+    if (locked) return;
     setSValues(prev => ({ ...prev, [key]: value }));
     setAiFields(prev => (prev.includes(key) ? prev.filter(k => k !== key) : prev));
-  }, []);
+  }, [locked]);
   const confirmAiField = useCallback((key: string) => setAiFields(prev => prev.filter(k => k !== key)), []);
   // Aviso de "modelo anterior" só para registros antigos já salvos (os novos sempre nascem estruturados).
   const isLegacyRecord = isStructured && mode === 'edit' && !initialStructured && !!(record?.id && (record.ai_organized_content || record.draft_content || record.content));
@@ -1738,6 +1743,11 @@ const RecordEditor: React.FC<{
   );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (locked) {
+      pushToast('info', 'Confirme sua senha para anexar arquivos a um registro aprovado.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     const selectedFiles = Array.from(e.target.files || []);
     if (!selectedFiles.length) return;
     const allowed = selectedFiles.filter(file => (
@@ -1781,6 +1791,7 @@ const RecordEditor: React.FC<{
   };
 
   const removeAttachment = (index: number) => {
+    if (locked) return;
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -2002,6 +2013,13 @@ const RecordEditor: React.FC<{
     setShowApproveModal(true);
   };
 
+  const unlockApprovedRecord = async (password: string) => {
+    if (!recordIdRef.current) throw new Error('Salve o registro antes de liberar a edição.');
+    const result = await api.post<any>(`/medical-records/${recordIdRef.current}/unlock-edit`, { password });
+    setApprovedEditUnlocked(true);
+    pushToast('success', result?.message || 'Edição liberada temporariamente.');
+  };
+
   const approve = async (pw: string) => {
     if (!patientId) { setEditorSection('dados'); throw new Error('Selecione o paciente.'); }
     // Garante que a versão aprovada contém tudo o que está na tela.
@@ -2203,10 +2221,10 @@ const RecordEditor: React.FC<{
   const isAnamnese = recordType === 'Anamnese';
   const editorTabs = EDITOR_TABS
     .filter(t => {
-      if (isPlano) return t.id === 'dados' || t.id === 'rascunho' || t.id === 'historico';
-      if (isAnamnese) return t.id === 'dados' || t.id === 'estrutura' || t.id === 'rascunho' || t.id === 'historico';
+      if (isPlano) return t.id === 'dados' || t.id === 'rascunho' || t.id === 'anexos' || t.id === 'historico';
+      if (isAnamnese) return t.id === 'dados' || t.id === 'estrutura' || t.id === 'rascunho' || t.id === 'anexos' || t.id === 'historico';
       if (t.id === 'estrutura') return isStructured;
-      if (t.id === 'anexos') return recordType === 'Evolucao' || recordType === 'Avaliacao';
+      if (t.id === 'anexos') return true;
       return true;
     })
     .map(t => ({
@@ -2251,6 +2269,14 @@ const RecordEditor: React.FC<{
             Os valores dessa versão estão no editor, mas ainda não foram salvos. Clique em Salvar rascunho para confirmar; se sair sem salvar, a restauração é descartada.
           </Alert>
         )}
+        {locked && recordIdRef.current && (
+          <Alert variant="warning" title="Registro aprovado protegido">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>Para alterar conteúdo, anexos, avaliação ou anamnese, confirme sua senha. O status continuará aprovado e cada alteração ficará no histórico.</span>
+              <Button type="button" size="sm" variant="outline" iconLeft={<LockOpen size={14} />} onClick={() => setShowUnlockEditModal(true)}>Liberar edição</Button>
+            </div>
+          </Alert>
+        )}
         <Tabs<EditorTabId> items={editorTabs} value={editorTab} onChange={changeEditorTab} label="Seções do registro" />
 
         {/* Dados / Identificação */}
@@ -2260,8 +2286,8 @@ const RecordEditor: React.FC<{
               <User size={14} className="text-primary-600" /> Identificação e Metadados
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              <Input label="Título" value={title} onChange={e => setTitle(e.target.value)} />
-              <Input label="Data" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} />
+              <Input label="Título" value={title} onChange={e => setTitle(e.target.value)} disabled={locked} />
+              <Input label="Data" type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} disabled={locked} />
               {!typeLocked && (
                 <Select label="Paciente" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={mode === 'edit'}>
                   <option value="">Selecione...</option>
@@ -2370,16 +2396,17 @@ const RecordEditor: React.FC<{
               planGoals={planGoals}
               label={isAnamnese ? 'Seções da anamnese' : recordType === 'Avaliacao' ? 'Seções da avaliação' : 'Seções da evolução'}
               showProgress
+              disabled={locked}
               aiFields={aiFields}
               onConfirmAi={confirmAiField}
               aiSources={aiSources}
               toolbar={isEvolucao ? (
                 <>
-                  {canUseAi && <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillWithAI}>Preencher com IA</Button>}
-                  <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} onClick={duplicateFromLast}>Duplicar da última sessão</Button>
+                  {canUseAi && <Button variant="primary" size="sm" loading={aiFillBusy} disabled={locked} iconLeft={<Sparkles size={14} />} onClick={fillWithAI}>Preencher com IA</Button>}
+                  <Button variant="outline" size="sm" iconLeft={<Copy size={14} />} disabled={locked} onClick={duplicateFromLast}>Duplicar da última sessão</Button>
                 </>
               ) : ((recordType === 'Avaliacao' || isAnamnese) && canUseAi ? (
-                <Button variant="primary" size="sm" loading={aiFillBusy} iconLeft={<Sparkles size={14} />} onClick={fillAssessmentWithAI}>{isAnamnese ? 'Gerar análise com IA' : 'Preencher com IA'}</Button>
+                <Button variant="primary" size="sm" loading={aiFillBusy} disabled={locked} iconLeft={<Sparkles size={14} />} onClick={fillAssessmentWithAI}>{isAnamnese ? 'Gerar análise com IA' : 'Preencher com IA'}</Button>
               ) : undefined)}
               sectionTop={id => {
                 if (isEvolucao && id === 'sessao') return (
@@ -2443,8 +2470,9 @@ const RecordEditor: React.FC<{
                   patientId={patientId}
                   variant="sidebar"
                   usedIds={usedSources.map(u => u.id)}
-                  onBuildAssessment={recordType === 'Avaliacao' && canUseAi ? () => openFill('assessment') : undefined}
+                  onBuildAssessment={recordType === 'Avaliacao' && canUseAi && !locked ? () => openFill('assessment') : undefined}
                   onSelectSource={(item: any) => {
+                    if (locked) return;
                     setDraft((prev) => prev + '<br><br>' + mdToHtml(item.summary));
                     if (item.id && item.type) {
                       setUsedSources(prev => (prev.some(u => u.id === item.id) ? prev : [...prev, { id: item.id, label: `${item.name} ${fmtDate(item.date)}`, group: (item.type === 'anamnese' ? 'anamnese' : 'instrumentos') as SourceGroupId }]));
@@ -2458,6 +2486,7 @@ const RecordEditor: React.FC<{
             <div className="flex-1 min-w-0 space-y-3">
               {/* STEP 1 — Rascunho */}
               {step === 'draft' && isPlano && (
+                <div className={locked ? 'pointer-events-none opacity-60' : ''}>
                 <TherapeuticPlanEditor
                   plan={theraPlan}
                   onChange={handleTheraPlanChange}
@@ -2467,6 +2496,7 @@ const RecordEditor: React.FC<{
                   onSaveDraft={() => save('Rascunho')}
                   saving={saving}
                 />
+                </div>
               )}
               {step === 'draft' && !isPlano && (
                 <div className="space-y-3 animate-fadeIn">
@@ -2476,7 +2506,7 @@ const RecordEditor: React.FC<{
                         icon={ClipboardCheck}
                         title="Coleta de Dados (Remota)"
                         description="Para este tipo de registro, o histórico é coletado diretamente com o paciente através de um formulário seguro e sigiloso."
-                        action={<Button variant="primary" size="sm" iconLeft={<Edit3 size={14} />} onClick={() => setEditorSection('estrutura')}>Preencher manualmente</Button>}
+                        action={<Button variant="primary" size="sm" iconLeft={<Edit3 size={14} />} disabled={locked} onClick={() => setEditorSection('estrutura')}>Preencher manualmente</Button>}
                       />
                       {record?.id && (
                         <div className="pt-3 animate-slideUpFade">
@@ -2496,12 +2526,14 @@ const RecordEditor: React.FC<{
                       <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
                         <FileText size={14} className="text-primary-600" /> Rascunho Bruto da Sessão
                       </h3>
+                      <div className={locked ? 'pointer-events-none opacity-60' : ''}>
                       <RichTextEditor
                         value={draft}
-                        onChange={setDraft}
+                        onChange={value => { if (!locked) setDraft(value); }}
                         placeholder="Escreva tudo o que aconteceu na sessão..."
                         minHeight={recordType === 'Avaliacao' ? 550 : 400}
                       />
+                      </div>
                       {isEvolucao && canUseAi && (
                         <div className="space-y-3 rounded-lg border border-primary-100 bg-primary-50/40 p-3">
                           <div>
@@ -2514,7 +2546,7 @@ const RecordEditor: React.FC<{
                                 <option value="">Selecione uma sessão com transcrição...</option>
                                 {roomSessions.map(r => <option key={r.id} value={String(r.id)}>{roomSessionLabel(r)}</option>)}
                               </Select>
-                              <Button variant="outline" size="sm" loading={transcriptLoading} disabled={!roomSessionId} onClick={loadTranscript}>Carregar transcrição</Button>
+                              <Button variant="outline" size="sm" loading={transcriptLoading} disabled={locked || !roomSessionId} onClick={loadTranscript}>Carregar transcrição</Button>
                             </div>
                           )}
                           {transcript && (
@@ -2526,7 +2558,7 @@ const RecordEditor: React.FC<{
                               </div>
                             </div>
                           )}
-                          <Button onClick={fillWithAI} loading={aiFillBusy} disabled={!draft.trim() && !transcript.trim() && !hasValue(sValues.relato)} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
+                          <Button onClick={fillWithAI} loading={aiFillBusy} disabled={locked || (!draft.trim() && !transcript.trim() && !hasValue(sValues.relato))} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
                             {aiFillBusy ? 'Lendo a sessão...' : 'Preencher com IA'}
                           </Button>
                           <p className="text-[11px] text-slate-500">Revise antes de aprovar: a IA não inventa conteúdo e os riscos só são sugeridos se estiverem no texto.</p>
@@ -2541,12 +2573,12 @@ const RecordEditor: React.FC<{
                               {usedSources.length > 0 ? ` Em uso: ${usedSources.map(u => u.label).join(', ')}.` : ''}
                             </p>
                           </div>
-                          <Button onClick={fillAssessmentWithAI} loading={aiFillBusy} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14} />}>
+                          <Button onClick={fillAssessmentWithAI} loading={aiFillBusy} disabled={locked} variant="primary" size="lg" className="w-full" iconLeft={<Sparkles size={14} />}>
                             {aiFillBusy ? 'Lendo as fontes...' : 'Montar avaliação clínica com IA'}
                           </Button>
                         </div>
                       )}
-                      <Button onClick={organizeWithAI} loading={aiLoading} disabled={!draft.trim()} variant={isEvolucao && canUseAi ? 'outline' : 'primary'} size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
+                      <Button onClick={organizeWithAI} loading={aiLoading} disabled={locked || !draft.trim()} variant={isEvolucao && canUseAi ? 'outline' : 'primary'} size="lg" className="w-full" iconLeft={<Sparkles size={14}/>}>
                         {aiLoading ? 'Organizando conteúdo...' : 'Organizar com Inteligência Artificial'}
                       </Button>
                     </ContentCard>
@@ -2569,7 +2601,8 @@ const RecordEditor: React.FC<{
                           label={f.label}
                           rows={5}
                           value={organized[f.key] || ''}
-                          onChange={e => setOrganized({ ...organized, [f.key]: e.target.value })}
+                          disabled={locked}
+                          onChange={e => { if (!locked) setOrganized({ ...organized, [f.key]: e.target.value }); }}
                         />
                       </ContentCard>
                     ))}
@@ -2591,19 +2624,20 @@ const RecordEditor: React.FC<{
               rows={8}
               placeholder="Hipóteses clínicas..."
               value={privateNotes}
-              onChange={e => setPrivateNotes(e.target.value)}
+              disabled={locked}
+              onChange={e => { if (!locked) setPrivateNotes(e.target.value); }}
             />
           </ContentCard>
         )}
 
-        {/* Anexos (Evolução) */}
-        {editorSection === 'anexos' && recordType === 'Evolucao' && (
+        {/* Anexos — disponíveis em todos os tipos de registro, inclusive Anamnese e Avaliação. */}
+        {editorSection === 'anexos' && (
           <ContentCard padding="md" className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="text-sm font-medium text-slate-900 flex items-center gap-2">
-                <Layers size={14} className="text-primary-600"/> Anexos da Evolução
+                <Layers size={14} className="text-primary-600"/> Anexos do Registro
               </h3>
-              <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={() => fileInputRef.current?.click()} loading={uploading}>
+              <Button variant="outline" size="sm" iconLeft={<Plus size={14} />} onClick={() => fileInputRef.current?.click()} loading={uploading} disabled={locked}>
                 Anexar Arquivo
               </Button>
               <input type="file" className="hidden" ref={fileInputRef} multiple accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.odt" onChange={handleFileUpload} />
@@ -2631,13 +2665,13 @@ const RecordEditor: React.FC<{
                           {att.file_size ? <p className="text-[11px] text-slate-500">{(att.file_size / 1024 / 1024).toFixed(2)} MB</p> : null}
                         </div>
                       </a>
-                      <IconButton size="sm" variant="ghost" onClick={() => removeAttachment(idx)} aria-label="Remover anexo" title="Remover anexo" className="ml-2 shrink-0 text-red-600 hover:bg-red-50"><Trash2 size={14} /></IconButton>
+                      {!locked && <IconButton size="sm" variant="ghost" onClick={() => removeAttachment(idx)} aria-label="Remover anexo" title="Remover anexo" className="ml-2 shrink-0 text-red-600 hover:bg-red-50"><Trash2 size={14} /></IconButton>}
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <EmptyState icon={Layers} title="Nenhum anexo" description="Anexe documentos ou imagens relacionados a esta evolução." />
+              <EmptyState icon={Layers} title="Nenhum anexo" description="Anexe documentos ou imagens relacionados a este registro." />
             )}
           </ContentCard>
         )}
@@ -2677,7 +2711,9 @@ const RecordEditor: React.FC<{
                 : isStructured ? 'O rascunho é salvo automaticamente · Ctrl+S salva agora' : 'Ao voltar com conteúdo preenchido, o registro é salvo como rascunho.'}
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          {isPlano ? (
+          {locked ? (
+            <Button type="button" onClick={() => setShowUnlockEditModal(true)} variant="primary" size="sm" iconLeft={<LockOpen size={14}/>}>Liberar edição</Button>
+          ) : isPlano ? (
             <Button onClick={() => save()} loading={saving} variant="primary" size="sm" iconLeft={<Save size={14}/>}>Salvar plano</Button>
           ) : (
             <>
@@ -2693,6 +2729,14 @@ const RecordEditor: React.FC<{
           title="Aprovar Registro"
           onConfirm={approve}
           onClose={() => setShowApproveModal(false)}
+        />
+      )}
+
+      {showUnlockEditModal && (
+        <PasswordModal
+          title="Liberar edição do registro aprovado"
+          onConfirm={unlockApprovedRecord}
+          onClose={() => setShowUnlockEditModal(false)}
         />
       )}
 

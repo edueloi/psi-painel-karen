@@ -51,6 +51,24 @@ async function loadVisibleRecord(req, res, id) {
   return row;
 }
 const isLocked = (row) => row && (row.status === 'Aprovado' || row.status === 'Finalizado');
+// Edição de um registro aprovado exige nova confirmação da senha. A autorização
+// é curta, por usuário e por registro; ela não altera o status aprovado nem fica
+// gravada no banco. Após reinício ou expiração, a senha é solicitada novamente.
+const approvedEditGrants = new Map();
+const approvedEditKey = (recordId, userId) => `${recordId}:${userId}`;
+const hasApprovedEditGrant = (recordId, userId) => {
+  const expiresAt = approvedEditGrants.get(approvedEditKey(recordId, userId));
+  if (!expiresAt || expiresAt <= Date.now()) {
+    approvedEditGrants.delete(approvedEditKey(recordId, userId));
+    return false;
+  }
+  return true;
+};
+const grantApprovedEdit = (recordId, userId) => {
+  const expiresAt = Date.now() + (15 * 60 * 1000);
+  approvedEditGrants.set(approvedEditKey(recordId, userId), expiresAt);
+  return expiresAt;
+};
 const parseSelection = (v) => (Array.isArray(v) ? v.map(String) : null);
 const AI_ERR = (res, err, fallback) => {
   if (err && err.status) return res.status(err.status).json({ error: err.message });
@@ -918,6 +936,9 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
     );
     if (existing.length === 0) return res.status(404).json({ error: 'Prontuário não encontrado' });
     if (!sources.canSeeRecord(req.user, existing[0])) return res.status(403).json({ error: 'Você não tem acesso a este registro.' });
+    if (isLocked(existing[0]) && !hasApprovedEditGrant(req.params.id, req.user.id)) {
+      return res.status(423).json({ error: 'Este registro aprovado está protegido. Confirme sua senha para liberar a edição por 15 minutos.' });
+    }
     // Restaurar versão só vale para registros ainda não aprovados/finalizados.
     if (history_event === 'restaurado' && isLocked(existing[0])) {
       return res.status(409).json({ error: 'Registros aprovados não podem ser restaurados a partir do histórico.' });
@@ -989,7 +1010,7 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
       }
     }
 
-    await logAudit(req.params.id, req.user.id, req.user.tenant_id, 'updated', { status, ai_status });
+    await logAudit(req.params.id, req.user.id, req.user.tenant_id, 'updated', { status, ai_status, approved_edit: isLocked(existing[0]) });
     await history.recordVersion(req.user, Number(req.params.id), {
       event: ['restaurado', 'ia', 'reavaliacao'].includes(history_event) ? history_event : 'editado',
       autosave: autosave === true && history_event !== 'reavaliacao',
@@ -1010,6 +1031,34 @@ router.put('/:id', authMiddleware, checkPermission('edit_medical_record'), async
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar prontuário' });
+  }
+});
+
+/* ──────────────────────────────────────────────────────────
+   POST /medical-records/:id/unlock-edit — liberar edição temporária
+   Um registro aprovado continua aprovado e todo salvamento gera versão/auditoria.
+────────────────────────────────────────────────────────── */
+router.post('/:id/unlock-edit', authMiddleware, checkPermission('edit_medical_record'), async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password) return res.status(400).json({ error: 'Senha obrigatória para liberar a edição.' });
+
+    const [records] = await db.query('SELECT * FROM medical_records WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+    if (!records.length) return res.status(404).json({ error: 'Prontuário não encontrado' });
+    const record = records[0];
+    if (!sources.canSeeRecord(req.user, record)) return res.status(403).json({ error: 'Você não tem acesso a este registro.' });
+    if (!isLocked(record)) return res.json({ ok: true, already_editable: true });
+
+    const [[user]] = await db.query('SELECT password FROM users WHERE id = ? AND tenant_id = ?', [req.user.id, req.user.tenant_id]);
+    if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
+    if (!await bcrypt.compare(password, user.password)) return res.status(401).json({ error: 'Senha incorreta' });
+
+    const expiresAt = grantApprovedEdit(req.params.id, req.user.id);
+    await logAudit(req.params.id, req.user.id, req.user.tenant_id, 'approved_edit_unlocked', { expires_at: new Date(expiresAt).toISOString() });
+    return res.json({ ok: true, expires_at: new Date(expiresAt).toISOString(), message: 'Edição liberada por 15 minutos. O registro continuará aprovado e cada alteração ficará no histórico.' });
+  } catch (err) {
+    console.error('[medical-records/unlock-edit]', err);
+    return res.status(500).json({ error: 'Não foi possível liberar a edição do registro.' });
   }
 });
 

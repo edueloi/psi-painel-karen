@@ -30,6 +30,8 @@ interface Props {
   toolbar?: React.ReactNode;
   /** Mostra a barra de progresso geral e os indicadores por seção. */
   showProgress?: boolean;
+  /** Impede alterações enquanto um registro aprovado ainda não foi destravado. */
+  disabled?: boolean;
 }
 
 const MultiField: React.FC<{ f: FieldDef; value: string[]; onChange: (v: string[]) => void }> = ({ f, value, onChange }) => {
@@ -283,7 +285,7 @@ const StatusMark: React.FC<{ status: 'empty' | 'partial' | 'done' }> = ({ status
 };
 
 /** Formulário por seções: menu lateral no desktop, Tabs no mobile. */
-export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, planGoals = [], label, aiFields = [], onConfirmAi, aiSources = {}, sectionTop, toolbar, showProgress = false }) => {
+export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, planGoals = [], label, aiFields = [], onConfirmAi, aiSources = {}, sectionTop, toolbar, showProgress = false, disabled = false }) => {
   const [activeId, setActiveId] = useState(sections[0]?.id);
   const index = Math.max(0, sections.findIndex(s => s.id === activeId));
   const section = sections[index] || sections[0];
@@ -321,7 +323,7 @@ export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, pl
                 <div className="h-full rounded-full bg-primary-600 transition-all duration-300" style={{ width: `${progress}%` }} />
               </div>
             </div>
-            {toolbar && <div className="flex shrink-0 flex-wrap items-center gap-2">{toolbar}</div>}
+            {toolbar && <fieldset disabled={disabled} className="flex shrink-0 flex-wrap items-center gap-2 border-0 p-0 m-0">{toolbar}</fieldset>}
           </div>
         </ContentCard>
       )}
@@ -349,7 +351,8 @@ export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, pl
           })}
         </nav>
 
-        <ContentCard padding="md" className="min-w-0 space-y-3">
+        <fieldset disabled={disabled} className="min-w-0 border-0 m-0 p-0">
+        <ContentCard padding="md" className={`min-w-0 space-y-3 ${disabled ? 'opacity-60' : ''}`}>
           <div>
             <h3 className="flex items-center gap-2 text-sm font-medium text-slate-900">
               <section.icon size={14} className="text-primary-600" /> {section.label}
@@ -392,6 +395,7 @@ export const StructuredForm: React.FC<Props> = ({ sections, values, onChange, pl
             <Button type="button" variant="outline" size="sm" iconRight={<ChevronRight size={14} />} disabled={index === sections.length - 1} onClick={() => setActiveId(sections[index + 1].id)}>Próxima</Button>
           </div>
         </ContentCard>
+        </fieldset>
       </div>
     </div>
   );
