@@ -420,14 +420,6 @@ export const NotaFiscal: React.FC = () => {
       render: renderStatusBadge,
     },
     {
-      header: 'Ambiente',
-      render: (inv) => (
-        <Badge size="sm" color={inv.environment === 'producao' ? 'success' : 'warning'}>
-          {inv.environment === 'producao' ? 'Produção' : 'Homologação'}
-        </Badge>
-      ),
-    },
-    {
       header: 'Ações',
       headerClassName: 'text-center',
       render: (inv) => renderActions(inv),
