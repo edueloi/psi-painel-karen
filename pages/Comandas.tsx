@@ -63,9 +63,9 @@ const COMANDA_STATUS_TABS = [
 ] as const;
 
 const MANAGER_TABS = [
-  { id: 'atendimentos', label: 'Atendimentos', icon: CalendarDays },
-  { id: 'pagamentos', label: 'Pagamentos', icon: CreditCard },
-  { id: 'pacote', label: 'Pacote', icon: Package },
+  { id: 'atendimentos', label: 'Sessões', icon: CalendarDays },
+  { id: 'pagamentos', label: 'Recebimentos', icon: CreditCard },
+  { id: 'pacote', label: 'Pacote e itens', icon: Package },
 ] as const;
 
 const COMANDA_TYPE_TABS = [
@@ -2357,8 +2357,8 @@ export const Comandas: React.FC = () => {
       <ActionDrawer
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
-        title="Gestão de Histórico e Pagamentos"
-        subtitle={historyComanda ? `Comanda #${historyComanda.id} • ${historyComanda.patientName || historyComanda.patient_name}` : ''}
+        title="Detalhes da comanda"
+        subtitle={historyComanda ? `Acompanhe sessões, recebimentos e pacote da comanda #${historyComanda.id}` : ''}
         size="xl"
       >
         {historyComanda && (
@@ -2366,7 +2366,7 @@ export const Comandas: React.FC = () => {
     {/* coluna principal */}
     <div className="min-w-0 flex-1 space-y-3">
 
-      {/* topo compacto */}
+      {/* Identificação e atalhos do paciente */}
       <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-sm font-semibold text-primary-700">
@@ -2381,20 +2381,35 @@ export const Comandas: React.FC = () => {
               {(historyComanda as any).patientName ||
                 (historyComanda as any).patient_name}
             </p>
-            <p className="text-xs text-slate-400">Comanda #{historyComanda.id}</p>
+            <p className="text-xs text-slate-400">Comanda #{historyComanda.id} · {historyComanda.status === 'closed' ? 'Finalizada' : 'Em aberto'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => handleIncrementSessions(historyComanda)}
-            title="Marcar Realizado (+1)"
-            iconLeft={<UserCheck size={14} />}
-            className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-          >
-            REALIZADO
-          </Button>
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {((historyComanda as any).patient_id || (historyComanda as any).patientId) && (
+            <>
+              <Button variant="ghost" size="xs" iconLeft={<UserIcon size={13} />} onClick={() => navigate(`/pacientes/${(historyComanda as any).patient_id || (historyComanda as any).patientId}`)}>
+                Perfil
+              </Button>
+              <Button variant="ghost" size="xs" iconLeft={<CalendarDays size={13} />} onClick={() => navigate(`/agenda?patient_id=${(historyComanda as any).patient_id || (historyComanda as any).patientId}`)}>
+                Agenda
+              </Button>
+              <Button variant="ghost" size="xs" iconLeft={<FileText size={13} />} onClick={() => navigate(`/prontuario?patient_id=${(historyComanda as any).patient_id || (historyComanda as any).patientId}`)}>
+                Prontuário
+              </Button>
+            </>
+          )}
+          {hasPermission('manage_payments') && (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => handleIncrementSessions(historyComanda)}
+              title="Marcar realizado (+1)"
+              iconLeft={<UserCheck size={14} />}
+              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            >
+              Marcar realizado
+            </Button>
+          )}
           {hasPermission('manage_invoice_issuer') && (
             <IconButton
               variant="ghost"
@@ -2441,6 +2456,26 @@ export const Comandas: React.FC = () => {
         </div>
       </div>
 
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-slate-700">Andamento das sessões</p>
+            <p className="text-[11px] text-slate-500">
+              {Number((historyComanda as any).sessions_used || 0)} realizadas de {Number((historyComanda as any).sessions_total || 1)} incluídas nesta comanda
+            </p>
+          </div>
+          <span className="text-xs font-semibold text-primary-700">
+            {Math.max(0, Number((historyComanda as any).sessions_total || 1) - Number((historyComanda as any).sessions_used || 0))} restantes
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-primary-500 transition-all"
+            style={{ width: `${Math.min(100, (Number((historyComanda as any).sessions_used || 0) / Math.max(1, Number((historyComanda as any).sessions_total || 1))) * 100)}%` }}
+          />
+        </div>
+      </div>
+
       {/* criação */}
       {(historyComanda as any).created_at && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
@@ -2466,7 +2501,18 @@ export const Comandas: React.FC = () => {
       {/* conteúdo das tabs */}
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
         {managerTab === 'atendimentos' && (
-          <div className="divide-y divide-slate-100">
+          <div className="space-y-2 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">Sessões vinculadas</p>
+                <p className="text-[11px] text-slate-500">Ajuste data ou situação de cada sessão; as alterações são salvas na hora.</p>
+              </div>
+              {((historyComanda as any).patient_id || (historyComanda as any).patientId) && (
+                <Button type="button" variant="outline" size="xs" iconLeft={<CalendarDays size={13} />} onClick={() => navigate(`/agenda?patient_id=${(historyComanda as any).patient_id || (historyComanda as any).patientId}`)}>
+                  Ver agenda
+                </Button>
+              )}
+            </div>
             {(historyComanda as any).appointments?.map((appointment: any, idx: number) => {
               const statusMap: Record<string, { label: string; color: string }> = {
                 scheduled:  { label: 'Agendado',  color: 'bg-blue-100 text-blue-700' },
@@ -2477,23 +2523,34 @@ export const Comandas: React.FC = () => {
               };
               const st = statusMap[appointment.status] || { label: appointment.status, color: 'bg-slate-100 text-slate-500' };
               return (
-                <div key={appointment.id} className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="w-5 shrink-0 text-center text-xs font-medium text-slate-400">{idx + 1}</span>
-                  <input
-                    type="datetime-local"
-                    value={new Date(
-                      new Date(appointment.start_time || appointment.start_date || appointment.startDate).getTime() -
-                        new Date().getTimezoneOffset() * 60000
-                    ).toISOString().slice(0, 16)}
-                    onChange={(e) => handleUpdateAppointmentDate(appointment.id, e.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-primary-400 focus:bg-white"
-                  />
+                <div key={appointment.id} className="grid grid-cols-1 items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 p-2.5 sm:grid-cols-[minmax(120px,0.7fr)_minmax(185px,1fr)_130px]">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">{idx + 1}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-700">Sessão {idx + 1}</p>
+                      <p className="text-[11px] text-slate-400">#{appointment.id}</p>
+                    </div>
+                  </div>
+                  <label className="min-w-0">
+                    <span className="sr-only">Data e horário da sessão {idx + 1}</span>
+                    <input
+                      type="datetime-local"
+                      value={new Date(
+                        new Date(appointment.start_time || appointment.start_date || appointment.startDate).getTime() -
+                          new Date().getTimezoneOffset() * 60000
+                      ).toISOString().slice(0, 16)}
+                      onChange={(e) => handleUpdateAppointmentDate(appointment.id, e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-primary-400"
+                    />
+                  </label>
                   <select
                     value={appointment.status}
                     onChange={(e) => handleUpdateAppointmentStatus(appointment.id, e.target.value)}
-                    className={`shrink-0 rounded-lg border-0 px-2 py-1.5 text-xs font-medium outline-none ${st.color}`}
+                    aria-label={`Situação da sessão ${idx + 1}`}
+                    className={`w-full rounded-lg border-0 px-2 py-1.5 text-xs font-medium outline-none ${st.color}`}
                   >
                     <option value="scheduled">Agendado</option>
+                    <option value="confirmed">Confirmado</option>
                     <option value="completed">Realizado</option>
                     <option value="cancelled">Cancelado</option>
                     <option value="no_show">Faltou</option>
@@ -2503,8 +2560,10 @@ export const Comandas: React.FC = () => {
             })}
             {(!(historyComanda as any).appointments ||
               (historyComanda as any).appointments.length === 0) && (
-              <div className="flex min-h-[120px] items-center justify-center text-xs text-slate-400">
-                Nenhum atendimento vinculado.
+              <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 text-center">
+                <CalendarDays size={22} className="text-slate-300" />
+                <p className="text-xs font-medium text-slate-600">Nenhuma sessão vinculada a esta comanda.</p>
+                <p className="text-[11px] text-slate-400">Use a Agenda para criar um atendimento para este paciente.</p>
               </div>
             )}
           </div>
@@ -2512,6 +2571,15 @@ export const Comandas: React.FC = () => {
 
         {managerTab === 'pagamentos' && (
           <div className="divide-y divide-slate-100">
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">Recebimentos registrados</p>
+                <p className="text-[11px] text-slate-500">Todos os valores abaixo compõem o total recebido desta comanda.</p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                {formatCurrency(getComandaPaid(historyComanda))}
+              </span>
+            </div>
             {/* PAGAMENTOS DIRETOS DA COMANDA */}
             {(historyComanda as any).payments?.map((payment: any) => (
               <div key={`direct-${payment.id}`} className="flex items-center justify-between px-3 py-2.5 bg-white group hover:bg-slate-50">
@@ -2531,7 +2599,7 @@ export const Comandas: React.FC = () => {
                   </div>
                 </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1">
                       {payment.financial_transaction_id && (
                         <IconButton
                           variant="ghost"
@@ -2570,7 +2638,7 @@ export const Comandas: React.FC = () => {
                         <Trash2 size={14} />
                       </IconButton>
                     </div>
-                    <span className="text-[11px] font-semibold text-emerald-400 group-hover:hidden">Recebido</span>
+                    <span className="text-[11px] font-semibold text-emerald-500">Recebido</span>
                   </div>
               </div>
             ))}
@@ -2607,8 +2675,10 @@ export const Comandas: React.FC = () => {
 
             {(!(historyComanda as any).payments || (historyComanda as any).payments.length === 0) &&
               comandaLivroCaixaTx.length === 0 && (
-              <div className="flex min-h-[120px] items-center justify-center text-xs text-slate-400">
-                Nenhum pagamento registrado.
+              <div className="flex min-h-[140px] flex-col items-center justify-center gap-2 px-4 text-center">
+                <CreditCard size={22} className="text-slate-300" />
+                <p className="text-xs font-medium text-slate-600">Nenhum recebimento registrado.</p>
+                <p className="text-[11px] text-slate-400">Use “Registrar recebimento” ao lado para registrar o pagamento do paciente.</p>
               </div>
             )}
           </div>
@@ -2736,25 +2806,22 @@ export const Comandas: React.FC = () => {
 
     {/* lateral direita */}
     <aside className="w-full shrink-0 space-y-3 xl:w-56 xl:sticky xl:top-0 xl:self-start">
-      <div className="rounded-lg bg-primary-600 p-4 text-white shadow-sm shadow-primary-100">
-        <p className="text-[11px] text-primary-200">Valor total</p>
-        <p className="mt-0.5 text-xl font-semibold">{formatCurrency(getComandaTotal(historyComanda))}</p>
-        <div className="mt-3 space-y-1.5 border-t border-primary-500 pt-3 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-primary-200">Recebido</span>
-            <strong>{formatCurrency(getComandaPaid(historyComanda))}</strong>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-white/10 px-2 py-1">
-            <span className="text-primary-200">Pendente</span>
-            <strong>{formatCurrency(getComandaPending(historyComanda))}</strong>
-          </div>
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <p className="text-xs font-semibold text-slate-700">Próxima ação financeira</p>
+        <div className={`mt-2 rounded-lg px-3 py-2 ${getComandaPending(historyComanda) > 0 ? 'bg-amber-50' : 'bg-emerald-50'}`}>
+          <p className={`text-[11px] font-medium ${getComandaPending(historyComanda) > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+            {getComandaPending(historyComanda) > 0 ? 'Saldo a receber' : 'Comanda totalmente recebida'}
+          </p>
+          <p className={`mt-0.5 text-lg font-semibold ${getComandaPending(historyComanda) > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>
+            {formatCurrency(getComandaPending(historyComanda))}
+          </p>
         </div>
         {hasPermission('process_payments') && (
           <Button
-            variant="outline"
+            variant="primary"
             size="sm"
             fullWidth
-            className="mt-3 bg-white text-primary-600 hover:bg-primary-50 border-white"
+            className="mt-3"
             onClick={() => {
               setNewPayment({
                 value: formatCurrencyInput(getComandaPending(historyComanda)) || '0,00',
@@ -2766,19 +2833,23 @@ export const Comandas: React.FC = () => {
               setIsAddPaymentModalOpen(true);
             }}
           >
-            + Novo pagamento
+            Registrar recebimento
           </Button>
         )}
 
+        <Button variant="outline" size="sm" fullWidth className="mt-2" iconLeft={<BookOpen size={13} />} onClick={() => navigate('/financeiro')}>
+          Abrir financeiro
+        </Button>
+
         {historyComanda.status !== 'closed' && (
           <Button
-            variant="danger"
+            variant="ghost"
             size="sm"
             fullWidth
-            className="mt-2"
+            className="mt-2 text-slate-600 hover:bg-slate-100"
             onClick={() => setIsForceCloseConfirmOpen(true)}
           >
-            Finalizar Manualmente
+            Finalizar comanda
           </Button>
         )}
         {historyComanda.status === 'closed' && (
@@ -2786,7 +2857,7 @@ export const Comandas: React.FC = () => {
             variant="primary"
             size="sm"
             fullWidth
-            className="mt-2 bg-primary-500 hover:bg-primary-600"
+            className="mt-2"
             onClick={handleReopenComanda}
           >
             Reabrir Comanda
@@ -2807,7 +2878,7 @@ export const Comandas: React.FC = () => {
 
         return (
           <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-            <p className="mb-2 text-[11px] font-semibold text-slate-400">Itens</p>
+            <p className="mb-2 text-[11px] font-semibold text-slate-400">Itens e valor contratado</p>
             <div className="space-y-2">
               {items.map((item: any, index: number) => {
                 const lineGross = Number(item.qty || 0) * Number(item.price || 0);
