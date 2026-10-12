@@ -19,13 +19,13 @@ import { StatCard } from '../components/UI/StatCard';
 import { Badge } from '../components/UI/Badge';
 import { EmptyState } from '../components/UI/EmptyState';
 import { PanelCard } from '../components/UI/PanelCard';
-import { FilterLine, FilterLineSection, FilterLineItem, FilterLineSegmented, FilterLineSearch, FilterLineDateRange } from '../components/UI/FilterLine';
+import { FilterLineSegmented, FilterLineSearch } from '../components/UI/FilterLine';
 import {
   Search, Plus, FileText, Calendar, Clock, Activity, BarChart2,
   Trash2, Eye, EyeOff, Edit3, CheckCircle2, ChevronRight, Loader2,
   Sparkles, Lock, LockOpen, AlertTriangle, Save, Shield,
   X, ArrowLeft, Layers, User, Download, RotateCcw, Tag,
-  History, BookOpen, Filter, Share2, Users, Send, Copy, ExternalLink,
+  History, BookOpen, Share2, Send, Copy, ExternalLink,
   ClipboardCheck, RefreshCw, MessageSquare, Brain, CheckCheck,
   LinkIcon, Bell, Info, TrendingUp, CalendarDays,
   Settings, ClipboardList, FileUp
@@ -41,6 +41,7 @@ import { PendingCard, type PreviousSession } from '../components/Records/Pending
 import { StructuredReadView } from '../components/Records/StructuredReadView';
 import { SessionTimeline } from '../components/Records/SessionTimeline';
 import { AssessmentPanel } from '../components/Records/AssessmentPanel';
+import { RecordsHome } from '../components/Records/RecordsHome';
 import { ImportClinicalFileModal, type ImportedClinicalFile } from '../components/Records/ImportClinicalFileModal';
 import {
   SPECIALTY_TEMPLATES, SPECIALTY_OPTIONS, DEFAULT_SPECIALTY, detectSpecialty, getSections, parseStructured,
@@ -233,10 +234,6 @@ const RecordsTabsBar: React.FC<{ value: RecordsTabId; onChange: (v: RecordsTabId
     </div>
   );
 };
-const GRID_VIEW_TABS = [
-  { id: 'patients', label: 'Pacientes', icon: Users },
-  { id: 'records', label: 'Últimos Registros', icon: Activity },
-] as const;
 const TAB_RECORD_TYPE: Record<string, string> = { anamnesis: 'Anamnese', assessment: 'Avaliacao', plan: 'Plano', sessions: 'Evolucao' };
 type RecordsTabId = typeof RECORDS_TABS[number]['id'];
 
@@ -3349,14 +3346,11 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [activeTab, setActiveTab] = useState<RecordsTabId>(defaultTab === 'analysis' ? 'analysis' : 'history');
   
   // Filtros
-  const [search, setSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType, setFilterType] = useState('');
   const [dateFrom, setDateFrom] = useState<string | null>(null);
   const [dateTo, setDateTo] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showLatestRecords, setShowLatestRecords] = useState(false);
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -3364,6 +3358,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [stats, setStats] = useState<Stats | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [globalLoading, setGlobalLoading] = useState(true);
+  const [globalError, setGlobalError] = useState(false);
+  const [patientsError, setPatientsError] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'new' | 'edit'>('new');
   const [currentRecord, setCurrentRecord] = useState<Partial<MedicalRecord> | null>(null);
@@ -3391,9 +3388,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
   const [backfilling, setBackfilling] = useState(false);
 
   useEffect(() => {
-    fetchAll(); 
-    if (selectedPatientId) fetchRecords(selectedPatientId);
-    else fetchGlobalRecords();
+    fetchAll();
   }, []);
   
   useEffect(() => {
@@ -3401,8 +3396,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
     if (pid) { 
         setSelectedPatientId(pid); setView('patient'); 
         fetchRecords(pid);
-    } else { 
-        setSelectedPatientId(null); setView('grid'); 
+    } else {
+        setSelectedPatientId(null); setView('grid');
+        setEditorOpen(false);
         fetchGlobalRecords();
     }
   }, [searchParams]);
@@ -3451,7 +3447,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
   useEffect(() => {
     if (selectedPatientId) fetchRecords(selectedPatientId);
-    else fetchGlobalRecords();
   }, [filterStatus, filterType, dateFrom, dateTo]);
 
   // Atualização automática (polling) enquanto houver anamneses pendentes
@@ -3473,6 +3468,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
   const fetchAll = async () => {
     setIsLoading(true);
+    setPatientsError(false);
     try {
       const [pp, st, profs] = await Promise.all([
         api.get<Patient[]>('/patients'),
@@ -3483,8 +3479,9 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       if (st) setStats(st);
       if (profs) setProfessionals((profs as any[]).map(u => ({ id: String(u.id), name: u.name || u.full_name || '', email: u.email })));
       // Carrega registros globais para mostrar tipo do prontuário na lista de pacientes
-      fetchGlobalRecords();
+      await fetchGlobalRecords();
     } catch (e: any) {
+      setPatientsError(true);
       pushToast('error', e?.message || 'Erro ao carregar dados');
     } finally {
       setIsLoading(false);
@@ -3493,21 +3490,21 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
 
   const fetchGlobalRecords = async () => {
+    setGlobalLoading(true);
+    setGlobalError(false);
     try {
-        const params: any = {};
-        if (filterStatus) params.status = filterStatus;
-        if (filterType) params.record_type = filterType;
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-
-        const data = await api.get<MedicalRecord[]>('/medical-records', params);
+        // A central filtra localmente e mantém os totais reais de cada paciente.
+        const data = await api.get<MedicalRecord[]>('/medical-records');
         setGlobalRecords((data || []).map(r => ({ 
             ...r, 
             id: String(r.id), 
             patient_id: String(r.patient_id),
             tags: r.tags ? (typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags) : [] 
         })));
-    } catch (err) { console.error('Error fetching global records', err); }
+    } catch (err) {
+      setGlobalError(true);
+      console.error('Error fetching global records', err);
+    } finally { setGlobalLoading(false); }
   };
 
   const fetchRecords = async (pid: string) => {
@@ -3541,12 +3538,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
 
   const selectedPatient = useMemo(() => patients.find(p => String(p.id) === selectedPatientId), [patients, selectedPatientId]);
 
-  const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const filteredPatients = useMemo(() => patients.filter(p =>
-    (p.status === 'active' || !p.status) &&
-    (normalize(p.full_name || '').includes(normalize(search)) ||
-    (p.cpf || '').includes(search))
-  ), [patients, search]);
 
   const patientRecords = useMemo(() => records.filter(r => String(r.patient_id) === String(selectedPatientId)).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), [records, selectedPatientId]);
 
@@ -3943,7 +3934,7 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
       <SectionTitle
         icon={FileText}
         title="Prontuário Clínico"
-        description={view === 'patient' && selectedPatient ? `Paciente: ${selectedPatient.full_name}` : "Evoluções, Relatórios e Diagnósticos"}
+        description={view === 'patient' && selectedPatient ? `Paciente: ${selectedPatient.full_name}` : 'Histórico clínico organizado por paciente: anamneses, avaliações, evoluções e planos.'}
         action={
           <div className="flex flex-wrap items-center gap-2">
             {view === 'patient' && (
@@ -3969,16 +3960,6 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
                   <span className="hidden sm:inline">Novo Registro</span>
                 </Button>
               </>
-            )}
-            {view === 'grid' && (
-              <Button
-                variant={showFilters ? 'primary' : 'outline'}
-                size="sm"
-                iconLeft={<Filter size={14}/>}
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <span className="hidden sm:inline">Filtros</span>
-              </Button>
             )}
           </div>
         }
@@ -4027,218 +4008,33 @@ export const Records: React.FC<{ defaultTab?: 'history' | 'reports' | 'analysis'
         </div>
       )}
 
-      {/* ─── GRID DE PACIENTES ─── */}
-      {showFilters && (
-        <FilterLine className="animate-slideDownFade">
-          <FilterLineSection grow wrap>
-            <FilterLineItem fullOnMobile minWidth={180}>
-              <Select label="Status" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">Todos</option>
-                <option value="Rascunho">Rascunho</option>
-                <option value="Revisado">Revisado</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Finalizado">Finalizado</option>
-              </Select>
-            </FilterLineItem>
-            <FilterLineItem fullOnMobile minWidth={180}>
-              <Select label="Tipo" value={filterType} onChange={e => setFilterType(e.target.value)}>
-                <option value="">Todos</option>
-                {Object.entries(TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
-              </Select>
-            </FilterLineItem>
-            <FilterLineItem fullOnMobile minWidth={180}>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600">Período</label>
-                <FilterLineDateRange
-                  from={dateFrom}
-                  to={dateTo}
-                  onFromChange={setDateFrom}
-                  onToChange={setDateTo}
-                  fromLabel="De"
-                  toLabel="Até"
-                />
-              </div>
-            </FilterLineItem>
-          </FilterLineSection>
-          <FilterLineSection align="right">
-            <Button variant="ghost" size="sm" onClick={() => { setFilterStatus(''); setFilterType(''); setDateFrom(null); setDateTo(null); }}>
-              Limpar Tudo
-            </Button>
-          </FilterLineSection>
-        </FilterLine>
-      )}
 
       {view === 'grid' && (
-        <div className="space-y-4">
-          {/* Busca sozinha → visão (Pacientes / Últimos registros) → resumo → lista */}
-          <div className="space-y-3">
-            <FilterLineSearch
-              value={search}
-              onChange={setSearch}
-              placeholder={showLatestRecords ? 'Buscar no histórico...' : 'Buscar paciente...'}
-              className="w-full sm:max-w-[280px]"
-            />
-            <Tabs<'patients' | 'records'>
-              items={GRID_VIEW_TABS}
-              value={showLatestRecords ? 'records' : 'patients'}
-              onChange={(v) => setShowLatestRecords(v === 'records')}
-              label="Visão do prontuário"
-            />
-          </div>
-
-          {/* Stats Cards */}
-          {stats && (
-            <StatGrid cols={4}>
-              <StatCard title="Total de Registros" value={stats.total} icon={FileText} color="info" delay={0} />
-              <StatCard title="Este Mês" value={stats.thisMonth} icon={Calendar} color="purple" delay={0.05} />
-              <StatCard title="Aprovados" value={stats.approved} icon={CheckCircle2} color="success" delay={0.1} />
-              <StatCard title="Rascunhos" value={stats.drafts} icon={Edit3} color="warning" delay={0.15} />
-            </StatGrid>
-          )}
-
-          {/* Grid de pacientes ou Últimos Registros */}
-          <PanelCard
-            title={showLatestRecords ? 'Últimos Registros' : 'Pacientes'}
-            icon={showLatestRecords ? Activity : Users}
-          >
-
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12"><Loader2 size={24} className="text-primary-500 animate-spin"/></div>
-            ) : showLatestRecords ? (
-                <div className="border border-slate-200 rounded-lg overflow-hidden mt-3">
-                    <GridTable
-                        data={globalRecords.filter(r => strip(r.content || '').toLowerCase().includes(search.toLowerCase()) || r.title.toLowerCase().includes(search.toLowerCase()))}
-                        keyExtractor={(r) => r.id}
-                        columns={[
-                            {
-                                header: 'Registro e Paciente',
-                                accessor: 'title',
-                                render: (r: MedicalRecord) => (
-                                    <div className="flex flex-col gap-0.5 min-w-0">
-                                        <div className="font-semibold text-slate-800 text-sm truncate">{r.title}</div>
-                                        <div className="text-[11px] text-slate-400 font-semibold flex items-center gap-1.5">
-                                            <User size={10} className="text-slate-300"/> {r.patient_name || 'Paciente não identificado'}
-                                        </div>
-                                    </div>
-                                )
-                            },
-                            {
-                                header: 'Data',
-                                accessor: 'created_at',
-                                render: (r: MedicalRecord) => (
-                                    <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-                                        <Calendar size={12} className="text-slate-300"/>
-                                        {fmtDate(r.created_at)}
-                                    </div>
-                                )
-                            },
-                            {
-                                header: 'Status',
-                                accessor: 'status',
-                                render: (r: MedicalRecord) => (
-                                    <div className="flex flex-wrap gap-1.5 items-center">
-                                        <Badge size="md" color={STATUS_BADGE_COLOR[r.status] ?? 'default'}>{r.status}</Badge>
-                                        {r.ai_status === 'organized' && <Badge size="md" color="purple" icon={<Sparkles size={9}/>}>IA</Badge>}
-                                    </div>
-                                )
-                            },
-                            {
-                                header: 'Ações',
-                                className: 'text-right',
-                                render: (r: MedicalRecord) => (
-                                    <div className="flex items-center justify-end gap-1.5">
-                                        <IconButton
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => { setSearchParams({ patient_id: String(r.patient_id) }); setSelectedPatientId(String(r.patient_id)); setView('patient'); }}
-                                            aria-label="Ver Paciente"
-                                            title="Ver Paciente"
-                                        >
-                                            <ChevronRight size={16}/>
-                                        </IconButton>
-                                    </div>
-                                )
-                            }
-                        ]}
-                    />
-                </div>
-            ) : (
-                <div className="border border-slate-200 rounded-lg overflow-hidden mt-3">
-                    <GridTable
-                        data={filteredPatients}
-                        keyExtractor={(p) => p.id}
-                        onRowClick={(p) => { setSearchParams({ patient_id: String(p.id) }); setSelectedPatientId(String(p.id)); setView('patient'); }}
-                        columns={[
-                            {
-                                header: 'Identificação do Paciente',
-                                accessor: 'full_name',
-                                render: (p: Patient) => (
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center font-semibold text-sm shrink-0 border border-primary-100">
-                                            {(p.full_name || '?')[0].toUpperCase()}
-                                        </div>
-                                        <div className="flex flex-col gap-0.5 min-w-0">
-                                            <div className="font-semibold text-slate-800 text-sm truncate">{p.full_name}</div>
-                                            <div className="text-[11px] text-slate-400 font-semibold flex items-center gap-1.5">
-                                                <User size={10} className="text-slate-300"/> {p.cpf || 'CPF não informado'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )
-                            },
-                            {
-                                header: 'Email / Contato',
-                                accessor: 'email',
-                                render: (p: Patient) => (
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="text-[11px] font-semibold text-slate-600 truncate">{p.email || 'Nenhum e-mail'}</div>
-                                        <div className="text-[11px] font-semibold text-slate-400">{p.phone || 'Sem telefone'}</div>
-                                    </div>
-                                )
-                            },
-                            {
-                                header: 'Prontuário',
-                                accessor: 'status',
-                                render: (p: Patient) => {
-                                  // Conta registros deste paciente no globalRecords
-                                  const pRecs = globalRecords.filter(r => String(r.patient_id) === String(p.id));
-                                  const lastRec = pRecs[0];
-                                  const statusPt = !p.status || p.status === 'ativo' || p.status === 'active' || p.status === 'Ativo'
-                                    ? 'Em Atendimento' : p.status === 'inativo' || p.status === 'inactive' ? 'Inativo' : p.status;
-                                  const isActive = !p.status || ['ativo','active','Ativo','Em Atendimento'].includes(p.status);
-                                  return (
-                                    <div className="flex flex-col gap-1.5">
-                                      <Badge color={isActive ? 'success' : 'default'} dot>{statusPt}</Badge>
-                                      {lastRec && (
-                                        <span className="text-[11px] font-semibold text-slate-400">
-                                          {TYPE_LABELS[lastRec.record_type] || lastRec.record_type}
-                                          {pRecs.length > 1 && ` +${pRecs.length - 1}`}
-                                        </span>
-                                      )}
-                                      {!lastRec && (
-                                        <span className="text-[11px] font-semibold text-slate-300">Sem registros</span>
-                                      )}
-                                    </div>
-                                  );
-                                }
-                            },
-                            {
-                                header: 'Ações',
-                                className: 'text-right',
-                                render: (p: Patient) => (
-                                    <div className="flex items-center justify-end">
-                                        <IconButton variant="ghost" size="sm" aria-label="Abrir prontuário" title="Abrir prontuário">
-                                            <ChevronRight size={16}/>
-                                        </IconButton>
-                                    </div>
-                                )
-                            }
-                        ]}
-                    />
-                </div>
-            )}
-          </PanelCard>
-        </div>
+        <RecordsHome
+          patients={patients}
+          records={globalRecords}
+          loading={isLoading || globalLoading}
+          error={globalError || patientsError}
+          onRetry={fetchAll}
+          onOpenPatient={id => {
+            setActiveTab('history');
+            setHistorySearch('');
+            setRecords([]);
+            setFilterStatus(''); setFilterType(''); setDateFrom(null); setDateTo(null);
+            setSearchParams({ patient_id: id });
+          }}
+          onOpenRecord={async record => {
+            setFilterStatus(''); setFilterType(''); setDateFrom(null); setDateTo(null);
+            setHistorySearch('');
+            setRecords([]);
+            const tab = Object.entries(TAB_RECORD_TYPE).find(([, type]) => type === record.record_type)?.[0];
+            setActiveTab((tab || 'history') as RecordsTabId);
+            setSelectedPatientId(String(record.patient_id));
+            setSearchParams({ patient_id: String(record.patient_id) });
+            await fetchRecords(String(record.patient_id));
+            await openEdit(record.id);
+          }}
+        />
       )}
 
       {/* ─── DETALHE DO PACIENTE ─── */}
