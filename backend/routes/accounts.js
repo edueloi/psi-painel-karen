@@ -639,7 +639,7 @@ router.delete('/:id', authMiddleware, canManage, wrap(async (req, res) => {
 }));
 
 // ── A receber de pacientes (derivado; sem tabela própria) ────────────────────
-// GET /accounts/patient-receivables?month=YYYY-MM
+// GET /accounts/patient-receivables?month=YYYY-MM&from=YYYY-MM-DD&to=YYYY-MM-DD
 // Linhas: (a) comandas cujo vencimento (livrocaixa_date > data da sessão > criação) cai no mês; (b) lançamentos manuais
 // de entrada de paciente no Livro Caixa sem comanda. Só expõe nome, serviço/descrição, datas, valores e status.
 router.get('/patient-receivables', authMiddleware, canView, wrap(async (req, res) => {
@@ -648,8 +648,12 @@ router.get('/patient-receivables', authMiddleware, canView, wrap(async (req, res
   const now = new Date();
   const year = m ? Number(m[1]) : now.getFullYear();
   const mon = m ? Number(m[2]) : now.getMonth() + 1;
-  const from = fmt(year, mon, 1);
-  const to = fmt(year, mon, new Date(Date.UTC(year, mon, 0)).getUTCDate());
+  const monthFrom = fmt(year, mon, 1);
+  const monthTo = fmt(year, mon, new Date(Date.UTC(year, mon, 0)).getUTCDate());
+  const requestedFrom = isoDate(req.query.from);
+  const requestedTo = isoDate(req.query.to);
+  const from = requestedFrom || monthFrom;
+  const to = requestedTo || monthTo;
   const today = todayISO();
 
   const [comandas] = await db.query(

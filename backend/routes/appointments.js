@@ -473,6 +473,10 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
     // Sessão agendada reserva uma vaga do pacote; uma sessão cancelada libera a vaga.
     const requestedCount = count;
     let comandaLimited = false;
+    // A cobrança automática é apenas de entrada: primeira sessão de uma comanda
+    // ainda sem nenhum agendamento. As próximas (2/4, 3/4...) nunca entram na fila.
+    let shouldQueueInitialCharge = false;
+    let initialChargeAppointmentId = null;
     if (comanda_id) {
       const [cmdRows] = await db.query(
         'SELECT sessions_total, patient_id FROM comandas WHERE id = ? AND tenant_id = ?',
@@ -493,6 +497,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
           [comanda_id, req.user.tenant_id]
         );
         const allocated = Number(aptRows[0]?.allocated || 0);
+        shouldQueueInitialCharge = allocated === 0;
         const remaining = Math.max(0, sessions_total - allocated);
         if (sessions_total > 0 && remaining <= 0) {
           return res.status(409).json({ error: 'Todas as sessões desta comanda já estão agendadas. Reagende ou cancele uma sessão existente para liberar uma vaga.' });
@@ -502,6 +507,9 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
           comandaLimited = true;
         }
       }
+    } else if (finalPatientId && service_id && type !== 'bloqueio') {
+      // Atendimento avulso com serviço: uma cobrança para o primeiro item da série criada agora.
+      shouldQueueInitialCharge = true;
     }
 
     // Agendamentos só são criados via Agenda.
@@ -770,6 +778,7 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
         );
         const appId = result.insertId;
         createdIds.push(appId);
+        if (shouldQueueInitialCharge && !initialChargeAppointmentId && type !== 'bloqueio') initialChargeAppointmentId = appId;
 
         // Se sync_to_livrocaixa, criar lançamento no livro caixa
         if (req.body.sync_to_livrocaixa && type !== 'bloqueio') {
@@ -889,6 +898,23 @@ router.post('/', checkPermission('create_appointment'), async (req, res) => {
       try {
         const apt = created[0];
         if (!apt || apt.type !== 'consulta') return;
+
+        // Não bloqueia o agendamento: a cobrança inicial é colocada na fila do bot
+        // apenas para a primeira sessão de uma comanda ou para um avulso com serviço.
+        if (initialChargeAppointmentId) {
+          try {
+            const { enqueueInitialAppointmentCharge } = require('../services/appointmentChargeQueue');
+            await enqueueInitialAppointmentCharge({
+              tenantId: req.user.tenant_id,
+              appointmentId: initialChargeAppointmentId,
+              patientId: finalPatientId,
+              comandaId: comandaId,
+              serviceId: service_id || null,
+            });
+          } catch (chargeErr) {
+            console.warn('[appointment-charge] Não foi possível enfileirar cobrança inicial:', chargeErr.message);
+          }
+        }
 
         // Busca profissional com preferências
         const [[prof]] = await db.query(

@@ -13,7 +13,7 @@ import {
 } from '../UI';
 import type { Column } from '../UI';
 import {
-  MonthNavigator, PayModal, PAYMENT_METHOD_OPTIONS, currentMonthKey, downloadCsv, formatCurrency, formatDateBR, todayISO,
+  MonthNavigator, PayModal, PAYMENT_METHOD_OPTIONS, currentMonthKey, monthRange, downloadCsv, formatCurrency, formatDateBR, todayISO,
 } from './accountsShared';
 import type { PayFormValues } from './accountsShared';
 
@@ -84,6 +84,9 @@ export const PatientReceivables: React.FC<Props> = ({ canManage }) => {
   const { hasPermission } = useAuth();
   const { pushToast } = useToast();
   const [month, setMonth] = useState(currentMonthKey());
+  const initialRange = monthRange(currentMonthKey());
+  const [dateFrom, setDateFrom] = useState(initialRange.from);
+  const [dateTo, setDateTo] = useState(initialRange.to);
   const [rows, setRows] = useState<PatientRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -108,7 +111,7 @@ export const PatientReceivables: React.FC<Props> = ({ canManage }) => {
     setLoading(true);
     setLoadError('');
     try {
-      const res = await api.get<Response>('/finance/accounts/patient-receivables', { month });
+      const res = await api.get<Response>('/finance/accounts/patient-receivables', { month, from: dateFrom, to: dateTo });
       setRows(res.rows);
       setSelected(new Set());
     } catch (err: any) {
@@ -116,7 +119,7 @@ export const PatientReceivables: React.FC<Props> = ({ canManage }) => {
     } finally {
       setLoading(false);
     }
-  }, [month]);
+  }, [month, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
   useRealtimeSync('finance.created', () => load());
@@ -292,6 +295,12 @@ export const PatientReceivables: React.FC<Props> = ({ canManage }) => {
   ];
 
   const hasFilters = status !== 'all' || method !== 'all' || professional !== 'all' || search;
+  const changeMonth = (value: string) => {
+    setMonth(value);
+    const range = monthRange(value);
+    setDateFrom(range.from);
+    setDateTo(range.to);
+  };
 
   return (
     <div className="space-y-3">
@@ -304,27 +313,25 @@ export const PatientReceivables: React.FC<Props> = ({ canManage }) => {
 
       <FilterLine>
         <FilterLineSection>
-          <MonthNavigator value={month} onChange={setMonth} />
+          <MonthNavigator value={month} onChange={changeMonth} />
+          <Input label="De" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} wrapperClassName="w-[150px]" />
+          <Input label="Até" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} wrapperClassName="w-[150px]" />
         </FilterLineSection>
         <FilterLineSection align="right">
           <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={exportCsv} disabled={!filtered.length}>CSV</Button>
         </FilterLineSection>
       </FilterLine>
 
-      <FilterLine>
-        <FilterLineSection grow>
-          <FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar paciente ou serviço" className="sm:w-60" />
-          <FilterLineSelect label="Situação" value={status} onChange={setStatus} options={STATUS_FILTER} />
-          <FilterLineSelect label="Forma de pagamento" value={method} onChange={setMethod} options={[{ value: 'all', label: 'Todas' }, ...methods.map(m => ({ value: m, label: m }))]} />
-          {professionals.length > 1 && (
-            <FilterLineSelect label="Profissional" value={professional} onChange={setProfessional} options={[{ value: 'all', label: 'Todos' }, ...professionals]} />
-          )}
-          <FilterLineSelect label="Ordenar por" value={sortKey} onChange={setSortKey} options={SORT_OPTIONS} />
-        </FilterLineSection>
-        <FilterLineSection align="right">
-          <FilterLineSegmented value={view} onChange={v => setView(v as 'group' | 'list')} options={VIEW_OPTIONS} size="sm" />
-        </FilterLineSection>
-      </FilterLine>
+      <div className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-12 xl:items-end">
+          <div className="xl:col-span-3"><FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar paciente ou serviço" className="!w-full" /></div>
+          <div className="xl:col-span-2"><FilterLineSelect className="sm:!w-full" label="Situação" value={status} onChange={setStatus} options={STATUS_FILTER} /></div>
+          <div className="xl:col-span-2"><FilterLineSelect className="sm:!w-full" label="Forma de pagamento" value={method} onChange={setMethod} options={[{ value: 'all', label: 'Todas' }, ...methods.map(m => ({ value: m, label: m }))]} /></div>
+          {professionals.length > 1 && <div className="xl:col-span-2"><FilterLineSelect className="sm:!w-full" label="Profissional" value={professional} onChange={setProfessional} options={[{ value: 'all', label: 'Todos' }, ...professionals]} /></div>}
+          <div className={professionals.length > 1 ? 'xl:col-span-2' : 'xl:col-span-3'}><FilterLineSelect className="sm:!w-full" label="Ordenar por" value={sortKey} onChange={setSortKey} options={SORT_OPTIONS} /></div>
+          <div className="xl:col-span-1"><FilterLineSegmented className="h-[34px]" value={view} onChange={v => setView(v as 'group' | 'list')} options={VIEW_OPTIONS} size="sm" /></div>
+        </div>
+      </div>
 
       {canManage && view === 'list' && selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2">

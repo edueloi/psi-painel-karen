@@ -41,6 +41,17 @@ const PAYMENT_VARS = [
   { key: 'amount',       label: 'Valor' },
   { key: 'clinic_name',  label: 'Clínica' },
 ];
+const INITIAL_PAYMENT_VARS = [
+  { key: 'patient_name', label: 'Nome Paciente' },
+  { key: 'amount', label: 'Valor pendente' },
+  { key: 'service', label: 'Serviço' },
+  { key: 'session_info', label: 'Sessão / pacote' },
+  { key: 'date', label: 'Data agendada' },
+  { key: 'time', label: 'Horário' },
+  { key: 'professional_name', label: 'Profissional' },
+  { key: 'clinic_name', label: 'Clínica' },
+  { key: 'package_name', label: 'Comanda / pacote' },
+];
 const ROOM_LINK_VARS = [
   { key: 'patient_name',      label: 'Nome Paciente' },
   { key: 'professional_name', label: 'Nome Profissional' },
@@ -322,6 +333,9 @@ export const BotIntegration: React.FC = () => {
     birthday_msg: `🎂 *Feliz Aniversário!*\n\nOlá, *{patient_name}*!\nA equipe deseja a você um excelente dia repleto de alegrias e muita paz!`,
     payment_enabled: true,
     payment_time: '10:00',
+    payment_on_schedule_enabled: true,
+    payment_on_schedule_delay_minutes: 15,
+    payment_on_schedule_msg: `💳 *Pagamento do atendimento*\n\nOlá, *{patient_name}*!\n\nRegistramos seu agendamento:\n• Serviço: {service}\n• {session_info}\n• Data: {date} às {time}\n\nO valor pendente é *R$ {amount}*.\n\nEm caso de dúvida, fale conosco.`,
     payment_msg: `💰 *Lembrete de Pagamento*\n\nOlá, *{patient_name}*.\nLembramos que o vencimento da sua parcela no valor de R$ {amount} é hoje.`,
     virtual_room_link_enabled: true,
     virtual_room_link_msg: `Olá, {patient_name}! Sua sala de atendimento com {professional_name} já está disponível.\n\nAcesse pelo link: {room_link}`,
@@ -703,6 +717,31 @@ export const BotIntegration: React.FC = () => {
                     variables={GENERAL_VARS}
                   />
                 </DispatchBlock>
+
+                <DispatchBlock
+                  icon={DollarSign}
+                  label="Cobrança inicial após agendamento"
+                  description="Entra na fila só no primeiro agendamento de uma comanda ou em atendimento avulso com serviço. Não repete na 2ª, 3ª ou 4ª sessão."
+                  color="bg-teal-50 text-teal-600"
+                  enabled={prefs.payment_on_schedule_enabled}
+                  onToggle={() => set('payment_on_schedule_enabled', !prefs.payment_on_schedule_enabled)}
+                >
+                  <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
+                    <div className="rounded-lg border border-teal-100 bg-teal-50/60 p-3">
+                      <Input
+                        label="Aguardar (minutos)"
+                        type="number"
+                        min="0"
+                        max="10080"
+                        value={String(prefs.payment_on_schedule_delay_minutes ?? 15)}
+                        onChange={e => set('payment_on_schedule_delay_minutes', Math.max(0, Math.min(10080, Number(e.target.value) || 0)))}
+                        hint="0 = fila imediata"
+                      />
+                      <p className="mt-3 text-[11px] leading-relaxed text-teal-800">A mensagem é criada uma única vez por início de comanda. Se a comanda já estiver na sessão 2/4, nada novo é enviado.</p>
+                    </div>
+                    <BadgeEditor value={prefs.payment_on_schedule_msg} onChange={v => set('payment_on_schedule_msg', v)} variables={INITIAL_PAYMENT_VARS} />
+                  </div>
+                </DispatchBlock>
               </div>
             </PanelCard>
 
@@ -835,6 +874,7 @@ export const BotIntegration: React.FC = () => {
                   'reminder-professional':  { label: 'Profissional', color: 'purple' },
                   'birthday':               { label: 'Aniversário', color: 'orange' },
                   'payment-reminder':       { label: 'Cobrança', color: 'teal' },
+                  'appointment-payment-reminder': { label: 'Cobrança inicial', color: 'teal' },
                   'manual-test':            { label: 'Teste', color: 'default' },
                 };
                 const type = typeLabel[meta.type] || { label: meta.type || 'Mensagem', color: 'default' as const };

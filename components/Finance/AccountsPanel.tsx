@@ -285,21 +285,23 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
         <StatCard title="Próximos 7 dias" value={formatCurrency(kpis.soon)} description={`${soon.length} conta${soon.length === 1 ? '' : 's'}`} icon={CalendarClock} color="warning" />
       </StatGrid>
 
-      <FilterLine>
-        <FilterLineSection>
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm space-y-3">
+        <div className="flex flex-wrap items-end gap-2.5 border-b border-slate-100 pb-3">
           <MonthNavigator value={month} onChange={changeMonth} />
-          <Input label="De" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-[145px]" />
-          <Input label="Até" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-[145px]" />
-        </FilterLineSection>
-        <FilterLineSection align="right">
-          <FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar descrição ou nome" className="sm:w-56" />
-          <FilterLineSelect label="Status" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
-          <FilterLineSelect label="Categoria" value={category} onChange={setCategory} options={[{ value: 'all', label: 'Todas' }, ...categories.map(c => ({ value: c, label: c }))]} />
-          {canManage && <Button variant="outline" size="sm" onClick={() => setCategoriesOpen(true)}>{isPayable ? 'Centros de custo' : 'Categorias'}</Button>}
-          <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={exportCsv} disabled={!filtered.length}>CSV</Button>
-          {canManage && <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => { setEditing(null); setFormOpen(true); }}>Nova conta</Button>}
-        </FilterLineSection>
-      </FilterLine>
+          <Input label="De" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} wrapperClassName="w-[150px]" />
+          <Input label="Até" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} wrapperClassName="w-[150px]" />
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-12 xl:items-end">
+          <div className="xl:col-span-4"><FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar descrição ou nome" className="!w-full" /></div>
+          <div className="xl:col-span-2"><FilterLineSelect className="sm:!w-full" label="Status" value={status} onChange={setStatus} options={STATUS_OPTIONS} /></div>
+          <div className="xl:col-span-2"><FilterLineSelect className="sm:!w-full" label={isPayable ? 'Centro de custo' : 'Categoria'} value={category} onChange={setCategory} options={[{ value: 'all', label: 'Todas' }, ...categories.map(c => ({ value: c, label: c }))]} /></div>
+          <div className="flex flex-wrap items-center gap-2 xl:col-span-4 xl:justify-end">
+            {canManage && <Button variant="outline" size="sm" onClick={() => setCategoriesOpen(true)}>{isPayable ? 'Centros de custo' : 'Categorias'}</Button>}
+            <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={exportCsv} disabled={!filtered.length}>CSV</Button>
+            {canManage && <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => { setEditing(null); setFormOpen(true); }}>Nova conta</Button>}
+          </div>
+        </div>
+      </div>
 
       {canManage && selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2">
