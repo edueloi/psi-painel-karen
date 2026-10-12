@@ -23,8 +23,6 @@ import { useToast } from '../contexts/ToastContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { FinancialHealth } from '../components/Finance/FinancialHealth';
 import { AuraContabil } from '../components/AI/AuraContabil';
-import { ReceivablesPanel } from '../components/Finance/ReceivablesPanel';
-import { AccountsPanel } from '../components/Finance/AccountsPanel';
 
 const PAYMENT_METHODS = [
   { id: 'pix', label: 'Pix', Icon: Smartphone, color: 'bg-emerald-500' },
@@ -43,8 +41,6 @@ const formatCurrency = (value: number) => {
 const FINANCE_TABS = [
   { id: 'dashboard', label: 'Visão geral', icon: PieChart },
   { id: 'daily', label: 'Fluxo diário', icon: ListIcon },
-  { id: 'receber', label: 'Contas a receber', icon: ArrowDownRight },
-  { id: 'pagar', label: 'Contas a pagar', icon: ArrowUpRight },
   { id: 'tax', label: 'Fiscal', icon: Calculator },
   { id: 'portal', label: 'Portal', icon: Inbox },
 ] as const;
@@ -891,17 +887,15 @@ export const Finance: React.FC = () => {
           }
         />
 
-        {activeTab !== 'receber' && activeTab !== 'pagar' && (
         <StatGrid cols={3}>
           <StatCard title={t('finance.totalRevenue')} value={formatCurrency(summary.income)} icon={TrendingUp} color="success" />
           <StatCard title={t('finance.expenses')} value={formatCurrency(summary.expense)} icon={TrendingDown} color="danger" />
           <StatCard title={t('finance.netProfit')} value={formatCurrency(summary.balance)} icon={Wallet} color="info" />
         </StatGrid>
-        )}
 
         <Tabs<FinanceTab> items={financeTabs} value={activeTab} onChange={setActiveTab} label="Visões financeiras">
           <div className="space-y-3">
-            {activeTab !== 'portal' && activeTab !== 'receber' && activeTab !== 'pagar' && (
+            {activeTab !== 'portal' && (
               <FilterLine>
                 <FilterLineSection>
                   <IconButton
@@ -928,11 +922,7 @@ export const Finance: React.FC = () => {
               </FilterLine>
             )}
 
-            {activeTab === 'receber' ? (
-              <ReceivablesPanel canManage={hasPermission('manage_payments')} patients={patients.map(p => ({ id: p.id, name: p.name || p.full_name }))} />
-            ) : activeTab === 'pagar' ? (
-              <AccountsPanel kind="payable" canManage={hasPermission('manage_payments')} />
-            ) : isLoading && activeTab !== 'portal' ? (
+            {isLoading && activeTab !== 'portal' ? (
               <div role="status" className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
                 <Loader2 size={18} className="animate-spin" />Processando fluxo…
               </div>

@@ -105,6 +105,8 @@ export const PayModal: React.FC<PayModalProps> = ({
   const [method, setMethod] = useState('Pix');
   const [interest, setInterest] = useState('');
   const [discount, setDiscount] = useState('');
+  const [interestPercent, setInterestPercent] = useState('');
+  const [discountPercent, setDiscountPercent] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -116,6 +118,8 @@ export const PayModal: React.FC<PayModalProps> = ({
     setMethod(defaultMethod || 'Pix');
     setInterest('');
     setDiscount('');
+    setInterestPercent('');
+    setDiscountPercent('');
     setNotes('');
     setError('');
   }, [isOpen, suggestedAmount, defaultMethod]);
@@ -123,6 +127,10 @@ export const PayModal: React.FC<PayModalProps> = ({
   const num = (v: string) => { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) ? n : 0; };
   const interestN = num(interest);
   const discountN = num(discount);
+  const interestPercentN = num(interestPercent);
+  const discountPercentN = num(discountPercent);
+  const effectiveInterest = interestN + (suggestedAmount * interestPercentN / 100);
+  const effectiveDiscount = discountN + (suggestedAmount * discountPercentN / 100);
 
   // Com juros/desconto o valor pago sugerido acompanha o ajuste, até o usuário editar o campo manualmente.
   const recompute = (i: number, d: number) => setAmount(Math.max(0, suggestedAmount + i - d).toFixed(2));
@@ -135,7 +143,7 @@ export const PayModal: React.FC<PayModalProps> = ({
     setSaving(true);
     setError('');
     try {
-      await onSubmit({ amount: value, date, method, interest: interestN, discount: discountN, notes });
+      await onSubmit({ amount: value, date, method, interest: effectiveInterest, discount: effectiveDiscount, notes });
       onClose();
     } catch (err: any) {
       setError(err?.message || 'Não foi possível registrar.');
@@ -165,12 +173,20 @@ export const PayModal: React.FC<PayModalProps> = ({
           <Input label="Data" type="date" value={date} onChange={e => setDate(e.target.value)} />
         </FormRow>
         {showAdjustments && (
+          <>
           <FormRow>
             <Input label="Juros/multa (R$)" type="number" step="0.01" min="0" value={interest}
-              onChange={e => { setInterest(e.target.value); recompute(num(e.target.value), discountN); }} />
+              onChange={e => { setInterest(e.target.value); recompute(num(e.target.value) + (suggestedAmount * interestPercentN / 100), effectiveDiscount); }} />
             <Input label="Desconto (R$)" type="number" step="0.01" min="0" value={discount}
-              onChange={e => { setDiscount(e.target.value); recompute(interestN, num(e.target.value)); }} />
+              onChange={e => { setDiscount(e.target.value); recompute(effectiveInterest, num(e.target.value) + (suggestedAmount * discountPercentN / 100)); }} />
           </FormRow>
+          <FormRow>
+            <Input label="Juros/multa (%)" type="number" step="0.01" min="0" value={interestPercent}
+              onChange={e => { setInterestPercent(e.target.value); recompute(interestN + (suggestedAmount * num(e.target.value) / 100), effectiveDiscount); }} />
+            <Input label="Desconto (%)" type="number" step="0.01" min="0" value={discountPercent}
+              onChange={e => { setDiscountPercent(e.target.value); recompute(effectiveInterest, discountN + (suggestedAmount * num(e.target.value) / 100)); }} />
+          </FormRow>
+          </>
         )}
         <Select label="Forma de pagamento" value={method} onChange={e => setMethod(e.target.value)}>
           {PAYMENT_METHOD_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}

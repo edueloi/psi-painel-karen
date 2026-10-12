@@ -82,10 +82,11 @@ interface Props {
   kind: AccountKind;
   editing: Account | null;
   patients: { id: number | string; name: string }[];
+  categories?: string[];
   onSubmit: (payload: AccountFormPayload) => Promise<void>;
 }
 
-export const AccountFormModal: React.FC<Props> = ({ isOpen, onClose, kind, editing, patients, onSubmit }) => {
+export const AccountFormModal: React.FC<Props> = ({ isOpen, onClose, kind, editing, patients, categories, onSubmit }) => {
   const isPayable = kind === 'payable';
   const [tab, setTab] = useState<FormTab>('dados');
   const [description, setDescription] = useState('');
@@ -133,6 +134,7 @@ export const AccountFormModal: React.FC<Props> = ({ isOpen, onClose, kind, editi
 
   const partyLabel = isPayable ? 'Fornecedor / credor' : 'Cliente / pagador';
   const inSeries = !!editing?.series_id;
+  const availableCategories = Array.from(new Set([...(CATEGORIES[kind] || []), ...(categories || [])]));
 
   const submit = async () => {
     if (!description.trim()) { setTab('dados'); return setError('Informe a descrição.'); }
@@ -197,10 +199,10 @@ export const AccountFormModal: React.FC<Props> = ({ isOpen, onClose, kind, editi
             <Input label="Descrição" value={description} onChange={e => setDescription(e.target.value)} placeholder={isPayable ? 'Ex.: Aluguel da sala' : 'Ex.: Supervisão de grupo'} maxLength={255} />
             <FormRow>
               <Input label={partyLabel} value={party} onChange={e => setParty(e.target.value)} />
-              <Select label="Categoria" value={category} onChange={e => setCategory(e.target.value)}>
+              <Select label={isPayable ? 'Categoria / centro de custo' : 'Categoria'} value={category} onChange={e => setCategory(e.target.value)}>
                 <option value="">Selecione</option>
-                {CATEGORIES[kind].map(c => <option key={c} value={c}>{c}</option>)}
-                {category && !CATEGORIES[kind].includes(category) && <option value={category}>{category}</option>}
+                {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                {category && !availableCategories.includes(category) && <option value={category}>{category}</option>}
               </Select>
             </FormRow>
             {!isPayable && (

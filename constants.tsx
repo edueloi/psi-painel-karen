@@ -1,7 +1,7 @@
 
 
 import { UserRole, Patient, PaymentType, MaritalStatus, EducationLevel, Appointment, Document, FormStats, ClinicalForm, ClinicalRecord, MessageTemplate, Service, ServicePackage, Comanda, Product, Professional, Tenant, GlobalResource, PEI, Assessment } from './types';
-import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key, Radar, Sparkles, PenLine, Layers, Brain, LayoutDashboard, Stethoscope, ClipboardCheck, FolderOpen as FolderIcon, Building2, TrendingUp, Cog, GraduationCap, Layout, Globe } from 'lucide-react';
+import { Users, Calendar, FileText, Settings, DollarSign, Activity, FolderOpen, ClipboardList, MessageCircle, Briefcase, ShoppingBag, Trophy, BarChart2, Package, UserCheck, Video, Smartphone, BookOpen, BrainCircuit, BookCheck, Printer, Boxes, ShieldAlert, Key, Radar, Sparkles, PenLine, Layers, Brain, LayoutDashboard, Stethoscope, ClipboardCheck, FolderOpen as FolderIcon, Building2, TrendingUp, Cog, GraduationCap, Layout, Globe, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 
 export const NAV_SECTIONS = [
   {
@@ -59,6 +59,8 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'nav.livroCaixa',  path: '/livro-caixa',      icon: <BookOpen size={18} />, requiredPermission: 'view_financial_reports',   requiredFeature: 'financeiro' },
       { label: 'nav.notaFiscal',  path: '/nota-fiscal',      icon: <FileText size={18} />, requiredPermission: 'view_financial_reports',   requiredFeature: 'nota_fiscal' },
+      { label: 'Contas a receber', path: '/contas-a-receber', icon: <ArrowDownRight size={18} />, requiredPermission: 'view_financial_reports', requiredFeature: 'financeiro' },
+      { label: 'Contas a pagar', path: '/contas-a-pagar', icon: <ArrowUpRight size={18} />, requiredPermission: 'view_financial_reports', requiredFeature: 'financeiro' },
       { label: 'nav.finance',     path: '/financeiro',       icon: <DollarSign size={18} />,requiredPermission: 'view_financial_reports',  requiredFeature: 'financeiro' },
       { label: 'nav.bestClients', path: '/melhores-clientes',icon: <Trophy size={18} />,   requiredPermission: 'view_performance_reports', requiredFeature: 'relatorios' },
       { label: 'nav.performance', path: '/desempenho',       icon: <BarChart2 size={18} />, requiredPermission: 'view_performance_reports', requiredFeature: 'relatorios' },

@@ -90,6 +90,8 @@ import { PaginaTeste } from './pages/PaginaTeste';
 import { LivroCaixa } from './pages/LivroCaixa';
 import { NotaFiscal } from './pages/NotaFiscal';
 import { Finance } from './pages/Finance';
+import { AccountsReceivable } from './pages/AccountsReceivable';
+import { AccountsPayable } from './pages/AccountsPayable';
 import { BestClients } from './pages/BestClients';
 import { Performance } from './pages/Performance';
 import { Messages } from './pages/Messages';
@@ -540,6 +542,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/livro-caixa" element={<ProtectedRoute requiredPermission="view_financial_reports"><LivroCaixa /></ProtectedRoute>} />
       <Route path="/nota-fiscal" element={<ProtectedRoute requiredPermission="view_financial_reports"><NotaFiscal /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute requiredPermission="view_financial_reports"><Finance /></ProtectedRoute>} />
+      <Route path="/contas-a-receber" element={<ProtectedRoute requiredPermission="view_financial_reports"><AccountsReceivable /></ProtectedRoute>} />
+      <Route path="/contas-a-pagar" element={<ProtectedRoute requiredPermission="view_financial_reports"><AccountsPayable /></ProtectedRoute>} />
       <Route path="/melhores-clientes" element={<ProtectedRoute requiredPermission="view_performance_reports"><BestClients /></ProtectedRoute>} />
       <Route path="/desempenho" element={<ProtectedRoute requiredPermission="view_performance_reports"><Performance /></ProtectedRoute>} />
       <Route path="/mensagens" element={<ProtectedRoute requiredPermission="access_messages"><Messages /></ProtectedRoute>} />

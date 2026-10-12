@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarClock, CheckCircle2, Download, Edit3, Plus, RotateCcw, Trash2, Wallet, Receipt, Ban } from 'lucide-react';
-import { api } from '../../services/api';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CalendarClock, CheckCircle2, Download, Edit3, Plus, RotateCcw, Trash2, Wallet, Receipt, Ban, Paperclip, Upload, X } from 'lucide-react';
+import { api, fetchAuthenticatedFile } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import {
@@ -39,6 +39,9 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
   const isPayable = kind === 'payable';
   const { pushToast } = useToast();
   const [month, setMonth] = useState(currentMonthKey());
+  const initialRange = monthRange(currentMonthKey());
+  const [dateFrom, setDateFrom] = useState(initialRange.from);
+  const [dateTo, setDateTo] = useState(initialRange.to);
   const [items, setItems] = useState<Account[]>([]);
   const [overdueAll, setOverdueAll] = useState<Account[]>([]);
   const [soon, setSoon] = useState<Account[]>([]);
@@ -61,12 +64,21 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
   const [bulkDate, setBulkDate] = useState(todayISO());
   const [bulkMethod, setBulkMethod] = useState('Pix');
   const [busy, setBusy] = useState(false);
+  const [attachmentTarget, setAttachmentTarget] = useState<Account | null>(null);
+  const [attachments, setAttachments] = useState<{ id: number; upload_id: number; title: string; file_name: string }[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [customCategories, setCustomCategories] = useState<{ id: number; name: string }[]>([]);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError('');
     try {
-      const { from, to } = monthRange(month);
+      const from = dateFrom;
+      const to = dateTo;
       const today = todayISO();
       const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
       const in7 = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
@@ -84,9 +96,22 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
     } finally {
       setLoading(false);
     }
-  }, [kind, month]);
+  }, [kind, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
+  const loadCategories = useCallback(async () => {
+    try { setCustomCategories(await api.get<{ id: number; name: string }[]>('/finance/accounts/categories', { kind })); }
+    catch { setCustomCategories([]); }
+  }, [kind]);
+  useEffect(() => { loadCategories(); }, [loadCategories]);
+  useEffect(() => {
+    if (!attachmentTarget) { setAttachments([]); return; }
+    setAttachmentsLoading(true);
+    api.get<any[]>(`/finance/accounts/${attachmentTarget.id}/attachments`)
+      .then(rows => setAttachments(rows || []))
+      .catch(err => pushToast('error', err?.message || 'Não foi possível carregar os anexos.'))
+      .finally(() => setAttachmentsLoading(false));
+  }, [attachmentTarget, pushToast]);
   useRealtimeSync('finance.created', () => load());
   useRealtimeSync('finance.deleted', () => load());
 
@@ -99,10 +124,10 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
   }), [items, overdueAll, soon]);
 
   const categories = useMemo(() => {
-    const set = new Set<string>(CATEGORIES[kind]);
+    const set = new Set<string>([...CATEGORIES[kind], ...customCategories.map(c => c.name)]);
     items.forEach(i => i.category && set.add(i.category));
     return Array.from(set);
-  }, [items, kind]);
+  }, [items, kind, customCategories]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -193,11 +218,16 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
           <Ban size={14} />
         </IconButton>
       )}
+      <IconButton variant="outline" size="sm" aria-label="Anexos" title="Anexos e comprovantes" onClick={e => { e.stopPropagation(); setAttachmentTarget(a); }}>
+        <Paperclip size={14} />
+      </IconButton>
       <IconButton variant="outline" size="sm" aria-label="Excluir" title="Excluir" onClick={e => { e.stopPropagation(); setDeleteScope('one'); setDeleteTarget(a); }}>
         <Trash2 size={14} className="text-red-600" />
       </IconButton>
     </div>
-  ) : null;
+  ) : (
+    <div className="flex justify-end"><IconButton variant="outline" size="sm" aria-label="Ver anexos" title="Ver anexos" onClick={e => { e.stopPropagation(); setAttachmentTarget(a); }}><Paperclip size={14} /></IconButton></div>
+  );
 
   const columns: Column<Account>[] = [
     { header: 'Vencimento', sortKey: 'due_date', className: 'whitespace-nowrap', render: a => <span className="text-xs text-slate-700">{formatDateBR(a.due_date)}</span> },
@@ -239,6 +269,12 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
 
   const hasFilters = search || status !== 'all' || category !== 'all';
   const noun = isPayable ? 'a pagar' : 'a receber';
+  const changeMonth = (value: string) => {
+    setMonth(value);
+    const range = monthRange(value);
+    setDateFrom(range.from);
+    setDateTo(range.to);
+  };
 
   return (
     <div className="space-y-3">
@@ -251,12 +287,15 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
 
       <FilterLine>
         <FilterLineSection>
-          <MonthNavigator value={month} onChange={setMonth} />
+          <MonthNavigator value={month} onChange={changeMonth} />
+          <Input label="De" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-[145px]" />
+          <Input label="Até" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-[145px]" />
         </FilterLineSection>
         <FilterLineSection align="right">
           <FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar descrição ou nome" className="sm:w-56" />
           <FilterLineSelect label="Status" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
           <FilterLineSelect label="Categoria" value={category} onChange={setCategory} options={[{ value: 'all', label: 'Todas' }, ...categories.map(c => ({ value: c, label: c }))]} />
+          {canManage && <Button variant="outline" size="sm" onClick={() => setCategoriesOpen(true)}>{isPayable ? 'Centros de custo' : 'Categorias'}</Button>}
           <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={exportCsv} disabled={!filtered.length}>CSV</Button>
           {canManage && <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={() => { setEditing(null); setFormOpen(true); }}>Nova conta</Button>}
         </FilterLineSection>
@@ -299,7 +338,84 @@ export const AccountsPanel: React.FC<Props> = ({ kind, canManage, patients = [] 
         </ContentCard>
       )}
 
-      <AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} kind={kind} editing={editing} patients={patients} onSubmit={submitForm} />
+      <AccountFormModal isOpen={formOpen} onClose={() => setFormOpen(false)} kind={kind} editing={editing} patients={patients} categories={customCategories.map(c => c.name)} onSubmit={submitForm} />
+
+      <Modal isOpen={categoriesOpen} onClose={() => setCategoriesOpen(false)} size="sm" title={isPayable ? 'Centros de custo e categorias' : 'Categorias de recebimento'}>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Input aria-label="Nova categoria" value={categoryName} onChange={e => setCategoryName(e.target.value)} placeholder={isPayable ? 'Ex.: Estrutura e operação' : 'Ex.: Atendimento particular'} />
+            <Button variant="primary" size="sm" onClick={async () => {
+              const name = categoryName.trim(); if (!name) return;
+              try { await api.post('/finance/accounts/categories', { kind, name }); setCategoryName(''); await loadCategories(); }
+              catch (err: any) { pushToast('error', err?.message || 'Não foi possível criar a categoria.'); }
+            }}>Adicionar</Button>
+          </div>
+          <p className="text-[11px] text-slate-500">As categorias padrão continuam disponíveis. As criadas aqui podem ser usadas nos lançamentos novos.</p>
+          {customCategories.length === 0 ? <p className="py-3 text-center text-xs text-slate-500">Nenhuma categoria personalizada.</p> : customCategories.map(item => (
+            <div key={item.id} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+              <span className="flex-1 text-xs text-slate-700">{item.name}</span>
+              <Button variant="ghost" size="xs" onClick={async () => {
+                const next = window.prompt('Novo nome', item.name)?.trim(); if (!next || next === item.name) return;
+                try { await api.put(`/finance/accounts/categories/${item.id}`, { name: next }); await loadCategories(); }
+                catch (err: any) { pushToast('error', err?.message || 'Não foi possível editar a categoria.'); }
+              }}>Editar</Button>
+              <IconButton variant="ghost" size="sm" aria-label="Excluir categoria" title="Excluir categoria" onClick={async () => {
+                if (!window.confirm(`Excluir “${item.name}”? Os lançamentos antigos não serão alterados.`)) return;
+                try { await api.delete(`/finance/accounts/categories/${item.id}`); await loadCategories(); }
+                catch (err: any) { pushToast('error', err?.message || 'Não foi possível excluir a categoria.'); }
+              }}><Trash2 size={14} className="text-red-600" /></IconButton>
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!attachmentTarget}
+        onClose={() => setAttachmentTarget(null)}
+        size="md"
+        title="Anexos e comprovantes"
+        subtitle={attachmentTarget ? attachmentTarget.description : undefined}
+        footer={<ModalFooter><Button variant="outline" size="sm" onClick={() => setAttachmentTarget(null)}>Fechar</Button></ModalFooter>}
+      >
+        <input ref={attachmentInputRef} className="hidden" type="file" onChange={async e => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file || !attachmentTarget) return;
+          setUploadingAttachment(true);
+          try {
+            const data = new FormData();
+            data.append('file', file);
+            data.append('category', 'Financeiro');
+            data.append('title', file.name);
+            const uploaded = await api.post<{ id: number }>('/uploads', data);
+            await api.post(`/finance/accounts/${attachmentTarget.id}/attachments`, { upload_id: uploaded.id });
+            setAttachments(await api.get<any[]>(`/finance/accounts/${attachmentTarget.id}/attachments`));
+            pushToast('success', 'Arquivo anexado à conta.');
+          } catch (err: any) { pushToast('error', err?.message || 'Não foi possível anexar o arquivo.'); }
+          finally { setUploadingAttachment(false); }
+        }} />
+        <div className="space-y-3">
+          {canManage && <Button variant="outline" size="sm" loading={uploadingAttachment} iconLeft={<Upload size={14} />} onClick={() => attachmentInputRef.current?.click()}>Anexar arquivo</Button>}
+          {attachmentsLoading ? <p className="py-5 text-center text-xs text-slate-500">Carregando anexos…</p> : attachments.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-500">Nenhum arquivo anexado a esta conta.</p>
+          ) : attachments.map(file => (
+            <div key={file.id} className="flex items-center gap-2 rounded-lg border border-slate-200 p-2.5">
+              <Paperclip size={15} className="shrink-0 text-primary-600" />
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">{file.title || file.file_name}</span>
+              <Button variant="outline" size="xs" onClick={async () => {
+                try {
+                  const { blob, filename } = await fetchAuthenticatedFile(`/uploads/${file.upload_id}/file?download=1`);
+                  const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename || file.file_name || 'anexo'; link.click(); URL.revokeObjectURL(url);
+                } catch (err: any) { pushToast('error', err?.message || 'Não foi possível baixar o arquivo.'); }
+              }}>Baixar</Button>
+              {canManage && <IconButton variant="ghost" size="sm" aria-label="Remover anexo" title="Remover anexo" onClick={async () => {
+                try { await api.delete(`/finance/accounts/${attachmentTarget?.id}/attachments/${file.id}`); setAttachments(prev => prev.filter(a => a.id !== file.id)); }
+                catch (err: any) { pushToast('error', err?.message || 'Não foi possível remover o anexo.'); }
+              }}><X size={14} className="text-red-600" /></IconButton>}
+            </div>
+          ))}
+        </div>
+      </Modal>
 
       <PayModal
         isOpen={!!payTarget}

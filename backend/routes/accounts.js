@@ -70,6 +70,25 @@ function withSchema() {
         KEY idx_acc_tenant_due (tenant_id, kind, due_date),
         KEY idx_acc_series (series_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+      `CREATE TABLE IF NOT EXISTS finance_account_categories (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        kind VARCHAR(12) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_account_category (tenant_id, kind, name),
+        KEY idx_account_category_tenant (tenant_id, kind)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+      `CREATE TABLE IF NOT EXISTS finance_account_attachments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        account_id INT NOT NULL,
+        upload_id INT NOT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_account_attachment (account_id, upload_id),
+        KEY idx_account_attachment_tenant (tenant_id, account_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     ], 'accounts', { strict: true }).catch((err) => {
       schemaReady = null; // tenta de novo na próxima requisição
       throw err;
@@ -219,6 +238,48 @@ router.get('/due-soon', authMiddleware, canView, wrap(async (req, res) => {
     soon_count: soon.length, soon_total: sum(soon),
     items: items.slice(0, 5).map((r) => ({ id: r.id, description: r.description, party_name: r.party_name, amount: r.amount, due_date: r.due_date })),
   });
+}));
+
+// ── Categorias e centros de custo ──────────────────────────────────────────
+router.get('/categories', authMiddleware, canView, wrap(async (req, res) => {
+  const kind = req.query.kind === 'receivable' ? 'receivable' : 'payable';
+  const [rows] = await db.query(
+    `SELECT id, name FROM finance_account_categories
+     WHERE tenant_id = ? AND kind = ? ORDER BY name ASC`,
+    [req.user.tenant_id, kind]
+  );
+  res.json(rows);
+}));
+
+router.post('/categories', authMiddleware, canManage, wrap(async (req, res) => {
+  const kind = req.body?.kind === 'receivable' ? 'receivable' : 'payable';
+  const name = String(req.body?.name || '').trim().slice(0, 100);
+  if (!name) return res.status(400).json({ error: 'Informe o nome da categoria ou centro de custo' });
+  const [result] = await db.query(
+    `INSERT INTO finance_account_categories (tenant_id, kind, name) VALUES (?, ?, ?)`,
+    [req.user.tenant_id, kind, name]
+  );
+  res.status(201).json({ id: result.insertId, name });
+}));
+
+router.put('/categories/:id', authMiddleware, canManage, wrap(async (req, res) => {
+  const name = String(req.body?.name || '').trim().slice(0, 100);
+  if (!name) return res.status(400).json({ error: 'Informe o nome da categoria ou centro de custo' });
+  const [result] = await db.query(
+    `UPDATE finance_account_categories SET name = ? WHERE id = ? AND tenant_id = ?`,
+    [name, req.params.id, req.user.tenant_id]
+  );
+  if (!result.affectedRows) return res.status(404).json({ error: 'Categoria não encontrada' });
+  res.json({ success: true, name });
+}));
+
+router.delete('/categories/:id', authMiddleware, canManage, wrap(async (req, res) => {
+  const [result] = await db.query(
+    `DELETE FROM finance_account_categories WHERE id = ? AND tenant_id = ?`,
+    [req.params.id, req.user.tenant_id]
+  );
+  if (!result.affectedRows) return res.status(404).json({ error: 'Categoria não encontrada' });
+  res.json({ success: true });
 }));
 
 // ── Criação (conta única, parcelamento ou recorrência) ───────────────────────
@@ -424,6 +485,54 @@ router.post('/:id/pay', authMiddleware, canManage, wrap(async (req, res) => {
   } catch (err) { await conn.rollback(); throw err; } finally { conn.release(); }
 }));
 
+// ── Anexos de contas ───────────────────────────────────────────────────────
+// O arquivo é armazenado no repositório seguro de uploads; aqui guardamos só o
+// vínculo com a conta. Assim, download e permissão continuam centralizados.
+router.get('/:id/attachments', authMiddleware, canView, wrap(async (req, res) => {
+  const tenantId = req.user.tenant_id;
+  const [account] = await db.query('SELECT id FROM finance_accounts WHERE id = ? AND tenant_id = ?', [req.params.id, tenantId]);
+  if (!account[0]) return res.status(404).json({ error: 'Conta não encontrada' });
+  const [rows] = await db.query(
+    `SELECT aa.id, aa.upload_id, aa.created_at,
+            COALESCE(u.title, u.original_name, u.file_name, 'Arquivo') AS title,
+            COALESCE(u.original_name, u.file_name, u.filename) AS file_name,
+            COALESCE(u.mime_type, u.file_type, '') AS mime_type,
+            COALESCE(u.size, u.file_size, 0) AS file_size
+     FROM finance_account_attachments aa
+     INNER JOIN uploads u ON u.id = aa.upload_id AND u.tenant_id = aa.tenant_id
+     WHERE aa.tenant_id = ? AND aa.account_id = ?
+     ORDER BY aa.created_at DESC`,
+    [tenantId, req.params.id]
+  );
+  res.json(rows);
+}));
+
+router.post('/:id/attachments', authMiddleware, canManage, wrap(async (req, res) => {
+  const tenantId = req.user.tenant_id;
+  const uploadId = Number(req.body?.upload_id);
+  if (!uploadId) return res.status(400).json({ error: 'Arquivo inválido' });
+  const [account] = await db.query('SELECT id FROM finance_accounts WHERE id = ? AND tenant_id = ?', [req.params.id, tenantId]);
+  if (!account[0]) return res.status(404).json({ error: 'Conta não encontrada' });
+  const [upload] = await db.query('SELECT id FROM uploads WHERE id = ? AND tenant_id = ?', [uploadId, tenantId]);
+  if (!upload[0]) return res.status(404).json({ error: 'Arquivo não encontrado' });
+  const [result] = await db.query(
+    `INSERT INTO finance_account_attachments (tenant_id, account_id, upload_id, created_by)
+     VALUES (?, ?, ?, ?)`,
+    [tenantId, req.params.id, uploadId, req.user.id]
+  );
+  res.status(201).json({ id: result.insertId, upload_id: uploadId });
+}));
+
+router.delete('/:id/attachments/:attachmentId', authMiddleware, canManage, wrap(async (req, res) => {
+  const [result] = await db.query(
+    `DELETE FROM finance_account_attachments
+     WHERE id = ? AND account_id = ? AND tenant_id = ?`,
+    [req.params.attachmentId, req.params.id, req.user.tenant_id]
+  );
+  if (!result.affectedRows) return res.status(404).json({ error: 'Anexo não encontrado' });
+  res.json({ success: true });
+}));
+
 router.post('/:id/unpay', authMiddleware, canManage, wrap(async (req, res) => {
   const tenantId = req.user.tenant_id;
   const conn = await db.getConnection();
@@ -474,6 +583,7 @@ async function deleteAccounts(conn, tenantId, rows) {
   if (!rows.length) return 0;
   const ids = rows.map((r) => r.id);
   await conn.query(`DELETE FROM financial_transactions WHERE tenant_id = ? AND origin_module = 'ACCOUNT' AND origin_id IN (?)`, [tenantId, ids]);
+  await conn.query(`DELETE FROM finance_account_attachments WHERE tenant_id = ? AND account_id IN (?)`, [tenantId, ids]);
   const [r] = await conn.query('DELETE FROM finance_accounts WHERE tenant_id = ? AND id IN (?)', [tenantId, ids]);
   return r.affectedRows;
 }
