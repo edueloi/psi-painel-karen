@@ -1966,43 +1966,81 @@ router.delete('/comandas/:id', authMiddleware, async (req, res) => {
 // GET /finance/analytics/best-clients
 router.get('/analytics/best-clients', async (req, res) => {
   try {
+    await withFinanceSchema();
     const tenantId = req.user.tenant_id;
+    const period = ['week', 'month', 'year'].includes(req.query.period) ? req.query.period : 'all';
+    const now = new Date();
+    let startDate = null;
+    const endDate = now.toISOString().slice(0, 10);
 
-    // Receita: soma de financial_transactions (pagamentos registrados)
-    // mais fallback para comanda_payments caso não haja lançamentos ainda
+    if (period === 'week') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6);
+      startDate = start.toISOString().slice(0, 10);
+    } else if (period === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    } else if (period === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+    }
+
+    const dateParams = startDate ? [startDate, endDate] : [];
+    const transactionDateSql = startDate ? ' AND DATE(ft.date) >= ? AND DATE(ft.date) <= ?' : '';
+    const paymentDateSql = startDate ? ' AND DATE(cp.payment_date) >= ? AND DATE(cp.payment_date) <= ?' : '';
+    const appointmentDateSql = startDate ? ' AND DATE(a.start_time) >= ? AND DATE(a.start_time) <= ?' : '';
+    const missedDateSql = startDate ? ' AND DATE(missed.start_time) >= ? AND DATE(missed.start_time) <= ?' : '';
+
+    // Receita recebida e sessões concluídas no período selecionado.
+    // Pagamentos de comandas servem de fallback para clínicas com lançamentos legados.
     const [data] = await db.query(`
       SELECT
         p.id,
         p.name,
+        p.phone,
+        p.email,
         p.created_at as since,
         COALESCE(
           (SELECT SUM(ft.amount) FROM financial_transactions ft
-           WHERE ft.patient_id = p.id AND ft.type = 'income' AND ft.tenant_id = ?),
+           WHERE ft.patient_id = p.id AND ft.type = 'income' AND ft.tenant_id = ?
+             AND ft.status IN ('paid', 'confirmed')${transactionDateSql}),
           0
         ) +
         COALESCE(
           (SELECT SUM(cp.amount) FROM comanda_payments cp
            INNER JOIN comandas cmd ON cmd.id = cp.comanda_id
            WHERE cmd.patient_id = p.id AND cp.tenant_id = ?
+             ${paymentDateSql}
              AND NOT EXISTS (
                SELECT 1 FROM financial_transactions ft2
                WHERE ft2.patient_id = p.id AND ft2.type = 'income' AND ft2.tenant_id = ?
              )),
           0
         ) as totalRevenue,
-        (SELECT COUNT(*) FROM appointments
-         WHERE patient_id = p.id
-           AND status IN ('completed', 'no_show', 'confirmed')
-           AND tenant_id = ?) as appointmentCount,
-        (SELECT MAX(start_time) FROM appointments WHERE patient_id = p.id AND tenant_id = ?) as lastVisit
+        (SELECT COUNT(*) FROM appointments a
+         WHERE a.patient_id = p.id AND a.status = 'completed' AND a.tenant_id = ?${appointmentDateSql}) as appointmentCount,
+        (SELECT MAX(start_time) FROM appointments
+         WHERE patient_id = p.id AND status = 'completed' AND tenant_id = ?) as lastVisit,
+        (SELECT MIN(start_time) FROM appointments
+         WHERE patient_id = p.id AND status IN ('scheduled', 'confirmed')
+           AND start_time >= NOW() AND tenant_id = ?) as nextAppointment,
+        (SELECT COUNT(*) FROM appointments missed
+         WHERE missed.patient_id = p.id AND missed.status IN ('no_show', 'falta_justificada')
+           AND missed.tenant_id = ?${missedDateSql}) as missedCount
       FROM patients p
       WHERE p.tenant_id = ?
       HAVING appointmentCount > 0 OR totalRevenue > 0
       ORDER BY totalRevenue DESC
-      LIMIT 30
-    `, [tenantId, tenantId, tenantId, tenantId, tenantId, tenantId]);
+      LIMIT 100
+    `, [
+      tenantId, ...dateParams,
+      tenantId, ...dateParams, tenantId,
+      tenantId, ...dateParams,
+      tenantId,
+      tenantId,
+      tenantId, ...dateParams,
+      tenantId,
+    ]);
 
-    res.json(data);
+    res.json({ period: { key: period, start: startDate, end: endDate }, clients: data });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar melhores clientes' });
@@ -2012,6 +2050,7 @@ router.get('/analytics/best-clients', async (req, res) => {
 // GET /finance/analytics/performance
 router.get('/analytics/performance', async (req, res) => {
   try {
+    await withFinanceSchema();
     const { period } = req.query;
     const tenantId = req.user.tenant_id;
 
@@ -2063,9 +2102,38 @@ router.get('/analytics/performance', async (req, res) => {
         COUNT(*) as count,
         COALESCE(SUM(duration_minutes), 0) / 60 as total_hours
       FROM appointments
-      WHERE tenant_id = ? AND (status = 'completed' OR status = 'confirmed')
+      WHERE tenant_id = ? AND status = 'completed'
         AND DATE(start_time) >= ? AND DATE(start_time) <= ?
     `, [tenantId, startStr, endStr]);
+
+    const [appointmentHealth] = await db.query(`
+      SELECT
+        COALESCE(SUM(status = 'completed'), 0) as completed,
+        COALESCE(SUM(status = 'confirmed'), 0) as confirmed,
+        COALESCE(SUM(status = 'scheduled'), 0) as scheduled,
+        COALESCE(SUM(status IN ('cancelled', 'rescheduled')), 0) as cancelled,
+        COALESCE(SUM(status IN ('no_show', 'falta_justificada')), 0) as missed
+      FROM appointments
+      WHERE tenant_id = ? AND DATE(start_time) >= ? AND DATE(start_time) <= ?
+    `, [tenantId, startStr, endStr]);
+
+    const [nextWeek] = await db.query(`
+      SELECT
+        COALESCE(SUM(status = 'scheduled'), 0) as awaiting_confirmation,
+        COALESCE(SUM(status = 'confirmed'), 0) as confirmed
+      FROM appointments
+      WHERE tenant_id = ? AND start_time >= NOW()
+        AND start_time < DATE_ADD(NOW(), INTERVAL 7 DAY)
+        AND status IN ('scheduled', 'confirmed')
+    `, [tenantId]);
+
+    const [receivables] = await db.query(`
+      SELECT COALESCE(SUM(amount), 0) as pending_income
+      FROM financial_transactions
+      WHERE tenant_id = ? AND type = 'income'
+        AND status IN ('pending', 'waiting', 'overdue')
+        AND COALESCE(due_date, date) <= ?
+    `, [tenantId, endStr]);
 
     // Peak Days filtered by period
     const [peakDays] = await db.query(`
@@ -2115,7 +2183,17 @@ router.get('/analytics/performance', async (req, res) => {
         worked_days: totals[0].worked_days || 0,
         sessions: sessionsData[0].count || 0,
         total_hours: parseFloat(sessionsData[0].total_hours || 0)
-      }
+      },
+      operations: {
+        completed: Number(appointmentHealth[0].completed || 0),
+        confirmed: Number(appointmentHealth[0].confirmed || 0),
+        scheduled: Number(appointmentHealth[0].scheduled || 0),
+        cancelled: Number(appointmentHealth[0].cancelled || 0),
+        missed: Number(appointmentHealth[0].missed || 0),
+        awaiting_confirmation: Number(nextWeek[0].awaiting_confirmation || 0),
+        upcoming_confirmed: Number(nextWeek[0].confirmed || 0),
+        pending_income: parseFloat(receivables[0].pending_income || 0),
+      },
     });
   } catch (err) {
     console.error(err);

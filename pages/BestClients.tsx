@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trophy, Users, Calendar, Star, Medal, Crown, ArrowUpRight, DollarSign, Loader2, AlertCircle } from 'lucide-react';
+import { Trophy, Users, Calendar, Star, Medal, Crown, ArrowUpRight, DollarSign, Loader2, AlertCircle, FileText, UserRound, CalendarClock, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import {
   Alert,
@@ -27,7 +28,21 @@ const METRIC_TABS = [
   { id: 'appointments', label: 'Por presença', icon: Calendar },
 ] as const;
 
+const PERIOD_OPTIONS = [
+  { value: 'week', label: '7 dias' },
+  { value: 'month', label: 'Mês' },
+  { value: 'year', label: 'Ano' },
+  { value: 'all', label: 'Histórico' },
+] as const;
+
+const formatShortDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+};
+
 export const BestClients: React.FC = () => {
+  const navigate = useNavigate();
   const [metric, setMetric] = useState<typeof METRIC_TABS[number]['id']>('revenue');
   const [period, setPeriod] = useState('all');
   const [topN, setTopN] = useState<5 | 10 | 30>(10);
@@ -40,8 +55,8 @@ export const BestClients: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const data = await api.get<any[]>('/finance/analytics/best-clients');
-        setClients(data);
+        const result = await api.get<any>('/finance/analytics/best-clients?period=' + period);
+        setClients(Array.isArray(result) ? result : (result?.clients || []));
         setError(null);
       } catch (err: any) {
         setError('Ocorreu um erro ao carregar o ranking de clientes.');
@@ -51,7 +66,7 @@ export const BestClients: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [period]);
 
   // --- LOGIC ---
   const sortedClients = useMemo(() => {
@@ -94,6 +109,11 @@ export const BestClients: React.FC = () => {
     return totalApps > 0 ? totalRev / totalApps : 0;
   }, [clients]);
 
+  const clientsWithoutNextAppointment = useMemo(
+    () => clients.filter(client => !client.nextAppointment).length,
+    [clients],
+  );
+
   const getRankIcon = (index: number) => {
     if (index === 0) return <Crown size={18} className="text-yellow-500 fill-yellow-500" />;
     if (index === 1) return <Medal size={18} className="text-slate-400 fill-slate-400" />;
@@ -131,15 +151,15 @@ export const BestClients: React.FC = () => {
       <div className="space-y-4">
         <SectionTitle
           icon={Trophy}
-          title="Melhores clientes"
-          description="Ranking de pacientes por faturamento e recorrência"
+          title="Relacionamento com pacientes"
+          description="Priorize acompanhamento, agenda e prontuário a partir de presença e receita real"
         />
 
         {/* STATS BAR */}
         <StatGrid cols={3}>
-          <StatCard title="Total de pacientes" value={totalClients} icon={Users} color="default" />
-          <StatCard title="Novos (mês)" value={`+${newClientsMonth}`} icon={Star} color="warning" />
-          <StatCard title="Ticket médio" value={formatCurrency(avgTicket)} icon={DollarSign} color="success" />
+          <StatCard title="Pacientes no período" value={totalClients} description="Com sessão ou pagamento registrado" icon={Users} color="default" />
+          <StatCard title="Sem próximo atendimento" value={clientsWithoutNextAppointment} description="Revise o vínculo e a agenda" icon={CalendarClock} color="warning" />
+          <StatCard title="Receita por sessão" value={formatCurrency(avgTicket)} description={`${newClientsMonth} novos cadastros neste mês`} icon={DollarSign} color="success" />
         </StatGrid>
 
         {/* VISÕES */}
@@ -158,6 +178,12 @@ export const BestClients: React.FC = () => {
             </FilterLineItem>
           </FilterLineSection>
           <FilterLineSection align="right">
+            <FilterLineSegmented<'week' | 'month' | 'year' | 'all'>
+              value={period as 'week' | 'month' | 'year' | 'all'}
+              onChange={setPeriod}
+              options={[...PERIOD_OPTIONS]}
+              size="sm"
+            />
             <FilterLineSegmented<'5' | '10' | '30'>
               value={String(topN) as '5' | '10' | '30'}
               onChange={(v) => setTopN(Number(v) as 5 | 10 | 30)}
@@ -207,7 +233,7 @@ export const BestClients: React.FC = () => {
                   </div>
 
                   <div className="bg-slate-50/50 p-3 rounded-lg border border-slate-100 mb-3">
-                    <p className="text-[11px] text-slate-500 mb-1">{metric === 'revenue' ? 'Receita total' : 'Sessões realizadas'}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">{metric === 'revenue' ? 'Receita recebida' : 'Sessões concluídas'}</p>
                     <div className="flex items-end justify-between">
                       <span className={`text-base font-medium ${metric === 'revenue' ? 'text-emerald-600' : 'text-primary-600'}`}>
                         {metric === 'revenue' ? formatCurrency(client.totalRevenue) : client.appointmentCount}
@@ -225,14 +251,32 @@ export const BestClients: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center text-[11px] text-slate-500 border-t border-slate-100 pt-3">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={14} className="text-primary-500" />
-                      Desde {client.since ? new Date(client.since).getFullYear() : '-'}
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={14} className="text-primary-500" />
+                        {client.nextAppointment
+                          ? `Próximo: ${formatShortDate(client.nextAppointment)}`
+                          : 'Sem próximo atendimento'}
+                      </div>
+                      {Number(client.missedCount) > 0 && (
+                        <span className="flex items-center gap-1 font-medium text-amber-700">
+                          <AlertTriangle size={13} /> {client.missedCount} falta{Number(client.missedCount) > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
-                    <Button type="button" variant="ghost" size="xs" iconRight={<ArrowUpRight size={14} />}>
-                      Detalhes
-                    </Button>
+                    <p className="text-[11px] text-slate-400">Última sessão: {formatShortDate(client.lastVisit) || 'sem registro'}</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <Button type="button" variant="outline" size="xs" iconLeft={<UserRound size={13} />} onClick={() => navigate(`/pacientes/${client.id}`)}>
+                        Perfil
+                      </Button>
+                      <Button type="button" variant="outline" size="xs" iconLeft={<Calendar size={13} />} onClick={() => navigate(`/agenda?patient_id=${client.id}`)}>
+                        Agenda
+                      </Button>
+                      <Button type="button" variant="ghost" size="xs" iconLeft={<FileText size={13} />} onClick={() => navigate(`/prontuario?patient_id=${client.id}`)}>
+                        Prontuário
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );

@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   BarChart2, TrendingUp, TrendingDown, Calendar, Users, Clock, 
   DollarSign, Activity, ChevronDown, Briefcase, Filter, PieChart,
@@ -40,6 +41,7 @@ type PerformanceTab = (typeof PERFORMANCE_TABS)[number]['id'];
 const dayNamesShort = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
 
 export const Performance: React.FC = () => {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState('month'); // week, month, year
   const [activeTab, setActiveTab] = useState<PerformanceTab>('financeiro');
   const [loading, setLoading] = useState(true);
@@ -53,10 +55,10 @@ export const Performance: React.FC = () => {
         setLoading(true);
         const [perfResult, clientsResult] = await Promise.all([
             api.get<any>(`/finance/analytics/performance?period=${period}`),
-            api.get<any[]>('/finance/analytics/best-clients')
+            api.get<any>(`/finance/analytics/best-clients?period=${period}`)
         ]);
         setData(perfResult);
-        setBestClients(clientsResult || []);
+        setBestClients(Array.isArray(clientsResult) ? clientsResult : (clientsResult?.clients || []));
         setError(null);
       } catch (err: any) {
         setError('Erro ao carregar dados de performance.');
@@ -119,35 +121,76 @@ export const Performance: React.FC = () => {
   }
 
   const { totals, series, hoursSeries, peakDays, peakHours } = data;
+  const operations = data.operations || {
+    completed: 0, confirmed: 0, scheduled: 0, cancelled: 0, missed: 0,
+    awaiting_confirmation: 0, upcoming_confirmed: 0, pending_income: 0,
+  };
+  const attendanceBase = Number(operations.completed) + Number(operations.missed);
+  const attendanceRate = attendanceBase > 0 ? Math.round((Number(operations.completed) / attendanceBase) * 100) : 0;
+  const operationalScore = attendanceBase > 0 ? attendanceRate : 0;
 
   return (
     <PageWrapper>
       <div className="space-y-4">
         <SectionTitle
           icon={BarChart2}
-          title="Performance e Analytics"
-          description="Indicadores estratégicos para gestão da sua clínica"
+          title="Visão de performance"
+          description="Transforme agenda, financeiro e relacionamento com pacientes em próximas ações"
           action={
-            <FilterLineSegmented
-              size="sm"
-              value={period}
-              onChange={value => setPeriod(String(value))}
-              options={PERIOD_OPTIONS}
-            />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/agenda')} iconLeft={<CalendarDays size={14} />}>Agenda</Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/financeiro')} iconLeft={<DollarSign size={14} />}>Financeiro</Button>
+              <FilterLineSegmented
+                size="sm"
+                value={period}
+                onChange={value => setPeriod(String(value))}
+                options={PERIOD_OPTIONS}
+              />
+            </div>
           }
         />
 
         <StatGrid cols={4}>
-          <StatCard title="Faturamento Bruto" value={formatCurrency(totals.income)} icon={DollarSign} color="success" />
-          <StatCard title="Horas em Atendimento" value={`${totals.total_hours.toFixed(1)}h`} description="Horas reais" icon={Clock} />
-          <StatCard title="Lucro Líquido" value={formatCurrency(totals.profit)} icon={TrendingUp} color="info" />
+          <StatCard title="Receita registrada" value={formatCurrency(totals.income)} description={`${totals.sessions} sessões concluídas`} icon={DollarSign} color="success" />
+          <StatCard title="Presença" value={`${attendanceRate}%`} description={`${operations.completed} realizadas · ${operations.missed} faltas`} icon={Users} color={attendanceRate >= 80 ? 'success' : 'warning'} />
+          <StatCard title="Horas realizadas" value={`${totals.total_hours.toFixed(1)}h`} description="Somente sessões concluídas" icon={Clock} />
           <StatCard
-            title="Aproveitamento"
-            value={`${(totals.income > 0 ? (totals.profit / totals.income) * 100 : 0).toFixed(1)}%`}
+            title="Resultado do período"
+            value={formatCurrency(totals.profit)}
+            description={`${formatCurrency(totals.expense)} em despesas`}
             icon={PieChart}
             color="warning"
           />
         </StatGrid>
+
+        <PanelCard title="Ações que merecem atenção" description="Atalhos para agir nos dados, sem precisar procurar em cada módulo." icon={Activity}>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <ActionItem
+              label="Confirmações pendentes"
+              value={String(operations.awaiting_confirmation)}
+              description="Atendimentos dos próximos 7 dias ainda agendados."
+              tone={operations.awaiting_confirmation > 0 ? 'warning' : 'success'}
+              action="Revisar agenda"
+              onClick={() => navigate('/agenda')}
+            />
+            <ActionItem
+              label="Recebimentos em aberto"
+              value={formatCurrency(operations.pending_income)}
+              description="Valores pendentes ou vencidos até o fim do período."
+              tone={operations.pending_income > 0 ? 'warning' : 'success'}
+              action="Abrir financeiro"
+              onClick={() => navigate('/financeiro')}
+            />
+            <ActionItem
+              label="Pacientes sem retorno"
+              value={String(bestClients.filter(client => !client.nextAppointment).length)}
+              description="Pacientes do ranking que não têm próxima sessão marcada."
+              tone={bestClients.some(client => !client.nextAppointment) ? 'warning' : 'default'}
+              action="Ver relacionamento"
+              onClick={() => navigate('/melhores-clientes')}
+            />
+          </div>
+        </PanelCard>
 
         <Tabs<PerformanceTab>
           items={PERFORMANCE_TABS}
@@ -219,8 +262,15 @@ export const Performance: React.FC = () => {
           )}
 
           {activeTab === 'agenda' && (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
-              <PanelCard title="Dias de pico" description="Sazonalidade semanal" icon={Zap}>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                <EffortItem label="Realizadas" value={String(operations.completed)} icon={<Activity size={14} />} />
+                <EffortItem label="Confirmadas" value={String(operations.confirmed)} icon={<Users size={14} />} />
+                <EffortItem label="Canceladas" value={String(operations.cancelled)} icon={<TrendingDown size={14} />} />
+                <EffortItem label="Faltas" value={String(operations.missed)} icon={<AlertCircle size={14} />} />
+              </div>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
+                <PanelCard title="Dias de pico" description="Use para ajustar sua disponibilidade e concentrar encaixes" icon={Zap} action={<Button variant="ghost" size="xs" onClick={() => navigate('/agenda')}>Abrir agenda</Button>}>
                 <div className="flex h-56 items-end gap-3 px-1">
                   {dayNamesShort.map((name, i) => {
                     const dayIdx = i + 1; // MySQL DAYOFWEEK is 1-7
@@ -241,9 +291,9 @@ export const Performance: React.FC = () => {
                     );
                   })}
                 </div>
-              </PanelCard>
+                </PanelCard>
 
-              <PanelCard
+                <PanelCard
                 title="Horários de pico"
                 description="Distribuição por hora"
                 icon={Clock}
@@ -273,28 +323,34 @@ export const Performance: React.FC = () => {
                     );
                   })}
                 </div>
-              </PanelCard>
+                </PanelCard>
+              </div>
             </div>
           )}
 
           {activeTab === 'clientes' && (
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
-              <PanelCard title="Melhores clientes" description="Ranking por faturamento" icon={Trophy}>
+              <PanelCard
+                title="Relacionamento com pacientes"
+                description="Receita, presença e vínculo no período selecionado"
+                icon={Trophy}
+                action={<Button variant="ghost" size="xs" onClick={() => navigate('/melhores-clientes')}>Abrir painel</Button>}
+              >
                 <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                   {bestClients.length === 0 ? (
                     <EmptyState icon={Trophy} title="Nenhum dado real" description="O ranking aparece quando houver faturamento no período." />
                   ) : (
                     bestClients.slice(0, 10).map((client, idx) => (
-                      <div key={client.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3 transition-colors hover:bg-white">
+                      <button key={client.id} type="button" onClick={() => navigate(`/pacientes/${client.id}`)} className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3 text-left transition-colors hover:border-primary-200 hover:bg-white">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-5 text-[11px] text-slate-400">#{idx + 1}</span>
                           <div className="min-w-0">
                             <p className="truncate text-xs font-medium text-slate-800">{client.name}</p>
-                            <p className="text-[11px] text-slate-500">{client.appointmentCount} sessões</p>
+                            <p className="text-[11px] text-slate-500">{client.appointmentCount} sessões concluídas{client.nextAppointment ? ' · próximo agendado' : ' · sem retorno marcado'}</p>
                           </div>
                         </div>
                         <p className="shrink-0 text-xs font-semibold tabular-nums text-emerald-700">{formatCurrency(client.totalRevenue)}</p>
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>
@@ -317,10 +373,12 @@ export const Performance: React.FC = () => {
                   <div className="border-t border-slate-100 pt-3">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-[11px] text-slate-500">Saúde operacional</span>
-                      <span className="text-[11px] font-medium text-emerald-700">Estável</span>
+                      <span className={`text-[11px] font-medium ${operationalScore >= 80 ? 'text-emerald-700' : operationalScore > 0 ? 'text-amber-700' : 'text-slate-500'}`}>
+                        {operationalScore >= 80 ? 'Estável' : operationalScore > 0 ? 'Atenção à presença' : 'Sem dados no período'}
+                      </span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-2 w-[82%] rounded-full bg-emerald-500" />
+                      <div className={`h-2 rounded-full ${operationalScore >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${operationalScore}%` }} />
                     </div>
                   </div>
                 </div>
@@ -344,3 +402,33 @@ const EffortItem = ({ label, value, icon }: any) => (
     <p className="text-[13px] font-medium text-slate-800">{value}</p>
   </div>
 );
+
+const ActionItem = ({ label, value, description, tone, action, onClick }: {
+  label: string;
+  value: string;
+  description: string;
+  tone: 'success' | 'warning' | 'default';
+  action: string;
+  onClick: () => void;
+}) => {
+  const toneClass = tone === 'success'
+    ? 'border-emerald-100 bg-emerald-50/50'
+    : tone === 'warning'
+      ? 'border-amber-200 bg-amber-50/50'
+      : 'border-slate-200 bg-slate-50/70';
+
+  return (
+    <div className={`rounded-lg border p-3 ${toneClass}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-slate-800">{label}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{description}</p>
+        </div>
+        <span className="shrink-0 text-base font-semibold tabular-nums text-slate-800">{value}</span>
+      </div>
+      <Button type="button" variant="ghost" size="xs" className="mt-2 -ml-2" onClick={onClick} iconRight={<ArrowUpRight size={13} />}>
+        {action}
+      </Button>
+    </div>
+  );
+};
