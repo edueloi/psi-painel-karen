@@ -7,11 +7,19 @@ Allow: /termos-de-uso
 Allow: /politica-privacidade
 Allow: /encontrar-profissional
 Allow: /p/
-Allow: /f/
 Allow: /api/sitemap-professionals.xml
 
 Disallow: /login
-Disallow: /cadastro
+Disallow: /f/
+Disallow: /documentos-publicos/
+Disallow: /prontuario
+Disallow: /documentos
+Disallow: /contas-a-receber
+Disallow: /contas-a-pagar
+Disallow: /comandas
+Disallow: /bot
+Disallow: /mensagens
+Disallow: /sala-virtual
 Disallow: /visao-geral
 Disallow: /pacientes
 Disallow: /agenda

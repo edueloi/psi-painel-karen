@@ -7,7 +7,7 @@
     "dev": "concurrently --raw -n FRONT,BACK -c cyan,green \"npx vite\" \"node --watch backend/index.js\"",
     "dev:frontend": "vite",
     "dev:backend": "node --watch backend/index.js",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr scripts/public-entry.tsx --outDir dist-ssr && node scripts/prerender-public.mjs",
     "preview": "vite preview",
     "migrate": "cd backend && node migrate.js",
     "patch-db": "cd backend && node patch_database.js",

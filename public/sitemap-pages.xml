@@ -21,6 +21,9 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://plaelo.com.br/cadastro</loc>
+  </url>
+  <url>
     <loc>https://plaelo.com.br/encontrar-profissional</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

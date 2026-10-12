@@ -1,0 +1,440 @@
+/* Cadastro público: conteúdo legível e rolagem natural, inclusive com zoom. */
+.register-shell {
+  --reg-panel: #fff;
+  --reg-bg: #fbfaf7;
+  --reg-text: #222038;
+  --reg-muted: #706c83;
+  --reg-border: #e8e4f0;
+  --reg-accent: #6d42f5;
+  display: grid;
+  grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+  min-height: 100dvh;
+  background: var(--reg-bg);
+  color: var(--reg-text);
+  font-family: Inter, system-ui, sans-serif;
+}
+.register-shell * {
+  box-sizing: border-box;
+}
+.register-shell button,
+.register-shell input {
+  font-family: inherit;
+}
+.register-shell :focus-visible {
+  outline: 3px solid #9876fb;
+  outline-offset: 3px;
+}
+.register-visual {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  min-height: 620px;
+  isolation: isolate;
+  overflow: hidden;
+  background: #221938;
+  color: #fff;
+  padding: 42px;
+}
+.register-visual-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 65% center;
+  z-index: -3;
+  opacity: 0.35;
+}
+.register-visual-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(0deg, #20162cf0, #20162c22);
+}
+.register-visual-grid {
+  display: none;
+}
+.register-visual-brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.register-visual-brand img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 10px;
+  padding: 5px;
+}
+.register-visual-brand strong {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 23px;
+  letter-spacing: -0.05em;
+}
+.register-visual-copy {
+  position: absolute;
+  bottom: 54px;
+  left: 42px;
+  right: 42px;
+  max-width: 450px;
+}
+.register-visual-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #e0d2ff;
+  background: #ffffff10;
+  border: 1px solid #ffffff22;
+  border-radius: 30px;
+  padding: 9px 13px;
+}
+.register-visual-copy h2 {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(32px, 3.5vw, 49px);
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  margin: 22px 0;
+}
+.register-visual-copy h2 span {
+  color: #c8afff;
+}
+.register-visual-copy p {
+  font-size: 14px;
+  line-height: 1.85;
+  color: #d3c9df;
+  max-width: 400px;
+  margin-bottom: 25px;
+}
+.register-visual-benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 11px;
+  color: #d3c9df;
+}
+.register-visual-benefits > span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.register-float-card {
+  position: absolute;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 20px 50px #120c2e20;
+  color: var(--reg-text);
+  animation: register-float 7s ease-in-out infinite;
+}
+.register-float-a {
+  top: 23%;
+  left: 11%;
+}
+.register-float-b {
+  top: 37%;
+  right: 9%;
+  animation-delay: -3s;
+}
+.register-float-card strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.register-float-card small {
+  display: block;
+  font-size: 10px;
+  color: var(--reg-muted);
+}
+.register-float-icon {
+  display: grid;
+  place-items: center;
+  background: #f0ebff;
+  color: #6d42f5;
+  width: 35px;
+  height: 35px;
+  border-radius: 12px;
+}
+.register-float-icon.green {
+  background: #e9f6ed;
+  color: #388860;
+}
+.register-form-panel {
+  min-width: 0;
+  padding: 0 40px 60px;
+}
+.register-form-topbar {
+  max-width: 680px;
+  margin: 0 auto;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.register-form-brand {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.register-form-brand img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+.register-form-brand strong {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 20px;
+  letter-spacing: -0.04em;
+  color: var(--reg-text);
+}
+.register-form-login {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--reg-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.register-form-inner {
+  max-width: 540px;
+  margin: 30px auto 0;
+}
+.register-progress-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 10px;
+  color: var(--reg-muted);
+  flex-wrap: wrap;
+}
+.register-progress-summary strong {
+  font-size: 11px;
+  color: var(--reg-accent);
+  font-weight: 500;
+}
+.register-stepper {
+  margin-bottom: 36px;
+}
+.register-stepper span {
+  font-size: 10px !important;
+}
+.register-title {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(30px, 3vw, 42px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.045em;
+  color: var(--reg-text);
+  margin: 0 0 15px;
+}
+.register-title span {
+  color: var(--reg-accent);
+}
+.register-form-inner label.text-xs {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--reg-text);
+  font-size: 12px;
+}
+.register-form-inner input {
+  background: #fff;
+  min-height: 48px;
+  border-color: var(--reg-border);
+  font-size: 14px;
+}
+.register-form-inner .text-slate-400 {
+  color: var(--reg-muted);
+}
+.register-form-inner p.text-sm {
+  line-height: 1.7;
+}
+.register-form-inner .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 19px;
+}
+.register-form-inner button {
+  cursor: pointer;
+}
+.register-mobile-hero {
+  display: none;
+}
+@keyframes register-float {
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@media (max-width: 1100px) {
+  .register-shell {
+    grid-template-columns: 36% 64%;
+  }
+  .register-visual {
+    padding: 28px;
+  }
+  .register-visual-copy {
+    left: 28px;
+    right: 28px;
+  }
+  .register-float-a {
+    left: 7%;
+  }
+  .register-float-b {
+    right: 5%;
+  }
+  .register-float-card {
+    padding: 13px;
+    gap: 8px;
+  }
+  .register-float-card small {
+    max-width: 150px;
+    line-height: 1.6;
+  }
+  .register-form-panel {
+    padding-inline: 32px;
+  }
+}
+@media (max-width: 820px) {
+  .register-shell {
+    display: block;
+  }
+  .register-visual {
+    display: none;
+  }
+  .register-form-panel {
+    padding: 0 25px 45px;
+  }
+  .register-form-topbar {
+    min-height: 82px;
+  }
+  .register-form-inner {
+    margin-top: 15px;
+  }
+  .register-mobile-hero {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 18px;
+    margin-bottom: 30px;
+    background: #f0ebff;
+    border: 1px solid var(--reg-border);
+    border-radius: 18px;
+  }
+  .register-mobile-hero > img {
+    display: none;
+  }
+  .register-mobile-hero-copy strong {
+    display: block;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+  .register-mobile-hero-copy small {
+    display: block;
+    color: var(--reg-muted);
+    font-size: 11px;
+    margin-top: 8px;
+  }
+  .register-progress-summary > span {
+    display: none;
+  }
+  .register-progress-summary {
+    margin-bottom: 16px;
+  }
+  .register-title {
+    font-size: 35px;
+  }
+}
+/* Em notebooks e celulares o formulário tem prioridade sobre a ilustração. */
+@media (max-width: 1100px), (max-height: 800px) {
+  .register-shell {
+    display: block;
+  }
+  .register-visual,
+  .register-mobile-hero {
+    display: none;
+  }
+  .register-form-panel {
+    padding: 0 24px 28px;
+  }
+  .register-form-topbar {
+    min-height: 64px;
+    max-width: 760px;
+  }
+  .register-form-inner {
+    max-width: 540px;
+    margin: 12px auto 0;
+  }
+  .register-progress-summary {
+    margin-bottom: 12px;
+    font-size: 10px;
+  }
+  .register-progress-summary > span {
+    display: none;
+  }
+  .register-stepper {
+    margin-bottom: 23px;
+  }
+  .register-title {
+    font-size: 29px;
+    line-height: 1.17;
+    margin-bottom: 10px;
+  }
+  .register-title br {
+    display: none;
+  }
+  .register-title span {
+    display: block;
+  }
+  .register-form-inner .mb-5 {
+    margin-bottom: 18px;
+  }
+  .register-form-inner .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 13px;
+  }
+  .register-form-inner .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 15px;
+  }
+  .register-form-inner input {
+    min-height: 44px;
+  }
+  .register-form-inner p.text-center.mt-5 {
+    margin-top: 14px;
+  }
+  .register-form-inner p.text-sm {
+    font-size: 12px;
+  }
+}
+@media (max-width: 400px) {
+  .register-form-panel {
+    padding-inline: 18px;
+  }
+  .register-stepper {
+    gap: 3px;
+  }
+  .register-title {
+    font-size: 27px;
+  }
+  .register-form-login {
+    font-size: 11px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .register-shell * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

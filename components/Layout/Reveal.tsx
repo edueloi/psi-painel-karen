@@ -1,5 +1,5 @@
-import React from 'react';
-import { useScrollReveal } from '../../hooks/useScrollReveal';
+import React from "react";
+import { useScrollReveal } from "../../hooks/useScrollReveal";
 
 /**
  * Envolve qualquer conteúdo com uma animação de entrada (fade + slide-up)
@@ -13,7 +13,7 @@ export const Reveal: React.FC<{
   style?: React.CSSProperties;
   as?: keyof React.JSX.IntrinsicElements;
   onClick?: () => void;
-}> = ({ children, delay = 0, className, style, as = 'div', onClick }) => {
+}> = ({ children, delay = 0, className, style, as = "div", onClick }) => {
   const { ref, visible } = useScrollReveal<HTMLDivElement>();
   const Tag = as as React.ElementType;
 
@@ -25,7 +25,7 @@ export const Reveal: React.FC<{
       style={{
         ...style,
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(22px)',
+        transform: visible ? "translateY(0)" : "translateY(22px)",
         transition: `opacity .6s ease ${delay}ms, transform .6s cubic-bezier(.22,1,.36,1) ${delay}ms`,
       }}
     >

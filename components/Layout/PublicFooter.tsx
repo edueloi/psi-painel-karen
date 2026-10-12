@@ -1,82 +1,56 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Heart, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
+import React from "react";
+import { Link } from "react-router-dom";
+import { Heart } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { Logo } from "./PublicNavbar";
+import { publicPanelUrl } from "./publicNavigation";
 
-import { useAuth } from '../../contexts/AuthContext';
-import { Logo } from './PublicNavbar';
-
-export const PublicFooter: React.FC = () => {
-  const navigate = useNavigate();
+export function PublicFooter() {
   const { isAuthenticated } = useAuth();
-  const go = () => navigate(isAuthenticated ? '/visao-geral' : '/login');
-
   return (
-    <footer className="footer-dark footer-premium">
-      <div className="footer-premium-glow footer-premium-glow-a" />
-      <div className="footer-premium-glow footer-premium-glow-b" />
-
-      <div className="wrap footer-premium-inner">
-        <div className="footer-premium-top">
-          <div className="footer-brand">
-            <Logo size={36} wordmarkColor="#fff" />
-
-            <p className="footer-brand-copy">
-              Gestão mais simples para quem dedica o dia a cuidar de pessoas.
+    <footer className="ps-footer">
+      <div className="ps-wrap">
+        <div className="ps-footer-grid">
+          <div className="ps-footer-brand">
+            <Logo />
+            <p className="ps-footer-copy">
+              Conectando cuidado e gestão.
+              <br />
+              Uma rotina mais leve para quem cuida de pessoas.
             </p>
-
-            <div className="footer-brand-badges">
-              <span><ShieldCheck size={14} /> LGPD</span>
-              <span><LockKeyhole size={14} /> Dados protegidos</span>
-            </div>
-
-            <button className="footer-main-cta" onClick={go}>
-              {isAuthenticated ? 'Ir para o sistema' : 'Começar agora'}
-              <ArrowRight size={16} />
-            </button>
+            <Link to="/cadastro" className="ps-text-link">
+              Conheça a Plaelo
+            </Link>
           </div>
-
-          <div className="footer-nav">
-            <div className="footer-nav-col">
-              <p className="footer-nav-title">Produto</p>
-              <Link to="/funcionalidades">Funcionalidades</Link>
-              <Link to="/planos">Planos</Link>
-              <Link to="/encontrar-profissional">Encontrar profissional</Link>
-            </div>
-
-            <div className="footer-nav-col">
-              <p className="footer-nav-title">Plaelo</p>
-              <Link to="/sobre">Sobre</Link>
-              <Link to="/ajuda">Suporte</Link>
-              <button onClick={go}>Entrar</button>
-            </div>
-
-            <div className="footer-nav-col">
-              <p className="footer-nav-title">Legal</p>
-              <Link to="/termos-de-uso">Termos de uso</Link>
-              <Link to="/politica-privacidade">Privacidade</Link>
-            </div>
-          </div>
+          <nav className="ps-footer-col" aria-label="Produto">
+            <h3>Produto</h3>
+            <Link to="/funcionalidades">Funcionalidades</Link>
+            <Link to="/planos">Planos e preços</Link>
+            <a href={publicPanelUrl(isAuthenticated)}>
+              {isAuthenticated ? "Meu painel" : "Entrar no sistema"}
+            </a>
+          </nav>
+          <nav className="ps-footer-col" aria-label="Plaelo">
+            <h3>Plaelo</h3>
+            <Link to="/sobre">Nossa história</Link>
+            <Link to="/encontrar-profissional">Encontrar profissional</Link>
+            <Link to="/cadastro">Criar conta</Link>
+          </nav>
+          <nav className="ps-footer-col" aria-label="Informações legais">
+            <h3>Transparência</h3>
+            <Link to="/termos-de-uso">Termos de uso</Link>
+            <Link to="/politica-privacidade">Privacidade</Link>
+          </nav>
         </div>
-
-        <div className="footer-highlight">
-          <div className="footer-highlight-icon">
-            <Sparkles size={18} />
-          </div>
-          <div>
-            <strong>Menos burocracia. Mais presença.</strong>
-            <span>Agenda, prontuário, financeiro e tecnologia trabalhando juntos.</span>
-          </div>
-        </div>
-
-        <div className="footer-premium-bottom">
-          <p>© {new Date().getFullYear()} Plaelo. Todos os direitos reservados.</p>
-
-          <div className="footer-made-with-care">
-            <Heart size={14} fill="currentColor" />
-            <span>Feito para quem cuida da saúde mental.</span>
-          </div>
+        <div className="ps-footer-bottom">
+          <p>
+            © {new Date().getFullYear()} Plaelo. Todos os direitos reservados.
+          </p>
+          <p>
+            <Heart size={12} /> Feito para quem cuida.
+          </p>
         </div>
       </div>
     </footer>
   );
-};
+}

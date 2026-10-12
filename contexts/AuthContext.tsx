@@ -45,7 +45,7 @@ interface AuthContextType {
   updateUser: (data: Partial<AuthUser>) => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const decodeToken = (token: string | null): AuthUser | null => {
   if (!token) return null;

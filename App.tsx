@@ -18,99 +18,183 @@ import { Funcionalidades } from './pages/public/Funcionalidades';
 import { Planos } from './pages/public/Planos';
 import { Sobre } from './pages/public/Sobre';
 import { Login } from './components/Auth/Login';
-import { Dashboard } from './pages/Dashboard';
-import { Patients } from './pages/Patients';
-import { PatientDetail } from './pages/PatientDetail';
-import { PatientFormPage } from './pages/PatientFormPage';
-import { Agenda } from './pages/Agenda';
-import { AgendaSettings } from './pages/AgendaSettings';
-import { VirtualRooms } from './pages/VirtualRooms';
-import { MeetingRoomLiveKit } from './pages/MeetingRoomLiveKit';
-import { Forms } from './pages/Forms';
-import { FormsList } from './pages/FormsList';
-import { FormsMetrics } from './pages/FormsMetrics';
-import { FormEditor } from './pages/FormEditor';
-import { FormResponses } from './pages/FormResponses';
+
+
+
+
+
+
+
+
+
+
+
+
+
 import { PublicProfile } from './pages/PublicProfile';
 import { PsychologistDirectory } from './pages/PsychologistDirectory';
-import { ExternalForm } from './pages/ExternalForm';
-import { PatientPortalLogin } from './pages/PatientPortalLogin';
-import { PatientPortal } from './pages/PatientPortal';
-import { PortalPaciente } from './pages/PortalPaciente';
-import { ResetPassword } from './pages/ResetPassword';
+
+
+
+
+
 import { Register } from './pages/Register';
-import { SuperAdmin } from './pages/SuperAdmin';
-import { BotIntegration } from './pages/BotIntegration';
-import { PEI } from './pages/PEI';
-import { ClinicalTools } from './pages/ClinicalTools';
-import { DocumentVault } from './pages/DocumentVault';
-import { TCCPage } from './pages/clinical-tools/TCC';
-import { SchemaPage } from './pages/clinical-tools/Schema';
-import { PsychoanalysisPage } from './pages/clinical-tools/Psychoanalysis';
-import { HumanismPage } from './pages/clinical-tools/Humanism';
-import { ACTPage } from './pages/clinical-tools/ACT';
-import { DBTPage } from './pages/clinical-tools/DBT';
-import { EMDRPage } from './pages/clinical-tools/EMDR';
-import { SistemicaPage } from './pages/clinical-tools/Sistemica';
-import { JunguianaPage } from './pages/clinical-tools/Junguiana';
-import { ComportamentalPage } from './pages/clinical-tools/Comportamental';
-import { IntegrativaPage } from './pages/clinical-tools/Integrativa';
-import { FAPPage } from './pages/clinical-tools/FAP';
-import { MindfulnessPage } from './pages/clinical-tools/Mindfulness';
-import { PositivePsychologyPage } from './pages/clinical-tools/PositivePsychology';
-import { PlayTherapyPage } from './pages/clinical-tools/PlayTherapy';
-import { CoupleTherapyPage } from './pages/clinical-tools/CoupleTherapy';
-import { ParentingGuidancePage } from './pages/clinical-tools/ParentingGuidance';
-import { DASS21Page } from '@/pages/clinical-tools/DASS21';
-import { DASS21Public } from '@/pages/external/DASS21Public';
-import { DISCPublic } from '@/pages/external/DISCPublic';
-import { DISCProfessionalPage } from '@/pages/clinical-tools/DiscProfessional';
-import { BDIPublic } from '@/pages/external/BDIPublic';
-import { BDIPage } from '@/pages/clinical-tools/BDIProfessional';
-import { BAIPublic } from '@/pages/external/BAIPublic';
-import { BAIPage } from '@/pages/clinical-tools/BAIProfessional';
-import { SNAPIVPublic } from '@/pages/external/SNAPIVPublic';
-import { SNAPIVPage } from '@/pages/clinical-tools/SNAPIVProfessional';
-import { MCHATPublic } from '@/pages/external/MCHATPublic';
-import { MCHATPage } from '@/pages/clinical-tools/MCHATProfessional';
-import { AnamnesisPublic } from '@/pages/external/AnamnesisPublic';
-import { SchemaInventoryPublic } from '@/pages/external/SchemaInventoryPublic';
-import { RegistrationUpdatePublic } from '@/pages/external/RegistrationUpdatePublic';
-import { ContractPublic } from '@/pages/external/ContractPublic';
-import { DocumentoPublico } from '@/pages/external/DocumentoPublico';
-import { Records } from './pages/Records';
-import { CaseStudies } from './pages/CaseStudies';
-import { Documents } from './pages/Documents';
-import { DocGenerator } from './pages/DocGenerator';
-import { Professionals } from './pages/Professionals';
-import { Services } from './pages/Services';
-import { Products } from './pages/Products';
-import { Comandas } from './pages/Comandas';
-import { PaginaTeste } from './pages/PaginaTeste';
-import { LivroCaixa } from './pages/LivroCaixa';
-import { NotaFiscal } from './pages/NotaFiscal';
-import { Finance } from './pages/Finance';
-import { AccountsReceivable } from './pages/AccountsReceivable';
-import { AccountsPayable } from './pages/AccountsPayable';
-import { BestClients } from './pages/BestClients';
-import { Performance } from './pages/Performance';
-import { Messages } from './pages/Messages';
-import { Settings } from './pages/Settings';
-import Disc from './pages/Disc';
-import { Approaches } from './pages/Approaches';
-import { Instruments } from './pages/Instruments';
-import { Profile } from './pages/Profile';
-import { MenuCustomizer } from './pages/MenuCustomizer';
-import { Privacy } from './pages/Privacy';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const Disc = React.lazy(() => import('./pages/Disc'));
+
+
+
+
+
 import { Terms } from './pages/Terms';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
-import { Help } from './pages/Help';
-import { Assinatura } from './pages/Assinatura';
-import { TermsAcceptance } from './pages/TermsAcceptance';
+
+
+
 import logoUrl from './images/logo-sistema/logo.png';
 import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 import { api } from './services/api';
 import { PageWrapper } from './components/UI';
+
+const Dashboard = React.lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
+const Patients = React.lazy(() => import('./pages/Patients').then(module => ({ default: module.Patients })));
+const PatientDetail = React.lazy(() => import('./pages/PatientDetail').then(module => ({ default: module.PatientDetail })));
+const PatientFormPage = React.lazy(() => import('./pages/PatientFormPage').then(module => ({ default: module.PatientFormPage })));
+const Agenda = React.lazy(() => import('./pages/Agenda').then(module => ({ default: module.Agenda })));
+const AgendaSettings = React.lazy(() => import('./pages/AgendaSettings').then(module => ({ default: module.AgendaSettings })));
+const VirtualRooms = React.lazy(() => import('./pages/VirtualRooms').then(module => ({ default: module.VirtualRooms })));
+const MeetingRoomLiveKit = React.lazy(() => import('./pages/MeetingRoomLiveKit').then(module => ({ default: module.MeetingRoomLiveKit })));
+const Forms = React.lazy(() => import('./pages/Forms').then(module => ({ default: module.Forms })));
+const FormsList = React.lazy(() => import('./pages/FormsList').then(module => ({ default: module.FormsList })));
+const FormsMetrics = React.lazy(() => import('./pages/FormsMetrics').then(module => ({ default: module.FormsMetrics })));
+const FormEditor = React.lazy(() => import('./pages/FormEditor').then(module => ({ default: module.FormEditor })));
+const FormResponses = React.lazy(() => import('./pages/FormResponses').then(module => ({ default: module.FormResponses })));
+const ExternalForm = React.lazy(() => import('./pages/ExternalForm').then(module => ({ default: module.ExternalForm })));
+const PatientPortalLogin = React.lazy(() => import('./pages/PatientPortalLogin').then(module => ({ default: module.PatientPortalLogin })));
+const PatientPortal = React.lazy(() => import('./pages/PatientPortal').then(module => ({ default: module.PatientPortal })));
+const PortalPaciente = React.lazy(() => import('./pages/PortalPaciente').then(module => ({ default: module.PortalPaciente })));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword').then(module => ({ default: module.ResetPassword })));
+const SuperAdmin = React.lazy(() => import('./pages/SuperAdmin').then(module => ({ default: module.SuperAdmin })));
+const BotIntegration = React.lazy(() => import('./pages/BotIntegration').then(module => ({ default: module.BotIntegration })));
+const PEI = React.lazy(() => import('./pages/PEI').then(module => ({ default: module.PEI })));
+const ClinicalTools = React.lazy(() => import('./pages/ClinicalTools').then(module => ({ default: module.ClinicalTools })));
+const DocumentVault = React.lazy(() => import('./pages/DocumentVault').then(module => ({ default: module.DocumentVault })));
+const TCCPage = React.lazy(() => import('./pages/clinical-tools/TCC').then(module => ({ default: module.TCCPage })));
+const SchemaPage = React.lazy(() => import('./pages/clinical-tools/Schema').then(module => ({ default: module.SchemaPage })));
+const PsychoanalysisPage = React.lazy(() => import('./pages/clinical-tools/Psychoanalysis').then(module => ({ default: module.PsychoanalysisPage })));
+const HumanismPage = React.lazy(() => import('./pages/clinical-tools/Humanism').then(module => ({ default: module.HumanismPage })));
+const ACTPage = React.lazy(() => import('./pages/clinical-tools/ACT').then(module => ({ default: module.ACTPage })));
+const DBTPage = React.lazy(() => import('./pages/clinical-tools/DBT').then(module => ({ default: module.DBTPage })));
+const EMDRPage = React.lazy(() => import('./pages/clinical-tools/EMDR').then(module => ({ default: module.EMDRPage })));
+const SistemicaPage = React.lazy(() => import('./pages/clinical-tools/Sistemica').then(module => ({ default: module.SistemicaPage })));
+const JunguianaPage = React.lazy(() => import('./pages/clinical-tools/Junguiana').then(module => ({ default: module.JunguianaPage })));
+const ComportamentalPage = React.lazy(() => import('./pages/clinical-tools/Comportamental').then(module => ({ default: module.ComportamentalPage })));
+const IntegrativaPage = React.lazy(() => import('./pages/clinical-tools/Integrativa').then(module => ({ default: module.IntegrativaPage })));
+const FAPPage = React.lazy(() => import('./pages/clinical-tools/FAP').then(module => ({ default: module.FAPPage })));
+const MindfulnessPage = React.lazy(() => import('./pages/clinical-tools/Mindfulness').then(module => ({ default: module.MindfulnessPage })));
+const PositivePsychologyPage = React.lazy(() => import('./pages/clinical-tools/PositivePsychology').then(module => ({ default: module.PositivePsychologyPage })));
+const PlayTherapyPage = React.lazy(() => import('./pages/clinical-tools/PlayTherapy').then(module => ({ default: module.PlayTherapyPage })));
+const CoupleTherapyPage = React.lazy(() => import('./pages/clinical-tools/CoupleTherapy').then(module => ({ default: module.CoupleTherapyPage })));
+const ParentingGuidancePage = React.lazy(() => import('./pages/clinical-tools/ParentingGuidance').then(module => ({ default: module.ParentingGuidancePage })));
+const DASS21Page = React.lazy(() => import('@/pages/clinical-tools/DASS21').then(module => ({ default: module.DASS21Page })));
+const DASS21Public = React.lazy(() => import('@/pages/external/DASS21Public').then(module => ({ default: module.DASS21Public })));
+const DISCPublic = React.lazy(() => import('@/pages/external/DISCPublic').then(module => ({ default: module.DISCPublic })));
+const DISCProfessionalPage = React.lazy(() => import('@/pages/clinical-tools/DiscProfessional').then(module => ({ default: module.DISCProfessionalPage })));
+const BDIPublic = React.lazy(() => import('@/pages/external/BDIPublic').then(module => ({ default: module.BDIPublic })));
+const BDIPage = React.lazy(() => import('@/pages/clinical-tools/BDIProfessional').then(module => ({ default: module.BDIPage })));
+const BAIPublic = React.lazy(() => import('@/pages/external/BAIPublic').then(module => ({ default: module.BAIPublic })));
+const BAIPage = React.lazy(() => import('@/pages/clinical-tools/BAIProfessional').then(module => ({ default: module.BAIPage })));
+const SNAPIVPublic = React.lazy(() => import('@/pages/external/SNAPIVPublic').then(module => ({ default: module.SNAPIVPublic })));
+const SNAPIVPage = React.lazy(() => import('@/pages/clinical-tools/SNAPIVProfessional').then(module => ({ default: module.SNAPIVPage })));
+const MCHATPublic = React.lazy(() => import('@/pages/external/MCHATPublic').then(module => ({ default: module.MCHATPublic })));
+const MCHATPage = React.lazy(() => import('@/pages/clinical-tools/MCHATProfessional').then(module => ({ default: module.MCHATPage })));
+const AnamnesisPublic = React.lazy(() => import('@/pages/external/AnamnesisPublic').then(module => ({ default: module.AnamnesisPublic })));
+const SchemaInventoryPublic = React.lazy(() => import('@/pages/external/SchemaInventoryPublic').then(module => ({ default: module.SchemaInventoryPublic })));
+const RegistrationUpdatePublic = React.lazy(() => import('@/pages/external/RegistrationUpdatePublic').then(module => ({ default: module.RegistrationUpdatePublic })));
+const ContractPublic = React.lazy(() => import('@/pages/external/ContractPublic').then(module => ({ default: module.ContractPublic })));
+const DocumentoPublico = React.lazy(() => import('@/pages/external/DocumentoPublico').then(module => ({ default: module.DocumentoPublico })));
+const Records = React.lazy(() => import('./pages/Records').then(module => ({ default: module.Records })));
+const CaseStudies = React.lazy(() => import('./pages/CaseStudies').then(module => ({ default: module.CaseStudies })));
+const Documents = React.lazy(() => import('./pages/Documents').then(module => ({ default: module.Documents })));
+const DocGenerator = React.lazy(() => import('./pages/DocGenerator').then(module => ({ default: module.DocGenerator })));
+const Professionals = React.lazy(() => import('./pages/Professionals').then(module => ({ default: module.Professionals })));
+const Services = React.lazy(() => import('./pages/Services').then(module => ({ default: module.Services })));
+const Products = React.lazy(() => import('./pages/Products').then(module => ({ default: module.Products })));
+const Comandas = React.lazy(() => import('./pages/Comandas').then(module => ({ default: module.Comandas })));
+const PaginaTeste = React.lazy(() => import('./pages/PaginaTeste').then(module => ({ default: module.PaginaTeste })));
+const LivroCaixa = React.lazy(() => import('./pages/LivroCaixa').then(module => ({ default: module.LivroCaixa })));
+const NotaFiscal = React.lazy(() => import('./pages/NotaFiscal').then(module => ({ default: module.NotaFiscal })));
+const Finance = React.lazy(() => import('./pages/Finance').then(module => ({ default: module.Finance })));
+const AccountsReceivable = React.lazy(() => import('./pages/AccountsReceivable').then(module => ({ default: module.AccountsReceivable })));
+const AccountsPayable = React.lazy(() => import('./pages/AccountsPayable').then(module => ({ default: module.AccountsPayable })));
+const BestClients = React.lazy(() => import('./pages/BestClients').then(module => ({ default: module.BestClients })));
+const Performance = React.lazy(() => import('./pages/Performance').then(module => ({ default: module.Performance })));
+const Messages = React.lazy(() => import('./pages/Messages').then(module => ({ default: module.Messages })));
+const Settings = React.lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
+const Approaches = React.lazy(() => import('./pages/Approaches').then(module => ({ default: module.Approaches })));
+const Instruments = React.lazy(() => import('./pages/Instruments').then(module => ({ default: module.Instruments })));
+const Profile = React.lazy(() => import('./pages/Profile').then(module => ({ default: module.Profile })));
+const MenuCustomizer = React.lazy(() => import('./pages/MenuCustomizer').then(module => ({ default: module.MenuCustomizer })));
+const Privacy = React.lazy(() => import('./pages/Privacy').then(module => ({ default: module.Privacy })));
+const Help = React.lazy(() => import('./pages/Help').then(module => ({ default: module.Help })));
+const Assinatura = React.lazy(() => import('./pages/Assinatura').then(module => ({ default: module.Assinatura })));
+const TermsAcceptance = React.lazy(() => import('./pages/TermsAcceptance').then(module => ({ default: module.TermsAcceptance })));
 
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 120 minutos
 const WARNING_BEFORE_MS = 5 * 60 * 1000;       // aviso 5 min antes
@@ -431,7 +515,7 @@ const AppRoutes: React.FC = () => {
   }
 
   return (
-    <Routes>
+    <React.Suspense fallback={<div role="status" className="p-8 text-center text-slate-500">Carregando página…</div>}><Routes>
       <Route path="/" element={IS_PAINEL_HOST ? <Navigate to="/visao-geral" replace /> : <Home />} />
       <Route path="/individual" element={<Individual />} />
       <Route path="/funcionalidades" element={<Funcionalidades />} />
@@ -560,7 +644,7 @@ const AppRoutes: React.FC = () => {
       {/* Redirecionamento de legado */}
       <Route path="/meeting/:id" element={<RedirectToSala />} />
       <Route path="*" element={<Navigate to="/visao-geral" replace />} />
-    </Routes>
+    </Routes></React.Suspense>
   );
 };
 

@@ -24,18 +24,33 @@ export const FEATURE_LABELS: Record<string, string> = {
   ferramentas_clinicas: 'Ferramentas clínicas',
   estudos_de_caso: 'Estudos de caso',
   documentos: 'Documentos e encaminhamentos',
-  financeiro: 'Financeiro & Livro Caixa',
-  relatorios: 'Relatórios & Desempenho',
+  financeiro: 'Financeiro e livro caixa',
+  relatorios: 'Relatórios e desempenho',
   mensagens: 'Mensagens internas',
   aurora_ai: 'Bia IA',
-  whatsapp_bot: 'WhatsApp Bot',
+  whatsapp_bot: 'Bot do WhatsApp',
   profissionais: 'Múltiplos profissionais',
   servicos: 'Serviços e produtos',
   produtos: 'Produtos',
   comandas: 'Comandas',
   instrumentos: 'Instrumentos (DISC, DASS-21)',
   nota_fiscal: 'Nota Fiscal de Serviço',
+  api_acesso: 'Acesso à API',
+  suporte_prioritario: 'Suporte prioritário',
 };
+
+export function planFeatureLabel(feature: string): string {
+  const key = feature.trim().toLowerCase();
+  if (FEATURE_LABELS[key]) return FEATURE_LABELS[key];
+  const label = feature.replace(/[_-]+/g, ' ').trim().replace(/\bapi\b/gi, 'API').replace(/\bia\b/gi, 'IA');
+  return label.charAt(0).toLocaleUpperCase('pt-BR') + label.slice(1);
+}
+
+// Não anunciar uma integração externa que ainda não tem fluxo para o cliente.
+// O recurso permanece intacto nos planos e nas permissões do backend.
+export function visiblePlanFeatures(features: unknown): string[] {
+  return Array.isArray(features) ? features.filter((feature): feature is string => typeof feature === 'string' && feature.trim().toLowerCase() !== 'api_acesso') : [];
+}
 
 export const features = [
   { icon: Calendar,      title: 'Agenda Inteligente',  desc: 'Consultas, lembretes automáticos e controle de horários por profissional.', color: '#6D42F5', bg: '#EFE9FF' },

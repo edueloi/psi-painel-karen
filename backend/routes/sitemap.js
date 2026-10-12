@@ -16,12 +16,15 @@ function escapeXml(str) {
 router.get('/sitemap-professionals.xml', async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT public_slug FROM users
-       WHERE public_profile_enabled = true AND public_slug IS NOT NULL AND public_slug <> ''`
+      `SELECT u.public_slug FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id
+       WHERE u.public_profile_enabled = true AND u.public_slug IS NOT NULL AND u.public_slug <> ''
+       AND u.active = true AND u.role IN ('admin', 'professional')
+       AND (t.id IS NULL OR ((t.status IS NULL OR t.status != 'blocked')
+       AND (t.expires_at IS NULL OR t.expires_at > NOW())))`
     );
 
     const urls = rows.map(r =>
-      `  <url>\n    <loc>${BASE_URL}/p/${escapeXml(r.public_slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>`
+      `  <url>\n    <loc>${BASE_URL}/p/${escapeXml(encodeURIComponent(r.public_slug))}</loc>\n  </url>`
     ).join('\n');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
