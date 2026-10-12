@@ -465,7 +465,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
             )}
           </div>
         </div>,
-        document.body
+        // Um portal no body fica fora da camada interativa de um dialog modal.
+        triggerRef.current?.closest('dialog') || document.body
       )}
     </div>
   );

@@ -17,6 +17,7 @@ import {
   robotsForHost,
 } from "../../seo/publicSeo.mjs";
 import { planFeatureLabel } from "./publicSiteData";
+import { Combobox } from '../../components/UI/Combobox';
 vi.mock("../../contexts/AuthContext", () => ({
   useAuth: () => ({ isAuthenticated: false }),
 }));
@@ -42,6 +43,11 @@ const mount = (element: React.ReactNode) =>
 const response = (data: unknown, ok = true) =>
   Promise.resolve({ ok, json: () => Promise.resolve(data) });
 describe("Cadastro e diretório público", () => {
+  it('mantém as opções dos filtros dentro do dialog nativo', () => {
+    render(<dialog open aria-label="Filtros"><Combobox options={[{ value: 'TCC', label: 'TCC' }]} placeholder="Escolher abordagem" onChange={() => {}} /></dialog>);
+    fireEvent.click(screen.getByText('Escolher abordagem'));
+    expect(screen.getByText('TCC').closest('dialog')).toBe(screen.getByRole('dialog'));
+  });
   it("traduz recursos de plano sem exibir identificadores técnicos", () => {
     expect(planFeatureLabel("api_acesso")).toBe("Acesso à API");
     expect(planFeatureLabel("suporte_prioritario")).toBe("Suporte prioritário");
