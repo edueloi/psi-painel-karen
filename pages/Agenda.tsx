@@ -413,36 +413,40 @@ export const Agenda: React.FC = () => {
     return aptMax.length > 0 ? Math.max(scheduleEnd, ...aptMax) : scheduleEnd;
   }, [workSchedule, appointments, currentDate]);
 
+  // Horas que são intervalo em toda a agenda visível ficam ocultas; elas não
+  // ocupam espaço na régua nem criam uma faixa/linha entre os turnos.
   const skippedHours = useMemo(() => {
     if (!workSchedule.length) return [];
-    // Coleta horas de intervalo/almoço de todos os dias ativos
-    const lunchHours = new Set<number>();
+    const breakHours = new Set<number>();
     workSchedule.filter(d => d.active).forEach((d: any) => {
-      // Support new breaks[] format and old lunchStart/lunchEnd format
       const dayBreaks: { start: string; end: string }[] =
         d.breaks ?? (d.lunchStart ? [{ start: d.lunchStart, end: d.lunchEnd }] : []);
       dayBreaks.forEach(b => {
-        if (b.start && b.end) {
-          const lh = parseInt(b.start.split(':')[0]);
-          const le = parseInt(b.end.split(':')[0]);
-          for (let h = lh; h < le; h++) lunchHours.add(h);
-        }
+        if (!b.start || !b.end) return;
+        const start = parseInt(b.start.split(':')[0]);
+        const end = parseInt(b.end.split(':')[0]);
+        for (let hour = start; hour < end; hour++) breakHours.add(hour);
       });
     });
-    if (lunchHours.size === 0) return [];
-    // Semana visível
-    const ws = (() => { const d = new Date(currentDate); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; })();
-    const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
-    // Horas com agendamentos na semana visível
-    const hoursWithApts = new Set<number>();
-    appointments.forEach((a: any) => {
-      const d = new Date(a.start);
-      if (d.getTime() >= ws.getTime() && d.getTime() <= we.getTime()) {
-        hoursWithApts.add(d.getHours());
+
+    if (breakHours.size === 0) return [];
+
+    const weekStart = new Date(currentDate);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const bookedHours = new Set<number>();
+    appointments.forEach((appointment: any) => {
+      const date = new Date(appointment.start);
+      if (date.getTime() >= weekStart.getTime() && date.getTime() <= weekEnd.getTime()) {
+        bookedHours.add(date.getHours());
       }
     });
-    // Remove horas de intervalo que tenham agendamentos
-    return Array.from(lunchHours).filter(h => !hoursWithApts.has(h));
+
+    return Array.from(breakHours).filter(hour => !bookedHours.has(hour));
   }, [workSchedule, appointments, currentDate]);
 
   const hourHeight = 68;

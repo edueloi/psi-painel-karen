@@ -831,13 +831,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                 >
                   {hours.map((hour) => {
                     const isSkipped = skippedHours.includes(hour);
-                    return isSkipped ? (
-                      <div
-                        key={hour}
-                        className="relative flex items-center justify-center border-b border-dashed border-slate-200/60 bg-slate-50/80"
-                        style={{ height: COLLAPSE_HEIGHT }}
-                      />
-                    ) : (
+                    return isSkipped ? null : (
                       <div
                         key={hour}
                         className="relative flex justify-center border-b border-slate-200/60"
@@ -858,13 +852,7 @@ export const AgendaPlanner: React.FC<AgendaPlannerProps> = ({
                     <div className="pointer-events-none absolute inset-0 flex flex-col">
                       {hours.map((hour) => {
                         const isSkipped = skippedHours.includes(hour);
-                        return isSkipped ? (
-                          <div
-                            key={hour}
-                            className="relative w-full border-b border-dashed border-slate-300/60 bg-slate-100/40"
-                            style={{ height: COLLAPSE_HEIGHT }}
-                          />
-                        ) : (
+                        return isSkipped ? null : (
                           <div
                             key={hour}
                             className="relative w-full border-b border-slate-200/60"
