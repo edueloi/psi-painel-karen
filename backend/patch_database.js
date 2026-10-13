@@ -136,6 +136,8 @@ async function patch() {
       duration_seconds INT,
       transcript_count INT DEFAULT 0,
       recording_count INT DEFAULT 0,
+      custom_title VARCHAR(200) NULL,
+      patient_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_rs_room (room_id),
@@ -143,6 +145,8 @@ async function patch() {
       INDEX idx_rs_session (session_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  try { await conn.query(`ALTER TABLE room_sessions ADD COLUMN custom_title VARCHAR(200) NULL`); } catch (_) {}
+  try { await conn.query(`ALTER TABLE room_sessions ADD COLUMN patient_id INT NULL`); } catch (_) {}
   console.log('✅ room_sessions OK');
 
   // Torna room_id nullable em room_recordings para aceitar gravações de salas não encontradas no BD

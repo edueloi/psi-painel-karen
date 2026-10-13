@@ -164,8 +164,8 @@ router.post('/webhook', express.raw({ type: 'application/webhook+json' }), async
           await db.query(
             `UPDATE room_sessions rs
                JOIN virtual_rooms vr ON vr.id = rs.room_id
-                SET rs.ended_at = NOW(),
-                    rs.duration_seconds = COALESCE(rs.duration_seconds, TIMESTAMPDIFF(SECOND, rs.started_at, NOW()))
+                SET rs.ended_at = UTC_TIMESTAMP(),
+                    rs.duration_seconds = COALESCE(rs.duration_seconds, TIMESTAMPDIFF(SECOND, rs.started_at, UTC_TIMESTAMP()))
               WHERE rs.ended_at IS NULL AND (vr.id = ? OR vr.code = ? OR vr.hash = ?)`,
             [Number.parseInt(ident, 10) || 0, ident, ident]
           );

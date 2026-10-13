@@ -134,7 +134,7 @@ async function resolveRoomContext({ roomIdentifier, explicitRoomId, tenantId }) 
   // 1. ID numérico explícito enviado pelo frontend — mais confiável, sem filtro de tenant
   if (explicitId) {
     const [rows] = await db.query(
-      'SELECT id, tenant_id FROM virtual_rooms WHERE id = ? LIMIT 1',
+      'SELECT id, tenant_id, patient_id FROM virtual_rooms WHERE id = ? LIMIT 1',
       [explicitId]
     );
     if (rows?.[0]) return rows[0];
@@ -143,7 +143,7 @@ async function resolveRoomContext({ roomIdentifier, explicitRoomId, tenantId }) 
   // 2. Identificador da URL com tenant filter (quando autenticado)
   if (normalizedIdentifier && tenantId) {
     const [rows] = await db.query(
-      `SELECT id, tenant_id FROM virtual_rooms
+      `SELECT id, tenant_id, patient_id FROM virtual_rooms
        WHERE (id = ? OR code = ? OR hash = ?) AND tenant_id = ? LIMIT 1`,
       [routeId || 0, normalizedIdentifier, normalizedIdentifier, tenantId]
     );
@@ -153,7 +153,7 @@ async function resolveRoomContext({ roomIdentifier, explicitRoomId, tenantId }) 
   // 3. Fallback sem tenant filter — identificador pode ser hash/code de sala anônima
   if (normalizedIdentifier) {
     const [rows] = await db.query(
-      'SELECT id, tenant_id FROM virtual_rooms WHERE id = ? OR code = ? OR hash = ? LIMIT 1',
+      'SELECT id, tenant_id, patient_id FROM virtual_rooms WHERE id = ? OR code = ? OR hash = ? LIMIT 1',
       [routeId || 0, normalizedIdentifier, normalizedIdentifier]
     );
     if (rows?.[0]) return rows[0];
@@ -241,7 +241,8 @@ router.get('/upcoming-appointments', async (req, res) => {
 router.get('/history', async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT rs.*, vr.title AS room_title, vr.code AS room_code,
+      `SELECT rs.*, COALESCE(rs.patient_id, vr.patient_id) AS patient_id,
+              vr.title AS room_title, vr.code AS room_code,
               COALESCE(rs.custom_title, vr.title) AS display_title,
               p.name AS patient_name,
               u.name AS professional_name,
@@ -439,10 +440,13 @@ router.post('/:id/transcripts', async (req, res) => {
           [room.id, room.tenant_id, sk, speaker_role || 'host', speaker_name || '', text]
         );
         await db.query(
-          `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
-           VALUES (?, ?, ?, NOW(), 1)
-           ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
-          [room.id, room.tenant_id, sk]
+          `INSERT INTO room_sessions (room_id, tenant_id, session_key, patient_id, started_at, transcript_count)
+           VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), 1)
+           ON DUPLICATE KEY UPDATE
+             patient_id = COALESCE(room_sessions.patient_id, VALUES(patient_id)),
+             transcript_count = transcript_count + 1,
+             updated_at = UTC_TIMESTAMP()`,
+          [room.id, room.tenant_id, sk, room.patient_id || null]
         );
       }
     } catch (_) {
@@ -587,10 +591,13 @@ router.post('/:id/sessions/:sessionKey/recordings', uploadAudio.single('audio'),
        speaker_role || 'mixed', speaker_name || null]
     );
     await db.query(
-      `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, recording_count)
-       VALUES (?, ?, ?, NOW(), 1)
-       ON DUPLICATE KEY UPDATE recording_count = recording_count + 1, updated_at = NOW()`,
-      [room.id, room.tenant_id, sk]
+      `INSERT INTO room_sessions (room_id, tenant_id, session_key, patient_id, started_at, recording_count)
+       VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), 1)
+       ON DUPLICATE KEY UPDATE
+         patient_id = COALESCE(room_sessions.patient_id, VALUES(patient_id)),
+         recording_count = recording_count + 1,
+         updated_at = UTC_TIMESTAMP()`,
+      [room.id, room.tenant_id, sk, room.patient_id || null]
     );
     console.log(`[MulterAudio] Gravação salva e registrada no BD com ID: ${ins.insertId}, URL: ${fileUrl}`);
     res.json({ id: ins.insertId, file_url: fileUrl });
@@ -710,10 +717,14 @@ router.post('/:id/sessions/:sessionKey/end', async (req, res) => {
     if (!room?.id) return res.status(404).json({ error: 'Sala nao encontrada.' });
     const { duration_seconds } = req.body || {};
     await db.query(
-      `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, ended_at, duration_seconds)
-       VALUES (?, ?, ?, NOW(), NOW(), ?)
-       ON DUPLICATE KEY UPDATE ended_at = COALESCE(ended_at, NOW()), duration_seconds = COALESCE(?, duration_seconds), updated_at = NOW()`,
-      [room.id, room.tenant_id, req.params.sessionKey, duration_seconds || null, duration_seconds || null]
+      `INSERT INTO room_sessions (room_id, tenant_id, session_key, patient_id, started_at, ended_at, duration_seconds)
+       VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP(), ?)
+       ON DUPLICATE KEY UPDATE
+         patient_id = COALESCE(room_sessions.patient_id, VALUES(patient_id)),
+         ended_at = COALESCE(ended_at, UTC_TIMESTAMP()),
+         duration_seconds = COALESCE(?, duration_seconds),
+         updated_at = UTC_TIMESTAMP()`,
+      [room.id, room.tenant_id, req.params.sessionKey, room.patient_id || null, duration_seconds || null, duration_seconds || null]
     );
     res.json({ ok: true });
   } catch (e) {
@@ -728,8 +739,8 @@ const sessionSweeper = setInterval(async () => {
   try {
     await db.query(
       `UPDATE room_sessions
-          SET ended_at = updated_at,
-              duration_seconds = COALESCE(duration_seconds, TIMESTAMPDIFF(SECOND, started_at, updated_at))
+          SET ended_at = UTC_TIMESTAMP(),
+              duration_seconds = COALESCE(duration_seconds, TIMESTAMPDIFF(SECOND, started_at, UTC_TIMESTAMP()))
         WHERE ended_at IS NULL AND updated_at < (NOW() - INTERVAL ${SESSION_IDLE_MINUTES} MINUTE)`
     );
   } catch (e) { /* tabela pode não existir ainda */ }
@@ -835,10 +846,13 @@ router.post('/public/:id/transcribe', transcribeAudioUpload.single('audio'), asy
         [room.id, room.tenant_id, sessionKey, speakerName, text]
       );
       await db.query(
-        `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
-         VALUES (?, ?, ?, NOW(), 1)
-         ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
-        [room.id, room.tenant_id, sessionKey]
+        `INSERT INTO room_sessions (room_id, tenant_id, session_key, patient_id, started_at, transcript_count)
+         VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), 1)
+         ON DUPLICATE KEY UPDATE
+           patient_id = COALESCE(room_sessions.patient_id, VALUES(patient_id)),
+           transcript_count = transcript_count + 1,
+           updated_at = UTC_TIMESTAMP()`,
+        [room.id, room.tenant_id, sessionKey, room.patient_id || null]
       );
     }
     res.json({ text });
@@ -874,6 +888,15 @@ router.post('/public/:id/recordings', uploadAudio.single('audio'), async (req, r
        VALUES (?, ?, ?, ?, ?, ?, 'guest', ?)`,
       [room.id, room.tenant_id, sessionKey, req.file.originalname, fileUrl, req.file.size, speakerName]
     );
+    await db.query(
+      `INSERT INTO room_sessions (room_id, tenant_id, session_key, patient_id, started_at, recording_count)
+       VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), 1)
+       ON DUPLICATE KEY UPDATE
+         patient_id = COALESCE(room_sessions.patient_id, VALUES(patient_id)),
+         recording_count = recording_count + 1,
+         updated_at = UTC_TIMESTAMP()`,
+      [room.id, room.tenant_id, sessionKey, room.patient_id || null]
+    );
     res.json({ id: ins.insertId, file_url: fileUrl });
   } catch (error) {
     console.error('[Guest recording upload]', error);
@@ -907,10 +930,13 @@ router.post('/public/:id/transcripts', async (req, res) => {
           [room.id, room.tenant_id, sk, speaker_role || 'guest', speaker_name || '', text]
         );
         await db.query(
-          `INSERT INTO room_sessions (room_id, tenant_id, session_key, started_at, transcript_count)
-           VALUES (?, ?, ?, NOW(), 1)
-           ON DUPLICATE KEY UPDATE transcript_count = transcript_count + 1, updated_at = NOW()`,
-          [room.id, room.tenant_id, sk]
+          `INSERT INTO room_sessions (room_id, tenant_id, session_key, patient_id, started_at, transcript_count)
+           VALUES (?, ?, ?, ?, UTC_TIMESTAMP(), 1)
+           ON DUPLICATE KEY UPDATE
+             patient_id = COALESCE(room_sessions.patient_id, VALUES(patient_id)),
+             transcript_count = transcript_count + 1,
+             updated_at = UTC_TIMESTAMP()`,
+          [room.id, room.tenant_id, sk, room.patient_id || null]
         );
       }
     } catch (_) {

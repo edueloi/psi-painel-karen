@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { getToken } from '../services/tokenStorage';
 import {
   AlertTriangle,
   ArrowRight,
@@ -25,8 +24,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { API_BASE_URL } from '../services/api';
-import { api } from '../services/api';
+import { api, fetchAuthenticatedFile, getStaticUrl } from '../services/api';
 import { getPublicBaseUrl } from '@/src/lib/publicLinks';
 import { Patient, User, VirtualRoom } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -48,10 +46,12 @@ import {
   Modal,
   ModalFooter,
   PanelCard,
+  Pagination,
   StatCard,
   StatGrid,
   Tabs,
   Textarea,
+  usePagination,
 } from '../components/UI';
 
 const VIRTUAL_ROOMS_TABS = [
@@ -130,7 +130,9 @@ const resolveRecordingUrl = (fileUrl?: string) => {
   const normalizedPath = fileUrl.startsWith('/uploads/')
     ? fileUrl.replace('/uploads/', '/uploads-static/')
     : fileUrl;
-  return `${API_BASE_URL.replace('/api', '')}${normalizedPath}`;
+  // As gravações são servidas pelo backend. Manter o prefixo da API é
+  // indispensável em produção, onde os arquivos ficam em /api/uploads-static.
+  return getStaticUrl(normalizedPath);
 };
 
 export const VirtualRooms: React.FC = () => {
@@ -178,6 +180,7 @@ export const VirtualRooms: React.FC = () => {
   const [sessionSearch, setSessionSearch] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterPatientId, setFilterPatientId] = useState('');
   const [filterHasRecording, setFilterHasRecording] = useState<boolean | null>(null);
   const [filterHasTranscript, setFilterHasTranscript] = useState<boolean | null>(null);
 
@@ -263,19 +266,53 @@ export const VirtualRooms: React.FC = () => {
     }
   };
 
-  const downloadTranscript = (session: SessionSummary) => {
-    const token = getToken();
-    window.open(
-      `${API_BASE_URL}/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript/download?token=${token}`,
-      '_blank'
-    );
+  const downloadTranscript = async (session: SessionSummary) => {
+    try {
+      const { blob, filename } = await fetchAuthenticatedFile(
+        `/virtual-rooms/${session.room_id}/sessions/${session.session_key}/transcript/download`
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || `transcricao-${session.session_key.slice(0, 8)}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error: any) {
+      toastError('Download indisponível', error?.message || 'Não foi possível baixar a transcrição.');
+    }
+  };
+
+  const downloadRecording = async (recording: RecordingEntry) => {
+    try {
+      const response = await fetch(resolveRecordingUrl(recording.file_url));
+      if (!response.ok) throw new Error('Não foi possível baixar o áudio.');
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = recording.file_name || 'gravacao.webm';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error: any) {
+      toastError('Download indisponível', error?.message || 'Não foi possível baixar o áudio.');
+    }
   };
 
   const [transcribingRecording, setTranscribingRecording] = useState<number | null>(null);
   const [deletingRecording, setDeletingRecording] = useState<number | null>(null);
   const [deletingTranscript, setDeletingTranscript] = useState<string | null>(null);
 
-  type ConfirmAction = { type: 'recording'; rec: RecordingEntry; session: SessionSummary } | { type: 'transcript'; session: SessionSummary } | null;
+  type ConfirmAction =
+    | { type: 'recording'; rec: RecordingEntry; session: SessionSummary }
+    | { type: 'transcript'; session: SessionSummary }
+    | { type: 'session'; session: SessionSummary }
+    | { type: 'retranscribe'; session: SessionSummary; recordings: RecordingEntry[] }
+    | null;
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
   const executeDeleteRecording = async (rec: RecordingEntry, session: SessionSummary) => {
@@ -312,8 +349,10 @@ export const VirtualRooms: React.FC = () => {
         )
       );
       toastSuccess('Transcrição deletada', 'Todas as linhas foram removidas.');
+      return true;
     } catch {
       toastError('Erro', 'Não foi possível deletar a transcrição.');
+      return false;
     } finally {
       setDeletingTranscript(null);
     }
@@ -328,7 +367,11 @@ export const VirtualRooms: React.FC = () => {
   };
 
   const deleteSession = (session: SessionSummary) => {
-    setConfirmAction({ type: 'session', session } as any);
+    setConfirmAction({ type: 'session', session });
+  };
+
+  const requestRetranscription = (session: SessionSummary, recordings: RecordingEntry[]) => {
+    setConfirmAction({ type: 'retranscribe', session, recordings });
   };
 
   const executeDeleteSession = async (session: SessionSummary) => {
@@ -378,6 +421,16 @@ export const VirtualRooms: React.FC = () => {
     }
   };
 
+  const parseSessionDate = (raw: string) => {
+    const normalized = raw.trim().replace(' ', 'T');
+    return new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized) ? normalized : `${normalized}Z`);
+  };
+
+  const sessionLocalDate = (raw: string) => {
+    const date = parseSessionDate(raw);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  };
+
   const filteredSessions = sessions.filter((s) => {
     if (sessionSearch.trim()) {
       const q = sessionSearch.trim().toLowerCase();
@@ -387,14 +440,10 @@ export const VirtualRooms: React.FC = () => {
       const inPatient = (s.patient_name || '').toLowerCase().includes(q);
       if (!inTitle && !inCode && !inKey && !inPatient) return false;
     }
-    if (filterDateFrom) {
-      if (new Date(s.started_at) < new Date(filterDateFrom)) return false;
-    }
-    if (filterDateTo) {
-      const to = new Date(filterDateTo);
-      to.setHours(23, 59, 59, 999);
-      if (new Date(s.started_at) > to) return false;
-    }
+    const localDate = sessionLocalDate(s.started_at);
+    if (filterDateFrom && localDate < filterDateFrom) return false;
+    if (filterDateTo && localDate > filterDateTo) return false;
+    if (filterPatientId && String(s.patient_id || '') !== filterPatientId) return false;
     if (filterHasRecording === true && s.recording_count === 0) return false;
     if (filterHasRecording === false && s.recording_count > 0) return false;
     if (filterHasTranscript === true && s.transcript_count === 0) return false;
@@ -402,12 +451,14 @@ export const VirtualRooms: React.FC = () => {
     return true;
   });
 
-  const hasActiveFilters = sessionSearch.trim() || filterDateFrom || filterDateTo || filterHasRecording !== null || filterHasTranscript !== null;
+  const sessionPagination = usePagination(filteredSessions, 15);
+  const hasActiveFilters = sessionSearch.trim() || filterDateFrom || filterDateTo || filterPatientId || filterHasRecording !== null || filterHasTranscript !== null;
 
   const clearFilters = () => {
     setSessionSearch('');
     setFilterDateFrom('');
     setFilterDateTo('');
+    setFilterPatientId('');
     setFilterHasRecording(null);
     setFilterHasTranscript(null);
   };
@@ -421,6 +472,13 @@ export const VirtualRooms: React.FC = () => {
       await executeDeleteTranscript(action.session);
     } else if (action.type === 'session') {
       await executeDeleteSession(action.session);
+    } else if (action.type === 'retranscribe') {
+      const transcriptDeleted = await executeDeleteTranscript(action.session);
+      if (transcriptDeleted) {
+        for (const recording of action.recordings) {
+          await transcribeRecording(recording, action.session);
+        }
+      }
     }
     setConfirmAction(null);
   };
@@ -488,8 +546,8 @@ export const VirtualRooms: React.FC = () => {
   // Banco armazena em UTC sem 'Z' — força interpretação como UTC para converter corretamente para BRT
   const formatSessionDate = (raw: string) => {
     if (!raw) return '';
-    const utc = raw.includes('T') || raw.includes('Z') ? raw : raw.replace(' ', 'T') + 'Z';
-    const d = new Date(utc);
+    const d = parseSessionDate(raw);
+    if (Number.isNaN(d.getTime())) return raw;
     const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo' });
     const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
     return `${date} · ${time}`;
@@ -1135,6 +1193,17 @@ export const VirtualRooms: React.FC = () => {
                       onFromChange={v => setFilterDateFrom(v || '')}
                       onToChange={v => setFilterDateTo(v || '')}
                     />
+                    <Combobox
+                      className="min-w-[180px]"
+                      options={[
+                        { value: '', label: 'Todos os pacientes' },
+                        ...patients.map((patient) => ({ value: String(patient.id), label: patient.full_name || patient.name || 'Sem nome' })),
+                      ]}
+                      value={filterPatientId}
+                      onChange={(value) => setFilterPatientId(value as string)}
+                      placeholder="Filtrar paciente"
+                      searchPlaceholder="Buscar paciente..."
+                    />
                     <Button
                       variant={filterHasRecording === true ? 'success' : 'outline'}
                       size="sm"
@@ -1173,7 +1242,7 @@ export const VirtualRooms: React.FC = () => {
                   />
                 ) : (
                   <div className="divide-y divide-slate-100">
-                    {filteredSessions.map((session) => {
+                    {sessionPagination.paginatedData.map((session) => {
                       const isOpen = expandedSession === session.session_key;
                       const transcripts = sessionTranscripts[session.session_key];
                       const recordings = sessionRecordings[session.session_key];
@@ -1247,11 +1316,7 @@ export const VirtualRooms: React.FC = () => {
                                         variant="outline"
                                         size="sm"
                                         iconLeft={<Mic size={14} />}
-                                        onClick={async () => {
-                                          await deleteTranscript(session);
-                                          const recs = sessionRecordings[session.session_key];
-                                          if (recs?.length) transcribeRecording(recs[0], session);
-                                        }}
+                                        onClick={() => requestRetranscription(session, recordings!)}
                                         disabled={deletingTranscript === session.session_key || transcribingRecording !== null}
                                       >
                                         Refazer Transcrição
@@ -1270,15 +1335,16 @@ export const VirtualRooms: React.FC = () => {
                                               {rec.duration_seconds != null && (
                                                 <span className="text-[11px] text-slate-500">{formatDuration(rec.duration_seconds)}</span>
                                               )}
-                                              <a
-                                                href={resolveRecordingUrl(rec.file_url)}
-                                                download={rec.file_name}
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-colors hover:text-primary-700"
+                                              <IconButton
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => downloadRecording(rec)}
                                                 title="Baixar áudio"
                                                 aria-label="Baixar áudio"
                                               >
                                                 <Download size={14} />
-                                              </a>
+                                              </IconButton>
                                               <IconButton
                                                 variant="outline"
                                                 size="sm"
@@ -1356,6 +1422,15 @@ export const VirtualRooms: React.FC = () => {
                       );
                     })}
                   </div>
+                )}
+                {!sessionsLoading && filteredSessions.length > 0 && (
+                  <Pagination
+                    total={filteredSessions.length}
+                    page={sessionPagination.page}
+                    pageSize={sessionPagination.pageSize}
+                    onPageChange={sessionPagination.setPage}
+                    onPageSizeChange={sessionPagination.setPageSize}
+                  />
                 )}
               </PanelCard>
             </div>
@@ -1611,6 +1686,7 @@ export const VirtualRooms: React.FC = () => {
         title={
           (confirmAction as any)?.type === 'recording' ? 'Deletar gravação'
           : (confirmAction as any)?.type === 'session' ? 'Deletar sessão completa'
+          : (confirmAction as any)?.type === 'retranscribe' ? 'Refazer transcrição'
           : 'Deletar transcrição'
         }
         message={
@@ -1618,13 +1694,15 @@ export const VirtualRooms: React.FC = () => {
             ? <>Tem certeza que deseja deletar a gravação <strong className="text-slate-800">"{(confirmAction as any).rec.file_name}"</strong>? O arquivo será removido permanentemente.</>
             : (confirmAction as any)?.type === 'session'
             ? <>Isso irá deletar a sessão <strong className="text-slate-800">permanentemente</strong>, incluindo todas as transcrições e arquivos de áudio. Esta ação não pode ser desfeita.</>
+            : (confirmAction as any)?.type === 'retranscribe'
+            ? <>A transcrição atual será substituída pela nova transcrição de {(confirmAction as any).recordings?.length || 0} arquivo(s) de áudio.</>
             : 'Tem certeza que deseja deletar toda a transcrição desta sessão? Esta ação não pode ser desfeita.'
         }
-        confirmLabel="Deletar"
+        confirmLabel={(confirmAction as any)?.type === 'retranscribe' ? 'Refazer' : 'Deletar'}
         loading={
           (confirmAction as any)?.type === 'recording'
             ? deletingRecording === (confirmAction as any)?.rec?.id
-            : deletingTranscript === (confirmAction as any)?.session?.session_key
+            : deletingTranscript === (confirmAction as any)?.session?.session_key || transcribingRecording !== null
         }
       />
     </PageWrapper>

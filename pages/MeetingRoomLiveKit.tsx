@@ -2501,6 +2501,17 @@ const RoomInner: React.FC<{
           tone="danger"
           onClick={async () => {
                 await handleStopRecording();
+                // A busca inicial do paciente é assíncrona. Se a sessão for
+                // encerrada logo após entrar, confirma o vínculo antes de sair
+                // para não pular a tela de revisão da transcrição.
+                let linkedPatientId = patientId;
+                if (isHost && !linkedPatientId) {
+                  try {
+                    const roomData = await api.get<any>(`/virtual-rooms/${roomId}`);
+                    linkedPatientId = roomData?.patient_id || null;
+                    if (linkedPatientId) setPatientId(linkedPatientId);
+                  } catch {}
+                }
                 let transcript = '';
                 if (isHost) {
                   try {
@@ -2511,7 +2522,7 @@ const RoomInner: React.FC<{
                     // Uma única revisão ao fim da sessão preserva o contexto e
                     // evita uma chamada Gemini para cada segmento de 8 minutos.
                     // Se falhar, a transcrição original continua disponível.
-                    if (transcript && patientId && preferences.sessions?.autoTranscribe && preferences.gemini?.apiKey) {
+                    if (transcript && linkedPatientId && preferences.sessions?.autoTranscribe && preferences.gemini?.apiKey) {
                       try {
                         const revised = await api.post<any>('/ai/revise-transcript', {
                           text: transcript,
@@ -2525,7 +2536,7 @@ const RoomInner: React.FC<{
                     }
                   } catch {}
                 }
-                onLeave({ transcript, patientId });
+                onLeave({ transcript, patientId: linkedPatientId });
               }}
           icon={<PhoneOff size={20} />}
         />
