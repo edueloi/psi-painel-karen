@@ -189,11 +189,11 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="max-h-[calc(100vh-340px)] min-h-[300px] overflow-auto overscroll-contain">
               <table className="min-w-[1260px] w-full border-collapse text-left">
-                <thead className="bg-slate-50">
+                <thead className="sticky top-0 z-20 bg-slate-50 shadow-[0_1px_0_rgb(226_232_240)]">
                   <tr className="border-b border-slate-200">
-                    <th className="sticky left-0 z-10 min-w-64 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">Paciente</th>
+                    <th className="sticky left-0 z-30 min-w-64 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">Paciente</th>
                     <th className="min-w-24 px-2 py-3 text-xs font-semibold text-slate-600">Status</th>
                     {MONTHS.map(month => <th key={month} className="min-w-24 border-l border-slate-100 px-1 py-3 text-center text-xs font-semibold text-slate-600">{month}</th>)}
                     <th className="min-w-28 border-l border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-600">Total</th>
