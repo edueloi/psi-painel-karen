@@ -6,6 +6,7 @@ const xlsx = require('xlsx');
 const pdfParse = require('pdf-parse');
 const db = require('../db');
 const { checkPermission } = require('../middleware/auth');
+const { transcribeAudioBuffer } = require('../services/audioTranscription');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -1191,7 +1192,8 @@ RESPONDA SEMPRE EM PORTUGUES-BR.`;
 // multipart/form-data: campo "audio" (webm/mp4/wav/ogg), campo opcional "language" (padrão "pt")
 const transcribeUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB — limite do Whisper
+  // O serviço divide gravações grandes em blocos menores antes de enviá-las ao Whisper.
+  limits: { fileSize: 100 * 1024 * 1024 },
 });
 
 // POST /ai/revise-transcript — usa exclusivamente a chave Gemini informada pelo
@@ -1256,9 +1258,9 @@ router.post('/transcribe-audio', checkPermission('access_ai_features'), (req, re
     if (!err) return next();
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
-        error: 'Áudio muito grande para transcrição em um único envio. O limite é 25 MB; sessões novas são divididas automaticamente em blocos menores.',
+        error: 'Áudio muito grande para transcrição. O limite de envio é 100 MB.',
         code: 'AUDIO_TOO_LARGE',
-        max_bytes: 25 * 1024 * 1024,
+        max_bytes: 100 * 1024 * 1024,
       });
     }
     return next(err);
@@ -1281,10 +1283,6 @@ router.post('/transcribe-audio', checkPermission('access_ai_features'), (req, re
     const ext = fileExt in extToMime ? fileExt : 'webm';
 
     console.log(`[Whisper] arquivo=${originalName} ext=${ext} mime=${mimeType} size=${audioBuffer.length}`);
-
-    // OpenAI SDK aceita File (Node 20+) ou toFile helper
-    const { toFile } = require('openai');
-    const audioFile = await toFile(audioBuffer, `audio.${ext}`, { type: mimeType });
 
     // O prompt do Whisper funciona como vocabulário de contexto — quanto mais termos relevantes,
     // melhor o modelo reconhece palavras parecidas no áudio.
@@ -1310,13 +1308,13 @@ router.post('/transcribe-audio', checkPermission('access_ai_features'), (req, re
       // Contexto clínico e plataforma
       'Contexto: prontuário, anamnese, avaliação psicológica, laudo, relatório, encaminhamento, hipótese diagnóstica, CID, DSM, WISC, Rorschach, HTP, Bender, escala de ansiedade, escala de depressão, BDI, BAI, SNAP-IV, CBCL, sessão terapêutica, plano terapêutico, contrato terapêutico, consentimento informado, sigilo, confidencialidade, ética profissional, supervisão clínica, interconsulta, telepsicologia, teleatendimento, PsiFlux, agendamento, sala virtual, videochamada, transcrição, gravação de sessão.';
 
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1',
+    const transcription = await transcribeAudioBuffer(
+      audioBuffer,
+      `audio.${ext}`,
+      mimeType,
       language,
-      response_format: 'text',
-      prompt: whisperPrompt,
-    });
+      whisperPrompt,
+    );
 
     if (isLikelyHallucination(transcription, whisperPrompt)) {
       console.warn(`[Whisper] Transcrição descartada (provável alucinação/eco do prompt): "${transcription}"`);
