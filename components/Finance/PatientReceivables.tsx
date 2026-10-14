@@ -195,8 +195,8 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
                   <tr className="border-b border-slate-200">
                     <th className="sticky left-0 z-10 min-w-64 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">Paciente</th>
                     <th className="min-w-24 px-2 py-3 text-xs font-semibold text-slate-600">Status</th>
-                    {MONTHS.map(month => <th key={month} className="min-w-24 px-1 py-3 text-center text-xs font-semibold text-slate-600">{month}</th>)}
-                    <th className="min-w-28 px-3 py-3 text-right text-xs font-semibold text-slate-600">Total</th>
+                    {MONTHS.map(month => <th key={month} className="min-w-24 border-l border-slate-100 px-1 py-3 text-center text-xs font-semibold text-slate-600">{month}</th>)}
+                    <th className="min-w-28 border-l border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-600">Total</th>
                     <th className="min-w-28 px-3 py-3 text-right text-xs font-semibold text-slate-600">Detalhes</th>
                   </tr>
                 </thead>
@@ -210,7 +210,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
                       </td>
                       <td className="px-2 py-2.5"><Badge color={patient.status === 'active' ? 'success' : 'default'}>{statusLabel(patient.status)}</Badge></td>
                       {patient.months.map((month, index) => (
-                        <td key={MONTHS[index]} className="px-1 py-2 text-center">
+                        <td key={MONTHS[index]} className="border-l border-slate-100 px-1 py-2 text-center">
                           {month.amount > 0.004 ? (
                             <button
                               type="button"
@@ -223,7 +223,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
                           ) : <span className="text-xs text-slate-300">—</span>}
                         </td>
                       ))}
-                      <td className="px-3 py-2.5 text-right text-xs font-semibold text-slate-800">{formatCurrency(patient.total_paid)}</td>
+                      <td className="border-l border-slate-200 px-3 py-2.5 text-right text-xs font-semibold text-slate-800">{formatCurrency(patient.total_paid)}</td>
                       <td className="px-3 py-2.5 text-right">
                         <Button variant="outline" size="xs" iconLeft={<Eye size={13} />} onClick={() => setDetail({ patient, monthIndex: null })}>Mais info</Button>
                       </td>
