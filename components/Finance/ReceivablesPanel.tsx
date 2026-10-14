@@ -5,8 +5,8 @@ import { PatientReceivables } from './PatientReceivables';
 import { AccountsPanel } from './AccountsPanel';
 
 const RECEIVABLE_TABS = [
-  { id: 'pacientes', label: 'Pacientes', icon: Users },
   { id: 'avulsas', label: 'Avulsas', icon: FileText },
+  { id: 'pacientes', label: 'Pacientes', icon: Users },
 ] as const;
 type ReceivableTab = typeof RECEIVABLE_TABS[number]['id'];
 
@@ -17,10 +17,10 @@ interface Props {
 
 /** Contas a receber: cobranças de pacientes (derivadas de comandas/lançamentos) e contas avulsas cadastradas à mão. */
 export const ReceivablesPanel: React.FC<Props> = ({ canManage, patients }) => {
-  const [tab, setTab] = useState<ReceivableTab>('pacientes');
+  const [tab, setTab] = useState<ReceivableTab>('avulsas');
   return (
     <Tabs<ReceivableTab> items={RECEIVABLE_TABS} value={tab} onChange={setTab} label="Contas a receber">
-      {tab === 'pacientes' ? <PatientReceivables canManage={canManage} /> : <AccountsPanel kind="receivable" canManage={canManage} patients={patients} />}
+      {tab === 'avulsas' ? <AccountsPanel kind="receivable" canManage={canManage} patients={patients} /> : <PatientReceivables canManage={canManage} />}
     </Tabs>
   );
 };
