@@ -55,6 +55,9 @@ export interface UserPreferences {
     itemsPerPage: number;
     stickyStats: boolean;
   };
+  patientReceivables: {
+    itemsPerPage: number;
+  };
   clinicalTools: {
     orderedIds: string[];
     hiddenIds: string[];
@@ -141,6 +144,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     itemsPerPage: 15,
     stickyStats: false,
   },
+  patientReceivables: {
+    itemsPerPage: 25,
+  },
   clinicalTools: {
     orderedIds: [],
     hiddenIds: [],
@@ -174,6 +180,7 @@ function mergeWithDefaults(stored: any): UserPreferences {
     general:     { ...DEFAULT_PREFERENCES.general,     ...stored?.general },
     messages:    { ...DEFAULT_PREFERENCES.messages,    ...stored?.messages },
     livroCaixa:  { ...DEFAULT_PREFERENCES.livroCaixa,  ...stored?.livroCaixa },
+    patientReceivables: { ...DEFAULT_PREFERENCES.patientReceivables, ...stored?.patientReceivables },
     clinicalTools: { ...DEFAULT_PREFERENCES.clinicalTools, ...stored?.clinicalTools },
     gemini:       { ...DEFAULT_PREFERENCES.gemini, ...stored?.gemini, apiKeys: Array.isArray(stored?.gemini?.apiKeys) ? stored.gemini.apiKeys : (stored?.gemini?.apiKey ? [stored.gemini.apiKey] : []) },
     sessions:     { ...DEFAULT_PREFERENCES.sessions, ...stored?.sessions },

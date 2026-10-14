@@ -123,7 +123,7 @@ export function Pagination({
           <select
             aria-label="Registros por página"
             value={pageSize}
-            onChange={e => { onPageSizeChange(Number(e.target.value)); onPageChange(1); }}
+            onChange={e => onPageSizeChange(Number(e.target.value))}
             className="h-8 px-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-md outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/10 transition-all cursor-pointer"
           >
             {PAGE_SIZE_OPTIONS.map(s => (

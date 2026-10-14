@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookOpen, CalendarDays, CheckCircle2, Download, Eye, Inbox, Users, Wallet } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { PAGE_SIZE_OPTIONS } from '../../src/lib/usePreferences';
 import {
   Badge, Button, ContentCard, EmptyState, FilterLine, FilterLineSearch, FilterLineSection,
-  FilterLineSelect, Modal, ModalFooter, StatCard, StatGrid, usePagination,
+  FilterLineSelect, Modal, ModalFooter, Pagination, StatCard, StatGrid,
 } from '../UI';
 import { downloadCsv, formatCurrency, formatDateBR } from './accountsShared';
 
@@ -16,6 +18,14 @@ const MONTHS = [
 
 type PatientStatus = 'all' | 'active' | 'inactive';
 type PaymentSource = 'comanda' | 'livro_caixa';
+
+const isPatientStatus = (value: string | null): value is PatientStatus =>
+  value === 'all' || value === 'active' || value === 'inactive';
+
+const getPageSize = (value: string | null, fallback: number) => {
+  const pageSize = Number(value);
+  return PAGE_SIZE_OPTIONS.includes(pageSize as typeof PAGE_SIZE_OPTIONS[number]) ? pageSize : fallback;
+};
 
 interface PaymentDetail {
   id: number;
@@ -63,15 +73,51 @@ const formatRegisteredAt = (value: string | null) => {
 /** Visão anual dos valores efetivamente recebidos por paciente, no formato de planilha. */
 export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { preferences, updatePreference } = useUserPreferences();
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(String(currentYear));
+  const initialYear = Number(searchParams.get('ano')) || currentYear;
+  const initialPageSize = getPageSize(searchParams.get('por_pagina'), preferences.patientReceivables.itemsPerPage);
+  const [year, setYear] = useState(String(initialYear));
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [patients, setPatients] = useState<PatientAnnualRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [patientStatus, setPatientStatus] = useState<PatientStatus>('active');
-  const [search, setSearch] = useState('');
+  const [patientStatus, setPatientStatus] = useState<PatientStatus>(
+    isPatientStatus(searchParams.get('situacao')) ? searchParams.get('situacao') as PatientStatus : 'active'
+  );
+  const [search, setSearch] = useState(searchParams.get('busca') || '');
+  const [page, setPage] = useState(Math.max(1, Number(searchParams.get('pagina')) || 1));
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [detail, setDetail] = useState<DetailSelection | null>(null);
+
+  const updateGridUrl = useCallback((updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => params.set(key, value));
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const nextYear = Number(searchParams.get('ano')) || currentYear;
+    const nextStatus = searchParams.get('situacao');
+    const nextSearch = searchParams.get('busca') || '';
+    const nextPage = Math.max(1, Number(searchParams.get('pagina')) || 1);
+    const nextPageSize = getPageSize(searchParams.get('por_pagina'), preferences.patientReceivables.itemsPerPage);
+
+    setYear(String(nextYear));
+    setPatientStatus(isPatientStatus(nextStatus) ? nextStatus : 'active');
+    setSearch(nextSearch);
+    setPage(nextPage);
+    setPageSize(nextPageSize);
+  }, [currentYear, preferences.patientReceivables.itemsPerPage, searchParams]);
+
+  useEffect(() => {
+    if (searchParams.has('pagina') && searchParams.has('por_pagina')) return;
+    const params = new URLSearchParams(searchParams);
+    if (!params.has('pagina')) params.set('pagina', String(page));
+    if (!params.has('por_pagina')) params.set('por_pagina', String(pageSize));
+    setSearchParams(params, { replace: true });
+  }, [page, pageSize, searchParams, setSearchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,7 +146,51 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     );
   }, [patients, patientStatus, search]);
 
-  const pagination = usePagination(filteredPatients, 25);
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedPatients = useMemo(
+    () => filteredPatients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [currentPage, filteredPatients, pageSize],
+  );
+
+  useEffect(() => {
+    if (page !== currentPage) {
+      setPage(currentPage);
+      updateGridUrl({ pagina: String(currentPage) });
+    }
+  }, [currentPage, page, updateGridUrl]);
+
+  const handlePageChange = (nextPage: number) => {
+    const safePage = Math.max(1, Math.min(nextPage, totalPages));
+    setPage(safePage);
+    updateGridUrl({ pagina: String(safePage) });
+  };
+
+  const handlePageSizeChange = (nextPageSize: number) => {
+    const safePageSize = getPageSize(String(nextPageSize), preferences.patientReceivables.itemsPerPage);
+    setPageSize(safePageSize);
+    setPage(1);
+    updatePreference('patientReceivables', { itemsPerPage: safePageSize });
+    updateGridUrl({ pagina: '1', por_pagina: String(safePageSize) });
+  };
+
+  const handleYearChange = (nextYear: string) => {
+    setYear(nextYear);
+    setPage(1);
+    updateGridUrl({ ano: nextYear, pagina: '1' });
+  };
+
+  const handleStatusChange = (nextStatus: PatientStatus) => {
+    setPatientStatus(nextStatus);
+    setPage(1);
+    updateGridUrl({ situacao: nextStatus, pagina: '1' });
+  };
+
+  const handleSearchChange = (nextSearch: string) => {
+    setSearch(nextSearch);
+    setPage(1);
+    updateGridUrl({ busca: nextSearch, pagina: '1' });
+  };
   const summary = useMemo(() => {
     const received = filteredPatients.reduce((total, patient) => total + patient.total_paid, 0);
     const withPayments = filteredPatients.filter(patient => patient.total_paid > 0.004).length;
@@ -156,14 +246,14 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
             <FilterLineSelect
               label="Ano"
               value={year}
-              onChange={setYear}
+              onChange={handleYearChange}
               options={availableYears.map(item => ({ value: String(item), label: String(item) }))}
               className="sm:w-28"
             />
             <FilterLineSelect
               label="Situação do paciente"
               value={patientStatus}
-              onChange={value => setPatientStatus(value as PatientStatus)}
+              onChange={value => handleStatusChange(value as PatientStatus)}
               options={[
                 { value: 'active', label: 'Ativos' },
                 { value: 'inactive', label: 'Inativos' },
@@ -173,7 +263,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
             />
           </FilterLineSection>
           <FilterLineSection align="right">
-            <FilterLineSearch value={search} onChange={setSearch} placeholder="Buscar paciente" className="sm:!w-56" />
+            <FilterLineSearch value={search} onChange={handleSearchChange} placeholder="Buscar paciente" className="sm:!w-56" />
           </FilterLineSection>
         </FilterLine>
 
@@ -201,7 +291,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pagination.paginatedData.map(patient => (
+                  {paginatedPatients.map(patient => (
                     <tr key={patient.patient_id} className="border-b border-slate-100 hover:bg-slate-50/70">
                       <td className="sticky left-0 z-[1] bg-white px-4 py-2.5 text-xs font-medium text-slate-800 group-hover:bg-slate-50">
                         <button type="button" className="max-w-60 truncate text-left hover:text-primary-700 hover:underline" onClick={() => navigate(`/pacientes/${patient.patient_id}`)} title="Abrir paciente">
@@ -232,15 +322,13 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
                 </tbody>
               </table>
             </div>
-            {filteredPatients.length > pagination.pageSize && (
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5">
-                <span className="text-xs text-slate-500">Página {pagination.page} de {pagination.totalPages} · {filteredPatients.length} paciente{filteredPatients.length === 1 ? '' : 's'}</span>
-                <div className="flex items-center gap-2">
-                  <Button size="xs" variant="outline" disabled={pagination.page <= 1} onClick={() => pagination.setPage(pagination.page - 1)}>Anterior</Button>
-                  <Button size="xs" variant="outline" disabled={pagination.page >= pagination.totalPages} onClick={() => pagination.setPage(pagination.page + 1)}>Próxima</Button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              total={filteredPatients.length}
+              page={currentPage}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </>
         )}
       </ContentCard>
