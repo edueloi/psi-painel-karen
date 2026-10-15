@@ -99,7 +99,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [patientStatus, setPatientStatus] = useState<PatientStatus>(
-    isPatientStatus(searchParams.get('situacao')) ? searchParams.get('situacao') as PatientStatus : 'active'
+    isPatientStatus(searchParams.get('situacao')) ? searchParams.get('situacao') as PatientStatus : 'all'
   );
   const [search, setSearch] = useState(searchParams.get('busca') || '');
   const [monthFilter, setMonthFilter] = useState<number | null>(getMonthFilter(searchParams.get('mes')));
@@ -132,7 +132,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     const nextPageSize = getPageSize(searchParams.get('por_pagina'), preferences.patientReceivables.itemsPerPage);
 
     setYear(String(nextYear));
-    setPatientStatus(isPatientStatus(nextStatus) ? nextStatus : 'active');
+    setPatientStatus(isPatientStatus(nextStatus) ? nextStatus : 'all');
     setSearch(nextSearch);
     setMonthFilter(nextMonthFilter);
     setMonthPaymentStatus(nextMonthPaymentStatus);
@@ -298,7 +298,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     }
   };
 
-  const hasFilters = patientStatus !== 'active' || Boolean(search) || monthFilter !== null;
+  const hasFilters = patientStatus !== 'all' || Boolean(search) || monthFilter !== null;
   const monthFilterLabel = monthFilter === null ? '' : `${monthPaymentStatus === 'paid' ? 'Pagos' : monthPaymentStatus === 'unpaid' ? 'Não pagos' : 'Todos'} em ${MONTHS[monthFilter]}`;
 
   return (
@@ -358,7 +358,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
         ) : filteredPatients.length === 0 ? (
           <EmptyState
             icon={Inbox}
-            title={hasFilters ? 'Nenhum paciente encontrado' : 'Nenhum paciente ativo cadastrado'}
+            title={hasFilters ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
             description="Altere os filtros para consultar pacientes ativos, inativos ou todos."
           />
         ) : (

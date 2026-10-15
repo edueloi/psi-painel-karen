@@ -737,7 +737,7 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
   try {
     const { 
       type, category, description, amount, date, payment_method, status,
-      payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, comanda_id
+      patient_id, payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation, comanda_id
     } = req.body;
 
     const [existing] = await db.query('SELECT comanda_id FROM financial_transactions WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
@@ -753,6 +753,7 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
         description = COALESCE(?, description),
         amount = COALESCE(?, amount),
         date = COALESCE(?, date),
+        patient_id = COALESCE(?, patient_id),
         payment_method = COALESCE(?, payment_method),
         status = COALESCE(?, status),
         payer_name = COALESCE(?, payer_name),
@@ -764,7 +765,7 @@ router.put('/:id', authMiddleware, checkPermission('manage_payments'), async (re
         comanda_id = ?
        WHERE id = ? AND tenant_id = ?`,
       [
-        type, category, description, amount, sanitizeDate(date), payment_method, status,
+        type, category, description, amount, sanitizeDate(date), patient_id || null, payment_method, status,
         payer_name, beneficiary_name, payer_cpf, beneficiary_cpf, observation,
         sanitizeDate(req.body.due_date),
         newComandaId,

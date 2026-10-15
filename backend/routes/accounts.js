@@ -652,7 +652,7 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
   const to = `${year}-12-31`;
 
   const [patients] = await db.query(
-    `SELECT id, name, status
+    `SELECT id, name, cpf, status
      FROM patients
      WHERE tenant_id = ?
      ORDER BY name ASC`,
@@ -660,19 +660,40 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
   );
 
   const [ledgerPayments] = await db.query(
-    `SELECT t.id, t.patient_id, t.amount,
+    `SELECT t.id, t.patient_id, t.amount, t.payer_name, t.payer_cpf,
+            t.beneficiary_name, t.beneficiary_cpf,
             DATE_FORMAT(t.date, '%Y-%m-%d') AS payment_date,
             DATE_FORMAT(t.created_at, '%Y-%m-%d %H:%i:%s') AS registered_at,
             t.payment_method, COALESCE(t.description, t.category, 'Lançamento no Livro Caixa') AS description
      FROM financial_transactions t
-     WHERE t.tenant_id = ? AND t.type = 'income' AND t.patient_id IS NOT NULL
-       AND COALESCE(t.source, '') != 'comanda_forecast'
+     LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.id = t.origin_id OR c.livrocaixa_tx_id = t.id)
+     WHERE t.tenant_id = ? AND t.type = 'income'
        AND COALESCE(t.status, 'paid') IN ('paid', 'confirmed')
-       AND DATE(t.date) BETWEEN ? AND ?`,
+       AND DATE(t.date) BETWEEN ? AND ?
+       AND (
+         t.origin_module IS NOT NULL
+         OR t.comanda_id IS NULL
+         OR c.livrocaixa_tx_id = t.id
+         OR t.source = 'livrocaixa'
+       )`,
     [tenantId, from, to]
   );
 
   const byPatient = new Map();
+  const patientByName = new Map();
+  const patientByCpf = new Map();
+  const normalizeName = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  const normalizeCpf = (value) => String(value || '').replace(/\D/g, '');
+  const addUniquePatient = (index, key, patientId) => {
+    if (!key) return;
+    if (index.has(key) && index.get(key) !== patientId) index.set(key, null);
+    else index.set(key, patientId);
+  };
   for (const patient of patients) {
     byPatient.set(patient.id, {
       patient_id: patient.id,
@@ -681,10 +702,25 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
       months: Array.from({ length: 12 }, () => ({ amount: 0, payments: [] })),
       total_paid: 0,
     });
+    addUniquePatient(patientByName, normalizeName(patient.name), patient.id);
+    addUniquePatient(patientByCpf, normalizeCpf(patient.cpf), patient.id);
   }
 
+  const resolvePatientId = (payment) => {
+    const directId = Number(payment.patient_id);
+    if (byPatient.has(directId)) return directId;
+
+    const candidates = [
+      patientByCpf.get(normalizeCpf(payment.beneficiary_cpf)),
+      patientByName.get(normalizeName(payment.beneficiary_name)),
+      patientByCpf.get(normalizeCpf(payment.payer_cpf)),
+      patientByName.get(normalizeName(payment.payer_name)),
+    ];
+    return candidates.find((patientId) => patientId && byPatient.has(patientId)) || null;
+  };
+
   const addPayment = (payment) => {
-    const patient = byPatient.get(payment.patient_id);
+    const patient = byPatient.get(resolvePatientId(payment));
     const date = String(payment.payment_date || '');
     const month = Number(date.slice(5, 7));
     const amount = Number(payment.amount || 0);
@@ -707,14 +743,18 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
   ledgerPayments.forEach(addPayment);
 
   const [paymentYears] = await db.query(
-    `SELECT DISTINCT year_value FROM (
-       SELECT YEAR(date) AS year_value
-       FROM financial_transactions
-       WHERE tenant_id = ? AND type = 'income' AND patient_id IS NOT NULL
-         AND COALESCE(source, '') != 'comanda_forecast'
-         AND COALESCE(status, 'paid') IN ('paid', 'confirmed')
-     ) years
-     WHERE year_value IS NOT NULL
+    `SELECT DISTINCT YEAR(t.date) AS year_value
+     FROM financial_transactions t
+     LEFT JOIN comandas c ON (c.id = t.comanda_id OR c.id = t.origin_id OR c.livrocaixa_tx_id = t.id)
+     WHERE t.tenant_id = ? AND t.type = 'income'
+       AND COALESCE(t.status, 'paid') IN ('paid', 'confirmed')
+       AND (
+         t.origin_module IS NOT NULL
+         OR t.comanda_id IS NULL
+         OR c.livrocaixa_tx_id = t.id
+         OR t.source = 'livrocaixa'
+       )
+       AND YEAR(t.date) IS NOT NULL
      ORDER BY year_value DESC`,
     [tenantId]
   );
