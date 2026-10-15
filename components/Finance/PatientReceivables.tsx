@@ -20,6 +20,7 @@ const MONTHS = [
 
 type PatientStatus = 'all' | 'active' | 'inactive';
 type PaymentSource = 'livro_caixa';
+type MonthPaymentStatus = 'all' | 'paid' | 'unpaid';
 
 const isPatientStatus = (value: string | null): value is PatientStatus =>
   value === 'all' || value === 'active' || value === 'inactive';
@@ -32,6 +33,12 @@ const getPageSize = (value: string | null, fallback: number) => {
 const getMonthFilter = (value: string | null) => {
   const month = Number(value);
   return Number.isInteger(month) && month >= 1 && month <= 12 ? month - 1 : null;
+};
+
+const getMonthPaymentStatus = (value: string | null, hasMonth: boolean): MonthPaymentStatus => {
+  if (value === 'paid' || value === 'unpaid' || value === 'all') return value;
+  // Links criados antes deste filtro já mostravam somente os pagantes do mês.
+  return hasMonth ? 'paid' : 'all';
 };
 
 interface PaymentDetail {
@@ -96,6 +103,11 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   );
   const [search, setSearch] = useState(searchParams.get('busca') || '');
   const [monthFilter, setMonthFilter] = useState<number | null>(getMonthFilter(searchParams.get('mes')));
+  const [monthPaymentStatus, setMonthPaymentStatus] = useState<MonthPaymentStatus>(
+    getMonthPaymentStatus(searchParams.get('pagamento'), getMonthFilter(searchParams.get('mes')) !== null)
+  );
+  const [monthFilterDialog, setMonthFilterDialog] = useState<number | null>(null);
+  const [monthPaymentStatusDraft, setMonthPaymentStatusDraft] = useState<MonthPaymentStatus>('all');
   const [page, setPage] = useState(Math.max(1, Number(searchParams.get('pagina')) || 1));
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [detail, setDetail] = useState<DetailSelection | null>(null);
@@ -115,6 +127,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     const nextStatus = searchParams.get('situacao');
     const nextSearch = searchParams.get('busca') || '';
     const nextMonthFilter = getMonthFilter(searchParams.get('mes'));
+    const nextMonthPaymentStatus = getMonthPaymentStatus(searchParams.get('pagamento'), nextMonthFilter !== null);
     const nextPage = Math.max(1, Number(searchParams.get('pagina')) || 1);
     const nextPageSize = getPageSize(searchParams.get('por_pagina'), preferences.patientReceivables.itemsPerPage);
 
@@ -122,6 +135,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     setPatientStatus(isPatientStatus(nextStatus) ? nextStatus : 'active');
     setSearch(nextSearch);
     setMonthFilter(nextMonthFilter);
+    setMonthPaymentStatus(nextMonthPaymentStatus);
     setPage(nextPage);
     setPageSize(nextPageSize);
   }, [currentYear, preferences.patientReceivables.itemsPerPage, searchParams]);
@@ -157,10 +171,14 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     const term = search.trim().toLocaleLowerCase('pt-BR');
     return patients.filter(patient =>
       (patientStatus === 'all' || patient.status === patientStatus) &&
-      (monthFilter === null || patient.months[monthFilter].amount > 0.004) &&
+      (monthFilter === null || monthPaymentStatus === 'all' || (
+        monthPaymentStatus === 'paid'
+          ? patient.months[monthFilter].amount > 0.004
+          : patient.months[monthFilter].amount <= 0.004
+      )) &&
       (!term || patient.patient_name.toLocaleLowerCase('pt-BR').includes(term))
     );
-  }, [monthFilter, patients, patientStatus, search]);
+  }, [monthFilter, monthPaymentStatus, patients, patientStatus, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -208,11 +226,30 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     updateGridUrl({ busca: nextSearch, pagina: '1' });
   };
 
-  const handleMonthFilter = (monthIndex: number) => {
-    const nextMonth = monthFilter === monthIndex ? null : monthIndex;
-    setMonthFilter(nextMonth);
+  const openMonthFilter = (monthIndex: number) => {
+    setMonthFilterDialog(monthIndex);
+    setMonthPaymentStatusDraft(monthFilter === monthIndex ? monthPaymentStatus : 'all');
+  };
+
+  const applyMonthFilter = () => {
+    if (monthFilterDialog === null) return;
+    const shouldClear = monthPaymentStatusDraft === 'all';
+    setMonthFilter(shouldClear ? null : monthFilterDialog);
+    setMonthPaymentStatus(monthPaymentStatusDraft);
     setPage(1);
-    updateGridUrl({ mes: nextMonth === null ? null : String(nextMonth + 1), pagina: '1' });
+    updateGridUrl({
+      mes: shouldClear ? null : String(monthFilterDialog + 1),
+      pagamento: shouldClear ? null : monthPaymentStatusDraft,
+      pagina: '1',
+    });
+    setMonthFilterDialog(null);
+  };
+
+  const clearMonthFilter = () => {
+    setMonthFilter(null);
+    setMonthPaymentStatus('all');
+    setPage(1);
+    updateGridUrl({ mes: null, pagamento: null, pagina: '1' });
   };
 
   const monthTotals = useMemo(() => {
@@ -251,7 +288,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
         year,
         statusLabel: patientStatus === 'active' ? 'Somente ativos' : patientStatus === 'inactive' ? 'Somente inativos' : 'Ativos e inativos',
         search,
-        monthLabel: monthFilter === null ? undefined : MONTHS[monthFilter],
+        monthLabel: monthFilter === null ? undefined : `${monthPaymentStatus === 'paid' ? 'Pagos' : monthPaymentStatus === 'unpaid' ? 'Não pagos' : 'Todos'} em ${MONTHS[monthFilter]}`,
       });
       showSuccess('Relatório exportado', 'A planilha com dados da clínica, filtros e gráfico foi baixada.');
     } catch (exportError: any) {
@@ -261,7 +298,8 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     }
   };
 
-  const hasFilters = patientStatus !== 'active' || Boolean(search);
+  const hasFilters = patientStatus !== 'active' || Boolean(search) || monthFilter !== null;
+  const monthFilterLabel = monthFilter === null ? '' : `${monthPaymentStatus === 'paid' ? 'Pagos' : monthPaymentStatus === 'unpaid' ? 'Não pagos' : 'Todos'} em ${MONTHS[monthFilter]}`;
 
   return (
     <div className="space-y-3">
@@ -305,9 +343,10 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
           <FilterLineSection align="right">
             <FilterLineSearch value={search} onChange={handleSearchChange} placeholder="Buscar paciente" className="sm:!w-56" />
             {monthFilter !== null && (
-              <Button variant="outline" size="sm" iconLeft={<Filter size={14} />} iconRight={<X size={13} />} onClick={() => handleMonthFilter(monthFilter)}>
-                Pagantes em {MONTHS[monthFilter]}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" iconLeft={<Filter size={14} />} onClick={() => openMonthFilter(monthFilter)}>{monthFilterLabel}</Button>
+                <button type="button" onClick={clearMonthFilter} title="Limpar filtro do mês" aria-label="Limpar filtro do mês" className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={14} /></button>
+              </div>
             )}
           </FilterLineSection>
         </FilterLine>
@@ -334,9 +373,9 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
                       <th key={month} className="min-w-14 border-l border-slate-100 px-1 py-2 text-center text-xs font-semibold text-slate-600">
                         <button
                           type="button"
-                          onClick={() => handleMonthFilter(index)}
+                          onClick={() => openMonthFilter(index)}
                           aria-pressed={monthFilter === index}
-                          title={monthFilter === index ? `Remover filtro de ${month}` : `Mostrar pagantes de ${month}`}
+                          title={`Filtrar pacientes por ${month}`}
                           className={`rounded px-1.5 py-1 transition-colors ${monthFilter === index ? 'bg-primary-100 text-primary-700' : 'hover:bg-slate-200 hover:text-slate-800'}`}
                         >
                           {month}
@@ -403,6 +442,43 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
           </>
         )}
       </ContentCard>
+
+      <Modal
+        isOpen={monthFilterDialog !== null}
+        onClose={() => setMonthFilterDialog(null)}
+        size="sm"
+        title={monthFilterDialog === null ? 'Filtro do mês' : `Filtro de ${MONTHS[monthFilterDialog]}`}
+        subtitle="A conferência é feita pelo pagamento registrado para o paciente no Livro Caixa."
+        footer={
+          <ModalFooter align="between">
+            <Button variant="ghost" size="sm" onClick={() => { setMonthFilterDialog(null); clearMonthFilter(); }}>Limpar</Button>
+            <Button variant="primary" size="sm" onClick={applyMonthFilter}>Aplicar filtro</Button>
+          </ModalFooter>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-slate-600">Escolha quais pacientes deseja ver neste mês:</p>
+          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Situação de pagamento no mês">
+            {([
+              { value: 'all', label: 'Todos', description: 'Sem filtro mensal' },
+              { value: 'paid', label: 'Pagos', description: 'Com lançamento pago' },
+              { value: 'unpaid', label: 'Não pagos', description: 'Sem lançamento pago' },
+            ] as const).map(option => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={monthPaymentStatusDraft === option.value}
+                onClick={() => setMonthPaymentStatusDraft(option.value)}
+                className={`rounded-lg border px-2 py-3 text-left transition-colors ${monthPaymentStatusDraft === option.value ? 'border-primary-400 bg-primary-50 text-primary-800 ring-1 ring-primary-200' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+              >
+                <span className="block text-xs font-semibold">{option.label}</span>
+                <span className="mt-1 block text-[10px] leading-4 text-slate-500">{option.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={!!detail}

@@ -215,7 +215,7 @@ export async function exportPatientReceivablesReport(
   const filtersText = [
     `Ano: ${filters.year}`,
     `Situação: ${filters.statusLabel}`,
-    filters.monthLabel ? `Mês: pagantes em ${filters.monthLabel}` : 'Mês: todos',
+    filters.monthLabel ? `Mês: ${filters.monthLabel}` : 'Mês: todos',
     `Busca: ${filters.search || 'sem busca'}`,
     `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
   ].join('\n');
