@@ -4,9 +4,8 @@
 // financeiras existentes: leitura = view_financial_reports, escrita/baixa = manage_payments.
 //
 // Fonte dos dados:
-//  - "A receber de pacientes" NÃO tem tabela própria: é derivado de comandas (total x paid_value, pagamentos em
-//    comanda_payments) e de lançamentos manuais de entrada vinculados a paciente no Livro Caixa. A baixa de
-//    comanda continua usando POST /finance/comandas/:id/payments (mesma regra e mesma sincronização com o Livro Caixa).
+//  - A visão anual "A receber de pacientes" usa exclusivamente os lançamentos efetivamente recebidos no Livro Caixa.
+//    Isso inclui lançamentos criados pela baixa de uma comanda, quando ela estiver sincronizada com o Livro Caixa.
 //  - Contas avulsas a receber e contas a pagar ficam em finance_accounts (kind = receivable | payable). A baixa gera
 //    UM lançamento no Livro Caixa (origin_module = 'ACCOUNT', origin_id = id da conta), e o estorno o remove.
 const express = require('express');
@@ -640,9 +639,8 @@ router.delete('/:id', authMiddleware, canManage, wrap(async (req, res) => {
 
 // ── A receber de pacientes (derivado; sem tabela própria) ────────────────────
 // GET /accounts/patient-receivables/annual?year=YYYY
-// Visão estilo planilha: todos os pacientes do tenant em linhas e os pagamentos
-// efetivamente recebidos em cada mês nas colunas. O valor vem de pagamentos de
-// comandas e de entradas manuais no Livro Caixa, sem somar a previsão da comanda.
+// Visão estilo planilha: todos os pacientes do tenant em linhas e os recebimentos
+// efetivamente lançados no Livro Caixa em cada mês nas colunas.
 router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (req, res) => {
   const tenantId = req.user.tenant_id;
   const currentYear = new Date().getFullYear();
@@ -661,18 +659,6 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
     [tenantId]
   );
 
-  const [comandaPayments] = await db.query(
-    `SELECT cp.id, c.patient_id, c.id AS comanda_id, cp.amount,
-            DATE_FORMAT(cp.payment_date, '%Y-%m-%d') AS payment_date,
-            DATE_FORMAT(cp.created_at, '%Y-%m-%d %H:%i:%s') AS registered_at,
-            cp.payment_method, COALESCE(c.description, 'Comanda') AS description
-     FROM comanda_payments cp
-     JOIN comandas c ON c.id = cp.comanda_id AND c.tenant_id = cp.tenant_id
-     WHERE cp.tenant_id = ? AND cp.status != 'cancelled'
-       AND cp.payment_date BETWEEN ? AND ?`,
-    [tenantId, from, to]
-  );
-
   const [ledgerPayments] = await db.query(
     `SELECT t.id, t.patient_id, t.amount,
             DATE_FORMAT(t.date, '%Y-%m-%d') AS payment_date,
@@ -680,7 +666,6 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
             t.payment_method, COALESCE(t.description, t.category, 'Lançamento no Livro Caixa') AS description
      FROM financial_transactions t
      WHERE t.tenant_id = ? AND t.type = 'income' AND t.patient_id IS NOT NULL
-       AND t.comanda_id IS NULL AND COALESCE(t.origin_module, '') != 'COMANDA'
        AND COALESCE(t.source, '') != 'comanda_forecast'
        AND COALESCE(t.status, 'paid') IN ('paid', 'confirmed')
        AND DATE(t.date) BETWEEN ? AND ?`,
@@ -698,7 +683,7 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
     });
   }
 
-  const addPayment = (payment, source) => {
+  const addPayment = (payment) => {
     const patient = byPatient.get(payment.patient_id);
     const date = String(payment.payment_date || '');
     const month = Number(date.slice(5, 7));
@@ -706,38 +691,32 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
     if (!patient || month < 1 || month > 12 || !(amount > 0)) return;
     const detail = {
       id: payment.id,
-      source,
+      source: 'livro_caixa',
       amount,
       payment_date: date,
       registered_at: payment.registered_at || null,
       payment_method: payment.payment_method || null,
-      description: payment.description || (source === 'comanda' ? 'Comanda' : 'Lançamento no Livro Caixa'),
-      comanda_id: payment.comanda_id || null,
+      description: payment.description || 'Lançamento no Livro Caixa',
+      comanda_id: null,
     };
     patient.months[month - 1].amount = Math.round((patient.months[month - 1].amount + amount) * 100) / 100;
     patient.months[month - 1].payments.push(detail);
     patient.total_paid = Math.round((patient.total_paid + amount) * 100) / 100;
   };
 
-  comandaPayments.forEach(payment => addPayment(payment, 'comanda'));
-  ledgerPayments.forEach(payment => addPayment(payment, 'livro_caixa'));
+  ledgerPayments.forEach(addPayment);
 
   const [paymentYears] = await db.query(
     `SELECT DISTINCT year_value FROM (
-       SELECT YEAR(payment_date) AS year_value
-       FROM comanda_payments
-       WHERE tenant_id = ? AND payment_date IS NOT NULL AND status != 'cancelled'
-       UNION
        SELECT YEAR(date) AS year_value
        FROM financial_transactions
        WHERE tenant_id = ? AND type = 'income' AND patient_id IS NOT NULL
-         AND comanda_id IS NULL AND COALESCE(origin_module, '') != 'COMANDA'
          AND COALESCE(source, '') != 'comanda_forecast'
          AND COALESCE(status, 'paid') IN ('paid', 'confirmed')
      ) years
      WHERE year_value IS NOT NULL
      ORDER BY year_value DESC`,
-    [tenantId, tenantId]
+    [tenantId]
   );
   const years = Array.from(new Set([currentYear, year, ...paymentYears.map(item => Number(item.year_value))])).sort((a, b) => b - a);
 
