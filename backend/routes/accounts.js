@@ -719,12 +719,19 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
     return candidates.find((patientId) => patientId && byPatient.has(patientId)) || null;
   };
 
+  let unmatchedCount = 0;
+  let unmatchedAmount = 0;
   const addPayment = (payment) => {
     const patient = byPatient.get(resolvePatientId(payment));
     const date = String(payment.payment_date || '');
     const month = Number(date.slice(5, 7));
     const amount = Number(payment.amount || 0);
-    if (!patient || month < 1 || month > 12 || !(amount > 0)) return;
+    if (month < 1 || month > 12 || !(amount > 0)) return;
+    if (!patient) {
+      unmatchedCount += 1;
+      unmatchedAmount = Math.round((unmatchedAmount + amount) * 100) / 100;
+      return;
+    }
     const detail = {
       id: payment.id,
       source: 'livro_caixa',
@@ -760,7 +767,12 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
   );
   const years = Array.from(new Set([currentYear, year, ...paymentYears.map(item => Number(item.year_value))])).sort((a, b) => b - a);
 
-  res.json({ year, years, patients: Array.from(byPatient.values()) });
+  res.json({
+    year,
+    years,
+    patients: Array.from(byPatient.values()),
+    reconciliation: { unmatched_count: unmatchedCount, unmatched_amount: unmatchedAmount },
+  });
 }));
 
 // GET /accounts/patient-receivables?month=YYYY-MM&from=YYYY-MM-DD&to=YYYY-MM-DD

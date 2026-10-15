@@ -69,6 +69,10 @@ interface AnnualResponse {
   year: number;
   years: number[];
   patients: PatientAnnualRow[];
+  reconciliation?: {
+    unmatched_count: number;
+    unmatched_amount: number;
+  };
 }
 
 interface DetailSelection {
@@ -96,6 +100,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   const [year, setYear] = useState(String(initialYear));
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
   const [patients, setPatients] = useState<PatientAnnualRow[]>([]);
+  const [reconciliation, setReconciliation] = useState<AnnualResponse['reconciliation']>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [patientStatus, setPatientStatus] = useState<PatientStatus>(
@@ -154,6 +159,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
     try {
       const response = await api.get<AnnualResponse>('/finance/accounts/patient-receivables/annual', { year });
       setPatients(response.patients || []);
+      setReconciliation(response.reconciliation);
       setAvailableYears(Array.from(new Set([currentYear, ...(response.years || []), Number(year)])).sort((a, b) => b - a));
     } catch (requestError: any) {
       setError(requestError?.message || 'Não foi possível carregar os recebimentos dos pacientes.');
@@ -318,6 +324,12 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
           </div>
           <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={exportAnnual} loading={exporting} disabled={!filteredPatients.length || exporting}>Exportar relatório</Button>
         </div>
+
+        {(reconciliation?.unmatched_count || 0) > 0 && (
+          <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <strong>{reconciliation?.unmatched_count} lançamento{reconciliation?.unmatched_count === 1 ? '' : 's'}</strong> do Livro Caixa, no total de <strong>{formatCurrency(reconciliation?.unmatched_amount || 0)}</strong>, está sem paciente identificado e não foi incluído em uma linha de paciente. Identifique-o no Livro Caixa para concluir a conciliação.
+          </div>
+        )}
 
         <FilterLine className="border-b border-slate-100 px-4 py-2.5">
           <FilterLineSection>
