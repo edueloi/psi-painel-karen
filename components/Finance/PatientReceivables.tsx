@@ -4,12 +4,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { useToast } from '../../contexts/ToastContext';
 import { PAGE_SIZE_OPTIONS } from '../../src/lib/usePreferences';
 import {
   Badge, Button, ContentCard, EmptyState, FilterLine, FilterLineSearch, FilterLineSection,
   FilterLineSelect, Modal, ModalFooter, Pagination, StatCard, StatGrid,
 } from '../UI';
-import { downloadCsv, formatCurrency, formatDateBR } from './accountsShared';
+import { formatCurrency, formatDateBR } from './accountsShared';
+import { exportPatientReceivablesReport } from './patientReceivablesExport';
 
 const MONTHS = [
   'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
@@ -80,6 +82,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { preferences, updatePreference } = useUserPreferences();
+  const { success: showSuccess, error: showError } = useToast();
   const currentYear = new Date().getFullYear();
   const initialYear = Number(searchParams.get('ano')) || currentYear;
   const initialPageSize = getPageSize(searchParams.get('por_pagina'), preferences.patientReceivables.itemsPerPage);
@@ -96,6 +99,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   const [page, setPage] = useState(Math.max(1, Number(searchParams.get('pagina')) || 1));
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [detail, setDetail] = useState<DetailSelection | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const updateGridUrl = useCallback((updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams);
@@ -240,15 +244,22 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   }, [detail]);
 
   const detailTotal = detailPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const exportAnnual = () => downloadCsv(`recebimentos-pacientes-${year}.csv`, [
-    ['Paciente', 'Status', ...MONTHS, 'Total recebido'],
-    ...filteredPatients.map(patient => [
-      patient.patient_name,
-      statusLabel(patient.status),
-      ...patient.months.map(month => month.amount ? month.amount.toFixed(2).replace('.', ',') : ''),
-      patient.total_paid.toFixed(2).replace('.', ','),
-    ]),
-  ]);
+  const exportAnnual = async () => {
+    setExporting(true);
+    try {
+      await exportPatientReceivablesReport(filteredPatients, monthTotals, {
+        year,
+        statusLabel: patientStatus === 'active' ? 'Somente ativos' : patientStatus === 'inactive' ? 'Somente inativos' : 'Ativos e inativos',
+        search,
+        monthLabel: monthFilter === null ? undefined : MONTHS[monthFilter],
+      });
+      showSuccess('Relatório exportado', 'A planilha com dados da clínica, filtros e gráfico foi baixada.');
+    } catch (exportError: any) {
+      showError('Não foi possível exportar', exportError?.message || 'Tente novamente em alguns instantes.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const hasFilters = patientStatus !== 'active' || Boolean(search);
 
@@ -267,7 +278,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
             <h3 className="text-sm font-semibold text-slate-800">Recebimentos por paciente</h3>
             <p className="mt-0.5 text-xs text-slate-500">Pagamentos efetivamente registrados no Livro Caixa, organizados por mês.</p>
           </div>
-          <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={exportAnnual} disabled={!filteredPatients.length}>Exportar CSV</Button>
+          <Button variant="outline" size="sm" iconLeft={<Download size={14} />} onClick={exportAnnual} loading={exporting} disabled={!filteredPatients.length || exporting}>Exportar relatório</Button>
         </div>
 
         <FilterLine className="border-b border-slate-100 px-4 py-2.5">

@@ -54,10 +54,10 @@ export function buildIdentity(profile: any, logo: LogoImage | null): Identity {
   const loc = extractCityUf(addr, pick(pf.city), pick(pf.state));
   const zip = pick(pf.zip_code, pf.address_zip);
   const clinic: ClinicInfo = {
-    name: pick(pf.company_name, pf.name) || 'Clínica',
+    name: pick(pf.company_name, pf.tenant_name, pf.name) || 'Clínica',
     legalName: pick(pf.legal_name, pf.razao_social, pf.corporate_name),
-    cnpj: pick(pf.cnpj) ? fmtDoc(pick(pf.cnpj)) : '',
-    phone: pick(pf.phone),
+    cnpj: pick(pf.cnpj, pf.tenant_cnpj) ? fmtDoc(pick(pf.cnpj, pf.tenant_cnpj)) : '',
+    phone: pick(pf.phone, pf.tenant_phone),
     email: pick(pf.email),
     address: [addr, zip && !addr.includes(zip) ? `CEP ${zip}` : ''].filter(Boolean).join(', '),
     website: pick(pf.website, pf.site),

@@ -59,6 +59,7 @@ router.get('/me', async (req, res) => {
               u.professional_area_id, u.registry_number,
               p.permissions as profile_permissions, p.slug as profile_slug,
               pl.features as plan_features, pl.id as plan_id, pl.name as plan_name, pl.price as plan_price,
+              t.name as tenant_name, t.cnpj_cpf as tenant_cnpj, t.phone as tenant_phone,
               t.trial_ends_at, t.expires_at as subscription_expires_at, t.status as tenant_status,
               t.nfse_enabled, t.rs_receipt_enabled,
               pa.slug as area_slug, pa.name as area_name, pa.category as area_category,
