@@ -1,7 +1,9 @@
 import { fetchIdentity } from '../Documents/clinicIdentity';
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-const BRL_FMT = '#.##0,00\ "R$"';
+// O arquivo XLSX usa o padrão interno do Excel (ponto decimal e vírgula de milhar).
+// O Excel aplica o idioma pt-BR ao abrir: "R$" vem antes do valor e zeros viram traço.
+const BRL_FMT = '"R$" #,##0.00;[Red]"-R$" #,##0.00;-';
 
 export interface PatientReceivablesExportRow {
   patient_name: string;
@@ -137,46 +139,74 @@ export async function exportPatientReceivablesReport(
   subtitle.alignment = { vertical: 'middle', indent: 1 };
   summary.getRow(2).height = 23;
 
+  const cnpjCpf = formatCnpjCpf(clinic?.cnpj);
+  const documentLabel = cnpjCpf.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ';
+  const identityRange = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  for (let row = 4; row <= 10; row += 1) identityRange.forEach(column => {
+    const cell = summary.getCell(`${column}${row}`);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: row === 4 ? 'FFEEF2FF' : 'FFFAFCFF' } };
+    addBorder(cell);
+  });
+
   if (clinic?.logo?.dataUrl) {
     try {
       const logoId = workbook.addImage({
         base64: clinic.logo.dataUrl,
         extension: clinic.logo.format === 'JPEG' ? 'jpeg' : 'png',
       });
-      summary.addImage(logoId, { tl: { col: 11.5, row: 0.2 }, ext: { width: 105, height: 46 } });
+      // O logo pertence ao cartão de identificação da clínica, e não fica solto no título.
+      summary.addImage(logoId, { tl: { col: 0.35, row: 3.45 }, ext: { width: 116, height: 58 } });
     } catch { /* arquivo de logo inválido não impede a exportação */ }
   }
+  summary.mergeCells('C4:G4');
+  const clinicName = summary.getCell('C4');
+  clinicName.value = clinic?.name || 'Clínica';
+  clinicName.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FF1E293B' } };
+  clinicName.alignment = { vertical: 'middle', indent: 1 };
 
-  const cnpjCpf = formatCnpjCpf(clinic?.cnpj);
-  const documentLabel = cnpjCpf.replace(/\D/g, '').length === 11 ? 'CPF' : 'CNPJ';
-  const clinicRows = [
-    ['Clínica', clinic?.name || 'Clínica'],
-    ['Razão social', clinic?.legalName || '—'],
-    [documentLabel, cnpjCpf || 'Não informado'],
-    ['Telefone', formatPhone(clinic?.phone) || 'Não informado'],
-    ['E-mail', clinic?.email || 'Não informado'],
-    ['Endereço', formatAddress(clinic?.address) || 'Não informado'],
-    ['Responsável', professional?.name || 'Não informado'],
-  ];
-  clinicRows.forEach(([label, value], index) => {
-    const row = 4 + index;
-    summary.mergeCells(`A${row}:B${row}`);
-    summary.mergeCells(`C${row}:G${row}`);
-    const labelCell = summary.getCell(`A${row}`);
-    labelCell.value = label;
-    labelCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF475569' } };
-    labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-    labelCell.alignment = { vertical: 'middle', indent: 1 };
-    const valueCell = summary.getCell(`C${row}`);
-    valueCell.value = value;
-    valueCell.font = { name: 'Calibri', size: 10, color: { argb: 'FF0F172A' } };
-    valueCell.alignment = { vertical: 'middle', indent: 1, wrapText: true };
-    ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(column => addBorder(summary.getCell(`${column}${row}`)));
-    summary.getRow(row).height = row === 9 ? 32 : 21;
-  });
+  summary.mergeCells('C5:G5');
+  const clinicLegal = summary.getCell('C5');
+  clinicLegal.value = clinic?.legalName || 'Dados institucionais da clínica';
+  clinicLegal.font = { name: 'Calibri', size: 9, color: { argb: 'FF64748B' } };
+  clinicLegal.alignment = { vertical: 'middle', indent: 1 };
 
-  summary.mergeCells('I4:J4');
-  summary.mergeCells('K4:N4');
+  summary.mergeCells('C6:E6');
+  summary.mergeCells('F6:G6');
+  const clinicDocument = summary.getCell('C6');
+  clinicDocument.value = `${documentLabel}: ${cnpjCpf || 'Não informado'}`;
+  clinicDocument.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF334155' } };
+  clinicDocument.alignment = { vertical: 'middle', indent: 1 };
+  const clinicPhone = summary.getCell('F6');
+  clinicPhone.value = formatPhone(clinic?.phone) || 'Telefone não informado';
+  clinicPhone.font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+  clinicPhone.alignment = { vertical: 'middle', indent: 1 };
+
+  summary.mergeCells('C7:G7');
+  const clinicEmail = summary.getCell('C7');
+  clinicEmail.value = clinic?.email || 'E-mail não informado';
+  clinicEmail.font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+  clinicEmail.alignment = { vertical: 'middle', indent: 1 };
+
+  summary.mergeCells('A8:G9');
+  const clinicAddress = summary.getCell('A8');
+  clinicAddress.value = `Endereço: ${formatAddress(clinic?.address) || 'Não informado'}`;
+  clinicAddress.font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+  clinicAddress.alignment = { vertical: 'middle', indent: 1, wrapText: true };
+
+  summary.mergeCells('A10:G10');
+  const clinicResponsible = summary.getCell('A10');
+  clinicResponsible.value = `Responsável: ${professional?.name || 'Não informado'}`;
+  clinicResponsible.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF334155' } };
+  clinicResponsible.alignment = { vertical: 'middle', indent: 1 };
+  summary.getRow(4).height = 24;
+  summary.getRow(5).height = 18;
+  summary.getRow(6).height = 20;
+  summary.getRow(7).height = 20;
+  summary.getRow(8).height = 20;
+  summary.getRow(9).height = 20;
+  summary.getRow(10).height = 20;
+
+  summary.mergeCells('I4:N4');
   const filterTitle = summary.getCell('I4');
   filterTitle.value = 'FILTROS APLICADOS';
   filterTitle.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF475569' } };
@@ -189,12 +219,16 @@ export async function exportPatientReceivablesReport(
     `Busca: ${filters.search || 'sem busca'}`,
     `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
   ].join('\n');
-  const filterValue = summary.getCell('K4');
+  summary.mergeCells('I5:N10');
+  const filterValue = summary.getCell('I5');
   filterValue.value = filtersText;
   filterValue.font = { name: 'Calibri', size: 10, color: { argb: 'FF0F172A' } };
   filterValue.alignment = { vertical: 'middle', indent: 1, wrapText: true };
-  ['I', 'J', 'K', 'L', 'M', 'N'].forEach(column => addBorder(summary.getCell(`${column}4`)));
-  summary.getRow(4).height = 86;
+  for (let row = 4; row <= 10; row += 1) ['I', 'J', 'K', 'L', 'M', 'N'].forEach(column => {
+    const cell = summary.getCell(`${column}${row}`);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: row === 4 ? 'FFF1F5F9' : 'FFFAFCFF' } };
+    addBorder(cell);
+  });
 
   const cards = [
     { label: 'TOTAL RECEBIDO', value: totalReceived, color: 'FF059669', background: 'FFECFDF5' },
