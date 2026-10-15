@@ -730,6 +730,7 @@ export const LivroCaixa: React.FC = () => {
   const [summary, setSummary]           = useState({ income: 0, expense: 0, balance: 0, pending: 0 });
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [searchQuery, setSearchQuery]   = useState('');
+  const [highlightTransactionId, setHighlightTransactionId] = useState<number | null>(null);
   const [flowFilter, setFlowFilter]     = useState<'all' | 'income' | 'expense'>('all');
   const [sortKey, setSortKey]           = useState<string>(() => localStorage.getItem('lc_sort_key') ?? 'date');
   const [sortOrder, setSortOrder]       = useState<'asc' | 'desc'>(() => (localStorage.getItem('lc_sort_order') as 'asc' | 'desc') ?? 'desc');
@@ -1147,10 +1148,12 @@ export const LivroCaixa: React.FC = () => {
   useEffect(() => {
     const m = searchParams.get('month');
     const y = searchParams.get('year');
+    const transactionId = Number(searchParams.get('transaction_id'));
     if (m && y) {
       setSelectedMonth({ month: Number(m), year: Number(y) });
       setView('detail');
     }
+    if (Number.isInteger(transactionId) && transactionId > 0) setHighlightTransactionId(transactionId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1261,12 +1264,14 @@ export const LivroCaixa: React.FC = () => {
     setSelectedMonth({ month, year });
     setView('detail');
     setSearchQuery('');
+    setHighlightTransactionId(null);
     setFlowFilter('all');
     setSearchParams({ month: String(month), year: String(year) });
   };
 
   const goToArchive = () => {
     setView('archive');
+    setHighlightTransactionId(null);
     setSearchParams({});
   };
 
@@ -1294,6 +1299,7 @@ export const LivroCaixa: React.FC = () => {
 
   const filtered = transactions
     .filter((tx) => {
+      if (highlightTransactionId !== null && tx.id !== highlightTransactionId) return false;
       if (flowFilter !== 'all' && tx.type !== flowFilter) return false;
       if (rsFilter !== 'all') {
         const eligible = isRsEligible(tx);
@@ -1337,7 +1343,7 @@ export const LivroCaixa: React.FC = () => {
     });
 
   // Reset page on filter/search change
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, flowFilter, rsFilter, selectedMonth]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, highlightTransactionId, flowFilter, rsFilter, selectedMonth]);
 
   const monthLabel = selectedMonth
     ? `${MONTH_NAMES[selectedMonth.month - 1]}-${selectedMonth.year}`
@@ -2317,6 +2323,23 @@ export const LivroCaixa: React.FC = () => {
           />
 
           <FilterLine>
+            {highlightTransactionId !== null && (
+              <div className="flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800">
+                Exibindo lançamento #{highlightTransactionId}
+                <button
+                  type="button"
+                  aria-label="Limpar filtro do lançamento"
+                  title="Limpar filtro do lançamento"
+                  onClick={() => {
+                    setHighlightTransactionId(null);
+                    if (selectedMonth) setSearchParams({ month: String(selectedMonth.month), year: String(selectedMonth.year) });
+                  }}
+                  className="rounded p-0.5 hover:bg-primary-100"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
             <FilterLineSection grow>
               <FilterLineItem grow minWidth={240}>
                 <FilterLineSearch value={searchQuery} onChange={setSearchQuery} placeholder="Buscar nos lançamentos..." />

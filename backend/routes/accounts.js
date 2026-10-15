@@ -721,6 +721,7 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
 
   let unmatchedCount = 0;
   let unmatchedAmount = 0;
+  const unmatchedTransactions = [];
   const addPayment = (payment) => {
     const patient = byPatient.get(resolvePatientId(payment));
     const date = String(payment.payment_date || '');
@@ -730,6 +731,12 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
     if (!patient) {
       unmatchedCount += 1;
       unmatchedAmount = Math.round((unmatchedAmount + amount) * 100) / 100;
+      unmatchedTransactions.push({
+        id: payment.id,
+        payment_date: date,
+        amount,
+        description: payment.description || 'Lançamento no Livro Caixa',
+      });
       return;
     }
     const detail = {
@@ -771,7 +778,11 @@ router.get('/patient-receivables/annual', authMiddleware, canView, wrap(async (r
     year,
     years,
     patients: Array.from(byPatient.values()),
-    reconciliation: { unmatched_count: unmatchedCount, unmatched_amount: unmatchedAmount },
+    reconciliation: {
+      unmatched_count: unmatchedCount,
+      unmatched_amount: unmatchedAmount,
+      unmatched_transactions: unmatchedTransactions,
+    },
   });
 }));
 

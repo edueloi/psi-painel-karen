@@ -72,6 +72,12 @@ interface AnnualResponse {
   reconciliation?: {
     unmatched_count: number;
     unmatched_amount: number;
+    unmatched_transactions: Array<{
+      id: number;
+      payment_date: string;
+      amount: number;
+      description: string;
+    }>;
   };
 }
 
@@ -116,6 +122,7 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
   const [page, setPage] = useState(Math.max(1, Number(searchParams.get('pagina')) || 1));
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [detail, setDetail] = useState<DetailSelection | null>(null);
+  const [isReconciliationOpen, setIsReconciliationOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const updateGridUrl = useCallback((updates: Record<string, string | null>) => {
@@ -326,8 +333,9 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
         </div>
 
         {(reconciliation?.unmatched_count || 0) > 0 && (
-          <div className="mx-4 mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <strong>{reconciliation?.unmatched_count} lançamento{reconciliation?.unmatched_count === 1 ? '' : 's'}</strong> do Livro Caixa, no total de <strong>{formatCurrency(reconciliation?.unmatched_amount || 0)}</strong>, está sem paciente identificado e não foi incluído em uma linha de paciente. Identifique-o no Livro Caixa para concluir a conciliação.
+          <div className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span><strong>{reconciliation?.unmatched_count} lançamento{reconciliation?.unmatched_count === 1 ? '' : 's'}</strong> do Livro Caixa, no total de <strong>{formatCurrency(reconciliation?.unmatched_amount || 0)}</strong>, está sem paciente identificado e não foi incluído em uma linha de paciente.</span>
+            <Button variant="outline" size="xs" iconLeft={<Eye size={13} />} onClick={() => setIsReconciliationOpen(true)}>Ver lançamento</Button>
           </div>
         )}
 
@@ -489,6 +497,39 @@ export const PatientReceivables: React.FC<{ canManage: boolean }> = () => {
               </button>
             ))}
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isReconciliationOpen}
+        onClose={() => setIsReconciliationOpen(false)}
+        size="lg"
+        title="Lançamentos sem paciente identificado"
+        subtitle="Confira o registro e abra-o no Livro Caixa para selecionar o paciente correto."
+        footer={<ModalFooter align="right"><Button variant="outline" size="sm" onClick={() => setIsReconciliationOpen(false)}>Fechar</Button></ModalFooter>}
+      >
+        <div className="space-y-2">
+          {(reconciliation?.unmatched_transactions || []).map(transaction => (
+            <div key={transaction.id} className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-slate-200 px-3 py-3">
+              <div className="min-w-44 flex-1">
+                <p className="text-xs font-medium text-slate-800">{transaction.description}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">ID do Livro Caixa: #{transaction.id} · Data: {formatDateBR(transaction.payment_date)}</p>
+              </div>
+              <span className="text-sm font-semibold text-emerald-700">{formatCurrency(transaction.amount)}</span>
+              <Button
+                variant="outline"
+                size="xs"
+                iconLeft={<BookOpen size={13} />}
+                onClick={() => {
+                  const [transactionYear, transactionMonth] = transaction.payment_date.split('-');
+                  setIsReconciliationOpen(false);
+                  navigate(`/livro-caixa?month=${Number(transactionMonth)}&year=${transactionYear}&transaction_id=${transaction.id}`);
+                }}
+              >
+                Abrir no Livro Caixa
+              </Button>
+            </div>
+          ))}
         </div>
       </Modal>
 
