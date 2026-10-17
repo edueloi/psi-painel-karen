@@ -21,8 +21,50 @@ const parseAiJson = (raw) => {
 };
 const AI_UNAVAILABLE = 'A IA está indisponível no momento. Seus dados foram mantidos; tente novamente em instantes.';
 
+/* Normas de registro em psicologia aplicadas a TODO texto de prontuário gerado por IA.
+   Base: Código de Ética Profissional do Psicólogo (Res. CFP 010/2005, sigilo e cuidado com
+   informações de terceiros), Res. CFP 06/2019 (documentos escritos) e registro documental
+   (descrição objetiva, só o necessário). Revisar com a assessoria do CRP quando as resoluções mudarem. */
+const CFP_NORMS = `NORMAS DE REGISTRO EM PSICOLOGIA (CFP/CRP) — obrigatórias em todo o texto gerado, inclusive dentro dos campos do JSON (o formato de saída exigido acima continua valendo):
+1. NUNCA escreva nomes próprios, apelidos ou iniciais de pessoas — nem do paciente, nem de terceiros (cônjuge, filhos, pais, familiares, amigos, colegas, chefia, outros profissionais). Identifique SEMPRE pelo vínculo ou papel: "o paciente"/"a paciente", "o esposo", "a esposa", "a mãe", "o filho", "a chefia", "um colega de trabalho". Se o material der o nome e indicar o vínculo, use só o vínculo. Se o vínculo ou gênero não estiver claro, use forma neutra ("cônjuge", "familiar", "pessoa do convívio").
+2. Omita também dados que identificam indiretamente: endereços, telefones, e-mails, CPF/RG, nomes de empresas, escolas, igrejas, clínicas, bairros e cidades pequenas. Generalize ("empresa em que trabalha", "escola do filho").
+3. Mínimo necessário: registre apenas o indispensável à finalidade do atendimento. Não registre detalhes íntimos ou sexuais sem relevância clínica, nem informações de terceiros além do necessário (e nunca identificando-os).
+4. Descrição objetiva e técnica, sem juízo de valor, sem opinião pessoal e sem adjetivos pejorativos. Evite transcrição literal; use aspas só para trechos curtos clinicamente indispensáveis.
+5. Diferencie relato do paciente ("refere", "relata") de observação do profissional. Não registre diagnóstico, CID ou conduta que o profissional não tenha informado.
+6. Se não for possível cumprir uma regra sem perder informação clínica essencial, mantenha o mínimo e acrescente "[REVISAR]".`;
+
+/** Nomes do paciente (cadastro) para a trava determinística pós-IA. */
+async function patientNameTokens(req, patientId) {
+  if (!patientId) return [];
+  try {
+    const [[p]] = await db.query('SELECT name FROM patients WHERE id = ? AND tenant_id = ?', [patientId, req.user.tenant_id]);
+    return nameTokens(p && p.name);
+  } catch { return []; }
+}
+const nameTokens = (fullName) => {
+  const full = String(fullName || '').trim();
+  if (!full) return [];
+  const parts = full.split(/\s+/).filter(t => t.length >= 4);
+  return Array.from(new Set([full, ...parts]));
+};
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Troca o nome do paciente por "o(a) paciente" — rede de segurança caso a IA ignore a regra 1. */
+function scrubNames(text, tokens) {
+  if (typeof text !== 'string' || !text || !tokens || !tokens.length) return text;
+  const pattern = new RegExp(`(?<![\\p{L}])(?:${tokens.sort((a, b) => b.length - a.length).map(escapeRegExp).join('|')})(?![\\p{L}])`, 'giu');
+  return text.replace(pattern, (match, offset, whole) => {
+    const isFull = match.includes(' ');
+    // Palavra comum (ex.: "rosa") só é trocada se vier capitalizada como nome próprio.
+    if (!isFull && match[0] === match[0].toLowerCase()) return match;
+    const atStart = offset === 0 || /[.!?]\s*$/.test(whole.slice(0, offset));
+    return atStart ? 'O(A) paciente' : 'o(a) paciente';
+  });
+}
+
 /** Chama o endpoint interno de IA com a mesma sessão do usuário. Lança Error({status,message}) amigável. */
 async function callAi(req, { system, prompt, max_tokens = 2500, temperature = 0.2 }) {
+  system = `${system}\n\n${CFP_NORMS}`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 90000);
   try {
@@ -358,7 +400,13 @@ async function organizeDraft(req, { draft_content, patient_id, record_id, source
   });
   const parsed = parseAiJson(raw);
   if (!parsed) { const e = new Error('A IA devolveu uma resposta inesperada. Tente novamente.'); e.status = 502; throw e; }
-  return { organized: sanitizeOrganized(parsed), used: ctx.used };
+  const organized = sanitizeOrganized(parsed);
+  const tokens = await patientNameTokens(req, patient_id);
+  Object.keys(organized).forEach((k) => {
+    if (typeof organized[k] === 'string') organized[k] = scrubNames(organized[k], tokens);
+    else if (Array.isArray(organized[k])) organized[k] = organized[k].map(v => scrubNames(v, tokens));
+  });
+  return { organized, used: ctx.used };
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -547,6 +595,9 @@ router.post('/fill-evolution', authMiddleware, checkPermission('access_ai_featur
     });
     const g2 = pickFrom(parsed.objetivos, goalList);
     if (g2.length) s.objetivos = g2;
+
+    const nameList = await patientNameTokens(req, patient_id);
+    Object.keys(s).forEach((k) => { if (typeof s[k] === 'string') s[k] = scrubNames(s[k], nameList); });
 
     const meta = {};
     const note = (key, citeKey) => {
@@ -1307,7 +1358,7 @@ router.post('/generate-synthesis', authMiddleware, checkPermission('access_ai_fe
     if (!patient_id) return res.status(400).json({ error: 'patient_id obrigatório' });
 
     // SEGURANÇA: o paciente precisa ser desta clínica
-    const [[patient]] = await db.query('SELECT id FROM patients WHERE id = ? AND tenant_id = ?', [patient_id, req.user.tenant_id]);
+    const [[patient]] = await db.query('SELECT id, name FROM patients WHERE id = ? AND tenant_id = ?', [patient_id, req.user.tenant_id]);
     if (!patient) return res.status(404).json({ error: 'Paciente não encontrado nesta clínica.' });
 
     // Enriquecer o contexto com dados reais do banco se as fontes foram informadas
@@ -1351,7 +1402,7 @@ router.post('/generate-synthesis', authMiddleware, checkPermission('access_ai_fe
         'Authorization': req.headers.authorization 
       },
       body: JSON.stringify({
-        system: CLINICAL_SYNTHESIS_PROMPT,
+        system: `${CLINICAL_SYNTHESIS_PROMPT}\n${CFP_NORMS.replace(' (o formato de saída exigido acima continua valendo)', ' (mantenha a estrutura Markdown exigida acima)')}`,
         prompt: `Abordagem Selecionada: ${sources.clipText(approach, 120)}\n\n${enrichedContext}`,
         max_tokens: 2500,
         temperature: 0.3
@@ -1365,7 +1416,7 @@ router.post('/generate-synthesis', authMiddleware, checkPermission('access_ai_fe
     }
 
     const aiData = await aiResp.json();
-    const content = aiData.text || aiData.content || aiData.result || '';
+    const content = scrubNames(aiData.text || aiData.content || aiData.result || '', nameTokens(patient.name));
 
     if (!content || content.length < 50) {
       console.error('IA retornou conteúdo vazio ou muito curto:', content);
