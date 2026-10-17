@@ -93,4 +93,55 @@ async function transcribeAudioBuffer(buffer, originalName, mimeType, language = 
   return transcribeOneAudio(buffer, originalName, mimeType, language, prompt);
 }
 
-module.exports = { transcribeAudioBuffer };
+// Correção editorial automática (texto → texto, custa centavos por sessão).
+// Roda "por baixo dos panos" após cada trecho transcrito; qualquer falha ou
+// resposta suspeita devolve o texto original, então nunca bloqueia a sessão.
+const REFINE_MODEL = process.env.OPENAI_TRANSCRIPT_REFINE_MODEL || 'gpt-4o-mini';
+const REFINE_DISABLED = String(process.env.OPENAI_TRANSCRIPT_REFINE || '').toLowerCase() === 'off';
+const REFINE_MIN_CHARS = 40;
+const REFINE_TIMEOUT_MS = 30000;
+
+const REFINE_SYSTEM_PROMPT =
+  'Você corrige transcrições automáticas de sessões de psicologia em português brasileiro.\n' +
+  'Regras obrigatórias:\n' +
+  '- Preserve fielmente fatos, falas, hesitações relevantes e o sentido; é a fala de uma pessoa só.\n' +
+  '- Corrija apenas pontuação, capitalização, ortografia, concordância e erros evidentes de reconhecimento ' +
+  '(palavras trocadas por outras foneticamente parecidas, termos clínicos e nomes de medicamentos mal escritos).\n' +
+  '- Remova somente artefatos inequívocos (ex.: "legendas pela comunidade") e repetições idênticas acidentais.\n' +
+  '- Nunca invente, resuma, interprete, complete lacunas nem altere o sentido clínico.\n' +
+  '- Se um trecho for ambíguo, mantenha-o como recebido.\n' +
+  '- Responda somente com o texto corrigido, sem comentários, título ou markdown.';
+
+async function refineTranscript(text) {
+  const original = String(text || '').trim();
+  if (REFINE_DISABLED || original.length < REFINE_MIN_CHARS) return original;
+  try {
+    const completion = await getClient().chat.completions.create(
+      {
+        model: REFINE_MODEL,
+        temperature: 0,
+        messages: [
+          { role: 'system', content: REFINE_SYSTEM_PROMPT },
+          { role: 'user', content: `<transcricao>\n${original}\n</transcricao>` },
+        ],
+      },
+      { timeout: REFINE_TIMEOUT_MS, maxRetries: 0 },
+    );
+    const refined = String(completion?.choices?.[0]?.message?.content || '')
+      .replace(/^\s*<transcricao>\s*|\s*<\/transcricao>\s*$/g, '')
+      .trim();
+    // Salvaguarda: a correção não pode encurtar/alongar demais o texto — se o
+    // modelo resumiu ou inventou, preservamos o que o Whisper entregou.
+    const ratio = refined.length / original.length;
+    if (!refined || ratio < 0.7 || ratio > 1.3) {
+      console.warn(`[Transcrição] Correção descartada (proporção ${ratio.toFixed(2)}); mantendo texto original.`);
+      return original;
+    }
+    return refined;
+  } catch (error) {
+    console.warn('[Transcrição] Correção automática falhou; mantendo texto original:', error?.message || error);
+    return original;
+  }
+}
+
+module.exports = { transcribeAudioBuffer, refineTranscript };

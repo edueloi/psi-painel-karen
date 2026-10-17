@@ -6,7 +6,7 @@ const xlsx = require('xlsx');
 const pdfParse = require('pdf-parse');
 const db = require('../db');
 const { checkPermission } = require('../middleware/auth');
-const { transcribeAudioBuffer } = require('../services/audioTranscription');
+const { transcribeAudioBuffer, refineTranscript } = require('../services/audioTranscription');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -1321,7 +1321,8 @@ router.post('/transcribe-audio', checkPermission('access_ai_features'), (req, re
       return res.status(422).json({ error: 'Nenhuma fala detectada no áudio.' });
     }
 
-    res.json({ text: transcription });
+    // Correção automática após o filtro de alucinação (que precisa do texto bruto).
+    res.json({ text: await refineTranscript(transcription) });
   } catch (err) {
     console.error('[Whisper] Erro na transcrição:', err);
     res.status(500).json({ error: 'Erro ao transcrever áudio: ' + (err.message || err) });

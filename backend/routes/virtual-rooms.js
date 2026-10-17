@@ -8,7 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const notificationService = require('../services/notificationService');
-const { transcribeAudioBuffer } = require('../services/audioTranscription');
+const { transcribeAudioBuffer, refineTranscript } = require('../services/audioTranscription');
 const { getFrontendUrl } = require('../utils/publicUrl');
 
 const BOT_URL = 'http://127.0.0.1:3014/bot-api';
@@ -824,13 +824,14 @@ router.post('/public/:id/transcribe', transcribeAudioUpload.single('audio'), asy
     if (!approvedGuest) return res.status(403).json({ error: 'Participante não autorizado para esta sala.' });
     if (!req.file) return res.status(400).json({ error: 'Arquivo de áudio não enviado.' });
 
-    const text = await transcribeAudioBuffer(
+    const rawText = await transcribeAudioBuffer(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
       req.body?.language || 'pt',
     );
-    if (!text) return res.json({ text: '' });
+    if (!rawText) return res.json({ text: '' });
+    const text = await refineTranscript(rawText);
 
     const speakerName = String(req.body?.speaker_name || approvedGuest.guest_name || 'Paciente').slice(0, 150);
     const sessionKey = String(req.body?.session_key || key).slice(0, 190);
