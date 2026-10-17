@@ -2517,7 +2517,9 @@ const RoomInner: React.FC<{
                   try {
                     const rows = await api.get<any[]>(`/virtual-rooms/${roomId}/sessions/${sessionKeyRef.current}/transcript`);
                     transcript = (rows || [])
-                      .map(r => `${r.speaker_name || (r.speaker_role === 'host' ? 'Profissional' : 'Paciente')}: ${r.text}`)
+                      // Rótulo por papel, nunca pelo nome: o rascunho vai para o prontuário
+                      // e não pode carregar o nome do paciente (normas CFP/CRP).
+                      .map(r => `${r.speaker_role === 'host' ? 'Profissional' : 'Paciente'}: ${r.text}`)
                       .join('\n');
                     // Uma única revisão ao fim da sessão preserva o contexto e
                     // evita uma chamada Gemini para cada segmento de 8 minutos.
