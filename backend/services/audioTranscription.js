@@ -11,6 +11,10 @@ const execFileAsync = promisify(execFile);
 const MAX_OPENAI_AUDIO_BYTES = 24 * 1000 * 1000;
 const SEGMENT_SECONDS = 10 * 60;
 
+// Modelo mais barato por padrão (metade do preço por minuto do whisper-1).
+// Para voltar ao anterior: OPENAI_TRANSCRIPTION_MODEL=whisper-1 no .env.
+const TRANSCRIPTION_MODEL = process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe';
+
 let client;
 function getClient() {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY não configurada');
@@ -33,7 +37,7 @@ async function transcribeOneAudio(buffer, originalName, mimeType, language, prom
   const file = await toFile(buffer, `audio.${ext}`, { type: mimeType || 'audio/webm' });
   const result = await getClient().audio.transcriptions.create({
     file,
-    model: 'whisper-1',
+    model: TRANSCRIPTION_MODEL,
     language,
     response_format: 'text',
     prompt: prompt || CLINICAL_PROMPT,
