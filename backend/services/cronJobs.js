@@ -931,6 +931,31 @@ async function autoConfirmAppointments() {
   }
 }
 
+// ─── JOB: Remove comandas abertas há 3+ meses que nunca foram usadas ─────────
+// "Nunca usada" = sem agendamento vinculado, sem pagamento, sem lançamento
+// financeiro e sem sessão consumida. Qualquer vestígio de uso preserva a comanda.
+async function cleanupUnusedComandas() {
+  try {
+    const [result] = await db.query(`
+      DELETE FROM comandas
+      WHERE status = 'open'
+        AND created_at < DATE_SUB(NOW(), INTERVAL 3 MONTH)
+        AND COALESCE(paid_value, 0) = 0
+        AND COALESCE(sessions_used, 0) = 0
+        AND financial_transaction_id IS NULL
+        AND livrocaixa_tx_id IS NULL
+        AND NOT EXISTS (SELECT 1 FROM appointments a WHERE a.comanda_id = comandas.id)
+        AND NOT EXISTS (SELECT 1 FROM comanda_payments cp WHERE cp.comanda_id = comandas.id)
+        AND NOT EXISTS (SELECT 1 FROM financial_transactions ft WHERE ft.comanda_id = comandas.id)
+    `);
+    if (result.affectedRows > 0) {
+      console.log(`🧹 [Cron] ${result.affectedRows} comandas abertas há mais de 3 meses e nunca usadas foram removidas.`);
+    }
+  } catch (err) {
+    console.error('❌ Erro no job de limpeza de comandas:', err.message);
+  }
+}
+
 // ─── Garante que as colunas de tracking WhatsApp existam na tabela appointments ──
 async function ensureAppointmentSchema() {
   const cols = [
@@ -980,7 +1005,8 @@ function startCronJobs() {
   cron.schedule('* * * * *', () => withLock('dailyTasks', checkDailyTasks), { timezone: 'America/Sao_Paulo' });
   cron.schedule('*/30 * * * *', () => withLock('autoConfirm', autoConfirmAppointments), { timezone: 'America/Sao_Paulo' });
   cron.schedule('0 8 * * *', () => withLock('scaleResend', checkClinicalScaleResends), { timezone: 'America/Sao_Paulo' });
-  
+  cron.schedule('30 3 * * *', () => withLock('cleanupComandas', cleanupUnusedComandas), { timezone: 'America/Sao_Paulo' });
+
   autoConfirmAppointments(); // roda uma vez na inicialização
 
   // Jobs de email só rodam se as variáveis de ambiente estiverem configuradas
@@ -1309,6 +1335,6 @@ function getRandomPhrase() {
 
 module.exports = {
   startCronJobs, checkAppointmentReminders, checkDailyTasks, sendWeeklyReport, sendMonthlyReport,
-  autoConfirmAppointments, checkClinicalScaleResends, checkSubscriptionReminders,
+  autoConfirmAppointments, cleanupUnusedComandas, checkClinicalScaleResends, checkSubscriptionReminders,
   enqueueProfessionalWpp, getMasterTenantId, getMasterWppPrefs, DEFAULT_MASTER_WPP_PREFS,
 };

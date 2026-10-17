@@ -1269,7 +1269,12 @@ router.put('/:id', checkPermission('edit_appointment'), async (req, res) => {
         'SELECT patient_id FROM comandas WHERE id = ? AND tenant_id = ?',
         [finalComandaId, req.user.tenant_id]
       );
-      if (!cmdRow || String(cmdRow.patient_id) !== String(finalPatientId)) {
+      // Comanda sem paciente (patient_id NULL) não pertence a ninguém: mantém o vínculo.
+      // Só desvincula se a comanda não existe mais ou é de outro paciente.
+      const cmdHasOtherOwner = cmdRow && cmdRow.patient_id != null
+        && String(cmdRow.patient_id) !== String(finalPatientId);
+      if (!cmdRow || cmdHasOtherOwner) {
+        console.warn(`[appointments] PUT ${req.params.id}: desvinculando comanda ${finalComandaId} (${!cmdRow ? 'comanda inexistente' : `pertence ao paciente ${cmdRow.patient_id}, sessão é do ${finalPatientId}`})`);
         finalComandaId = null;
       }
     }
