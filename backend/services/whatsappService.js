@@ -739,8 +739,28 @@ class WhatsAppManager {
     if (data.status !== 'connected' || !data.sock) return 'Erro ao enviar via WhatsApp: bot desconectado';
     if (!filePath || !fs.existsSync(filePath)) return 'Erro ao enviar via WhatsApp: arquivo não encontrado';
     try {
-      const formattedTo = normalizeDestination(to);
+      let formattedTo = normalizeDestination(to);
       if (!formattedTo) return 'Erro ao enviar via WhatsApp: destino inválido';
+
+      // Mesma resolução do sendReminder: descobre o JID realmente registrado (corrige o
+      // 9º dígito) e detecta número sem WhatsApp. Sem isso, o envio vai para um JID
+      // inexistente, o servidor aceita e a nota aparece como "enviada" sem nunca chegar.
+      if (formattedTo.endsWith('@s.whatsapp.net')) {
+        try {
+          const digits = formattedTo.replace('@s.whatsapp.net', '');
+          const results = await data.sock.onWhatsApp(...brazilJidCandidates(digits));
+          const found = Array.isArray(results) ? results.find(r => r && r.exists && r.jid) : null;
+          if (found) {
+            formattedTo = found.jid;
+          } else if (Array.isArray(results)) {
+            console.warn(`[sendDocument] Número sem WhatsApp: "${to}" (tenant ${tenantId})`);
+            return `Erro ao enviar via WhatsApp: número ${to} não possui WhatsApp`;
+          }
+        } catch (verifyErr) {
+          console.warn(`[sendDocument] Falha ao verificar JID de "${to}" (tenant ${tenantId}): ${verifyErr.message} — enviando com JID normalizado.`);
+        }
+      }
+
       await data.sock.sendMessage(formattedTo, {
         document: { url: filePath },
         mimetype: mimeType || 'application/octet-stream',
