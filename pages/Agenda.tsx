@@ -579,6 +579,7 @@ export const Agenda: React.FC = () => {
   };
 
   useEffect(() => {
+    let cancelled = false;
     const fetchComandas = async () => {
         const pId = selectedApt?.patient_id || formData.patient_id;
         if (!pId || isNaN(parseInt(String(pId)))) {
@@ -589,16 +590,21 @@ export const Agenda: React.FC = () => {
             // include_id garante que a comanda já vinculada a esta sessão apareça
             // mesmo se estiver 'closed' (ex: pacote de 1 sessão já Realizada) —
             // sem isso o card "Comanda Vinculada" ficava preso em "Carregando...".
-            const params = formData.comanda_id ? { include_id: String(formData.comanda_id) } : undefined;
+            // No modal de detalhe o formData ainda não foi preenchido (só na edição),
+            // então a comanda vem do próprio agendamento aberto; senão o detalhe
+            // mostrava "Sem comanda" até o usuário clicar em Editar.
+            const linkedComandaId = selectedApt?.comanda_id || formData.comanda_id;
+            const params = linkedComandaId ? { include_id: String(linkedComandaId) } : undefined;
             const data = await api.get<any[]>(`/finance/comandas/patient/${pId}`, params);
-            setPatientComandas(data || []);
+            if (!cancelled) setPatientComandas(data || []);
         } catch (err) {
             console.error('Erro ao buscar comandas:', err);
-            setPatientComandas([]);
+            if (!cancelled) setPatientComandas([]);
         }
     };
     fetchComandas();
-  }, [formData.patient_id, selectedApt?.patient_id, formData.comanda_id]);
+    return () => { cancelled = true; };
+  }, [formData.patient_id, selectedApt?.patient_id, selectedApt?.comanda_id, formData.comanda_id]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -3735,7 +3741,12 @@ export const Agenda: React.FC = () => {
                     <ChevronRight size={10} className="text-emerald-400 ml-0.5" />
                   </button>
                 )}
-                {!cmnd && currentStatus !== 'cancelled' && (
+                {!cmnd && apt.comanda_id && (
+                  <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+                    <span className="text-[11px] font-semibold text-slate-400">Carregando comanda…</span>
+                  </div>
+                )}
+                {!cmnd && !apt.comanda_id && currentStatus !== 'cancelled' && (
                   <button onClick={openNewComandaModal}
                     title="Este agendamento não tem comanda vinculada — clique para criar"
                     className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 hover:bg-amber-100 transition-colors">
