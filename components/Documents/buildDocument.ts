@@ -11,6 +11,7 @@ import {
 const TYPE_TITLES: Record<string, string> = {
   atestado: 'Atestado', declaracao: 'Declaração', encaminhamento: 'Encaminhamento', recibo: 'Recibo',
   prontuario: 'Evolução de Prontuário', ficha: 'Ficha de Anamnese', laudo: 'Laudo',
+  informativo: 'Documento Informativo',
 };
 
 /** "Recibo (Valor)" -> "Recibo". Sem tipo conhecido usa o título do modelo (sem parênteses). */
@@ -21,7 +22,7 @@ export function documentTitle(templateTitle: string, docType?: string | null): s
 }
 
 /** Documentos em que o corpo já cita nome/CPF: não repete a tabela de identificação. */
-const NO_IDENTIFICATION = new Set(['recibo', 'atestado', 'declaracao']);
+const NO_IDENTIFICATION = new Set(['recibo', 'atestado', 'declaracao', 'informativo']);
 
 export interface VariableInput {
   patientName: string; patientCpf?: string; patientAddress?: string; patientAge?: string | number;

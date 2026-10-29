@@ -263,50 +263,15 @@ export const DocGenerator: React.FC = () => {
     [patients, selectedPatientId]
   );
 
+  // Antes, com uma área selecionada, só passavam categorias/modelos cujo nome estava numa
+  // lista fixa (relatórios, encaminhamento, financeiro, oficiais...) — qualquer categoria
+  // criada pelo usuário (ex.: "Manuais e Instrumentos") sumia do filtro e dos modelos.
   const filteredTemplates = useMemo(() => {
-    let tpls = templates;
-    if (selectedArea) {
-        const areaLabel = selectedArea.toLowerCase();
-        if (selectedCategoryId) {
-            tpls = tpls.filter(t => String(t.category_id || '') === String(selectedCategoryId));
-        } else {
-            tpls = tpls.filter(t => {
-                // Se não tiver categoria, mostra por padrão ou se o título bater
-                if (!t.category_id) return true;
-                
-                const cat = categories.find(c => String(c.id) === String(t.category_id));
-                const catName = cat?.name.toLowerCase() || '';
-                const title = t.title.toLowerCase();
-                
-                return catName.includes(areaLabel) || 
-                       title.includes(areaLabel) || 
-                       catName.includes('relatórios') || 
-                       catName.includes('encaminhamento') || 
-                       catName.includes('financeiro') || 
-                       catName.includes('oficiais') ||
-                       title.includes('encaminhamento') ||
-                       title.includes('recibo') ||
-                       title.includes('atestado');
-            });
-        }
-    } else if (selectedCategoryId) {
-        tpls = tpls.filter(t => String(t.category_id || '') === String(selectedCategoryId));
-    }
-    return tpls;
-  }, [templates, selectedCategoryId, selectedArea, categories]);
+    if (!selectedCategoryId) return templates;
+    return templates.filter(t => String(t.category_id || '') === String(selectedCategoryId));
+  }, [templates, selectedCategoryId]);
 
-  const filteredCategories = useMemo(() => {
-    if (!selectedArea) return categories;
-    const areaLabel = selectedArea.toLowerCase();
-    return categories.filter(c => {
-      const name = c.name.toLowerCase();
-      return name.includes(areaLabel) || 
-             name.includes('relatórios') || 
-             name.includes('encaminhamento') || 
-             name.includes('financeiro') || 
-             name.includes('oficiais');
-    });
-  }, [categories, selectedArea]);
+  const filteredCategories = categories;
 
   const selectedTemplate = useMemo(
     () => templates.find(t => t.id === selectedTemplateId) || null,
@@ -382,6 +347,9 @@ export const DocGenerator: React.FC = () => {
   const signatureRegistry = withRegistryLabel(areaRegistry, (selectedTemplate?.signature_crp || '').trim() || professionalCrp.trim());
 
   const isAtestado = !!selectedTemplate && isAtestadoType(selectedTemplate.doc_type, selectedTemplate.title);
+  // Documento informativo (manual, orientação, instrumento): não é sobre um paciente, então
+  // o paciente é opcional e nada é exigido além do que o próprio texto usa.
+  const isInformativo = (selectedTemplate?.doc_type || '').toLowerCase() === 'informativo';
   const norm = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
   // a imagem é do usuário logado: não é inserida (nem duplicada) quando o signatário do documento é outra pessoa
   const signerIsMe = !!norm(signatureName) && norm(signatureName) === norm(String(profile?.name || ''));
@@ -417,7 +385,7 @@ export const DocGenerator: React.FC = () => {
     const applied = applyTemplateVariables(selectedTemplate.template_body, values);
     // atestado estruturado: o corpo vem dos campos (texto final editável); pendências ficam em atestErrs
     const missing = isAtestado ? [] : [...applied.missing];
-    if (!isAtestado && !effectivePatientName && !missing.includes('patient_name')) missing.unshift('patient_name');
+    if (!isAtestado && !isInformativo && !effectivePatientName && !missing.includes('patient_name')) missing.unshift('patient_name');
     const model = buildDocumentModel({
       title: selectedTemplate.title,
       docType: selectedTemplate.doc_type,
@@ -433,7 +401,7 @@ export const DocGenerator: React.FC = () => {
       footerLogo: footerLogoImg,
     });
     return { model, missing };
-  }, [selectedTemplate, effectivePatientName, effectiveCpf, patient, professionalName, professionalCrp, professionalRegistry, docDate, timeStart, timeEnd, amount, amountText, period, serviceName, city, identity, signatureName, signatureRegistry, extraValues, footerLogoImg, isAtestado, atestFinalText, sigImage]);
+  }, [selectedTemplate, effectivePatientName, effectiveCpf, patient, professionalName, professionalCrp, professionalRegistry, docDate, timeStart, timeEnd, amount, amountText, period, serviceName, city, identity, signatureName, signatureRegistry, extraValues, footerLogoImg, isAtestado, isInformativo, atestFinalText, sigImage]);
 
   const missing = doc?.missing || [];
   const missingLabels = missing.map(labelOfVariable).join(', ');
@@ -451,7 +419,7 @@ export const DocGenerator: React.FC = () => {
     }
   };
 
-  const openTemplateModal = (tpl?: DocTemplate) => {
+  const openTemplateModal = (tpl?: DocTemplate, newDocType: string = 'outros') => {
     if (tpl) {
       setEditingTemplateId(tpl.id);
       setTemplateTitle(tpl.title);
@@ -467,7 +435,7 @@ export const DocGenerator: React.FC = () => {
       setTemplateTitle('');
       setTemplateBody('');
       setTemplateCategoryId(selectedCategoryId || '');
-      setTemplateDocType('outros');
+      setTemplateDocType(newDocType);
       setTemplateHeaderLogo('');
       setTemplateFooterLogo('');
       setTemplateSignatureName(professionalName);
@@ -679,6 +647,14 @@ export const DocGenerator: React.FC = () => {
                 Categorias
               </Button>
               <Button
+                onClick={() => openTemplateModal(undefined, 'informativo')}
+                variant="outline"
+                size="sm"
+                iconLeft={<FileText size={14} />}
+              >
+                Documento livre
+              </Button>
+              <Button
                 onClick={() => openTemplateModal()}
                 variant="outline"
                 size="sm"
@@ -832,7 +808,7 @@ export const DocGenerator: React.FC = () => {
                     <div className="space-y-3">
                       <FormRow cols={2}>
                         <Combobox
-                          label="Paciente"
+                          label={isInformativo ? 'Paciente (opcional)' : 'Paciente'}
                           value={selectedPatientId}
                           onChange={(v) => {
                             const val = v as string;
@@ -1318,6 +1294,7 @@ export const DocGenerator: React.FC = () => {
                 { value: 'prontuario', label: 'Prontuário' },
                 { value: 'ficha', label: 'Ficha de Anamnese' },
                 { value: 'laudo', label: 'Laudo' },
+                { value: 'informativo', label: 'Documento informativo (sem paciente)' },
                 { value: 'outros', label: 'Outros' },
               ]}
             />
