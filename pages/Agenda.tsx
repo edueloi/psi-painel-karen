@@ -4543,18 +4543,15 @@ export const Agenda: React.FC = () => {
                         <div key={item.id || index} className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
-                            <p className="text-[11px] text-slate-400">{item.qty} × {formatCurrency(item.price)}</p>
+                            {/* Valor real cobrado: a linha já vem com o desconto aplicado (lineNet),
+                                então o unitário também. Antes mostrava R$ 130 × 4 = R$ 440 e ainda
+                                subtraía "Desconto − R$ 80" de novo, e a conta não fechava. */}
+                            <p className="text-[11px] text-slate-400">{item.qty} × {formatCurrency(Number(item.qty) > 0 ? lineNet / Number(item.qty) : item.price)}</p>
                           </div>
                           <span className="text-xs font-semibold text-slate-700 shrink-0">{formatCurrency(lineNet)}</span>
                         </div>
                       );
                     })}
-                    {discountAmt > 0 && (
-                      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-emerald-600">
-                        <span>Desconto{cmnd.discount_type === 'percentage' ? ` (${discountVal}%)` : ''}</span>
-                        <span className="font-semibold">− {formatCurrency(discountAmt)}</span>
-                      </div>
-                    )}
                     {(!cmnd.items || cmnd.items.length === 0) && (
                       <p className="text-xs text-slate-400">Nenhum item registrado.</p>
                     )}

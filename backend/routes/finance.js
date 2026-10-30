@@ -107,7 +107,7 @@ async function ensureSchema() {
 }
 let schemaReady = false;
 async function withSchema() {
-  if (!schemaReady) { await ensureSchema(); schemaReady = true; }
+  if (!schemaReady) { await ensureSchema(); schemaReady = true; backfillPaidForecasts(); }
 }
 
 // Fonte única de verdade para paid_value/status de uma comanda. Antes cada rota
@@ -116,7 +116,55 @@ async function withSchema() {
 // e as duas divergiam na exclusão do lançamento apontado por livrocaixa_tx_id —
 // o que podia contar o mesmo pagamento duas vezes. Toda rota que grava pagamento
 // deve chamar esta função em vez de recalcular na mão.
+// O lançamento apontado por comandas.livrocaixa_tx_id é só a PREVISÃO do saldo devedor
+// (sempre 'pending'; o sistema o apaga quando a comanda quita). Se alguém o marca como
+// 'paid' direto no Livro Caixa, ele vira um pagamento real: cria o comanda_payments
+// correspondente, reaproveita o mesmo lançamento como o lançamento desse pagamento (sem
+// duplicar no Livro Caixa) e solta o vínculo de previsão. Sem isso o recálculo ignorava
+// o lançamento e a comanda ficava "R$ 0 pago / pendente" mesmo quitada no Livro Caixa.
+async function settlePaidForecast(dbOrConn, tenantId, comandaId) {
+  const [rows] = await dbOrConn.query(
+    `SELECT c.livrocaixa_tx_id, t.*
+       FROM comandas c
+       JOIN financial_transactions t ON t.id = c.livrocaixa_tx_id AND t.tenant_id = c.tenant_id
+      WHERE c.id = ? AND c.tenant_id = ? AND t.type = 'income' AND t.status = 'paid'
+        AND t.source = 'comanda_forecast'`,
+    [comandaId, tenantId]
+  );
+  if (!rows.length) return null;
+  const tx = rows[0];
+
+  // Trava anti-dobra: se o que já foi recebido por outras vias (comanda_payments e demais
+  // lançamentos) somado a este lançamento passa do total da comanda, este lançamento é um
+  // resto de previsão que o próprio sistema já cobriu — não vira pagamento de novo.
+  const [[acc]] = await dbOrConn.query(
+    `SELECT c.total,
+            (SELECT COALESCE(SUM(amount), 0) FROM comanda_payments
+              WHERE comanda_id = c.id AND tenant_id = c.tenant_id AND status != 'cancelled')
+          + (SELECT COALESCE(SUM(amount), 0) FROM financial_transactions
+              WHERE comanda_id = c.id AND tenant_id = c.tenant_id AND origin_payment_id IS NULL
+                AND type = 'income' AND status = 'paid' AND id != ?) AS received
+       FROM comandas c WHERE c.id = ? AND c.tenant_id = ?`,
+    [tx.livrocaixa_tx_id, comandaId, tenantId]
+  );
+  if (!acc || Number(acc.received) + Number(tx.amount) > Number(acc.total || 0) + 0.01) return null;
+  const [ins] = await dbOrConn.query(
+    `INSERT INTO comanda_payments (tenant_id, comanda_id, amount, payment_date, payment_method, status, notes)
+     VALUES (?, ?, ?, ?, ?, 'paid', 'Baixa feita no Livro Caixa')`,
+    [tenantId, comandaId, tx.amount, tx.date, tx.payment_method || 'Pix']
+  );
+  await dbOrConn.query(
+    `UPDATE financial_transactions
+        SET origin_payment_id = ?, origin_module = 'COMANDA', origin_id = ?, source = 'comanda_payment'
+      WHERE id = ? AND tenant_id = ?`,
+    [ins.insertId, comandaId, tx.livrocaixa_tx_id, tenantId]
+  );
+  await dbOrConn.query('UPDATE comandas SET livrocaixa_tx_id = NULL WHERE id = ? AND tenant_id = ?', [comandaId, tenantId]);
+  return tx;
+}
+
 async function recalcComandaPaidValue(dbOrConn, tenantId, comandaId) {
+  const settledTx = await settlePaidForecast(dbOrConn, tenantId, comandaId);
   const [cmdRows] = await dbOrConn.query(
     'SELECT total, sessions_total, sessions_used, livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?',
     [comandaId, tenantId]
@@ -144,7 +192,41 @@ async function recalcComandaPaidValue(dbOrConn, tenantId, comandaId) {
   const status = (totalPaid >= comandaTotal && totalPaid > 0 && sessionsUsed >= sessionsTotal) ? 'closed' : 'open';
 
   await dbOrConn.query('UPDATE comandas SET paid_value = ?, status = ? WHERE id = ? AND tenant_id = ?', [totalPaid, status, comandaId, tenantId]);
+
+  // Baixa parcial no Livro Caixa: o que ainda falta continua como previsão pendente.
+  if (settledTx && comandaTotal - totalPaid > 0.004) {
+    const [fc] = await dbOrConn.query(
+      `INSERT INTO financial_transactions
+         (tenant_id, type, category, description, amount, date, patient_id, payment_method, status,
+          payer_name, payer_cpf, beneficiary_name, beneficiary_cpf, origin_module, origin_id, source)
+       VALUES (?, 'income', ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 'COMANDA', ?, 'comanda_forecast')`,
+      [
+        tenantId, settledTx.category, settledTx.description, comandaTotal - totalPaid, settledTx.due_date || settledTx.date,
+        settledTx.patient_id, settledTx.payment_method || 'Pix',
+        settledTx.payer_name, settledTx.payer_cpf, settledTx.beneficiary_name, settledTx.beneficiary_cpf, comandaId,
+      ]
+    );
+    await dbOrConn.query('UPDATE comandas SET livrocaixa_tx_id = ? WHERE id = ? AND tenant_id = ?', [fc.insertId, comandaId, tenantId]);
+  }
   return { totalPaid, status };
+}
+
+// Corrige comandas que já estavam nesse estado (previsão marcada como paga no Livro Caixa
+// antes desta correção). Idempotente: roda uma vez por processo, depois do schema pronto.
+async function backfillPaidForecasts() {
+  try {
+    const [rows] = await db.query(
+      `SELECT c.id, c.tenant_id FROM comandas c
+         JOIN financial_transactions t ON t.id = c.livrocaixa_tx_id AND t.tenant_id = c.tenant_id
+        WHERE t.type = 'income' AND t.status = 'paid' AND t.source = 'comanda_forecast'`
+    );
+    for (const r of rows) {
+      await recalcComandaPaidValue(db, r.tenant_id, r.id);
+    }
+    if (rows.length) console.log(`[finance] ${rows.length} comanda(s) com previsão paga no Livro Caixa foram reconciliadas.`);
+  } catch (e) {
+    console.warn('[finance] backfillPaidForecasts falhou:', e.message);
+  }
 }
 
 // GET /finance/comandas/:id/payments - Histórico de pagamentos de uma comanda
@@ -265,7 +347,9 @@ router.post('/comandas/:id/payments', authMiddleware, checkPermission('manage_pa
 
       // 4.2 Atualizar lançamento principal (Previsão do Saldo Devedor)
       const remainingBalance = Math.max(0, comandaTotal - totalPaid);
-      const mainTxId = comanda.livrocaixa_tx_id;
+      // Relê depois do recálculo: ele pode ter convertido a previsão marcada como paga no Livro Caixa em pagamento real.
+      const [[freshCmd]] = await conn.query('SELECT livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+      const mainTxId = freshCmd ? freshCmd.livrocaixa_tx_id : comanda.livrocaixa_tx_id;
 
       if (mainTxId) {
         if (remainingBalance > 0) {
@@ -341,7 +425,9 @@ router.put('/comandas/:id/payments/:paymentId', authMiddleware, checkPermission(
 
       // 3.2 Atualizar o lançamento principal (forecast)
       const remainingBalance = Math.max(0, comandaTotal - totalPaid);
-      const mainTxId = comanda.livrocaixa_tx_id;
+      // Relê depois do recálculo: ele pode ter convertido a previsão marcada como paga no Livro Caixa em pagamento real.
+      const [[freshCmd]] = await conn.query('SELECT livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+      const mainTxId = freshCmd ? freshCmd.livrocaixa_tx_id : comanda.livrocaixa_tx_id;
 
       if (mainTxId) {
         if (remainingBalance > 0) {
@@ -420,7 +506,9 @@ router.delete('/comandas/:id/payments/:paymentId', authMiddleware, checkPermissi
     // 4. Atualizar lançamento principal (forecast)
     if (comanda.sync_to_livrocaixa) {
       const remainingBalance = Math.max(0, comandaTotal - totalPaid);
-      const mainTxId = comanda.livrocaixa_tx_id;
+      // Relê depois do recálculo: ele pode ter convertido a previsão marcada como paga no Livro Caixa em pagamento real.
+      const [[freshCmd]] = await conn.query('SELECT livrocaixa_tx_id FROM comandas WHERE id = ? AND tenant_id = ?', [req.params.id, req.user.tenant_id]);
+      const mainTxId = freshCmd ? freshCmd.livrocaixa_tx_id : comanda.livrocaixa_tx_id;
 
       if (mainTxId) {
         if (remainingBalance > 0) {
